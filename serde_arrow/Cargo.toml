@@ -12,5 +12,11 @@ license = "MIT"
 
 [dependencies]
 arrow = "5.0"
+serde = "1.0"
+
+# TODO: make optional, only required for str -> date conversions
+chrono = "0.4"
+
+[dev-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4" }
