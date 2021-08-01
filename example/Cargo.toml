@@ -1,0 +1,15 @@
+[package]
+name = "example"
+version = "0.1.0"
+authors = ["Christopher Prohm <mail@cprohm.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+arrow = "5.0"
+serde = { version = "1.0", features = ["derive"] }
+
+serde_arrow = { path = "../serde_arrow" }
+serde_json = "1.0"
