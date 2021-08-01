@@ -1,8 +1,9 @@
 use crate::{fail, Error, Result};
 use arrow::{
     array::{
-        ArrayRef, BooleanBuilder, Date64Builder, Float32Builder, Int32Builder, Int8Builder,
-        StringBuilder,
+        ArrayRef, BooleanBuilder, Date64Builder, Float32Builder, Float64Builder, Int16Builder,
+        Int32Builder, Int64Builder, Int8Builder, StringBuilder, UInt16Builder, UInt32Builder,
+        UInt64Builder, UInt8Builder,
     },
     datatypes::DataType,
 };
@@ -16,8 +17,15 @@ const DEFAULT_CAPACITY: usize = 1024;
 pub enum ArrayBuilder {
     Bool(BooleanBuilder),
     I8(Int8Builder),
+    I16(Int16Builder),
     I32(Int32Builder),
+    I64(Int64Builder),
+    U8(UInt8Builder),
+    U16(UInt16Builder),
+    U32(UInt32Builder),
+    U64(UInt64Builder),
     F32(Float32Builder),
+    F64(Float64Builder),
     Utf8(StringBuilder),
     Date64(Date64Builder),
 }
@@ -27,8 +35,15 @@ macro_rules! dispatch {
         match $obj {
             ArrayBuilder::Bool($builder) => $expr,
             ArrayBuilder::I8($builder) => $expr,
+            ArrayBuilder::I16($builder) => $expr,
             ArrayBuilder::I32($builder) => $expr,
+            ArrayBuilder::I64($builder) => $expr,
+            ArrayBuilder::U8($builder) => $expr,
+            ArrayBuilder::U16($builder) => $expr,
+            ArrayBuilder::U32($builder) => $expr,
+            ArrayBuilder::U64($builder) => $expr,
             ArrayBuilder::F32($builder) => $expr,
+            ArrayBuilder::F64($builder) => $expr,
             ArrayBuilder::Utf8($builder) => $expr,
             ArrayBuilder::Date64($builder) => $expr,
         };
@@ -40,8 +55,15 @@ impl ArrayBuilder {
         let res = match data_type {
             DataType::Boolean => Self::Bool(BooleanBuilder::new(DEFAULT_CAPACITY)),
             DataType::Int8 => Self::I8(Int8Builder::new(DEFAULT_CAPACITY)),
+            DataType::Int16 => Self::I16(Int16Builder::new(DEFAULT_CAPACITY)),
             DataType::Int32 => Self::I32(Int32Builder::new(DEFAULT_CAPACITY)),
+            DataType::Int64 => Self::I64(Int64Builder::new(DEFAULT_CAPACITY)),
+            DataType::UInt8 => Self::U8(UInt8Builder::new(DEFAULT_CAPACITY)),
+            DataType::UInt16 => Self::U16(UInt16Builder::new(DEFAULT_CAPACITY)),
+            DataType::UInt32 => Self::U32(UInt32Builder::new(DEFAULT_CAPACITY)),
+            DataType::UInt64 => Self::U64(UInt64Builder::new(DEFAULT_CAPACITY)),
             DataType::Float32 => Self::F32(Float32Builder::new(DEFAULT_CAPACITY)),
+            DataType::Float64 => Self::F64(Float64Builder::new(DEFAULT_CAPACITY)),
             DataType::Utf8 => Self::Utf8(StringBuilder::new(DEFAULT_CAPACITY)),
             DataType::Date64 => Self::Date64(Date64Builder::new(DEFAULT_CAPACITY)),
             _ => fail!("Cannot build ArrayBuilder for {}", data_type),
@@ -60,38 +82,30 @@ impl ArrayBuilder {
     }
 }
 
-impl ArrayBuilder {
-    pub fn append_bool(&mut self, value: bool) -> Result<()> {
-        match self {
-            Self::Bool(builder) => builder.append_value(value)?,
-            _ => fail!("Mismatched type"),
+macro_rules! simple_append {
+    ($name:ident, $ty:ty, $variant:ident) => {
+        pub fn $name(&mut self, value: $ty) -> Result<()> {
+            match self {
+                Self::$variant(builder) => builder.append_value(value)?,
+                _ => fail!("Mismatched type: cannot insert {}", stringify!($ty)),
+            };
+            Ok(())
         }
-        Ok(())
-    }
+    };
+}
 
-    pub fn append_i8(&mut self, value: i8) -> Result<()> {
-        match self {
-            Self::I8(builder) => builder.append_value(value)?,
-            _ => fail!("Mismatched type"),
-        };
-        Ok(())
-    }
-
-    pub fn append_i32(&mut self, value: i32) -> Result<()> {
-        match self {
-            Self::I32(builder) => builder.append_value(value)?,
-            _ => fail!("Mismatched type"),
-        };
-        Ok(())
-    }
-
-    pub fn append_f32(&mut self, value: f32) -> Result<()> {
-        match self {
-            Self::F32(builder) => builder.append_value(value)?,
-            _ => fail!("Mismatched type"),
-        };
-        Ok(())
-    }
+impl ArrayBuilder {
+    simple_append!(append_bool, bool, Bool);
+    simple_append!(append_i8, i8, I8);
+    simple_append!(append_i16, i16, I16);
+    simple_append!(append_i32, i32, I32);
+    simple_append!(append_i64, i64, I64);
+    simple_append!(append_u8, u8, U8);
+    simple_append!(append_u16, u16, U16);
+    simple_append!(append_u32, u32, U32);
+    simple_append!(append_u64, u64, U64);
+    simple_append!(append_f32, f32, F32);
+    simple_append!(append_f64, f64, F64);
 
     pub fn append_utf8(&mut self, data: &str) -> Result<()> {
         match self {
@@ -114,6 +128,14 @@ macro_rules! unsupported {
     };
 }
 
+macro_rules! simple_serialize {
+    ($name:ident, $ty:ty, $func:ident) => {
+        fn $name(self, value: $ty) -> Result<Self::Ok> {
+            self.$func(value)
+        }
+    };
+}
+
 impl<'a> Serializer for &'a mut ArrayBuilder {
     type Ok = ();
     type Error = Error;
@@ -126,31 +148,18 @@ impl<'a> Serializer for &'a mut ArrayBuilder {
     type SerializeMap = Impossible<Self::Ok, Self::Error>;
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
-    fn serialize_bool(self, value: bool) -> Result<Self::Ok> {
-        self.append_bool(value)
-    }
+    simple_serialize!(serialize_bool, bool, append_bool);
+    simple_serialize!(serialize_i8, i8, append_i8);
+    simple_serialize!(serialize_i16, i16, append_i16);
+    simple_serialize!(serialize_i32, i32, append_i32);
+    simple_serialize!(serialize_i64, i64, append_i64);
+    simple_serialize!(serialize_u8, u8, append_u8);
+    simple_serialize!(serialize_u16, u16, append_u16);
+    simple_serialize!(serialize_u32, u32, append_u32);
+    simple_serialize!(serialize_u64, u64, append_u64);
+    simple_serialize!(serialize_f32, f32, append_f32);
+    simple_serialize!(serialize_f64, f64, append_f64);
 
-    fn serialize_i8(self, value: i8) -> Result<Self::Ok> {
-        self.append_i8(value)
-    }
-
-    unsupported!(serialize_i16, i16);
-
-    fn serialize_i32(self, value: i32) -> Result<Self::Ok> {
-        self.append_i32(value)
-    }
-
-    unsupported!(serialize_i64, i64);
-    unsupported!(serialize_u8, u8);
-    unsupported!(serialize_u16, u16);
-    unsupported!(serialize_u32, u32);
-    unsupported!(serialize_u64, u64);
-
-    fn serialize_f32(self, value: f32) -> Result<Self::Ok> {
-        self.append_f32(value)
-    }
-
-    unsupported!(serialize_f64, f64);
     unsupported!(serialize_char, char);
 
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
