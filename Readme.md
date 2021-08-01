@@ -29,7 +29,7 @@ The fundamental data model is a sequence of records that is transformed into a
 record batch. Each record can either be a struct or map (other types of records,
 e.g., tuples are planned).
 
-Structures with flatten'ed children are supported. For example
+Structures with flattened children are supported. For example
 
 ```rust
 #[derive(Serialize)]
@@ -38,4 +38,15 @@ struct FlattenExample {
     #[serde(flatten)]
     child: OtherStructure,
 }
+```
+
+For maps, all fields need to be added to the schema.
+
+Datetimes are supported, but their data type cannot be auto detected. Without
+additional configuration they are stored as string columns. This can be changed
+by overwriting the data type after tracing:
+
+```rust
+let mut schema = serde_arrow::trace_schema(&examples)?;
+schema.set_data_type("date", DataType::Date64);
 ```
