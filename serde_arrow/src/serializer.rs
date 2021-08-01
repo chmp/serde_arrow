@@ -12,7 +12,7 @@ use crate::{
 
 pub fn to_record_batch<T>(value: &T, schema: Schema) -> Result<RecordBatch>
 where
-    T: serde::Serialize,
+    T: serde::Serialize + ?Sized,
 {
     let mut serializer = OuterSerializer::new(schema)?;
     value.serialize(&mut serializer)?;

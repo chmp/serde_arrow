@@ -10,7 +10,7 @@ use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
 
 pub fn trace_schema<T>(value: &T) -> Result<TracedSchema>
 where
-    T: serde::Serialize,
+    T: serde::Serialize + ?Sized,
 {
     let mut tracer = Tracer::new();
     value.serialize(&mut tracer)?;
