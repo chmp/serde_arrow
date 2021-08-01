@@ -1,4 +1,4 @@
-//! # `serde_arrow` - convert list of structs / maps to arrow record batches
+//! # `serde_arrow` - convert sequences of structs / maps to arrow tables
 //!
 //! Usage:
 //!
