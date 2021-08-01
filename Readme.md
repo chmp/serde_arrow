@@ -2,6 +2,9 @@
 
 **Warning:** this package is in an experiment at the moment.
 
+This package is focused on serialization for the moment, as this is the author's
+use case.
+
 ## Example
 
 ```rust
