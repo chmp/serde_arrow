@@ -2,8 +2,8 @@ use crate::{fail, Error, Result};
 use arrow::{
     array::{
         ArrayRef, BooleanBuilder, Date64Builder, Float32Builder, Float64Builder, Int16Builder,
-        Int32Builder, Int64Builder, Int8Builder, StringBuilder, UInt16Builder, UInt32Builder,
-        UInt64Builder, UInt8Builder,
+        Int32Builder, Int64Builder, Int8Builder, LargeStringBuilder, StringBuilder, UInt16Builder,
+        UInt32Builder, UInt64Builder, UInt8Builder,
     },
     datatypes::DataType,
 };
@@ -27,6 +27,7 @@ pub enum ArrayBuilder {
     F32(Float32Builder),
     F64(Float64Builder),
     Utf8(StringBuilder),
+    LargeUtf8(LargeStringBuilder),
     Date64(Date64Builder),
 }
 
@@ -45,6 +46,7 @@ macro_rules! dispatch {
             ArrayBuilder::F32($builder) => $expr,
             ArrayBuilder::F64($builder) => $expr,
             ArrayBuilder::Utf8($builder) => $expr,
+            ArrayBuilder::LargeUtf8($builder) => $expr,
             ArrayBuilder::Date64($builder) => $expr,
         };
     };
@@ -65,6 +67,7 @@ impl ArrayBuilder {
             DataType::Float32 => Self::F32(Float32Builder::new(DEFAULT_CAPACITY)),
             DataType::Float64 => Self::F64(Float64Builder::new(DEFAULT_CAPACITY)),
             DataType::Utf8 => Self::Utf8(StringBuilder::new(DEFAULT_CAPACITY)),
+            DataType::LargeUtf8 => Self::LargeUtf8(LargeStringBuilder::new(DEFAULT_CAPACITY)),
             DataType::Date64 => Self::Date64(Date64Builder::new(DEFAULT_CAPACITY)),
             _ => fail!("Cannot build ArrayBuilder for {}", data_type),
         };
@@ -110,6 +113,7 @@ impl ArrayBuilder {
     pub fn append_utf8(&mut self, data: &str) -> Result<()> {
         match self {
             Self::Utf8(builder) => builder.append_value(data)?,
+            Self::LargeUtf8(builder) => builder.append_value(data)?,
             Self::Date64(builder) => {
                 let dt = data.parse::<NaiveDateTime>()?;
                 builder.append_value(dt.timestamp_millis())?;
