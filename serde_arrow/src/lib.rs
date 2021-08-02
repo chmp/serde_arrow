@@ -37,6 +37,6 @@ mod schema;
 mod serializer;
 mod util;
 
-pub use schema::trace_schema;
+pub use schema::{trace_schema, TracedSchema};
 pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
