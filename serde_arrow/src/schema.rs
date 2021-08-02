@@ -8,6 +8,34 @@ use serde::{
 
 use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
 
+/// Try to determine the schema from the existing records
+///
+/// This function inspects the individual records and tries to determine the
+/// data types of each field. For some fields no data type can be determined,
+/// e.g., for options if all entries are missing. In this case, the data type
+/// has to be overwritten manually via [set_data_type]. Further fields may
+/// erroneously be detected as non-nullable. In this case, the nullability can
+/// be overwritten with [set_nullable].
+///
+/// For most types, it is sufficient to trace a small number of records to
+/// accurately determine the schema. One option is to use only subset of the
+/// full data set.
+///
+/// The traced schema can be converted into an Arrow Schema via `TryFrom`:
+///
+/// ```
+/// # use std::convert::TryFrom;
+/// # use serde_arrow::TracedSchema;
+/// # use arrow::datatypes::{DataType, Schema};
+/// // Create a new TracedSchema
+/// let mut schema = TracedSchema::new();
+/// schema.add_field("col1", Some(DataType::Int64), true);
+/// schema.add_field("col2", Some(DataType::Int64), false);
+///
+/// // Convert it into an Arrow Schema
+/// let schema = Schema::try_from(schema).unwrap();
+/// ```
+///
 pub fn trace_schema<T>(value: &T) -> Result<TracedSchema>
 where
     T: serde::Serialize + ?Sized,
@@ -20,6 +48,7 @@ where
 #[derive(Default, Debug, Clone)]
 pub struct TracedSchema {
     fields: Vec<String>,
+    seen_fields: HashSet<String>,
     data_type: HashMap<String, DataType>,
     nullable: HashSet<String>,
 }
@@ -29,7 +58,7 @@ impl TracedSchema {
         Self::default()
     }
 
-    pub fn build_schema(&self) -> Result<Schema> {
+    fn build_schema(&self) -> Result<Schema> {
         let mut fields = Vec::new();
 
         for field in &self.fields {
@@ -47,9 +76,79 @@ impl TracedSchema {
         Ok(schema)
     }
 
+    /// Get the name of the detected fields
+    ///
+    pub fn fields(&self) -> &[String] {
+        self.fields.as_slice()
+    }
+
+    /// Check whether the given field was found
+    ///
+    pub fn exists(&self, field: &str) -> bool {
+        self.seen_fields.contains(field)
+    }
+
+    /// Get the data type of a field
+    ///
+    /// For some fields no data type can be determined, e.g., for options if all
+    /// entries are missing. In this case, this function will return `None`.
+    /// This function also returns `None` for non-existing fields.
+    ///
+    pub fn data_type(&self, field: &str) -> Option<&DataType> {
+        self.data_type.get(field)
+    }
+
+    /// Check whether the filed is nullable
+    ///
+    /// This function returns `false` for non-existing fields.
+    ///
+    pub fn is_nullable(&self, field: &str) -> bool {
+        self.nullable.contains(field)
+    }
+
+    /// Add a new field
+    ///
+    /// This function fails if the field already exists.
+    ///
+    pub fn add_field(
+        &mut self,
+        field: &str,
+        data_type: Option<DataType>,
+        nullable: bool,
+    ) -> Result<()> {
+        if self.seen_fields.contains(field) {
+            fail!("Duplicate field {}", field);
+        }
+
+        self.seen_fields.insert(field.to_owned());
+        self.fields.push(field.to_owned());
+
+        if let Some(data_type) = data_type {
+            self.data_type.insert(field.to_owned(), data_type);
+        }
+
+        if nullable {
+            self.nullable.insert(field.to_owned());
+        }
+
+        Ok(())
+    }
+
+    /// Set or overwrite the data type of a field
+    ///
     pub fn set_data_type(&mut self, field: &str, data_type: DataType) {
         // TODO: check whether field is known
         self.data_type.insert(field.to_owned(), data_type);
+    }
+
+    /// Mark a field as nullable or not
+    ///
+    pub fn set_nullable(&mut self, field: &str, nullable: bool) {
+        if nullable {
+            self.nullable.insert(field.to_owned());
+        } else {
+            self.nullable.remove(field);
+        }
     }
 }
 
@@ -75,7 +174,6 @@ enum State {
 struct Tracer {
     schema: TracedSchema,
     state: State,
-    seen: HashSet<String>,
 }
 
 impl Tracer {
@@ -83,14 +181,13 @@ impl Tracer {
         Self {
             schema: TracedSchema::new(),
             state: State::Start,
-            seen: HashSet::new(),
         }
     }
 
     fn add_field(&mut self, name: &str, nullable: bool, data_type: Option<DataType>) {
-        if !self.seen.contains(name) {
+        if !self.schema.seen_fields.contains(name) {
             self.schema.fields.push(name.to_owned());
-            self.seen.insert(name.to_owned());
+            self.schema.seen_fields.insert(name.to_owned());
         }
 
         if nullable {

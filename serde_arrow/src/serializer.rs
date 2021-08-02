@@ -10,6 +10,8 @@ use crate::{
     array_builder::ArrayBuilder, fail, util::string_extractor::StringExtractor, Error, Result,
 };
 
+/// Convert a sequence of records into an Arrow RecordBatch
+///
 pub fn to_record_batch<T>(value: &T, schema: Schema) -> Result<RecordBatch>
 where
     T: serde::Serialize + ?Sized,

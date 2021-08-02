@@ -102,13 +102,21 @@ impl ArrayBuilder {
     simple_append!(append_i8, i8, I8);
     simple_append!(append_i16, i16, I16);
     simple_append!(append_i32, i32, I32);
-    simple_append!(append_i64, i64, I64);
     simple_append!(append_u8, u8, U8);
     simple_append!(append_u16, u16, U16);
     simple_append!(append_u32, u32, U32);
     simple_append!(append_u64, u64, U64);
     simple_append!(append_f32, f32, F32);
     simple_append!(append_f64, f64, F64);
+
+    pub fn append_i64(&mut self, value: i64) -> Result<()> {
+        match self {
+            Self::I64(builder) => builder.append_value(value)?,
+            Self::Date64(builder) => builder.append_value(value)?,
+            _ => fail!("Mismatched type: cannot insert {}", stringify!($ty)),
+        };
+        Ok(())
+    }
 
     pub fn append_utf8(&mut self, data: &str) -> Result<()> {
         match self {

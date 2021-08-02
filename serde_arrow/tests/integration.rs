@@ -1,7 +1,10 @@
 use std::{collections::HashMap, convert::TryFrom};
 
-use arrow::datatypes::{DataType, Schema};
-use chrono::NaiveDateTime;
+use arrow::{
+    array::Date64Array,
+    datatypes::{DataType, Schema},
+};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::Serialize;
 
 use serde_arrow::Result;
@@ -19,8 +22,10 @@ macro_rules! hashmap {
     };
 }
 
+/// Test that a structure with different fields can be handled
+///
 #[test]
-fn example() -> Result<()> {
+fn item_multi_field_structure() -> Result<()> {
     #[derive(Serialize)]
     struct Example {
         int8: i8,
@@ -57,8 +62,9 @@ fn example() -> Result<()> {
     Ok(())
 }
 
+/// Test that maps are correctly handled
 #[test]
-fn example_maps() -> Result<()> {
+fn item_maps() -> Result<()> {
     let examples: Vec<HashMap<String, i32>> = vec![
         hashmap! { "a" => 42, "b" => 32 },
         hashmap! { "a" => 42, "b" => 32 },
@@ -72,8 +78,10 @@ fn example_maps() -> Result<()> {
     Ok(())
 }
 
+/// Test that also children with `#[serde(flatten)]` are correctly handled
+///
 #[test]
-fn example_flatten() -> Result<()> {
+fn item_flattened_structures() -> Result<()> {
     #[derive(Serialize)]
     struct Example {
         int8: i8,
@@ -87,12 +95,12 @@ fn example_flatten() -> Result<()> {
         Example {
             int8: 1,
             int32: 4,
-            extra: hashmap! { "a" => 2 },
+            extra: hashmap! { "a" => 2, "b" => 3 },
         },
         Example {
             int8: 2,
             int32: 5,
-            extra: hashmap! { "a" => 3 },
+            extra: hashmap! { "a" => 3, "b" => 4 },
         },
     ];
 
@@ -101,7 +109,9 @@ fn example_flatten() -> Result<()> {
 
     let schema = Schema::try_from(schema)?;
 
-    serde_arrow::to_record_batch(&examples, schema)?;
+    let batch = serde_arrow::to_record_batch(&examples, schema)?;
+
+    assert_eq!(batch.num_columns(), 4);
 
     Ok(())
 }
@@ -138,7 +148,7 @@ struct Record {
 }
 
 define_api_test!(
-    api_serialize_slice,
+    serialize_slice,
     rows = {
         let rows = &[Record { val: 1 }, Record { val: 2 }];
         &rows[..]
@@ -148,13 +158,81 @@ define_api_test!(
 // currently not supported
 define_api_test!(
     #[ignore]
-    api_serialize_fixed_array,
+    serialize_fixed_array,
     rows = &[Record { val: 1 }, Record { val: 2 }]
 );
 
 // currently not supported
 define_api_test!(
     #[ignore]
-    api_serialize_tuple,
+    serialize_tuple,
     rows = &(Record { val: 1 }, Record { val: 2 })
 );
+
+/// Test that dates as RFC 3339 strings are correctly handled
+#[test]
+fn dtype_date64_str() -> Result<()> {
+    #[derive(Serialize)]
+    struct Record {
+        val: NaiveDateTime,
+    }
+
+    let records = &[
+        Record {
+            val: NaiveDateTime::from_timestamp(12 * 60 * 60 * 24, 0),
+        },
+        Record {
+            val: NaiveDateTime::from_timestamp(9 * 60 * 60 * 24, 0),
+        },
+    ][..];
+
+    let mut schema = serde_arrow::trace_schema(records)?;
+    schema.set_data_type("val", DataType::Date64);
+
+    let schema = Schema::try_from(schema)?;
+    let batch = serde_arrow::to_record_batch(records, schema)?;
+
+    assert_eq!(
+        *(batch.column(0).as_ref()),
+        Date64Array::from(vec![12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
+    );
+
+    Ok(())
+}
+
+/// Test that dates in i64 milliseconds are correctly handled
+#[test]
+fn dtype_date64_int() -> Result<()> {
+    use chrono::serde::ts_milliseconds;
+
+    #[derive(Serialize)]
+    struct Record {
+        #[serde(with = "ts_milliseconds")]
+        val: DateTime<Utc>,
+    }
+
+    let records = &[
+        Record {
+            val: Utc.ymd(1970, 1, 13).and_hms(12, 0, 0),
+        },
+        Record {
+            val: Utc.ymd(1970, 1, 2).and_hms(9, 0, 0),
+        },
+    ][..];
+
+    let mut schema = serde_arrow::trace_schema(records)?;
+    schema.set_data_type("val", DataType::Date64);
+
+    let schema = Schema::try_from(schema)?;
+    let batch = serde_arrow::to_record_batch(records, schema)?;
+
+    assert_eq!(
+        *(batch.column(0).as_ref()),
+        Date64Array::from(vec![
+            (12 * 24 + 12) * 60 * 60 * 1000,
+            (1 * 24 + 9) * 60 * 60 * 1000
+        ])
+    );
+
+    Ok(())
+}
