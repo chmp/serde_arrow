@@ -105,3 +105,56 @@ fn example_flatten() -> Result<()> {
 
     Ok(())
 }
+
+macro_rules! define_api_test {
+    (#[ignore] $name:ident, rows = $rows:expr) => {
+        #[ignore]
+        #[test]
+        fn $name() -> Result<()> {
+            define_api_test!(__body__; $rows)
+        }
+    };
+    ($name:ident, rows = $rows:expr) => {
+        #[test]
+        fn $name() -> Result<()> {
+            define_api_test!(__body__; $rows)
+        }
+    };
+    (__body__; $rows:expr) => {
+        {
+            let rows = $rows;
+            let schema = serde_arrow::trace_schema(rows)?;
+            let schema = Schema::try_from(schema)?;
+            serde_arrow::to_record_batch(rows, schema)?;
+
+            Ok(())
+        }
+    };
+}
+
+#[derive(Serialize)]
+struct Record {
+    val: i8,
+}
+
+define_api_test!(
+    api_serialize_slice,
+    rows = {
+        let rows = &[Record { val: 1 }, Record { val: 2 }];
+        &rows[..]
+    }
+);
+
+// currently not supported
+define_api_test!(
+    #[ignore]
+    api_serialize_fixed_array,
+    rows = &[Record { val: 1 }, Record { val: 2 }]
+);
+
+// currently not supported
+define_api_test!(
+    #[ignore]
+    api_serialize_tuple,
+    rows = &(Record { val: 1 }, Record { val: 2 })
+);
