@@ -40,3 +40,4 @@ mod util;
 pub use schema::{trace_schema, TracedSchema};
 pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
+pub use util::hl::to_ipc_writer;

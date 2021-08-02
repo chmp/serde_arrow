@@ -30,14 +30,14 @@ let examples = vec![
 let schema = serde_arrow::trace_schema(&examples)?;
 let schema = arrow::datatypes::Schema::try_from(schema)?;
 
-// Convert the records into a RecordBatch
-let batch = serde_arrow::to_record_batch(&examples, schema)?;
-
-// Write the batch in arrows IPC format
+// Write the records into an IPC file
 let out  = File::create("examples.ipc")?;
-let mut out = arrow::ipc::writer::FileWriter::try_new(out, batch.schema().as_ref())?;
-out.write(&batch)?;
-out.finish()?;
+serde_arrow::to_ipc_writer(out, &examples, schema)?;
+
+// NOTE: the records can also be converted into a RecordBatch and then for
+// example written to a parquet file:
+//
+// let batch = serde_arrow::to_record_batch(&examples, schema)?;
 ```
 
 The written file can now be read in, for example, Python via
