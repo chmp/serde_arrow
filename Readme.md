@@ -1,7 +1,7 @@
 # `serde_arrow` - convert sequences of structs / maps to arrow tables
 
-[crates info](https://crates.io/crates/serde_arrow)
-| [API docs](https://docs.rs/serde_arrow/latest/serde_arrow/)
+[[Crate info]](https://crates.io/crates/serde_arrow)
+| [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Example](#example)
 | [How does it work?](#how-does-it-work)
 | [Status](#status)
@@ -78,28 +78,6 @@ let schema = serde_arrow::trace_schema(&items)?;
 let schema = arrow::datatypes::Schema::try_from(schema)?;
 ```
 
-Structures with flattened children are supported. For example
-
-```rust
-#[derive(Serialize)]
-struct FlattenExample {
-    a: i32,
-    #[serde(flatten)]
-    child: OtherStructure,
-}
-```
-
-For maps, all fields need to be added to the schema.
-
-Datetimes are supported, but their data type cannot be auto detected. Without
-additional configuration they are stored as string columns. This can be changed
-by overwriting the data type after tracing:
-
-```rust
-let mut schema = serde_arrow::trace_schema(&examples)?;
-schema.set_data_type("date", DataType::Date64);
-```
-
 ## Status
 
 The following field types are supported. In general that the mapping of Rust
@@ -128,7 +106,25 @@ depending on configuration.
 - [ ] decimals (arrow: `Decimal`)
 - [ ] unions (arrow: `Union`)
 
+Comments:
 
+- Structures with flattened children are supported. For example
+    ```rust
+    #[derive(Serialize)]
+    struct FlattenExample {
+        a: i32,
+        #[serde(flatten)]
+        child: OtherStructure,
+    }
+    ```
+- For maps, all fields need to be added to the schema and need to be found in
+  each record. The latter restriction will be lifted
+- Datetimes are supported, but their data type cannot be auto detected. Their
+  data type has to be overwriting after tracing:
+    ```rust
+    let mut schema = serde_arrow::trace_schema(&examples)?;
+    schema.set_data_type("date", DataType::Date64);
+    ```
 
 # License
 
