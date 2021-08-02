@@ -26,13 +26,25 @@ let examples = vec![
     Example { a: 2.0, b: 2 },
 ];
 
-// Detect the schema
+// Detect the schema from the supplied data
 let schema = serde_arrow::trace_schema(&examples)?;
 let schema = arrow::datatypes::Schema::try_from(schema)?;
 
-// Convert the records into a RecordBatch and write it as a CSV file
+// Convert the records into a RecordBatch
 let batch = serde_arrow::to_record_batch(&examples, schema)?;
-arrow::csv::Writer::new(std::io::stdout()).write(&batch)?;
+
+// Write the batch in arrows IPC format
+let out  = File::create("examples.ipc")?;
+let mut out = arrow::ipc::writer::FileWriter::try_new(out, batch.schema().as_ref())?;
+out.write(&batch)?;
+out.finish()?;
+```
+
+The written file can now be read in, for example, Python via
+
+```python
+import pandas as pd
+pd.read_feather("examples.ipc")
 ```
 
 ## How does it work?
@@ -92,8 +104,11 @@ depending on configuration.
   `UInt16`, `UInt32`, `UInt64`)
 - [x] floating point numbers (serde: `f32`, `f64`, arrow: `Float32`, `Float64`)
 - [x] strings (serde: `&str`, arrow: `Utf8`, `LargeUtf8`)
-- [x] datetimes expressed as a RFC 3339 string (the default serialization of,
-  for example, `chrono::NaiveDateTime`) (serde: `&str`, arrow: `Date64`)
+- [x] datetimes expressed as a RFC 3339 string or as i64 milliseconds (serde:
+  `&str`, `i64`, arrow: `Date64`). This convention maps to chrono types as
+  `NaiveDateTime` as string or `DateTime<Utc>` as integer via
+  `chrono::serde::ts_milliseconds`. **Warning:** the RFC 3339 format will strip
+  the milliseconds
 - [ ] dates (serde: `&str`, arrow: `Date32`)
 - [ ] binary data (serde: `Seq[u8]`, arrow: `Binary`, `FixedSizeBinary`,
   `LargeBinary`)
