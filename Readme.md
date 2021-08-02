@@ -40,7 +40,7 @@ serde_arrow::to_ipc_writer(out, &examples, schema)?;
 // let batch = serde_arrow::to_record_batch(&examples, schema)?;
 ```
 
-The written file can now be read in, for example, Python via
+The written file can now be read in Python via
 
 ```python
 import pandas as pd
