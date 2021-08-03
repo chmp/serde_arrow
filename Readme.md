@@ -76,7 +76,7 @@ let batch = serde_arrow::to_record_batch(&items, schema)?;
 ```
 
 To support in creation of schema definitions `serde_arrow` offers the function
-[`serde_arrow::trace_schema][docs:trace_schema], which tries to auto-detect the
+[`serde_arrow::trace_schema`][docs:trace_schema], which tries to auto-detect the
 schema. However, this detection is not always reliable. For example `Option`s
 with only `None` values cannot be detected. Also chrono's date types map to
 different serialization formats (strings, ints, ..) depending on configuration.
