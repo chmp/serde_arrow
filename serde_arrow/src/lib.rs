@@ -22,8 +22,6 @@
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
 //! let schema = serde_arrow::trace_schema(&records)?;
-//! let schema = arrow::datatypes::Schema::try_from(schema)?;
-//!
 //! let batch = serde_arrow::to_record_batch(&records, schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
@@ -37,7 +35,7 @@ mod schema;
 mod serializer;
 mod util;
 
-pub use schema::{trace_schema, TracedSchema};
+pub use schema::{trace_schema, Schema};
 pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
 pub use util::hl::to_ipc_writer;

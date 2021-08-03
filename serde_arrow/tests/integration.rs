@@ -1,9 +1,6 @@
-use std::{collections::HashMap, convert::TryFrom};
+use std::collections::HashMap;
 
-use arrow::{
-    array::Date64Array,
-    datatypes::{DataType, Schema},
-};
+use arrow::{array::Date64Array, datatypes::DataType};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::Serialize;
 
@@ -55,8 +52,6 @@ fn item_multi_field_structure() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(&examples)?;
     schema.set_data_type("date", DataType::Date64);
 
-    let schema = Schema::try_from(schema)?;
-
     serde_arrow::to_record_batch(&examples, schema)?;
 
     Ok(())
@@ -71,8 +66,6 @@ fn item_maps() -> Result<()> {
     ];
 
     let schema = serde_arrow::trace_schema(&examples)?;
-    let schema = Schema::try_from(schema)?;
-
     serde_arrow::to_record_batch(&examples, schema)?;
 
     Ok(())
@@ -107,8 +100,6 @@ fn item_flattened_structures() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(&examples)?;
     schema.set_data_type("date", DataType::Date64);
 
-    let schema = Schema::try_from(schema)?;
-
     let batch = serde_arrow::to_record_batch(&examples, schema)?;
 
     assert_eq!(batch.num_columns(), 4);
@@ -134,7 +125,6 @@ macro_rules! define_api_test {
         {
             let rows = $rows;
             let schema = serde_arrow::trace_schema(rows)?;
-            let schema = Schema::try_from(schema)?;
             serde_arrow::to_record_batch(rows, schema)?;
 
             Ok(())
@@ -189,7 +179,6 @@ fn dtype_date64_str() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(records)?;
     schema.set_data_type("val", DataType::Date64);
 
-    let schema = Schema::try_from(schema)?;
     let batch = serde_arrow::to_record_batch(records, schema)?;
 
     assert_eq!(
@@ -223,7 +212,6 @@ fn dtype_date64_int() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(records)?;
     schema.set_data_type("val", DataType::Date64);
 
-    let schema = Schema::try_from(schema)?;
     let batch = serde_arrow::to_record_batch(records, schema)?;
 
     assert_eq!(

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema as ArrowSchema};
 use serde::{
     ser::{self, Impossible},
     Serialize,
@@ -25,18 +25,15 @@ use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
 ///
 /// ```
 /// # use std::convert::TryFrom;
-/// # use serde_arrow::TracedSchema;
-/// # use arrow::datatypes::{DataType, Schema};
+/// # use serde_arrow::Schema;
+/// # use arrow::datatypes::{DataType};
 /// // Create a new TracedSchema
-/// let mut schema = TracedSchema::new();
+/// let mut schema = Schema::new();
 /// schema.add_field("col1", Some(DataType::Int64), true);
 /// schema.add_field("col2", Some(DataType::Int64), false);
-///
-/// // Convert it into an Arrow Schema
-/// let schema = Schema::try_from(schema).unwrap();
 /// ```
 ///
-pub fn trace_schema<T>(value: &T) -> Result<TracedSchema>
+pub fn trace_schema<T>(value: &T) -> Result<Schema>
 where
     T: serde::Serialize + ?Sized,
 {
@@ -46,19 +43,19 @@ where
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct TracedSchema {
+pub struct Schema {
     fields: Vec<String>,
     seen_fields: HashSet<String>,
     data_type: HashMap<String, DataType>,
     nullable: HashSet<String>,
 }
 
-impl TracedSchema {
+impl Schema {
     pub fn new() -> Self {
         Self::default()
     }
 
-    fn build_schema(&self) -> Result<Schema> {
+    fn build_schema(&self) -> Result<ArrowSchema> {
         let mut fields = Vec::new();
 
         for field in &self.fields {
@@ -72,7 +69,7 @@ impl TracedSchema {
             fields.push(field);
         }
 
-        let schema = Schema::new(fields);
+        let schema = ArrowSchema::new(fields);
         Ok(schema)
     }
 
@@ -152,10 +149,10 @@ impl TracedSchema {
     }
 }
 
-impl std::convert::TryFrom<TracedSchema> for Schema {
+impl std::convert::TryFrom<Schema> for ArrowSchema {
     type Error = Error;
 
-    fn try_from(value: TracedSchema) -> Result<Self, Self::Error> {
+    fn try_from(value: Schema) -> Result<Self, Self::Error> {
         value.build_schema()
     }
 }
@@ -172,14 +169,14 @@ enum State {
 }
 
 struct Tracer {
-    schema: TracedSchema,
+    schema: Schema,
     state: State,
 }
 
 impl Tracer {
     fn new() -> Self {
         Self {
-            schema: TracedSchema::new(),
+            schema: Schema::new(),
             state: State::Start,
         }
     }

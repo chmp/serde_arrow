@@ -28,7 +28,6 @@ let examples = vec![
 
 // Detect the schema from the supplied data
 let schema = serde_arrow::trace_schema(&examples)?;
-let schema = arrow::datatypes::Schema::try_from(schema)?;
 
 // Write the records into an IPC file
 let out  = File::create("examples.ipc")?;
@@ -81,13 +80,11 @@ To support in creation of schema definitions `serde_arrow` offers the function
 schema. However, this detection is not always reliable. For example `Option`s
 with only `None` values cannot be detected. Also chrono's date types map to
 different serialization formats (strings, ints, ..) depending on configuration.
-Therefore, the traced schema can be further customized before converting it into
-an arrow schema:
+For example:
 
 ```rust
 let schema = serde_arrow::trace_schema(&items)?;
 // update detected data types here
-let schema = arrow::datatypes::Schema::try_from(schema)?;
 ```
 
 ## Status

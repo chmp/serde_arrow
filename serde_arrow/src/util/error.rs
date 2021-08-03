@@ -25,12 +25,19 @@ impl serde::ser::Error for Error {
 }
 
 #[macro_export]
-macro_rules! fail {
+macro_rules! error {
     ($msg:literal) => {
-        return Err($crate::Error::Custom(format!($msg)));
+        $crate::Error::Custom(format!($msg))
     };
     ($msg:literal, $($item:expr),*) => {
-        return Err($crate::Error::Custom(format!($msg, $($item),*)));
+        $crate::Error::Custom(format!($msg, $($item),*))
+    };
+}
+
+#[macro_export]
+macro_rules! fail {
+    ($($tt:tt)*) => {
+        return Err($crate::error!($($tt)*));
     };
 }
 

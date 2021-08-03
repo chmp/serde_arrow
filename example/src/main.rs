@@ -1,9 +1,6 @@
-use std::{collections::HashMap, convert::TryFrom};
+use std::collections::HashMap;
 
-use arrow::{
-    csv,
-    datatypes::{DataType, Schema},
-};
+use arrow::{csv, datatypes::DataType};
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
@@ -53,8 +50,6 @@ fn main() -> serde_arrow::Result<()> {
 
     let mut schema = serde_arrow::trace_schema(&examples)?;
     schema.set_data_type("date", DataType::Date64);
-
-    let schema = Schema::try_from(schema)?;
 
     let batch = serde_arrow::to_record_batch(&examples, schema)?;
     csv::Writer::new(std::io::stdout()).write(&batch)?;

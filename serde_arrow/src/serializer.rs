@@ -1,13 +1,14 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 
-use arrow::{datatypes::Schema, record_batch::RecordBatch};
+use arrow::{datatypes::Schema as ArrowSchema, record_batch::RecordBatch};
 use serde::{
     ser::{self, Impossible},
     Serialize,
 };
 
 use crate::{
-    array_builder::ArrayBuilder, fail, util::string_extractor::StringExtractor, Error, Result,
+    array_builder::ArrayBuilder, error, fail, schema::Schema,
+    util::string_extractor::StringExtractor, Error, Result,
 };
 
 /// Convert a sequence of records into an Arrow RecordBatch
@@ -49,8 +50,11 @@ impl OuterSerializer {
         let mut builders = HashMap::new();
 
         for field in schema.fields() {
-            let builder = ArrayBuilder::new(field.data_type())?;
-            builders.insert(field.name().to_owned(), builder);
+            let data_type = schema
+                .data_type(field)
+                .ok_or_else(|| error!("no known data type for {}", field))?;
+            let builder = ArrayBuilder::new(data_type)?;
+            builders.insert(field.to_owned(), builder);
         }
 
         let res = OuterSerializer {
@@ -65,16 +69,15 @@ impl OuterSerializer {
         let mut fields = Vec::new();
 
         for field in self.schema.fields() {
-            let name = field.name();
             let field = self
                 .builders
-                .get_mut(name)
+                .get_mut(field)
                 .expect("Invalid state")
                 .build()?;
             fields.push(field);
         }
 
-        let schema = Arc::new(self.schema.clone());
+        let schema = Arc::new(ArrowSchema::try_from(self.schema.clone())?);
         let res = RecordBatch::try_new(schema, fields)?;
         Ok(res)
     }

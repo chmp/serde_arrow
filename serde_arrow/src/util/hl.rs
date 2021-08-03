@@ -2,9 +2,9 @@
 //!
 use std::io::Write;
 
-use arrow::{datatypes::Schema, ipc::writer::FileWriter};
+use arrow::ipc::writer::FileWriter;
 
-use crate::Result;
+use crate::{Result, Schema};
 
 /// Helper to write an Arrow IPC file from a sequence of records
 ///
