@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use arrow::{array::Date64Array, datatypes::DataType};
+use arrow::array::Date64Array;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::Serialize;
 
-use serde_arrow::Result;
+use serde_arrow::{DataType, Result};
 
 macro_rules! hashmap {
     () => {
@@ -50,7 +50,7 @@ fn item_multi_field_structure() -> Result<()> {
     ];
 
     let mut schema = serde_arrow::trace_schema(&examples)?;
-    schema.set_data_type("date", DataType::Date64);
+    schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
     serde_arrow::to_record_batch(&examples, schema)?;
 
@@ -97,9 +97,7 @@ fn item_flattened_structures() -> Result<()> {
         },
     ];
 
-    let mut schema = serde_arrow::trace_schema(&examples)?;
-    schema.set_data_type("date", DataType::Date64);
-
+    let schema = serde_arrow::trace_schema(&examples)?;
     let batch = serde_arrow::to_record_batch(&examples, schema)?;
 
     assert_eq!(batch.num_columns(), 4);
@@ -177,7 +175,7 @@ fn dtype_date64_str() -> Result<()> {
     ][..];
 
     let mut schema = serde_arrow::trace_schema(records)?;
-    schema.set_data_type("val", DataType::Date64);
+    schema.set_data_type("val", DataType::NaiveDateTimeStr)?;
 
     let batch = serde_arrow::to_record_batch(records, schema)?;
 
@@ -210,7 +208,7 @@ fn dtype_date64_int() -> Result<()> {
     ][..];
 
     let mut schema = serde_arrow::trace_schema(records)?;
-    schema.set_data_type("val", DataType::Date64);
+    schema.set_data_type("val", DataType::DateTimeMilliseconds)?;
 
     let batch = serde_arrow::to_record_batch(records, schema)?;
 

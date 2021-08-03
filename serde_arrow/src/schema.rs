@@ -1,6 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+};
 
-use arrow::datatypes::{DataType, Field, Schema as ArrowSchema};
+use arrow::datatypes::{DataType as ArrowType, Field, Schema as ArrowSchema};
 use serde::{
     ser::{self, Impossible},
     Serialize,
@@ -13,9 +16,9 @@ use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
 /// This function inspects the individual records and tries to determine the
 /// data types of each field. For some fields no data type can be determined,
 /// e.g., for options if all entries are missing. In this case, the data type
-/// has to be overwritten manually via [set_data_type]. Further fields may
+/// has to be overwritten manually via [Schema::set_data_type]. Further fields may
 /// erroneously be detected as non-nullable. In this case, the nullability can
-/// be overwritten with [set_nullable].
+/// be overwritten with [Schema::set_nullable].
 ///
 /// For most types, it is sufficient to trace a small number of records to
 /// accurately determine the schema. One option is to use only subset of the
@@ -25,12 +28,11 @@ use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
 ///
 /// ```
 /// # use std::convert::TryFrom;
-/// # use serde_arrow::Schema;
-/// # use arrow::datatypes::{DataType};
+/// # use serde_arrow::{Schema, DataType};
 /// // Create a new TracedSchema
 /// let mut schema = Schema::new();
-/// schema.add_field("col1", Some(DataType::Int64), true);
-/// schema.add_field("col2", Some(DataType::Int64), false);
+/// schema.add_field("col1", Some(DataType::I64), true);
+/// schema.add_field("col2", Some(DataType::I64), false);
 /// ```
 ///
 pub fn trace_schema<T>(value: &T) -> Result<Schema>
@@ -40,6 +42,70 @@ where
     let mut tracer = Tracer::new();
     value.serialize(&mut tracer)?;
     Ok(tracer.schema)
+}
+
+#[derive(Debug, Clone)]
+pub enum DataType {
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F32,
+    F64,
+    /// A date time as a RFC 3339 string with time zone (requires chrono, mapped
+    /// to Arrow's Date64)
+    DateTimeStr,
+    /// A date time as a RFC 3339 string without a time zone (requires chrono,
+    /// mapped to Arrow's Date64)
+    NaiveDateTimeStr,
+    /// A date time as non-leap milliseconds since the epoch (mapped to Arrow's Date64)
+    DateTimeMilliseconds,
+    /// A string (mapped to Arrow's UTF8)
+    Str,
+    /// a raw arrow data type
+    Arrow(ArrowType),
+}
+
+impl std::convert::TryFrom<&DataType> for ArrowType {
+    type Error = Error;
+
+    fn try_from(value: &DataType) -> Result<Self, Self::Error> {
+        match value {
+            DataType::Bool => Ok(ArrowType::Boolean),
+            DataType::I8 => Ok(ArrowType::Int8),
+            DataType::I16 => Ok(ArrowType::Int16),
+            DataType::I32 => Ok(ArrowType::Int32),
+            DataType::I64 => Ok(ArrowType::Int64),
+            DataType::U8 => Ok(ArrowType::UInt8),
+            DataType::U16 => Ok(ArrowType::UInt16),
+            DataType::U32 => Ok(ArrowType::UInt32),
+            DataType::U64 => Ok(ArrowType::UInt64),
+            DataType::F32 => Ok(ArrowType::Float32),
+            DataType::F64 => Ok(ArrowType::Float64),
+            DataType::DateTimeStr | DataType::NaiveDateTimeStr | DataType::DateTimeMilliseconds => {
+                Ok(ArrowType::Date64)
+            }
+            DataType::Str => Ok(ArrowType::Utf8),
+            DataType::Arrow(res) => Ok(res.clone()),
+        }
+    }
+}
+
+impl From<ArrowType> for DataType {
+    fn from(value: ArrowType) -> Self {
+        Self::Arrow(value)
+    }
+}
+
+impl From<&ArrowType> for DataType {
+    fn from(value: &ArrowType) -> Self {
+        value.clone().into()
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -55,7 +121,7 @@ impl Schema {
         Self::default()
     }
 
-    fn build_schema(&self) -> Result<ArrowSchema> {
+    fn build_arrow_schema(&self) -> Result<ArrowSchema> {
         let mut fields = Vec::new();
 
         for field in &self.fields {
@@ -65,7 +131,7 @@ impl Schema {
                 .ok_or_else(|| Error::Custom(format!("No data type detected for {}", field)))?;
             let nullable = self.nullable.contains(field);
 
-            let field = Field::new(field, data_type.clone(), nullable);
+            let field = Field::new(field, ArrowType::try_from(data_type)?, nullable);
             fields.push(field);
         }
 
@@ -133,19 +199,26 @@ impl Schema {
 
     /// Set or overwrite the data type of a field
     ///
-    pub fn set_data_type(&mut self, field: &str, data_type: DataType) {
-        // TODO: check whether field is known
+    pub fn set_data_type(&mut self, field: &str, data_type: DataType) -> Result<()> {
+        if !self.seen_fields.contains(field) {
+            fail!("Cannot set data type for unknown field {}", field);
+        }
         self.data_type.insert(field.to_owned(), data_type);
+        Ok(())
     }
 
     /// Mark a field as nullable or not
     ///
-    pub fn set_nullable(&mut self, field: &str, nullable: bool) {
+    pub fn set_nullable(&mut self, field: &str, nullable: bool) -> Result<()> {
+        if !self.seen_fields.contains(field) {
+            fail!("Cannot set data type for unknown field {}", field);
+        }
         if nullable {
             self.nullable.insert(field.to_owned());
         } else {
             self.nullable.remove(field);
         }
+        Ok(())
     }
 }
 
@@ -153,7 +226,25 @@ impl std::convert::TryFrom<Schema> for ArrowSchema {
     type Error = Error;
 
     fn try_from(value: Schema) -> Result<Self, Self::Error> {
-        value.build_schema()
+        value.build_arrow_schema()
+    }
+}
+
+impl std::convert::TryFrom<ArrowSchema> for Schema {
+    type Error = Error;
+
+    fn try_from(value: ArrowSchema) -> Result<Self> {
+        let mut res = Schema::new();
+
+        for field in value.fields() {
+            res.add_field(
+                field.name(),
+                Some(DataType::from(field.data_type())),
+                field.is_nullable(),
+            )?;
+        }
+
+        Ok(res)
     }
 }
 
@@ -434,53 +525,53 @@ impl<'a> ser::Serializer for FieldTracer {
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Boolean)))
+        Ok((false, Some(DataType::Bool)))
     }
 
     fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Int8)))
+        Ok((false, Some(DataType::I8)))
     }
 
     fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Int16)))
+        Ok((false, Some(DataType::I16)))
     }
 
     fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Int32)))
+        Ok((false, Some(DataType::I32)))
     }
 
     fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Int64)))
+        Ok((false, Some(DataType::I64)))
     }
 
     fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::UInt8)))
+        Ok((false, Some(DataType::U8)))
     }
 
     fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::UInt16)))
+        Ok((false, Some(DataType::U16)))
     }
 
     fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::UInt32)))
+        Ok((false, Some(DataType::U32)))
     }
 
     fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::UInt64)))
+        Ok((false, Some(DataType::U64)))
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Float32)))
+        Ok((false, Some(DataType::F32)))
     }
 
     fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Float64)))
+        Ok((false, Some(DataType::F64)))
     }
 
     unsupported!(serialize_char, char);
 
     fn serialize_str(self, _: &str) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Utf8)))
+        Ok((false, Some(DataType::Str)))
     }
 
     unsupported!(serialize_bytes, &[u8]);

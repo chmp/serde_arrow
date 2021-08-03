@@ -1,13 +1,13 @@
-use crate::{fail, Error, Result};
+use crate::{fail, schema::DataType, Error, Result};
 use arrow::{
     array::{
         ArrayRef, BooleanBuilder, Date64Builder, Float32Builder, Float64Builder, Int16Builder,
         Int32Builder, Int64Builder, Int8Builder, LargeStringBuilder, StringBuilder, UInt16Builder,
         UInt32Builder, UInt64Builder, UInt8Builder,
     },
-    datatypes::DataType,
+    datatypes::DataType as ArrowType,
 };
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::ser::{Impossible, Serialize, Serializer};
 
 use std::sync::Arc;
@@ -29,6 +29,8 @@ pub enum ArrayBuilder {
     Utf8(StringBuilder),
     LargeUtf8(LargeStringBuilder),
     Date64(Date64Builder),
+    Date64Str(Date64Builder),
+    Date64NaiveStr(Date64Builder),
 }
 
 macro_rules! dispatch {
@@ -48,6 +50,8 @@ macro_rules! dispatch {
             ArrayBuilder::Utf8($builder) => $expr,
             ArrayBuilder::LargeUtf8($builder) => $expr,
             ArrayBuilder::Date64($builder) => $expr,
+            ArrayBuilder::Date64Str($builder) => $expr,
+            ArrayBuilder::Date64NaiveStr($builder) => $expr,
         };
     };
 }
@@ -55,21 +59,53 @@ macro_rules! dispatch {
 impl ArrayBuilder {
     pub fn new(data_type: &DataType) -> Result<Self> {
         let res = match data_type {
-            DataType::Boolean => Self::Bool(BooleanBuilder::new(DEFAULT_CAPACITY)),
-            DataType::Int8 => Self::I8(Int8Builder::new(DEFAULT_CAPACITY)),
-            DataType::Int16 => Self::I16(Int16Builder::new(DEFAULT_CAPACITY)),
-            DataType::Int32 => Self::I32(Int32Builder::new(DEFAULT_CAPACITY)),
-            DataType::Int64 => Self::I64(Int64Builder::new(DEFAULT_CAPACITY)),
-            DataType::UInt8 => Self::U8(UInt8Builder::new(DEFAULT_CAPACITY)),
-            DataType::UInt16 => Self::U16(UInt16Builder::new(DEFAULT_CAPACITY)),
-            DataType::UInt32 => Self::U32(UInt32Builder::new(DEFAULT_CAPACITY)),
-            DataType::UInt64 => Self::U64(UInt64Builder::new(DEFAULT_CAPACITY)),
-            DataType::Float32 => Self::F32(Float32Builder::new(DEFAULT_CAPACITY)),
-            DataType::Float64 => Self::F64(Float64Builder::new(DEFAULT_CAPACITY)),
-            DataType::Utf8 => Self::Utf8(StringBuilder::new(DEFAULT_CAPACITY)),
-            DataType::LargeUtf8 => Self::LargeUtf8(LargeStringBuilder::new(DEFAULT_CAPACITY)),
-            DataType::Date64 => Self::Date64(Date64Builder::new(DEFAULT_CAPACITY)),
-            _ => fail!("Cannot build ArrayBuilder for {}", data_type),
+            DataType::Bool | DataType::Arrow(ArrowType::Boolean) => {
+                Self::Bool(BooleanBuilder::new(DEFAULT_CAPACITY))
+            }
+            DataType::I8 | DataType::Arrow(ArrowType::Int8) => {
+                Self::I8(Int8Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::I16 | DataType::Arrow(ArrowType::Int16) => {
+                Self::I16(Int16Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::I32 | DataType::Arrow(ArrowType::Int32) => {
+                Self::I32(Int32Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::I64 | DataType::Arrow(ArrowType::Int64) => {
+                Self::I64(Int64Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::U8 | DataType::Arrow(ArrowType::UInt8) => {
+                Self::U8(UInt8Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::U16 | DataType::Arrow(ArrowType::UInt16) => {
+                Self::U16(UInt16Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::U32 | DataType::Arrow(ArrowType::UInt32) => {
+                Self::U32(UInt32Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::U64 | DataType::Arrow(ArrowType::UInt64) => {
+                Self::U64(UInt64Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::F32 | DataType::Arrow(ArrowType::Float32) => {
+                Self::F32(Float32Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::F64 | DataType::Arrow(ArrowType::Float64) => {
+                Self::F64(Float64Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::Str | DataType::Arrow(ArrowType::Utf8) => {
+                Self::Utf8(StringBuilder::new(DEFAULT_CAPACITY))
+            }
+            DataType::Arrow(ArrowType::LargeUtf8) => {
+                Self::LargeUtf8(LargeStringBuilder::new(DEFAULT_CAPACITY))
+            }
+            DataType::DateTimeMilliseconds | DataType::Arrow(ArrowType::Date64) => {
+                Self::Date64(Date64Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::NaiveDateTimeStr => {
+                Self::Date64NaiveStr(Date64Builder::new(DEFAULT_CAPACITY))
+            }
+            DataType::DateTimeStr => Self::Date64Str(Date64Builder::new(DEFAULT_CAPACITY)),
+            _ => fail!("Cannot build ArrayBuilder for {:?}", data_type),
         };
         Ok(res)
     }
@@ -122,8 +158,12 @@ impl ArrayBuilder {
         match self {
             Self::Utf8(builder) => builder.append_value(data)?,
             Self::LargeUtf8(builder) => builder.append_value(data)?,
-            Self::Date64(builder) => {
+            Self::Date64NaiveStr(builder) => {
                 let dt = data.parse::<NaiveDateTime>()?;
+                builder.append_value(dt.timestamp_millis())?;
+            }
+            Self::Date64Str(builder) => {
+                let dt = data.parse::<DateTime<Utc>>()?;
                 builder.append_value(dt.timestamp_millis())?;
             }
             _ => fail!("Mismatched type"),

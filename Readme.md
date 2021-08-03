@@ -132,10 +132,11 @@ Comments:
 - For maps, all fields need to be added to the schema and need to be found in
   each record. The latter restriction will be lifted
 - Datetimes are supported, but their data type cannot be auto detected. Their
-  data type has to be overwriting after tracing:
+  data type has to be overwriting after tracing. For example, the chrono date
+  time types are supported via:
     ```rust
     let mut schema = serde_arrow::trace_schema(&examples)?;
-    schema.set_data_type("date", DataType::Date64);
+    schema.set_data_type("date", DataType::DateTimeStr);
     ```
 
 # License

@@ -35,7 +35,10 @@ mod schema;
 mod serializer;
 mod util;
 
-pub use schema::{trace_schema, Schema};
+#[cfg(test)]
+mod test;
+
+pub use schema::{trace_schema, DataType, Schema};
 pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
 pub use util::hl::to_ipc_writer;
