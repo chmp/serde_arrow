@@ -33,8 +33,8 @@ let schema = serde_arrow::trace_schema(&examples)?;
 let out  = File::create("examples.ipc")?;
 serde_arrow::to_ipc_writer(out, &examples, schema)?;
 
-// NOTE: the records can also be converted into a RecordBatch and then for
-// example written to a parquet file:
+// NOTE: the records can also be converted into a RecordBatch. The RecordBatch
+// can then be used to convert it into a polars DataFrame or written to parquet.
 //
 // let batch = serde_arrow::to_record_batch(&examples, schema)?;
 ```
