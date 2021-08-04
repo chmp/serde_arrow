@@ -9,7 +9,10 @@ use serde::{
     Serialize,
 };
 
-use crate::{fail, util::string_extractor::StringExtractor, Error, Result};
+use crate::{
+    fail, util::outer_structure::OuterSerializer, util::outer_structure::RecordBuilder, Error,
+    Result,
+};
 
 /// Try to determine the schema from the existing records
 ///
@@ -39,9 +42,12 @@ pub fn trace_schema<T>(value: &T) -> Result<Schema>
 where
     T: serde::Serialize + ?Sized,
 {
-    let mut tracer = Tracer::new();
-    value.serialize(&mut tracer)?;
-    Ok(tracer.schema)
+    let schema = Schema::new();
+
+    let mut outer = OuterSerializer::new(schema)?;
+    value.serialize(&mut outer)?;
+
+    Ok(outer.into_inner())
 }
 
 #[derive(Debug, Clone)]
@@ -248,46 +254,35 @@ impl std::convert::TryFrom<ArrowSchema> for Schema {
     }
 }
 
-enum State {
-    /// The tracer has not observed any events
-    Start,
-    /// The outer sequence has been closed
-    End,
-    /// The tracer is in the outer sequence and waits for the next record
-    OuterSequence,
-    /// The tracer is currently processing this event
-    Field(String),
-}
-
-struct Tracer {
-    schema: Schema,
-    state: State,
-}
-
-impl Tracer {
-    fn new() -> Self {
-        Self {
-            schema: Schema::new(),
-            state: State::Start,
-        }
+impl RecordBuilder for Schema {
+    fn start(&mut self) -> Result<(), Error> {
+        Ok(())
     }
 
-    fn add_field(&mut self, name: &str, nullable: bool, data_type: Option<DataType>) {
-        if !self.schema.seen_fields.contains(name) {
-            self.schema.fields.push(name.to_owned());
-            self.schema.seen_fields.insert(name.to_owned());
+    fn end(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn field<T: Serialize + ?Sized>(&mut self, name: &str, value: &T) -> Result<(), Error> {
+        let (nullable, data_type) = value.serialize(FieldTracer)?;
+
+        if !self.seen_fields.contains(name) {
+            self.fields.push(name.to_owned());
+            self.seen_fields.insert(name.to_owned());
         }
 
         if nullable {
-            self.schema.nullable.insert(name.to_owned());
+            self.nullable.insert(name.to_owned());
         }
 
         if let Some(data_type) = data_type {
-            if !self.schema.data_type.contains_key(name) {
-                self.schema.data_type.insert(name.to_owned(), data_type);
+            if !self.data_type.contains_key(name) {
+                self.data_type.insert(name.to_owned(), data_type);
             }
             // TODO: check that the data type did not change
         }
+
+        Ok(())
     }
 }
 
@@ -308,206 +303,6 @@ macro_rules! unsupported {
             )));
         }
     };
-}
-
-/// Serialize the outer structure (sequence + records)
-impl<'a> ser::Serializer for &'a mut Tracer {
-    type Ok = ();
-    type Error = Error;
-
-    type SerializeSeq = Self;
-    type SerializeStruct = Self;
-    type SerializeMap = Self;
-    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
-    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
-
-    unsupported!(serialize_bool, bool);
-    unsupported!(serialize_i8, i8);
-    unsupported!(serialize_i16, i16);
-    unsupported!(serialize_i32, i32);
-    unsupported!(serialize_i64, i64);
-    unsupported!(serialize_u8, u8);
-    unsupported!(serialize_u16, u16);
-    unsupported!(serialize_u32, u32);
-    unsupported!(serialize_u64, u64);
-    unsupported!(serialize_f32, f32);
-    unsupported!(serialize_f64, f64);
-    unsupported!(serialize_char, char);
-    unsupported!(serialize_str, &str);
-    unsupported!(serialize_bytes, &[u8]);
-    unsupported!(serialize_none);
-
-    fn serialize_some<T: ?Sized + Serialize>(self, _: &T) -> Result<()> {
-        fail!("serialize_unit  not supported in schema tracing");
-    }
-
-    fn serialize_unit(self) -> Result<()> {
-        fail!("serialize_unit  not supported in schema tracing");
-    }
-
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        fail!("serialize_unit_struct not supported in schema tracing");
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<()> {
-        fail!("serialize_unit_variant not supported in schema tracing");
-    }
-
-    fn serialize_newtype_struct<T>(self, _name: &'static str, _value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        fail!("serialize_newtype_struct not supported in schema tracing");
-    }
-
-    fn serialize_newtype_variant<T>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        fail!("serialize_newtype_variant not supported in schema tracing");
-    }
-
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.state = State::OuterSequence;
-        Ok(self)
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        fail!("serialize_tuple not supported in schema tracing");
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct not supported in schema tracing");
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        fail!("serialize_tuple_variant not supported in schema tracing");
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Ok(self)
-    }
-
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        Ok(self)
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        fail!("serialize_struct_variant not supported in schema tracing");
-    }
-}
-
-impl<'a> ser::SerializeSeq for &'a mut Tracer {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        value.serialize(&mut **self)?;
-        Ok(())
-    }
-
-    fn end(self) -> Result<()> {
-        self.state = State::End;
-        Ok(())
-    }
-}
-
-impl<'a> ser::SerializeStruct for &'a mut Tracer {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        if !matches!(self.state, State::OuterSequence) {
-            fail!("Cannot enter field outside of a sequence");
-        }
-
-        self.state = State::Field(key.to_owned());
-
-        let (nullable, data_type) = value.serialize(FieldTracer)?;
-        self.add_field(key, nullable, data_type);
-
-        self.state = State::OuterSequence;
-        Ok(())
-    }
-
-    fn end(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> ser::SerializeMap for &'a mut Tracer {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        if !matches!(self.state, State::OuterSequence) {
-            fail!("Cannot enter a map field outside of a sequence");
-        }
-
-        let key = key.serialize(StringExtractor)?;
-        self.state = State::Field(key);
-
-        Ok(())
-    }
-
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        let field = match &self.state {
-            State::Field(field) => field.to_owned(),
-            _ => fail!("Cannot enter a map field outside of a sequence"),
-        };
-
-        let (nullable, data_type) = value.serialize(FieldTracer)?;
-        self.add_field(&field, nullable, data_type);
-
-        self.state = State::OuterSequence;
-
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
 }
 
 struct FieldTracer;
