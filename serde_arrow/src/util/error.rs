@@ -1,5 +1,7 @@
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Errors during conversion or tracing
+///
 #[derive(Debug)]
 pub enum Error {
     Custom(String),

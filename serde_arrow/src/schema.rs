@@ -17,27 +17,20 @@ use crate::{
 /// Try to determine the schema from the existing records
 ///
 /// This function inspects the individual records and tries to determine the
-/// data types of each field. For some fields no data type can be determined,
-/// e.g., for options if all entries are missing. In this case, the data type
-/// has to be overwritten manually via [Schema::set_data_type]. Further fields may
-/// erroneously be detected as non-nullable. In this case, the nullability can
-/// be overwritten with [Schema::set_nullable].
-///
-/// For most types, it is sufficient to trace a small number of records to
-/// accurately determine the schema. One option is to use only subset of the
-/// full data set.
-///
-/// The traced schema can be converted into an Arrow Schema via `TryFrom`:
+/// data types of each field. For most types, it is sufficient to trace a small
+/// number of records to accurately determine the schema. For some fields no
+/// data type can be determined, e.g., for options if all entries are missing.
+/// In this case, the data type has to be overwritten manually via
+/// [Schema::add_field]:
 ///
 /// ```
 /// # use std::convert::TryFrom;
 /// # use serde_arrow::{Schema, DataType};
 /// // Create a new TracedSchema
-/// let mut schema = Schema::new();
+/// # let mut schema = Schema::new();
 /// schema.add_field("col1", Some(DataType::I64), true);
 /// schema.add_field("col2", Some(DataType::I64), false);
 /// ```
-///
 pub fn trace_schema<T>(value: &T) -> Result<Schema>
 where
     T: serde::Serialize + ?Sized,
@@ -50,6 +43,12 @@ where
     Ok(outer.into_inner())
 }
 
+/// The data type of a column
+///
+/// This data type follows closely the arrow data model, but offers extension
+/// for types which can be expressed in different serialization formats (e.g.,
+/// dates).
+///
 #[derive(Debug, Clone)]
 pub enum DataType {
     Bool,
@@ -114,6 +113,14 @@ impl From<&ArrowType> for DataType {
     }
 }
 
+/// The schema of a collection of records
+///
+// There are multiple ways to construct a schema:
+///
+/// - Trace it from the records using [trace_schema]
+/// - Build it manually by using [Schema::new] and [Schema::add_field]
+/// - Convert an Arrow schema via `Schema::try_from(arrow_schema)`
+///
 #[derive(Default, Debug, Clone)]
 pub struct Schema {
     fields: Vec<String>,
@@ -177,20 +184,13 @@ impl Schema {
 
     /// Add a new field
     ///
-    /// This function fails if the field already exists.
+    /// This function overwrites an existing field, if it exists already exists.
     ///
-    pub fn add_field(
-        &mut self,
-        field: &str,
-        data_type: Option<DataType>,
-        nullable: bool,
-    ) -> Result<()> {
-        if self.seen_fields.contains(field) {
-            fail!("Duplicate field {}", field);
+    pub fn add_field(&mut self, field: &str, data_type: Option<DataType>, nullable: bool) {
+        if !self.seen_fields.contains(field) {
+            self.seen_fields.insert(field.to_owned());
+            self.fields.push(field.to_owned());
         }
-
-        self.seen_fields.insert(field.to_owned());
-        self.fields.push(field.to_owned());
 
         if let Some(data_type) = data_type {
             self.data_type.insert(field.to_owned(), data_type);
@@ -198,12 +198,12 @@ impl Schema {
 
         if nullable {
             self.nullable.insert(field.to_owned());
+        } else {
+            self.nullable.remove(field);
         }
-
-        Ok(())
     }
 
-    /// Set or overwrite the data type of a field
+    /// Set or overwrite the data type of an existing field
     ///
     pub fn set_data_type(&mut self, field: &str, data_type: DataType) -> Result<()> {
         if !self.seen_fields.contains(field) {
@@ -213,7 +213,7 @@ impl Schema {
         Ok(())
     }
 
-    /// Mark a field as nullable or not
+    /// Mark an existing field as nullable or not
     ///
     pub fn set_nullable(&mut self, field: &str, nullable: bool) -> Result<()> {
         if !self.seen_fields.contains(field) {
@@ -247,7 +247,7 @@ impl std::convert::TryFrom<ArrowSchema> for Schema {
                 field.name(),
                 Some(DataType::from(field.data_type())),
                 field.is_nullable(),
-            )?;
+            );
         }
 
         Ok(res)

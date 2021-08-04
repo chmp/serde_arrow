@@ -136,7 +136,7 @@ Comments:
   time types are supported via:
     ```rust
     let mut schema = serde_arrow::trace_schema(&examples)?;
-    schema.set_data_type("date", DataType::DateTimeStr);
+    schema.add_field("date", Some(DataType::DateTimeStr), false);
     ```
 
 # License
