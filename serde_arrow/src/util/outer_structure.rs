@@ -1,4 +1,6 @@
-use serde::ser::{Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct, Serializer};
+use serde::ser::{
+    Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple, Serializer,
+};
 
 use super::string_extractor::StringExtractor;
 use crate::{fail, Error, Result};
@@ -50,7 +52,7 @@ impl<'a, S: RecordBuilder> Serializer for &'a mut OuterSerializer<S> {
 
     type SerializeSeq = Self;
     type SerializeStruct = Self;
-    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = Self;
     type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
     type SerializeMap = Self;
@@ -125,7 +127,8 @@ impl<'a, S: RecordBuilder> Serializer for &'a mut OuterSerializer<S> {
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        fail!("Not supported");
+        self.state = State::OuterSequence;
+        Ok(self)
     }
 
     fn serialize_tuple_struct(
@@ -182,6 +185,23 @@ impl<'a, S: RecordBuilder> SerializeSeq for &'a mut OuterSerializer<S> {
     }
 
     fn end(self) -> Result<()> {
+        self.state = State::End;
+        Ok(())
+    }
+}
+
+impl<'a, S: RecordBuilder> SerializeTuple for &'a mut OuterSerializer<S> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        self.state = State::Item;
+        value.serialize(&mut **self)?;
+        self.state = State::OuterSequence;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
         self.state = State::End;
         Ok(())
     }

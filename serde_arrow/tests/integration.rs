@@ -145,14 +145,12 @@ define_api_test!(
 
 // currently not supported
 define_api_test!(
-    #[ignore]
     serialize_fixed_array,
     rows = &[Record { val: 1 }, Record { val: 2 }]
 );
 
 // currently not supported
 define_api_test!(
-    #[ignore]
     serialize_tuple,
     rows = &(Record { val: 1 }, Record { val: 2 })
 );
