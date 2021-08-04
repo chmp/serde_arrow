@@ -30,7 +30,7 @@ let examples = vec![
 let schema = serde_arrow::trace_schema(&examples)?;
 
 // Write the records into an IPC file
-let out  = File::create("examples.ipc")?;
+let out  = File::create("examples.arrow")?;
 serde_arrow::to_ipc_writer(out, &examples, schema)?;
 
 // NOTE: the records can also be converted into a RecordBatch. The RecordBatch
@@ -43,7 +43,7 @@ The written file can now be read in Python via
 
 ```python
 import pandas as pd
-pd.read_feather("examples.ipc")
+pd.read_feather("examples.arrow")
 ```
 
 ## How does it work?
