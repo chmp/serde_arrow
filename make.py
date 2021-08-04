@@ -28,8 +28,10 @@ def doc():
 
 @cmd()
 def release():
-    # TODO: implement
-    pass
+    cargo("package", "--list", cwd=self_path / "serde_arrow")
+
+    if input("Continue [y/N]") == "y":
+        cargo("publish", cwd=self_path / "serde_arrow")
 
 
 def cargo(*args, **kwargs):
