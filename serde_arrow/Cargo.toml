@@ -1,6 +1,6 @@
 [package]
 name = "serde_arrow"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2018"
 description  = "convert sequences of structs / maps to arrow tables"
