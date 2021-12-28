@@ -1,7 +1,11 @@
 use chrono::{DateTime, TimeZone, Utc};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use rand::{distributions::{Standard, Uniform}, prelude::Distribution, thread_rng};
+use rand::{
+    distributions::{Standard, Uniform},
+    prelude::Distribution,
+    thread_rng,
+};
 use serde::Serialize;
 use serde_arrow::{DataType, Schema};
 
@@ -9,9 +13,8 @@ use serde_arrow::{DataType, Schema};
 struct Example {
     a: i64,
     b: f32,
-    c: DateTime<Utc>, 
+    c: DateTime<Utc>,
 }
-
 
 impl Distribution<Example> for Standard {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Example {
@@ -30,17 +33,17 @@ fn criterion_benchmark(c: &mut Criterion) {
     for _ in 0..10_000 {
         examples.push(Standard.sample(&mut rng));
     }
-    
+
     let mut schema = Schema::new();
     schema.add_field("a", Some(DataType::I64), false);
     schema.add_field("b", Some(DataType::F32), false);
     schema.add_field("c", Some(DataType::DateTimeStr), false);
 
-    c.bench_function("trace_schema", |b| {    
+    c.bench_function("trace_schema", |b| {
         b.iter(|| serde_arrow::trace_schema(black_box(&examples)).unwrap())
     });
 
-    c.bench_function("to_record_batch", |b| {    
+    c.bench_function("to_record_batch", |b| {
         b.iter(|| serde_arrow::to_record_batch(black_box(&examples), &schema).unwrap())
     });
 }

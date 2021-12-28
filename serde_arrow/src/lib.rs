@@ -22,7 +22,7 @@
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
 //! let schema = serde_arrow::trace_schema(&records)?;
-//! let batch = serde_arrow::to_record_batch(&records, schema)?;
+//! let batch = serde_arrow::to_record_batch(&records, &schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
 //! assert_eq!(batch.num_columns(), 2);
