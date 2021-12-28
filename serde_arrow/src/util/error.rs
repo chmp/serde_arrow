@@ -39,7 +39,7 @@ macro_rules! error {
 #[macro_export]
 macro_rules! fail {
     ($($tt:tt)*) => {
-        return Err($crate::error!($($tt)*));
+        return Err($crate::error!($($tt)*))
     };
 }
 

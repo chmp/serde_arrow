@@ -52,7 +52,7 @@ macro_rules! dispatch {
             ArrayBuilder::Date64($builder) => $expr,
             ArrayBuilder::Date64Str($builder) => $expr,
             ArrayBuilder::Date64NaiveStr($builder) => $expr,
-        };
+        }
     };
 }
 
