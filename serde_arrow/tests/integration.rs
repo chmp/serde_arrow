@@ -52,7 +52,7 @@ fn item_multi_field_structure() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(&examples)?;
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
-    serde_arrow::to_record_batch(&examples, schema)?;
+    serde_arrow::to_record_batch(&examples, &schema)?;
 
     Ok(())
 }
@@ -66,7 +66,7 @@ fn item_maps() -> Result<()> {
     ];
 
     let schema = serde_arrow::trace_schema(&examples)?;
-    serde_arrow::to_record_batch(&examples, schema)?;
+    serde_arrow::to_record_batch(&examples, &schema)?;
 
     Ok(())
 }
@@ -98,7 +98,7 @@ fn item_flattened_structures() -> Result<()> {
     ];
 
     let schema = serde_arrow::trace_schema(&examples)?;
-    let batch = serde_arrow::to_record_batch(&examples, schema)?;
+    let batch = serde_arrow::to_record_batch(&examples, &schema)?;
 
     assert_eq!(batch.num_columns(), 4);
 
@@ -123,7 +123,7 @@ macro_rules! define_api_test {
         {
             let rows = $rows;
             let schema = serde_arrow::trace_schema(rows)?;
-            serde_arrow::to_record_batch(rows, schema)?;
+            serde_arrow::to_record_batch(rows, &schema)?;
 
             Ok(())
         }
@@ -175,7 +175,7 @@ fn dtype_date64_str() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(records)?;
     schema.set_data_type("val", DataType::NaiveDateTimeStr)?;
 
-    let batch = serde_arrow::to_record_batch(records, schema)?;
+    let batch = serde_arrow::to_record_batch(records, &schema)?;
 
     assert_eq!(
         *(batch.column(0).as_ref()),
@@ -208,7 +208,7 @@ fn dtype_date64_int() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(records)?;
     schema.set_data_type("val", DataType::DateTimeMilliseconds)?;
 
-    let batch = serde_arrow::to_record_batch(records, schema)?;
+    let batch = serde_arrow::to_record_batch(records, &schema)?;
 
     assert_eq!(
         *(batch.column(0).as_ref()),

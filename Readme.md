@@ -31,7 +31,7 @@ let schema = serde_arrow::trace_schema(&examples)?;
 
 // Write the records into an IPC file
 let out  = File::create("examples.arrow")?;
-serde_arrow::to_ipc_writer(out, &examples, schema)?;
+serde_arrow::to_ipc_writer(out, &examples, &schema)?;
 
 // NOTE: the records can also be converted into a RecordBatch. The RecordBatch
 // can then be used to convert it into a polars DataFrame or written to parquet.
@@ -72,7 +72,7 @@ schema a list of records can be converted into a record batch using
 [`serde_arrow::to_record_batch`][docs:to_record_batch]:
 
 ```rust
-let batch = serde_arrow::to_record_batch(&items, schema)?;
+let batch = serde_arrow::to_record_batch(&items, &schema)?;
 ```
 
 To support in creation of schema definitions `serde_arrow` offers the function

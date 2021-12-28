@@ -13,7 +13,7 @@ use crate::{
 
 /// Convert a sequence of records into an Arrow RecordBatch
 ///
-pub fn to_record_batch<T>(value: &T, schema: Schema) -> Result<RecordBatch>
+pub fn to_record_batch<T>(value: &T, schema: &Schema) -> Result<RecordBatch>
 where
     T: serde::Serialize + ?Sized,
 {
@@ -26,13 +26,13 @@ where
     Ok(batch)
 }
 
-pub struct RecordSerializer {
-    schema: Schema,
+pub struct RecordSerializer<'a> {
+    schema: &'a Schema,
     builders: HashMap<String, ArrayBuilder>,
 }
 
-impl RecordSerializer {
-    pub fn new(schema: Schema) -> Result<Self> {
+impl<'a> RecordSerializer<'a> {
+    pub fn new(schema: &'a Schema) -> Result<Self> {
         let mut builders = HashMap::new();
 
         for field in schema.fields() {
@@ -64,7 +64,7 @@ impl RecordSerializer {
     }
 }
 
-impl RecordBuilder for RecordSerializer {
+impl<'a> RecordBuilder for RecordSerializer<'a> {
     fn start(&mut self) -> Result<()> {
         Ok(())
     }
