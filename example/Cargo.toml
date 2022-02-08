@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-arrow = "6.0"
+arrow = "8.0"
 serde = { version = "1.0", features = ["derive"] }
 
 serde_arrow = { path = "../serde_arrow" }
