@@ -26,6 +26,15 @@ impl serde::ser::Error for Error {
     }
 }
 
+impl serde::de::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        Self::Custom(msg.to_string())
+    }
+}
+
 #[macro_export]
 macro_rules! error {
     ($msg:literal) => {

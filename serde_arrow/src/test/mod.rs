@@ -1,3 +1,5 @@
+mod deserialize;
+
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone, Utc};
 use serde::Serialize;
 
