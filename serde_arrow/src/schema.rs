@@ -28,8 +28,8 @@ use crate::{
 /// # use serde_arrow::{Schema, DataType};
 /// // Create a new TracedSchema
 /// # let mut schema = Schema::new();
-/// schema.add_field("col1", Some(DataType::I64), true);
-/// schema.add_field("col2", Some(DataType::I64), false);
+/// schema.add_field("col1", Some(DataType::I64), Some(true));
+/// schema.add_field("col2", Some(DataType::I64), Some(false));
 /// ```
 pub fn trace_schema<T>(value: &T) -> Result<Schema>
 where
@@ -49,7 +49,7 @@ where
 /// for types which can be expressed in different serialization formats (e.g.,
 /// dates).
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Bool,
     I8,
@@ -121,7 +121,7 @@ impl From<&ArrowType> for DataType {
 /// - Build it manually by using [Schema::new] and [Schema::add_field]
 /// - Convert an Arrow schema via `Schema::try_from(arrow_schema)`
 ///
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Schema {
     fields: Vec<String>,
     seen_fields: HashSet<String>,
@@ -134,7 +134,7 @@ impl Schema {
         Self::default()
     }
 
-    fn build_arrow_schema(&self) -> Result<ArrowSchema> {
+    pub fn build_arrow_schema(&self) -> Result<ArrowSchema> {
         let mut fields = Vec::new();
 
         for field in &self.fields {
@@ -186,7 +186,7 @@ impl Schema {
     ///
     /// This function overwrites an existing field, if it exists already exists.
     ///
-    pub fn add_field(&mut self, field: &str, data_type: Option<DataType>, nullable: bool) {
+    pub fn add_field(&mut self, field: &str, data_type: Option<DataType>, nullable: Option<bool>) {
         if !self.seen_fields.contains(field) {
             self.seen_fields.insert(field.to_owned());
             self.fields.push(field.to_owned());
@@ -196,9 +196,9 @@ impl Schema {
             self.data_type.insert(field.to_owned(), data_type);
         }
 
-        if nullable {
+        if let Some(true) = nullable {
             self.nullable.insert(field.to_owned());
-        } else {
+        } else if let Some(false) = nullable {
             self.nullable.remove(field);
         }
     }
@@ -246,7 +246,7 @@ impl std::convert::TryFrom<ArrowSchema> for Schema {
             res.add_field(
                 field.name(),
                 Some(DataType::from(field.data_type())),
-                field.is_nullable(),
+                Some(field.is_nullable()),
             );
         }
 
