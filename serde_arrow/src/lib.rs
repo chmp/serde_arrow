@@ -30,7 +30,6 @@
 //! # }
 //! ```
 //!
-mod array_builder;
 pub(crate) mod event;
 pub mod ng;
 mod schema;

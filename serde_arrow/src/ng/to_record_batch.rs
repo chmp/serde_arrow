@@ -1,8 +1,9 @@
 use crate::{
-    array_builder::ArrayBuilder,
     error,
     event::{serialize_into_sink, Event, EventSink},
-    fail, Result, Schema,
+    fail,
+    util::array_builder::ArrayBuilder,
+    Result, Schema,
 };
 
 use std::{collections::HashMap, sync::Arc};

@@ -4,10 +4,12 @@ use arrow::{datatypes::Schema as ArrowSchema, record_batch::RecordBatch};
 use serde::Serialize;
 
 use crate::{
-    array_builder::ArrayBuilder,
     error,
     schema::Schema,
-    util::outer_structure::{OuterSerializer, RecordBuilder},
+    util::{
+        array_builder::ArrayBuilder,
+        outer_structure::{OuterSerializer, RecordBuilder},
+    },
     Error, Result,
 };
 
