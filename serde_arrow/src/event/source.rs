@@ -5,7 +5,8 @@ use std::cell::Cell;
 use arrow::{
     array::{
         Array, BooleanArray, Date64Array, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, PrimitiveArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        Int64Array, Int8Array, LargeStringArray, PrimitiveArray, StringArray, UInt16Array,
+        UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::{ArrowPrimitiveType, DataType as ArrowDataType},
     record_batch::RecordBatch,
@@ -24,6 +25,8 @@ enum ArraySource<'a> {
     U64(&'a UInt64Array),
     F32(&'a Float32Array),
     F64(&'a Float64Array),
+    Utf8(&'a StringArray),
+    LargeUtf8(&'a LargeStringArray),
     Date64NaiveDateTimeStr(&'a Date64Array),
     Date64DateTimeStr(&'a Date64Array),
     Date64DateTimeMilliseconds(&'a Date64Array),
@@ -64,6 +67,22 @@ impl<'a> ArraySource<'a> {
             Self::U64(arr) => emit_primitive(arr, idx),
             Self::F32(arr) => emit_primitive(arr, idx),
             Self::F64(arr) => emit_primitive(arr, idx),
+            Self::Utf8(arr) => {
+                if arr.is_null(idx) {
+                    Event::Null
+                } else {
+                    // TODO: can this be done zero copy?
+                    arr.value(idx).to_owned().into()
+                }
+            }
+            Self::LargeUtf8(arr) => {
+                if arr.is_null(idx) {
+                    Event::Null
+                } else {
+                    // TODO: can this be done zero copy?
+                    arr.value(idx).to_owned().into()
+                }
+            }
             Self::Date64DateTimeMilliseconds(arr) => emit_primitive(arr, idx),
             Self::Date64NaiveDateTimeStr(arr) => {
                 if arr.is_null(idx) {
@@ -139,6 +158,10 @@ impl<'a> RecordBatchSource<'a> {
                 ArrowDataType::UInt64 => ArraySource::U64(col.as_any().downcast_ref().unwrap()),
                 ArrowDataType::Float32 => ArraySource::F32(col.as_any().downcast_ref().unwrap()),
                 ArrowDataType::Float64 => ArraySource::F64(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Utf8 => ArraySource::Utf8(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::LargeUtf8 => {
+                    ArraySource::LargeUtf8(col.as_any().downcast_ref().unwrap())
+                }
                 ArrowDataType::Date32 => fail!("Date32 are not supported at the moment"),
                 ArrowDataType::Date64 => match data_type {
                     Some(DataType::DateTimeMilliseconds) => {

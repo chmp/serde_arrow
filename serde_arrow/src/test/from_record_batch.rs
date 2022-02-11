@@ -1,7 +1,9 @@
 use crate::{
     event::{Event, RecordBatchSource},
-    from_record_batch, Result,
+    from_record_batch, DataType, Result,
 };
+
+use arrow::datatypes::DataType as ArrowDataType;
 
 use serde::{Deserialize, Serialize};
 
@@ -74,6 +76,64 @@ fn example_nullable() -> Result<()> {
         Example { val: Some(42) },
     ];
     let schema = crate::trace_schema(&original)?;
+    let record_batch = crate::to_record_batch(&original, &schema)?;
+    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+
+    assert_eq!(round_tripped, original);
+
+    Ok(())
+}
+
+#[test]
+fn example_string() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        val: String,
+    }
+
+    let original = &[
+        Example {
+            val: String::from("foo"),
+        },
+        Example {
+            val: String::from("bar"),
+        },
+        Example {
+            val: String::from("baz"),
+        },
+    ];
+    let schema = crate::trace_schema(&original)?;
+    let record_batch = crate::to_record_batch(&original, &schema)?;
+    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+
+    assert_eq!(round_tripped, original);
+
+    Ok(())
+}
+
+#[test]
+fn example_large_string() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        val: String,
+    }
+
+    let original = &[
+        Example {
+            val: String::from("foo"),
+        },
+        Example {
+            val: String::from("bar"),
+        },
+        Example {
+            val: String::from("baz"),
+        },
+    ];
+    let schema = crate::trace_schema(&original)?.with_field(
+        "val",
+        Some(DataType::Arrow(ArrowDataType::LargeUtf8)),
+        None,
+    );
     let record_batch = crate::to_record_batch(&original, &schema)?;
     let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
