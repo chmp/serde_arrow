@@ -10,7 +10,7 @@ use arrow::{
     datatypes::DataType as ArrowDataType,
     record_batch::RecordBatch,
 };
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, TimeZone, Utc};
 
 enum ArraySource<'a> {
     Bool(&'a BooleanArray),
@@ -25,6 +25,7 @@ enum ArraySource<'a> {
     F32(&'a Float32Array),
     F64(&'a Float64Array),
     Date64NaiveDateTimeStr(&'a Date64Array),
+    Date64DateTimeStr(&'a Date64Array),
     Date64DateTimeMilliseconds(&'a Date64Array),
 }
 
@@ -47,6 +48,12 @@ impl<'a> ArraySource<'a> {
             Self::Date64NaiveDateTimeStr(arr) => {
                 let val = arr.value(idx);
                 let val = NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+                // NOTE: chrono documents that Debug can be parsed, Display cannot be parsed
+                format!("{:?}", val).into()
+            }
+            Self::Date64DateTimeStr(arr) => {
+                let val = arr.value(idx);
+                let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
                 // NOTE: chrono documents that Debug can be parsed, Display cannot be parsed
                 format!("{:?}", val).into()
             }
@@ -93,40 +100,26 @@ impl<'a> RecordBatchSource<'a> {
 
             let array_source = match col.data_type() {
                 ArrowDataType::Boolean => ArraySource::Bool(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Int8 => {
-                    ArraySource::I8(col.as_any().downcast_ref::<Int8Array>().unwrap())
-                }
-                ArrowDataType::Int16 => {
-                    ArraySource::I16(col.as_any().downcast_ref::<Int16Array>().unwrap())
-                }
-                ArrowDataType::Int32 => {
-                    ArraySource::I32(col.as_any().downcast_ref::<Int32Array>().unwrap())
-                }
-                ArrowDataType::Int64 => {
-                    ArraySource::I64(col.as_any().downcast_ref::<Int64Array>().unwrap())
-                }
-                ArrowDataType::UInt8 => {
-                    ArraySource::U8(col.as_any().downcast_ref::<UInt8Array>().unwrap())
-                }
-                ArrowDataType::UInt16 => {
-                    ArraySource::U16(col.as_any().downcast_ref::<UInt16Array>().unwrap())
-                }
-                ArrowDataType::UInt32 => {
-                    ArraySource::U32(col.as_any().downcast_ref::<UInt32Array>().unwrap())
-                }
-                ArrowDataType::UInt64 => {
-                    ArraySource::U64(col.as_any().downcast_ref::<UInt64Array>().unwrap())
-                }
-                ArrowDataType::Float32 => {
-                    ArraySource::F32(col.as_any().downcast_ref::<Float32Array>().unwrap())
-                }
-                ArrowDataType::Float64 => {
-                    ArraySource::F64(col.as_any().downcast_ref::<Float64Array>().unwrap())
-                }
+                ArrowDataType::Int8 => ArraySource::I8(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Int16 => ArraySource::I16(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Int32 => ArraySource::I32(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Int64 => ArraySource::I64(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::UInt8 => ArraySource::U8(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::UInt16 => ArraySource::U16(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::UInt32 => ArraySource::U32(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::UInt64 => ArraySource::U64(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Float32 => ArraySource::F32(col.as_any().downcast_ref().unwrap()),
+                ArrowDataType::Float64 => ArraySource::F64(col.as_any().downcast_ref().unwrap()),
                 ArrowDataType::Date32 => match data_type {
-                    Some(DataType::DateTimeMilliseconds) => todo!(),
-                    Some(DataType::NaiveDateTimeStr) => todo!(),
-                    Some(DataType::DateTimeStr) => todo!(),
+                    Some(DataType::DateTimeMilliseconds) => fail!(
+                        "Encoding Date32 as DateTimeMilliseconds is not supported at the moment"
+                    ),
+                    Some(DataType::NaiveDateTimeStr) => {
+                        fail!("Encoding Date32 as NaiveDateTimeStr is not supported at the moment")
+                    }
+                    Some(DataType::DateTimeStr) => {
+                        fail!("Encoding Date32 as DateTimeStr is not supported at the moment")
+                    }
                     Some(dt) => fail!("Annotation {} is not supported by Date32", dt),
                     None => fail!("Date32 columns require additional data type annotations"),
                 },
@@ -139,7 +132,9 @@ impl<'a> RecordBatchSource<'a> {
                     Some(DataType::NaiveDateTimeStr) => {
                         ArraySource::Date64NaiveDateTimeStr(col.as_any().downcast_ref().unwrap())
                     }
-                    Some(DataType::DateTimeStr) => todo!(),
+                    Some(DataType::DateTimeStr) => {
+                        ArraySource::Date64DateTimeStr(col.as_any().downcast_ref().unwrap())
+                    }
                     Some(dt) => fail!("Annotation {} is not supported by Date64", dt),
                     None => fail!("Date64 columns require additional data type annotations"),
                 },
@@ -155,7 +150,6 @@ impl<'a> RecordBatchSource<'a> {
             state,
             array_sources,
         };
-        // TODO: validate
         Ok(res)
     }
 
