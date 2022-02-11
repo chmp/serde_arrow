@@ -110,19 +110,7 @@ impl<'a> RecordBatchSource<'a> {
                 ArrowDataType::UInt64 => ArraySource::U64(col.as_any().downcast_ref().unwrap()),
                 ArrowDataType::Float32 => ArraySource::F32(col.as_any().downcast_ref().unwrap()),
                 ArrowDataType::Float64 => ArraySource::F64(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Date32 => match data_type {
-                    Some(DataType::DateTimeMilliseconds) => fail!(
-                        "Encoding Date32 as DateTimeMilliseconds is not supported at the moment"
-                    ),
-                    Some(DataType::NaiveDateTimeStr) => {
-                        fail!("Encoding Date32 as NaiveDateTimeStr is not supported at the moment")
-                    }
-                    Some(DataType::DateTimeStr) => {
-                        fail!("Encoding Date32 as DateTimeStr is not supported at the moment")
-                    }
-                    Some(dt) => fail!("Annotation {} is not supported by Date32", dt),
-                    None => fail!("Date32 columns require additional data type annotations"),
-                },
+                ArrowDataType::Date32 => fail!("Date32 are not supported at the moment"),
                 ArrowDataType::Date64 => match data_type {
                     Some(DataType::DateTimeMilliseconds) => {
                         ArraySource::Date64DateTimeMilliseconds(
