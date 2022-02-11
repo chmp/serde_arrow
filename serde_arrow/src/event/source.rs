@@ -4,10 +4,10 @@ use std::cell::Cell;
 
 use arrow::{
     array::{
-        BooleanArray, Date64Array, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-        Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        Array, BooleanArray, Date64Array, Float32Array, Float64Array, Int16Array, Int32Array,
+        Int64Array, Int8Array, PrimitiveArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
-    datatypes::DataType as ArrowDataType,
+    datatypes::{ArrowPrimitiveType, DataType as ArrowDataType},
     record_batch::RecordBatch,
 };
 use chrono::{NaiveDateTime, TimeZone, Utc};
@@ -31,31 +31,60 @@ enum ArraySource<'a> {
 
 impl<'a> ArraySource<'a> {
     fn emit<'this, 'event>(&'this self, idx: usize) -> Event<'event> {
-        // TODO: handle nullability: arr.is_null(idx)
+        fn emit_primitive<'this, 'event, T>(
+            arr: &'this PrimitiveArray<T>,
+            idx: usize,
+        ) -> Event<'event>
+        where
+            T: ArrowPrimitiveType,
+            T::Native: Into<Event<'event>>,
+        {
+            if arr.is_null(idx) {
+                Event::Null
+            } else {
+                arr.value(idx).into()
+            }
+        }
+
         match self {
-            Self::Bool(arr) => arr.value(idx).into(),
-            Self::I8(arr) => arr.value(idx).into(),
-            Self::I16(arr) => arr.value(idx).into(),
-            Self::I32(arr) => arr.value(idx).into(),
-            Self::I64(arr) => arr.value(idx).into(),
-            Self::U8(arr) => arr.value(idx).into(),
-            Self::U16(arr) => arr.value(idx).into(),
-            Self::U32(arr) => arr.value(idx).into(),
-            Self::U64(arr) => arr.value(idx).into(),
-            Self::F32(arr) => arr.value(idx).into(),
-            Self::F64(arr) => arr.value(idx).into(),
-            Self::Date64DateTimeMilliseconds(arr) => arr.value(idx).into(),
+            Self::Bool(arr) => {
+                if arr.is_null(idx) {
+                    Event::Null
+                } else {
+                    arr.value(idx).into()
+                }
+            }
+            Self::I8(arr) => emit_primitive(arr, idx),
+            Self::I16(arr) => emit_primitive(arr, idx),
+            Self::I32(arr) => emit_primitive(arr, idx),
+            Self::I64(arr) => emit_primitive(arr, idx),
+            Self::U8(arr) => emit_primitive(arr, idx),
+            Self::U16(arr) => emit_primitive(arr, idx),
+            Self::U32(arr) => emit_primitive(arr, idx),
+            Self::U64(arr) => emit_primitive(arr, idx),
+            Self::F32(arr) => emit_primitive(arr, idx),
+            Self::F64(arr) => emit_primitive(arr, idx),
+            Self::Date64DateTimeMilliseconds(arr) => emit_primitive(arr, idx),
             Self::Date64NaiveDateTimeStr(arr) => {
-                let val = arr.value(idx);
-                let val = NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
-                // NOTE: chrono documents that Debug can be parsed, Display cannot be parsed
-                format!("{:?}", val).into()
+                if arr.is_null(idx) {
+                    Event::Null
+                } else {
+                    let val = arr.value(idx);
+                    let val =
+                        NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+                    // NOTE: chrono documents that Debug, not Display, can be parsed
+                    format!("{:?}", val).into()
+                }
             }
             Self::Date64DateTimeStr(arr) => {
-                let val = arr.value(idx);
-                let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
-                // NOTE: chrono documents that Debug can be parsed, Display cannot be parsed
-                format!("{:?}", val).into()
+                if arr.is_null(idx) {
+                    Event::Null
+                } else {
+                    let val = arr.value(idx);
+                    let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+                    // NOTE: chrono documents that Debug, not Display, can be parsed
+                    format!("{:?}", val).into()
+                }
             }
         }
     }

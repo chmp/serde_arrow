@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 
 #[test]
 fn event_source() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        int8: i8,
+        int32: i32,
+    }
+
     let original = &[
         Example { int8: 0, int32: 21 },
         Example { int8: 1, int32: 42 },
@@ -36,6 +42,12 @@ fn event_source() -> Result<()> {
 
 #[test]
 fn example() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        int8: i8,
+        int32: i32,
+    }
+
     let original = &[
         Example { int8: 0, int32: 21 },
         Example { int8: 1, int32: 42 },
@@ -49,8 +61,23 @@ fn example() -> Result<()> {
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-struct Example {
-    int8: i8,
-    int32: i32,
+#[test]
+fn example_nullable() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        val: Option<u32>,
+    }
+
+    let original = &[
+        Example { val: Some(21) },
+        Example { val: None },
+        Example { val: Some(42) },
+    ];
+    let schema = crate::trace_schema(&original)?;
+    let record_batch = crate::to_record_batch(&original, &schema)?;
+    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+
+    assert_eq!(round_tripped, original);
+
+    Ok(())
 }

@@ -139,8 +139,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_option<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(Event::Null) = self.event_source.peek() {
+            self.event_source.next();
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
