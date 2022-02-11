@@ -43,8 +43,25 @@ impl<'de> Deserializer<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.event_source.peek() {
+            Some(Event::Bool(_)) => self.deserialize_bool(visitor),
+            Some(Event::I8(_)) => self.deserialize_i8(visitor),
+            Some(Event::I16(_)) => self.deserialize_i16(visitor),
+            Some(Event::I32(_)) => self.deserialize_i32(visitor),
+            Some(Event::I64(_)) => self.deserialize_i64(visitor),
+            Some(Event::U8(_)) => self.deserialize_u8(visitor),
+            Some(Event::U16(_)) => self.deserialize_u16(visitor),
+            Some(Event::U32(_)) => self.deserialize_u32(visitor),
+            Some(Event::U64(_)) => self.deserialize_u64(visitor),
+            Some(Event::F32(_)) => self.deserialize_f32(visitor),
+            Some(Event::F64(_)) => self.deserialize_f64(visitor),
+            Some(Event::Str(_)) => self.deserialize_str(visitor),
+            Some(Event::String(_)) => self.deserialize_string(visitor),
+            Some(Event::StartMap) => self.deserialize_map(visitor),
+            Some(Event::StartSequence) => self.deserialize_seq(visitor),
+            ev => fail!("Invalid event in deserialize_any: {:?}", ev),
+        }
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

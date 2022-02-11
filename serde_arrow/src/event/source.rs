@@ -25,6 +25,7 @@ enum ArraySource<'a> {
     F32(&'a Float32Array),
     F64(&'a Float64Array),
     Date64NaiveDateTimeStr(&'a Date64Array),
+    Date64DateTimeMilliseconds(&'a Date64Array),
 }
 
 impl<'a> ArraySource<'a> {
@@ -42,6 +43,7 @@ impl<'a> ArraySource<'a> {
             Self::U64(arr) => arr.value(idx).into(),
             Self::F32(arr) => arr.value(idx).into(),
             Self::F64(arr) => arr.value(idx).into(),
+            Self::Date64DateTimeMilliseconds(arr) => arr.value(idx).into(),
             Self::Date64NaiveDateTimeStr(arr) => {
                 let val = arr.value(idx);
                 let val = NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
@@ -129,10 +131,14 @@ impl<'a> RecordBatchSource<'a> {
                     None => fail!("Date32 columns require additional data type annotations"),
                 },
                 ArrowDataType::Date64 => match data_type {
-                    Some(DataType::DateTimeMilliseconds) => todo!(),
-                    Some(DataType::NaiveDateTimeStr) => ArraySource::Date64NaiveDateTimeStr(
-                        col.as_any().downcast_ref::<Date64Array>().unwrap(),
-                    ),
+                    Some(DataType::DateTimeMilliseconds) => {
+                        ArraySource::Date64DateTimeMilliseconds(
+                            col.as_any().downcast_ref().unwrap(),
+                        )
+                    }
+                    Some(DataType::NaiveDateTimeStr) => {
+                        ArraySource::Date64NaiveDateTimeStr(col.as_any().downcast_ref().unwrap())
+                    }
                     Some(DataType::DateTimeStr) => todo!(),
                     Some(dt) => fail!("Annotation {} is not supported by Date64", dt),
                     None => fail!("Date64 columns require additional data type annotations"),

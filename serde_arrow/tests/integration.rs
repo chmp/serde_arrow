@@ -53,7 +53,9 @@ fn item_multi_field_structure() -> Result<()> {
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
     let record_batch = serde_arrow::to_record_batch(&examples, &schema)?;
-    let _round_tripped: Vec<Example> = serde_arrow::from_record_batch(&record_batch, &schema)?;
+    let round_tripped: Vec<Example> = serde_arrow::from_record_batch(&record_batch, &schema)?;
+
+    assert_eq!(round_tripped, examples);
 
     Ok(())
 }
@@ -67,7 +69,10 @@ fn item_maps() -> Result<()> {
     ];
 
     let schema = serde_arrow::trace_schema(&examples)?;
-    serde_arrow::to_record_batch(&examples, &schema)?;
+    let batch = serde_arrow::to_record_batch(&examples, &schema)?;
+    let round_tripped: Vec<HashMap<String, i32>> = serde_arrow::from_record_batch(&batch, &schema)?;
+
+    assert_eq!(round_tripped, examples);
 
     Ok(())
 }
@@ -76,7 +81,7 @@ fn item_maps() -> Result<()> {
 ///
 #[test]
 fn item_flattened_structures() -> Result<()> {
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Deserialize, Serialize)]
     struct Example {
         int8: i8,
         int32: i32,
@@ -102,6 +107,9 @@ fn item_flattened_structures() -> Result<()> {
     let batch = serde_arrow::to_record_batch(&examples, &schema)?;
 
     assert_eq!(batch.num_columns(), 4);
+
+    let round_tripped: Vec<Example> = serde_arrow::from_record_batch(&batch, &schema)?;
+    assert_eq!(round_tripped, examples);
 
     Ok(())
 }
@@ -159,7 +167,7 @@ define_api_test!(
 /// Test that dates as RFC 3339 strings are correctly handled
 #[test]
 fn dtype_date64_str() -> Result<()> {
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Record {
         val: NaiveDateTime,
     }
@@ -183,6 +191,9 @@ fn dtype_date64_str() -> Result<()> {
         Date64Array::from(vec![12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
     );
 
+    let round_tripped: Vec<Record> = serde_arrow::from_record_batch(&batch, &schema)?;
+    assert_eq!(round_tripped.as_slice(), records);
+
     Ok(())
 }
 
@@ -191,7 +202,7 @@ fn dtype_date64_str() -> Result<()> {
 fn dtype_date64_int() -> Result<()> {
     use chrono::serde::ts_milliseconds;
 
-    #[derive(Serialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Record {
         #[serde(with = "ts_milliseconds")]
         val: DateTime<Utc>,
@@ -218,6 +229,9 @@ fn dtype_date64_int() -> Result<()> {
             (1 * 24 + 9) * 60 * 60 * 1000
         ])
     );
+
+    let round_tripped: Vec<Record> = serde_arrow::from_record_batch(&batch, &schema)?;
+    assert_eq!(round_tripped.as_slice(), records);
 
     Ok(())
 }
