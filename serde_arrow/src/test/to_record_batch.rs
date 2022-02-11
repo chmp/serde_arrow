@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    ng::{to_record_batch, trace_schema},
-    Result,
-};
+use crate::{to_record_batch, trace_schema, DataType, Result, Schema};
 
 #[test]
 fn example() -> Result<()> {
@@ -18,6 +15,21 @@ fn example() -> Result<()> {
     let _actual = to_record_batch(&rows, &schema)?;
 
     // TODO: test
+
+    Ok(())
+}
+
+#[test]
+fn example_option() -> Result<()> {
+    #[derive(Serialize)]
+    struct Example {
+        a: Option<u8>,
+    }
+
+    let schema = Schema::new().with_field("a", Some(DataType::U8), Some(true));
+
+    let _actual = to_record_batch(&&[Example { a: Some(0) }], &schema)?;
+    let _actual = to_record_batch(&&[Example { a: Some(0) }, Example { a: None }], &schema)?;
 
     Ok(())
 }

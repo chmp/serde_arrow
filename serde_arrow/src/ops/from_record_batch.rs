@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, RecordBatchSource},
-    fail, Error, Result,
+    fail, Error, Result, Schema,
 };
 
 use arrow::record_batch::RecordBatch;
@@ -9,8 +9,11 @@ use serde::{
     Deserialize,
 };
 
-pub fn from_record_batch<'de, T: Deserialize<'de>>(record_batch: &'de RecordBatch) -> Result<T> {
-    let mut deserializer = Deserializer::from_record_batch(record_batch)?;
+pub fn from_record_batch<'de, T: Deserialize<'de>>(
+    record_batch: &'de RecordBatch,
+    schema: &Schema,
+) -> Result<T> {
+    let mut deserializer = Deserializer::from_record_batch(record_batch, schema)?;
     let res = T::deserialize(&mut deserializer)?;
 
     if !deserializer.is_done() {
@@ -25,9 +28,9 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    fn from_record_batch(record_batch: &'de RecordBatch) -> Result<Self> {
+    fn from_record_batch(record_batch: &'de RecordBatch, schema: &Schema) -> Result<Self> {
         let res = Self {
-            event_source: RecordBatchSource::new(record_batch)?,
+            event_source: RecordBatchSource::new(record_batch, schema)?,
         };
         Ok(res)
     }
@@ -44,54 +47,48 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_bool<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_bool(self.event_source.next().try_into()?)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
-            Event::I8(v) => visitor.visit_i8(v),
-            ev => fail!("Expected i8, found {}", ev),
-        }
+        visitor.visit_i8(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_i16<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i16(self.event_source.next().try_into()?)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
-            Event::I32(v) => visitor.visit_i32(v),
-            ev => fail!("Expected i8, found {}", ev),
-        }
+        visitor.visit_i32(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_i64<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i64(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_u8<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u8(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_u16<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u16(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_u32<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u32(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_u64<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u64(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_f32<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_f32(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_f64<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_f64(self.event_source.next().try_into()?)
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
@@ -99,14 +96,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
+        let res = match self.event_source.next() {
             Event::Key(key) => visitor.visit_str(key),
+            Event::Str(val) => visitor.visit_str(val),
+            Event::String(val) => visitor.visit_str(&val),
             ev => fail!("Invalid event {}, expected str", ev),
-        }
+        };
+        res
     }
 
-    fn deserialize_string<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.event_source.next() {
+            Event::Key(key) => visitor.visit_string(key.to_owned()),
+            Event::Str(val) => visitor.visit_string(val.to_owned()),
+            Event::String(val) => visitor.visit_string(val),
+            ev => fail!("Invalid event {}, expected string", ev),
+        }
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {

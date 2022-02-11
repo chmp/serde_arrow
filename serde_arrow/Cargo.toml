@@ -2,7 +2,7 @@
 name = "serde_arrow"
 version = "0.3.0"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
-edition = "2018"
+edition = "2021"
 description  = "convert sequences of structs / maps to arrow tables"
 readme = "../Readme.md"
 repository = "https://github.com/chmp/serde_arrow"

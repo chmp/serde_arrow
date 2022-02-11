@@ -72,35 +72,46 @@ impl RecordBatchSink {
 
 impl EventSink for RecordBatchSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        match (self.state, event) {
-            (State::WaitForStartSequence, Event::StartSequence) => {
-                self.state = State::WaitForStartMap;
-            }
-            (State::WaitForStartMap, Event::StartMap) => {
-                self.state = State::WaitForKey;
-            }
-            (State::WaitForKey, Event::EndMap) => {
-                self.state = State::WaitForStartMap;
-            }
-            (State::WaitForStartMap, Event::EndSequence) => {
-                self.state = State::Done;
-            }
+        self.state = match (self.state, event) {
+            (State::WaitForStartSequence, Event::StartSequence) => State::WaitForStartMap,
+            (State::WaitForStartMap, Event::StartMap) => State::WaitForKey,
+            (State::WaitForKey, Event::EndMap) => State::WaitForStartMap,
+            (State::WaitForStartMap, Event::EndSequence) => State::Done,
             (State::WaitForKey, Event::Key(key)) => {
                 let idx = self
                     .field_indices
                     .get(key)
                     .ok_or_else(|| error!("Unknown field {}", key))?;
-                self.state = State::WaitForValue(*idx);
+                State::WaitForValue(*idx)
             }
-            (State::WaitForValue(idx), Event::I8(val)) => {
-                self.builders[idx].append_i8(val)?;
-                self.state = State::WaitForKey;
-            }
-            (State::WaitForValue(idx), Event::I32(val)) => {
-                self.builders[idx].append_i32(val)?;
-                self.state = State::WaitForKey;
+            (State::WaitForValue(idx), Event::Some) => State::WaitForValue(idx),
+            (State::WaitForValue(idx), event) => {
+                self.append(idx, event)?;
+                State::WaitForKey
             }
             (state, event) => fail!("Unexpected event {} in state {:?}", event, state),
+        };
+        Ok(())
+    }
+}
+
+impl RecordBatchSink {
+    fn append(&mut self, idx: usize, event: Event<'_>) -> Result<()> {
+        match event {
+            Event::Bool(val) => self.builders[idx].append_bool(val)?,
+            Event::I8(val) => self.builders[idx].append_i8(val)?,
+            Event::I16(val) => self.builders[idx].append_i16(val)?,
+            Event::I32(val) => self.builders[idx].append_i32(val)?,
+            Event::I64(val) => self.builders[idx].append_i64(val)?,
+            Event::U8(val) => self.builders[idx].append_u8(val)?,
+            Event::U16(val) => self.builders[idx].append_u16(val)?,
+            Event::U32(val) => self.builders[idx].append_u32(val)?,
+            Event::U64(val) => self.builders[idx].append_u64(val)?,
+            Event::F32(val) => self.builders[idx].append_f32(val)?,
+            Event::F64(val) => self.builders[idx].append_f64(val)?,
+            Event::Str(val) => self.builders[idx].append_utf8(val)?,
+            Event::Null => self.builders[idx].append_null()?,
+            event => fail!("Cannot append event {}", event),
         }
         Ok(())
     }

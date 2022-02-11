@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use arrow::array::Date64Array;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use serde_arrow::{DataType, Result};
 
@@ -23,7 +23,7 @@ macro_rules! hashmap {
 ///
 #[test]
 fn item_multi_field_structure() -> Result<()> {
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
     struct Example {
         int8: i8,
         int32: i32,
@@ -52,7 +52,8 @@ fn item_multi_field_structure() -> Result<()> {
     let mut schema = serde_arrow::trace_schema(&examples)?;
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
-    serde_arrow::to_record_batch(&examples, &schema)?;
+    let record_batch = serde_arrow::to_record_batch(&examples, &schema)?;
+    let _round_tripped: Vec<Example> = serde_arrow::from_record_batch(&record_batch, &schema)?;
 
     Ok(())
 }

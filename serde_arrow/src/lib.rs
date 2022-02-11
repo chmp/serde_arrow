@@ -31,15 +31,16 @@
 //! ```
 //!
 pub(crate) mod event;
-pub mod ng;
+mod ops;
 mod schema;
-mod serializer;
 mod util;
 
 #[cfg(test)]
 mod test;
 
-pub use schema::{trace_schema, DataType, Schema};
-pub use serializer::to_record_batch;
+pub use schema::{DataType, Schema};
+// pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
 pub use util::hl::to_ipc_writer;
+
+pub use ops::{from_record_batch, to_record_batch, trace_schema};

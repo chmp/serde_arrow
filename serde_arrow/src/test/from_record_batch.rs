@@ -1,7 +1,6 @@
 use crate::{
     event::{Event, RecordBatchSource},
-    ng::from_record_batch,
-    Result,
+    from_record_batch, Result,
 };
 
 use serde::{Deserialize, Serialize};
@@ -15,7 +14,7 @@ fn event_source() -> Result<()> {
     let schema = crate::trace_schema(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
 
-    let mut event_source = RecordBatchSource::new(&record_batch)?;
+    let mut event_source = RecordBatchSource::new(&record_batch, &schema)?;
 
     assert_eq!(event_source.next(), Event::StartSequence);
     assert_eq!(event_source.next(), Event::StartMap);
@@ -43,7 +42,7 @@ fn example() -> Result<()> {
     ];
     let schema = crate::trace_schema(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch)?;
+    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 

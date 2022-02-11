@@ -1,4 +1,4 @@
-use crate::{fail, schema::DataType, Error, Result};
+use crate::{fail, schema::DataType, Result};
 use arrow::{
     array::{
         ArrayRef, BooleanBuilder, Date64Builder, Float32Builder, Float64Builder, Int16Builder,
@@ -8,7 +8,6 @@ use arrow::{
     datatypes::DataType as ArrowType,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
-use serde::ser::{Impossible, Serialize, Serializer};
 
 use std::sync::Arc;
 
@@ -169,141 +168,5 @@ impl ArrayBuilder {
             _ => fail!("Mismatched type"),
         };
         Ok(())
-    }
-}
-
-macro_rules! unsupported {
-    ($name:ident, $ty:ty) => {
-        fn $name(self, _v: $ty) -> Result<()> {
-            return Err(Error::Custom(String::from("Not supported")));
-        }
-    };
-}
-
-macro_rules! simple_serialize {
-    ($name:ident, $ty:ty, $func:ident) => {
-        fn $name(self, value: $ty) -> Result<Self::Ok> {
-            self.$func(value)
-        }
-    };
-}
-
-impl<'a> Serializer for &'a mut ArrayBuilder {
-    type Ok = ();
-    type Error = Error;
-
-    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
-    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
-    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
-    type SerializeMap = Impossible<Self::Ok, Self::Error>;
-    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
-
-    simple_serialize!(serialize_bool, bool, append_bool);
-    simple_serialize!(serialize_i8, i8, append_i8);
-    simple_serialize!(serialize_i16, i16, append_i16);
-    simple_serialize!(serialize_i32, i32, append_i32);
-    simple_serialize!(serialize_i64, i64, append_i64);
-    simple_serialize!(serialize_u8, u8, append_u8);
-    simple_serialize!(serialize_u16, u16, append_u16);
-    simple_serialize!(serialize_u32, u32, append_u32);
-    simple_serialize!(serialize_u64, u64, append_u64);
-    simple_serialize!(serialize_f32, f32, append_f32);
-    simple_serialize!(serialize_f64, f64, append_f64);
-
-    unsupported!(serialize_char, char);
-
-    fn serialize_str(self, value: &str) -> Result<Self::Ok> {
-        self.append_utf8(value)
-    }
-
-    unsupported!(serialize_bytes, &[u8]);
-
-    fn serialize_none(self) -> Result<Self::Ok> {
-        self.append_null()
-    }
-
-    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok> {
-        value.serialize(self)
-    }
-
-    fn serialize_unit(self) -> Result<Self::Ok> {
-        fail!("serialize_unit not supported");
-    }
-
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        fail!("serialize_unit_struct not supported");
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<()> {
-        fail!("serialize_unit_variant not supported");
-    }
-
-    fn serialize_newtype_struct<T: ?Sized + Serialize>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<()> {
-        fail!("serialize_newtype_struct not supported");
-    }
-
-    fn serialize_newtype_variant<T: ?Sized + Serialize>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<()> {
-        fail!("serialize_newtype_variant not supported");
-    }
-
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        fail!("serialize_seq not supported");
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        fail!("serialize_tuple not supported");
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct not supported");
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        fail!("serialize_tuple_variant not supported");
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        fail!("serialize_map not supported");
-    }
-
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        fail!("serialize_struct not supported");
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        fail!("serialize_struct_variant not supported");
     }
 }

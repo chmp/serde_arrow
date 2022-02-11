@@ -38,9 +38,15 @@ impl<S> EventSerializer<S> {
 impl<S: EventSink> EventSerializer<S> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         if self.expect_key {
-            fail!("Expected a key, not a value");
+            let key = match event {
+                Event::Str(key) => key,
+                _ => fail!("Expected a key, not a {} event", event),
+            };
+            self.expect_key = false;
+            self.sink.accept(Event::Key(key))
+        } else {
+            self.sink.accept(event)
         }
-        self.sink.accept(event)
     }
 }
 
@@ -56,56 +62,56 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
     type SerializeMap = Self;
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
-    fn serialize_bool(self, _val: bool) -> Result<()> {
-        todo!()
+    fn serialize_bool(self, val: bool) -> Result<()> {
+        self.accept(val.into())
     }
 
     fn serialize_i8(self, val: i8) -> Result<()> {
-        self.accept(Event::I8(val))
+        self.accept(val.into())
     }
 
-    fn serialize_i16(self, _val: i16) -> Result<()> {
-        todo!()
+    fn serialize_i16(self, val: i16) -> Result<()> {
+        self.accept(val.into())
     }
 
     fn serialize_i32(self, val: i32) -> Result<()> {
-        self.accept(Event::I32(val))
+        self.accept(val.into())
     }
 
-    fn serialize_i64(self, _val: i64) -> Result<()> {
-        todo!()
+    fn serialize_i64(self, val: i64) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_u8(self, _val: u8) -> Result<()> {
-        todo!()
+    fn serialize_u8(self, val: u8) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_u16(self, _val: u16) -> Result<()> {
-        todo!()
+    fn serialize_u16(self, val: u16) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_u32(self, _val: u32) -> Result<()> {
-        todo!()
+    fn serialize_u32(self, val: u32) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_u64(self, _val: u64) -> Result<()> {
-        todo!()
+    fn serialize_u64(self, val: u64) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_f32(self, _val: f32) -> Result<()> {
-        todo!()
+    fn serialize_f32(self, val: f32) -> Result<()> {
+        self.accept(val.into())
     }
 
-    fn serialize_f64(self, _val: f64) -> Result<()> {
-        todo!()
+    fn serialize_f64(self, val: f64) -> Result<()> {
+        self.accept(val.into())
     }
 
     fn serialize_char(self, _val: char) -> Result<()> {
         todo!()
     }
 
-    fn serialize_str(self, _val: &str) -> Result<()> {
-        todo!()
+    fn serialize_str(self, val: &str) -> Result<()> {
+        self.accept(val.into())
     }
 
     fn serialize_bytes(self, _val: &[u8]) -> Result<()> {
@@ -113,22 +119,20 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
     }
 
     fn serialize_none(self) -> Result<()> {
-        todo!()
+        self.accept(Event::Null)
     }
 
-    fn serialize_some<T>(self, _value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        todo!()
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<()> {
+        self.accept(Event::Some)?;
+        value.serialize(self)
     }
 
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        fail!("serialize_unit not supported");
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        todo!()
+        fail!("serialize_unit_struct not supported");
     }
 
     fn serialize_unit_variant(
@@ -137,27 +141,25 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<()> {
-        todo!()
+        fail!("serialize_unit_variant not supported");
     }
 
-    fn serialize_newtype_struct<T>(self, _name: &'static str, _value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        todo!()
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        _value: &T,
+    ) -> Result<()> {
+        fail!("serialize_newtype_struct not supported");
     }
 
-    fn serialize_newtype_variant<T>(
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
         _value: &T,
-    ) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        todo!()
+    ) -> Result<()> {
+        fail!("serialize_newtype_variant not supported");
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -175,7 +177,7 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        todo!()
+        fail!("serialize_tuple_struct not supported");
     }
 
     fn serialize_tuple_variant(
@@ -185,7 +187,7 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        todo!()
+        fail!("serialize_tuple_variant not supported");
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -205,7 +207,7 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        todo!()
+        fail!("serialize_struct_variant not supported");
     }
 }
 

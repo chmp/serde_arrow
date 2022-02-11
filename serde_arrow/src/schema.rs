@@ -4,44 +4,8 @@ use std::{
 };
 
 use arrow::datatypes::{DataType as ArrowType, Field, Schema as ArrowSchema};
-use serde::{
-    ser::{self, Impossible},
-    Serialize,
-};
 
-use crate::{
-    fail, util::outer_structure::OuterSerializer, util::outer_structure::RecordBuilder, Error,
-    Result,
-};
-
-/// Try to determine the schema from the existing records
-///
-/// This function inspects the individual records and tries to determine the
-/// data types of each field. For most types, it is sufficient to trace a small
-/// number of records to accurately determine the schema. For some fields no
-/// data type can be determined, e.g., for options if all entries are missing.
-/// In this case, the data type has to be overwritten manually via
-/// [Schema::add_field]:
-///
-/// ```
-/// # use std::convert::TryFrom;
-/// # use serde_arrow::{Schema, DataType};
-/// // Create a new TracedSchema
-/// # let mut schema = Schema::new();
-/// schema.add_field("col1", Some(DataType::I64), Some(true));
-/// schema.add_field("col2", Some(DataType::I64), Some(false));
-/// ```
-pub fn trace_schema<T>(value: &T) -> Result<Schema>
-where
-    T: serde::Serialize + ?Sized,
-{
-    let schema = Schema::new();
-
-    let mut outer = OuterSerializer::new(schema)?;
-    value.serialize(&mut outer)?;
-
-    Ok(outer.into_inner())
-}
+use crate::{fail, Error, Result};
 
 /// The data type of a column
 ///
@@ -74,6 +38,29 @@ pub enum DataType {
     Str,
     /// a raw arrow data type
     Arrow(ArrowType),
+}
+
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bool => write!(f, "Bool"),
+            Self::I8 => write!(f, "I8"),
+            Self::I16 => write!(f, "I16"),
+            Self::I32 => write!(f, "I32"),
+            Self::I64 => write!(f, "I64"),
+            Self::U8 => write!(f, "U8"),
+            Self::U16 => write!(f, "U16"),
+            Self::U32 => write!(f, "U32"),
+            Self::U64 => write!(f, "U64"),
+            Self::F32 => write!(f, "F32"),
+            Self::F64 => write!(f, "F64"),
+            Self::DateTimeStr => write!(f, "DateTimeStr"),
+            Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
+            Self::DateTimeMilliseconds => write!(f, "DateTimeMilliseconds"),
+            Self::Str => write!(f, "Str"),
+            Self::Arrow(dt) => write!(f, "Arrow({})", dt),
+        }
+    }
 }
 
 impl std::convert::TryFrom<&DataType> for ArrowType {
@@ -182,6 +169,16 @@ impl Schema {
         self.nullable.contains(field)
     }
 
+    pub fn with_field(
+        mut self,
+        field: &str,
+        data_type: Option<DataType>,
+        nullable: Option<bool>,
+    ) -> Self {
+        self.add_field(field, data_type, nullable);
+        self
+    }
+
     /// Add a new field
     ///
     /// This function overwrites an existing field, if it exists already exists.
@@ -251,203 +248,5 @@ impl std::convert::TryFrom<ArrowSchema> for Schema {
         }
 
         Ok(res)
-    }
-}
-
-impl RecordBuilder for Schema {
-    fn start(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn end(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn field<T: Serialize + ?Sized>(&mut self, name: &str, value: &T) -> Result<(), Error> {
-        let (nullable, data_type) = value.serialize(FieldTracer)?;
-
-        if !self.seen_fields.contains(name) {
-            self.fields.push(name.to_owned());
-            self.seen_fields.insert(name.to_owned());
-        }
-
-        if nullable {
-            self.nullable.insert(name.to_owned());
-        }
-
-        if let Some(data_type) = data_type {
-            if !self.data_type.contains_key(name) {
-                self.data_type.insert(name.to_owned(), data_type);
-            }
-            // TODO: check that the data type did not change
-        }
-
-        Ok(())
-    }
-}
-
-macro_rules! unsupported {
-    ($name:ident) => {
-        fn $name(self) -> Result<Self::Ok> {
-            return Err(Error::Custom(format!(
-                "{} not supported for in schema tracing",
-                stringify!($name)
-            )));
-        }
-    };
-    ($name:ident, $($ty:ty),*) => {
-        fn $name(self, $(_: $ty),*) -> Result<Self::Ok> {
-            return Err(Error::Custom(format!(
-                "{} not supported for in schema tracing",
-                stringify!($name)
-            )));
-        }
-    };
-}
-
-struct FieldTracer;
-
-impl<'a> ser::Serializer for FieldTracer {
-    type Ok = (bool, Option<DataType>);
-    type Error = Error;
-
-    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
-    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
-    type SerializeMap = Impossible<Self::Ok, Self::Error>;
-    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
-    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
-
-    fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Bool)))
-    }
-
-    fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::I8)))
-    }
-
-    fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::I16)))
-    }
-
-    fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::I32)))
-    }
-
-    fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::I64)))
-    }
-
-    fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::U8)))
-    }
-
-    fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::U16)))
-    }
-
-    fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::U32)))
-    }
-
-    fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::U64)))
-    }
-
-    fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::F32)))
-    }
-
-    fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::F64)))
-    }
-
-    unsupported!(serialize_char, char);
-
-    fn serialize_str(self, _: &str) -> Result<Self::Ok> {
-        Ok((false, Some(DataType::Str)))
-    }
-
-    unsupported!(serialize_bytes, &[u8]);
-
-    fn serialize_none(self) -> Result<Self::Ok> {
-        Ok((true, None))
-    }
-
-    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        let (_, data_type) = value.serialize(self)?;
-        Ok((true, data_type))
-    }
-
-    unsupported!(serialize_unit);
-    unsupported!(serialize_unit_struct, &'static str);
-    unsupported!(serialize_unit_variant, &'static str, u32, &'static str);
-
-    fn serialize_newtype_struct<T>(self, _name: &'static str, _value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        fail!("serialize_newtype_struct not supported in schema tracing");
-    }
-
-    fn serialize_newtype_variant<T>(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        fail!("serialize_newtype_variant not supported in schema tracing");
-    }
-
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        fail!("serialize_seq not supported in schema tracing");
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        fail!("serialize_tuple not supported in schema tracing");
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct not supported in schema tracing");
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        fail!("serialize_tuple_variant not supported in schema tracing");
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        fail!("serialize_map not supported in schema tracing");
-    }
-
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        fail!("serialize_struct not supported in schema tracing");
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        fail!("serialize_struct_variant not supported in schema tracing");
     }
 }
