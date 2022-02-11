@@ -22,6 +22,11 @@ def precommit():
 
 
 @cmd()
+def test_lib():
+    cargo("test", "--lib", "--package", "serde_arrow")
+
+
+@cmd()
 def doc():
     cargo("doc")
 
