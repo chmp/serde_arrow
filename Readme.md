@@ -9,7 +9,7 @@
 
 **Warning:** this package is in an experiment at the moment.
 
-[Arrow][arrow)] is a powerful library to work with data frame like structures.
+[Arrow][arrow] is a powerful library to work with data frame like structures.
 The surrounding ecosystem includes a rich set of libraries, ranging from data
 frames via [Polars][polar] to query engines via [DataFusion][datafusion].
 However, it's API due to the statically typed nature of Rust can be at times
