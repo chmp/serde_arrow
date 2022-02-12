@@ -106,6 +106,7 @@ depending on configuration.
   `NaiveDateTime` as string or `DateTime<Utc>` as integer via
   `chrono::serde::ts_milliseconds`. **Warning:** the RFC 3339 format will strip
   the milliseconds
+- [x] `chars` (serde: `char`, arrow: `UInt32`)
 - [ ] dates (serde: `&str`, arrow: `Date32`)
 - [ ] binary data (serde: `Seq[u8]`, arrow: `Binary`, `FixedSizeBinary`,
   `LargeBinary`)

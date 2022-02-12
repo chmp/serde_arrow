@@ -106,8 +106,8 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
         self.accept(val.into())
     }
 
-    fn serialize_char(self, _val: char) -> Result<()> {
-        todo!()
+    fn serialize_char(self, val: char) -> Result<()> {
+        self.accept(u32::from(val).into())
     }
 
     fn serialize_str(self, val: &str) -> Result<()> {
@@ -115,7 +115,7 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
     }
 
     fn serialize_bytes(self, _val: &[u8]) -> Result<()> {
-        todo!()
+        fail!("serialize_bytes: cannot convert bytes to events")
     }
 
     fn serialize_none(self) -> Result<()> {
@@ -128,11 +128,11 @@ impl<'a, S: EventSink> Serializer for &'a mut EventSerializer<S> {
     }
 
     fn serialize_unit(self) -> Result<()> {
-        fail!("serialize_unit not supported");
+        self.accept(Event::Null)
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        fail!("serialize_unit_struct not supported");
+        self.serialize_unit()
     }
 
     fn serialize_unit_variant(

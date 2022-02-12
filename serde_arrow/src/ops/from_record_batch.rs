@@ -1,4 +1,5 @@
 use crate::{
+    error,
     event::{Event, RecordBatchSource},
     fail, Error, Result, Schema,
 };
@@ -108,18 +109,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_f64(self.event_source.next().try_into()?)
     }
 
-    fn deserialize_char<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.event_source.next() {
+            Event::U32(val) => {
+                visitor.visit_char(char::from_u32(val).ok_or_else(|| error!("Invalid character"))?)
+            }
+            ev => fail!(
+                "Invalid event {}, expected a character encoded as uint32",
+                ev
+            ),
+        }
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        let res = match self.event_source.next() {
+        match self.event_source.next() {
             Event::Key(key) => visitor.visit_str(key),
             Event::Str(val) => visitor.visit_str(val),
             Event::String(val) => visitor.visit_str(&val),
             ev => fail!("Invalid event {}, expected str", ev),
-        };
-        res
+        }
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -132,11 +140,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+        fail!("deserialize_bytes: Bytes are not supported at the moment")
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+        fail!("deserialize_byte_buf: Bytes are not supported at the moment")
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -148,24 +156,27 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_unit<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+    fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.event_source.next() {
+            Event::Null => visitor.visit_unit(),
+            ev => fail!("deserialize_unit: Cannot handle {}", ev),
+        }
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(
         self,
         _name: &'static str,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value> {
-        todo!()
+        self.deserialize_unit(visitor)
     }
 
     fn deserialize_newtype_struct<V: Visitor<'de>>(
         self,
         _name: &'static str,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value> {
-        todo!()
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -222,7 +233,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         _variants: &'static [&'static str],
         _visitor: V,
     ) -> Result<V::Value> {
-        todo!()
+        fail!("deserialize_enum: Enums are not supported at the moment")
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

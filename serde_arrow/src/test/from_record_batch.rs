@@ -141,3 +141,24 @@ fn example_large_string() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn example_char() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        val: char,
+    }
+
+    let original = &[
+        Example { val: 'f' },
+        Example { val: 'o' },
+        Example { val: 'o' },
+    ];
+    let schema = crate::trace_schema(&original)?;
+    let record_batch = crate::to_record_batch(&original, &schema)?;
+    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+
+    assert_eq!(round_tripped, original);
+
+    Ok(())
+}
