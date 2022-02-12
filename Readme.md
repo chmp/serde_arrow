@@ -1,4 +1,4 @@
-# `serde_arrow` - convert sequences of structs / maps to arrow tables
+# `serde_arrow` - convert sequences of structs / maps to and from arrow tables
 
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
@@ -9,8 +9,15 @@
 
 **Warning:** this package is in an experiment at the moment.
 
-This package is focused on serialization for the moment, as this is the author's
-use case.
+[Arrow](https://docs.rs/arrow/latest/arrow/) is a powerful library to work with
+data frame like structures. However, it's API due to the statically typed nature
+of Rust can be at times cumbersome to use directly. This package, `serde_arrow`,
+tries to bridge this gap by offering a simple way to convert Rust objects into
+Arrow objects and vice versa.  This package is optimized for ease of use, not
+performance.
+
+`serde_arrow` relies on the [Serde](https://serde.rs) package to interpret Rust
+objects. See the [implementation notes](Implementation.md) for details.
 
 ## Example
 
