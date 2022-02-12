@@ -15,14 +15,12 @@ frames via [Polars][polar] to query engines via [DataFusion][datafusion].
 However, it's API due to the statically typed nature of Rust can be at times
 cumbersome to use directly. This package, `serde_arrow`, tries to bridge this
 gap by offering a simple way to convert Rust objects into Arrow objects and vice
-versa.  This package is optimized for ease of use, not performance.
-
-`serde_arrow` relies on the [Serde](https://serde.rs) package to interpret Rust
-objects. Therefore, adding support for `serde_arrow` to custom types is as easy
-as using Serde's derive macros. 
+versa.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
+interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
+types is as easy as using Serde's derive macros. 
 
 See the [implementation notes](Implementation.md) for details on how it is
-implemented.
+implemented. This package is optimized for ease of use, not performance.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
 [polars]: https://github.com/pola-rs/polars
