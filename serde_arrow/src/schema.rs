@@ -104,7 +104,7 @@ impl From<&ArrowType> for DataType {
 ///
 // There are multiple ways to construct a schema:
 ///
-/// - Trace it from the records using [trace_schema]
+/// - Trace it from the records using [crate::trace_schema]
 /// - Build it manually by using [Schema::new] and [Schema::add_field]
 /// - Convert an Arrow schema via `Schema::try_from(arrow_schema)`
 ///
