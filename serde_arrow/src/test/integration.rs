@@ -4,7 +4,7 @@ use arrow::array::Date64Array;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
-use serde_arrow::{DataType, Result};
+use crate::{DataType, Result};
 
 macro_rules! hashmap {
     () => {
@@ -49,11 +49,11 @@ fn item_multi_field_structure() -> Result<()> {
         },
     ];
 
-    let mut schema = serde_arrow::trace_schema(&examples)?;
+    let mut schema = crate::trace_schema(&examples)?;
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
-    let record_batch = serde_arrow::to_record_batch(&examples, &schema)?;
-    let round_tripped: Vec<Example> = serde_arrow::from_record_batch(&record_batch, &schema)?;
+    let record_batch = crate::to_record_batch(&examples, &schema)?;
+    let round_tripped: Vec<Example> = crate::from_record_batch(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, examples);
 
@@ -68,9 +68,9 @@ fn item_maps() -> Result<()> {
         hashmap! { "a" => 42, "b" => 32 },
     ];
 
-    let schema = serde_arrow::trace_schema(&examples)?;
-    let batch = serde_arrow::to_record_batch(&examples, &schema)?;
-    let round_tripped: Vec<HashMap<String, i32>> = serde_arrow::from_record_batch(&batch, &schema)?;
+    let schema = crate::trace_schema(&examples)?;
+    let batch = crate::to_record_batch(&examples, &schema)?;
+    let round_tripped: Vec<HashMap<String, i32>> = crate::from_record_batch(&batch, &schema)?;
 
     assert_eq!(round_tripped, examples);
 
@@ -103,12 +103,12 @@ fn item_flattened_structures() -> Result<()> {
         },
     ];
 
-    let schema = serde_arrow::trace_schema(&examples)?;
-    let batch = serde_arrow::to_record_batch(&examples, &schema)?;
+    let schema = crate::trace_schema(&examples)?;
+    let batch = crate::to_record_batch(&examples, &schema)?;
 
     assert_eq!(batch.num_columns(), 4);
 
-    let round_tripped: Vec<Example> = serde_arrow::from_record_batch(&batch, &schema)?;
+    let round_tripped: Vec<Example> = crate::from_record_batch(&batch, &schema)?;
     assert_eq!(round_tripped, examples);
 
     Ok(())
@@ -131,8 +131,8 @@ macro_rules! define_api_test {
     (__body__; $rows:expr) => {
         {
             let rows = $rows;
-            let schema = serde_arrow::trace_schema(rows)?;
-            serde_arrow::to_record_batch(rows, &schema)?;
+            let schema = crate::trace_schema(rows)?;
+            crate::to_record_batch(rows, &schema)?;
 
             Ok(())
         }
@@ -181,17 +181,17 @@ fn dtype_date64_str() -> Result<()> {
         },
     ][..];
 
-    let mut schema = serde_arrow::trace_schema(records)?;
+    let mut schema = crate::trace_schema(records)?;
     schema.set_data_type("val", DataType::NaiveDateTimeStr)?;
 
-    let batch = serde_arrow::to_record_batch(records, &schema)?;
+    let batch = crate::to_record_batch(records, &schema)?;
 
     assert_eq!(
         *(batch.column(0).as_ref()),
         Date64Array::from(vec![12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
     );
 
-    let round_tripped: Vec<Record> = serde_arrow::from_record_batch(&batch, &schema)?;
+    let round_tripped: Vec<Record> = crate::from_record_batch(&batch, &schema)?;
     assert_eq!(round_tripped.as_slice(), records);
 
     Ok(())
@@ -217,10 +217,10 @@ fn dtype_date64_int() -> Result<()> {
         },
     ][..];
 
-    let mut schema = serde_arrow::trace_schema(records)?;
+    let mut schema = crate::trace_schema(records)?;
     schema.set_data_type("val", DataType::DateTimeMilliseconds)?;
 
-    let batch = serde_arrow::to_record_batch(records, &schema)?;
+    let batch = crate::to_record_batch(records, &schema)?;
 
     assert_eq!(
         *(batch.column(0).as_ref()),
@@ -230,7 +230,7 @@ fn dtype_date64_int() -> Result<()> {
         ])
     );
 
-    let round_tripped: Vec<Record> = serde_arrow::from_record_batch(&batch, &schema)?;
+    let round_tripped: Vec<Record> = crate::from_record_batch(&batch, &schema)?;
     assert_eq!(round_tripped.as_slice(), records);
 
     Ok(())
