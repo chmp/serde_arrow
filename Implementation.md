@@ -49,16 +49,17 @@ let batch = serde_arrow::to_record_batch(&items, &schema)?;
 ```
 
 To support in creation of schema definitions `serde_arrow` offers the function
-[`serde_arrow::trace_schema`][crate::trace_schema], which tries to auto-detect
-the schema. However, this detection is not always reliable. For example
-`Option`s with only `None` values cannot be detected. Also chrono's date types
-map to different serialization formats (strings, ints, ..) depending on
-configuration. For example:
+[`Schema::from_records`][crate::Schema::from_records], which tries to auto-detect
+the schema. For example:
 
 ```rust
 let schema = Schema::from_records(&items)?;
 // update detected data types here
 ```
+
+Note however, this detection is not always reliable. For example `Option`s with
+only `None` values cannot be detected. Also chrono's date types map to different
+serialization formats (strings, ints, ..) depending on configuration.
 
 The reverse process, from a record batch to a sequence of Rust records, is
 implemented similarly:
@@ -86,3 +87,4 @@ let schema = Schema::from_record_batch(&batch)?;
 [crate::trace_schema]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.trace_schema.html
 [serde::Serialize]: https://docs.serde.rs/serde/trait.Serialize.html
 [serde::Deserialize]: https://docs.serde.rs/serde/trait.Deserialize.html
+[crate::Schema::from_records]: https://docs.rs/serde_arrow/latest/serde_arrow/struct.Schema.html#method.from_records
