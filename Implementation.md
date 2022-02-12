@@ -67,15 +67,14 @@ implemented similarly:
 - Convert an Arrow RecordBatch into an Event stream
 - Use Serde to convert the Event stream into a sequence of Rust objects
 
-Again a schema is required to match the different data models. For example:
-
+For example:
 
 ```rust
 let items = serde_arrow::from_record_batch(&batch, &schema)?;
 ```
 
-The schema can either be constructed manually or auto-detected from the record
-batch: 
+Again a schema is required to match the different data models. The schema can
+either be constructed manually or auto-detected from the record batch: 
 
 ```rust
 let schema = Schema::from_record_batch(&batch)?;
