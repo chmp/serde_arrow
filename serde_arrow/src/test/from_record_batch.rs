@@ -24,20 +24,20 @@ fn event_source() -> Result<()> {
 
     let mut event_source = RecordBatchSource::new(&record_batch, &schema)?;
 
-    assert_eq!(event_source.next(), Event::StartSequence);
-    assert_eq!(event_source.next(), Event::StartMap);
-    assert_eq!(event_source.next(), Event::Key("int8"));
-    assert_eq!(event_source.next(), Event::I8(0));
-    assert_eq!(event_source.next(), Event::Key("int32"));
-    assert_eq!(event_source.next(), Event::I32(21));
-    assert_eq!(event_source.next(), Event::EndMap);
-    assert_eq!(event_source.next(), Event::StartMap);
-    assert_eq!(event_source.next(), Event::Key("int8"));
-    assert_eq!(event_source.next(), Event::I8(1));
-    assert_eq!(event_source.next(), Event::Key("int32"));
-    assert_eq!(event_source.next(), Event::I32(42));
-    assert_eq!(event_source.next(), Event::EndMap);
-    assert_eq!(event_source.next(), Event::EndSequence);
+    assert_eq!(event_source.next_event()?, Event::StartSequence);
+    assert_eq!(event_source.next_event()?, Event::StartMap);
+    assert_eq!(event_source.next_event()?, Event::Key("int8"));
+    assert_eq!(event_source.next_event()?, Event::I8(0));
+    assert_eq!(event_source.next_event()?, Event::Key("int32"));
+    assert_eq!(event_source.next_event()?, Event::I32(21));
+    assert_eq!(event_source.next_event()?, Event::EndMap);
+    assert_eq!(event_source.next_event()?, Event::StartMap);
+    assert_eq!(event_source.next_event()?, Event::Key("int8"));
+    assert_eq!(event_source.next_event()?, Event::I8(1));
+    assert_eq!(event_source.next_event()?, Event::Key("int32"));
+    assert_eq!(event_source.next_event()?, Event::I32(42));
+    assert_eq!(event_source.next_event()?, Event::EndMap);
+    assert_eq!(event_source.next_event()?, Event::EndSequence);
 
     Ok(())
 }

@@ -18,7 +18,7 @@ pub fn from_record_batch<'de, T: Deserialize<'de>>(
     let res = T::deserialize(&mut deserializer)?;
 
     if !deserializer.is_done() {
-        fail!("Trailing content");
+        fail!("from_record_batch: Trailing content");
     }
 
     Ok(res)
@@ -66,51 +66,51 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_bool(self.event_source.next().try_into()?)
+        visitor.visit_bool(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.event_source.next().try_into()?)
+        visitor.visit_i8(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.event_source.next().try_into()?)
+        visitor.visit_i16(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.event_source.next().try_into()?)
+        visitor.visit_i32(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.event_source.next().try_into()?)
+        visitor.visit_i64(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.event_source.next().try_into()?)
+        visitor.visit_u8(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.event_source.next().try_into()?)
+        visitor.visit_u16(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.event_source.next().try_into()?)
+        visitor.visit_u32(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.event_source.next().try_into()?)
+        visitor.visit_u64(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f32(self.event_source.next().try_into()?)
+        visitor.visit_f32(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f64(self.event_source.next().try_into()?)
+        visitor.visit_f64(self.event_source.next_event()?.try_into()?)
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
+        match self.event_source.next_event()? {
             Event::U32(val) => {
                 visitor.visit_char(char::from_u32(val).ok_or_else(|| error!("Invalid character"))?)
             }
@@ -122,7 +122,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
+        match self.event_source.next_event()? {
             Event::Key(key) => visitor.visit_str(key),
             Event::Str(val) => visitor.visit_str(val),
             Event::String(val) => visitor.visit_str(&val),
@@ -131,7 +131,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
+        match self.event_source.next_event()? {
             Event::Key(key) => visitor.visit_string(key.to_owned()),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
             Event::String(val) => visitor.visit_string(val),
@@ -149,7 +149,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if let Some(Event::Null) = self.event_source.peek() {
-            self.event_source.next();
+            self.event_source.next_event()?;
             visitor.visit_none()
         } else {
             visitor.visit_some(self)
@@ -157,7 +157,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.event_source.next() {
+        match self.event_source.next_event()? {
             Event::Null => visitor.visit_unit(),
             ev => fail!("deserialize_unit: Cannot handle {}", ev),
         }
@@ -180,13 +180,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.event_source.next(), Event::StartSequence) {
+        if !matches!(self.event_source.next_event()?, Event::StartSequence) {
             fail!("Expected start of sequence");
         }
 
         let res = visitor.visit_seq(&mut *self)?;
 
-        if !matches!(self.event_source.next(), Event::EndSequence) {
+        if !matches!(self.event_source.next_event()?, Event::EndSequence) {
             fail!("Expected end of sequence");
         }
         Ok(res)
@@ -206,13 +206,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.event_source.next(), Event::StartMap) {
+        if !matches!(self.event_source.next_event()?, Event::StartMap) {
             fail!("Expected start of map");
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.event_source.next(), Event::EndMap) {
+        if !matches!(self.event_source.next_event()?, Event::EndMap) {
             fail!("Expected end of map");
         }
         Ok(res)

@@ -1,4 +1,4 @@
-use crate::{event::Event, fail, DataType, Result, Schema};
+use crate::{error, event::Event, fail, DataType, Result, Schema};
 
 use std::cell::Cell;
 
@@ -197,6 +197,8 @@ impl<'a> RecordBatchSource<'a> {
         matches!(self.state.get(), State::Done)
     }
 
+    /// Peek at the next event without changing the internal state
+    ///
     pub fn peek(&self) -> Option<Event<'_>> {
         match self.state.get() {
             State::StartSequence => Some(Event::StartSequence),
@@ -221,12 +223,14 @@ impl<'a> RecordBatchSource<'a> {
         }
     }
 
-    pub fn next(&mut self) -> Event<'_> {
+    /// Get the next event
+    ///
+    pub fn next_event(&mut self) -> Result<Event<'_>> {
         let next_event = self
             .peek()
-            .expect("Invalid call to next on exhausted EventSource");
-        let next_state = self.next_state().unwrap();
+            .ok_or_else(|| error!("Invalid call to next on exhausted EventSource"))?;
+        let next_state = self.next_state().expect("next_event: Inconsistent state");
         self.state.set(next_state);
-        next_event
+        Ok(next_event)
     }
 }
