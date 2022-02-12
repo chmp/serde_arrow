@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::{to_record_batch, trace_schema, DataType, Result, Schema};
+use crate::{DataType, Result, Schema};
 
 #[test]
 fn example() -> Result<()> {
@@ -11,8 +11,8 @@ fn example() -> Result<()> {
     }
 
     let rows = &[Example { a: 13, b: 21 }];
-    let schema = trace_schema(&rows)?;
-    let _actual = to_record_batch(&rows, &schema)?;
+    let schema = Schema::from_records(&rows)?;
+    let _actual = crate::to_record_batch(&rows, &schema)?;
 
     // TODO: test
 
@@ -28,8 +28,8 @@ fn example_option() -> Result<()> {
 
     let schema = Schema::new().with_field("a", Some(DataType::U8), Some(true));
 
-    let _actual = to_record_batch(&&[Example { a: Some(0) }], &schema)?;
-    let _actual = to_record_batch(&&[Example { a: Some(0) }, Example { a: None }], &schema)?;
+    let _actual = crate::to_record_batch(&&[Example { a: Some(0) }], &schema)?;
+    let _actual = crate::to_record_batch(&&[Example { a: Some(0) }, Example { a: None }], &schema)?;
 
     Ok(())
 }

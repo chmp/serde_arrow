@@ -3,7 +3,11 @@ use std::{
     convert::TryFrom,
 };
 
-use arrow::datatypes::{DataType as ArrowType, Field, Schema as ArrowSchema};
+use arrow::{
+    datatypes::{DataType as ArrowType, Field, Schema as ArrowSchema},
+    record_batch::RecordBatch,
+};
+use serde::Serialize;
 
 use crate::{fail, Error, Result};
 
@@ -119,6 +123,14 @@ pub struct Schema {
 impl Schema {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_record_batch(record_batch: &RecordBatch) -> Result<Self> {
+        (&*record_batch.schema()).clone().try_into()
+    }
+
+    pub fn from_records<T: Serialize + ?Sized>(records: &T) -> Result<Self> {
+        crate::ops::trace_schema(records)
     }
 
     pub fn build_arrow_schema(&self) -> Result<ArrowSchema> {

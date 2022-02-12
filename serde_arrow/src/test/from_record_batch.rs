@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, RecordBatchSource},
-    from_record_batch, DataType, Result,
+    from_record_batch, DataType, Result, Schema,
 };
 
 use arrow::datatypes::DataType as ArrowDataType;
@@ -19,7 +19,7 @@ fn event_source() -> Result<()> {
         Example { int8: 0, int32: 21 },
         Example { int8: 1, int32: 42 },
     ];
-    let schema = crate::trace_schema(&original)?;
+    let schema = Schema::from_records(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
 
     let mut event_source = RecordBatchSource::new(&record_batch, &schema)?;
@@ -54,7 +54,7 @@ fn example() -> Result<()> {
         Example { int8: 0, int32: 21 },
         Example { int8: 1, int32: 42 },
     ];
-    let schema = crate::trace_schema(&original)?;
+    let schema = Schema::from_records(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
     let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
@@ -75,7 +75,7 @@ fn example_nullable() -> Result<()> {
         Example { val: None },
         Example { val: Some(42) },
     ];
-    let schema = crate::trace_schema(&original)?;
+    let schema = Schema::from_records(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
     let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
@@ -102,7 +102,7 @@ fn example_string() -> Result<()> {
             val: String::from("baz"),
         },
     ];
-    let schema = crate::trace_schema(&original)?;
+    let schema = Schema::from_records(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
     let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
@@ -129,7 +129,7 @@ fn example_large_string() -> Result<()> {
             val: String::from("baz"),
         },
     ];
-    let schema = crate::trace_schema(&original)?.with_field(
+    let schema = Schema::from_records(&original)?.with_field(
         "val",
         Some(DataType::Arrow(ArrowDataType::LargeUtf8)),
         None,
@@ -154,7 +154,7 @@ fn example_char() -> Result<()> {
         Example { val: 'o' },
         Example { val: 'o' },
     ];
-    let schema = crate::trace_schema(&original)?;
+    let schema = Schema::from_records(&original)?;
     let record_batch = crate::to_record_batch(&original, &schema)?;
     let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 

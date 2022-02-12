@@ -4,7 +4,7 @@ use arrow::array::Date64Array;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{DataType, Result};
+use crate::{DataType, Result, Schema};
 
 macro_rules! hashmap {
     () => {
@@ -49,7 +49,7 @@ fn item_multi_field_structure() -> Result<()> {
         },
     ];
 
-    let mut schema = crate::trace_schema(&examples)?;
+    let mut schema = Schema::from_records(&examples)?;
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
     let record_batch = crate::to_record_batch(&examples, &schema)?;
@@ -68,7 +68,7 @@ fn item_maps() -> Result<()> {
         hashmap! { "a" => 42, "b" => 32 },
     ];
 
-    let schema = crate::trace_schema(&examples)?;
+    let schema = Schema::from_records(&examples)?;
     let batch = crate::to_record_batch(&examples, &schema)?;
     let round_tripped: Vec<HashMap<String, i32>> = crate::from_record_batch(&batch, &schema)?;
 
@@ -103,7 +103,7 @@ fn item_flattened_structures() -> Result<()> {
         },
     ];
 
-    let schema = crate::trace_schema(&examples)?;
+    let schema = Schema::from_records(&examples)?;
     let batch = crate::to_record_batch(&examples, &schema)?;
 
     assert_eq!(batch.num_columns(), 4);
@@ -131,7 +131,7 @@ macro_rules! define_api_test {
     (__body__; $rows:expr) => {
         {
             let rows = $rows;
-            let schema = crate::trace_schema(rows)?;
+            let schema = Schema::from_records(rows)?;
             crate::to_record_batch(rows, &schema)?;
 
             Ok(())
@@ -181,7 +181,7 @@ fn dtype_date64_str() -> Result<()> {
         },
     ][..];
 
-    let mut schema = crate::trace_schema(records)?;
+    let mut schema = Schema::from_records(records)?;
     schema.set_data_type("val", DataType::NaiveDateTimeStr)?;
 
     let batch = crate::to_record_batch(records, &schema)?;
@@ -217,7 +217,7 @@ fn dtype_date64_int() -> Result<()> {
         },
     ][..];
 
-    let mut schema = crate::trace_schema(records)?;
+    let mut schema = Schema::from_records(records)?;
     schema.set_data_type("val", DataType::DateTimeMilliseconds)?;
 
     let batch = crate::to_record_batch(records, &schema)?;

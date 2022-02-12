@@ -39,7 +39,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     schema.add_field("c", Some(DataType::DateTimeStr), Some(false));
 
     c.bench_function("trace_schema", |b| {
-        b.iter(|| serde_arrow::trace_schema(black_box(&examples)).unwrap())
+        b.iter(|| Schema::from_records(black_box(&examples)).unwrap())
     });
 
     c.bench_function("to_record_batch", |b| {

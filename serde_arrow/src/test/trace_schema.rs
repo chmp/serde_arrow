@@ -1,4 +1,4 @@
-use crate::{trace_schema, DataType, Result, Schema};
+use crate::{DataType, Result, Schema};
 
 use serde::Serialize;
 
@@ -15,7 +15,7 @@ fn example() -> Result<()> {
         .with_field("b", Some(DataType::I32), Some(false));
 
     let rows = &[Example { a: 0, b: 0 }];
-    let actual = trace_schema(&rows)?;
+    let actual = Schema::from_records(&rows)?;
 
     assert_eq!(actual, expected);
 
@@ -31,10 +31,10 @@ fn example_option() -> Result<()> {
 
     let expected = Schema::new().with_field("a", Some(DataType::U8), Some(true));
 
-    let actual = trace_schema(&&[Example { a: Some(0) }])?;
+    let actual = Schema::from_records(&&[Example { a: Some(0) }])?;
     assert_eq!(actual, expected);
 
-    let actual = trace_schema(&&[Example { a: Some(0) }, Example { a: None }])?;
+    let actual = Schema::from_records(&&[Example { a: Some(0) }, Example { a: None }])?;
     assert_eq!(actual, expected);
 
     Ok(())

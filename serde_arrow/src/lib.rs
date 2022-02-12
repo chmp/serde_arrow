@@ -3,7 +3,7 @@
 //! Usage:
 //!
 //! ```rust
-//! # use serde_arrow::Result;
+//! # use serde_arrow::{Result, Schema};
 //! # use serde::Serialize;
 //! # use std::convert::TryFrom;
 //! #
@@ -21,7 +21,7 @@
 //! ];
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
-//! let schema = serde_arrow::trace_schema(&records)?;
+//! let schema = Schema::from_records(&records)?;
 //! let batch = serde_arrow::to_record_batch(&records, &schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
@@ -33,7 +33,7 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
-pub(crate) mod event;
+pub mod event;
 mod ops;
 mod schema;
 mod util;
