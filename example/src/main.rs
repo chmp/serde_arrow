@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use arrow::csv;
 use chrono::NaiveDateTime;
 use serde::Serialize;
-use serde_arrow::DataType;
+use serde_arrow::{DataType, Schema};
 
 macro_rules! hashmap {
     () => {
@@ -49,7 +49,7 @@ fn main() -> serde_arrow::Result<()> {
         },
     ];
 
-    let mut schema = serde_arrow::trace_schema(&examples)?;
+    let mut schema = Schema::from_records(&examples)?;
     schema.set_data_type("date", DataType::NaiveDateTimeStr)?;
 
     let batch = serde_arrow::to_record_batch(&examples, &schema)?;

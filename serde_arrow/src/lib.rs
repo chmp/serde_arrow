@@ -3,7 +3,7 @@
 //! Usage:
 //!
 //! ```rust
-//! # use serde_arrow::Result;
+//! # use serde_arrow::{Result, Schema};
 //! # use serde::Serialize;
 //! # use std::convert::TryFrom;
 //! #
@@ -21,7 +21,7 @@
 //! ];
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
-//! let schema = serde_arrow::trace_schema(&records)?;
+//! let schema = Schema::from_records(&records)?;
 //! let batch = serde_arrow::to_record_batch(&records, &schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
@@ -30,15 +30,25 @@
 //! # }
 //! ```
 //!
-mod array_builder;
+//! See [implementation] for an explanation of how this package works and its
+//! underlying data model.
+//!
+pub mod event;
+mod ops;
 mod schema;
-mod serializer;
 mod util;
 
 #[cfg(test)]
 mod test;
 
-pub use schema::{trace_schema, DataType, Schema};
-pub use serializer::to_record_batch;
+pub use schema::{DataType, Schema};
+// pub use serializer::to_record_batch;
 pub use util::error::{Error, Result};
 pub use util::hl::to_ipc_writer;
+
+pub use ops::{from_record_batch, to_record_batch, trace_schema};
+
+#[doc = include_str!("../../Implementation.md")]
+// NOTE: hide the implementation documentation from doctests
+#[cfg(not(doctest))]
+pub mod implementation {}

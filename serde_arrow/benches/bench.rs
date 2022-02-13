@@ -4,7 +4,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
-    thread_rng,
 };
 use serde::Serialize;
 use serde_arrow::{DataType, Schema};
@@ -35,12 +34,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     let mut schema = Schema::new();
-    schema.add_field("a", Some(DataType::I64), false);
-    schema.add_field("b", Some(DataType::F32), false);
-    schema.add_field("c", Some(DataType::DateTimeStr), false);
+    schema.add_field("a", Some(DataType::I64), Some(false));
+    schema.add_field("b", Some(DataType::F32), Some(false));
+    schema.add_field("c", Some(DataType::DateTimeStr), Some(false));
 
     c.bench_function("trace_schema", |b| {
-        b.iter(|| serde_arrow::trace_schema(black_box(&examples)).unwrap())
+        b.iter(|| Schema::from_records(black_box(&examples)).unwrap())
     });
 
     c.bench_function("to_record_batch", |b| {

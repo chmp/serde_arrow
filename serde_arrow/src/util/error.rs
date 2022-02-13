@@ -22,7 +22,16 @@ impl serde::ser::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::Custom(msg.to_string())
+        Self::Custom(format!("serde::ser::Error: {}", msg))
+    }
+}
+
+impl serde::de::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        Self::Custom(format!("serde::de::Error: {}", msg))
     }
 }
 
@@ -45,12 +54,12 @@ macro_rules! fail {
 
 impl From<arrow::error::ArrowError> for Error {
     fn from(error: arrow::error::ArrowError) -> Error {
-        Error::Custom(error.to_string())
+        Error::Custom(format!("arrow::ArrowError: {}", error))
     }
 }
 
 impl From<chrono::format::ParseError> for Error {
     fn from(error: chrono::format::ParseError) -> Self {
-        Self::Custom(error.to_string())
+        Self::Custom(format!("chrono::ParseError: {}", error))
     }
 }
