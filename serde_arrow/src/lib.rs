@@ -48,7 +48,7 @@ pub use util::hl::to_ipc_writer;
 
 pub use ops::{from_record_batch, to_record_batch, trace_schema};
 
-#[doc = include_str!("../../Implementation.md")]
+#[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
 #[cfg(not(doctest))]
 pub mod implementation {}

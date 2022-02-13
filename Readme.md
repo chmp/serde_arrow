@@ -3,7 +3,7 @@
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Example](#example)
-| [How does it work?](Implementation.md)
+| [How does it work?](serde_arrow/Implementation.md)
 | [Status](#status)
 | [License](#license)
 
@@ -19,8 +19,8 @@ versa.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
 types is as easy as using Serde's derive macros. 
 
-See the [implementation notes](Implementation.md) for details on how it is
-implemented. This package is optimized for ease of use, not performance.
+See the [implementation notes](serde_arrow/Implementation.md) for details on how
+it is implemented. This package is optimized for ease of use, not performance.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
 [polars]: https://github.com/pola-rs/polars
