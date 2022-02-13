@@ -4,7 +4,7 @@
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Example](#example)
 | [How does it work?](serde_arrow/Implementation.md)
-| [Status](#status)
+| [Status](serde_arrow/Implementation.md#status)
 | [License](#license)
 
 **Warning:** this package is in an experiment at the moment.
@@ -60,59 +60,6 @@ The written file can now be read in Python via
 import pandas as pd
 pd.read_feather("examples.arrow")
 ```
-
-## Status
-
-The following field types are supported. In general that the mapping of Rust
-types to [Serde's data model][serde-data-model] is not one-to-one. For example
-Chrono's date time types can be serialized as a Serde integer or a Serde string
-depending on configuration.
-
-- [x] booleans (serde: `bool`, arrow: `Boolean`)
-- [x] signed integers (serde: `i8`, `i16`, `i32`, `i64`, arrow: `Int8`, `Int16`,
-  `Int32`, `Int64`)
-- [x] unsigned integers (serde: `u8`, `u16`, `u32`, `u64`, arrow: `UInt8`,
-  `UInt16`, `UInt32`, `UInt64`)
-- [x] floating point numbers (serde: `f32`, `f64`, arrow: `Float32`, `Float64`)
-- [x] strings (serde: `&str`, arrow: `Utf8`, `LargeUtf8`)
-- [x] datetimes expressed as a RFC 3339 string or as i64 milliseconds (serde:
-  `&str`, `i64`, arrow: `Date64`). This convention maps to chrono types as
-  `NaiveDateTime` as string or `DateTime<Utc>` as integer via
-  `chrono::serde::ts_milliseconds`. **Warning:** the RFC 3339 format will strip
-  the milliseconds
-- [x] `chars` (serde: `char`, arrow: `UInt32`)
-- [ ] dates (serde: `&str`, arrow: `Date32`)
-- [ ] binary data (serde: `Seq[u8]`, arrow: `Binary`, `FixedSizeBinary`,
-  `LargeBinary`)
-- [ ] remaining arrow time data types (`Timestamp`, `Time32`, `Time64`,
-  `Duration`, `Interval`)
-- [ ] nested structs (arrow: `Struct`)
-- [ ] nested sequences (serde: `Seq<T>`, arrow: `List<T>`, `FixedSizeList<T>`,
-  `LargeList<T>`)
-- [ ] nested maps (serde: `Map<K, V>`, arrow: `Dictionary<K, V>`)
-- [ ] decimals (arrow: `Decimal`)
-- [ ] unions (arrow: `Union`)
-
-Comments:
-
-- Structures with flattened children are supported. For example
-    ```rust
-    #[derive(Serialize)]
-    struct FlattenExample {
-        a: i32,
-        #[serde(flatten)]
-        child: OtherStructure,
-    }
-    ```
-- For maps, all fields need to be added to the schema and need to be found in
-  each record. The latter restriction will be lifted
-- Datetimes are supported, but their data type cannot be auto detected. Their
-  data type has to be overwriting after tracing. For example, the chrono date
-  time types are supported via:
-    ```rust
-    let mut schema = serde_arrow::trace_schema(&examples)?;
-    schema.add_field("date", Some(DataType::DateTimeStr), None);
-    ```
 
 # License
 
