@@ -11,7 +11,7 @@
 
 [Arrow][arrow] is a powerful library to work with data frame like structures.
 The surrounding ecosystem includes a rich set of libraries, ranging from data
-frames via [Polars][polar] to query engines via [DataFusion][datafusion].
+frames via [Polars][polars] to query engines via [DataFusion][datafusion].
 However, it's API due to the statically typed nature of Rust can be at times
 cumbersome to use directly. This package, `serde_arrow`, tries to bridge this
 gap by offering a simple way to convert Rust objects into Arrow objects and vice
@@ -41,7 +41,8 @@ let examples = vec![
 ];
 
 // Detect the schema from the supplied data
-let schema = serde_arrow::trace_schema(&examples)?;
+use serde_arrow::Schema;
+let schema = Schema::from_records(&examples)?;
 
 // Write the records into an IPC file
 let out  = File::create("examples.arrow")?;
