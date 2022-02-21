@@ -50,7 +50,7 @@ fn main() -> serde_arrow::Result<()> {
     ];
 
     let mut schema = Schema::from_records(&examples)?;
-    schema.set_data_type("date", DataType::NaiveDateTimeStr)?;
+    schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
     let batch = serde_arrow::to_record_batch(&examples, &schema)?;
     csv::Writer::new(std::io::stdout()).write(&batch)?;

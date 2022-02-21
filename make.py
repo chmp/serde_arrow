@@ -19,6 +19,7 @@ def precommit():
     cargo("fmt")
     cargo("clippy")
     cargo("test")
+    cargo("run", "--package", "example")
 
 
 @cmd()
