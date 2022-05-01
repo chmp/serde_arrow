@@ -1,9 +1,6 @@
 import argparse
 import pathlib
 import subprocess
-import sys
-
-from packaging import version
 
 self_path = pathlib.Path(__file__).parent.resolve()
 
@@ -78,12 +75,7 @@ def main():
             subparser.add_argument(*arg_args, **arg_kwargs)
 
     args = vars(parser.parse_args())
-
-    if "__main__" not in args:
-        return parser.print_help()
-
-    func = args.pop("__main__")
-    return func(**args)
+    return args.pop("__main__")(**args) if "__main__" in args else parser.print_help()
 
 
 if __name__ == "__main__":
