@@ -7,7 +7,7 @@ use arrow::{
 };
 
 use super::{DataType, Schema};
-use crate::{Error, Result, fail};
+use crate::{fail, Error, Result};
 
 impl Schema {
     pub fn from_record_batch(record_batch: &RecordBatch) -> Result<Self> {

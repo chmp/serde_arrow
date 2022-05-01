@@ -52,14 +52,22 @@ macro_rules! fail {
     };
 }
 
+#[cfg(feature = "arrow")]
 impl From<arrow::error::ArrowError> for Error {
     fn from(error: arrow::error::ArrowError) -> Error {
-        Error::Custom(format!("arrow::ArrowError: {}", error))
+        Error::Custom(format!("arrow::ArrowError: {error}"))
+    }
+}
+
+#[cfg(feature = "arrow2")]
+impl From<arrow2::error::ArrowError> for Error {
+    fn from(error: arrow2::error::ArrowError) -> Error {
+        Error::Custom(format!("arrow2::ArrowError: {error}"))
     }
 }
 
 impl From<chrono::format::ParseError> for Error {
     fn from(error: chrono::format::ParseError) -> Self {
-        Self::Custom(format!("chrono::ParseError: {}", error))
+        Self::Custom(format!("chrono::ParseError: {error}"))
     }
 }

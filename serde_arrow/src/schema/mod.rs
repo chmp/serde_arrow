@@ -1,3 +1,4 @@
+#[cfg(feature = "arrow")]
 mod arrow_support;
 
 #[cfg(feature = "arrow2")]
@@ -5,6 +6,7 @@ mod arrow2_support;
 
 use std::collections::{HashMap, HashSet};
 
+#[cfg(feature = "arrow")]
 use arrow::datatypes::DataType as ArrowType;
 
 #[cfg(feature = "arrow2")]
@@ -43,6 +45,7 @@ pub enum DataType {
     DateTimeMilliseconds,
     /// A string (mapped to Arrow's UTF8)
     Str,
+    #[cfg(feature = "arrow")]
     /// a raw arrow data type
     Arrow(ArrowType),
     #[cfg(feature = "arrow2")]
@@ -67,6 +70,7 @@ impl std::fmt::Display for DataType {
             Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
             Self::DateTimeMilliseconds => write!(f, "DateTimeMilliseconds"),
             Self::Str => write!(f, "Str"),
+            #[cfg(feature = "arrow")]
             Self::Arrow(dt) => write!(f, "Arrow({dt})"),
             #[cfg(feature = "arrow2")]
             Self::Arrow2(dt) => write!(f, "Arrow2({dt:?}"),

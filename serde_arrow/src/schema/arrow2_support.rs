@@ -1,7 +1,7 @@
-use arrow2::datatypes::{DataType as Arrow2DataType, Schema as Arrow2Schema, Field};
+use arrow2::datatypes::{DataType as Arrow2DataType, Field, Schema as Arrow2Schema};
 
-use crate::{Error, Result, fail};
 use super::{DataType, Schema};
+use crate::{fail, Error, Result};
 
 impl std::convert::TryFrom<&DataType> for Arrow2DataType {
     type Error = Error;
@@ -32,7 +32,7 @@ impl std::convert::TryFrom<&DataType> for Arrow2DataType {
 }
 
 impl From<Arrow2DataType> for DataType {
-    fn from(dt: Arrow2DataType) -> Self  {
+    fn from(dt: Arrow2DataType) -> Self {
         use Arrow2DataType::*;
         match dt {
             Boolean => Self::Bool,
@@ -57,7 +57,6 @@ impl From<&Arrow2DataType> for DataType {
         value.clone().into()
     }
 }
-
 
 impl std::convert::TryFrom<&Schema> for Arrow2Schema {
     type Error = Error;

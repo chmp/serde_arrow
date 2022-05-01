@@ -1,3 +1,7 @@
+mod from_record_batch;
+mod integration;
+mod to_record_batch;
+
 use crate::DataType;
 
 use arrow::datatypes::DataType as ArrowDataType;

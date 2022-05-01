@@ -33,11 +33,13 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
-mod arrow_ops;
 mod error;
 pub mod event;
 mod ops;
 mod schema;
+
+#[cfg(feature = "arrow")]
+mod arrow_ops;
 
 #[cfg(feature = "arrow2")]
 mod arrow2_ops;
@@ -45,7 +47,7 @@ mod arrow2_ops;
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "arrow"))]
 mod test_arrow;
 
 #[cfg(all(test, feature = "arrow2"))]
@@ -55,8 +57,10 @@ pub use schema::{DataType, Schema};
 // pub use serializer::to_record_batch;
 pub use error::{Error, Result};
 
-pub use arrow_ops::{from_record_batch, to_ipc_writer, to_record_batch};
 pub use ops::trace_schema;
+
+#[cfg(feature = "arrow")]
+pub use arrow_ops::{from_record_batch, to_ipc_writer, to_record_batch};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
