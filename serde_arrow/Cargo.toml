@@ -28,3 +28,6 @@ rand = "0.8"
 [[bench]]
 name = "bench"
 harness = false
+
+[features]
+arrow2-io_ipc = ["arrow2/io_ipc"]

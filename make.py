@@ -15,8 +15,8 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 def precommit():
     cargo("fmt", cwd=self_path / "serde_arrow")
     cargo("fmt", cwd=self_path / "example")
-    cargo("clippy", "--features", "arrow,arrow2", cwd=self_path / "serde_arrow")
-    cargo("test", "--features", "arrow,arrow2",cwd=self_path / "serde_arrow")
+    cargo("clippy", "--features", "arrow,arrow2,arrow2-io_ipc", cwd=self_path / "serde_arrow")
+    cargo("test", "--features", "arrow,arrow2,arrow2-io_ipc",cwd=self_path / "serde_arrow")
     cargo("run", cwd=self_path / "example")
 
 

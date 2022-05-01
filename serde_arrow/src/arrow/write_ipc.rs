@@ -8,7 +8,7 @@ use crate::{Result, Schema};
 
 /// Helper to write an Arrow IPC file from a sequence of records
 ///
-pub fn to_ipc_writer<W, T>(writer: W, value: &T, schema: &Schema) -> Result<()>
+pub fn write_ipc<W, T>(writer: W, value: &T, schema: &Schema) -> Result<()>
 where
     W: Write,
     T: serde::Serialize + ?Sized,

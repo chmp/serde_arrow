@@ -72,6 +72,14 @@ fn main() -> Result<()> {
         let df = DataFrame::try_from((chunk, fields.as_slice())).unwrap();
         println!("{df}");
     }
+    {
+        println!("# Write IPC");
+        println!();
+
+        let mut data = Vec::new();
+        serde_arrow::arrow2::write_ipc(&mut data, &examples, &schema)?;
+        println!("{} bytes written", data.len());
+    }
 
     Ok(())
 }
