@@ -34,19 +34,18 @@
 //! underlying data model.
 //!
 mod arrow_ops;
+mod error;
 pub mod event;
 mod schema;
-mod util;
 
 #[cfg(test)]
 mod test;
 
 pub use schema::{DataType, Schema};
 // pub use serializer::to_record_batch;
-pub use util::error::{Error, Result};
-pub use util::hl::to_ipc_writer;
+pub use error::{Error, Result};
 
-pub use arrow_ops::{from_record_batch, to_record_batch, trace_schema};
+pub use arrow_ops::{from_record_batch, to_ipc_writer, to_record_batch, trace_schema};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
