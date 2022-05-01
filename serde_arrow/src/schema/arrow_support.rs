@@ -16,7 +16,7 @@ impl Schema {
     }
 
     pub fn from_records<T: Serialize + ?Sized>(records: &T) -> Result<Self> {
-        crate::ops::trace_schema(records)
+        crate::arrow_ops::trace_schema(records)
     }
 
     pub fn build_arrow_schema(&self) -> Result<ArrowSchema> {

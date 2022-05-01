@@ -1,236 +1,274 @@
-use crate::{error, event::Event, fail, DataType, Result, Schema};
+use crate::{error, event::Event, fail, Error, Result};
 
-use std::cell::Cell;
-
-use arrow::{
-    array::{
-        Array, BooleanArray, Date64Array, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeStringArray, PrimitiveArray, StringArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
-    },
-    datatypes::{ArrowPrimitiveType, DataType as ArrowDataType},
-    record_batch::RecordBatch,
+use serde::{
+    de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},
+    Deserialize,
 };
-use chrono::{NaiveDateTime, TimeZone, Utc};
 
-enum ArraySource<'a> {
-    Bool(&'a BooleanArray),
-    I8(&'a Int8Array),
-    I16(&'a Int16Array),
-    I32(&'a Int32Array),
-    I64(&'a Int64Array),
-    U8(&'a UInt8Array),
-    U16(&'a UInt16Array),
-    U32(&'a UInt32Array),
-    U64(&'a UInt64Array),
-    F32(&'a Float32Array),
-    F64(&'a Float64Array),
-    Utf8(&'a StringArray),
-    LargeUtf8(&'a LargeStringArray),
-    Date64NaiveDateTimeStr(&'a Date64Array),
-    Date64DateTimeStr(&'a Date64Array),
-    Date64DateTimeMilliseconds(&'a Date64Array),
-}
-
-impl<'a> ArraySource<'a> {
-    fn emit<'this, 'event>(&'this self, idx: usize) -> Event<'event> {
-        fn emit_primitive<'this, 'event, T>(
-            arr: &'this PrimitiveArray<T>,
-            idx: usize,
-        ) -> Event<'event>
-        where
-            T: ArrowPrimitiveType,
-            T::Native: Into<Event<'event>>,
-        {
-            if arr.is_null(idx) {
-                Event::Null
-            } else {
-                arr.value(idx).into()
-            }
-        }
-
-        match self {
-            Self::Bool(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    arr.value(idx).into()
-                }
-            }
-            Self::I8(arr) => emit_primitive(arr, idx),
-            Self::I16(arr) => emit_primitive(arr, idx),
-            Self::I32(arr) => emit_primitive(arr, idx),
-            Self::I64(arr) => emit_primitive(arr, idx),
-            Self::U8(arr) => emit_primitive(arr, idx),
-            Self::U16(arr) => emit_primitive(arr, idx),
-            Self::U32(arr) => emit_primitive(arr, idx),
-            Self::U64(arr) => emit_primitive(arr, idx),
-            Self::F32(arr) => emit_primitive(arr, idx),
-            Self::F64(arr) => emit_primitive(arr, idx),
-            Self::Utf8(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    // TODO: can this be done zero copy?
-                    arr.value(idx).to_owned().into()
-                }
-            }
-            Self::LargeUtf8(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    // TODO: can this be done zero copy?
-                    arr.value(idx).to_owned().into()
-                }
-            }
-            Self::Date64DateTimeMilliseconds(arr) => emit_primitive(arr, idx),
-            Self::Date64NaiveDateTimeStr(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    let val = arr.value(idx);
-                    let val =
-                        NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
-                    // NOTE: chrono documents that Debug, not Display, can be parsed
-                    format!("{:?}", val).into()
-                }
-            }
-            Self::Date64DateTimeStr(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    let val = arr.value(idx);
-                    let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
-                    // NOTE: chrono documents that Debug, not Display, can be parsed
-                    format!("{:?}", val).into()
-                }
-            }
-        }
-    }
-}
-
-pub struct RecordBatchSource<'a> {
-    num_rows: usize,
-    num_columns: usize,
-    columns: Vec<String>,
-    state: Cell<State>,
-    array_sources: Vec<ArraySource<'a>>,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum State {
-    StartSequence,
-    StartMap(usize),
-    Key(usize, usize),
-    Value(usize, usize),
-    Done,
-}
-
-impl<'a> RecordBatchSource<'a> {
-    pub fn new(record_batch: &'a RecordBatch, schema: &Schema) -> Result<Self> {
-        let num_rows = record_batch.num_rows();
-        let num_columns = record_batch.num_columns();
-        let columns = record_batch
-            .schema()
-            .fields()
-            .iter()
-            .map(|f| f.name().to_owned())
-            .collect();
-        let state = Cell::new(State::StartSequence);
-
-        let mut array_sources = Vec::new();
-
-        for i in 0..num_columns {
-            let arrow_schema = record_batch.schema();
-            let name = arrow_schema.field(i).name();
-            let data_type = schema.data_type(name);
-            let col = record_batch.column(i);
-
-            let array_source = match col.data_type() {
-                ArrowDataType::Boolean => ArraySource::Bool(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Int8 => ArraySource::I8(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Int16 => ArraySource::I16(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Int32 => ArraySource::I32(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Int64 => ArraySource::I64(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::UInt8 => ArraySource::U8(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::UInt16 => ArraySource::U16(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::UInt32 => ArraySource::U32(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::UInt64 => ArraySource::U64(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Float32 => ArraySource::F32(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Float64 => ArraySource::F64(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::Utf8 => ArraySource::Utf8(col.as_any().downcast_ref().unwrap()),
-                ArrowDataType::LargeUtf8 => {
-                    ArraySource::LargeUtf8(col.as_any().downcast_ref().unwrap())
-                }
-                ArrowDataType::Date32 => fail!("Date32 are not supported at the moment"),
-                ArrowDataType::Date64 => match data_type {
-                    Some(DataType::DateTimeMilliseconds) => {
-                        ArraySource::Date64DateTimeMilliseconds(
-                            col.as_any().downcast_ref().unwrap(),
-                        )
-                    }
-                    Some(DataType::NaiveDateTimeStr) => {
-                        ArraySource::Date64NaiveDateTimeStr(col.as_any().downcast_ref().unwrap())
-                    }
-                    Some(DataType::DateTimeStr) => {
-                        ArraySource::Date64DateTimeStr(col.as_any().downcast_ref().unwrap())
-                    }
-                    Some(dt) => fail!("Annotation {} is not supported by Date64", dt),
-                    None => fail!("Date64 columns require additional data type annotations"),
-                },
-                dt => fail!("Arrow DataType {} not understood", dt),
-            };
-            array_sources.push(array_source);
-        }
-
-        let res = Self {
-            num_rows,
-            num_columns,
-            columns,
-            state,
-            array_sources,
-        };
-        Ok(res)
-    }
-
-    pub fn is_done(&self) -> bool {
-        matches!(self.state.get(), State::Done)
-    }
+pub trait Source {
+    /// Return whether the source has been fully consumed
+    ///
+    fn is_done(&self) -> bool;
 
     /// Peek at the next event without changing the internal state
     ///
-    pub fn peek(&self) -> Option<Event<'_>> {
-        match self.state.get() {
-            State::StartSequence => Some(Event::StartSequence),
-            State::StartMap(row) if row >= self.num_rows => Some(Event::EndSequence),
-            State::StartMap(_) => Some(Event::StartMap),
-            State::Key(_, col) if col >= self.num_columns => Some(Event::EndMap),
-            State::Key(_, col) => Some(Event::Key(&self.columns[col])),
-            State::Value(row, col) => Some(self.array_sources[col].emit(row)),
-            State::Done => None,
-        }
-    }
-
-    fn next_state(&self) -> Option<State> {
-        match self.state.get() {
-            State::StartSequence => Some(State::StartMap(0)),
-            State::StartMap(row) if row >= self.num_rows => Some(State::Done),
-            State::StartMap(row) => Some(State::Key(row, 0)),
-            State::Key(row, col) if col >= self.num_columns => Some(State::StartMap(row + 1)),
-            State::Key(row, col) => Some(State::Value(row, col)),
-            State::Value(row, col) => Some(State::Key(row, col + 1)),
-            State::Done => None,
-        }
-    }
+    fn peek(&self) -> Option<Event<'_>>;
 
     /// Get the next event
     ///
-    pub fn next_event(&mut self) -> Result<Event<'_>> {
-        let next_event = self
-            .peek()
-            .ok_or_else(|| error!("Invalid call to next on exhausted EventSource"))?;
-        let next_state = self.next_state().expect("next_event: Inconsistent state");
-        self.state.set(next_state);
-        Ok(next_event)
+    fn next_event(&mut self) -> Result<Event<'_>>;
+}
+
+pub fn from_source<'de, T: Deserialize<'de>, S: Source>(source: S) -> Result<T> {
+    let mut deserializer = Deserializer { source };
+    let res = T::deserialize(&mut deserializer)?;
+
+    if !deserializer.source.is_done() {
+        fail!("from_record_batch: Trailing content");
+    }
+
+    Ok(res)
+}
+
+pub struct Deserializer<S> {
+    source: S,
+}
+
+impl<'de, 'a, S: Source> de::Deserializer<'de> for &'a mut Deserializer<S> {
+    type Error = Error;
+
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.source.peek() {
+            Some(Event::Bool(_)) => self.deserialize_bool(visitor),
+            Some(Event::I8(_)) => self.deserialize_i8(visitor),
+            Some(Event::I16(_)) => self.deserialize_i16(visitor),
+            Some(Event::I32(_)) => self.deserialize_i32(visitor),
+            Some(Event::I64(_)) => self.deserialize_i64(visitor),
+            Some(Event::U8(_)) => self.deserialize_u8(visitor),
+            Some(Event::U16(_)) => self.deserialize_u16(visitor),
+            Some(Event::U32(_)) => self.deserialize_u32(visitor),
+            Some(Event::U64(_)) => self.deserialize_u64(visitor),
+            Some(Event::F32(_)) => self.deserialize_f32(visitor),
+            Some(Event::F64(_)) => self.deserialize_f64(visitor),
+            Some(Event::Str(_)) => self.deserialize_str(visitor),
+            Some(Event::String(_)) => self.deserialize_string(visitor),
+            Some(Event::StartMap) => self.deserialize_map(visitor),
+            Some(Event::StartSequence) => self.deserialize_seq(visitor),
+            ev => fail!("Invalid event in deserialize_any: {:?}", ev),
+        }
+    }
+
+    fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_bool(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i8(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i16(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i32(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i64(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u8(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u16(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u32(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u64(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_f32(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_f64(self.source.next_event()?.try_into()?)
+    }
+
+    fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.source.next_event()? {
+            Event::U32(val) => {
+                visitor.visit_char(char::from_u32(val).ok_or_else(|| error!("Invalid character"))?)
+            }
+            ev => fail!(
+                "Invalid event {}, expected a character encoded as uint32",
+                ev
+            ),
+        }
+    }
+
+    fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.source.next_event()? {
+            Event::Key(key) => visitor.visit_str(key),
+            Event::Str(val) => visitor.visit_str(val),
+            Event::String(val) => visitor.visit_str(&val),
+            ev => fail!("Invalid event {}, expected str", ev),
+        }
+    }
+
+    fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.source.next_event()? {
+            Event::Key(key) => visitor.visit_string(key.to_owned()),
+            Event::Str(val) => visitor.visit_string(val.to_owned()),
+            Event::String(val) => visitor.visit_string(val),
+            ev => fail!("Invalid event {}, expected string", ev),
+        }
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
+        fail!("deserialize_bytes: Bytes are not supported at the moment")
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
+        fail!("deserialize_byte_buf: Bytes are not supported at the moment")
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if let Some(Event::Null) = self.source.peek() {
+            self.source.next_event()?;
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
+    fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        match self.source.next_event()? {
+            Event::Null => visitor.visit_unit(),
+            ev => fail!("deserialize_unit: Cannot handle {}", ev),
+        }
+    }
+
+    fn deserialize_unit_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_unit(visitor)
+    }
+
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        visitor.visit_newtype_struct(self)
+    }
+
+    fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if !matches!(self.source.next_event()?, Event::StartSequence) {
+            fail!("Expected start of sequence");
+        }
+
+        let res = visitor.visit_seq(&mut *self)?;
+
+        if !matches!(self.source.next_event()?, Event::EndSequence) {
+            fail!("Expected end of sequence");
+        }
+        Ok(res)
+    }
+
+    fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value> {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if !matches!(self.source.next_event()?, Event::StartMap) {
+            fail!("Expected start of map");
+        }
+
+        let res = visitor.visit_map(&mut *self)?;
+
+        if !matches!(self.source.next_event()?, Event::EndMap) {
+            fail!("Expected end of map");
+        }
+        Ok(res)
+    }
+
+    fn deserialize_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_map(visitor)
+    }
+
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value> {
+        fail!("deserialize_enum: Enums are not supported at the moment")
+    }
+
+    fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any(visitor)
+    }
+}
+
+impl<'de, 'a, S: Source> SeqAccess<'de> for &'a mut Deserializer<S> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        if matches!(self.source.peek(), Some(Event::EndSequence)) {
+            return Ok(None);
+        }
+        seed.deserialize(&mut **self).map(Some)
+    }
+}
+
+impl<'de, 'a, S: Source> MapAccess<'de> for &'a mut Deserializer<S> {
+    type Error = Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    where
+        K: DeserializeSeed<'de>,
+    {
+        if matches!(self.source.peek(), Some(Event::EndMap)) {
+            return Ok(None);
+        }
+        seed.deserialize(&mut **self).map(Some)
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        seed.deserialize(&mut **self)
     }
 }

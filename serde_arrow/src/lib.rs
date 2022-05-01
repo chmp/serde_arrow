@@ -33,8 +33,8 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
+mod arrow_ops;
 pub mod event;
-mod ops;
 mod schema;
 mod util;
 
@@ -46,7 +46,7 @@ pub use schema::{DataType, Schema};
 pub use util::error::{Error, Result};
 pub use util::hl::to_ipc_writer;
 
-pub use ops::{from_record_batch, to_record_batch, trace_schema};
+pub use arrow_ops::{from_record_batch, to_record_batch, trace_schema};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
