@@ -12,6 +12,7 @@ license = "MIT"
 
 [dependencies]
 arrow = "8.0"
+arrow2 = {version = "0.11.1", optional = true }
 serde = "1.0"
 
 # TODO: make optional, only required for str -> date conversions

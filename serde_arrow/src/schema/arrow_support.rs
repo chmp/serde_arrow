@@ -5,18 +5,13 @@ use arrow::{
     datatypes::{DataType as ArrowType, Field, Schema as ArrowSchema},
     record_batch::RecordBatch,
 };
-use serde::Serialize;
 
 use super::{DataType, Schema};
-use crate::{Error, Result};
+use crate::{Error, Result, fail};
 
 impl Schema {
     pub fn from_record_batch(record_batch: &RecordBatch) -> Result<Self> {
         record_batch.schema().as_ref().try_into()
-    }
-
-    pub fn from_records<T: Serialize + ?Sized>(records: &T) -> Result<Self> {
-        crate::arrow_ops::trace_schema(records)
     }
 
     pub fn build_arrow_schema(&self) -> Result<ArrowSchema> {
@@ -45,13 +40,30 @@ impl std::convert::TryFrom<&DataType> for ArrowType {
             }
             DataType::Str => Ok(ArrowType::Utf8),
             DataType::Arrow(res) => Ok(res.clone()),
+            #[allow(unreachable_patterns)]
+            dt => fail!("Cannot convert {dt:?} to an arrow data type"),
         }
     }
 }
 
 impl From<ArrowType> for DataType {
     fn from(value: ArrowType) -> Self {
-        Self::Arrow(value)
+        use ArrowType::*;
+        match value {
+            Boolean => Self::Bool,
+            UInt8 => Self::U8,
+            UInt16 => Self::U16,
+            UInt32 => Self::U32,
+            UInt64 => Self::U64,
+            Int8 => Self::I8,
+            Int16 => Self::I16,
+            Int32 => Self::I32,
+            Int64 => Self::I64,
+            Float32 => Self::F32,
+            Float64 => Self::F64,
+            Utf8 => Self::Str,
+            dt => Self::Arrow(dt),
+        }
     }
 }
 

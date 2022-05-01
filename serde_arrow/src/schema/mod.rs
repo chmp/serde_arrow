@@ -1,8 +1,16 @@
 mod arrow_support;
 
+#[cfg(feature = "arrow2")]
+mod arrow2_support;
+
 use std::collections::{HashMap, HashSet};
 
 use arrow::datatypes::DataType as ArrowType;
+
+#[cfg(feature = "arrow2")]
+use arrow2::datatypes::DataType as Arrow2Type;
+
+use serde::Serialize;
 
 use crate::{fail, Result};
 
@@ -37,6 +45,8 @@ pub enum DataType {
     Str,
     /// a raw arrow data type
     Arrow(ArrowType),
+    #[cfg(feature = "arrow2")]
+    Arrow2(Arrow2Type),
 }
 
 impl std::fmt::Display for DataType {
@@ -57,7 +67,9 @@ impl std::fmt::Display for DataType {
             Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
             Self::DateTimeMilliseconds => write!(f, "DateTimeMilliseconds"),
             Self::Str => write!(f, "Str"),
-            Self::Arrow(dt) => write!(f, "Arrow({})", dt),
+            Self::Arrow(dt) => write!(f, "Arrow({dt})"),
+            #[cfg(feature = "arrow2")]
+            Self::Arrow2(dt) => write!(f, "Arrow2({dt:?}"),
         }
     }
 }
@@ -81,6 +93,10 @@ pub struct Schema {
 impl Schema {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_records<T: Serialize + ?Sized>(records: &T) -> Result<Self> {
+        crate::ops::trace_schema(records)
     }
 
     /// Get the name of the detected fields

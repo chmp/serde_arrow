@@ -17,14 +17,20 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 @cmd()
 def precommit():
     cargo("fmt")
-    cargo("clippy")
+    cargo("clippy", "--features", "arrow2")
     cargo("test")
     cargo("run", "--package", "example")
 
 
 @cmd()
 def test_lib():
-    cargo("test", "--lib", "--package", "serde_arrow")
+    feature_flag_combinations = [
+        ("--features", "arrow2"),
+        (),
+    ]
+
+    for feature_flags in feature_flag_combinations:
+        cargo("test", *feature_flags, "--lib", "--package", "serde_arrow")
 
 
 @cmd()
