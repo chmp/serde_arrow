@@ -1,9 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryFrom};
 
-use arrow::csv;
 use chrono::NaiveDateTime;
 use serde::Serialize;
-use serde_arrow::{DataType, Schema};
+use serde_arrow::{DataType, Result, Schema};
 
 macro_rules! hashmap {
     () => {
@@ -29,7 +28,7 @@ struct Example {
     extra: HashMap<String, i32>,
 }
 
-fn main() -> serde_arrow::Result<()> {
+fn main() -> Result<()> {
     let examples = vec![
         Example {
             float32: 1.0,
@@ -52,8 +51,27 @@ fn main() -> serde_arrow::Result<()> {
     let mut schema = Schema::from_records(&examples)?;
     schema.set_data_type("date64", DataType::NaiveDateTimeStr)?;
 
-    let batch = serde_arrow::to_record_batch(&examples, &schema)?;
-    csv::Writer::new(std::io::stdout()).write(&batch)?;
+    {
+        use arrow::csv;
+
+        println!("# Arrow");
+        println!();
+
+        let batch = serde_arrow::arrow::to_record_batch(&examples, &schema)?;
+        csv::Writer::new(std::io::stdout()).write(&batch)?;
+    }
+    {
+        use polars::prelude::*;
+
+        println!("# Polars");
+        println!();
+
+        let fields = schema.build_arrow2_fields()?;
+        let chunk = serde_arrow::arrow2::to_chunk(&examples, &schema)?;
+
+        let df = DataFrame::try_from((chunk, fields.as_slice())).unwrap();
+        println!("{df}");
+    }
 
     Ok(())
 }

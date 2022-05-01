@@ -267,7 +267,7 @@ mod test {
             Example { int8: 1, int32: 42 },
         ];
         let schema = Schema::from_records(&original)?;
-        let record_batch = crate::to_record_batch(&original, &schema)?;
+        let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
 
         let mut event_source = RecordBatchSource::new(&record_batch, &schema)?;
 

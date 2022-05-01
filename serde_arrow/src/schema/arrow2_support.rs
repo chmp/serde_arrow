@@ -1,7 +1,22 @@
 use arrow2::datatypes::{DataType as Arrow2DataType, Field, Schema as Arrow2Schema};
 
 use super::{DataType, Schema};
-use crate::{fail, Error, Result};
+use crate::{error, fail, Error, Result};
+
+impl Schema {
+    pub fn build_arrow2_fields(&self) -> Result<Vec<Field>> {
+        let mut fields: Vec<Field> = Vec::new();
+        for name in self.fields() {
+            let dt = self
+                .data_type(name)
+                .ok_or_else(|| error!("No data type specified for {name}"))?
+                .try_into()?;
+            let nullable = self.is_nullable(name);
+            fields.push(Field::new(name, dt, nullable));
+        }
+        Ok(fields)
+    }
+}
 
 impl std::convert::TryFrom<&DataType> for Arrow2DataType {
     type Error = Error;

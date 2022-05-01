@@ -22,7 +22,7 @@
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
 //! let schema = Schema::from_records(&records)?;
-//! let batch = serde_arrow::to_record_batch(&records, &schema)?;
+//! let batch = serde_arrow::arrow::to_record_batch(&records, &schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
 //! assert_eq!(batch.num_columns(), 2);
@@ -39,10 +39,10 @@ mod ops;
 mod schema;
 
 #[cfg(feature = "arrow")]
-mod arrow_ops;
+pub mod arrow;
 
 #[cfg(feature = "arrow2")]
-mod arrow2_ops;
+pub mod arrow2;
 
 #[cfg(test)]
 mod test;
@@ -58,9 +58,6 @@ pub use schema::{DataType, Schema};
 pub use error::{Error, Result};
 
 pub use ops::trace_schema;
-
-#[cfg(feature = "arrow")]
-pub use arrow_ops::{from_record_batch, to_ipc_writer, to_record_batch};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

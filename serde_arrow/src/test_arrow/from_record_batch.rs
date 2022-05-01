@@ -1,4 +1,4 @@
-use crate::{from_record_batch, DataType, Result, Schema};
+use crate::{DataType, Result, Schema};
 
 use arrow::datatypes::DataType as ArrowDataType;
 
@@ -17,8 +17,8 @@ fn example() -> Result<()> {
         Example { int8: 1, int32: 42 },
     ];
     let schema = Schema::from_records(&original)?;
-    let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+    let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
+    let round_tripped = crate::arrow::from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 
@@ -38,8 +38,8 @@ fn example_nullable() -> Result<()> {
         Example { val: Some(42) },
     ];
     let schema = Schema::from_records(&original)?;
-    let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+    let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
+    let round_tripped = crate::arrow::from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 
@@ -65,8 +65,8 @@ fn example_string() -> Result<()> {
         },
     ];
     let schema = Schema::from_records(&original)?;
-    let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+    let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
+    let round_tripped = crate::arrow::from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 
@@ -96,8 +96,8 @@ fn example_large_string() -> Result<()> {
         Some(DataType::Arrow(ArrowDataType::LargeUtf8)),
         None,
     );
-    let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+    let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
+    let round_tripped = crate::arrow::from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 
@@ -117,8 +117,8 @@ fn example_char() -> Result<()> {
         Example { val: 'o' },
     ];
     let schema = Schema::from_records(&original)?;
-    let record_batch = crate::to_record_batch(&original, &schema)?;
-    let round_tripped = from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
+    let record_batch = crate::arrow::to_record_batch(&original, &schema)?;
+    let round_tripped = crate::arrow::from_record_batch::<Vec<Example>>(&record_batch, &schema)?;
 
     assert_eq!(round_tripped, original);
 
