@@ -1,3 +1,4 @@
+mod from_chunk;
 mod to_chunk;
 
 #[cfg(feature = "arrow2-io_ipc")]
