@@ -21,7 +21,7 @@ def precommit():
 
 
 @cmd()
-def test_lib():
+def test():
     for feature_flags in [
         ("--features", "arrow,arrow2"),
         ("--features", "arrow2"),
@@ -29,6 +29,11 @@ def test_lib():
         (),
     ]:
         cargo("test", *feature_flags, "--lib", cwd=self_path / "serde_arrow")
+
+
+@cmd()
+def bench():
+    cargo("bench", "--features", "arrow", cwd=self_path / "serde_arrow")
 
 
 @cmd()
