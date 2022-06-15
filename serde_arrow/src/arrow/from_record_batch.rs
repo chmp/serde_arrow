@@ -4,10 +4,10 @@ use crate::{event::Event, fail, DataType, Result, Schema};
 use arrow::{
     array::{
         Array, BooleanArray, Date64Array, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeStringArray, PrimitiveArray, StringArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        Int64Array, Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array,
+        UInt64Array, UInt8Array,
     },
-    datatypes::{ArrowPrimitiveType, DataType as ArrowDataType},
+    datatypes::DataType as ArrowDataType,
     record_batch::RecordBatch,
 };
 use chrono::{NaiveDateTime, TimeZone, Utc};
@@ -52,57 +52,32 @@ impl<'a> ArraySource for ArrowArraySource<'a> {
     }
 
     fn emit<'this, 'event>(&'this self, idx: usize) -> Event<'event> {
-        fn emit_primitive<'this, 'event, T>(
-            arr: &'this PrimitiveArray<T>,
-            idx: usize,
-        ) -> Event<'event>
-        where
-            T: ArrowPrimitiveType,
-            T::Native: Into<Event<'event>>,
-        {
-            if arr.is_null(idx) {
-                Event::Null
-            } else {
-                arr.value(idx).into()
-            }
+        macro_rules! emit {
+            ($arr:expr, $idx:expr) => {
+                if $arr.is_null($idx) {
+                    Event::Null
+                } else {
+                    $arr.value($idx).to_owned().into()
+                }
+            };
         }
 
         use ArrowArrayRef::*;
         match &self.array {
-            Bool(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    arr.value(idx).into()
-                }
-            }
-            I8(arr) => emit_primitive(arr, idx),
-            I16(arr) => emit_primitive(arr, idx),
-            I32(arr) => emit_primitive(arr, idx),
-            I64(arr) => emit_primitive(arr, idx),
-            U8(arr) => emit_primitive(arr, idx),
-            U16(arr) => emit_primitive(arr, idx),
-            U32(arr) => emit_primitive(arr, idx),
-            U64(arr) => emit_primitive(arr, idx),
-            F32(arr) => emit_primitive(arr, idx),
-            F64(arr) => emit_primitive(arr, idx),
-            Utf8(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    // TODO: can this be done zero copy?
-                    arr.value(idx).to_owned().into()
-                }
-            }
-            LargeUtf8(arr) => {
-                if arr.is_null(idx) {
-                    Event::Null
-                } else {
-                    // TODO: can this be done zero copy?
-                    arr.value(idx).to_owned().into()
-                }
-            }
-            Date64DateTimeMilliseconds(arr) => emit_primitive(arr, idx),
+            Bool(arr) => emit!(arr, idx),
+            I8(arr) => emit!(arr, idx),
+            I16(arr) => emit!(arr, idx),
+            I32(arr) => emit!(arr, idx),
+            I64(arr) => emit!(arr, idx),
+            U8(arr) => emit!(arr, idx),
+            U16(arr) => emit!(arr, idx),
+            U32(arr) => emit!(arr, idx),
+            U64(arr) => emit!(arr, idx),
+            F32(arr) => emit!(arr, idx),
+            F64(arr) => emit!(arr, idx),
+            Utf8(arr) => emit!(arr, idx),
+            LargeUtf8(arr) => emit!(arr, idx),
+            Date64DateTimeMilliseconds(arr) => emit!(arr, idx),
             Date64NaiveDateTimeStr(arr) => {
                 if arr.is_null(idx) {
                     Event::Null
