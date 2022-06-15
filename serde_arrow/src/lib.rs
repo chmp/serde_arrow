@@ -53,9 +53,8 @@ mod test_arrow;
 #[cfg(all(test, feature = "arrow2"))]
 mod test_arrow2;
 
-pub use schema::{DataType, Schema};
-// pub use serializer::to_record_batch;
 pub use error::{Error, Result};
+pub use schema::{DataType, Schema};
 
 pub use ops::trace_schema;
 
