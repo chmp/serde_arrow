@@ -22,7 +22,7 @@
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
 //! let schema = Schema::from_records(&records)?;
-//! let batch = serde_arrow::to_record_batch(&records, &schema)?;
+//! let batch = serde_arrow::arrow::to_record_batch(&records, &schema)?;
 //!
 //! assert_eq!(batch.num_rows(), 3);
 //! assert_eq!(batch.num_columns(), 2);
@@ -33,20 +33,30 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
+mod error;
 pub mod event;
 mod ops;
 mod schema;
-mod util;
+
+#[cfg(feature = "arrow")]
+pub mod arrow;
+
+#[cfg(feature = "arrow2")]
+pub mod arrow2;
 
 #[cfg(test)]
 mod test;
 
-pub use schema::{DataType, Schema};
-// pub use serializer::to_record_batch;
-pub use util::error::{Error, Result};
-pub use util::hl::to_ipc_writer;
+#[cfg(all(test, feature = "arrow"))]
+mod test_arrow;
 
-pub use ops::{from_record_batch, to_record_batch, trace_schema};
+#[cfg(all(test, feature = "arrow2"))]
+mod test_arrow2;
+
+pub use error::{Error, Result};
+pub use schema::{DataType, Schema};
+
+pub use ops::trace_schema;
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

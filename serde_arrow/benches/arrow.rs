@@ -43,9 +43,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("to_record_batch", |b| {
-        b.iter(|| serde_arrow::to_record_batch(black_box(&examples), &schema).unwrap())
+        b.iter(|| serde_arrow::arrow::to_record_batch(black_box(&examples), &schema).unwrap())
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+criterion_group!(arrow, criterion_benchmark);
+criterion_main!(arrow);

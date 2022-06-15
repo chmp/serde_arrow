@@ -4,4 +4,4 @@ mod source;
 
 pub use base::Event;
 pub use sink::{serialize_into_sink, EventSink};
-pub use source::RecordBatchSource;
+pub use source::{from_source, Source};

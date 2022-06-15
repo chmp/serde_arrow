@@ -1,30 +1,50 @@
+use std::collections::HashMap;
+
+use serde::Serialize;
+
 use crate::{
     error,
     event::{serialize_into_sink, Event, EventSink},
-    fail,
-    util::array_builder::ArrayBuilder,
-    Result, Schema,
+    fail, DataType, Result, Schema,
 };
-
-use std::{collections::HashMap, sync::Arc};
-
-use arrow::{array::ArrayRef, datatypes::Schema as ArrowSchema, record_batch::RecordBatch};
-use serde::Serialize;
 
 /// Convert a sequence of records into an Arrow RecordBatch
 ///
-pub fn to_record_batch<T>(value: &T, schema: &Schema) -> Result<RecordBatch>
+pub fn to_arrays<A: ArrayBuilder, T>(value: &T, schema: &Schema) -> Result<Vec<A::ArrayRef>>
 where
     T: Serialize + ?Sized,
 {
-    serialize_into_sink(RecordBatchSink::new(schema)?, value)?.build()
+    let sink = RecordBatchSink::<A>::new(schema)?;
+    let sink = serialize_into_sink(sink, value)?;
+    let arrays = sink.build_arrays()?;
+    Ok(arrays)
 }
 
-struct RecordBatchSink {
+pub trait ArrayBuilder: Sized {
+    type ArrayRef: Sized;
+
+    fn new(data_type: &DataType) -> Result<Self>;
+    fn build(&mut self) -> Result<Self::ArrayRef>;
+
+    fn append_null(&mut self) -> Result<()>;
+    fn append_bool(&mut self, value: bool) -> Result<()>;
+    fn append_i8(&mut self, value: i8) -> Result<()>;
+    fn append_i16(&mut self, value: i16) -> Result<()>;
+    fn append_i32(&mut self, value: i32) -> Result<()>;
+    fn append_i64(&mut self, value: i64) -> Result<()>;
+    fn append_u8(&mut self, value: u8) -> Result<()>;
+    fn append_u16(&mut self, value: u16) -> Result<()>;
+    fn append_u32(&mut self, value: u32) -> Result<()>;
+    fn append_u64(&mut self, value: u64) -> Result<()>;
+    fn append_f32(&mut self, value: f32) -> Result<()>;
+    fn append_f64(&mut self, value: f64) -> Result<()>;
+    fn append_utf8(&mut self, data: &str) -> Result<()>;
+}
+
+struct RecordBatchSink<A> {
     state: State,
-    schema: ArrowSchema,
     field_indices: HashMap<String, usize>,
-    builders: Vec<ArrayBuilder>,
+    builders: Vec<A>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +56,7 @@ enum State {
     Done,
 }
 
-impl RecordBatchSink {
+impl<A: ArrayBuilder> RecordBatchSink<A> {
     fn new(schema: &Schema) -> Result<Self> {
         let mut field_indices = HashMap::new();
         let mut builders = Vec::new();
@@ -46,31 +66,28 @@ impl RecordBatchSink {
             let dt = schema
                 .data_type(field)
                 .ok_or_else(|| error!("No known data type for field {}", field))?;
-            builders.push(ArrayBuilder::new(dt)?);
+            builders.push(A::new(dt)?);
         }
 
         let res = Self {
             state: State::WaitForStartSequence,
-            schema: schema.build_arrow_schema()?,
             field_indices,
             builders,
         };
         Ok(res)
     }
 
-    fn build(self) -> Result<RecordBatch> {
-        let mut fields: Vec<ArrayRef> = Vec::new();
-
+    fn build_arrays(self) -> Result<Vec<A::ArrayRef>> {
+        let mut arrays: Vec<A::ArrayRef> = Vec::new();
         for mut builder in self.builders {
-            fields.push(builder.build()?);
+            arrays.push(builder.build()?);
         }
 
-        let res = RecordBatch::try_new(Arc::new(self.schema), fields)?;
-        Ok(res)
+        Ok(arrays)
     }
 }
 
-impl EventSink for RecordBatchSink {
+impl<A: ArrayBuilder> EventSink for RecordBatchSink<A> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         self.state = match (self.state, event) {
             (State::WaitForStartSequence, Event::StartSequence) => State::WaitForStartMap,
@@ -95,7 +112,7 @@ impl EventSink for RecordBatchSink {
     }
 }
 
-impl RecordBatchSink {
+impl<A: ArrayBuilder> RecordBatchSink<A> {
     fn append(&mut self, idx: usize, event: Event<'_>) -> Result<()> {
         match event {
             Event::Bool(val) => self.builders[idx].append_bool(val)?,

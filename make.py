@@ -1,9 +1,6 @@
 import argparse
 import pathlib
 import subprocess
-import sys
-
-from packaging import version
 
 self_path = pathlib.Path(__file__).parent.resolve()
 
@@ -16,20 +13,32 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 @cmd()
 def precommit():
-    cargo("fmt")
-    cargo("clippy")
-    cargo("test")
-    cargo("run", "--package", "example")
+    cargo("fmt", cwd=self_path / "serde_arrow")
+    cargo("fmt", cwd=self_path / "example")
+    cargo("clippy", "--features", "arrow,arrow2,arrow2-io_ipc", cwd=self_path / "serde_arrow")
+    cargo("test", "--features", "arrow,arrow2,arrow2-io_ipc",cwd=self_path / "serde_arrow")
+    cargo("run", cwd=self_path / "example")
 
 
 @cmd()
-def test_lib():
-    cargo("test", "--lib", "--package", "serde_arrow")
+def test():
+    for feature_flags in [
+        ("--features", "arrow,arrow2"),
+        ("--features", "arrow2"),
+        ("--features", "arrow"),
+        (),
+    ]:
+        cargo("test", *feature_flags, "--lib", cwd=self_path / "serde_arrow")
+
+
+@cmd()
+def bench():
+    cargo("bench", "--features", "arrow", cwd=self_path / "serde_arrow")
 
 
 @cmd()
 def doc():
-    cargo("doc")
+    cargo("doc", cwd=self_path / "serde_arrow")
 
 
 @cmd()
@@ -71,12 +80,7 @@ def main():
             subparser.add_argument(*arg_args, **arg_kwargs)
 
     args = vars(parser.parse_args())
-
-    if "__main__" not in args:
-        return parser.print_help()
-
-    func = args.pop("__main__")
-    return func(**args)
+    return args.pop("__main__")(**args) if "__main__" in args else parser.print_help()
 
 
 if __name__ == "__main__":
