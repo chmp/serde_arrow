@@ -2,6 +2,7 @@
 
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
+| [Changes](Changes.md)
 | [Example](#example)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Implementation.md#status)
