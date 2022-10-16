@@ -45,7 +45,7 @@ of fields to their types. Given a schema a list of records can be converted into
 a record batch using [`serde_arrow::to_record_batch`][crate::to_record_batch]:
 
 ```rust
-let batch = serde_arrow::to_record_batch(&items, &schema)?;
+let batch = serde_arrow::arrow::to_record_batch(&items, &schema)?;
 ```
 
 To support in creation of schema definitions `serde_arrow` offers the function
@@ -70,7 +70,7 @@ implemented similarly:
 For example:
 
 ```rust
-let items = serde_arrow::from_record_batch(&batch, &schema)?;
+let items = serde_arrow::arrow::from_record_batch(&batch, &schema)?;
 ```
 
 Again a schema is required to match the different data models. The schema can
@@ -136,13 +136,18 @@ or `DateTimeMilliseconds` respectively:
 // for RecordAsString
 let schema = Schema::from_records(&items)?
     .with_field("date", Some(DataType::NaiveDateTimeStr), None);
-let items = serde_arrow::from_record_batch(&items, &schema)?;
+let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
 
 // for RecordAsInteger
 let schema = Schema::from_records(&items)?
     .with_field("date", Some(DataType::DateTimeMilliseconds), None);
-let items = serde_arrow::from_record_batch(&items, &schema)?;
+let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
 ```
+
+## Abstractions
+
+- `trace_schema`: `value` -> `SchemaSink`
+- 
 
 ## Status
 
