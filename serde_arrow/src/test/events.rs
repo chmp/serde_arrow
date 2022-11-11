@@ -111,3 +111,69 @@ fn outer_struct() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn nested_struct() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Outer {
+        int: i32,
+        inner: Inner,
+    }
+
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Inner {
+        int: i8,
+        boolean: bool,
+    }
+
+    let items = vec![
+        Outer {
+            int: 0,
+            inner: Inner {
+                int: 1,
+                boolean: true,
+            },
+        },
+        Outer {
+            int: 2,
+            inner: Inner {
+                int: 3,
+                boolean: false,
+            },
+        },
+    ];
+
+    let events = TestSink::collect_events(&items)?;
+    let expected = vec![
+        Event::StartSequence,
+        Event::StartMap,
+        Event::owned_key("int"),
+        Event::I32(0),
+        Event::owned_key("inner"),
+        Event::StartMap,
+        Event::owned_key("int"),
+        Event::I8(1),
+        Event::owned_key("boolean"),
+        Event::Bool(true),
+        Event::EndMap,
+        Event::EndMap,
+        Event::StartMap,
+        Event::owned_key("int"),
+        Event::I32(2),
+        Event::owned_key("inner"),
+        Event::StartMap,
+        Event::owned_key("int"),
+        Event::I8(3),
+        Event::owned_key("boolean"),
+        Event::Bool(false),
+        Event::EndMap,
+        Event::EndMap,
+        Event::EndSequence,
+    ];
+    assert_eq!(events, expected);
+
+    let round_tripped: Vec<Outer> = deserialize_from_source(&events)?;
+    assert_eq!(round_tripped, items);
+
+    Ok(())
+}
