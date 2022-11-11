@@ -5,7 +5,7 @@ use serde::{
     Deserialize,
 };
 
-pub trait Source {
+pub trait EventSource {
     /// Return whether the source has been fully consumed
     ///
     fn is_done(&self) -> bool;
@@ -19,7 +19,7 @@ pub trait Source {
     fn next_event(&mut self) -> Result<Event<'_>>;
 }
 
-pub fn from_source<'de, T: Deserialize<'de>, S: Source>(source: S) -> Result<T> {
+pub fn deserialize_from_source<'de, T: Deserialize<'de>, S: EventSource>(source: S) -> Result<T> {
     let mut deserializer = Deserializer { source };
     let res = T::deserialize(&mut deserializer)?;
 
@@ -34,7 +34,7 @@ pub struct Deserializer<S> {
     source: S,
 }
 
-impl<'de, 'a, S: Source> de::Deserializer<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -238,7 +238,7 @@ impl<'de, 'a, S: Source> de::Deserializer<'de> for &'a mut Deserializer<S> {
     }
 }
 
-impl<'de, 'a, S: Source> SeqAccess<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, S: EventSource> SeqAccess<'de> for &'a mut Deserializer<S> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
@@ -252,7 +252,7 @@ impl<'de, 'a, S: Source> SeqAccess<'de> for &'a mut Deserializer<S> {
     }
 }
 
-impl<'de, 'a, S: Source> MapAccess<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, S: EventSource> MapAccess<'de> for &'a mut Deserializer<S> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>

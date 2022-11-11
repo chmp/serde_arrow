@@ -1,3 +1,4 @@
 mod api_chrono;
-mod event_sink;
+mod events;
 mod trace_schema;
+mod utils;

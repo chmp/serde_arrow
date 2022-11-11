@@ -60,9 +60,9 @@ impl From<arrow::error::ArrowError> for Error {
 }
 
 #[cfg(feature = "arrow2")]
-impl From<arrow2::error::ArrowError> for Error {
-    fn from(error: arrow2::error::ArrowError) -> Error {
-        Error::Custom(format!("arrow2::ArrowError: {error}"))
+impl From<arrow2::error::Error> for Error {
+    fn from(error: arrow2::error::Error) -> Error {
+        Error::Custom(format!("arrow2::Error: {error}"))
     }
 }
 

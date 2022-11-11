@@ -1,4 +1,4 @@
-use crate::event::Source;
+use crate::event::EventSource;
 use crate::{
     error,
     event::{self, Event},
@@ -19,7 +19,7 @@ pub fn from_arrays<'de, T: Deserialize<'de>, A: ArraySource>(
         num_rows,
         state,
     };
-    event::from_source(source)
+    event::deserialize_from_source(source)
 }
 
 pub trait ArraySource {
@@ -56,7 +56,7 @@ impl<A> ArraysSource<A> {
     }
 }
 
-impl<A: ArraySource> Source for ArraysSource<A> {
+impl<A: ArraySource> EventSource for ArraysSource<A> {
     fn is_done(&self) -> bool {
         matches!(self.state.get(), State::Done)
     }

@@ -8,6 +8,7 @@ pub enum Event<'a> {
     StartSequence,
     StartMap,
     Key(&'a str),
+    OwnedKey(String),
     Some,
     Bool(bool),
     I8(i8),
@@ -33,6 +34,7 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::StartSequence => write!(f, "StartSequence"),
             Event::StartMap => write!(f, "StartMap"),
             Event::Key(_) => write!(f, "Key"),
+            Event::OwnedKey(_) => write!(f, "OwnedKey"),
             Event::Some => write!(f, "Some"),
             Event::Bool(_) => write!(f, "Bool"),
             Event::I8(_) => write!(f, "I8"),
@@ -50,6 +52,38 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::Null => write!(f, "Null"),
             Event::EndMap => write!(f, "EndMap"),
             Event::EndSequence => write!(f, "EndSequence"),
+        }
+    }
+}
+
+impl<'a> Event<'a> {
+    pub fn owned_key<S: Into<String>>(key: S) -> Self {
+        Self::OwnedKey(key.into())
+    }
+
+    pub fn to_static(&self) -> Event<'static> {
+        match self {
+            &Event::Str(s) => Event::String(s.to_owned()),
+            &Event::Key(k) => Event::OwnedKey(k.to_owned()),
+            Event::StartSequence => Event::StartSequence,
+            Event::StartMap => Event::StartMap,
+            Event::OwnedKey(k) => Event::OwnedKey(k.to_owned()),
+            Event::Some => Event::Some,
+            &Event::Bool(b) => Event::Bool(b),
+            &Event::I8(v) => Event::I8(v),
+            &Event::I16(v) => Event::I16(v),
+            &Event::I32(v) => Event::I32(v),
+            &Event::I64(v) => Event::I64(v),
+            &Event::U8(v) => Event::U8(v),
+            &Event::U16(v) => Event::U16(v),
+            &Event::U32(v) => Event::U32(v),
+            &Event::U64(v) => Event::U64(v),
+            &Event::F32(v) => Event::F32(v),
+            &Event::F64(v) => Event::F64(v),
+            Event::String(v) => Event::String(v.clone()),
+            Event::Null => Event::Null,
+            Event::EndMap => Event::EndMap,
+            Event::EndSequence => Event::EndSequence,
         }
     }
 }

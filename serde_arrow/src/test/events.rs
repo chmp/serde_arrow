@@ -1,0 +1,64 @@
+use crate::{event::Event, test::utils::TestSink, Result};
+use serde::{Deserialize, Serialize};
+
+#[test]
+fn example() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        int8: i8,
+        int32: i32,
+    }
+
+    let items = &[
+        Example { int8: 0, int32: 21 },
+        Example { int8: 1, int32: 42 },
+    ];
+
+    let actual = TestSink::collect_events(&items)?;
+    let expected = vec![
+        Event::StartSequence,
+        Event::StartMap,
+        Event::owned_key("int8"),
+        Event::I8(0),
+        Event::owned_key("int32"),
+        Event::I32(21),
+        Event::EndMap,
+        Event::StartMap,
+        Event::owned_key("int8"),
+        Event::I8(1),
+        Event::owned_key("int32"),
+        Event::I32(42),
+        Event::EndMap,
+        Event::EndSequence,
+    ];
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
+fn example_options() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Example {
+        int8: Option<i8>,
+    }
+
+    let items = &[Example { int8: Some(0) }, Example { int8: None }];
+
+    let actual = TestSink::collect_events(&items)?;
+    let expected = vec![
+        Event::StartSequence,
+        Event::StartMap,
+        Event::owned_key("int8"),
+        Event::Some,
+        Event::I8(0),
+        Event::EndMap,
+        Event::StartMap,
+        Event::owned_key("int8"),
+        Event::Null,
+        Event::EndMap,
+        Event::EndSequence,
+    ];
+    assert_eq!(actual, expected);
+
+    Ok(())
+}

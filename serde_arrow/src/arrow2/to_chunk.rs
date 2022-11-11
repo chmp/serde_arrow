@@ -1,9 +1,5 @@
-use std::sync::Arc;
-
 use arrow2::{
-    array::{
-        Array, ArrayRef, MutableArray, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array,
-    },
+    array::{Array, MutableArray, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array},
     chunk::Chunk,
     datatypes::DataType as Arrow2Type,
 };
@@ -20,7 +16,7 @@ const DEFAULT_CAPACITY: usize = 1024;
 
 /// Convert a sequence of records into an Arrow Chunk
 ///
-pub fn to_chunk<T>(value: &T, schema: &Schema) -> Result<Chunk<Arc<dyn Array>>>
+pub fn to_chunk<T>(value: &T, schema: &Schema) -> Result<Chunk<Box<dyn Array + 'static>>>
 where
     T: Serialize + ?Sized,
 {
@@ -84,7 +80,7 @@ macro_rules! simple_append {
 }
 
 impl ArrayBuilder for ArrowArrayBuilder {
-    type ArrayRef = ArrayRef;
+    type ArrayRef = Box<dyn Array>;
 
     fn new(data_type: &DataType) -> Result<Self> {
         let res = match data_type {
@@ -141,8 +137,8 @@ impl ArrayBuilder for ArrowArrayBuilder {
         Ok(res)
     }
 
-    fn build(&mut self) -> Result<ArrayRef> {
-        let array_ref: ArrayRef = dispatch!(self, builder => builder.as_arc());
+    fn build(&mut self) -> Result<Self::ArrayRef> {
+        let array_ref: Self::ArrayRef = dispatch!(self, builder => builder.as_box());
         Ok(array_ref)
     }
 
