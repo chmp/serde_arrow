@@ -73,3 +73,41 @@ fn example_options() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn outer_struct() -> Result<()> {
+    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+    struct Wrapper {
+        ints: Vec<i8>,
+        booleans: Vec<bool>,
+    }
+
+    let item = Wrapper {
+        ints: vec![0, 1, 2],
+        booleans: vec![true, false, true],
+    };
+
+    let events = TestSink::collect_events(&item)?;
+    let expected = vec![
+        Event::StartMap,
+        Event::owned_key("ints"),
+        Event::StartSequence,
+        Event::I8(0),
+        Event::I8(1),
+        Event::I8(2),
+        Event::EndSequence,
+        Event::owned_key("booleans"),
+        Event::StartSequence,
+        Event::Bool(true),
+        Event::Bool(false),
+        Event::Bool(true),
+        Event::EndSequence,
+        Event::EndMap,
+    ];
+    assert_eq!(events, expected);
+
+    let round_tripped: Wrapper = deserialize_from_source(&events)?;
+    assert_eq!(round_tripped, item);
+
+    Ok(())
+}
