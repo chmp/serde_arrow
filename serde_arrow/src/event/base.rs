@@ -3,7 +3,7 @@
 
 use crate::{fail, Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Event<'a> {
     StartSequence,
     StartMap,

@@ -19,8 +19,26 @@ pub trait EventSource {
     fn next_event(&mut self) -> Result<Event<'_>>;
 }
 
-pub fn deserialize_from_source<'de, T: Deserialize<'de>, S: EventSource>(source: S) -> Result<T> {
-    let mut deserializer = Deserializer { source };
+pub trait IntoEventSource {
+    type EventSource: EventSource;
+
+    fn into_event_source(self) -> Self::EventSource;
+}
+
+impl<S: EventSource> IntoEventSource for S {
+    type EventSource = Self;
+
+    fn into_event_source(self) -> Self::EventSource {
+        self
+    }
+}
+
+pub fn deserialize_from_source<'de, T: Deserialize<'de>, S: IntoEventSource>(
+    source: S,
+) -> Result<T> {
+    let mut deserializer = Deserializer {
+        source: source.into_event_source(),
+    };
     let res = T::deserialize(&mut deserializer)?;
 
     if !deserializer.source.is_done() {
@@ -117,6 +135,7 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.source.next_event()? {
             Event::Key(key) => visitor.visit_str(key),
+            Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_str(val),
             Event::String(val) => visitor.visit_str(&val),
             ev => fail!("Invalid event {}, expected str", ev),
@@ -126,6 +145,7 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.source.next_event()? {
             Event::Key(key) => visitor.visit_string(key.to_owned()),
+            Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
             Event::String(val) => visitor.visit_string(val),
             ev => fail!("Invalid event {}, expected string", ev),
@@ -145,6 +165,11 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
             self.source.next_event()?;
             visitor.visit_none()
         } else {
+            // Support deserializing options both with and without Some markers
+            if let Some(Event::Some) = self.source.peek() {
+                self.source.next_event()?;
+            }
+
             visitor.visit_some(self)
         }
     }
@@ -270,5 +295,52 @@ impl<'de, 'a, S: EventSource> MapAccess<'de> for &'a mut Deserializer<S> {
         V: DeserializeSeed<'de>,
     {
         seed.deserialize(&mut **self)
+    }
+}
+
+pub struct SliceSource<'items, 'event> {
+    items: &'items [Event<'event>],
+    next: usize,
+}
+
+impl<'items, 'event> EventSource for SliceSource<'items, 'event> {
+    fn is_done(&self) -> bool {
+        self.next == self.items.len()
+    }
+
+    fn peek(&self) -> Option<Event<'event>> {
+        self.items.get(self.next).cloned()
+    }
+
+    fn next_event(&mut self) -> Result<Event<'event>> {
+        let res = self
+            .items
+            .get(self.next)
+            .cloned()
+            .ok_or_else(|| error!("no next event"));
+        self.next += 1;
+        res
+    }
+}
+
+impl<'items, 'event> IntoEventSource for &'items [Event<'event>] {
+    type EventSource = SliceSource<'items, 'event>;
+
+    fn into_event_source(self) -> Self::EventSource {
+        SliceSource {
+            items: self,
+            next: 0,
+        }
+    }
+}
+
+impl<'items, 'event> IntoEventSource for &'items Vec<Event<'event>> {
+    type EventSource = SliceSource<'items, 'event>;
+
+    fn into_event_source(self) -> Self::EventSource {
+        SliceSource {
+            items: self.as_slice(),
+            next: 0,
+        }
     }
 }

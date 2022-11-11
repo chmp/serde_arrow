@@ -1,4 +1,8 @@
-use crate::{event::Event, test::utils::TestSink, Result};
+use crate::{
+    event::{deserialize_from_source, Event},
+    test::utils::TestSink,
+    Result,
+};
 use serde::{Deserialize, Serialize};
 
 #[test]
@@ -14,7 +18,7 @@ fn example() -> Result<()> {
         Example { int8: 1, int32: 42 },
     ];
 
-    let actual = TestSink::collect_events(&items)?;
+    let events = TestSink::collect_events(&items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -31,7 +35,11 @@ fn example() -> Result<()> {
         Event::EndMap,
         Event::EndSequence,
     ];
-    assert_eq!(actual, expected);
+    assert_eq!(events, expected);
+
+    let round_tripped: Vec<Example> = deserialize_from_source(&events)?;
+    assert_eq!(&round_tripped, items);
+
     Ok(())
 }
 
@@ -44,7 +52,7 @@ fn example_options() -> Result<()> {
 
     let items = &[Example { int8: Some(0) }, Example { int8: None }];
 
-    let actual = TestSink::collect_events(&items)?;
+    let events = TestSink::collect_events(&items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -58,7 +66,10 @@ fn example_options() -> Result<()> {
         Event::EndMap,
         Event::EndSequence,
     ];
-    assert_eq!(actual, expected);
+    assert_eq!(events, expected);
+
+    let round_tripped: Vec<Example> = deserialize_from_source(&events)?;
+    assert_eq!(&round_tripped, items);
 
     Ok(())
 }
