@@ -5,27 +5,73 @@ use serde::{
     Deserialize,
 };
 
-pub trait EventSource {
-    /// Return whether the source has been fully consumed
-    ///
-    fn is_done(&self) -> bool;
+use super::base::EventOption;
 
-    /// Peek at the next event without changing the internal state
-    ///
-    fn peek(&self) -> Option<Event<'_>>;
-
-    /// Get the next event
-    ///
-    fn next_event(&mut self) -> Result<Event<'_>>;
+pub trait EventSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>>
+    where
+        Self: 'a;
 }
 
-pub trait IntoEventSource {
-    type EventSource: EventSource;
+pub struct PeekableEventSource<'a, S: EventSource<'a> + 'a> {
+    source: S,
+    peeked: Option<Option<Event<'a>>>,
+}
+
+impl<'a, S: EventSource<'a> + 'a> PeekableEventSource<'a, S> {
+    pub fn new(source: S) -> Self {
+        Self {
+            source,
+            peeked: None,
+        }
+    }
+
+    pub fn peek(&mut self) -> Result<Option<Event<'a>>> {
+        if let Some(peeked) = self.peeked.as_ref() {
+            Ok(peeked.clone())
+        } else {
+            let ev = self.source.next()?;
+            self.peeked = Some(ev.clone());
+            Ok(ev)
+        }
+    }
+}
+
+impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for PeekableEventSource<'a, S> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        if let Some(peeked) = self.peeked.take() {
+            Ok(peeked)
+        } else {
+            self.source.next()
+        }
+    }
+}
+
+pub struct DynamicSource<'a> {
+    source: Box<dyn EventSource<'a> + 'a>,
+}
+
+impl<'a> DynamicSource<'a> {
+    pub fn new<S: EventSource<'a> + 'a>(source: S) -> Self {
+        Self {
+            source: Box::new(source),
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for DynamicSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        self.source.next()
+    }
+}
+
+pub trait IntoEventSource<'a> {
+    type EventSource: EventSource<'a>;
 
     fn into_event_source(self) -> Self::EventSource;
 }
 
-impl<S: EventSource> IntoEventSource for S {
+impl<'a, S: EventSource<'a>> IntoEventSource<'a> for S {
     type EventSource = Self;
 
     fn into_event_source(self) -> Self::EventSource {
@@ -33,30 +79,37 @@ impl<S: EventSource> IntoEventSource for S {
     }
 }
 
-pub fn deserialize_from_source<'de, T: Deserialize<'de>, S: IntoEventSource>(
+pub fn deserialize_from_source<
+    'de,
+    'event,
+    T: Deserialize<'de>,
+    S: IntoEventSource<'event> + 'event,
+>(
     source: S,
 ) -> Result<T> {
     let mut deserializer = Deserializer {
-        source: source.into_event_source(),
+        source: PeekableEventSource::new(source.into_event_source()),
     };
     let res = T::deserialize(&mut deserializer)?;
 
-    if !deserializer.source.is_done() {
+    if deserializer.source.next()?.is_some() {
         fail!("from_record_batch: Trailing content");
     }
 
     Ok(res)
 }
 
-pub struct Deserializer<S> {
-    source: S,
+pub struct Deserializer<'event, S: EventSource<'event>> {
+    source: PeekableEventSource<'event, S>,
 }
 
-impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
+    for &'a mut Deserializer<'event, S>
+{
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.peek() {
+        match self.source.peek()? {
             Some(Event::Bool(_)) => self.deserialize_bool(visitor),
             Some(Event::I8(_)) => self.deserialize_i8(visitor),
             Some(Event::I16(_)) => self.deserialize_i16(visitor),
@@ -77,51 +130,51 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_bool(self.source.next_event()?.try_into()?)
+        visitor.visit_bool(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.source.next_event()?.try_into()?)
+        visitor.visit_i8(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.source.next_event()?.try_into()?)
+        visitor.visit_i16(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.source.next_event()?.try_into()?)
+        visitor.visit_i32(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.source.next_event()?.try_into()?)
+        visitor.visit_i64(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.source.next_event()?.try_into()?)
+        visitor.visit_u8(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.source.next_event()?.try_into()?)
+        visitor.visit_u16(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.source.next_event()?.try_into()?)
+        visitor.visit_u32(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.source.next_event()?.try_into()?)
+        visitor.visit_u64(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f32(self.source.next_event()?.try_into()?)
+        visitor.visit_f32(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f64(self.source.next_event()?.try_into()?)
+        visitor.visit_f64(self.source.next()?.required()?.try_into()?)
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next_event()? {
+        match self.source.next()?.required()? {
             Event::U32(val) => {
                 visitor.visit_char(char::from_u32(val).ok_or_else(|| error!("Invalid character"))?)
             }
@@ -133,7 +186,7 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next_event()? {
+        match self.source.next()?.required()? {
             Event::Key(key) => visitor.visit_str(key),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_str(val),
@@ -143,7 +196,7 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next_event()? {
+        match self.source.next()?.required()? {
             Event::Key(key) => visitor.visit_string(key.to_owned()),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
@@ -161,13 +214,13 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if let Some(Event::Null) = self.source.peek() {
-            self.source.next_event()?;
+        if let Some(Event::Null) = self.source.peek()? {
+            self.source.next()?;
             visitor.visit_none()
         } else {
             // Support deserializing options both with and without Some markers
-            if let Some(Event::Some) = self.source.peek() {
-                self.source.next_event()?;
+            if let Some(Event::Some) = self.source.peek()? {
+                self.source.next()?;
             }
 
             visitor.visit_some(self)
@@ -175,7 +228,7 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next_event()? {
+        match self.source.next()?.required()? {
             Event::Null => visitor.visit_unit(),
             ev => fail!("deserialize_unit: Cannot handle {}", ev),
         }
@@ -198,13 +251,13 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.source.next_event()?, Event::StartSequence) {
+        if !matches!(self.source.next()?, Some(Event::StartSequence)) {
             fail!("Expected start of sequence");
         }
 
         let res = visitor.visit_seq(&mut *self)?;
 
-        if !matches!(self.source.next_event()?, Event::EndSequence) {
+        if !matches!(self.source.next()?, Some(Event::EndSequence)) {
             fail!("Expected end of sequence");
         }
         Ok(res)
@@ -224,13 +277,13 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.source.next_event()?, Event::StartMap) {
+        if !matches!(self.source.next()?, Some(Event::StartMap)) {
             fail!("Expected start of map");
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.source.next_event()?, Event::EndMap) {
+        if !matches!(self.source.next()?, Some(Event::EndMap)) {
             fail!("Expected end of map");
         }
         Ok(res)
@@ -263,28 +316,28 @@ impl<'de, 'a, S: EventSource> de::Deserializer<'de> for &'a mut Deserializer<S> 
     }
 }
 
-impl<'de, 'a, S: EventSource> SeqAccess<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, 'event, S: EventSource<'event>> SeqAccess<'de> for &'a mut Deserializer<'event, S> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
-        if matches!(self.source.peek(), Some(Event::EndSequence)) {
+        if matches!(self.source.peek()?, Some(Event::EndSequence)) {
             return Ok(None);
         }
         seed.deserialize(&mut **self).map(Some)
     }
 }
 
-impl<'de, 'a, S: EventSource> MapAccess<'de> for &'a mut Deserializer<S> {
+impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deserializer<'event, S> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
     {
-        if matches!(self.source.peek(), Some(Event::EndMap)) {
+        if matches!(self.source.peek()?, Some(Event::EndMap)) {
             return Ok(None);
         }
         seed.deserialize(&mut **self).map(Some)
@@ -303,27 +356,19 @@ pub struct SliceSource<'items, 'event> {
     next: usize,
 }
 
-impl<'items, 'event> EventSource for SliceSource<'items, 'event> {
-    fn is_done(&self) -> bool {
-        self.next == self.items.len()
-    }
-
-    fn peek(&self) -> Option<Event<'event>> {
-        self.items.get(self.next).cloned()
-    }
-
-    fn next_event(&mut self) -> Result<Event<'event>> {
-        let res = self
-            .items
-            .get(self.next)
-            .cloned()
-            .ok_or_else(|| error!("no next event"));
-        self.next += 1;
-        res
+impl<'items, 'event> EventSource<'event> for SliceSource<'items, 'event> {
+    fn next(&mut self) -> Result<Option<Event<'event>>> {
+        match self.items.get(self.next).cloned() {
+            Some(next) => {
+                self.next += 1;
+                Ok(Some(next))
+            }
+            None => Ok(None),
+        }
     }
 }
 
-impl<'items, 'event> IntoEventSource for &'items [Event<'event>] {
+impl<'items, 'event> IntoEventSource<'event> for &'items [Event<'event>] {
     type EventSource = SliceSource<'items, 'event>;
 
     fn into_event_source(self) -> Self::EventSource {
@@ -334,7 +379,7 @@ impl<'items, 'event> IntoEventSource for &'items [Event<'event>] {
     }
 }
 
-impl<'items, 'event> IntoEventSource for &'items Vec<Event<'event>> {
+impl<'items, 'event> IntoEventSource<'event> for &'items Vec<Event<'event>> {
     type EventSource = SliceSource<'items, 'event>;
 
     fn into_event_source(self) -> Self::EventSource {
@@ -343,4 +388,14 @@ impl<'items, 'event> IntoEventSource for &'items Vec<Event<'event>> {
             next: 0,
         }
     }
+}
+
+pub fn collect_events<'event, S: EventSource<'event> + 'event>(
+    source: &mut S,
+) -> Result<Vec<Event<'static>>> {
+    let mut res = Vec::new();
+    while let Some(ev) = source.next()? {
+        res.push(ev.to_static());
+    }
+    Ok(res)
 }

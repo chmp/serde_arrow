@@ -1,4 +1,3 @@
-use crate::ops::{from_arrays, ArraySource};
 use crate::{event::Event, fail, DataType, Result, Schema};
 
 use arrow2::{
@@ -30,7 +29,7 @@ pub fn from_chunk<'de, T: Deserialize<'de>, A: AsRef<dyn Array>>(
     schema: &Schema,
 ) -> Result<T> {
     let arrays = build_arrays(chunk, schema)?;
-    from_arrays(arrays, chunk.len())
+    todo!()
 }
 
 struct Arrow2ArraySource<'a> {
@@ -57,7 +56,7 @@ enum Arrow2ArrayRef<'a> {
     Date64DateTimeMilliseconds(&'a Int64Array),
 }
 
-impl<'a> ArraySource for Arrow2ArraySource<'a> {
+impl<'a> Arrow2ArraySource<'a> {
     fn name(&self) -> &str {
         &self.name
     }

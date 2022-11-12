@@ -22,7 +22,7 @@ use crate::{fail, Result};
 /// for types which can be expressed in different serialization formats (e.g.,
 /// dates).
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
     Bool,
     I8,
@@ -86,7 +86,7 @@ impl std::fmt::Display for DataType {
 /// - Build it manually by using [Schema::new] and [Schema::add_field]
 /// - Convert an Arrow schema via `Schema::try_from(arrow_schema)`
 ///
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
     fields: Vec<String>,
     seen_fields: HashSet<String>,

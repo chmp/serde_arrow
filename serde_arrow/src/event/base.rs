@@ -1,7 +1,7 @@
 //! The underlying data format used to interact with serde
 //!
 
-use crate::{fail, Error, Result};
+use crate::{error, fail, Error, Result};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Event<'a> {
@@ -57,10 +57,20 @@ impl<'a> std::fmt::Display for Event<'a> {
 }
 
 impl<'a> Event<'a> {
+    /// Create a new OwnedKey event
     pub fn owned_key<S: Into<String>>(key: S) -> Self {
         Self::OwnedKey(key.into())
     }
 
+    /// Create a new String event
+    pub fn string<S: Into<String>>(key: S) -> Self {
+        Self::String(key.into())
+    }
+
+    /// Increase the lifetime of the event to static
+    ///
+    /// This function clones any borrowed strings.
+    ///
     pub fn to_static(&self) -> Event<'static> {
         match self {
             &Event::Str(s) => Event::String(s.to_owned()),
@@ -152,5 +162,15 @@ impl<'a> TryFrom<Event<'a>> for String {
             Event::String(val) => Ok(val),
             event => fail!("Cannot convert {} to string", event),
         }
+    }
+}
+
+pub trait EventOption<'a> {
+    fn required(self) -> Result<Event<'a>>;
+}
+
+impl<'a> EventOption<'a> for Option<Event<'a>> {
+    fn required(self) -> Result<Event<'a>> {
+        self.ok_or_else(|| error!("Unexpected no event"))
     }
 }
