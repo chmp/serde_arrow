@@ -17,6 +17,13 @@ pub trait EventSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()>;
 }
 
+impl EventSink for Vec<Event<'static>> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        self.push(event.to_static());
+        Ok(())
+    }
+}
+
 struct EventSerializer<S> {
     sink: S,
     expect_key: bool,

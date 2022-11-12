@@ -5,7 +5,7 @@ use serde::{
     Deserialize,
 };
 
-use super::base::EventOption;
+use super::event::EventOption;
 
 pub trait EventSource<'a> {
     fn next(&mut self) -> Result<Option<Event<'a>>>

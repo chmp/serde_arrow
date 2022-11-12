@@ -1,4 +1,5 @@
 mod from_chunk;
+pub(crate) mod sinks;
 pub(crate) mod sources;
 mod to_chunk;
 

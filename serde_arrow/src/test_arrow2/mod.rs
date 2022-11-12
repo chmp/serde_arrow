@@ -1,3 +1,4 @@
+mod sinks;
 mod sources;
 
 use crate::DataType;

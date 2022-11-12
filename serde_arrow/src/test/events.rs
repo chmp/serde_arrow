@@ -1,6 +1,5 @@
 use crate::{
-    event::{deserialize_from_source, Event},
-    test::utils::TestSink,
+    event::{deserialize_from_source, serialize_into_sink, Event},
     Result,
 };
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,7 @@ fn example() -> Result<()> {
         Example { int8: 1, int32: 42 },
     ];
 
-    let events = TestSink::collect_events(&items)?;
+    let events = serialize_into_sink(Vec::new(), &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -52,7 +51,7 @@ fn example_options() -> Result<()> {
 
     let items = &[Example { int8: Some(0) }, Example { int8: None }];
 
-    let events = TestSink::collect_events(&items)?;
+    let events = serialize_into_sink(Vec::new(), &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -87,7 +86,7 @@ fn outer_struct() -> Result<()> {
         booleans: vec![true, false, true],
     };
 
-    let events = TestSink::collect_events(&item)?;
+    let events = serialize_into_sink(Vec::new(), &item)?;
     let expected = vec![
         Event::StartMap,
         Event::owned_key("ints"),
@@ -143,7 +142,7 @@ fn nested_struct() -> Result<()> {
         },
     ];
 
-    let events = TestSink::collect_events(&items)?;
+    let events = serialize_into_sink(Vec::new(), &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,

@@ -67,6 +67,13 @@ impl<'a> Event<'a> {
         Self::String(key.into())
     }
 
+    pub fn into_option<T: TryFrom<Event<'a>, Error=Error>>(self) -> Result<Option<T>> {
+        match self {
+            Event::Null => Ok(None),
+            ev => Ok(Some(ev.try_into()?))
+        }
+    }
+
     /// Increase the lifetime of the event to static
     ///
     /// This function clones any borrowed strings.
