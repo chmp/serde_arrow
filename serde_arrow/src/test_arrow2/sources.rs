@@ -97,7 +97,8 @@ fn struct_source_events() -> Result<()> {
         ],
         None,
     );
-    let source = build_dynamic_source(array.data_type(), &array)?;
+    let field = Field::new("s", array.data_type().clone(), false);
+    let source = build_dynamic_source(&field, &array)?;
     let actual = collect_events(source)?;
 
     let expected = vec![
@@ -278,7 +279,8 @@ fn deserialize_nested_structs() -> Result<()> {
 #[test]
 fn primitive_source() -> Result<()> {
     let array = PrimitiveArray::from(vec![Some(0), None, Some(1)]);
-    let source = build_dynamic_source(array.data_type(), &array)?;
+    let field = Field::new("a", array.data_type().clone(), true);
+    let source = build_dynamic_source(&field, &array)?;
     let events = collect_events(source)?;
 
     let expected = vec![Event::I32(0), Event::Null, Event::I32(1)];

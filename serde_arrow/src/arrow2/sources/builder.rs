@@ -25,27 +25,27 @@ pub fn build_record_source<'a>(
 
     for i in 0..fields.len() {
         columns.push(fields[i].name.as_str());
-        sources.push(build_dynamic_source(fields[i].data_type(), arrays[i])?);
+        sources.push(build_dynamic_source(&fields[i], arrays[i])?);
     }
 
     Ok(RecordSource::new(columns, sources))
 }
 
 pub fn build_dynamic_source<'a>(
-    data_type: &'a DataType,
+    field: &'a Field,
     array: &'a dyn Array,
 ) -> Result<DynamicSource<'a>> {
-    let source = match data_type {
-        DataType::Int8 => build_dynamic_primitive_source::<i8>(data_type, array)?,
-        DataType::Int16 => build_dynamic_primitive_source::<i16>(data_type, array)?,
-        DataType::Int32 => build_dynamic_primitive_source::<i32>(data_type, array)?,
-        DataType::Int64 => build_dynamic_primitive_source::<i64>(data_type, array)?,
-        DataType::UInt8 => build_dynamic_primitive_source::<u8>(data_type, array)?,
-        DataType::UInt16 => build_dynamic_primitive_source::<u16>(data_type, array)?,
-        DataType::UInt32 => build_dynamic_primitive_source::<u32>(data_type, array)?,
-        DataType::UInt64 => build_dynamic_primitive_source::<u64>(data_type, array)?,
-        DataType::Float32 => build_dynamic_primitive_source::<f32>(data_type, array)?,
-        DataType::Float64 => build_dynamic_primitive_source::<f64>(data_type, array)?,
+    let source = match field.data_type() {
+        DataType::Int8 => build_dynamic_primitive_source::<i8>(field, array)?,
+        DataType::Int16 => build_dynamic_primitive_source::<i16>(field, array)?,
+        DataType::Int32 => build_dynamic_primitive_source::<i32>(field, array)?,
+        DataType::Int64 => build_dynamic_primitive_source::<i64>(field, array)?,
+        DataType::UInt8 => build_dynamic_primitive_source::<u8>(field, array)?,
+        DataType::UInt16 => build_dynamic_primitive_source::<u16>(field, array)?,
+        DataType::UInt32 => build_dynamic_primitive_source::<u32>(field, array)?,
+        DataType::UInt64 => build_dynamic_primitive_source::<u64>(field, array)?,
+        DataType::Float32 => build_dynamic_primitive_source::<f32>(field, array)?,
+        DataType::Float64 => build_dynamic_primitive_source::<f64>(field, array)?,
         DataType::Boolean => DynamicSource::new(BooleanEventSource::new(
             array
                 .as_any()
@@ -59,7 +59,7 @@ pub fn build_dynamic_source<'a>(
 }
 
 pub fn build_dynamic_primitive_source<'a, T: Into<Event<'static>> + NativeType>(
-    data_type: &'a DataType,
+    field: &'a Field,
     array: &'a dyn Array,
 ) -> Result<DynamicSource<'a>> {
     let source = PrimitiveEventSource::<'a, T>::new(
@@ -79,16 +79,17 @@ pub fn build_dynamic_struct_source<'a>(
         .as_any()
         .downcast_ref::<StructArray>()
         .ok_or_else(|| error!("mismatched type"))?;
+    let children = array.values();
 
-    let fields = fields.iter().map(|field| field.name.as_str()).collect();
-    let values: Result<Vec<DynamicSource<'_>>> = array
-        .values()
-        .iter()
-        .map(|array| build_dynamic_source(array.data_type(), array.as_ref()))
-        .collect();
-    let values = values?;
+    let mut names: Vec<&'a str> = Vec::new();
+    let mut values: Vec<DynamicSource<'a>> = Vec::new();
 
-    let source = StructSource::new(fields, values);
+    for i in 0..fields.len() {
+        names.push(fields[i].name.as_str());
+        values.push(build_dynamic_source(&fields[i], children[i].as_ref())?);
+    }
+
+    let source = StructSource::new(names, values);
 
     Ok(DynamicSource::new(source))
 }
