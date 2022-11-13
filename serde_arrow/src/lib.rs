@@ -39,9 +39,6 @@ pub mod arrow2;
 #[cfg(test)]
 mod test;
 
-#[cfg(all(test, feature = "arrow2"))]
-mod test_arrow2;
-
 pub use error::{Error, Result};
 
 #[doc = include_str!("../Implementation.md")]
