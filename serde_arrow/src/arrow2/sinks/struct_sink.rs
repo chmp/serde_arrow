@@ -1,11 +1,17 @@
 use std::collections::HashSet;
 
-use arrow2::{array::{Array, StructArray}, datatypes::{DataType, Field}};
+use arrow2::{
+    array::{Array, StructArray},
+    datatypes::{DataType, Field},
+};
 
-use crate::{event::{EventSink, Event}, fail, Result, error};
+use crate::{
+    error,
+    event::{Event, EventSink},
+    fail, Result,
+};
 
 use super::base::ArrayBuilder;
-
 
 pub struct StructArrayBuilder<B: ArrayBuilder> {
     columns: Vec<String>,
@@ -39,7 +45,7 @@ impl<B: ArrayBuilder> EventSink for StructArrayBuilder<B> {
                     self.seen.clear();
                 }
                 _ => fail!("Expected start map"),
-            }
+            },
             WaitForField => {
                 let key = match event {
                     Event::Key(key) => key,
@@ -47,14 +53,18 @@ impl<B: ArrayBuilder> EventSink for StructArrayBuilder<B> {
                     Event::EndMap => {
                         if self.seen.len() != self.columns.len() {
                             // TODO: improve error message
-                            fail!("Missing fields");        
+                            fail!("Missing fields");
                         }
                         self.state = WaitForStart;
-                        return Ok(())
+                        return Ok(());
                     }
                     event => fail!("Unexpected event while waiting for field: {event}"),
                 };
-                let idx = self.columns.iter().position(|col| col == key).ok_or_else(|| error!("unknown field {key}"))?;
+                let idx = self
+                    .columns
+                    .iter()
+                    .position(|col| col == key)
+                    .ok_or_else(|| error!("unknown field {key}"))?;
                 if self.seen.contains(&idx) {
                     fail!("Duplicate field {}", self.columns[idx]);
                 }
@@ -70,7 +80,7 @@ impl<B: ArrayBuilder> EventSink for StructArrayBuilder<B> {
                         // TODO: check is this event possible?
                         0 => fail!("Unbalanced opening / close events"),
                         _ => WaitForValue(active, depth - 1),
-                    }
+                    },
                     _ if depth == 0 => WaitForField,
                     _ => self.state,
                 };
@@ -78,7 +88,7 @@ impl<B: ArrayBuilder> EventSink for StructArrayBuilder<B> {
             }
         }
         Ok(())
-    }    
+    }
 }
 
 impl<B: ArrayBuilder> ArrayBuilder for StructArrayBuilder<B> {
@@ -86,24 +96,31 @@ impl<B: ArrayBuilder> ArrayBuilder for StructArrayBuilder<B> {
         (*self).into_array()
     }
 
-    fn into_array(self) -> Result<Box<dyn Array>> where Self: Sized {
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
         if !matches!(self.state, StructArrayBuilderState::WaitForStart) {
             fail!("Invalid state at array construction");
-        } 
+        }
 
-        let values: Result<Vec<Box<dyn Array>>> = self.builders.into_iter().map(|b| b.into_array()).collect();
+        let values: Result<Vec<Box<dyn Array>>> =
+            self.builders.into_iter().map(|b| b.into_array()).collect();
         let values = values?;
 
         let mut fields = Vec::new();
         for (i, column) in self.columns.into_iter().enumerate() {
-            fields.push(Field::new(column, values[i].data_type().clone(), self.nullable[i]));
+            fields.push(Field::new(
+                column,
+                values[i].data_type().clone(),
+                self.nullable[i],
+            ));
         }
         let data_type = DataType::Struct(fields);
 
         Ok(Box::new(StructArray::new(data_type, values, None)))
     }
 }
-
 
 #[derive(Debug, Clone, Copy)]
 enum StructArrayBuilderState {

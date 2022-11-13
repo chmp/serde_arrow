@@ -8,9 +8,7 @@ use serde::{
 use super::event::EventOption;
 
 pub trait EventSource<'a> {
-    fn next(&mut self) -> Result<Option<Event<'a>>>
-    where
-        Self: 'a;
+    fn next(&mut self) -> Result<Option<Event<'a>>>;
 }
 
 pub struct PeekableEventSource<'a, S: EventSource<'a> + 'a> {

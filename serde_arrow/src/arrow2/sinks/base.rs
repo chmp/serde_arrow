@@ -1,10 +1,15 @@
 use arrow2::array::Array;
 
-use crate::{event::{EventSink, Event}, Result};
+use crate::{
+    event::{Event, EventSink},
+    Result,
+};
 
 pub trait ArrayBuilder: EventSink {
     fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>>;
-    fn into_array(self) -> Result<Box<dyn Array>> where Self: Sized;
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized;
 }
 
 pub struct DynamicArrayBuilder {
@@ -13,7 +18,9 @@ pub struct DynamicArrayBuilder {
 
 impl DynamicArrayBuilder {
     pub fn new<B: ArrayBuilder + 'static>(builder: B) -> Self {
-        Self { builder: Box::new(builder) }
+        Self {
+            builder: Box::new(builder),
+        }
     }
 }
 

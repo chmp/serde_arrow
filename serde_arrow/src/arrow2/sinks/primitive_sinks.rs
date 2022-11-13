@@ -1,6 +1,13 @@
-use arrow2::{array::Array, types::NativeType, array::{MutablePrimitiveArray, MutableBooleanArray, PrimitiveArray, BooleanArray}};
+use arrow2::{
+    array::Array,
+    array::{BooleanArray, MutableBooleanArray, MutablePrimitiveArray, PrimitiveArray},
+    types::NativeType,
+};
 
-use crate::{event::{Event, EventSink}, Error, Result};
+use crate::{
+    event::{Event, EventSink},
+    Error, Result,
+};
 
 use super::base::ArrayBuilder;
 
@@ -31,7 +38,10 @@ impl<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> ArrayBuilder
         (*self).into_array()
     }
 
-    fn into_array(self) -> Result<Box<dyn Array>> where Self: Sized {
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
         Ok(Box::new(PrimitiveArray::from(self.array)))
     }
 }

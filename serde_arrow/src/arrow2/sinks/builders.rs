@@ -2,12 +2,15 @@ use arrow2::datatypes::DataType;
 
 use crate::{fail, Result};
 
-use super::{base::DynamicArrayBuilder, primitive_sinks::{BooleanArrayBuilder, PrimitiveArrayBuilder}, struct_sink::StructArrayBuilder};
-
+use super::{
+    base::DynamicArrayBuilder,
+    primitive_sinks::{BooleanArrayBuilder, PrimitiveArrayBuilder},
+    struct_sink::StructArrayBuilder,
+};
 
 pub fn build_dynamic_array_builder(dt: &DataType) -> Result<DynamicArrayBuilder> {
     match dt {
-        DataType::Boolean => Ok(DynamicArrayBuilder::new(BooleanArrayBuilder::new())), 
+        DataType::Boolean => Ok(DynamicArrayBuilder::new(BooleanArrayBuilder::new())),
         DataType::Int8 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i8>::new())),
         DataType::Int16 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i16>::new())),
         DataType::Int32 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i32>::new())),

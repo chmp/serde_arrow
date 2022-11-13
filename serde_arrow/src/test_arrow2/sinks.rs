@@ -1,8 +1,13 @@
+//! Test rust objects -> events -> arrays
 use arrow2::datatypes::{DataType, Field};
+use serde::Serialize;
 
 use crate::{
-    event::{Event, EventSink},
-    Result, arrow2::sinks::{builders::build_dynamic_array_builder, base::ArrayBuilder},
+    arrow2::sinks::{
+        base::ArrayBuilder, builders::build_dynamic_array_builder, records_builder::RecordsBuilder,
+    },
+    event::{serialize_into_sink, Event, EventSink},
+    Result,
 };
 
 #[test]
@@ -47,7 +52,7 @@ fn struct_sink() -> Result<()> {
     ];
 
     let mut sink = build_dynamic_array_builder(&DataType::Struct(fields))?;
-    
+
     sink.accept(Event::StartMap)?;
     sink.accept(Event::Key("a"))?;
     sink.accept(Event::I8(0))?;
@@ -70,16 +75,14 @@ fn struct_sink() -> Result<()> {
 
 #[test]
 fn nested_struct_sink() -> Result<()> {
-    let inner_fields = vec![
-        Field::new("value", DataType::Boolean, false),
-    ];
+    let inner_fields = vec![Field::new("value", DataType::Boolean, false)];
     let outer_fields = vec![
         Field::new("a", DataType::Int8, true),
         Field::new("b", DataType::Struct(inner_fields), true),
     ];
 
     let mut sink = build_dynamic_array_builder(&DataType::Struct(outer_fields)).unwrap();
-    
+
     sink.accept(Event::StartMap).unwrap();
     sink.accept(Event::Key("a")).unwrap();
     sink.accept(Event::I8(0)).unwrap();
@@ -102,6 +105,48 @@ fn nested_struct_sink() -> Result<()> {
     let array = sink.into_array().unwrap();
 
     assert_eq!(array.len(), 2);
+
+    Ok(())
+}
+
+fn nested_struct_serialize() -> Result<()> {
+    let inner_fields = vec![Field::new("value", DataType::Boolean, false)];
+    let sink = RecordsBuilder::new(vec![
+        Field::new("a", DataType::Int8, true),
+        Field::new("b", DataType::Struct(inner_fields), true),
+    ])?;
+
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: Option<i8>,
+        b: Inner,
+    }
+
+    #[derive(Debug, Serialize)]
+    struct Inner {
+        value: bool,
+    }
+
+    let items = vec![
+        Item {
+            a: Some(0),
+            b: Inner { value: true },
+        },
+        Item {
+            a: None,
+            b: Inner { value: false },
+        },
+        Item {
+            a: Some(21),
+            b: Inner { value: false },
+        },
+    ];
+
+    let (_fields, values) = serialize_into_sink(sink, &items)?.into_records()?;
+
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0].len(), 3);
+    assert_eq!(values[1].len(), 3);
 
     Ok(())
 }

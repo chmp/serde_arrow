@@ -3,4 +3,5 @@
 pub(crate) mod base;
 pub(crate) mod builders;
 pub(crate) mod primitive_sinks;
+pub(crate) mod records_builder;
 pub(crate) mod struct_sink;

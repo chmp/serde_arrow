@@ -67,10 +67,37 @@ impl<'a> Event<'a> {
         Self::String(key.into())
     }
 
-    pub fn into_option<T: TryFrom<Event<'a>, Error=Error>>(self) -> Result<Option<T>> {
+    pub fn into_option<T: TryFrom<Event<'a>, Error = Error>>(self) -> Result<Option<T>> {
         match self {
             Event::Null => Ok(None),
-            ev => Ok(Some(ev.try_into()?))
+            ev => Ok(Some(ev.try_into()?)),
+        }
+    }
+
+    /// shorten the lifetime of the event
+    pub fn as_ref<'this>(&'this self) -> Event<'this> {
+        match self {
+            Event::OwnedKey(k) => Event::Key(k),
+            Event::String(s) => Event::Str(s),
+            Event::Str(s) => Event::Str(s),
+            Event::Key(k) => Event::Key(k),
+            Event::StartSequence => Event::StartSequence,
+            Event::StartMap => Event::StartMap,
+            Event::Some => Event::Some,
+            &Event::Bool(b) => Event::Bool(b),
+            &Event::I8(v) => Event::I8(v),
+            &Event::I16(v) => Event::I16(v),
+            &Event::I32(v) => Event::I32(v),
+            &Event::I64(v) => Event::I64(v),
+            &Event::U8(v) => Event::U8(v),
+            &Event::U16(v) => Event::U16(v),
+            &Event::U32(v) => Event::U32(v),
+            &Event::U64(v) => Event::U64(v),
+            &Event::F32(v) => Event::F32(v),
+            &Event::F64(v) => Event::F64(v),
+            Event::Null => Event::Null,
+            Event::EndMap => Event::EndMap,
+            Event::EndSequence => Event::EndSequence,
         }
     }
 
