@@ -5,7 +5,7 @@ use arrow2::{
 use serde::Deserialize;
 
 use crate::{
-    arrow2::{build_dynamic_source, RecordSource},
+    arrow2::{build_dynamic_source, sources::builder::build_record_source},
     event::{collect_events, deserialize_from_source, Event},
     Result,
 };
@@ -15,15 +15,14 @@ fn records_source() -> Result<()> {
     let column1 = PrimitiveArray::<i8>::from(vec![Some(0), None]);
     let column2 = BooleanArray::from(vec![Some(true), Some(false)]);
 
-    let mut source = RecordSource::new(
-        vec!["a", "b"],
-        vec![
-            build_dynamic_source(&column1)?,
-            build_dynamic_source(&column2)?,
-        ],
-    );
+    let fields = [
+        Field::new("a", column1.data_type().clone(), false),
+        Field::new("b", column2.data_type().clone(), false),
+    ];
+    let arrays = [&column1 as &dyn Array, &column2 as &dyn Array];
+    let source = build_record_source(&fields, &arrays)?;
 
-    let events = collect_events(&mut source)?;
+    let events = collect_events(source)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -57,13 +56,12 @@ fn deserialize_from_record_source() -> Result<()> {
     let column1 = PrimitiveArray::<i8>::from(vec![Some(0), None]);
     let column2 = BooleanArray::from(vec![Some(true), Some(false)]);
 
-    let source = RecordSource::new(
-        vec!["a", "b"],
-        vec![
-            build_dynamic_source(&column1)?,
-            build_dynamic_source(&column2)?,
-        ],
-    );
+    let fields = [
+        Field::new("a", column1.data_type().clone(), false),
+        Field::new("b", column2.data_type().clone(), false),
+    ];
+    let arrays = [&column1 as &dyn Array, &column2 as &dyn Array];
+    let source = build_record_source(&fields, &arrays)?;
 
     let actual: Vec<Item> = deserialize_from_source(source)?;
 
@@ -99,8 +97,8 @@ fn struct_source_events() -> Result<()> {
         ],
         None,
     );
-    let mut source = build_dynamic_source(&array)?;
-    let actual = collect_events(&mut source)?;
+    let source = build_dynamic_source(array.data_type(), &array)?;
+    let actual = collect_events(source)?;
 
     let expected = vec![
         Event::StartMap,
@@ -135,8 +133,11 @@ fn deserialize_struct_events() -> Result<()> {
         ],
         None,
     );
-    let mut source = RecordSource::new(vec!["s"], vec![build_dynamic_source(&array)?]);
-    let actual = collect_events(&mut source)?;
+    let fields = [Field::new("s", array.data_type().clone(), false)];
+    let arrays = [&array as &dyn Array];
+    let source = build_record_source(&fields, &arrays)?;
+
+    let actual = collect_events(source)?;
 
     let expected = vec![
         Event::StartSequence,
@@ -179,7 +180,10 @@ fn deserialize_structs() -> Result<()> {
         ],
         None,
     );
-    let source = RecordSource::new(vec!["s"], vec![build_dynamic_source(&array)?]);
+
+    let fields = [Field::new("s", array.data_type().clone(), false)];
+    let arrays = [&array as &dyn Array];
+    let source = build_record_source(&fields, &arrays)?;
 
     #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
     struct Struct {
@@ -229,7 +233,10 @@ fn deserialize_nested_structs() -> Result<()> {
         ],
         None,
     );
-    let source = RecordSource::new(vec!["s"], vec![build_dynamic_source(&outer)?]);
+
+    let fields = [Field::new("s", outer.data_type().clone(), false)];
+    let arrays = [&outer as &dyn Array];
+    let source = build_record_source(&fields, &arrays)?;
 
     #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
     struct Item {
@@ -271,8 +278,8 @@ fn deserialize_nested_structs() -> Result<()> {
 #[test]
 fn primitive_source() -> Result<()> {
     let array = PrimitiveArray::from(vec![Some(0), None, Some(1)]);
-    let mut source = build_dynamic_source(&array)?;
-    let events = collect_events(&mut source)?;
+    let source = build_dynamic_source(array.data_type(), &array)?;
+    let events = collect_events(source)?;
 
     let expected = vec![Event::I32(0), Event::Null, Event::I32(1)];
 

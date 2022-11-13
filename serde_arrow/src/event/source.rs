@@ -389,7 +389,7 @@ impl<'items, 'event> IntoEventSource<'event> for &'items Vec<Event<'event>> {
 }
 
 pub fn collect_events<'event, S: EventSource<'event> + 'event>(
-    source: &mut S,
+    mut source: S,
 ) -> Result<Vec<Event<'static>>> {
     let mut res = Vec::new();
     while let Some(ev) = source.next()? {

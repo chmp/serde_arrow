@@ -7,13 +7,13 @@ use crate::{
 };
 
 pub struct StructSource<'a> {
-    fields: &'a [Field],
+    fields: Vec<&'a str>,
     values: Vec<PeekableEventSource<'a, DynamicSource<'a>>>,
     next: StructSourceState,
 }
 
 impl<'a> StructSource<'a> {
-    pub fn new(fields: &'a [Field], values: Vec<DynamicSource<'a>>) -> Self {
+    pub fn new(fields: Vec<&'a str>, values: Vec<DynamicSource<'a>>) -> Self {
         let values = values.into_iter().map(PeekableEventSource::new).collect();
         Self {
             fields,
@@ -45,7 +45,7 @@ impl<'a> EventSource<'a> for StructSource<'a> {
             }
             Key(i) => {
                 self.next = Value(i, 0);
-                Ok(Some(Event::Key(&self.fields[i].name)))
+                Ok(Some(Event::Key(self.fields[i])))
             }
             Value(i, depth) => {
                 let ev = self.values[i]
