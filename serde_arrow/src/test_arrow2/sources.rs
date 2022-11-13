@@ -5,7 +5,7 @@ use arrow2::{
 use serde::Deserialize;
 
 use crate::{
-    arrow2::{build_dynamic_source, sources::builder::build_record_source},
+    arrow2::sources::builder::{build_dynamic_source, build_record_source},
     event::{collect_events, deserialize_from_source, Event},
     Result,
 };

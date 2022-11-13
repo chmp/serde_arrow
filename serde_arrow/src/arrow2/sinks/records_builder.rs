@@ -14,7 +14,6 @@ use super::{
 };
 
 pub struct RecordsBuilder {
-    fields: Vec<Field>,
     builders: Vec<DynamicArrayBuilder>,
     field_index: HashMap<String, usize>,
     next: State,
@@ -22,12 +21,12 @@ pub struct RecordsBuilder {
 }
 
 impl RecordsBuilder {
-    pub fn new(fields: Vec<Field>) -> Result<Self> {
+    pub fn new(fields: &[Field]) -> Result<Self> {
         let mut builders = Vec::new();
         let mut field_index = HashMap::new();
 
         for (idx, field) in fields.iter().enumerate() {
-            builders.push(build_dynamic_array_builder(field.data_type())?);
+            builders.push(build_dynamic_array_builder(field)?);
             if field_index.contains_key(&field.name) {
                 fail!("Duplicate field {}", field.name);
             }
@@ -35,7 +34,6 @@ impl RecordsBuilder {
         }
 
         Ok(Self {
-            fields,
             builders,
             field_index,
             next: State::StartSequence,
@@ -43,7 +41,7 @@ impl RecordsBuilder {
         })
     }
 
-    pub fn into_records(self) -> Result<(Vec<Field>, Vec<Box<dyn Array>>)> {
+    pub fn into_records(self) -> Result<Vec<Box<dyn Array>>> {
         if !matches!(self.next, State::Done) {
             fail!("Invalid state");
         }
@@ -53,7 +51,7 @@ impl RecordsBuilder {
             .map(|builder| builder.into_array())
             .collect();
         let arrays = arrays?;
-        Ok((self.fields, arrays))
+        Ok(arrays)
     }
 }
 
@@ -90,6 +88,8 @@ impl EventSink for RecordsBuilder {
                 Value(idx, 0)
             }
             (Key, Event::EndMap) => StartMap,
+            // Ignore some events
+            (Value(idx, depth), Event::Some) => Value(idx, depth),
             (Value(idx, depth), ev) => {
                 let next = match ev {
                     Event::StartSequence | Event::StartMap => Value(idx, depth + 1),

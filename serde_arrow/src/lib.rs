@@ -3,9 +3,8 @@
 //! Usage:
 //!
 //! ```rust
-//! # use serde_arrow::{Result, Schema};
+//! # use serde_arrow::{Result, arrow2::{serialize_into_fields, serialize_into_arrays}};
 //! # use serde::Serialize;
-//! # use std::convert::TryFrom;
 //! #
 //! # fn main() -> Result<()> {
 //! #[derive(Serialize)]
@@ -21,11 +20,9 @@
 //! ];
 //!
 //! // try to auto-detect the arrow types, result can be overwritten and customized
-//! let schema = Schema::from_records(&records)?;
-//! // let batch = serde_arrow::arrow::to_record_batch(&records, &schema)?;
+//! let fields = serialize_into_fields(&records)?;
+//! let batch = serialize_into_arrays(&fields, &records)?;
 //!
-//! // assert_eq!(batch.num_rows(), 3);
-//! // assert_eq!(batch.num_columns(), 2);
 //! # Ok(())
 //! # }
 //! ```
@@ -35,11 +32,6 @@
 //!
 mod error;
 pub mod event;
-mod ops;
-mod schema;
-
-#[cfg(feature = "arrow")]
-pub mod arrow;
 
 #[cfg(feature = "arrow2")]
 pub mod arrow2;
@@ -47,16 +39,10 @@ pub mod arrow2;
 #[cfg(test)]
 mod test;
 
-#[cfg(all(test, feature = "arrow"))]
-mod test_arrow;
-
 #[cfg(all(test, feature = "arrow2"))]
 mod test_arrow2;
 
 pub use error::{Error, Result};
-pub use schema::{DataType, Schema};
-
-pub use ops::trace_schema;
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

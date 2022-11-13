@@ -1,5 +1,3 @@
-use arrow2::datatypes::Field;
-
 use crate::{
     error,
     event::{DynamicSource, Event, EventSource, PeekableEventSource},

@@ -5,27 +5,30 @@ use arrow2::{
 };
 
 use crate::{
-    arrow2::RecordSource,
+    arrow2::{schema::STRATEGY_KEY, Strategy},
     error,
     event::{DynamicSource, Event},
     fail, Result,
 };
 
 use super::{
-    primitive_sources::{BooleanEventSource, PrimitiveEventSource},
+    primitive_sources::{
+        BooleanEventSource, DateTimeStrSource, NaiveDateTimeStrSource, PrimitiveEventSource,
+    },
+    record_source::RecordSource,
     struct_source::StructSource,
 };
 
-pub fn build_record_source<'a>(
+pub fn build_record_source<'a, A: AsRef<dyn Array> + 'a>(
     fields: &'a [Field],
-    arrays: &[&'a dyn Array],
+    arrays: &'a [A],
 ) -> Result<RecordSource<'a, DynamicSource<'a>>> {
     let mut columns = Vec::new();
     let mut sources = Vec::new();
 
     for i in 0..fields.len() {
         columns.push(fields[i].name.as_str());
-        sources.push(build_dynamic_source(&fields[i], arrays[i])?);
+        sources.push(build_dynamic_source(&fields[i], arrays[i].as_ref())?);
     }
 
     Ok(RecordSource::new(columns, sources))
@@ -52,6 +55,21 @@ pub fn build_dynamic_source<'a>(
                 .downcast_ref()
                 .ok_or_else(|| error!("mismatched types"))?,
         )),
+        DataType::Date64 => {
+            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
+                let strategy: Strategy = strategy.parse()?;
+                match strategy {
+                    Strategy::NaiveDateTimeStr => DynamicSource::new(NaiveDateTimeStrSource(
+                        PrimitiveEventSource::<i64>::from_array(array)?,
+                    )),
+                    Strategy::DateTimeStr => DynamicSource::new(DateTimeStrSource(
+                        PrimitiveEventSource::<i64>::from_array(array)?,
+                    )),
+                }
+            } else {
+                build_dynamic_primitive_source::<i64>(field, array)?
+            }
+        }
         DataType::Struct(fields) => build_dynamic_struct_source(fields, array)?,
         dt => fail!("{dt:?} not yet supported"),
     };
@@ -62,12 +80,14 @@ pub fn build_dynamic_primitive_source<'a, T: Into<Event<'static>> + NativeType>(
     field: &'a Field,
     array: &'a dyn Array,
 ) -> Result<DynamicSource<'a>> {
-    let source = PrimitiveEventSource::<'a, T>::new(
-        array
-            .as_any()
-            .downcast_ref()
-            .ok_or_else(|| error!("Mismatched type"))?,
-    );
+    let source =
+        PrimitiveEventSource::<'a, T>::new(array.as_any().downcast_ref().ok_or_else(|| {
+            error!(
+                "Mismatched type. Expected {:?}, found: {:?}",
+                field.data_type,
+                array.data_type()
+            )
+        })?);
     Ok(DynamicSource::new(source))
 }
 

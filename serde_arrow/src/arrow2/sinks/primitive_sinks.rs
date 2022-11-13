@@ -3,6 +3,7 @@ use arrow2::{
     array::{BooleanArray, MutableBooleanArray, MutablePrimitiveArray, PrimitiveArray},
     types::NativeType,
 };
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 use crate::{
     event::{Event, EventSink},
@@ -71,5 +72,49 @@ impl ArrayBuilder for BooleanArrayBuilder {
 
     fn into_array(self) -> Result<Box<dyn Array>> {
         Ok(Box::new(BooleanArray::from(self.array)))
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct NaiveDateTimeStrBuilder(pub PrimitiveArrayBuilder<i64>);
+
+impl EventSink for NaiveDateTimeStrBuilder {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        self.0.accept(match event.as_ref() {
+            Event::Str(s) => Event::I64(s.parse::<NaiveDateTime>()?.timestamp_millis()),
+            ev => ev,
+        })
+    }
+}
+
+impl ArrayBuilder for NaiveDateTimeStrBuilder {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>> {
+        self.0.into_array()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DateTimeStrBuilder(pub PrimitiveArrayBuilder<i64>);
+
+impl EventSink for DateTimeStrBuilder {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        self.0.accept(match event.as_ref() {
+            Event::Str(s) => Event::I64(s.parse::<DateTime<Utc>>()?.timestamp_millis()),
+            ev => ev,
+        })
+    }
+}
+
+impl ArrayBuilder for DateTimeStrBuilder {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>> {
+        self.0.into_array()
     }
 }
