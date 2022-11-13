@@ -1,5 +1,5 @@
 use crate::{
-    event::{deserialize_from_source, serialize_into_sink, Event},
+    base::{deserialize_from_source, serialize_into_sink, Event},
     Result,
 };
 use serde::{Deserialize, Serialize};

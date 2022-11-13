@@ -1,4 +1,4 @@
-use crate::{error, event::Event, fail, Error, Result};
+use crate::{error, base::Event, fail, Error, Result};
 
 use serde::{
     de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},

@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     arrow2::{
         collect_events_from_array, deserialize_from_arrays, serialize_into_arrays,
-        serialize_into_fields, SchemaEditor, Strategy,
+        serialize_into_fields,
     },
-    event::Event,
+    base::Event, generic::schema::{Strategy, configure_serde_arrow_strategy},
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -28,9 +28,7 @@ fn dtype_date64_naive_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    fields
-        .set_serde_arrow_strategy(("val",), Strategy::NaiveDateTimeStr)
-        .unwrap();
+    configure_serde_arrow_strategy(&mut fields, ("val",), Strategy::NaiveDateTimeStr).unwrap();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
@@ -80,9 +78,7 @@ fn dtype_date64_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    fields
-        .set_serde_arrow_strategy(("val",), Strategy::DateTimeStr)
-        .unwrap();
+    configure_serde_arrow_strategy(&mut fields, ("val",), Strategy::DateTimeStr).unwrap();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 

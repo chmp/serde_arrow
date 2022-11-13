@@ -1,22 +1,13 @@
 use arrow2::{
-    array::{Array, StructArray},
+    array::{Array, StructArray, PrimitiveArray, BooleanArray},
     datatypes::{DataType, Field},
     types::NativeType,
 };
 
 use crate::{
-    arrow2::{schema::STRATEGY_KEY, Strategy},
     error,
-    event::{DynamicSource, Event},
-    fail, Result,
-};
-
-use super::{
-    primitive_sources::{
-        BooleanEventSource, DateTimeStrSource, NaiveDateTimeStrSource, PrimitiveEventSource,
-    },
-    record_source::RecordSource,
-    struct_source::StructSource,
+    base::{DynamicSource, Event, EventSource},
+    fail, Result, generic::schema::{STRATEGY_KEY, Strategy}, generic::{chrono::{DateTimeStrSource, NaiveDateTimeStrSource}, sources::{StructSource, RecordSource}},
 };
 
 pub fn build_record_source<'a, A: AsRef<dyn Array> + 'a>(
@@ -112,4 +103,63 @@ pub fn build_dynamic_struct_source<'a>(
     let source = StructSource::new(names, values);
 
     Ok(DynamicSource::new(source))
+}
+
+pub struct PrimitiveEventSource<'a, T: Into<Event<'static>> + NativeType> {
+    array: &'a PrimitiveArray<T>,
+    next: usize,
+}
+
+impl<'a, T: Into<Event<'static>> + NativeType> PrimitiveEventSource<'a, T> {
+    pub fn new(array: &'a PrimitiveArray<T>) -> Self {
+        Self { array, next: 0 }
+    }
+
+    pub fn from_array(array: &'a dyn Array) -> Result<Self> {
+        Ok(Self::new(
+            array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<T>>()
+                .ok_or_else(|| error!("Mismatched type"))?,
+        ))
+    }
+}
+
+impl<'a, T: Into<Event<'static>> + NativeType> EventSource<'a> for PrimitiveEventSource<'a, T> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        let ev = if self.next >= self.array.len() {
+            return Ok(None);
+        } else if !self.array.is_valid(self.next) {
+            Event::Null
+        } else {
+            self.array.value(self.next).into()
+        };
+        self.next += 1;
+        Ok(Some(ev))
+    }
+}
+
+pub struct BooleanEventSource<'a> {
+    array: &'a BooleanArray,
+    next: usize,
+}
+
+impl<'a> BooleanEventSource<'a> {
+    pub fn new(array: &'a BooleanArray) -> Self {
+        Self { array, next: 0 }
+    }
+}
+
+impl<'a> EventSource<'a> for BooleanEventSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        let ev = if self.next >= self.array.len() {
+            return Ok(None);
+        } else if !self.array.is_valid(self.next) {
+            Event::Null
+        } else {
+            self.array.value(self.next).into()
+        };
+        self.next += 1;
+        Ok(Some(ev))
+    }
 }

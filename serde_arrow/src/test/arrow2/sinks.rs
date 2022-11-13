@@ -7,11 +7,9 @@ use arrow2::{
 use serde::Serialize;
 
 use crate::{
-    arrow2::{
-        serialize_into_arrays,
-        sinks::{base::ArrayBuilder, builders::build_dynamic_array_builder},
-    },
-    event::{Event, EventSink},
+    arrow2::{serialize_into_arrays, sinks::build_dynamic_array_builder},
+    base::{Event, EventSink},
+    generic::sinks::ArrayBuilder,
     Result,
 };
 

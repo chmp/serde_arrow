@@ -75,7 +75,7 @@ impl<'a> Event<'a> {
     }
 
     /// shorten the lifetime of the event
-    pub fn as_ref<'this>(&'this self) -> Event<'this> {
+    pub fn to_self(&self) -> Event<'_> {
         match self {
             Event::OwnedKey(k) => Event::Key(k),
             Event::String(s) => Event::Str(s),

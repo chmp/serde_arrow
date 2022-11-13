@@ -1,44 +1,15 @@
-pub(crate) mod editor;
-
 use std::{collections::HashMap, str::FromStr};
 
-use arrow2::datatypes::{DataType, Field};
-
 use crate::{
-    error,
-    event::{Event, EventSink},
-    fail, Error, Result,
+    base::{Event, EventSink},
+    error, fail, Error, Result,
 };
 
-pub const STRATEGY_KEY: &'static str = "SERDE_ARROW:strategy";
+pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
 pub enum Strategy {
     DateTimeStr,
     NaiveDateTimeStr,
-}
-
-impl Strategy {
-    pub fn configure_field(&self, field: &mut Field) -> Result<()> {
-        match self {
-            Self::DateTimeStr | Self::NaiveDateTimeStr => {
-                if !matches!(
-                    field.data_type,
-                    DataType::Null | DataType::Utf8 | DataType::LargeUtf8
-                ) {
-                    fail!(
-                        "Cannot configure DateTimeStr for field of type {:?}",
-                        field.data_type
-                    );
-                }
-                field.data_type = DataType::Date64;
-                field
-                    .metadata
-                    .insert(String::from(STRATEGY_KEY), self.to_string());
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl std::fmt::Display for Strategy {
@@ -62,16 +33,58 @@ impl FromStr for Strategy {
     }
 }
 
+
+pub fn configure_serde_arrow_strategy<F, P>(fields: &mut [F], path: P, strategy: Strategy) -> Result<()> 
+where
+    F: GenericField,
+    P: IntoPath
+{
+    let path = path.into_path()?;
+    lookup_mut(fields, &path)?.configure_serde_arrow_strategy(strategy)
+}
+
+fn lookup_mut<'field, F: GenericField>(
+    fields: &'field mut [F],
+    path: &[PathFragment],
+) -> Result<&'field mut F> {
+    let (head, tail) = match path {
+        [head @ .., tail] => (head, tail),
+        [] => fail!("Cannot lookup a field in the root"),
+    };
+
+    let mut current_fields = fields;
+    let mut current_path = head;
+
+    while let [head, next_path @ ..] = current_path {
+        let field = get_field_mut(current_fields, head)?;
+        current_fields = field.get_children_mut()?;
+        current_path = next_path;
+    }
+
+    get_field_mut(current_fields, tail)
+}
+
+fn get_field_mut<'field, F: GenericField>(fields: &'field mut [F], fragment: &PathFragment) -> Result<&'field mut F> {
+    match fragment {
+        PathFragment::Field(name) => fields
+        .iter_mut()
+        .find(|field| field.name() == name)
+        .ok_or_else(|| error!("Could not find field {name}")),
+        PathFragment::Index => fields.get_mut(0).ok_or_else(|| error!("Could not find field 0")),   
+    }
+}
+
+
 /// A schema traced from a sequence of rust objects
 ///
 /// This object supports
-pub struct TracedSchema {
+pub struct TracedSchema<F> {
     next: State,
     path: Vec<PathFragment>,
-    builder: SchemaBuilder,
+    builder: SchemaBuilder<F>,
 }
 
-impl TracedSchema {
+impl<F> TracedSchema<F> {
     pub fn new() -> Self {
         Self {
             next: State::StartSequence,
@@ -85,7 +98,7 @@ impl TracedSchema {
     /// This function checks the internal state of the tracer and the detected
     /// fields.
     ///
-    pub fn into_fields(self) -> Result<Vec<Field>> {
+    pub fn into_fields(self) -> Result<Vec<F>> {
         if !matches!(self.next, State::Done) {
             fail!("Incomplete trace");
         }
@@ -102,11 +115,11 @@ enum State {
     Done,
 }
 
-impl EventSink for TracedSchema {
+impl<F: GenericField> EventSink for TracedSchema<F> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use State::*;
 
-        self.next = match (self.next, event.as_ref()) {
+        self.next = match (self.next, event.to_self()) {
             (StartSequence, Event::StartSequence) => StartRecord,
             (StartRecord, Event::EndSequence) => Done,
             (StartRecord, Event::StartMap) => Content(0),
@@ -134,8 +147,7 @@ impl EventSink for TracedSchema {
             }
             (Content(depth), Event::Some) => Content(depth),
             (Content(depth), ev) => {
-                let data_type = get_event_data_type(ev)?;
-                self.builder.mark_primitive(&self.path, data_type)?;
+                self.builder.mark_primitive(&self.path, &ev)?;
                 self.path.pop();
                 Content(depth)
             }
@@ -146,34 +158,59 @@ impl EventSink for TracedSchema {
     }
 }
 
+pub trait GenericField: Sized {
+    fn new_null(name: String) -> Self;
+    fn new_struct(name: String) -> Self;
+    fn new_primitive(name: String, ev: &Event<'_>) -> Result<Self>;
+
+    fn get_children_mut(&mut self) -> Result<&mut [Self]>;
+
+    fn name(&self) -> &str;
+    fn is_null(&self) -> bool;
+    fn is_struct(&self) -> bool;
+    fn is_primitive(&self, ev: &Event<'_>) -> bool;
+
+    fn set_nullable(&mut self, nullable: bool);
+    fn append_child(&mut self, child: Self) -> Result<()>;
+
+    fn configure_serde_arrow_strategy(&mut self, strategy: Strategy) -> Result<()>;
+}
+
 #[derive(Debug)]
-pub struct SchemaBuilder {
-    fields: Vec<Field>,
+pub struct SchemaBuilder<F> {
+    fields: Vec<F>,
     index: NestedFieldIndex,
 }
 
-impl SchemaBuilder {
+impl<F> SchemaBuilder<F> {
     pub fn new() -> Self {
         Self {
             fields: Vec::new(),
             index: NestedFieldIndex::new(),
         }
     }
+}
 
+impl<F: GenericField> SchemaBuilder<F> {
     pub fn ensure_field_exist(&mut self, path: &[PathFragment]) -> Result<()> {
         let (head, tail) = match path {
             [] => fail!("Cannot handle empty paths"),
             [head @ .., tail] => (head, tail),
         };
 
-        let (index, fields) = self.index.lookup_parent_mut(&mut self.fields, head)?;
-        if index.contains(tail) {
-            return Ok(());
+        if !head.is_empty() {
+            let (index, field) = self.index.lookup_mut(&mut self.fields, head)?;
+
+            if index.contains(tail) {
+                return Ok(());
+            }
+
+            index.insert(tail)?;
+            field.append_child(F::new_null(tail.to_string()))?;
+        } else if !self.index.contains(tail) {
+            self.index.insert(tail)?;
+            self.fields.push(F::new_null(tail.to_string()));
         }
-
-        index.insert(tail)?;
-        fields.push(Field::new(tail.to_string(), DataType::Null, false));
-
         Ok(())
     }
 
@@ -183,39 +220,36 @@ impl SchemaBuilder {
             [.., tail] => tail,
         };
 
-        let field = self.index.lookup_leaf_mut(&mut self.fields, path)?;
+        let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
 
-        match field.data_type() {
-            DataType::Null => {
-                *field = Field::new(tail.to_string(), DataType::Struct(Vec::new()), false);
-            }
-            DataType::Struct(_) => {}
-            dt => fail!("Cannot mark data {dt:?} as a struct"),
-        };
+        if field.is_null() {
+            *field = F::new_struct(tail.to_string())
+        } else if !field.is_struct() {
+            fail!("Cannot mark field as a struct");
+        }
 
         Ok(())
     }
 
-    pub fn mark_primitive(&mut self, path: &[PathFragment], data_type: DataType) -> Result<()> {
-        let field = self.index.lookup_leaf_mut(&mut self.fields, path)?;
+    pub fn mark_primitive(&mut self, path: &[PathFragment], ev: &Event<'_>) -> Result<()> {
+        let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
+        let tail = match path {
+            [.., tail] => tail,
+            _ => fail!("Cannot mark the root as primitive"),
+        };
 
-        if let DataType::Null = field.data_type {
-            field.data_type = data_type;
-        } else if field.data_type != data_type {
-            fail!(
-                "Cannot set field {} with data type {:?} to data type {:?}",
-                PathDisplay(path),
-                field.data_type,
-                data_type
-            );
+        if field.is_null() {
+            *field = F::new_primitive(tail.to_string(), ev)?;
+        } else if !field.is_primitive(ev) {
+            fail!("Cannot set field {} to primitive {}", PathDisplay(path), ev);
         }
 
         Ok(())
     }
 
     pub fn mark_null(&mut self, path: &[PathFragment]) -> Result<()> {
-        let field = self.index.lookup_leaf_mut(&mut self.fields, path)?;
-        field.is_nullable = true;
+        let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
+        field.set_nullable(true);
         Ok(())
     }
 }
@@ -327,22 +361,19 @@ impl NestedFieldIndex {
         self.fields.contains_key(fragment)
     }
 
-    fn index(&self, fragment: &PathFragment) -> Result<usize> {
-        let (idx, _) = self
-            .fields
-            .get(fragment)
-            .ok_or_else(|| error!("Unknown field {fragment}"))?;
-        Ok(*idx)
-    }
-
-    fn lookup_parent_mut<'field, 'info>(
+    fn lookup_mut<'field, F: GenericField>(
         &mut self,
-        fields: &'field mut Vec<Field>,
+        fields: &'field mut [F],
         path: &[PathFragment],
-    ) -> Result<(&mut NestedFieldIndex, &'field mut Vec<Field>)> {
+    ) -> Result<(&mut NestedFieldIndex, &'field mut F)> {
+        let (head, tail) = match path {
+            [head @ .., tail] => (head, tail),
+            [] => fail!("Cannot lookup the root as a field"),
+        };
+
         let mut current_index = self;
         let mut current_fields = fields;
-        let mut current_path = path;
+        let mut current_path = head;
 
         while !current_path.is_empty() {
             let head = &current_path[0];
@@ -355,53 +386,16 @@ impl NestedFieldIndex {
                 .ok_or_else(|| error!("Cannot lookup field"))?;
 
             current_index = next_index;
-            current_fields = get_fields_of_type_mut(&mut field.data_type)?;
+            current_fields = field.get_children_mut()?;
             current_path = &current_path[1..];
         }
-        Ok((current_index, current_fields))
-    }
 
-    fn lookup_leaf_mut<'field, 'info>(
-        &mut self,
-        fields: &'field mut Vec<Field>,
-        path: &[PathFragment],
-    ) -> Result<&'field mut Field> {
-        let (head, tail) = match path {
-            [] => fail!("Cannot lookup the root as a leaf"),
-            [head @ .., tail] => (head, tail),
-        };
+        let (idx, field_index) = current_index
+            .fields
+            .get_mut(tail)
+            .ok_or_else(|| error!("Unknown field {tail}"))?;
+        let field = &mut current_fields[*idx];
 
-        let (index, fields) = self.lookup_parent_mut(fields, head)?;
-        let idx = index.index(tail)?;
-        let field = fields
-            .get_mut(idx)
-            .ok_or_else(|| error!("Inconsistent field {tail}"))?;
-
-        Ok(field)
-    }
-}
-
-fn get_fields_of_type_mut(data_type: &mut DataType) -> Result<&mut Vec<Field>> {
-    match data_type {
-        DataType::Struct(fields) => Ok(fields),
-        _ => fail!("Unnested data type {data_type:?}"),
-    }
-}
-
-fn get_event_data_type(event: Event<'_>) -> Result<DataType> {
-    match event {
-        Event::Bool(_) => Ok(DataType::Boolean),
-        Event::I8(_) => Ok(DataType::Int8),
-        Event::I16(_) => Ok(DataType::Int16),
-        Event::I32(_) => Ok(DataType::Int32),
-        Event::I64(_) => Ok(DataType::Int64),
-        Event::U8(_) => Ok(DataType::UInt8),
-        Event::U16(_) => Ok(DataType::UInt16),
-        Event::U32(_) => Ok(DataType::UInt32),
-        Event::U64(_) => Ok(DataType::UInt64),
-        Event::Str(_) | Event::String(_) => Ok(DataType::Utf8),
-        Event::F32(_) => Ok(DataType::Float32),
-        Event::F64(_) => Ok(DataType::Float64),
-        ev => fail!("Cannot determine arrow2 data type for {ev}"),
+        Ok((field_index, field))
     }
 }

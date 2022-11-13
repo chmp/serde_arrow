@@ -30,8 +30,8 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
-mod error;
-pub mod event;
+pub mod base;
+mod generic;
 
 #[cfg(feature = "arrow2")]
 pub mod arrow2;
@@ -39,7 +39,8 @@ pub mod arrow2;
 #[cfg(test)]
 mod test;
 
-pub use error::{Error, Result};
+pub use base::{Error, Result};
+pub use generic::schema::{configure_serde_arrow_strategy, Strategy};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
