@@ -33,18 +33,6 @@ impl FromStr for Strategy {
     }
 }
 
-pub fn configure_serde_arrow_strategy<F, P>(
-    fields: &mut [F],
-    path: P,
-    strategy: Strategy,
-) -> Result<()>
-where
-    F: GenericField,
-    P: IntoPath,
-{
-    lookup_field_mut(fields, path)?.configure_serde_arrow_strategy(strategy)
-}
-
 pub fn lookup_field_mut<F: GenericField, P: IntoPath>(fields: &mut [F], path: P) -> Result<&mut F> {
     let path = path.into_path()?;
     let path = path.as_slice();

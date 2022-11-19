@@ -8,11 +8,13 @@ use crate::{
         serialize_into_fields,
     },
     base::Event,
-    generic::schema::{configure_serde_arrow_strategy, Strategy},
+    generic::schema::Strategy,
+    lookup_field_mut,
     test::arrow2::utils::{
         access::{self, Value},
         field,
     },
+    GenericField,
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -33,7 +35,10 @@ fn dtype_date64_naive_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    configure_serde_arrow_strategy(&mut fields, ("val",), Strategy::NaiveDateTimeStr).unwrap();
+    lookup_field_mut(&mut fields, ("val",))
+        .unwrap()
+        .configure_serde_arrow_strategy(Strategy::NaiveDateTimeStr)
+        .unwrap();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
@@ -83,7 +88,10 @@ fn dtype_date64_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    configure_serde_arrow_strategy(&mut fields, ("val",), Strategy::DateTimeStr).unwrap();
+    lookup_field_mut(&mut fields, ("val",))
+        .unwrap()
+        .configure_serde_arrow_strategy(Strategy::DateTimeStr)
+        .unwrap();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
