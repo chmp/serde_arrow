@@ -1,6 +1,13 @@
-use arrow2::datatypes::{Field, DataType};
+use std::slice;
 
-use crate::{generic::schema::{GenericField, STRATEGY_KEY, Strategy}, base::Event, Result, fail};
+use arrow2::datatypes::{DataType, Field};
+
+use crate::{
+    base::Event,
+    fail,
+    generic::schema::{GenericField, Strategy, STRATEGY_KEY},
+    Result,
+};
 
 impl GenericField for Field {
     fn new_null(name: String) -> Self {
@@ -11,6 +18,11 @@ impl GenericField for Field {
         Field::new(name, DataType::Struct(Vec::new()), false)
     }
 
+    fn new_list(name: String) -> Self {
+        let inner = Field::new(&name, DataType::Null, false);
+        Field::new(name, DataType::LargeList(Box::new(inner)), false)
+    }
+
     fn new_primitive(name: String, ev: &Event<'_>) -> Result<Self> {
         Ok(Field::new(name, get_event_data_type(ev)?, false))
     }
@@ -18,8 +30,14 @@ impl GenericField for Field {
     fn get_children_mut(&mut self) -> Result<&mut [Self]> {
         match &mut self.data_type {
             DataType::Struct(fields) => Ok(fields),
+            DataType::List(field) => Ok(slice::from_mut(field.as_mut())),
+            DataType::LargeList(field) => Ok(slice::from_mut(field.as_mut())),
             dt => fail!("Unnested data type {dt:?}"),
         }
+    }
+
+    fn describe(&self) -> String {
+        format!("{self:?}")
     }
 
     fn name(&self) -> &str {
@@ -32,6 +50,10 @@ impl GenericField for Field {
 
     fn is_struct(&self) -> bool {
         matches!(self.data_type, DataType::Struct(_))
+    }
+
+    fn is_list(&self) -> bool {
+        matches!(self.data_type, DataType::LargeList(_) | DataType::List(_))
     }
 
     fn is_primitive(&self, ev: &Event<'_>) -> bool {

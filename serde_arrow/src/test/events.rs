@@ -17,7 +17,8 @@ fn example() -> Result<()> {
         Example { int8: 1, int32: 42 },
     ];
 
-    let events = serialize_into_sink(Vec::new(), &items)?;
+    let mut events = Vec::new();
+    serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -51,7 +52,8 @@ fn example_options() -> Result<()> {
 
     let items = &[Example { int8: Some(0) }, Example { int8: None }];
 
-    let events = serialize_into_sink(Vec::new(), &items)?;
+    let mut events = Vec::new();
+    serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
@@ -86,7 +88,8 @@ fn outer_struct() -> Result<()> {
         booleans: vec![true, false, true],
     };
 
-    let events = serialize_into_sink(Vec::new(), &item)?;
+    let mut events = Vec::new();
+    serialize_into_sink(&mut events, &item)?;
     let expected = vec![
         Event::StartMap,
         Event::owned_key("ints"),
@@ -142,7 +145,8 @@ fn nested_struct() -> Result<()> {
         },
     ];
 
-    let events = serialize_into_sink(Vec::new(), &items)?;
+    let mut events = Vec::new();
+    serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,

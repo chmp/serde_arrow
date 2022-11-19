@@ -9,25 +9,32 @@ pub(crate) mod sources;
 // mod write_ipc;
 
 use arrow2::{array::Array, datatypes::Field};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{base::{serialize_into_sink, deserialize_from_source, Event, collect_events}, Result, generic::schema::TracedSchema};
 use self::{sinks::build_records_builder, sources::build_record_source};
+use crate::{
+    base::{collect_events, deserialize_from_source, serialize_into_sink, Event},
+    generic::schema::TracedSchema,
+    Result,
+};
 
 pub fn serialize_into_fields<T>(items: &T) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
 {
-    serialize_into_sink(TracedSchema::new(), items)?.into_fields()
+    let mut schema = TracedSchema::new();
+    serialize_into_sink(&mut schema, items)?;
+    schema.into_fields()
 }
 
 pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
 {
-    serialize_into_sink(build_records_builder(fields)?, items)?.into_records()
+    let mut builder = build_records_builder(fields)?;
+    serialize_into_sink(&mut builder, items)?;
+    builder.into_records()
 }
-
 
 pub fn deserialize_from_arrays<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
 where

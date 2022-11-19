@@ -33,20 +33,22 @@ impl FromStr for Strategy {
     }
 }
 
-
-pub fn configure_serde_arrow_strategy<F, P>(fields: &mut [F], path: P, strategy: Strategy) -> Result<()> 
+pub fn configure_serde_arrow_strategy<F, P>(
+    fields: &mut [F],
+    path: P,
+    strategy: Strategy,
+) -> Result<()>
 where
     F: GenericField,
-    P: IntoPath
+    P: IntoPath,
 {
-    let path = path.into_path()?;
-    lookup_mut(fields, &path)?.configure_serde_arrow_strategy(strategy)
+    lookup_field_mut(fields, path)?.configure_serde_arrow_strategy(strategy)
 }
 
-fn lookup_mut<'field, F: GenericField>(
-    fields: &'field mut [F],
-    path: &[PathFragment],
-) -> Result<&'field mut F> {
+pub fn lookup_field_mut<F: GenericField, P: IntoPath>(fields: &mut [F], path: P) -> Result<&mut F> {
+    let path = path.into_path()?;
+    let path = path.as_slice();
+
     let (head, tail) = match path {
         [head @ .., tail] => (head, tail),
         [] => fail!("Cannot lookup a field in the root"),
@@ -64,16 +66,20 @@ fn lookup_mut<'field, F: GenericField>(
     get_field_mut(current_fields, tail)
 }
 
-fn get_field_mut<'field, F: GenericField>(fields: &'field mut [F], fragment: &PathFragment) -> Result<&'field mut F> {
+fn get_field_mut<'field, F: GenericField>(
+    fields: &'field mut [F],
+    fragment: &PathFragment,
+) -> Result<&'field mut F> {
     match fragment {
         PathFragment::Field(name) => fields
-        .iter_mut()
-        .find(|field| field.name() == name)
-        .ok_or_else(|| error!("Could not find field {name}")),
-        PathFragment::Index => fields.get_mut(0).ok_or_else(|| error!("Could not find field 0")),   
+            .iter_mut()
+            .find(|field| field.name() == name)
+            .ok_or_else(|| error!("Could not find field {name}")),
+        PathFragment::Index(_) => fields
+            .get_mut(0)
+            .ok_or_else(|| error!("Could not find field 0")),
     }
 }
-
 
 /// A schema traced from a sequence of rust objects
 ///
@@ -119,17 +125,30 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use State::*;
 
+        println!("{:?} {} {}", self.next, PathDisplay(&self.path), event);
+
         self.next = match (self.next, event.to_self()) {
             (StartSequence, Event::StartSequence) => StartRecord,
             (StartRecord, Event::EndSequence) => Done,
             (StartRecord, Event::StartMap) => Content(0),
+            (Content(depth), Event::Some) => Content(depth),
             (Content(depth), Event::Key(name)) => {
                 self.path.push(PathFragment::Field(name.to_owned()));
                 self.builder.ensure_field_exist(&self.path)?;
                 Content(depth)
             }
-            (Content(_), Event::StartSequence | Event::EndSequence) => {
-                fail!("Nested sequences are not supported")
+            (Content(depth), Event::StartSequence) => {
+                self.builder.mark_list(&self.path)?;
+                self.path.push(PathFragment::Index(0));
+                Content(depth + 1)
+            }
+            (Content(0), Event::EndSequence) => {
+                fail!("Top level lists are not supported")
+            }
+            (Content(depth), Event::EndSequence) => {
+                self.pop_required_index()?;
+                self.pop_if_not_index();
+                Content(depth - 1)
             }
             (Content(depth), Event::StartMap) => {
                 self.builder.mark_struct(&self.path)?;
@@ -137,18 +156,17 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
             }
             (Content(0), Event::EndMap) => StartRecord,
             (Content(depth), Event::EndMap) => {
-                self.path.pop();
+                self.pop_if_not_index();
                 Content(depth - 1)
             }
             (Content(depth), Event::Null) => {
                 self.builder.mark_null(&self.path)?;
-                self.path.pop();
+                self.pop_if_not_index();
                 Content(depth)
             }
-            (Content(depth), Event::Some) => Content(depth),
             (Content(depth), ev) => {
                 self.builder.mark_primitive(&self.path, &ev)?;
-                self.path.pop();
+                self.pop_if_not_index();
                 Content(depth)
             }
             (Done, _) => fail!("Finished schema cannot handle extra events"),
@@ -158,16 +176,36 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
     }
 }
 
+impl<F: GenericField> TracedSchema<F> {
+    fn pop_required_index(&mut self) -> Result<()> {
+        if let Some(PathFragment::Index(_)) = self.path.last() {
+            self.path.pop();
+            Ok(())
+        } else {
+            fail!("expected index on top");
+        }
+    }
+
+    fn pop_if_not_index(&mut self) {
+        if let Some(PathFragment::Field(_)) = self.path.last() {
+            self.path.pop();
+        }
+    }
+}
+
 pub trait GenericField: Sized {
     fn new_null(name: String) -> Self;
     fn new_struct(name: String) -> Self;
+    fn new_list(name: String) -> Self;
     fn new_primitive(name: String, ev: &Event<'_>) -> Result<Self>;
 
     fn get_children_mut(&mut self) -> Result<&mut [Self]>;
 
+    fn describe(&self) -> String;
     fn name(&self) -> &str;
     fn is_null(&self) -> bool;
     fn is_struct(&self) -> bool;
+    fn is_list(&self) -> bool;
     fn is_primitive(&self, ev: &Event<'_>) -> bool;
 
     fn set_nullable(&mut self, nullable: bool);
@@ -215,17 +253,41 @@ impl<F: GenericField> SchemaBuilder<F> {
     }
 
     pub fn mark_struct(&mut self, path: &[PathFragment]) -> Result<()> {
-        let tail = match path {
-            [] => return Ok(()),
-            [.., tail] => tail,
+        let field_name = match path {
+            [] => fail!("Cannot mark the root as a struct"),
+            [.., PathFragment::Field(name)] => name.as_str(),
+            [.., PathFragment::Index(_)] => "element",
         };
 
         let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
 
         if field.is_null() {
-            *field = F::new_struct(tail.to_string())
+            *field = F::new_struct(field_name.to_owned());
         } else if !field.is_struct() {
-            fail!("Cannot mark field as a struct");
+            fail!(
+                "Cannot mark field {:?} ({}) as a struct",
+                field.describe(),
+                PathDisplay(path)
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn mark_list(&mut self, path: &[PathFragment]) -> Result<()> {
+        let field_name = match path {
+            [] => fail!("Cannot mark the root as a list"),
+            [.., PathFragment::Field(name)] => name.as_str(),
+            [.., PathFragment::Index(_)] => "element",
+        };
+
+        let (index, field) = self.index.lookup_mut(&mut self.fields, path)?;
+
+        if field.is_null() {
+            *field = F::new_list(field_name.to_owned());
+            index.insert(&PathFragment::Index(0))?;
+        } else if !field.is_list() {
+            fail!("Cannot mark field {} as a list", PathDisplay(path));
         }
 
         Ok(())
@@ -233,13 +295,14 @@ impl<F: GenericField> SchemaBuilder<F> {
 
     pub fn mark_primitive(&mut self, path: &[PathFragment], ev: &Event<'_>) -> Result<()> {
         let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
-        let tail = match path {
-            [.., tail] => tail,
-            _ => fail!("Cannot mark the root as primitive"),
+        let field_name = match path {
+            [] => fail!("Cannot mark the root as primitive"),
+            [.., PathFragment::Field(name)] => name.as_str(),
+            [.., PathFragment::Index(_)] => "element",
         };
 
         if field.is_null() {
-            *field = F::new_primitive(tail.to_string(), ev)?;
+            *field = F::new_primitive(field_name.to_owned(), ev)?;
         } else if !field.is_primitive(ev) {
             fail!("Cannot set field {} to primitive {}", PathDisplay(path), ev);
         }
@@ -257,19 +320,19 @@ impl<F: GenericField> SchemaBuilder<F> {
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PathFragment {
     Field(String),
-    Index,
+    Index(usize),
 }
 
 impl std::fmt::Display for PathFragment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PathFragment::Field(field) => write!(f, "{field}"),
-            PathFragment::Index => write!(f, "0"),
+            PathFragment::Index(index) => write!(f, "{index}"),
         }
     }
 }
 
-struct PathDisplay<'a>(&'a [PathFragment]);
+pub struct PathDisplay<'a>(pub &'a [PathFragment]);
 
 impl<'a> std::fmt::Display for PathDisplay<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -304,8 +367,8 @@ impl From<&str> for PathFragment {
 }
 
 impl From<usize> for PathFragment {
-    fn from(_: usize) -> Self {
-        Self::Index
+    fn from(index: usize) -> Self {
+        Self::Index(index)
     }
 }
 
@@ -380,7 +443,7 @@ impl NestedFieldIndex {
             let (idx, next_index) = current_index
                 .fields
                 .get_mut(head)
-                .ok_or_else(|| error!("Unknown field {head}"))?;
+                .ok_or_else(|| error!("Unknown field {head} in path {}", PathDisplay(path)))?;
             let field = current_fields
                 .get_mut(*idx)
                 .ok_or_else(|| error!("Cannot lookup field"))?;
@@ -393,7 +456,7 @@ impl NestedFieldIndex {
         let (idx, field_index) = current_index
             .fields
             .get_mut(tail)
-            .ok_or_else(|| error!("Unknown field {tail}"))?;
+            .ok_or_else(|| error!("Unknown field {tail} in path {}", PathDisplay(path)))?;
         let field = &mut current_fields[*idx];
 
         Ok((field_index, field))

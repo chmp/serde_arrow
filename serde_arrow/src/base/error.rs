@@ -71,3 +71,9 @@ impl From<chrono::format::ParseError> for Error {
         Self::Custom(format!("chrono::ParseError: {error}"))
     }
 }
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(error: std::num::TryFromIntError) -> Error {
+        Error::Custom(format!("arrow2::Error: {error}"))
+    }
+}

@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    error,
     base::{Event, EventSink},
-    fail, Result,
+    error, fail, Result,
 };
 
 pub trait ArrayBuilder<A>: EventSink {

@@ -1,6 +1,8 @@
 //! Test rust objects -> events -> arrays
+use std::any::Any;
+
 use arrow2::{
-    array::PrimitiveArray,
+    array::{Array, ListArray, PrimitiveArray, StructArray},
     bitmap::Bitmap,
     datatypes::{DataType, Field},
 };
@@ -12,6 +14,10 @@ use crate::{
     generic::sinks::ArrayBuilder,
     Result,
 };
+
+fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
+    array.as_any().downcast_ref::<T>().unwrap()
+}
 
 #[test]
 fn primitive_sink_i8() -> Result<()> {
@@ -181,18 +187,12 @@ fn into_arrays_simple() {
 
     assert_eq!(values.len(), 2);
 
-    let actual0 = values[0]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i8>>()
-        .unwrap();
+    let actual0 = downcast::<PrimitiveArray<i8>>(&values[0]);
     let expected0 = PrimitiveArray::<i8>::from_slice([0, 2, 4]);
 
     assert_eq!(actual0, &expected0);
 
-    let actual1 = values[1]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i32>>()
-        .unwrap();
+    let actual1 = downcast::<PrimitiveArray<i32>>(&values[1]);
     let expected1 = PrimitiveArray::<i32>::from_slice([1, 3, 5]);
 
     assert_eq!(actual1, &expected1);
@@ -212,13 +212,145 @@ fn into_arrays_option_i8() {
 
     assert_eq!(values.len(), 1);
 
-    let actual0 = values[0]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i8>>()
-        .unwrap();
-
+    let actual0 = downcast::<PrimitiveArray<i8>>(&values[0]);
     let expected0 = PrimitiveArray::<i8>::from_slice([0, 2, 4])
         .with_validity(Some(Bitmap::from([true, false, true])));
 
     assert_eq!(actual0, &expected0);
+}
+
+#[test]
+fn nested_list_serialize() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: Vec<i8>,
+    }
+
+    let items = vec![
+        Item { a: vec![0, 1, 2] },
+        Item { a: vec![3, 4] },
+        Item { a: vec![5] },
+    ];
+
+    let fields = [Field::new(
+        "a",
+        DataType::List(Box::new(Field::new("a", DataType::Int8, false))),
+        true,
+    )];
+
+    let values = serialize_into_arrays(&fields, &items).unwrap();
+
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0].len(), 3);
+
+    let column0 = downcast::<ListArray<i64>>(&values[0]);
+    assert_eq!(column0.is_null(0), false);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(0)),
+        &PrimitiveArray::<i8>::from_slice([0, 1, 2]),
+    );
+    assert_eq!(column0.is_null(1), false);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(1)),
+        &PrimitiveArray::<i8>::from_slice([3, 4]),
+    );
+    assert_eq!(column0.is_null(2), false);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(2)),
+        &PrimitiveArray::<i8>::from_slice([5]),
+    );
+}
+
+#[test]
+fn nested_list_nulls_serialize() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: Option<Vec<i8>>,
+    }
+
+    let items = vec![
+        Item { a: Some(vec![]) },
+        Item { a: None },
+        Item { a: Some(vec![5]) },
+    ];
+
+    let fields = [Field::new(
+        "a",
+        DataType::List(Box::new(Field::new("a", DataType::Int8, false))),
+        true,
+    )];
+
+    let values = serialize_into_arrays(&fields, &items).unwrap();
+
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0].len(), 3);
+
+    let column0 = values[0].as_any().downcast_ref::<ListArray<i64>>().unwrap();
+    assert_eq!(column0.is_null(0), false);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(0)),
+        &PrimitiveArray::<i8>::from_slice([]),
+    );
+    assert_eq!(column0.is_null(1), true);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(1)),
+        &PrimitiveArray::<i8>::from_slice([]),
+    );
+    assert_eq!(column0.is_null(2), false);
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&column0.value(2)),
+        &PrimitiveArray::<i8>::from_slice([5]),
+    );
+}
+
+#[test]
+fn nested_list_structs_serialize() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: Vec<Inner>,
+    }
+
+    #[derive(Debug, Serialize)]
+    struct Inner {
+        a: i8,
+        b: i32,
+    }
+
+    let items = vec![
+        Item {
+            a: vec![Inner { a: 0, b: 1 }, Inner { a: 2, b: 3 }],
+        },
+        Item { a: vec![] },
+        Item {
+            a: vec![Inner { a: 4, b: 5 }],
+        },
+    ];
+
+    let inner = DataType::Struct(vec![
+        Field::new("a", DataType::Int8, false),
+        Field::new("b", DataType::Int32, false),
+    ]);
+    let fields = [Field::new(
+        "a",
+        DataType::List(Box::new(Field::new("a", inner, false))),
+        true,
+    )];
+
+    let values = serialize_into_arrays(&fields, &items).unwrap();
+
+    let actual0 = downcast::<ListArray<i64>>(&values[0]);
+    let item0 = actual0.value(0);
+    let item0 = downcast::<StructArray>(&item0);
+    assert_eq!(item0.fields()[0].name, "a");
+    assert_eq!(item0.fields()[1].name, "b");
+
+    let children0 = item0.values();
+    assert_eq!(
+        downcast::<PrimitiveArray<i8>>(&children0[0]),
+        &PrimitiveArray::<i8>::from_slice([0, 2])
+    );
+    assert_eq!(
+        downcast::<PrimitiveArray<i32>>(&children0[1]),
+        &PrimitiveArray::<i32>::from_slice([1, 3])
+    );
 }

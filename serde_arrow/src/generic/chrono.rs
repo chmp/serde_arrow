@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc, TimeZone};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
 use crate::{
     base::{Event, EventSink, EventSource},

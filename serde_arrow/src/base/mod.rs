@@ -1,7 +1,7 @@
-mod event;
-mod error;
-mod sink;
-mod source;
+pub(crate) mod error;
+pub(crate) mod event;
+pub(crate) mod sink;
+pub(crate) mod source;
 
 pub use error::{Error, Result};
 pub use event::Event;

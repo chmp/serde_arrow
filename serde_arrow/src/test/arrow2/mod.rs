@@ -2,6 +2,7 @@ mod round_trip;
 mod schema;
 mod sinks;
 mod sources;
+pub(crate) mod utils;
 
 use arrow2::{
     array::{Array, MutableArray, MutablePrimitiveArray, MutableStructArray, StructArray},
