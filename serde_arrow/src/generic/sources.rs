@@ -141,3 +141,130 @@ enum StructSourceState {
     Key(usize),
     Value(usize, usize),
 }
+
+pub struct ListSource<'a> {
+    values: DynamicSource<'a>,
+    offsets: Vec<usize>,
+    validity: Vec<bool>,
+    state: ListSourceState,
+}
+
+impl<'a> ListSource<'a> {
+    pub fn new(values: DynamicSource<'a>, offsets: Vec<usize>, validity: Vec<bool>) -> Self {
+        Self {
+            values,
+            offsets,
+            validity,
+            state: ListSourceState::Start {
+                outer: 0,
+                offset: 0,
+            },
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for ListSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        use ListSourceState::*;
+        let res;
+
+        (self.state, res) = match self.state {
+            Start { outer, offset } => {
+                if outer >= self.validity.len() {
+                    return Ok(None);
+                }
+
+                if !self.validity[outer] {
+                    (
+                        Start {
+                            outer: outer + 1,
+                            offset,
+                        },
+                        Some(Event::Null),
+                    )
+                } else {
+                    (
+                        Value {
+                            outer,
+                            offset,
+                            depth: 0,
+                        },
+                        Some(Event::StartSequence),
+                    )
+                }
+            }
+            Value {
+                outer,
+                offset,
+                depth,
+            } => {
+                if offset >= self.offsets[outer + 1] {
+                    if depth != 0 {
+                        fail!("Internal error: ended sequence at non-zero depth");
+                    }
+                    (
+                        Start {
+                            outer: outer + 1,
+                            offset,
+                        },
+                        Some(Event::EndSequence),
+                    )
+                } else {
+                    let ev = self.values.next()?;
+
+                    match &ev {
+                        Some(Event::StartSequence | Event::StartMap) => (
+                            Value {
+                                outer,
+                                offset,
+                                depth: depth + 1,
+                            },
+                            ev,
+                        ),
+                        Some(Event::EndSequence | Event::EndMap) => {
+                            let offset = match depth {
+                                0 => fail!("Internal error: ended sequence at zero depth"),
+                                1 => offset + 1,
+                                _ => offset,
+                            };
+                            (
+                                Value {
+                                    outer,
+                                    offset,
+                                    depth: depth - 1,
+                                },
+                                ev,
+                            )
+                        }
+                        Some(_) => {
+                            let offset = if depth == 0 { offset + 1 } else { offset };
+                            (
+                                Value {
+                                    outer,
+                                    offset,
+                                    depth,
+                                },
+                                ev,
+                            )
+                        }
+                        None => fail!("Unexpected end of value source"),
+                    }
+                }
+            }
+        };
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ListSourceState {
+    Start {
+        outer: usize,
+        offset: usize,
+    },
+    Value {
+        outer: usize,
+        offset: usize,
+        depth: usize,
+    },
+}

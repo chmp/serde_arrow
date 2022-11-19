@@ -12,8 +12,8 @@ use crate::{
         chrono::{DateTimeStrBuilder, NaiveDateTimeStrBuilder},
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
-            ArrayBuilder, DynamicArrayBuilder, RecordsBuilder, StructArrayBuilder,
-            StructArrayBuilderState,
+            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, RecordsBuilder,
+            StructArrayBuilder, StructArrayBuilderState,
         },
     },
     Result,
@@ -192,95 +192,7 @@ impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
     }
 }
 
-// TODO: move the generic parts into generic module
-struct ListArrayBuilder {
-    builder: DynamicArrayBuilder<Box<dyn Array>>,
-    next: ListBuilderState,
-    offsets: Vec<i64>,
-    validity: Vec<bool>,
-    item_name: String,
-    nullable: bool,
-}
-
-impl ListArrayBuilder {
-    fn new(
-        builder: DynamicArrayBuilder<Box<dyn Array>>,
-        item_name: String,
-        nullable: bool,
-    ) -> Self {
-        Self {
-            builder,
-            next: ListBuilderState::Start { offset: 0 },
-            offsets: vec![0],
-            validity: Vec::new(),
-            item_name,
-            nullable,
-        }
-    }
-
-    fn finalize_item(&mut self, end_offset: i64, nullable: bool) {
-        self.offsets.push(end_offset);
-        self.validity.push(!nullable);
-    }
-}
-
-impl EventSink for ListArrayBuilder {
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use ListBuilderState::*;
-        self.next = match self.next {
-            Start { offset } => match &event {
-                Event::StartSequence => Value { offset, depth: 0 },
-                Event::Null => {
-                    self.finalize_item(offset, true);
-                    Start { offset }
-                }
-                ev => fail!("Invalid event {ev} in state Start"),
-            },
-            Value { offset, depth } => match &event {
-                Event::EndSequence => {
-                    if depth != 0 {
-                        self.builder.accept(event)?;
-                        Value {
-                            offset: if depth == 1 { offset + 1 } else { offset },
-                            depth: depth - 1,
-                        }
-                    } else {
-                        self.finalize_item(offset, false);
-                        Start { offset }
-                    }
-                }
-                Event::EndMap => {
-                    if depth != 0 {
-                        self.builder.accept(event)?;
-                        Value {
-                            offset: if depth == 1 { offset + 1 } else { offset },
-                            depth: depth - 1,
-                        }
-                    } else {
-                        fail!("Invalid EndMap in list array")
-                    }
-                }
-                Event::StartSequence | Event::StartMap => {
-                    self.builder.accept(event)?;
-                    Value {
-                        offset,
-                        depth: depth + 1,
-                    }
-                }
-                _ => {
-                    self.builder.accept(event)?;
-                    Value {
-                        offset: if depth == 0 { offset + 1 } else { offset },
-                        depth,
-                    }
-                }
-            },
-        };
-        Ok(())
-    }
-}
-
-impl ArrayBuilder<Box<dyn Array>> for ListArrayBuilder {
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B> {
     fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
         (*self).into_array()
     }
@@ -302,16 +214,4 @@ impl ArrayBuilder<Box<dyn Array>> for ListArrayBuilder {
         )?;
         Ok(Box::new(array))
     }
-}
-
-/// The state of the list builder
-///
-/// Fields:
-///
-/// - `offset`: the next offset of a value
-///
-#[derive(Debug, Clone, Copy)]
-enum ListBuilderState {
-    Start { offset: i64 },
-    Value { offset: i64, depth: usize },
 }

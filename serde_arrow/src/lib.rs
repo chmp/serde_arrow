@@ -40,9 +40,7 @@ pub mod arrow2;
 mod test;
 
 pub use base::{Error, Result};
-pub use generic::schema::{
-    configure_serde_arrow_strategy, lookup_field_mut, GenericField, Strategy,
-};
+pub use generic::schema::{lookup_field_mut, GenericField, Strategy};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests
