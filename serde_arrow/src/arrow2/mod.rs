@@ -4,10 +4,6 @@ pub(crate) mod schema;
 pub(crate) mod sinks;
 pub(crate) mod sources;
 
-// TODO: re-implement io-ipc
-// #[cfg(feature = "arrow2-io_ipc")]
-// mod write_ipc;
-
 use arrow2::{array::Array, datatypes::Field};
 use serde::{Deserialize, Serialize};
 

@@ -27,6 +27,3 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 criterion = "0.3"
 rand = "0.8"
-
-[features]
-arrow2-io_ipc = ["arrow2/io_ipc"]
