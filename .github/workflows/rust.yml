@@ -21,6 +21,6 @@ jobs:
     - name: cargo version 
       run: cargo --version
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --features arrow2
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --features arrow2
