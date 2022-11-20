@@ -1,10 +1,10 @@
 //! # `serde_arrow` - convert sequences Rust objects to arrow2 arrays
 //!
-//! Usage:
+//! Usage (requires the `arrow2` feature):
 //!
 //! ```rust
 //! # use serde::Serialize;
-//! #
+//! #[cfg(feature = "arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
 //! use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 //!
@@ -26,6 +26,8 @@
 //!
 //! # Ok(())
 //! # }
+//! #[cfg(not(feature = "arrow2"))]
+//! # fn main() { }
 //! ```
 //!
 //! See [implementation] for an explanation of how this package works and its
