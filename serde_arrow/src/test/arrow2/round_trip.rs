@@ -20,7 +20,7 @@ fn dtype_date64_naive_str() {
         val: NaiveDateTime,
     }
 
-    let records = &[
+    let records: &[Record] = &[
         Record {
             val: NaiveDateTime::from_timestamp(12 * 60 * 60 * 24, 0),
         },
@@ -78,7 +78,7 @@ fn dtype_date64_str() {
         val: DateTime<Utc>,
     }
 
-    let records = &[
+    let records: &[Record] = &[
         Record {
             val: Utc.timestamp(12 * 60 * 60 * 24, 0),
         },
@@ -231,5 +231,100 @@ fn nested_structs_lists_lists() {
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn byte_arrays() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: Vec<u8>,
+    }
+
+    let items = vec![
+        Item {
+            a: b"hello".to_vec(),
+        },
+        Item {
+            a: b"world!".to_vec(),
+        },
+    ];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn new_type_structs() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: U64,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct U64(u64);
+
+    let items = vec![Item { a: U64(21) }, Item { a: U64(42) }];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+macro_rules! define_wrapper_test {
+    ($test_name:ident, $struct_name:ident, $init:expr) => {
+        #[test]
+        fn $test_name() {
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            struct $struct_name {
+                a: u32,
+            }
+
+            let items = $init;
+
+            let fields = serialize_into_fields(&items).unwrap();
+            let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+            let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+            assert_eq!(items_from_arrays, items);
+        }
+    };
+}
+
+define_wrapper_test!(
+    wrapper_outer_vec,
+    Item,
+    vec![Item { a: 21 }, Item { a: 42 }]
+);
+define_wrapper_test!(
+    wrapper_outer_slice,
+    Item,
+    [Item { a: 21 }, Item { a: 42 }].as_slice()
+);
+define_wrapper_test!(wrapper_const_array, Item, [Item { a: 21 }, Item { a: 42 }]);
+
+#[test]
+fn wrapper_tuple() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: u32,
+    }
+
+    let items = (Item { a: 21 }, Item { a: 42 });
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    let items = vec![items.0, items.1];
     assert_eq!(items_from_arrays, items);
 }

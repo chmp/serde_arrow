@@ -4,12 +4,16 @@ pub(crate) mod schema;
 pub(crate) mod sinks;
 pub(crate) mod sources;
 
-use arrow2::{array::Array, datatypes::Field};
+use arrow2::{
+    array::Array,
+    datatypes::{DataType, Field},
+};
 use serde::{Deserialize, Serialize};
 
-use self::{schema::TracedSchema, sinks::build_records_builder, sources::build_record_source};
+use self::{sinks::build_records_builder, sources::build_record_source};
 use crate::{
-    base::{deserialize_from_source, serialize_into_sink},
+    base::{deserialize_from_source, error::fail, serialize_into_sink},
+    generic::schema::{FieldBuilder, SchemaTracer},
     Result,
 };
 
@@ -46,9 +50,15 @@ pub fn serialize_into_fields<T>(items: &T) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
 {
-    let mut schema = TracedSchema::new();
+    let mut schema = SchemaTracer::new();
     serialize_into_sink(&mut schema, items)?;
-    schema.to_fields()
+
+    let root = schema.to_field("root")?;
+    match root.data_type {
+        DataType::Struct(fields) => Ok(fields),
+        DataType::Null => fail!("No records found to determine schema"),
+        dt => fail!("Unexpected root data type {dt:?}"),
+    }
 }
 
 /// Build arrays from the given items

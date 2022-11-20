@@ -3,8 +3,8 @@ use std::iter;
 use arrow2::datatypes::{DataType, Field};
 
 use crate::{
-    base::{error::fail, Event, EventSink},
-    generic::schema::{FieldBuilder, PrimitiveType, Strategy, Tracer, STRATEGY_KEY},
+    base::error::fail,
+    generic::schema::{FieldBuilder, PrimitiveType, SchemaTracer, Strategy, Tracer, STRATEGY_KEY},
     Result,
 };
 
@@ -31,38 +31,9 @@ pub fn check_strategy(field: &Field) -> Result<()> {
     Ok(())
 }
 
-pub struct TracedSchema {
-    tracer: Tracer,
-}
-
-impl EventSink for TracedSchema {
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.tracer.accept(event)
-    }
-}
-
-impl TracedSchema {
-    pub fn new() -> Self {
-        Self {
-            tracer: Tracer::new(),
-        }
-    }
-
-    pub fn to_fields(&self) -> Result<Vec<Field>> {
-        let field = self.tracer.to_field("root")?;
-
-        let field = match field.data_type {
-            DataType::Null => return Ok(Vec::new()),
-            DataType::LargeList(field) | DataType::List(field) => field,
-            dt => fail!("Cannot handle data type {dt:?}"),
-        };
-
-        let field = match field.data_type {
-            DataType::Null => Vec::new(),
-            DataType::Struct(fields) => fields,
-            dt => fail!("Cannot handle data type {dt:?}"),
-        };
-        Ok(field)
+impl FieldBuilder<Field> for SchemaTracer {
+    fn to_field(&self, name: &str) -> Result<Field> {
+        self.tracer.to_field(name)
     }
 }
 

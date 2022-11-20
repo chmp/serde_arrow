@@ -102,8 +102,13 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         self.0.accept(val.into())
     }
 
-    fn serialize_bytes(self, _val: &[u8]) -> Result<()> {
-        fail!("serialize_bytes: cannot convert bytes to events")
+    fn serialize_bytes(self, val: &[u8]) -> Result<()> {
+        self.0.accept(Event::StartSequence)?;
+        for &b in val {
+            self.0.accept(b.into())?;
+        }
+        self.0.accept(Event::EndSequence)?;
+        Ok(())
     }
 
     fn serialize_none(self) -> Result<()> {
@@ -123,6 +128,43 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         self.serialize_unit()
     }
 
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        value.serialize(self)
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        self.0.accept(Event::StartSequence)?;
+        Ok(self)
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        self.0.accept(Event::StartTuple)?;
+        Ok(self)
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        fail!("serialize_tuple_struct not supported");
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        self.0.accept(Event::StartMap)?;
+        Ok(self)
+    }
+
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        self.0.accept(Event::StartStruct)?;
+        Ok(self)
+    }
+
+    // Union support
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -130,14 +172,6 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         _variant: &'static str,
     ) -> Result<()> {
         fail!("serialize_unit_variant not supported");
-    }
-
-    fn serialize_newtype_struct<T: ?Sized + Serialize>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<()> {
-        fail!("serialize_newtype_struct not supported");
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -150,24 +184,6 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         fail!("serialize_newtype_variant not supported");
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.0.accept(Event::StartSequence)?;
-        Ok(self)
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.0.accept(Event::StartSequence)?;
-        Ok(self)
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct not supported");
-    }
-
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -176,16 +192,6 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
         fail!("serialize_tuple_variant not supported");
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.0.accept(Event::StartStruct)?;
-        Ok(self)
-    }
-
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.0.accept(Event::StartStruct)?;
-        Ok(self)
     }
 
     fn serialize_struct_variant(
@@ -227,7 +233,7 @@ impl<'a, S: EventSink> SerializeTuple for EventSerializer<'a, S> {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.0.accept(Event::EndSequence)?;
+        self.0.accept(Event::EndTuple)?;
         Ok(())
     }
 }
@@ -266,7 +272,7 @@ impl<'a, S: EventSink> SerializeMap for EventSerializer<'a, S> {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.0.accept(Event::EndStruct)?;
+        self.0.accept(Event::EndMap)?;
         Ok(())
     }
 }

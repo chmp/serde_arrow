@@ -106,15 +106,16 @@ enum State {
 impl<A> EventSink for RecordsBuilder<A> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use State::*;
+        type E<'a> = Event<'a>;
 
         self.next = match (self.next, event.to_self()) {
-            (StartSequence, Event::StartSequence) => StartMap,
-            (StartMap, Event::EndSequence) => Done,
-            (StartMap, Event::StartStruct) => {
+            (StartSequence, E::StartSequence | E::StartTuple) => StartMap,
+            (StartMap, E::EndSequence | E::EndTuple) => Done,
+            (StartMap, E::StartStruct) => {
                 self.seen.clear();
                 Key
             }
-            (Key, Event::Str(k)) => {
+            (Key, E::Str(k)) => {
                 let &idx = self
                     .field_index
                     .get(k)
@@ -126,16 +127,22 @@ impl<A> EventSink for RecordsBuilder<A> {
 
                 Value(idx, 0)
             }
-            (Key, Event::EndStruct) => StartMap,
+            (Key, E::EndStruct) => StartMap,
             // Ignore some events
             (Value(idx, depth), Event::Some) => Value(idx, depth),
             (Value(idx, depth), ev) => {
                 let next = match ev {
-                    Event::StartSequence | Event::StartStruct => Value(idx, depth + 1),
-                    Event::EndSequence | Event::EndStruct if depth > 1 => Value(idx, depth - 1),
-                    Event::EndSequence | Event::EndStruct if depth == 0 => fail!("Invalid state"),
+                    E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple => {
+                        Value(idx, depth + 1)
+                    }
+                    E::EndSequence | E::EndStruct | E::EndMap | E::EndTuple if depth > 1 => {
+                        Value(idx, depth - 1)
+                    }
+                    E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap if depth == 0 => {
+                        fail!("Invalid state")
+                    }
                     // the closing event for the nested type
-                    Event::EndSequence | Event::EndStruct => Key,
+                    E::EndSequence | E::EndStruct => Key,
                     _ if depth == 0 => Key,
                     _ => Value(idx, depth),
                 };

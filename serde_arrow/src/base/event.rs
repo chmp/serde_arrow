@@ -20,10 +20,18 @@ pub enum Event<'a> {
     StartSequence,
     /// End a sequence, corresponds to `]` in JSON
     EndSequence,
+    /// Start a tuple, corresponds to `[` in JSON
+    StartTuple,
+    /// End a tuple, corresponds to `]` in JSON
+    EndTuple,
     /// Start a struct, corresponds to `{` in JSON
     StartStruct,
-    /// End a struct or struct, corresponds to `}` in JSON
+    /// End a struct, corresponds to `}` in JSON
     EndStruct,
+    /// Start a map, corresponds to `{` in JSON
+    StartMap,
+    /// End a map, corresponds to `}` in JSON
+    EndMap,
     /// Indicate that the next event encodes a present value
     Some,
     /// A missing value
@@ -49,8 +57,15 @@ impl<'a> std::fmt::Display for Event<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Event::StartSequence => write!(f, "StartSequence"),
-            Event::StartStruct => write!(f, "StartMap"),
+            Event::EndSequence => write!(f, "EndSequence"),
+            Event::StartTuple => write!(f, "StartTuple"),
+            Event::EndTuple => write!(f, "EndTuple"),
+            Event::StartStruct => write!(f, "StartStruct"),
+            Event::EndStruct => write!(f, "EndStruct"),
+            Event::StartMap => write!(f, "StartMap"),
+            Event::EndMap => write!(f, "EndMap"),
             Event::Some => write!(f, "Some"),
+            Event::Null => write!(f, "Null"),
             Event::Bool(v) => write!(f, "Bool({v})"),
             Event::I8(v) => write!(f, "I8({v})"),
             Event::I16(v) => write!(f, "I16({v})"),
@@ -64,9 +79,6 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::F64(v) => write!(f, "F64({v})"),
             Event::Str(v) => write!(f, "Str({v:?})"),
             Event::OwnedStr(v) => write!(f, "String({v:?})"),
-            Event::Null => write!(f, "Null"),
-            Event::EndStruct => write!(f, "EndStruct"),
-            Event::EndSequence => write!(f, "EndSequence"),
         }
     }
 }
@@ -76,10 +88,14 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
         use Event::*;
         match self {
             StartSequence => matches!(other, StartSequence),
-            StartStruct => matches!(other, StartStruct),
-            Null => matches!(other, Null),
-            EndStruct => matches!(other, EndStruct),
             EndSequence => matches!(other, EndSequence),
+            StartStruct => matches!(other, StartStruct),
+            EndStruct => matches!(other, EndStruct),
+            StartTuple => matches!(other, StartTuple),
+            EndTuple => matches!(other, EndTuple),
+            StartMap => matches!(other, StartMap),
+            EndMap => matches!(other, EndMap),
+            Null => matches!(other, Null),
             Str(s) => match other {
                 Str(o) => s == o,
                 OwnedStr(o) => s == o,
@@ -120,7 +136,13 @@ impl<'a> Event<'a> {
             Event::OwnedStr(s) => Event::Str(s),
             Event::Str(s) => Event::Str(s),
             Event::StartSequence => Event::StartSequence,
+            Event::EndSequence => Event::EndSequence,
             Event::StartStruct => Event::StartStruct,
+            Event::EndStruct => Event::EndStruct,
+            Event::StartTuple => Event::StartTuple,
+            Event::EndTuple => Event::EndTuple,
+            Event::StartMap => Event::StartMap,
+            Event::EndMap => Event::EndMap,
             Event::Some => Event::Some,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),
@@ -134,8 +156,6 @@ impl<'a> Event<'a> {
             &Event::F32(v) => Event::F32(v),
             &Event::F64(v) => Event::F64(v),
             Event::Null => Event::Null,
-            Event::EndStruct => Event::EndStruct,
-            Event::EndSequence => Event::EndSequence,
         }
     }
 
@@ -147,7 +167,13 @@ impl<'a> Event<'a> {
         match self {
             &Event::Str(s) => Event::OwnedStr(s.to_owned()),
             Event::StartSequence => Event::StartSequence,
+            Event::EndSequence => Event::EndSequence,
             Event::StartStruct => Event::StartStruct,
+            Event::EndStruct => Event::EndStruct,
+            Event::StartTuple => Event::StartTuple,
+            Event::EndTuple => Event::EndTuple,
+            Event::StartMap => Event::StartMap,
+            Event::EndMap => Event::EndMap,
             Event::Some => Event::Some,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),
@@ -162,8 +188,6 @@ impl<'a> Event<'a> {
             &Event::F64(v) => Event::F64(v),
             Event::OwnedStr(v) => Event::OwnedStr(v.clone()),
             Event::Null => Event::Null,
-            Event::EndStruct => Event::EndStruct,
-            Event::EndSequence => Event::EndSequence,
         }
     }
 }

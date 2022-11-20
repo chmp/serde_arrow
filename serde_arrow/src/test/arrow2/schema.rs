@@ -6,9 +6,7 @@ use crate::arrow2::serialize_into_fields;
 #[test]
 fn empty() {
     let items: Vec<i8> = Vec::new();
-    let fields = serialize_into_fields(&items).unwrap();
-
-    assert_eq!(fields, []);
+    assert!(serialize_into_fields(&items).is_err());
 }
 
 macro_rules! define_primitive_test {

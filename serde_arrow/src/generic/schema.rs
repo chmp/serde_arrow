@@ -64,6 +64,80 @@ impl FromStr for Strategy {
     }
 }
 
+pub struct SchemaTracer {
+    pub tracer: Tracer,
+    pub next: SchemaTracerState,
+}
+
+impl SchemaTracer {
+    pub fn new() -> Self {
+        Self {
+            tracer: Tracer::new(),
+            next: SchemaTracerState::StartSequence,
+        }
+    }
+}
+
+impl EventSink for SchemaTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        type S = SchemaTracerState;
+        type E<'a> = Event<'a>;
+
+        self.next = match self.next {
+            S::StartSequence => match event {
+                E::StartSequence | E::StartTuple => S::StartRecord,
+                ev => fail!("Invalid event {ev} in SchemaTracer, expected start of outer sequence"),
+            },
+            S::StartRecord => match event {
+                E::EndSequence | E::EndTuple => S::Done,
+                ev @ E::StartStruct => {
+                    self.tracer.accept(ev)?;
+                    S::Record(0)
+                }
+                ev => fail!("Invalid event {ev} in SchemaTracer, expected start of record"),
+            },
+            S::Record(depth) => match event {
+                ev @ E::EndStruct if depth == 0 => {
+                    self.tracer.accept(ev)?;
+                    S::StartRecord
+                }
+                ev @ (E::EndMap | E::EndSequence | E::EndTuple) if depth == 0 => {
+                    fail!("Invalid event {ev} in SchemaTracer, expected non-closing tag at depth 0")
+                }
+                ev @ (E::StartMap | E::StartSequence | E::StartTuple | E::StartStruct) => {
+                    self.tracer.accept(ev)?;
+                    S::Record(depth + 1)
+                }
+                ev @ (E::EndMap | E::EndSequence | E::EndTuple | E::EndStruct) => {
+                    self.tracer.accept(ev)?;
+                    S::Record(depth - 1)
+                }
+                ev => {
+                    self.tracer.accept(ev)?;
+                    S::Record(depth)
+                }
+            },
+            S::Done => fail!("Invalid event {event} in SchemaTracer, expected no more events"),
+        };
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        if !matches!(self.next, SchemaTracerState::Done) {
+            fail!("Incomplete structure in SchemaTracer");
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SchemaTracerState {
+    StartSequence,
+    StartRecord,
+    Record(usize),
+    Done,
+}
+
 pub enum Tracer {
     Unknown(UnknownTracer),
     Struct(StructTracer),
@@ -117,6 +191,12 @@ impl EventSink for Tracer {
                 }
                 Event::EndSequence | Event::EndStruct => {
                     fail!("Invalid end nesting events for unknown tracer")
+                }
+                Event::StartTuple | Event::EndTuple => {
+                    fail!("Tuples are not yet supported")
+                }
+                Event::StartMap | Event::EndMap => {
+                    fail!("Maps are not yet supported")
                 }
             },
             Self::List(tracer) => tracer.accept(event)?,

@@ -12,7 +12,7 @@ fn example() -> Result<()> {
         int32: i32,
     }
 
-    let items = &[
+    let items: &[Example] = &[
         Example { int8: 0, int32: 21 },
         Example { int8: 1, int32: 42 },
     ];
@@ -50,7 +50,7 @@ fn example_options() -> Result<()> {
         int8: Option<i8>,
     }
 
-    let items = &[Example { int8: Some(0) }, Example { int8: None }];
+    let items: &[Example] = &[Example { int8: Some(0) }, Example { int8: None }];
 
     let mut events = Vec::new();
     serialize_into_sink(&mut events, &items)?;
