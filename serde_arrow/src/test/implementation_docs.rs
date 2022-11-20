@@ -27,18 +27,18 @@ fn implementation_docs() {
         events,
         vec![
             Event::StartSequence,
-            Event::StartMap,
+            Event::StartStruct,
             Event::OwnedKey(String::from("a")),
             Event::I32(1),
             Event::OwnedKey(String::from("b")),
             Event::U32(2),
-            Event::EndMap,
-            Event::StartMap,
+            Event::EndStruct,
+            Event::StartStruct,
             Event::OwnedKey(String::from("a")),
             Event::I32(3),
             Event::OwnedKey(String::from("b")),
             Event::U32(4),
-            Event::EndMap,
+            Event::EndStruct,
             Event::EndSequence
         ],
     );

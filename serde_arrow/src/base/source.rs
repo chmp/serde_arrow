@@ -11,6 +11,32 @@ use serde::{
     Deserialize,
 };
 
+/// Deserialize a type from an [EventSource]
+///
+/// This function may be helpful when creating custom formats.
+///
+pub fn deserialize_from_source<
+    'de,
+    'event,
+    T: Deserialize<'de>,
+    S: IntoEventSource<'event> + 'event,
+>(
+    source: S,
+) -> Result<T> {
+    let mut deserializer = Deserializer {
+        source: PeekableEventSource::new(source.into_event_source()),
+    };
+    let res = T::deserialize(&mut deserializer)?;
+
+    if deserializer.source.next()?.is_some() {
+        fail!("from_record_batch: Trailing content");
+    }
+
+    Ok(res)
+}
+
+/// A source of [Event] objects
+///
 pub trait EventSource<'a> {
     fn next(&mut self) -> Result<Option<Event<'a>>>;
 }
@@ -81,26 +107,6 @@ impl<'a, S: EventSource<'a>> IntoEventSource<'a> for S {
     }
 }
 
-pub fn deserialize_from_source<
-    'de,
-    'event,
-    T: Deserialize<'de>,
-    S: IntoEventSource<'event> + 'event,
->(
-    source: S,
-) -> Result<T> {
-    let mut deserializer = Deserializer {
-        source: PeekableEventSource::new(source.into_event_source()),
-    };
-    let res = T::deserialize(&mut deserializer)?;
-
-    if deserializer.source.next()?.is_some() {
-        fail!("from_record_batch: Trailing content");
-    }
-
-    Ok(res)
-}
-
 pub struct Deserializer<'event, S: EventSource<'event>> {
     source: PeekableEventSource<'event, S>,
 }
@@ -124,8 +130,8 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Some(Event::F32(_)) => self.deserialize_f32(visitor),
             Some(Event::F64(_)) => self.deserialize_f64(visitor),
             Some(Event::Str(_)) => self.deserialize_str(visitor),
-            Some(Event::String(_)) => self.deserialize_string(visitor),
-            Some(Event::StartMap) => self.deserialize_map(visitor),
+            Some(Event::OwnedStr(_)) => self.deserialize_string(visitor),
+            Some(Event::StartStruct) => self.deserialize_map(visitor),
             Some(Event::StartSequence) => self.deserialize_seq(visitor),
             ev => fail!("Invalid event in deserialize_any: {:?}", ev),
         }
@@ -192,7 +198,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Event::Key(key) => visitor.visit_str(key),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_str(val),
-            Event::String(val) => visitor.visit_str(&val),
+            Event::OwnedStr(val) => visitor.visit_str(&val),
             ev => fail!("Invalid event {}, expected str", ev),
         }
     }
@@ -202,7 +208,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Event::Key(key) => visitor.visit_string(key.to_owned()),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
-            Event::String(val) => visitor.visit_string(val),
+            Event::OwnedStr(val) => visitor.visit_string(val),
             ev => fail!("Invalid event {}, expected string", ev),
         }
     }
@@ -279,13 +285,13 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.source.next()?, Some(Event::StartMap)) {
+        if !matches!(self.source.next()?, Some(Event::StartStruct)) {
             fail!("Expected start of map");
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.source.next()?, Some(Event::EndMap)) {
+        if !matches!(self.source.next()?, Some(Event::EndStruct)) {
             fail!("Expected end of map");
         }
         Ok(res)
@@ -339,7 +345,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deseria
     where
         K: DeserializeSeed<'de>,
     {
-        if matches!(self.source.peek()?, Some(Event::EndMap)) {
+        if matches!(self.source.peek()?, Some(Event::EndStruct)) {
             return Ok(None);
         }
         seed.deserialize(&mut **self).map(Some)
@@ -392,6 +398,6 @@ impl<'items, 'event> IntoEventSource<'event> for &'items Vec<Event<'event>> {
     }
 }
 
-fn required<'a>(event: Option<Event<'a>>) -> Result<Event<'a>> {
+fn required(event: Option<Event<'_>>) -> Result<Event<'_>> {
     event.ok_or_else(|| error!("Unexpected no event"))
 }

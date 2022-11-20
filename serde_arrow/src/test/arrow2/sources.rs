@@ -26,18 +26,18 @@ fn records_source() -> Result<()> {
     let events = collect_events(source)?;
     let expected = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("a"),
         Event::I8(0),
         Event::Key("b"),
         Event::Bool(true),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("a"),
         Event::Null,
         Event::Key("b"),
         Event::Bool(false),
-        Event::EndMap,
+        Event::EndStruct,
         Event::EndSequence,
     ];
 
@@ -103,18 +103,18 @@ fn struct_source_events() -> Result<()> {
     let actual = collect_events(source)?;
 
     let expected = vec![
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("a"),
         Event::I8(0),
         Event::Key("b"),
         Event::Bool(true),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("a"),
         Event::Null,
         Event::Key("b"),
         Event::Bool(false),
-        Event::EndMap,
+        Event::EndStruct,
     ];
 
     assert_eq!(actual, expected);
@@ -143,24 +143,24 @@ fn deserialize_struct_events() -> Result<()> {
 
     let expected = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("s"),
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("a"),
         Event::I8(0),
         Event::Key("b"),
         Event::Bool(true),
-        Event::EndMap,
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("s"),
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("a"),
         Event::Null,
         Event::Key("b"),
         Event::Bool(false),
-        Event::EndMap,
-        Event::EndMap,
+        Event::EndStruct,
+        Event::EndStruct,
         Event::EndSequence,
     ];
 

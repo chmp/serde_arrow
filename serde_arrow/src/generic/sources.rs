@@ -40,12 +40,12 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
                     Ok(Some(Event::EndSequence))
                 } else {
                     self.next = Key(0);
-                    Ok(Some(Event::StartMap))
+                    Ok(Some(Event::StartStruct))
                 }
             }
             Key(i) if i >= self.columns.len() => {
                 self.next = StartMapOrEnd;
-                Ok(Some(Event::EndMap))
+                Ok(Some(Event::EndStruct))
             }
             Key(i) => {
                 self.next = Value(i, 0);
@@ -57,10 +57,10 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
                     .ok_or_else(|| error!("Unbalanced values"))?;
 
                 self.next = match (&ev, depth) {
-                    (Event::StartMap | Event::StartSequence, _) => Value(i, depth + 1),
-                    (Event::EndMap | Event::EndSequence, 0) => fail!("Invalid nested value"),
-                    (Event::EndMap | Event::EndSequence, 1) => Key(i + 1),
-                    (Event::EndMap | Event::EndSequence, _) => Value(i, depth - 1),
+                    (Event::StartStruct | Event::StartSequence, _) => Value(i, depth + 1),
+                    (Event::EndStruct | Event::EndSequence, 0) => fail!("Invalid nested value"),
+                    (Event::EndStruct | Event::EndSequence, 1) => Key(i + 1),
+                    (Event::EndStruct | Event::EndSequence, _) => Value(i, depth - 1),
                     (_, 0) => Key(i + 1),
                     _ => Value(i, depth),
                 };
@@ -111,12 +111,12 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                     Ok(None)
                 } else {
                     self.next = Key(0);
-                    Ok(Some(Event::StartMap))
+                    Ok(Some(Event::StartStruct))
                 }
             }
             Key(i) if i >= self.fields.len() => {
                 self.next = Start;
-                Ok(Some(Event::EndMap))
+                Ok(Some(Event::EndStruct))
             }
             Key(i) => {
                 self.next = Value(i, 0);
@@ -127,10 +127,10 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                     .next()?
                     .ok_or_else(|| error!("unbalanced array"))?;
                 self.next = match (&ev, depth) {
-                    (Event::StartMap | Event::StartSequence, _) => Value(i, depth + 1),
-                    (Event::EndMap | Event::EndSequence, 0) => fail!("Invalid nested value"),
-                    (Event::EndMap | Event::EndSequence, 1) => Key(i + 1),
-                    (Event::EndMap | Event::EndSequence, _) => Value(i, depth - 1),
+                    (Event::StartStruct | Event::StartSequence, _) => Value(i, depth + 1),
+                    (Event::EndStruct | Event::EndSequence, 0) => fail!("Invalid nested value"),
+                    (Event::EndStruct | Event::EndSequence, 1) => Key(i + 1),
+                    (Event::EndStruct | Event::EndSequence, _) => Value(i, depth - 1),
                     (_, 0) => Key(i + 1),
                     _ => Value(i, depth),
                 };
@@ -217,7 +217,7 @@ impl<'a> EventSource<'a> for ListSource<'a> {
                     let ev = self.values.next()?;
 
                     match &ev {
-                        Some(Event::StartSequence | Event::StartMap) => (
+                        Some(Event::StartSequence | Event::StartStruct) => (
                             Value {
                                 outer,
                                 offset,
@@ -225,7 +225,7 @@ impl<'a> EventSource<'a> for ListSource<'a> {
                             },
                             ev,
                         ),
-                        Some(Event::EndSequence | Event::EndMap) => {
+                        Some(Event::EndSequence | Event::EndStruct) => {
                             let offset = match depth {
                                 0 => fail!("Internal error: ended sequence at zero depth"),
                                 1 => offset + 1,

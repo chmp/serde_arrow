@@ -7,6 +7,10 @@ use crate::{base::error::fail, Error, Result};
 
 use super::Event;
 
+/// Serialize a type into an [EventSink]
+///
+/// This function may be helpful when creating custom formats.
+///
 pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     sink: &mut S,
     value: &T,
@@ -15,6 +19,8 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     Ok(())
 }
 
+/// An object that processes [Event] objects emitted during serialization of a type
+///
 pub trait EventSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()>;
 }
@@ -169,12 +175,12 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.0.accept(Event::StartMap)?;
+        self.0.accept(Event::StartStruct)?;
         Ok(self)
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.0.accept(Event::StartMap)?;
+        self.0.accept(Event::StartStruct)?;
         Ok(self)
     }
 
@@ -236,7 +242,7 @@ impl<'a, S: EventSink> SerializeStruct for EventSerializer<'a, S> {
     }
 
     fn end(self) -> Result<()> {
-        self.0.accept(Event::EndMap)?;
+        self.0.accept(Event::EndStruct)?;
         Ok(())
     }
 }
@@ -256,7 +262,7 @@ impl<'a, S: EventSink> SerializeMap for EventSerializer<'a, S> {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.0.accept(Event::EndMap)?;
+        self.0.accept(Event::EndStruct)?;
         Ok(())
     }
 }

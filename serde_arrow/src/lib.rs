@@ -4,7 +4,7 @@
 //!
 //! ```rust
 //! # use serde::Serialize;
-//! #[cfg(feature = "arrow2")]
+//! # #[cfg(feature = "arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
 //! use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 //!
@@ -20,13 +20,14 @@
 //!     Example { a: 3.0, b: 3 },
 //! ];
 //!
-//! // try to auto-detect the arrow types, result can be overwritten and customized
+//! // Auto-detect the arrow types. Result may need to be overwritten and
+//! // customized, see serde_arrow::Strategy for details.
 //! let fields = serialize_into_fields(&records)?;
 //! let batch = serialize_into_arrays(&fields, &records)?;
 //!
 //! # Ok(())
 //! # }
-//! #[cfg(not(feature = "arrow2"))]
+//! # #[cfg(not(feature = "arrow2"))]
 //! # fn main() { }
 //! ```
 //!
@@ -43,16 +44,7 @@ pub mod arrow2;
 mod test;
 
 pub use base::error::{Error, Result};
-
-/// Helpers to modify schemas
-///
-/// **Warning:** this functionality is experimental and may change between
-/// releases without being considered a breaking change.
-pub mod schema {
-    pub use crate::generic::schema::{
-        lookup_field_mut, GenericField, IntoPath, PathFragment, Strategy,
-    };
-}
+pub use generic::schema::{Strategy, STRATEGY_KEY};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

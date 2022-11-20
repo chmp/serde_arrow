@@ -4,8 +4,10 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Common errors during `serde_arrow`'s usage
 ///
-/// At the moment
+/// At the moment only a generic string error is supported, but it is planned to
+/// offer concrete types to match against.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     Custom(String),
 }

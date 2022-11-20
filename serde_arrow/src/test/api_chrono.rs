@@ -1,3 +1,6 @@
+// use the deprecated chrono API for now
+#![allow(deprecated)]
+
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone, Utc};
 
 use crate::{Error, Result};

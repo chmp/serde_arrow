@@ -8,10 +8,37 @@ use crate::{
     Error, Result,
 };
 
+/// The metadata key under which to store the strategy (see [Strategy] for details)
+///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
-/// Strategies for serializing / deserializing types not supported natively in serde
+/// Strategies for handling types without direct match between arrow and serde
 ///
+/// For the correct strategy both the field type and the field metadata must be
+/// correctly configured. In particular, when determining the schema from the
+/// Rust objects themselves, some field types are incorrectly recognized (e.g.,
+/// datetimes).
+///
+/// For example, to let `serde_arrow` handle date time objects that are
+/// serialized to strings (chrono's default), use
+///
+/// ```rust
+/// # #[cfg(feature="arrow2")]
+/// # fn main() {
+/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::{STRATEGY_KEY, Strategy};
+/// # let mut field = Field::new("my_field", DataType::Null, false);
+/// field.data_type = DataType::Date64;
+/// field.metadata.insert(
+///     STRATEGY_KEY.to_string(),
+///     Strategy::UtcDateTimeStr.to_string(),
+/// );
+/// # }
+/// # #[cfg(not(feature="arrow2"))]
+/// # fn main() {}
+/// ```
+///
+#[non_exhaustive]
 pub enum Strategy {
     /// Arrow: Date64, serde: strings with UTC timezone
     UtcDateTimeStr,
@@ -37,46 +64,6 @@ impl FromStr for Strategy {
             "NaiveDateTimeStr" => Ok(Self::NaiveDateTimeStr),
             _ => fail!("Unknown strategy {s}"),
         }
-    }
-}
-
-/// Find a (nested) field among fields
-///
-/// The idea is to change a traced schema afterwards
-///
-pub fn lookup_field_mut<F: GenericField, P: IntoPath>(fields: &mut [F], path: P) -> Result<&mut F> {
-    let path = path.into_path()?;
-    let path = path.as_slice();
-
-    let (head, tail) = match path {
-        [head @ .., tail] => (head, tail),
-        [] => fail!("Cannot lookup a field in the root"),
-    };
-
-    let mut current_fields = fields;
-    let mut current_path = head;
-
-    while let [head, next_path @ ..] = current_path {
-        let field = get_field_mut(current_fields, head)?;
-        current_fields = field.get_children_mut()?;
-        current_path = next_path;
-    }
-
-    get_field_mut(current_fields, tail)
-}
-
-fn get_field_mut<'field, F: GenericField>(
-    fields: &'field mut [F],
-    fragment: &PathFragment,
-) -> Result<&'field mut F> {
-    match fragment {
-        PathFragment::Field(name) => fields
-            .iter_mut()
-            .find(|field| field.name() == name)
-            .ok_or_else(|| error!("Could not find field {name}")),
-        PathFragment::Index(_) => fields
-            .get_mut(0)
-            .ok_or_else(|| error!("Could not find field 0")),
     }
 }
 
@@ -124,12 +111,10 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use State::*;
 
-        println!("{:?} {} {}", self.next, PathDisplay(&self.path), event);
-
         self.next = match (self.next, event.to_self()) {
             (StartSequence, Event::StartSequence) => StartRecord,
             (StartRecord, Event::EndSequence) => Done,
-            (StartRecord, Event::StartMap) => Content(0),
+            (StartRecord, Event::StartStruct) => Content(0),
             (Content(depth), Event::Some) => {
                 self.builder.mark_nullable(&self.path)?;
                 Content(depth)
@@ -152,12 +137,12 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
                 self.pop_if_not_index();
                 Content(depth - 1)
             }
-            (Content(depth), Event::StartMap) => {
+            (Content(depth), Event::StartStruct) => {
                 self.builder.mark_struct(&self.path)?;
                 Content(depth + 1)
             }
-            (Content(0), Event::EndMap) => StartRecord,
-            (Content(depth), Event::EndMap) => {
+            (Content(0), Event::EndStruct) => StartRecord,
+            (Content(depth), Event::EndStruct) => {
                 self.pop_if_not_index();
                 Content(depth - 1)
             }

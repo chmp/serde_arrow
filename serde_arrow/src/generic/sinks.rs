@@ -110,7 +110,7 @@ impl<A> EventSink for RecordsBuilder<A> {
         self.next = match (self.next, event.to_self()) {
             (StartSequence, Event::StartSequence) => StartMap,
             (StartMap, Event::EndSequence) => Done,
-            (StartMap, Event::StartMap) => {
+            (StartMap, Event::StartStruct) => {
                 self.seen.clear();
                 Key
             }
@@ -126,16 +126,16 @@ impl<A> EventSink for RecordsBuilder<A> {
 
                 Value(idx, 0)
             }
-            (Key, Event::EndMap) => StartMap,
+            (Key, Event::EndStruct) => StartMap,
             // Ignore some events
             (Value(idx, depth), Event::Some) => Value(idx, depth),
             (Value(idx, depth), ev) => {
                 let next = match ev {
-                    Event::StartSequence | Event::StartMap => Value(idx, depth + 1),
-                    Event::EndSequence | Event::EndMap if depth > 1 => Value(idx, depth - 1),
-                    Event::EndSequence | Event::EndMap if depth == 0 => fail!("Invalid state"),
+                    Event::StartSequence | Event::StartStruct => Value(idx, depth + 1),
+                    Event::EndSequence | Event::EndStruct if depth > 1 => Value(idx, depth - 1),
+                    Event::EndSequence | Event::EndStruct if depth == 0 => fail!("Invalid state"),
                     // the closing event for the nested type
-                    Event::EndSequence | Event::EndMap => Key,
+                    Event::EndSequence | Event::EndStruct => Key,
                     _ if depth == 0 => Key,
                     _ => Value(idx, depth),
                 };
@@ -176,7 +176,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
 
         match self.state {
             Start => match event {
-                Event::StartMap => {
+                Event::StartStruct => {
                     self.state = Field;
                     self.seen = vec![false; self.columns.len()];
                 }
@@ -186,7 +186,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 let key = match event {
                     Event::Key(key) => key,
                     Event::OwnedKey(ref key) => key,
-                    Event::EndMap => {
+                    Event::EndStruct => {
                         if !self.seen.iter().all(|&seen| seen) {
                             // TODO: improve error message
                             fail!("Missing fields");
@@ -209,8 +209,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             }
             Value(active, depth) => {
                 self.state = match &event {
-                    Event::StartMap | Event::StartSequence => Value(active, depth + 1),
-                    Event::EndMap | Event::EndSequence => match depth {
+                    Event::StartStruct | Event::StartSequence => Value(active, depth + 1),
+                    Event::EndStruct | Event::EndSequence => match depth {
                         // the last closing event for the current value
                         1 => Field,
                         // TODO: check is this event possible?
@@ -287,7 +287,7 @@ impl<B: EventSink> EventSink for ListArrayBuilder<B> {
                         Start { offset }
                     }
                 }
-                Event::EndMap => {
+                Event::EndStruct => {
                     if depth != 0 {
                         self.builder.accept(event)?;
                         Value {
@@ -298,7 +298,7 @@ impl<B: EventSink> EventSink for ListArrayBuilder<B> {
                         fail!("Invalid EndMap in list array")
                     }
                 }
-                Event::StartSequence | Event::StartMap => {
+                Event::StartSequence | Event::StartStruct => {
                     self.builder.accept(event)?;
                     Value {
                         offset,

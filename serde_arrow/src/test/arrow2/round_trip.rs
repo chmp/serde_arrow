@@ -1,15 +1,18 @@
-use arrow2::array::PrimitiveArray;
+// use the deprecated chrono API for now
+#![allow(deprecated)]
+
+use arrow2::{array::PrimitiveArray, datatypes::DataType};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
     base::Event,
-    schema::{lookup_field_mut, GenericField, Strategy},
     test::arrow2::utils::{
         access::{self, Value},
         collect_events_from_array, field,
     },
+    Strategy, STRATEGY_KEY,
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -30,10 +33,15 @@ fn dtype_date64_naive_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    lookup_field_mut(&mut fields, ("val",))
-        .unwrap()
-        .configure_serde_arrow_strategy(Strategy::NaiveDateTimeStr)
-        .unwrap();
+
+    let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
+    val_field.data_type = DataType::Date64;
+    val_field.metadata.insert(
+        STRATEGY_KEY.to_string(),
+        Strategy::NaiveDateTimeStr.to_string(),
+    );
+
+    println!("{fields:?}");
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
@@ -50,14 +58,14 @@ fn dtype_date64_naive_str() {
     let events = collect_events_from_array(&fields, &arrays).unwrap();
     let expected_events = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("val").to_static(),
         Event::Str("1970-01-13T00:00:00").to_static(),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("val").to_static(),
         Event::Str("1970-01-10T00:00:00").to_static(),
-        Event::EndMap,
+        Event::EndStruct,
         Event::EndSequence,
     ];
     assert_eq!(events, expected_events);
@@ -83,10 +91,12 @@ fn dtype_date64_str() {
     ];
 
     let mut fields = serialize_into_fields(records).unwrap();
-    lookup_field_mut(&mut fields, ("val",))
-        .unwrap()
-        .configure_serde_arrow_strategy(Strategy::UtcDateTimeStr)
-        .unwrap();
+    let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
+    val_field.data_type = DataType::Date64;
+    val_field.metadata.insert(
+        STRATEGY_KEY.to_string(),
+        Strategy::UtcDateTimeStr.to_string(),
+    );
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
@@ -103,14 +113,14 @@ fn dtype_date64_str() {
     let events = collect_events_from_array(&fields, &arrays).unwrap();
     let expected_events = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("val").to_static(),
         Event::Str("1970-01-13T00:00:00Z").to_static(),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("val").to_static(),
         Event::Str("1970-01-10T00:00:00Z").to_static(),
-        Event::EndMap,
+        Event::EndStruct,
         Event::EndSequence,
     ];
     assert_eq!(events, expected_events);

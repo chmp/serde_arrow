@@ -21,18 +21,18 @@ fn example() -> Result<()> {
     serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("int8"),
         Event::I8(0),
         Event::Key("int32"),
         Event::I32(21),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("int8"),
         Event::I8(1),
         Event::Key("int32"),
         Event::I32(42),
-        Event::EndMap,
+        Event::EndStruct,
         Event::EndSequence,
     ];
     assert_eq!(events, expected);
@@ -56,15 +56,15 @@ fn example_options() -> Result<()> {
     serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("int8"),
         Event::Some,
         Event::I8(0),
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("int8"),
         Event::Null,
-        Event::EndMap,
+        Event::EndStruct,
         Event::EndSequence,
     ];
     assert_eq!(events, expected);
@@ -91,7 +91,7 @@ fn outer_struct() -> Result<()> {
     let mut events = Vec::new();
     serialize_into_sink(&mut events, &item)?;
     let expected = vec![
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("ints"),
         Event::StartSequence,
         Event::I8(0),
@@ -104,7 +104,7 @@ fn outer_struct() -> Result<()> {
         Event::Bool(false),
         Event::Bool(true),
         Event::EndSequence,
-        Event::EndMap,
+        Event::EndStruct,
     ];
     assert_eq!(events, expected);
 
@@ -149,28 +149,28 @@ fn nested_struct() -> Result<()> {
     serialize_into_sink(&mut events, &items)?;
     let expected = vec![
         Event::StartSequence,
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("int"),
         Event::I32(0),
         Event::Key("inner"),
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("int"),
         Event::I8(1),
         Event::Key("boolean"),
         Event::Bool(true),
-        Event::EndMap,
-        Event::EndMap,
-        Event::StartMap,
+        Event::EndStruct,
+        Event::EndStruct,
+        Event::StartStruct,
         Event::Key("int"),
         Event::I32(2),
         Event::Key("inner"),
-        Event::StartMap,
+        Event::StartStruct,
         Event::Key("int"),
         Event::I8(3),
         Event::Key("boolean"),
         Event::Bool(false),
-        Event::EndMap,
-        Event::EndMap,
+        Event::EndStruct,
+        Event::EndStruct,
         Event::EndSequence,
     ];
     assert_eq!(events, expected);

@@ -9,18 +9,33 @@ use crate::{base::error::fail, Error, Result};
 /// implementing `Serialize` and used to create objects that implement
 /// `Deserialize`.
 ///
-/// There are corresponding owned events for borrowed events (`String` for `Str`
-/// and `OwnedKey` for `Key`). To normalize to the borrowed events or to the
-/// owned events use `event.to_self()` or `event.to_static` respectively. For
-/// equality borrowed and owned events are considered equal.
+/// There are corresponding owned events for borrowed events (`OwnedStr` for
+/// `Str` and `OwnedKey` for `Key`). To normalize to the borrowed events or to
+/// the owned events use `event.to_self()` or `event.to_static` respectively.
+/// For equality borrowed and owned events are considered equal.
 ///
 #[derive(Debug, Clone)]
 pub enum Event<'a> {
+    /// Start a sequence, corresponds to `[` in JSON
     StartSequence,
-    StartMap,
-    Key(&'a str),
-    OwnedKey(String),
+    /// End a sequence, corresponds to `]` in JSON
+    EndSequence,
+    /// Start a struct, corresponds to `{` in JSON
+    StartStruct,
+    /// End a struct or struct, corresponds to `}` in JSON
+    EndStruct,
+    /// Indicate that the next event encodes a present value
     Some,
+    /// A missing value
+    Null,
+    /// A borrowed key in a struct
+    Key(&'a str),
+    /// The owned variant of `Key`
+    OwnedKey(String),
+    /// A borrowed string
+    Str(&'a str),
+    /// The owned variant of `Str`
+    OwnedStr(String),
     Bool(bool),
     I8(i8),
     I16(i16),
@@ -32,18 +47,13 @@ pub enum Event<'a> {
     U64(u64),
     F32(f32),
     F64(f64),
-    Str(&'a str),
-    String(String),
-    Null,
-    EndMap,
-    EndSequence,
 }
 
 impl<'a> std::fmt::Display for Event<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Event::StartSequence => write!(f, "StartSequence"),
-            Event::StartMap => write!(f, "StartMap"),
+            Event::StartStruct => write!(f, "StartMap"),
             Event::Key(k) => write!(f, "Key({k:?})"),
             Event::OwnedKey(k) => write!(f, "OwnedKey({k:?})"),
             Event::Some => write!(f, "Some"),
@@ -59,9 +69,9 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::F32(v) => write!(f, "F32({v})"),
             Event::F64(v) => write!(f, "F64({v})"),
             Event::Str(v) => write!(f, "Str({v:?})"),
-            Event::String(v) => write!(f, "String({v:?})"),
+            Event::OwnedStr(v) => write!(f, "String({v:?})"),
             Event::Null => write!(f, "Null"),
-            Event::EndMap => write!(f, "EndMap"),
+            Event::EndStruct => write!(f, "EndMap"),
             Event::EndSequence => write!(f, "EndSequence"),
         }
     }
@@ -72,9 +82,9 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
         use Event::*;
         match self {
             StartSequence => matches!(other, StartSequence),
-            StartMap => matches!(other, StartMap),
+            StartStruct => matches!(other, StartStruct),
             Null => matches!(other, Null),
-            EndMap => matches!(other, EndMap),
+            EndStruct => matches!(other, EndStruct),
             EndSequence => matches!(other, EndSequence),
             Key(s) => match other {
                 Key(o) => s == o,
@@ -88,12 +98,12 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
             },
             Str(s) => match other {
                 Str(o) => s == o,
-                String(o) => s == o,
+                OwnedStr(o) => s == o,
                 _ => false,
             },
-            String(s) => match other {
+            OwnedStr(s) => match other {
                 Str(o) => s == o,
-                String(o) => s == o,
+                OwnedStr(o) => s == o,
                 _ => false,
             },
             Some => matches!(other, Some),
@@ -124,11 +134,11 @@ impl<'a> Event<'a> {
     pub fn to_self(&self) -> Event<'_> {
         match self {
             Event::OwnedKey(k) => Event::Key(k),
-            Event::String(s) => Event::Str(s),
+            Event::OwnedStr(s) => Event::Str(s),
             Event::Str(s) => Event::Str(s),
             Event::Key(k) => Event::Key(k),
             Event::StartSequence => Event::StartSequence,
-            Event::StartMap => Event::StartMap,
+            Event::StartStruct => Event::StartStruct,
             Event::Some => Event::Some,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),
@@ -142,7 +152,7 @@ impl<'a> Event<'a> {
             &Event::F32(v) => Event::F32(v),
             &Event::F64(v) => Event::F64(v),
             Event::Null => Event::Null,
-            Event::EndMap => Event::EndMap,
+            Event::EndStruct => Event::EndStruct,
             Event::EndSequence => Event::EndSequence,
         }
     }
@@ -153,10 +163,10 @@ impl<'a> Event<'a> {
     ///
     pub fn to_static(&self) -> Event<'static> {
         match self {
-            &Event::Str(s) => Event::String(s.to_owned()),
+            &Event::Str(s) => Event::OwnedStr(s.to_owned()),
             &Event::Key(k) => Event::OwnedKey(k.to_owned()),
             Event::StartSequence => Event::StartSequence,
-            Event::StartMap => Event::StartMap,
+            Event::StartStruct => Event::StartStruct,
             Event::OwnedKey(k) => Event::OwnedKey(k.to_owned()),
             Event::Some => Event::Some,
             &Event::Bool(b) => Event::Bool(b),
@@ -170,9 +180,9 @@ impl<'a> Event<'a> {
             &Event::U64(v) => Event::U64(v),
             &Event::F32(v) => Event::F32(v),
             &Event::F64(v) => Event::F64(v),
-            Event::String(v) => Event::String(v.clone()),
+            Event::OwnedStr(v) => Event::OwnedStr(v.clone()),
             Event::Null => Event::Null,
-            Event::EndMap => Event::EndMap,
+            Event::EndStruct => Event::EndStruct,
             Event::EndSequence => Event::EndSequence,
         }
     }
@@ -199,7 +209,7 @@ event_implement_simple_from!(u32, U32);
 event_implement_simple_from!(u64, U64);
 event_implement_simple_from!(f32, F32);
 event_implement_simple_from!(f64, F64);
-event_implement_simple_from!(String, String);
+event_implement_simple_from!(String, OwnedStr);
 
 impl<'a> From<&'a str> for Event<'a> {
     fn from(val: &'a str) -> Event<'a> {
@@ -239,7 +249,7 @@ impl<'a> TryFrom<Event<'a>> for String {
     fn try_from(val: Event<'_>) -> Result<String> {
         match val {
             Event::Str(val) => Ok(val.to_owned()),
-            Event::String(val) => Ok(val),
+            Event::OwnedStr(val) => Ok(val),
             event => fail!("Cannot convert {} to string", event),
         }
     }
