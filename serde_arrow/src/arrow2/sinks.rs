@@ -29,6 +29,8 @@ use crate::{
     Error,
 };
 
+use super::schema::check_strategy;
+
 pub fn build_records_builder(fields: &[Field]) -> Result<RecordsBuilder<Box<dyn Array>>> {
     let mut columns = Vec::new();
     let mut builders = Vec::new();
@@ -42,6 +44,8 @@ pub fn build_records_builder(fields: &[Field]) -> Result<RecordsBuilder<Box<dyn 
 }
 
 pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
+    check_strategy(field)?;
+
     match field.data_type() {
         DataType::Boolean => Ok(DynamicArrayBuilder::new(BooleanArrayBuilder::new())),
         DataType::Int8 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i8>::new())),

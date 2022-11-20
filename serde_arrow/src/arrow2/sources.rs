@@ -18,6 +18,8 @@ use crate::{
     Result,
 };
 
+use super::schema::check_strategy;
+
 pub fn build_record_source<'a, A: AsRef<dyn Array> + 'a>(
     fields: &'a [Field],
     arrays: &'a [A],
@@ -37,6 +39,8 @@ pub fn build_dynamic_source<'a>(
     field: &'a Field,
     array: &'a dyn Array,
 ) -> Result<DynamicSource<'a>> {
+    check_strategy(field)?;
+
     let source = match field.data_type() {
         DataType::Int8 => build_dynamic_primitive_source::<i8>(field, array)?,
         DataType::Int16 => build_dynamic_primitive_source::<i16>(field, array)?,

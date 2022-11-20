@@ -39,11 +39,8 @@ impl serde::de::Error for Error {
 }
 
 macro_rules! error {
-    ($msg:literal) => {
-        $crate::Error::Custom(format!($msg))
-    };
-    ($msg:literal, $($item:expr),*) => {
-        $crate::Error::Custom(format!($msg, $($item),*))
+    ($($tt:tt)*) => {
+        $crate::Error::Custom(format!($($tt)*))
     };
 }
 pub(crate) use error;

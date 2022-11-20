@@ -113,9 +113,32 @@ fn get_event_data_type(event: &Event<'_>) -> Result<DataType> {
         Event::U16(_) => Ok(DataType::UInt16),
         Event::U32(_) => Ok(DataType::UInt32),
         Event::U64(_) => Ok(DataType::UInt64),
-        Event::Str(_) | Event::String(_) => Ok(DataType::Utf8),
+        Event::Str(_) | Event::OwnedStr(_) => Ok(DataType::Utf8),
         Event::F32(_) => Ok(DataType::Float32),
         Event::F64(_) => Ok(DataType::Float64),
         ev => fail!("Cannot determine arrow2 data type for {ev}"),
     }
+}
+
+/// Make sure the field is configured correctly if a strategy is used
+///
+pub fn check_strategy(field: &Field) -> Result<()> {
+    let strategy_str = match field.metadata.get(STRATEGY_KEY) {
+        Some(strategy_str) => strategy_str,
+        None => return Ok(()),
+    };
+
+    match strategy_str.parse::<Strategy>()? {
+        Strategy::UtcDateTimeStr | Strategy::NaiveDateTimeStr => {
+            if !matches!(field.data_type, DataType::Date64) {
+                fail!(
+                    "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt:?}",
+                    name = field.name,
+                    dt = field.data_type,
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
