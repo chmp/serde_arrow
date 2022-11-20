@@ -195,8 +195,6 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match required(self.source.next()?)? {
-            Event::Key(key) => visitor.visit_str(key),
-            Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_str(val),
             Event::OwnedStr(val) => visitor.visit_str(&val),
             ev => fail!("Invalid event {}, expected str", ev),
@@ -205,8 +203,6 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match required(self.source.next()?)? {
-            Event::Key(key) => visitor.visit_string(key.to_owned()),
-            Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
             Event::OwnedStr(val) => visitor.visit_string(val),
             ev => fail!("Invalid event {}, expected string", ev),

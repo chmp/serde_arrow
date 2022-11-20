@@ -23,6 +23,10 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
 ///
 pub trait EventSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()>;
+
+    fn finish(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl EventSink for Vec<Event<'static>> {
@@ -236,7 +240,7 @@ impl<'a, S: EventSink> SerializeStruct for EventSerializer<'a, S> {
     where
         T: ?Sized + Serialize,
     {
-        self.0.accept(Event::Key(key))?;
+        self.0.accept(Event::Str(key))?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }

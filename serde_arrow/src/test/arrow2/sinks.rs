@@ -63,15 +63,15 @@ fn struct_sink() -> Result<()> {
     let mut sink = build_dynamic_array_builder(&Field::new("s", DataType::Struct(fields), false))?;
 
     sink.accept(Event::StartStruct)?;
-    sink.accept(Event::Key("a"))?;
+    sink.accept(Event::Str("a"))?;
     sink.accept(Event::I8(0))?;
-    sink.accept(Event::Key("b"))?;
+    sink.accept(Event::Str("b"))?;
     sink.accept(Event::Bool(false))?;
     sink.accept(Event::EndStruct)?;
     sink.accept(Event::StartStruct)?;
-    sink.accept(Event::Key("b"))?;
+    sink.accept(Event::Str("b"))?;
     sink.accept(Event::Bool(true))?;
-    sink.accept(Event::Key("a"))?;
+    sink.accept(Event::Str("a"))?;
     sink.accept(Event::Null)?;
     sink.accept(Event::EndStruct)?;
 
@@ -95,21 +95,21 @@ fn nested_struct_sink() -> Result<()> {
             .unwrap();
 
     sink.accept(Event::StartStruct).unwrap();
-    sink.accept(Event::Key("a")).unwrap();
+    sink.accept(Event::Str("a")).unwrap();
     sink.accept(Event::I8(0)).unwrap();
-    sink.accept(Event::Key("b")).unwrap();
+    sink.accept(Event::Str("b")).unwrap();
     sink.accept(Event::StartStruct).unwrap();
-    sink.accept(Event::Key("value")).unwrap();
+    sink.accept(Event::Str("value")).unwrap();
     sink.accept(Event::Bool(false)).unwrap();
     sink.accept(Event::EndStruct).unwrap();
     sink.accept(Event::EndStruct).unwrap();
     sink.accept(Event::StartStruct).unwrap();
-    sink.accept(Event::Key("b")).unwrap();
+    sink.accept(Event::Str("b")).unwrap();
     sink.accept(Event::StartStruct).unwrap();
-    sink.accept(Event::Key("value")).unwrap();
+    sink.accept(Event::Str("value")).unwrap();
     sink.accept(Event::Bool(true)).unwrap();
     sink.accept(Event::EndStruct).unwrap();
-    sink.accept(Event::Key("a")).unwrap();
+    sink.accept(Event::Str("a")).unwrap();
     sink.accept(Event::Null).unwrap();
     sink.accept(Event::EndStruct).unwrap();
 

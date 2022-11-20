@@ -114,7 +114,7 @@ impl<A> EventSink for RecordsBuilder<A> {
                 self.seen.clear();
                 Key
             }
-            (Key, Event::Key(k)) => {
+            (Key, Event::Str(k)) => {
                 let &idx = self
                     .field_index
                     .get(k)
@@ -184,8 +184,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             },
             Field => {
                 let key = match event {
-                    Event::Key(key) => key,
-                    Event::OwnedKey(ref key) => key,
+                    Event::Str(key) => key,
+                    Event::OwnedStr(ref key) => key,
                     Event::EndStruct => {
                         if !self.seen.iter().all(|&seen| seen) {
                             // TODO: improve error message

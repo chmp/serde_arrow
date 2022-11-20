@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
     base::Event,
-    test::arrow2::utils::{
-        access::{self, Value},
-        collect_events_from_array, field,
-    },
+    test::arrow2::utils::{collect_events_from_array, field},
     Strategy, STRATEGY_KEY,
 };
 
@@ -59,11 +56,11 @@ fn dtype_date64_naive_str() {
     let expected_events = vec![
         Event::StartSequence,
         Event::StartStruct,
-        Event::Key("val").to_static(),
+        Event::Str("val").to_static(),
         Event::Str("1970-01-13T00:00:00").to_static(),
         Event::EndStruct,
         Event::StartStruct,
-        Event::Key("val").to_static(),
+        Event::Str("val").to_static(),
         Event::Str("1970-01-10T00:00:00").to_static(),
         Event::EndStruct,
         Event::EndSequence,
@@ -114,11 +111,11 @@ fn dtype_date64_str() {
     let expected_events = vec![
         Event::StartSequence,
         Event::StartStruct,
-        Event::Key("val").to_static(),
+        Event::Str("val").to_static(),
         Event::Str("1970-01-13T00:00:00Z").to_static(),
         Event::EndStruct,
         Event::StartStruct,
-        Event::Key("val").to_static(),
+        Event::Str("val").to_static(),
         Event::Str("1970-01-10T00:00:00Z").to_static(),
         Event::EndStruct,
         Event::EndSequence,
@@ -166,42 +163,6 @@ fn nested_list_structs() {
     assert_eq!(fields, expected_fields);
 
     let values = serialize_into_arrays(&fields, &items).unwrap();
-
-    // the overall structure
-    assert_eq!(
-        access::get_value(values[0].as_ref(), ()).unwrap(),
-        Value::List(3)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (0,)).unwrap(),
-        Value::Struct(2, 2)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (1,)).unwrap(),
-        Value::Struct(0, 2)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (2,)).unwrap(),
-        Value::Struct(1, 2)
-    );
-
-    // random examples
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (0, "b", 0)).unwrap(),
-        Value::Int32(1)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (0, "b", 1)).unwrap(),
-        Value::Int32(3)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (2, "a", 0)).unwrap(),
-        Value::Int8(4)
-    );
-    assert_eq!(
-        access::get_value(values[0].as_ref(), (2, "b", 0)).unwrap(),
-        Value::Int32(5)
-    );
 
     let items_from_array: Vec<Item> = deserialize_from_arrays(&fields, &values).unwrap();
     assert_eq!(items_from_array, items);

@@ -1,5 +1,6 @@
 mod round_trip;
 mod schema;
+mod schema_tracing;
 mod sinks;
 mod sources;
 pub(crate) mod utils;

@@ -49,7 +49,7 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
             }
             Key(i) => {
                 self.next = Value(i, 0);
-                Ok(Some(Event::Key(self.columns[i])))
+                Ok(Some(Event::Str(self.columns[i])))
             }
             Value(i, depth) => {
                 let ev = self.values[i]
@@ -120,7 +120,7 @@ impl<'a> EventSource<'a> for StructSource<'a> {
             }
             Key(i) => {
                 self.next = Value(i, 0);
-                Ok(Some(Event::Key(self.fields[i])))
+                Ok(Some(Event::Str(self.fields[i])))
             }
             Value(i, depth) => {
                 let ev = self.values[i]

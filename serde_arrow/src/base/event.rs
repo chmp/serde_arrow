@@ -9,10 +9,10 @@ use crate::{base::error::fail, Error, Result};
 /// implementing `Serialize` and used to create objects that implement
 /// `Deserialize`.
 ///
-/// There are corresponding owned events for borrowed events (`OwnedStr` for
-/// `Str` and `OwnedKey` for `Key`). To normalize to the borrowed events or to
-/// the owned events use `event.to_self()` or `event.to_static` respectively.
-/// For equality borrowed and owned events are considered equal.
+/// For the borrow strings events (`Str`), there  are corresponding owned events
+/// (`OwnedStr`). To normalize to the borrowed events or to the owned events use
+/// `event.to_self()` or `event.to_static` respectively. For equality borrowed
+/// and owned events are considered equal.
 ///
 #[derive(Debug, Clone)]
 pub enum Event<'a> {
@@ -28,10 +28,6 @@ pub enum Event<'a> {
     Some,
     /// A missing value
     Null,
-    /// A borrowed key in a struct
-    Key(&'a str),
-    /// The owned variant of `Key`
-    OwnedKey(String),
     /// A borrowed string
     Str(&'a str),
     /// The owned variant of `Str`
@@ -54,8 +50,6 @@ impl<'a> std::fmt::Display for Event<'a> {
         match self {
             Event::StartSequence => write!(f, "StartSequence"),
             Event::StartStruct => write!(f, "StartMap"),
-            Event::Key(k) => write!(f, "Key({k:?})"),
-            Event::OwnedKey(k) => write!(f, "OwnedKey({k:?})"),
             Event::Some => write!(f, "Some"),
             Event::Bool(v) => write!(f, "Bool({v})"),
             Event::I8(v) => write!(f, "I8({v})"),
@@ -71,7 +65,7 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::Str(v) => write!(f, "Str({v:?})"),
             Event::OwnedStr(v) => write!(f, "String({v:?})"),
             Event::Null => write!(f, "Null"),
-            Event::EndStruct => write!(f, "EndMap"),
+            Event::EndStruct => write!(f, "EndStruct"),
             Event::EndSequence => write!(f, "EndSequence"),
         }
     }
@@ -86,16 +80,6 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
             Null => matches!(other, Null),
             EndStruct => matches!(other, EndStruct),
             EndSequence => matches!(other, EndSequence),
-            Key(s) => match other {
-                Key(o) => s == o,
-                OwnedKey(o) => s == o,
-                _ => false,
-            },
-            OwnedKey(s) => match other {
-                Key(o) => s == o,
-                OwnedKey(o) => s == o,
-                _ => false,
-            },
             Str(s) => match other {
                 Str(o) => s == o,
                 OwnedStr(o) => s == o,
@@ -133,10 +117,8 @@ impl<'a> Event<'a> {
     /// shorten the lifetime of the event
     pub fn to_self(&self) -> Event<'_> {
         match self {
-            Event::OwnedKey(k) => Event::Key(k),
             Event::OwnedStr(s) => Event::Str(s),
             Event::Str(s) => Event::Str(s),
-            Event::Key(k) => Event::Key(k),
             Event::StartSequence => Event::StartSequence,
             Event::StartStruct => Event::StartStruct,
             Event::Some => Event::Some,
@@ -164,10 +146,8 @@ impl<'a> Event<'a> {
     pub fn to_static(&self) -> Event<'static> {
         match self {
             &Event::Str(s) => Event::OwnedStr(s.to_owned()),
-            &Event::Key(k) => Event::OwnedKey(k.to_owned()),
             Event::StartSequence => Event::StartSequence,
             Event::StartStruct => Event::StartStruct,
-            Event::OwnedKey(k) => Event::OwnedKey(k.to_owned()),
             Event::Some => Event::Some,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),

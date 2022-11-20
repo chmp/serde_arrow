@@ -7,10 +7,9 @@ pub(crate) mod sources;
 use arrow2::{array::Array, datatypes::Field};
 use serde::{Deserialize, Serialize};
 
-use self::{sinks::build_records_builder, sources::build_record_source};
+use self::{schema::TracedSchema, sinks::build_records_builder, sources::build_record_source};
 use crate::{
     base::{deserialize_from_source, serialize_into_sink},
-    generic::schema::TracedSchema,
     Result,
 };
 
@@ -49,7 +48,7 @@ where
 {
     let mut schema = TracedSchema::new();
     serialize_into_sink(&mut schema, items)?;
-    schema.into_fields()
+    schema.to_fields()
 }
 
 /// Build arrays from the given items
