@@ -1,9 +1,10 @@
 use arrow2::{
     array::Array,
-    array::{ListArray, StructArray},
+    array::{ListArray, MutableUtf8Array, NullArray, StructArray, Utf8Array},
     bitmap::Bitmap,
     buffer::Buffer,
     datatypes::{DataType, Field},
+    types::Offset,
 };
 
 use crate::{
@@ -47,6 +48,7 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
     check_strategy(field)?;
 
     match field.data_type() {
+        DataType::Null => Ok(DynamicArrayBuilder::new(NullArrayBuilder::new())),
         DataType::Boolean => Ok(DynamicArrayBuilder::new(BooleanArrayBuilder::new())),
         DataType::Int8 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i8>::new())),
         DataType::Int16 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i16>::new())),
@@ -58,6 +60,8 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
         DataType::UInt64 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<u64>::new())),
         DataType::Float32 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f32>::new())),
         DataType::Float64 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f64>::new())),
+        DataType::Utf8 => Ok(DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new())),
+        DataType::LargeUtf8 => Ok(DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::new())),
         DataType::Date64 => {
             if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
                 let strategy: Strategy = strategy.parse()?;
@@ -88,7 +92,8 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
             let builder = StructArrayBuilder::new(columns, nullable, builders);
             Ok(DynamicArrayBuilder::new(builder))
         }
-        DataType::List(field) | DataType::LargeList(field) => {
+        DataType::LargeList(field) => {
+            // TODO: support the different sizes
             let values = build_dynamic_array_builder(field.as_ref())?;
             let builder = ListArrayBuilder::new(values, field.name.to_owned(), field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
@@ -129,6 +134,40 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
         let data_type = DataType::Struct(fields);
 
         Ok(Box::new(StructArray::new(data_type, values, None)))
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct NullArrayBuilder {
+    length: usize,
+}
+
+impl NullArrayBuilder {
+    pub fn new() -> Self {
+        Self { length: 0 }
+    }
+}
+
+impl EventSink for NullArrayBuilder {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        match event {
+            Event::Null => self.length += 1,
+            ev => fail!("NullArrayBuilder cannot accept event {ev}"),
+        }
+        Ok(())
+    }
+}
+
+impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
+        Ok(Box::new(NullArray::new(DataType::Null, self.length)))
     }
 }
 
@@ -193,6 +232,34 @@ impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
 
     fn into_array(self) -> Result<Box<dyn Array>> {
         Ok(Box::new(BooleanArray::from(self.array)))
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Utf8ArrayBuilder<O: Offset> {
+    array: MutableUtf8Array<O>,
+}
+
+impl<O: Offset> Utf8ArrayBuilder<O> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        self.array.push(event.into_option::<String>()?);
+        Ok(())
+    }
+}
+
+impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>> {
+        Ok(Box::new(<Utf8Array<_> as From<_>>::from(self.array)))
     }
 }
 

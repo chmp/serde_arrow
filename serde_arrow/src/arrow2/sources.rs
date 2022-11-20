@@ -1,5 +1,7 @@
+use std::marker::PhantomData;
+
 use arrow2::{
-    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray},
+    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray, Utf8Array},
     datatypes::{DataType, Field},
     types::{NativeType, Offset},
 };
@@ -42,6 +44,7 @@ pub fn build_dynamic_source<'a>(
     check_strategy(field)?;
 
     let source = match field.data_type() {
+        DataType::Null => DynamicSource::new(NullArraySource::new(array.len())),
         DataType::Int8 => build_dynamic_primitive_source::<i8>(field, array)?,
         DataType::Int16 => build_dynamic_primitive_source::<i16>(field, array)?,
         DataType::Int32 => build_dynamic_primitive_source::<i32>(field, array)?,
@@ -56,6 +59,18 @@ pub fn build_dynamic_source<'a>(
             array
                 .as_any()
                 .downcast_ref()
+                .ok_or_else(|| error!("mismatched types"))?,
+        )),
+        DataType::Utf8 => DynamicSource::new(Utf8EventSource::new(
+            array
+                .as_any()
+                .downcast_ref::<Utf8Array<i32>>()
+                .ok_or_else(|| error!("mismatched types"))?,
+        )),
+        DataType::LargeUtf8 => DynamicSource::new(Utf8EventSource::new(
+            array
+                .as_any()
+                .downcast_ref::<Utf8Array<i64>>()
                 .ok_or_else(|| error!("mismatched types"))?,
         )),
         DataType::Date64 => {
@@ -140,6 +155,33 @@ pub fn build_dynamic_list_source<'a, T: Offset>(
     Ok(DynamicSource::new(source))
 }
 
+pub struct NullArraySource<'a> {
+    length: usize,
+    next: usize,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> NullArraySource<'a> {
+    fn new(length: usize) -> Self {
+        Self {
+            length,
+            next: 0,
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for NullArraySource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        if self.next < self.length {
+            self.next += 1;
+            Ok(Some(Event::Null))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 pub struct PrimitiveEventSource<'a, T: Into<Event<'static>> + NativeType> {
     array: &'a PrimitiveArray<T>,
     next: usize,
@@ -186,6 +228,31 @@ impl<'a> BooleanEventSource<'a> {
 }
 
 impl<'a> EventSource<'a> for BooleanEventSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        let ev = if self.next >= self.array.len() {
+            return Ok(None);
+        } else if !self.array.is_valid(self.next) {
+            Event::Null
+        } else {
+            self.array.value(self.next).into()
+        };
+        self.next += 1;
+        Ok(Some(ev))
+    }
+}
+
+pub struct Utf8EventSource<'a, O: Offset> {
+    array: &'a Utf8Array<O>,
+    next: usize,
+}
+
+impl<'a, O: Offset> Utf8EventSource<'a, O> {
+    pub fn new(array: &'a Utf8Array<O>) -> Self {
+        Self { array, next: 0 }
+    }
+}
+
+impl<'a, O: Offset> EventSource<'a> for Utf8EventSource<'a, O> {
     fn next(&mut self) -> Result<Option<Event<'a>>> {
         let ev = if self.next >= self.array.len() {
             return Ok(None);

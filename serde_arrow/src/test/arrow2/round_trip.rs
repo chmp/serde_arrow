@@ -1,7 +1,10 @@
 // use the deprecated chrono API for now
 #![allow(deprecated)]
 
-use arrow2::{array::PrimitiveArray, datatypes::DataType};
+use arrow2::{
+    array::PrimitiveArray,
+    datatypes::{DataType, Field},
+};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -326,5 +329,76 @@ fn wrapper_tuple() {
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
     let items = vec![items.0, items.1];
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn test_string_as_large_utf8() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: String,
+    }
+
+    let items = vec![
+        Item {
+            a: String::from("hello"),
+        },
+        Item {
+            a: String::from("world"),
+        },
+    ];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let expected_fields = vec![Field::new("a", DataType::LargeUtf8, false)];
+
+    assert_eq!(fields, expected_fields);
+
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn test_string_as_utf8() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: String,
+    }
+
+    let items = vec![
+        Item {
+            a: String::from("hello"),
+        },
+        Item {
+            a: String::from("world"),
+        },
+    ];
+
+    let fields = vec![Field::new("a", DataType::Utf8, false)];
+
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn test_unit() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: (),
+    }
+
+    let items = vec![Item { a: () }, Item { a: () }];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let expected_fields = vec![Field::new("a", DataType::Null, true)];
+
+    assert_eq!(fields, expected_fields);
+
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
     assert_eq!(items_from_arrays, items);
 }

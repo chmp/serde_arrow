@@ -234,7 +234,7 @@ fn nested_list_serialize() {
 
     let fields = [Field::new(
         "a",
-        DataType::List(Box::new(Field::new("a", DataType::Int8, false))),
+        DataType::LargeList(Box::new(Field::new("a", DataType::Int8, false))),
         true,
     )];
 
@@ -276,7 +276,7 @@ fn nested_list_nulls_serialize() {
 
     let fields = [Field::new(
         "a",
-        DataType::List(Box::new(Field::new("a", DataType::Int8, false))),
+        DataType::LargeList(Box::new(Field::new("a", DataType::Int8, false))),
         true,
     )];
 
@@ -332,7 +332,7 @@ fn nested_list_structs_serialize() {
     ]);
     let fields = [Field::new(
         "a",
-        DataType::List(Box::new(Field::new("a", inner, false))),
+        DataType::LargeList(Box::new(Field::new("a", inner, false))),
         true,
     )];
 

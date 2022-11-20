@@ -118,105 +118,81 @@ struct RecordAsInteger {
 Serializing the first record type will generate a sequence of events similar to
 
 - `Event::StartSequence`
-- `Event::StartMap`
-- `Event::Key("date")`
-- `Event::String(...)`
-- `Event::EndMap`
+- `Event::StartStruct`
+- `Event::Str("date")`
+- `Event::Str(...)`
+- `Event::EndStruct`
 - ...
 - `Event::EndSequence`
 
 Whereas the serializing the second type will generate an event sequence similar to
 
 - `Event::StartSequence`
-- `Event::StartMap`
-- `Event::Key("date")`
+- `Event::StartStruct`
+- `Event::Str("date")`
 - `Event::I64(...)`
-- `Event::EndMap`
+- `Event::EndStruct`
 - ...
 - `Event::EndSequence`
 
-Without extra configurations, serializing these records will generate record
-batches with a string column or 64 bit integer column respectively. Both can be
-converted into a `Date64` column by setting the data type to `NaiveDateTimeStr`
-or `DateTimeMilliseconds` respectively:
-
-```rust
-// for RecordAsString
-let schema = Schema::from_records(&items)?
-    .with_field("date", Some(DataType::NaiveDateTimeStr), None);
-let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
-
-// for RecordAsInteger
-let schema = Schema::from_records(&items)?
-    .with_field("date", Some(DataType::DateTimeMilliseconds), None);
-let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
-```
-
-## Abstractions
-
-- `trace_schema`: `value` -> `SchemaSink`
--
-
 ## Status
 
-| Rust             | Schema    | Arrow      | Comment |
-|------------------|-----------|------------|---------|
-| `bool`           | `Bool`    | `Boolean`  | |
-| `i8`             | `I8`      | `Int8`     | |
-| `i16`            | `I16`     | `Int16`    | |
-| `i32`            | `I32`     | `Int32`    | |
-| `i64`            | `I64`     | `Int64`    | |
-| `u8`             | `U8`      | `UInt8`    | |
-| `u16`            | `U16`     | `UInt16`   | |
-| `u32`            | `U32`     | `UInt32`   | |
-| `u64`            | `U64`     | `UInt64`   | |
-| `f32`            | `F32`     | `Float32`  | |
-| `f64`            | `F64`     | `Float64`  | |
-| `char`           | `U32`     | `UInt32`   | |
-| `&str`, `String` | `Str`     | `Utf8`     | **default** |
-| `&str`, `String` | `Arrow(LargeUtf8)` | `LargeUtf8` | |
-| `chrono::NaiveDateTime` | `Str` | `Utf8` | **default** |
-| `chrono::NaiveDateTime` | `NaiveDateTimeStr` | `Date64` | |
-| `chrono::NaiveDateTime` + `chrono::serde::ts_milliseconds` | `U64` | `UInt64` | **default** |
-| `chrono::NaiveDateTime` + `chrono::serde::ts_milliseconds` | `DateTimeMilliseconds` | `Date64` | |
-| `chrono::DateTime<Utc>` | `Str` | `Utf8` | **default** |
-| `chrono::DateTime<Utc>` | `DateTimeStr` | `Date64` | |
-| `chrono::DateTime<Utc>` + `chrono::serde::ts_milliseconds` | `U64` | `UInt64` | **default** |
-| `chrono::DateTime<Utc>` + `chrono::serde::ts_milliseconds` | `DateTimeMilliseconds` | `Date64` | |
+Supported arrow data types:
 
-**default** is the configuration that is auto detected, when the schema is
-traced.
+- [x] `Null`
+- [x] `Boolean`
+- [x] `Int8`
+- [x] `Int16`
+- [x] `Int32`
+- [x] `Int64`
+- [x] `UInt8`
+- [x] `UInt16`
+- [x] `UInt32`
+- [x] `UInt64`
+- [ ] `Float16`
+- [x] `Float32`
+- [x] `Float64`
+- [ ] `Timestamp`
+- [ ] `Date32`
+- [x] `Date64`: either as formatted dates (UTC + Naive) (`Event::Str`) or as
+  timestamps (`Event::I64`). Both cases require additional configuration
+- [ ] `Time32`
+- [ ] `Time64`
+- [ ] `Duration`
+- [ ] `Interval`
+- [ ] `Binary`
+- [ ] `FixedSizeBinary`
+- [ ] `LargeBinary`
+- [x] `Utf8`
+- [x] `LargeUtf8`
+- [ ] `List`: deserialization is supported, serialization is not supported
+- [ ] `FixedSizeList`
+- [x] `LargeList`
+- [x] `Struct`
+- [ ] `Union`
+- [ ] `Map`
+- [ ] `Dictionary`
+- [ ] `Decimal`
+- [ ] `Decimal256`
+- [ ] `Extension`
 
-**Warning:** the RFC 3339 format used, when serializing date times as strings,
-will strip the milliseconds.
+Supported Serde / Rust types:
 
-Missing:
-
-- [ ] storing dates as `Date32`
-- [ ] binary data (serde: `Seq[u8]`, arrow: `Binary`, `FixedSizeBinary`,
-  `LargeBinary`)
-- [ ] remaining arrow time data types (`Timestamp`, `Time32`, `Time64`,
-  `Duration`, `Interval`)
-- [ ] nested structs (arrow: `Struct`)
-- [ ] nested sequences (serde: `Seq<T>`, arrow: `List<T>`, `FixedSizeList<T>`,
-  `LargeList<T>`)
-- [ ] nested maps (serde: `Map<K, V>`, arrow: `Dictionary<K, V>`)
-- [ ] decimals (arrow: `Decimal`)
-- [ ] unions (arrow: `Union`)
-
-Comments:
-
-- Structures with flattened children are supported. For example
-    ```rust
-    #[derive(Serialize)]
-    struct FlattenExample {
-        a: i32,
-        #[serde(flatten)]
-        child: OtherStructure,
-    }
-    ```
-- For maps, all fields need to be added to the schema and need to be found in
-  each record. The latter restriction will be lifted
+- [x] `bool`
+- [x] `i8, i16, i32, i64`
+- [x] `u8, u16, u32, u64`
+- [x] `f32, f64`
+- [x] `Option<T>`: if `T` is supported
+- [x] `()`: serialized as a missing value
+- [x] `struct S{ .. }`: if the fields are supported
+- [x] `Vec<T>`: if T is supported. Any type that serializes into a Serde
+  sequence is supported
+- [ ] `Map<K, V>`
+- [ ] tuples: tuples or tuple structs are not yet supported. It is planned to
+  map them to struct arrays with numeric field names
+- [ ] `enum ... { }`: enums are not yet supported. It is planned to map them to
+  union arrays
+- [x] `struct S(T)`: newtype structs are supported, it `T` is supported
 
 [crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
 [crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
