@@ -1,3 +1,27 @@
+use arrow2::{array::Array, datatypes::Field};
+
+use crate::{
+    arrow2::sources::build_record_source,
+    base::{Event, EventSource},
+    Result,
+};
+
+/// Collect the events for the given array
+///
+/// This functionality is mostly intended as a debug functionality.
+///
+pub fn collect_events_from_array<A>(fields: &[Field], arrays: &[A]) -> Result<Vec<Event<'static>>>
+where
+    A: AsRef<dyn Array>,
+{
+    let mut source = build_record_source(fields, arrays)?;
+    let mut res = Vec::new();
+    while let Some(ev) = source.next()? {
+        res.push(ev.to_static());
+    }
+    Ok(res)
+}
+
 pub mod field {
     use arrow2::datatypes::{DataType, Field};
 
@@ -34,7 +58,7 @@ pub mod access {
     };
 
     use crate::{
-        error, fail,
+        base::error::{error, fail},
         generic::schema::{IntoPath, PathDisplay, PathFragment},
         Result,
     };

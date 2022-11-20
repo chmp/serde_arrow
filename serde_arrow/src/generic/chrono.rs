@@ -30,9 +30,9 @@ impl<A, B: ArrayBuilder<A>> ArrayBuilder<A> for NaiveDateTimeStrBuilder<B> {
 }
 
 #[derive(Debug)]
-pub struct DateTimeStrBuilder<B>(pub B);
+pub struct UtcDateTimeStrBuilder<B>(pub B);
 
-impl<B: EventSink> EventSink for DateTimeStrBuilder<B> {
+impl<B: EventSink> EventSink for UtcDateTimeStrBuilder<B> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         self.0.accept(match event.to_self() {
             Event::Str(s) => Event::I64(s.parse::<DateTime<Utc>>()?.timestamp_millis()),
@@ -41,7 +41,7 @@ impl<B: EventSink> EventSink for DateTimeStrBuilder<B> {
     }
 }
 
-impl<A, B: ArrayBuilder<A>> ArrayBuilder<A> for DateTimeStrBuilder<B> {
+impl<A, B: ArrayBuilder<A>> ArrayBuilder<A> for UtcDateTimeStrBuilder<B> {
     fn box_into_array(self: Box<Self>) -> Result<A> {
         (*self).into_array()
     }
@@ -66,9 +66,9 @@ impl<'a, S: EventSource<'a>> EventSource<'a> for NaiveDateTimeStrSource<S> {
     }
 }
 
-pub struct DateTimeStrSource<S>(pub S);
+pub struct UtcDateTimeStrSource<S>(pub S);
 
-impl<'a, S: EventSource<'a>> EventSource<'a> for DateTimeStrSource<S> {
+impl<'a, S: EventSource<'a>> EventSource<'a> for UtcDateTimeStrSource<S> {
     fn next(&mut self) -> Result<Option<Event<'a>>> {
         match self.0.next()? {
             Some(Event::I64(val)) => {

@@ -1,21 +1,28 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    base::{Event, EventSink},
-    error, fail, Error, Result,
+    base::{
+        error::{error, fail},
+        Event, EventSink,
+    },
+    Error, Result,
 };
 
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
+/// Strategies for serializing / deserializing types not supported natively in serde
+///
 pub enum Strategy {
-    DateTimeStr,
+    /// Arrow: Date64, serde: strings with UTC timezone
+    UtcDateTimeStr,
+    /// Arrow: Date64, serde: strings without a timezone
     NaiveDateTimeStr,
 }
 
 impl std::fmt::Display for Strategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DateTimeStr => write!(f, "DateTimeStr"),
+            Self::UtcDateTimeStr => write!(f, "UtcDateTimeStr"),
             Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
         }
     }
@@ -26,13 +33,17 @@ impl FromStr for Strategy {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "DateTimeStr" => Ok(Self::DateTimeStr),
+            "UtcDateTimeStr" => Ok(Self::UtcDateTimeStr),
             "NaiveDateTimeStr" => Ok(Self::NaiveDateTimeStr),
             _ => fail!("Unknown strategy {s}"),
         }
     }
 }
 
+/// Find a (nested) field among fields
+///
+/// The idea is to change a traced schema afterwards
+///
 pub fn lookup_field_mut<F: GenericField, P: IntoPath>(fields: &mut [F], path: P) -> Result<&mut F> {
     let path = path.into_path()?;
     let path = path.as_slice();
@@ -119,7 +130,10 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
             (StartSequence, Event::StartSequence) => StartRecord,
             (StartRecord, Event::EndSequence) => Done,
             (StartRecord, Event::StartMap) => Content(0),
-            (Content(depth), Event::Some) => Content(depth),
+            (Content(depth), Event::Some) => {
+                self.builder.mark_nullable(&self.path)?;
+                Content(depth)
+            }
             (Content(depth), Event::Key(name)) => {
                 self.path.push(PathFragment::Field(name.to_owned()));
                 self.builder.ensure_field_exist(&self.path)?;
@@ -148,7 +162,7 @@ impl<F: GenericField> EventSink for TracedSchema<F> {
                 Content(depth - 1)
             }
             (Content(depth), Event::Null) => {
-                self.builder.mark_null(&self.path)?;
+                self.builder.mark_nullable(&self.path)?;
                 self.pop_if_not_index();
                 Content(depth)
             }
@@ -181,6 +195,8 @@ impl<F: GenericField> TracedSchema<F> {
     }
 }
 
+/// An abstraction over fields of a schema
+///
 pub trait GenericField: Sized {
     fn new_null(name: String) -> Self;
     fn new_struct(name: String) -> Self;
@@ -196,6 +212,7 @@ pub trait GenericField: Sized {
     fn is_list(&self) -> bool;
     fn is_primitive(&self, ev: &Event<'_>) -> bool;
 
+    fn get_nullable(&self) -> bool;
     fn set_nullable(&mut self, nullable: bool);
     fn append_child(&mut self, child: Self) -> Result<()>;
 
@@ -250,7 +267,9 @@ impl<F: GenericField> SchemaBuilder<F> {
         let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
 
         if field.is_null() {
+            let prev_nullable = field.get_nullable();
             *field = F::new_struct(field_name.to_owned());
+            field.set_nullable(prev_nullable);
         } else if !field.is_struct() {
             fail!(
                 "Cannot mark field {:?} ({}) as a struct",
@@ -272,7 +291,9 @@ impl<F: GenericField> SchemaBuilder<F> {
         let (index, field) = self.index.lookup_mut(&mut self.fields, path)?;
 
         if field.is_null() {
+            let prev_nullable = field.get_nullable();
             *field = F::new_list(field_name.to_owned());
+            field.set_nullable(prev_nullable);
             index.insert(&PathFragment::Index(0))?;
         } else if !field.is_list() {
             fail!("Cannot mark field {} as a list", PathDisplay(path));
@@ -290,7 +311,9 @@ impl<F: GenericField> SchemaBuilder<F> {
         };
 
         if field.is_null() {
+            let prev_nullable = field.get_nullable();
             *field = F::new_primitive(field_name.to_owned(), ev)?;
+            field.set_nullable(prev_nullable);
         } else if !field.is_primitive(ev) {
             fail!("Cannot set field {} to primitive {}", PathDisplay(path), ev);
         }
@@ -298,7 +321,7 @@ impl<F: GenericField> SchemaBuilder<F> {
         Ok(())
     }
 
-    pub fn mark_null(&mut self, path: &[PathFragment]) -> Result<()> {
+    pub fn mark_nullable(&mut self, path: &[PathFragment]) -> Result<()> {
         let (_, field) = self.index.lookup_mut(&mut self.fields, path)?;
         field.set_nullable(true);
         Ok(())

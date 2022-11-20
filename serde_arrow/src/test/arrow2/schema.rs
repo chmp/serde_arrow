@@ -58,3 +58,18 @@ fn test_traced_schema_only_nulls() {
 
     assert_eq!(actual, expected);
 }
+
+#[test]
+fn test_traced_schema_only_somes() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: Option<i8>,
+    }
+
+    let items = vec![Item { a: Some(0) }];
+
+    let actual = serialize_into_fields(&items).unwrap();
+    let expected = vec![Field::new("a", DataType::Int8, true)];
+
+    assert_eq!(actual, expected);
+}

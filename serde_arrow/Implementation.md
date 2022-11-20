@@ -1,13 +1,13 @@
 # Implementation notes
 
-The fundamental data model is a sequence of records, think a list of maps in
-JSON. In Rust this maps to slices of structs or HashMaps. The only requirement
-on the record types is that they implement [Serialize][serde::Serialize] or
-[Deserialize][serde::Deserialize] depending on the desired operation. For
-example:
+`serde_arrow` allows to convert between Rust objects that implement
+[Serialize][serde::Serialize] or [Deserialize][serde::Deserialize] and arrow
+arrays. `serde_arrow` introduces an intermediate JSON-like representation in the
+form of a stream of [Event][crate::base::Event] objects. Consider the following
+Rust vector
 
 ```rust
-#[derive(Serialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Record {
     a: i32,
     b: u32,
@@ -15,70 +15,78 @@ struct Record {
 
 let items = vec![
     Record { a: 1, b: 2},
+    Record { a: 3, b: 4},
     // ...
 ];
 ```
 
-To interface with Serde `serde_arrow` interprets the sequence of records as a
-JSON-like internal representation in the form of a stream of
-[Event][crate::event::Event] objects. For example, the `items` object above
-would result in the following stream of events:
-
-- `Event::StartSequence`
-- `Event::StartMap`
-- `Event::Key("a")`
-- `Event::I32(1)`
-- `Event::Key("b")`
-- `Event::U32(2)`
-- `Event::EndMap`
-- `Event::EndSequence`
-
-Next `serde_arrow` converts this stream of events into a record batch. In sum,
-process looks like:
-
-- Use Serde to convert a sequence of Rust records into an Event stream
-- Convert the Event stream into an Arrow RecordBatch
-
-As the [Serde data model](https://serde.rs/data-model.html) and the Arrow data
-model do not match directly, `serde_arrow` requires an additional schema to map
-of fields to their types. Given a schema a list of records can be converted into
-a record batch using [`serde_arrow::to_record_batch`][crate::to_record_batch]:
+The items vector can be converted into a stream of events as in:
 
 ```rust
-let batch = serde_arrow::arrow::to_record_batch(&items, &schema)?;
+let mut events: Vec<Event<'static>> = Vec::new();
+serialize_into_sink(&mut events, &items)?;
+
+assert_eq!(
+    events,
+    vec![
+        Event::StartSequence,
+        Event::StartMap,
+        Event::OwnedKey(String::from("a")),
+        Event::I32(1),
+        Event::OwnedKey(String::from("b")),
+        Event::U32(2),
+        Event::EndMap,
+        Event::StartMap,
+        Event::OwnedKey(String::from("a")),
+        Event::I32(3),
+        Event::OwnedKey(String::from("b")),
+        Event::U32(4),
+        Event::EndMap,
+        Event::EndSequence
+    ],
+);
 ```
 
-To support in creation of schema definitions `serde_arrow` offers the function
-[`Schema::from_records`][crate::Schema::from_records], which tries to auto-detect
-the schema. For example:
+`serde_arrow` can also deserialize from events back to Rust objects
 
 ```rust
-let schema = Schema::from_records(&items)?;
-// update detected data types here
+let items_from_events: Vec<Record> = deserialize_from_source(&events)?;
+assert_eq!(items_from_events, items);
 ```
 
-Note however, this detection is not always reliable. For example `Option`s with
-only `None` values cannot be detected. Also chrono's date types map to different
-serialization formats (strings, ints, ..) depending on configuration.
-
-The reverse process, from a record batch to a sequence of Rust records, is
-implemented similarly:
-
-- Convert an Arrow RecordBatch into an Event stream
-- Use Serde to convert the Event stream into a sequence of Rust objects
-
-For example:
+`serde_arrow` includes functionality that builds arrow arrays from Rust objects
+or vice versa by interpreting the stream of events. In both cases, `serde_arrow`
+requires additional information over the array types in in the form of arrow
+fields
 
 ```rust
-let items = serde_arrow::arrow::from_record_batch(&batch, &schema)?;
+let fields = vec![
+    Field::new("a", DataType::Int32, false),
+    Field::new("b", DataType::UInt32, false),
+];
 ```
 
-Again a schema is required to match the different data models. The schema can
-either be constructed manually or auto-detected from the record batch:
+With the fields the records can be converted into arrays by calling
+`serialize_into_arrays`
 
 ```rust
-let schema = Schema::from_record_batch(&batch)?;
-// update detected data types here
+let arrays = serialize_into_arrays(&fields, &items)?;
+```
+
+The records can be re-created from the arrays by calling
+`deserialize_from_arrays`
+
+```rust
+let items_from_arrays: Vec<Record> = deserialize_from_arrays(&fields, &arrays)?;
+assert_eq!(items_from_arrays, items);
+```
+
+To simplify creating the fields, `serde_arrow` allows to determine the schema
+from the records themselves
+
+```rust
+let fields_from_items = serialize_into_fields(&items)?;
+assert_eq!(fields_from_items, fields);
 ```
 
 ## Type conversions
@@ -147,7 +155,7 @@ let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
 ## Abstractions
 
 - `trace_schema`: `value` -> `SchemaSink`
-- 
+-
 
 ## Status
 
@@ -164,7 +172,7 @@ let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
 | `u64`            | `U64`     | `UInt64`   | |
 | `f32`            | `F32`     | `Float32`  | |
 | `f64`            | `F64`     | `Float64`  | |
-| `char`           | `U32`     | `UInt32`   | | 
+| `char`           | `U32`     | `UInt32`   | |
 | `&str`, `String` | `Str`     | `Utf8`     | **default** |
 | `&str`, `String` | `Arrow(LargeUtf8)` | `LargeUtf8` | |
 | `chrono::NaiveDateTime` | `Str` | `Utf8` | **default** |
@@ -177,7 +185,7 @@ let items = serde_arrow::arrow::from_record_batch(&items, &schema)?;
 | `chrono::DateTime<Utc>` + `chrono::serde::ts_milliseconds` | `DateTimeMilliseconds` | `Date64` | |
 
 **default** is the configuration that is auto detected, when the schema is
-traced.  
+traced.
 
 **Warning:** the RFC 3339 format used, when serializing date times as strings,
 will strip the milliseconds.
@@ -210,10 +218,13 @@ Comments:
 - For maps, all fields need to be added to the schema and need to be found in
   each record. The latter restriction will be lifted
 
-[crate::event::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
+[crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
 [crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
 [crate::trace_schema]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.trace_schema.html
 [serde::Serialize]: https://docs.serde.rs/serde/trait.Serialize.html
 [serde::Deserialize]: https://docs.serde.rs/serde/trait.Deserialize.html
 [crate::Schema::from_records]: https://docs.rs/serde_arrow/latest/serde_arrow/struct.Schema.html#method.from_records
 [chrono]: https://docs.rs/chrono/latest/chrono/
+
+[crate::base::EventSource]: https://docs.rs/serde_arrow
+[crate::base::EventSink]: https://docs.rs/serde_arrow

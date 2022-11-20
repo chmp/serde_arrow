@@ -7,9 +7,9 @@ use arrow2::{
 };
 
 use crate::{
-    fail,
+    base::error::fail,
     generic::{
-        chrono::{DateTimeStrBuilder, NaiveDateTimeStrBuilder},
+        chrono::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
             ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, RecordsBuilder,
@@ -61,9 +61,9 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                     Strategy::NaiveDateTimeStr => Ok(DynamicArrayBuilder::new(
                         NaiveDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
                     )),
-                    Strategy::DateTimeStr => Ok(DynamicArrayBuilder::new(DateTimeStrBuilder(
-                        PrimitiveArrayBuilder::<i64>::new(),
-                    ))),
+                    Strategy::UtcDateTimeStr => Ok(DynamicArrayBuilder::new(
+                        UtcDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
+                    )),
                 }
             } else {
                 // TODO: is this correct?

@@ -1,7 +1,10 @@
+/// A Result type that defaults to `serde_arrow`'s Error type
+///
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Errors during conversion or tracing
+/// Common errors during `serde_arrow`'s usage
 ///
+/// At the moment
 #[derive(Debug)]
 pub enum Error {
     Custom(String),
@@ -35,7 +38,6 @@ impl serde::de::Error for Error {
     }
 }
 
-#[macro_export]
 macro_rules! error {
     ($msg:literal) => {
         $crate::Error::Custom(format!($msg))
@@ -44,20 +46,15 @@ macro_rules! error {
         $crate::Error::Custom(format!($msg, $($item),*))
     };
 }
+pub(crate) use error;
 
-#[macro_export]
 macro_rules! fail {
     ($($tt:tt)*) => {
-        return Err($crate::error!($($tt)*))
+        return Err($crate::base::error::error!($($tt)*))
     };
 }
 
-#[cfg(feature = "arrow")]
-impl From<arrow::error::ArrowError> for Error {
-    fn from(error: arrow::error::ArrowError) -> Error {
-        Error::Custom(format!("arrow::ArrowError: {error}"))
-    }
-}
+pub(crate) use fail;
 
 #[cfg(feature = "arrow2")]
 impl From<arrow2::error::Error> for Error {
@@ -75,5 +72,11 @@ impl From<chrono::format::ParseError> for Error {
 impl From<std::num::TryFromIntError> for Error {
     fn from(error: std::num::TryFromIntError) -> Error {
         Error::Custom(format!("arrow2::Error: {error}"))
+    }
+}
+
+impl From<std::fmt::Error> for Error {
+    fn from(err: std::fmt::Error) -> Self {
+        Error::Custom(format!("std::fmt::Error: {err}"))
     }
 }

@@ -5,11 +5,14 @@ use arrow2::{
 };
 
 use crate::{
-    base::{DynamicSource, Event, EventSource},
-    error, fail,
+    base::{
+        error::{error, fail},
+        source::DynamicSource,
+        Event, EventSource,
+    },
     generic::schema::{Strategy, STRATEGY_KEY},
     generic::{
-        chrono::{DateTimeStrSource, NaiveDateTimeStrSource},
+        chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
         sources::{ListSource, RecordSource, StructSource},
     },
     Result,
@@ -58,7 +61,7 @@ pub fn build_dynamic_source<'a>(
                     Strategy::NaiveDateTimeStr => DynamicSource::new(NaiveDateTimeStrSource(
                         PrimitiveEventSource::<i64>::from_array(array)?,
                     )),
-                    Strategy::DateTimeStr => DynamicSource::new(DateTimeStrSource(
+                    Strategy::UtcDateTimeStr => DynamicSource::new(UtcDateTimeStrSource(
                         PrimitiveEventSource::<i64>::from_array(array)?,
                     )),
                 }

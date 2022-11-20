@@ -1,11 +1,15 @@
-use crate::{base::Event, error, fail, Error, Result};
+use crate::{
+    base::{
+        error::{error, fail},
+        Event,
+    },
+    Error, Result,
+};
 
 use serde::{
     de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},
     Deserialize,
 };
-
-use super::event::EventOption;
 
 pub trait EventSource<'a> {
     fn next(&mut self) -> Result<Option<Event<'a>>>;
@@ -128,51 +132,51 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_bool(self.source.next()?.required()?.try_into()?)
+        visitor.visit_bool(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.source.next()?.required()?.try_into()?)
+        visitor.visit_i8(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.source.next()?.required()?.try_into()?)
+        visitor.visit_i16(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.source.next()?.required()?.try_into()?)
+        visitor.visit_i32(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.source.next()?.required()?.try_into()?)
+        visitor.visit_i64(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.source.next()?.required()?.try_into()?)
+        visitor.visit_u8(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.source.next()?.required()?.try_into()?)
+        visitor.visit_u16(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.source.next()?.required()?.try_into()?)
+        visitor.visit_u32(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.source.next()?.required()?.try_into()?)
+        visitor.visit_u64(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f32(self.source.next()?.required()?.try_into()?)
+        visitor.visit_f32(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f64(self.source.next()?.required()?.try_into()?)
+        visitor.visit_f64(required(self.source.next()?)?.try_into()?)
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next()?.required()? {
+        match required(self.source.next()?)? {
             Event::U32(val) => {
                 visitor.visit_char(char::from_u32(val).ok_or_else(|| error!("Invalid character"))?)
             }
@@ -184,7 +188,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next()?.required()? {
+        match required(self.source.next()?)? {
             Event::Key(key) => visitor.visit_str(key),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_str(val),
@@ -194,7 +198,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next()?.required()? {
+        match required(self.source.next()?)? {
             Event::Key(key) => visitor.visit_string(key.to_owned()),
             Event::OwnedKey(key) => visitor.visit_str(&key),
             Event::Str(val) => visitor.visit_string(val.to_owned()),
@@ -226,7 +230,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match self.source.next()?.required()? {
+        match required(self.source.next()?)? {
             Event::Null => visitor.visit_unit(),
             ev => fail!("deserialize_unit: Cannot handle {}", ev),
         }
@@ -388,12 +392,6 @@ impl<'items, 'event> IntoEventSource<'event> for &'items Vec<Event<'event>> {
     }
 }
 
-pub fn collect_events<'event, S: EventSource<'event> + 'event>(
-    mut source: S,
-) -> Result<Vec<Event<'static>>> {
-    let mut res = Vec::new();
-    while let Some(ev) = source.next()? {
-        res.push(ev.to_static());
-    }
-    Ok(res)
+fn required<'a>(event: Option<Event<'a>>) -> Result<Event<'a>> {
+    event.ok_or_else(|| error!("Unexpected no event"))
 }

@@ -1,6 +1,10 @@
 use crate::{
-    base::{collect_events, source::IntoEventSource, DynamicSource, Event, EventSource},
+    base::{
+        source::{DynamicSource, IntoEventSource},
+        Event, EventSource,
+    },
     generic::sources::ListSource,
+    test::utils::collect_events,
 };
 
 #[test]
@@ -145,22 +149,22 @@ fn list_source_nested() {
 fn list_source_structs() {
     let events: Vec<Event<'static>> = vec![
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(0),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::I8(1),
         Event::EndMap,
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(2),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::I8(3),
         Event::EndMap,
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(4),
         Event::I8(5),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::EndMap,
     ];
     let source = ListSource::new(
@@ -173,24 +177,24 @@ fn list_source_structs() {
     let expected = vec![
         Event::StartSequence,
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(0),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::I8(1),
         Event::EndMap,
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(2),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::I8(3),
         Event::EndMap,
         Event::EndSequence,
         Event::StartSequence,
         Event::StartMap,
-        Event::owned_key("a"),
+        Event::Key("a"),
         Event::I8(4),
         Event::I8(5),
-        Event::owned_key("b"),
+        Event::Key("b"),
         Event::EndMap,
         Event::EndSequence,
     ];

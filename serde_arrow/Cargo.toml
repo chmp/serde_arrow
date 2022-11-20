@@ -13,6 +13,9 @@ license = "MIT"
 # required-features = ["arrow"]
 # harness = false
 
+[package.metadata.docs.rs]
+features = ["arrow2"]
+
 [dependencies]
 arrow2 = {version = "0.14", optional = true }
 

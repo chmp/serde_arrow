@@ -3,18 +3,13 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    arrow2::{
-        collect_events_from_array, deserialize_from_arrays, serialize_into_arrays,
-        serialize_into_fields,
-    },
+    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
     base::Event,
-    generic::schema::Strategy,
-    lookup_field_mut,
+    schema::{lookup_field_mut, GenericField, Strategy},
     test::arrow2::utils::{
         access::{self, Value},
-        field,
+        collect_events_from_array, field,
     },
-    GenericField,
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -56,12 +51,12 @@ fn dtype_date64_naive_str() {
     let expected_events = vec![
         Event::StartSequence,
         Event::StartMap,
-        Event::owned_key("val"),
-        Event::string("1970-01-13T00:00:00"),
+        Event::Key("val").to_static(),
+        Event::Str("1970-01-13T00:00:00").to_static(),
         Event::EndMap,
         Event::StartMap,
-        Event::owned_key("val"),
-        Event::string("1970-01-10T00:00:00"),
+        Event::Key("val").to_static(),
+        Event::Str("1970-01-10T00:00:00").to_static(),
         Event::EndMap,
         Event::EndSequence,
     ];
@@ -90,7 +85,7 @@ fn dtype_date64_str() {
     let mut fields = serialize_into_fields(records).unwrap();
     lookup_field_mut(&mut fields, ("val",))
         .unwrap()
-        .configure_serde_arrow_strategy(Strategy::DateTimeStr)
+        .configure_serde_arrow_strategy(Strategy::UtcDateTimeStr)
         .unwrap();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
@@ -109,12 +104,12 @@ fn dtype_date64_str() {
     let expected_events = vec![
         Event::StartSequence,
         Event::StartMap,
-        Event::owned_key("val"),
-        Event::string("1970-01-13T00:00:00Z"),
+        Event::Key("val").to_static(),
+        Event::Str("1970-01-13T00:00:00Z").to_static(),
         Event::EndMap,
         Event::StartMap,
-        Event::owned_key("val"),
-        Event::string("1970-01-10T00:00:00Z"),
+        Event::Key("val").to_static(),
+        Event::Str("1970-01-10T00:00:00Z").to_static(),
         Event::EndMap,
         Event::EndSequence,
     ];

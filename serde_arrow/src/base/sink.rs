@@ -3,7 +3,7 @@ use serde::ser::{
 };
 use serde::Serialize;
 
-use crate::{fail, Error, Result};
+use crate::{base::error::fail, Error, Result};
 
 use super::Event;
 

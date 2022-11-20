@@ -1,4 +1,4 @@
-//! arrow2 dependent functionality
+//! arrow2 dependent functionality (requires the `arrow2` feature)
 //!
 pub(crate) mod schema;
 pub(crate) mod sinks;
@@ -9,11 +9,40 @@ use serde::{Deserialize, Serialize};
 
 use self::{sinks::build_records_builder, sources::build_record_source};
 use crate::{
-    base::{collect_events, deserialize_from_source, serialize_into_sink, Event},
+    base::{deserialize_from_source, serialize_into_sink},
     generic::schema::TracedSchema,
     Result,
 };
 
+/// Determine the schema (as a list of fields) for the given items
+///
+/// `items` should be given in the form a list of records (e.g., a vector of
+/// structs).
+///
+/// ```rust
+/// # use arrow2::datatypes::{Field, DataType};
+/// # use serde::Serialize;
+/// # use serde_arrow::arrow2::serialize_into_fields;
+/// #
+/// ##[derive(Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let items = vec![
+///     Record { a: Some(1.0), b: 2},
+///     // ...
+/// ];
+///
+/// let fields = serialize_into_fields(&items).unwrap();
+/// let expected = vec![
+///     Field::new("a", DataType::Float32, true),
+///     Field::new("b", DataType::UInt64, false),
+/// ];
+///
+/// assert_eq!(fields, expected);
+/// ```
 pub fn serialize_into_fields<T>(items: &T) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
@@ -23,6 +52,11 @@ where
     schema.into_fields()
 }
 
+/// Build arrays from the given items
+///
+/// `items` should be given in the form a list of records (e.g., a vector of
+/// structs).
+///
 pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
@@ -32,21 +66,14 @@ where
     builder.into_records()
 }
 
+/// Deserialize a type from the given arrays
+///
+/// The type should be a list of records (e.g., a vector of structs).
+///
 pub fn deserialize_from_arrays<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
     deserialize_from_source(build_record_source(fields, arrays)?)
-}
-
-/// Collect the events for the given array
-///
-/// This functionality is mostly intended as a debug functionality.
-///
-pub fn collect_events_from_array<A>(fields: &[Field], arrays: &[A]) -> Result<Vec<Event<'static>>>
-where
-    A: AsRef<dyn Array>,
-{
-    collect_events(build_record_source(fields, arrays)?)
 }

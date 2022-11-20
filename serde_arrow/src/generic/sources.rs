@@ -1,6 +1,10 @@
 use crate::{
-    base::{DynamicSource, Event, EventSource, PeekableEventSource},
-    error, fail, Result,
+    base::{
+        error::{error, fail},
+        source::{DynamicSource, PeekableEventSource},
+        Event, EventSource,
+    },
+    Result,
 };
 
 pub struct RecordSource<'a, S: EventSource<'a> + 'a> {

@@ -3,8 +3,7 @@ use std::slice;
 use arrow2::datatypes::{DataType, Field};
 
 use crate::{
-    base::Event,
-    fail,
+    base::{error::fail, Event},
     generic::schema::{GenericField, Strategy, STRATEGY_KEY},
     Result,
 };
@@ -64,6 +63,10 @@ impl GenericField for Field {
         }
     }
 
+    fn get_nullable(&self) -> bool {
+        self.is_nullable
+    }
+
     fn set_nullable(&mut self, nullable: bool) {
         self.is_nullable = nullable;
     }
@@ -79,7 +82,7 @@ impl GenericField for Field {
 
     fn configure_serde_arrow_strategy(&mut self, strategy: Strategy) -> Result<()> {
         match strategy {
-            Strategy::DateTimeStr | Strategy::NaiveDateTimeStr => {
+            Strategy::UtcDateTimeStr | Strategy::NaiveDateTimeStr => {
                 if !matches!(
                     self.data_type,
                     DataType::Null | DataType::Utf8 | DataType::LargeUtf8

@@ -1,9 +1,20 @@
 //! The underlying data format used to interact with serde
 //!
 
-use crate::{error, fail, Error, Result};
+use crate::{base::error::fail, Error, Result};
 
-#[derive(Debug, PartialEq, Clone)]
+/// The events used to interact with serde
+///
+/// The events model a JSON-like format that can be generated from objects
+/// implementing `Serialize` and used to create objects that implement
+/// `Deserialize`.
+///
+/// There are corresponding owned events for borrowed events (`String` for `Str`
+/// and `OwnedKey` for `Key`). To normalize to the borrowed events or to the
+/// owned events use `event.to_self()` or `event.to_static` respectively. For
+/// equality borrowed and owned events are considered equal.
+///
+#[derive(Debug, Clone)]
 pub enum Event<'a> {
     StartSequence,
     StartMap,
@@ -56,17 +67,52 @@ impl<'a> std::fmt::Display for Event<'a> {
     }
 }
 
+impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
+    fn eq(&self, other: &Event<'other>) -> bool {
+        use Event::*;
+        match self {
+            StartSequence => matches!(other, StartSequence),
+            StartMap => matches!(other, StartMap),
+            Null => matches!(other, Null),
+            EndMap => matches!(other, EndMap),
+            EndSequence => matches!(other, EndSequence),
+            Key(s) => match other {
+                Key(o) => s == o,
+                OwnedKey(o) => s == o,
+                _ => false,
+            },
+            OwnedKey(s) => match other {
+                Key(o) => s == o,
+                OwnedKey(o) => s == o,
+                _ => false,
+            },
+            Str(s) => match other {
+                Str(o) => s == o,
+                String(o) => s == o,
+                _ => false,
+            },
+            String(s) => match other {
+                Str(o) => s == o,
+                String(o) => s == o,
+                _ => false,
+            },
+            Some => matches!(other, Some),
+            Bool(s) => matches!(other, Bool(o) if s == o),
+            I8(s) => matches!(other, I8(o) if s == o),
+            I16(s) => matches!(other, I16(o) if s == o),
+            I32(s) => matches!(other, I32(o) if s == o),
+            I64(s) => matches!(other, I64(o) if s == o),
+            U8(s) => matches!(other, U8(o) if s == o),
+            U16(s) => matches!(other, U16(o) if s == o),
+            U32(s) => matches!(other, U32(o) if s == o),
+            U64(s) => matches!(other, U64(o) if s == o),
+            F32(s) => matches!(other, F32(o) if s == o),
+            F64(s) => matches!(other, F64(o) if s == o),
+        }
+    }
+}
+
 impl<'a> Event<'a> {
-    /// Create a new OwnedKey event
-    pub fn owned_key<S: Into<String>>(key: S) -> Self {
-        Self::OwnedKey(key.into())
-    }
-
-    /// Create a new String event
-    pub fn string<S: Into<String>>(key: S) -> Self {
-        Self::String(key.into())
-    }
-
     pub fn into_option<T: TryFrom<Event<'a>, Error = Error>>(self) -> Result<Option<T>> {
         match self {
             Event::Null => Ok(None),
@@ -196,15 +242,5 @@ impl<'a> TryFrom<Event<'a>> for String {
             Event::String(val) => Ok(val),
             event => fail!("Cannot convert {} to string", event),
         }
-    }
-}
-
-pub trait EventOption<'a> {
-    fn required(self) -> Result<Event<'a>>;
-}
-
-impl<'a> EventOption<'a> for Option<Event<'a>> {
-    fn required(self) -> Result<Event<'a>> {
-        self.ok_or_else(|| error!("Unexpected no event"))
     }
 }
