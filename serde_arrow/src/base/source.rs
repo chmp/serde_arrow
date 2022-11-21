@@ -268,7 +268,16 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value> {
-        self.deserialize_seq(visitor)
+        if !matches!(self.source.next()?, Some(Event::StartTuple)) {
+            fail!("Expected start of tuple");
+        }
+
+        let res = visitor.visit_seq(&mut *self)?;
+
+        if !matches!(self.source.next()?, Some(Event::EndTuple)) {
+            fail!("Expected end of tuple");
+        }
+        Ok(res)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
@@ -277,7 +286,17 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
         _len: usize,
         visitor: V,
     ) -> Result<V::Value> {
-        self.deserialize_seq(visitor)
+        if !matches!(self.source.next()?, Some(Event::StartTuple)) {
+            fail!("Expected start of tuple");
+        }
+
+        // TODO: use a custom SeqAccess impl that strips out the field names
+        let res = visitor.visit_seq(&mut *self)?;
+
+        if !matches!(self.source.next()?, Some(Event::EndTuple)) {
+            fail!("Expected end of tuple");
+        }
+        Ok(res)
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

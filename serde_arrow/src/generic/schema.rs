@@ -41,6 +41,8 @@ pub enum Strategy {
     UtcDateTimeStr,
     /// Arrow: Date64, serde: strings without a timezone
     NaiveDateTimeStr,
+    /// Serialize Rust tuples as Arrow structs
+    Tuple,
 }
 
 impl std::fmt::Display for Strategy {
@@ -48,6 +50,7 @@ impl std::fmt::Display for Strategy {
         match self {
             Self::UtcDateTimeStr => write!(f, "UtcDateTimeStr"),
             Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
+            Self::Tuple => write!(f, "Tuple"),
         }
     }
 }
@@ -59,6 +62,7 @@ impl FromStr for Strategy {
         match s {
             "UtcDateTimeStr" => Ok(Self::UtcDateTimeStr),
             "NaiveDateTimeStr" => Ok(Self::NaiveDateTimeStr),
+            "Tuple" => Ok(Self::Tuple),
             _ => fail!("Unknown strategy {s}"),
         }
     }
@@ -143,6 +147,7 @@ pub enum Tracer {
     Struct(StructTracer),
     List(ListTracer),
     Primitive(PrimitiveTracer),
+    Tuple(TupleTracer),
 }
 
 impl Tracer {
@@ -189,11 +194,13 @@ impl EventSink for Tracer {
                     tracer.accept(event)?;
                     *self = Tracer::Struct(tracer);
                 }
-                Event::EndSequence | Event::EndStruct => {
-                    fail!("Invalid end nesting events for unknown tracer")
+                Event::StartTuple => {
+                    let mut tracer = TupleTracer::new(tracer.nullable);
+                    tracer.accept(event)?;
+                    *self = Tracer::Tuple(tracer);
                 }
-                Event::StartTuple | Event::EndTuple => {
-                    fail!("Tuples are not yet supported")
+                Event::EndSequence | Event::EndStruct | Event::EndTuple => {
+                    fail!("Invalid end nesting events for unknown tracer")
                 }
                 Event::StartMap | Event::EndMap => {
                     fail!("Maps are not yet supported")
@@ -202,6 +209,7 @@ impl EventSink for Tracer {
             Self::List(tracer) => tracer.accept(event)?,
             Self::Struct(tracer) => tracer.accept(event)?,
             Self::Primitive(tracer) => tracer.accept(event)?,
+            Self::Tuple(tracer) => tracer.accept(event)?,
         }
         Ok(())
     }
@@ -212,6 +220,7 @@ impl EventSink for Tracer {
             Self::List(tracer) => tracer.finish(),
             Self::Struct(tracer) => tracer.finish(),
             Self::Primitive(tracer) => tracer.finish(),
+            Self::Tuple(tracer) => tracer.finish(),
         }
     }
 }
@@ -280,11 +289,17 @@ impl StructTracer {
             }
             (Key, E::EndStruct) => Start,
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
-            (Value(field, depth), ev @ (E::StartSequence | E::StartStruct)) => {
+            (
+                Value(field, depth),
+                ev @ (E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple),
+            ) => {
                 self.field_tracers[field].accept(ev)?;
                 Value(field, depth + 1)
             }
-            (Value(field, depth), ev @ (E::EndSequence | E::EndStruct)) => {
+            (
+                Value(field, depth),
+                ev @ (E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap),
+            ) => {
                 self.field_tracers[field].accept(ev)?;
                 match depth {
                     0 => fail!("Invalid closing event in struct tracer in state Value"),
@@ -316,6 +331,89 @@ impl StructTracer {
         }
         Ok(())
     }
+}
+
+pub struct TupleTracer {
+    pub field_tracers: Vec<Tracer>,
+    pub nullable: bool,
+    pub next: TupleTracerState,
+}
+
+impl TupleTracer {
+    pub fn new(nullable: bool) -> Self {
+        Self {
+            field_tracers: Vec::new(),
+            nullable,
+            next: TupleTracerState::Start,
+        }
+    }
+
+    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        use TupleTracerState::*;
+        type E<'a> = Event<'a>;
+
+        self.next = match (self.next, event) {
+            (Start, Event::StartTuple) => Item(0, 0),
+            (Start, E::Null | E::Some) => {
+                self.nullable = true;
+                Start
+            }
+            (Start, ev) => fail!("Invalid event {ev} for tuple tracer in state Start"),
+            (Item(_, 0), E::EndTuple) => Start,
+            (
+                Item(field, depth),
+                ev @ (E::StartSequence | E::StartStruct | E::StartTuple | E::StartMap),
+            ) => {
+                self.field_tracer(field).accept(ev)?;
+                Item(field, depth + 1)
+            }
+            (
+                Item(field, depth),
+                ev @ (E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap),
+            ) => {
+                self.field_tracer(field).accept(ev)?;
+                match depth {
+                    0 => fail!("Invalid closing event in struct tracer in state Value"),
+                    1 => Item(field + 1, 0),
+                    depth => Item(field, depth - 1),
+                }
+            }
+            // Some is always followed by the actual  value
+            (Item(field, 0), E::Some) => {
+                self.field_tracer(field).accept(E::Some)?;
+                Item(field, 0)
+            }
+            (Item(field, depth), ev) => {
+                self.field_tracer(field).accept(ev)?;
+                match depth {
+                    // Any event at depth == 0 that does not start a structure (is a complete value)
+                    0 => Item(field + 1, 0),
+                    _ => Item(field, depth),
+                }
+            }
+        };
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        if !matches!(self.next, TupleTracerState::Start) {
+            fail!("Incomplete tuple in schema tracing");
+        }
+        Ok(())
+    }
+
+    fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
+        while self.field_tracers.len() <= idx {
+            self.field_tracers.push(Tracer::new());
+        }
+        &mut self.field_tracers[idx]
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TupleTracerState {
+    Start,
+    Item(usize, usize),
 }
 
 pub struct ListTracer {
@@ -351,7 +449,7 @@ impl ListTracer {
             }
             (Start, ev) => fail!("Invalid event {ev} for list tracer in state Start"),
             (Item(0), E::EndSequence) => Start,
-            (Item(0), ev @ E::EndStruct) => {
+            (Item(0), ev @ (E::EndStruct | E::EndMap | E::EndTuple)) => {
                 fail!("Invalid event {ev} for list tracer in state Item(0)")
             }
             (Item(depth), ev @ (E::StartSequence | E::StartStruct)) => {

@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
+
 use arrow2::datatypes::{DataType, Field};
 
 use crate::{
     base::{Event, EventSink},
     generic::schema::{FieldBuilder, Tracer},
+    Strategy, STRATEGY_KEY,
 };
 
 macro_rules! define_primitive_tests {
@@ -428,6 +431,82 @@ fn struct_nested_list() {
         ]),
         false,
     );
+
+    assert_eq!(field, expected);
+}
+
+#[test]
+fn struct_tuple() {
+    let mut tracer = Tracer::new();
+    tracer.accept(Event::StartTuple).unwrap();
+    tracer.accept(Event::U8(0)).unwrap();
+    tracer.accept(Event::U8(1)).unwrap();
+    tracer.accept(Event::U8(2)).unwrap();
+    tracer.accept(Event::EndTuple).unwrap();
+    tracer.finish().unwrap();
+
+    let field: Field = tracer.to_field("root").unwrap();
+    let mut expected = Field::new(
+        "root",
+        DataType::Struct(vec![
+            Field::new("0", DataType::UInt8, false),
+            Field::new("1", DataType::UInt8, false),
+            Field::new("2", DataType::UInt8, false),
+        ]),
+        false,
+    );
+    expected
+        .metadata
+        .insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+
+    assert_eq!(field, expected);
+}
+
+#[test]
+fn struct_tuple_struct_nested() {
+    let mut tracer = Tracer::new();
+    tracer.accept(Event::StartTuple).unwrap();
+    tracer.accept(Event::StartStruct).unwrap();
+    tracer.accept(Event::Str("foo")).unwrap();
+    tracer.accept(Event::U8(0)).unwrap();
+    tracer.accept(Event::Str("bar")).unwrap();
+    tracer.accept(Event::StartTuple).unwrap();
+    tracer.accept(Event::U8(1)).unwrap();
+    tracer.accept(Event::U8(2)).unwrap();
+    tracer.accept(Event::EndTuple).unwrap();
+    tracer.accept(Event::EndStruct).unwrap();
+    tracer.accept(Event::U8(3)).unwrap();
+    tracer.accept(Event::EndTuple).unwrap();
+    tracer.finish().unwrap();
+
+    let mut metadata: BTreeMap<String, String> = Default::default();
+    metadata.insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+
+    let field: Field = tracer.to_field("root").unwrap();
+    let expected = Field::new(
+        "root",
+        DataType::Struct(vec![
+            Field::new(
+                "0",
+                DataType::Struct(vec![
+                    Field::new("foo", DataType::UInt8, false),
+                    Field::new(
+                        "bar",
+                        DataType::Struct(vec![
+                            Field::new("0", DataType::UInt8, false),
+                            Field::new("1", DataType::UInt8, false),
+                        ]),
+                        false,
+                    )
+                    .with_metadata(metadata.clone()),
+                ]),
+                false,
+            ),
+            Field::new("1", DataType::UInt8, false),
+        ]),
+        false,
+    )
+    .with_metadata(metadata);
 
     assert_eq!(field, expected);
 }

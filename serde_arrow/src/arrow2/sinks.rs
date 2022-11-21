@@ -14,7 +14,8 @@ use crate::{
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
             ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, RecordsBuilder,
-            StructArrayBuilder, StructArrayBuilderState,
+            StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
+            TupleStructBuilder,
         },
     },
     Result,
@@ -72,6 +73,7 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                     Strategy::UtcDateTimeStr => Ok(DynamicArrayBuilder::new(
                         UtcDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
                     )),
+                    s => fail!("Invalid strategy {s} for Date64 column"),
                 }
             } else {
                 // TODO: is this correct?
@@ -89,8 +91,17 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                 nullable.push(field.is_nullable);
             }
 
-            let builder = StructArrayBuilder::new(columns, nullable, builders);
-            Ok(DynamicArrayBuilder::new(builder))
+            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
+                let strategy: Strategy = strategy.parse()?;
+                if !matches!(strategy, Strategy::Tuple) {
+                    fail!("Invalid strategy {strategy} for Struct column");
+                }
+                let builder = TupleStructBuilder::new(nullable, builders);
+                Ok(DynamicArrayBuilder::new(builder))
+            } else {
+                let builder = StructArrayBuilder::new(columns, nullable, builders);
+                Ok(DynamicArrayBuilder::new(builder))
+            }
         }
         DataType::LargeList(field) => {
             // TODO: support the different sizes
@@ -128,6 +139,37 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
             fields.push(Field::new(
                 column,
                 values[i].data_type().clone(),
+                self.nullable[i],
+            ));
+        }
+        let data_type = DataType::Struct(fields);
+
+        Ok(Box::new(StructArray::new(data_type, values, None)))
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStructBuilder<B> {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
+        if !matches!(self.state, TupleArrayBuilderState::Start) {
+            fail!("Invalid state at array construction");
+        }
+
+        let values: Result<Vec<Box<dyn Array>>> =
+            self.builders.into_iter().map(|b| b.into_array()).collect();
+        let values = values?;
+
+        let mut fields = Vec::new();
+        for (i, value) in values.iter().enumerate() {
+            fields.push(Field::new(
+                i.to_string(),
+                value.data_type().clone(),
                 self.nullable[i],
             ));
         }

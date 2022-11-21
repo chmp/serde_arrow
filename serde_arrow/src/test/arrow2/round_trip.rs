@@ -402,3 +402,57 @@ fn test_unit() {
 
     assert_eq!(items_from_arrays, items);
 }
+
+#[test]
+fn test_tuple() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: (u8, u8),
+    }
+
+    let items = vec![Item { a: (0, 1) }, Item { a: (2, 3) }];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
+fn test_struct_with_options() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: Inner,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Inner {
+        foo: Option<u8>,
+        bar: u32,
+    }
+
+    let items = vec![
+        Item {
+            a: Inner { foo: None, bar: 13 },
+        },
+        Item {
+            a: Inner {
+                foo: Some(0),
+                bar: 21,
+            },
+        },
+        Item {
+            a: Inner {
+                foo: Some(1),
+                bar: 42,
+            },
+        },
+    ];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}

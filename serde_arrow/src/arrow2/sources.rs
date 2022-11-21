@@ -12,10 +12,13 @@ use crate::{
         source::DynamicSource,
         Event, EventSource,
     },
-    generic::schema::{Strategy, STRATEGY_KEY},
     generic::{
         chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
         sources::{ListSource, RecordSource, StructSource},
+    },
+    generic::{
+        schema::{Strategy, STRATEGY_KEY},
+        sources::TupleSource,
     },
     Result,
 };
@@ -83,12 +86,23 @@ pub fn build_dynamic_source<'a>(
                     Strategy::UtcDateTimeStr => DynamicSource::new(UtcDateTimeStrSource(
                         PrimitiveEventSource::<i64>::from_array(array)?,
                     )),
+                    s => fail!("Invalid strategy {s} for Date64 column"),
                 }
             } else {
                 build_dynamic_primitive_source::<i64>(field, array)?
             }
         }
-        DataType::Struct(fields) => build_dynamic_struct_source(fields, array)?,
+        DataType::Struct(fields) => {
+            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
+                let strategy: Strategy = strategy.parse()?;
+                if !matches!(strategy, Strategy::Tuple) {
+                    fail!("Invalid strategy {strategy} for Struct column");
+                }
+                build_dynamic_struct_source(fields, array, true)?
+            } else {
+                build_dynamic_struct_source(fields, array, false)?
+            }
+        }
         DataType::List(field) => build_dynamic_list_source::<i32>(field.as_ref(), array)?,
         DataType::LargeList(field) => build_dynamic_list_source::<i64>(field.as_ref(), array)?,
         dt => fail!("{dt:?} not yet supported"),
@@ -114,6 +128,7 @@ pub fn build_dynamic_primitive_source<'a, T: Into<Event<'static>> + NativeType>(
 pub fn build_dynamic_struct_source<'a>(
     fields: &'a [Field],
     array: &'a dyn Array,
+    as_tuple: bool,
 ) -> Result<DynamicSource<'a>> {
     let array = array
         .as_any()
@@ -129,9 +144,13 @@ pub fn build_dynamic_struct_source<'a>(
         values.push(build_dynamic_source(&fields[i], children[i].as_ref())?);
     }
 
-    let source = StructSource::new(names, values);
-
-    Ok(DynamicSource::new(source))
+    if !as_tuple {
+        let source = StructSource::new(names, values);
+        Ok(DynamicSource::new(source))
+    } else {
+        let source = TupleSource::new(values);
+        Ok(DynamicSource::new(source))
+    }
 }
 
 pub fn build_dynamic_list_source<'a, T: Offset>(

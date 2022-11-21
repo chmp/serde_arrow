@@ -141,17 +141,10 @@ Supported arrow data types:
 
 - [x] `Null`
 - [x] `Boolean`
-- [x] `Int8`
-- [x] `Int16`
-- [x] `Int32`
-- [x] `Int64`
-- [x] `UInt8`
-- [x] `UInt16`
-- [x] `UInt32`
-- [x] `UInt64`
-- [ ] `Float16`
-- [x] `Float32`
-- [x] `Float64`
+- [x] `Int8`, `Int16`, `Int32`, `Int64`
+- [x] `UInt8`, `UInt16`, `UInt32`, `UInt64`
+- [ ] `Float16`, 
+- [x] `Float32`, `Float64`
 - [ ] `Timestamp`
 - [ ] `Date32`
 - [x] `Date64`: either as formatted dates (UTC + Naive) (`Event::Str`) or as
@@ -179,9 +172,9 @@ Supported arrow data types:
 Supported Serde / Rust types:
 
 - [x] `bool`
-- [x] `i8, i16, i32, i64`
-- [x] `u8, u16, u32, u64`
-- [x] `f32, f64`
+- [x] `i8`, `i16`, `i32`, `i64`
+- [x] `u8`, `u16`, `u32`, `u64`
+- [x] `f32`, `f64`
 - [x] `Option<T>`: if `T` is supported
 - [x] `()`: serialized as a missing value
 - [x] `struct S{ .. }`: if the fields are supported

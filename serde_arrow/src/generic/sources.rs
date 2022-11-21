@@ -28,28 +28,29 @@ impl<'a, S: EventSource<'a> + 'a> RecordSource<'a, S> {
 impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
     fn next(&mut self) -> Result<Option<Event<'a>>> {
         use RecordSourceState::*;
+        type E<'a> = Event<'a>;
 
         match self.next {
             StartSequence => {
                 self.next = StartMapOrEnd;
-                Ok(Some(Event::StartSequence))
+                Ok(Some(E::StartSequence))
             }
             StartMapOrEnd => {
                 if self.columns.is_empty() || self.values[0].peek()?.is_none() {
                     self.next = Done;
-                    Ok(Some(Event::EndSequence))
+                    Ok(Some(E::EndSequence))
                 } else {
                     self.next = Key(0);
-                    Ok(Some(Event::StartStruct))
+                    Ok(Some(E::StartStruct))
                 }
             }
             Key(i) if i >= self.columns.len() => {
                 self.next = StartMapOrEnd;
-                Ok(Some(Event::EndStruct))
+                Ok(Some(E::EndStruct))
             }
             Key(i) => {
                 self.next = Value(i, 0);
-                Ok(Some(Event::Str(self.columns[i])))
+                Ok(Some(E::Str(self.columns[i])))
             }
             Value(i, depth) => {
                 let ev = self.values[i]
@@ -57,10 +58,16 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
                     .ok_or_else(|| error!("Unbalanced values"))?;
 
                 self.next = match (&ev, depth) {
-                    (Event::StartStruct | Event::StartSequence, _) => Value(i, depth + 1),
-                    (Event::EndStruct | Event::EndSequence, 0) => fail!("Invalid nested value"),
-                    (Event::EndStruct | Event::EndSequence, 1) => Key(i + 1),
-                    (Event::EndStruct | Event::EndSequence, _) => Value(i, depth - 1),
+                    (E::StartStruct | E::StartSequence | E::StartTuple | E::StartMap, _) => {
+                        Value(i, depth + 1)
+                    }
+                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, 0) => {
+                        fail!("Invalid nested value")
+                    }
+                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, 1) => Key(i + 1),
+                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, _) => {
+                        Value(i, depth - 1)
+                    }
                     (_, 0) => Key(i + 1),
                     _ => Value(i, depth),
                 };
@@ -127,10 +134,25 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                     .next()?
                     .ok_or_else(|| error!("unbalanced array"))?;
                 self.next = match (&ev, depth) {
-                    (Event::StartStruct | Event::StartSequence, _) => Value(i, depth + 1),
-                    (Event::EndStruct | Event::EndSequence, 0) => fail!("Invalid nested value"),
-                    (Event::EndStruct | Event::EndSequence, 1) => Key(i + 1),
-                    (Event::EndStruct | Event::EndSequence, _) => Value(i, depth - 1),
+                    (
+                        Event::StartStruct
+                        | Event::StartSequence
+                        | Event::StartMap
+                        | Event::StartTuple,
+                        _,
+                    ) => Value(i, depth + 1),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        0,
+                    ) => fail!("Invalid nested value"),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        1,
+                    ) => Key(i + 1),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        _,
+                    ) => Value(i, depth - 1),
                     (_, 0) => Key(i + 1),
                     _ => Value(i, depth),
                 };
@@ -143,6 +165,79 @@ impl<'a> EventSource<'a> for StructSource<'a> {
 enum StructSourceState {
     Start,
     Key(usize),
+    Value(usize, usize),
+}
+
+pub struct TupleSource<'a> {
+    values: Vec<PeekableEventSource<'a, DynamicSource<'a>>>,
+    next: TupleSourceState,
+}
+
+impl<'a> TupleSource<'a> {
+    pub fn new(values: Vec<DynamicSource<'a>>) -> Self {
+        let values = values.into_iter().map(PeekableEventSource::new).collect();
+        Self {
+            values,
+            next: TupleSourceState::Start,
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for TupleSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>>
+    where
+        Self: 'a,
+    {
+        use TupleSourceState::*;
+
+        match self.next {
+            Start => {
+                if self.values.is_empty() || self.values[0].peek()?.is_none() {
+                    Ok(None)
+                } else {
+                    self.next = Value(0, 0);
+                    Ok(Some(Event::StartTuple))
+                }
+            }
+            Value(i, _) if i >= self.values.len() => {
+                self.next = Start;
+                Ok(Some(Event::EndTuple))
+            }
+            Value(i, depth) => {
+                let ev = self.values[i]
+                    .next()?
+                    .ok_or_else(|| error!("unbalanced array"))?;
+                self.next = match (&ev, depth) {
+                    (
+                        Event::StartStruct
+                        | Event::StartSequence
+                        | Event::StartMap
+                        | Event::StartTuple,
+                        _,
+                    ) => Value(i, depth + 1),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        0,
+                    ) => fail!("Invalid nested value"),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        1,
+                    ) => Value(i + 1, 0),
+                    (
+                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
+                        _,
+                    ) => Value(i, depth - 1),
+                    (_, 0) => Value(i + 1, 0),
+                    _ => Value(i, depth),
+                };
+                Ok(Some(ev))
+            }
+        }
+    }
+}
+
+enum TupleSourceState {
+    Start,
     Value(usize, usize),
 }
 

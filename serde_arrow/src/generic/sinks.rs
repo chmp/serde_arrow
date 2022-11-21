@@ -142,7 +142,7 @@ impl<A> EventSink for RecordsBuilder<A> {
                         fail!("Invalid state")
                     }
                     // the closing event for the nested type
-                    E::EndSequence | E::EndStruct => Key,
+                    E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap => Key,
                     _ if depth == 0 => Key,
                     _ => Value(idx, depth),
                 };
@@ -216,14 +216,19 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             }
             Value(active, depth) => {
                 self.state = match &event {
-                    Event::StartStruct | Event::StartSequence => Value(active, depth + 1),
-                    Event::EndStruct | Event::EndSequence => match depth {
-                        // the last closing event for the current value
-                        1 => Field,
-                        // TODO: check is this event possible?
-                        0 => fail!("Unbalanced opening / close events"),
-                        _ => Value(active, depth - 1),
-                    },
+                    Event::StartStruct
+                    | Event::StartSequence
+                    | Event::StartTuple
+                    | Event::StartMap => Value(active, depth + 1),
+                    Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap => {
+                        match depth {
+                            // the last closing event for the current value
+                            1 => Field,
+                            // TODO: check is this event possible?
+                            0 => fail!("Unbalanced opening / close events in StructArrayBuilder"),
+                            _ => Value(active, depth - 1),
+                        }
+                    }
                     _ if depth == 0 => Field,
                     _ => self.state,
                 };
@@ -238,6 +243,69 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
 pub enum StructArrayBuilderState {
     Start,
     Field,
+    Value(usize, usize),
+}
+
+pub struct TupleStructBuilder<B> {
+    pub(crate) nullable: Vec<bool>,
+    pub(crate) builders: Vec<B>,
+    pub(crate) state: TupleArrayBuilderState,
+}
+
+impl<B> TupleStructBuilder<B> {
+    pub fn new(nullable: Vec<bool>, builders: Vec<B>) -> Self {
+        Self {
+            builders,
+            nullable,
+            state: TupleArrayBuilderState::Start,
+        }
+    }
+}
+
+impl<B: EventSink> EventSink for TupleStructBuilder<B> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        use TupleArrayBuilderState::*;
+
+        self.state = match (self.state, event) {
+            (Start, Event::StartTuple) => Value(0, 0),
+            (
+                Value(active, depth),
+                ev @ (Event::StartStruct
+                | Event::StartSequence
+                | Event::StartMap
+                | Event::StartTuple),
+            ) => {
+                self.builders[active].accept(ev)?;
+                Value(active, depth + 1)
+            }
+            (Value(_, 0), Event::EndTuple) => Start,
+            (Value(_, 0), Event::EndStruct | Event::EndSequence | Event::EndMap) => {
+                fail!("Unbalanced opening / close events in TupleStructBuilder")
+            }
+            (
+                Value(active, 1),
+                ev @ (Event::EndStruct | Event::EndSequence | Event::EndMap | Event::EndTuple),
+            ) => {
+                self.builders[active].accept(ev)?;
+                Value(active + 1, 0)
+            }
+            (Value(active, 0), ev) => {
+                self.builders[active].accept(ev)?;
+                Value(active + 1, 0)
+            }
+            (Value(active, depth), ev) => {
+                self.builders[active].accept(ev)?;
+                Value(active, depth)
+            }
+            (state, ev) => fail!("Invalid event {ev} in state {state:?}"),
+        };
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TupleArrayBuilderState {
+    Start,
     Value(usize, usize),
 }
 

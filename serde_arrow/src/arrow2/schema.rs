@@ -26,6 +26,15 @@ pub fn check_strategy(field: &Field) -> Result<()> {
                 );
             }
         }
+        Strategy::Tuple => {
+            if !matches!(field.data_type, DataType::Struct(_)) {
+                fail!(
+                    "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt:?}",
+                    name = field.name,
+                    dt = field.data_type,
+                );
+            }
+        }
     }
 
     Ok(())
@@ -74,6 +83,17 @@ impl FieldBuilder<Field> for Tracer {
                     fields.push(tracer.to_field(name)?);
                 }
                 Ok(Field::new(name, DataType::Struct(fields), tracer.nullable))
+            }
+            Self::Tuple(tracer) => {
+                let mut fields = Vec::new();
+                for (idx, tracer) in tracer.field_tracers.iter().enumerate() {
+                    fields.push(tracer.to_field(&idx.to_string())?);
+                }
+                let mut field = Field::new(name, DataType::Struct(fields), tracer.nullable);
+                field
+                    .metadata
+                    .insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+                Ok(field)
             }
         }
     }
