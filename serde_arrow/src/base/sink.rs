@@ -1,5 +1,6 @@
 use serde::ser::{
-    Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple, Serializer,
+    Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple, SerializeTupleStruct,
+    Serializer,
 };
 use serde::Serialize;
 
@@ -45,7 +46,7 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     type SerializeSeq = Self;
     type SerializeStruct = Self;
     type SerializeTuple = Self;
-    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
     type SerializeMap = Self;
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
@@ -151,7 +152,8 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct not supported");
+        self.0.accept(Event::StartTuple)?;
+        Ok(self)
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -228,6 +230,24 @@ impl<'a, S: EventSink> SerializeTuple for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(EventSerializer(&mut *self.0))?;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.0.accept(Event::EndTuple)?;
+        Ok(())
+    }
+}
+
+impl<'a, S: EventSink> SerializeTupleStruct for EventSerializer<'a, S> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }

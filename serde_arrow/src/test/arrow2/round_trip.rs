@@ -420,6 +420,25 @@ fn test_tuple() {
 }
 
 #[test]
+fn test_tuple_struct() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Item {
+        a: Inner,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Inner(u8, u8);
+
+    let items = vec![Item { a: Inner(0, 1) }, Item { a: Inner(2, 3) }];
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items_from_arrays, items);
+}
+
+#[test]
 fn test_struct_with_options() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Item {
