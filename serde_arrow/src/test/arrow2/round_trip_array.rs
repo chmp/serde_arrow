@@ -174,20 +174,60 @@ test_round_trip!(
     data_type = DataType::Struct(vec![
         Field::new("a", DataType::Boolean, false),
         Field::new("b", DataType::Int64, false),
+        Field::new("c", DataType::Null, true),
+        Field::new("d", DataType::LargeUtf8, false),
     ]),
     is_nullable = true,
-    ty = Option<BooleanInt64>,
+    ty = Option<Struct>,
     values = [
-        Some(BooleanInt64 {
+        Some(Struct {
             a: true,
             b: 42,
+            c: (),
+            d: String::from("hello"),
         }),
         None,
     ],
 );
 
+test_round_trip!(
+    test_name = struct_nullable_item,
+    data_type = DataType::Struct(vec![
+        Field::new("a", DataType::Boolean, true),
+        Field::new("b", DataType::Int64, true),
+        Field::new("c", DataType::Null, true),
+        Field::new("d", DataType::LargeUtf8, true),
+    ]),
+    is_nullable = false,
+    ty = StructNullable,
+    values = [
+        StructNullable {
+            a: None,
+            b: None,
+            c: None,
+            d: Some(String::from("hello")),
+        },
+        StructNullable {
+            a: Some(true),
+            b: Some(42),
+            c: None,
+            d: None,
+        },
+    ],
+);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct BooleanInt64 {
+struct Struct {
     a: bool,
     b: i64,
+    c: (),
+    d: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct StructNullable {
+    a: Option<bool>,
+    b: Option<i64>,
+    c: Option<()>,
+    d: Option<String>,
 }

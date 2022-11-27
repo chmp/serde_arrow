@@ -188,8 +188,6 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use StructArrayBuilderState::*;
 
-        println!("{:?} {}", self.state, event);
-
         match self.state {
             Start => match event {
                 Event::StartStruct => {

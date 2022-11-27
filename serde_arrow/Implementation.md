@@ -176,7 +176,8 @@ Supported Serde / Rust types:
 - [x] `u8`, `u16`, `u32`, `u64`
 - [x] `f32`, `f64`
 - [x] `Option<T>`: if `T` is supported
-- [x] `()`: serialized as a missing value
+- [x] `()`: serialized as a missing value, `Option<()>` is always deserialized
+  as `None`
 - [x] `struct S{ .. }`: if the fields are supported
 - [x] `Vec<T>`: if T is supported. Any type that serializes into a Serde
   sequence is supported
