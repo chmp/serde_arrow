@@ -186,7 +186,11 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStru
         }
         let data_type = DataType::Struct(fields);
 
-        Ok(Box::new(StructArray::new(data_type, values, None)))
+        Ok(Box::new(StructArray::new(
+            data_type,
+            values,
+            Some(self.validity.into()),
+        )))
     }
 }
 

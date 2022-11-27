@@ -1,6 +1,8 @@
 //! Test round trips on the individual array level without the out records
 //!
 
+use std::collections::BTreeMap;
+
 use arrow2::datatypes::{DataType, Field};
 use serde::{Deserialize, Serialize};
 
@@ -12,56 +14,33 @@ use crate::{
         sinks::ArrayBuilder,
     },
     test::utils::collect_events,
+    Strategy, STRATEGY_KEY,
 };
 
-#[test]
-fn example() {
-    let items: &[i8] = &[0, 1, 2];
-
-    let field = Field::new("value", DataType::Int8, true);
-    let mut sink = build_dynamic_array_builder(&field).unwrap();
-
-    for item in items {
-        serialize_into_sink(&mut sink, &item).unwrap();
-    }
-
-    let array = sink.into_array().unwrap();
-
-    let source = build_dynamic_source(&field, array.as_ref()).unwrap();
-    let events = collect_events(source).unwrap();
-
-    // add the outer sequence
-    let events = {
-        let mut events = events;
-        events.insert(0, Event::StartSequence);
-        events.push(Event::EndSequence);
-        events
-    };
-
-    let res: Vec<i8> = deserialize_from_source(&events).unwrap();
-
-    assert_eq!(res, items);
-}
-
 macro_rules! test_round_trip {
-    (test_name = $test_name:ident, data_type = $data_type:expr, is_nullable = $is_nullable:expr, ty = $ty:ty, values = $values:expr, ) => {
+    (
+        test_name = $test_name:ident,
+        field = $field:expr,
+        ty = $ty:ty,
+        values = $values:expr,
+    ) => {
         #[test]
         fn $test_name() {
             let items: &[$ty] = &$values;
 
-            let field = Field::new("value", $data_type, $is_nullable);
-            let mut sink = build_dynamic_array_builder(&field).unwrap();
+            let field = $field;
 
             let mut tracer = Tracer::new();
-
             for item in items {
-                serialize_into_sink(&mut sink, &item).unwrap();
                 serialize_into_sink(&mut tracer, &item).unwrap();
             }
-
             let res_field = tracer.to_field("value").unwrap();
             assert_eq!(res_field, field);
 
+            let mut sink = build_dynamic_array_builder(&field).unwrap();
+            for item in items {
+                serialize_into_sink(&mut sink, &item).unwrap();
+            }
             let array = sink.into_array().unwrap();
 
             let source = build_dynamic_source(&field, array.as_ref()).unwrap();
@@ -83,101 +62,92 @@ macro_rules! test_round_trip {
 
 test_round_trip!(
     test_name = primitive_i8,
-    data_type = DataType::Int8,
-    is_nullable = false,
+    field = Field::new("value", DataType::Int8, false),
     ty = i8,
     values = [0, 1, 2],
 );
 test_round_trip!(
     test_name = nullable_i8,
-    data_type = DataType::Int8,
-    is_nullable = true,
+    field = Field::new("value", DataType::Int8, true),
     ty = Option<i8>,
     values = [Some(0), None, Some(2)],
 );
 test_round_trip!(
     test_name = nullable_i8_only_some,
-    data_type = DataType::Int8,
-    is_nullable = true,
+    field = Field::new("value", DataType::Int8, true),
     ty = Option<i8>,
     values = [Some(0), Some(2)],
 );
 
 test_round_trip!(
     test_name = primitive_f32,
-    data_type = DataType::Float32,
-    is_nullable = false,
+    field = Field::new("value", DataType::Float32, false),
     ty = f32,
     values = [0.0, 1.0, 2.0],
 );
 test_round_trip!(
     test_name = nullable_f32,
-    data_type = DataType::Float32,
-    is_nullable = true,
+    field = Field::new("value", DataType::Float32, true),
     ty = Option<f32>,
     values = [Some(0.0), None, Some(2.0)],
 );
 test_round_trip!(
     test_name = nullable_f32_only_some,
-    data_type = DataType::Float32,
-    is_nullable = true,
+    field = Field::new("value", DataType::Float32, true),
     ty = Option<f32>,
     values = [Some(0.0), Some(2.0)],
 );
 
 test_round_trip!(
     test_name = primitive_bool,
-    data_type = DataType::Boolean,
-    is_nullable = false,
+    field = Field::new("value", DataType::Boolean, false),
     ty = bool,
     values = [true, false, true],
 );
 test_round_trip!(
     test_name = nullable_bool,
-    data_type = DataType::Boolean,
-    is_nullable = true,
+    field = Field::new("value", DataType::Boolean, true),
     ty = Option<bool>,
     values = [Some(true), None, Some(false)],
 );
 test_round_trip!(
     test_name = nullable_bool_only_some,
-    data_type = DataType::Boolean,
-    is_nullable = true,
+    field = Field::new("value", DataType::Boolean, true),
     ty = Option<bool>,
     values = [Some(true), Some(false)],
 );
 
 test_round_trip!(
     test_name = vec_bool,
-    data_type = DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))),
-    is_nullable = false,
+    field = Field::new(
+        "value",
+        DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))),
+        false,
+    ),
     ty = Vec<bool>,
     values = [vec![true, false], vec![], vec![false]],
 );
 test_round_trip!(
     test_name = nullable_vec_bool,
-    data_type = DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))),
-    is_nullable = true,
+    field = Field::new("value", DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))), true),
     ty = Option<Vec<bool>>,
     values = [Some(vec![true, false]), Some(vec![]), None],
 );
 test_round_trip!(
     test_name = vec_nullable_bool,
-    data_type = DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, true))),
-    is_nullable = false,
+    field = Field::new("value", DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, true))), false),
     ty = Vec<Option<bool>>,
     values = [vec![Some(true), Some(false)], vec![], vec![None, Some(false)]],
 );
 
 test_round_trip!(
     test_name = struct_nullable,
-    data_type = DataType::Struct(vec![
+    field = Field::new("value",DataType::Struct(vec![
         Field::new("a", DataType::Boolean, false),
         Field::new("b", DataType::Int64, false),
         Field::new("c", DataType::Null, true),
         Field::new("d", DataType::LargeUtf8, false),
-    ]),
-    is_nullable = true,
+    ]), true),
     ty = Option<Struct>,
     values = [
         Some(Struct {
@@ -187,18 +157,27 @@ test_round_trip!(
             d: String::from("hello"),
         }),
         None,
+        Some(Struct {
+            a: false,
+            b: 13,
+            c: (),
+            d: String::from("world"),
+        }),
     ],
 );
 
 test_round_trip!(
     test_name = struct_nullable_item,
-    data_type = DataType::Struct(vec![
-        Field::new("a", DataType::Boolean, true),
-        Field::new("b", DataType::Int64, true),
-        Field::new("c", DataType::Null, true),
-        Field::new("d", DataType::LargeUtf8, true),
-    ]),
-    is_nullable = false,
+    field = Field::new(
+        "value",
+        DataType::Struct(vec![
+            Field::new("a", DataType::Boolean, true),
+            Field::new("b", DataType::Int64, true),
+            Field::new("c", DataType::Null, true),
+            Field::new("d", DataType::LargeUtf8, true),
+        ]),
+        false
+    ),
     ty = StructNullable,
     values = [
         StructNullable {
@@ -216,6 +195,38 @@ test_round_trip!(
     ],
 );
 
+test_round_trip!(
+    test_name = tuple_nullable,
+    field = Field::new("value", DataType::Struct(vec![
+        Field::new("0", DataType::Boolean, false),
+        Field::new("1", DataType::Int64, false),
+    ]), true).with_metadata(strategy_meta(Strategy::Tuple)),
+    ty = Option<(bool, i64)>,
+    values = [
+        Some((true, 21)),
+        None,
+        Some((false, 42)),
+    ],
+);
+
+test_round_trip!(
+    test_name = tuple_nullable_nested,
+    field = Field::new("value", DataType::Struct(vec![
+        Field::new("0", DataType::Struct(vec![
+                Field::new("0", DataType::Boolean, false),
+                Field::new("1", DataType::Int64, false),
+            ]), false)
+            .with_metadata(strategy_meta(Strategy::Tuple)),
+        Field::new("1", DataType::Int64, false),
+    ]), true).with_metadata(strategy_meta(Strategy::Tuple)),
+    ty = Option<((bool, i64), i64)>,
+    values = [
+        Some(((true, 21), 7)),
+        None,
+        Some(((false, 42), 13)),
+    ],
+);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Struct {
     a: bool,
@@ -230,4 +241,10 @@ struct StructNullable {
     b: Option<i64>,
     c: Option<()>,
     d: Option<String>,
+}
+
+fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
+    let mut meta = BTreeMap::new();
+    meta.insert(STRATEGY_KEY.to_string(), strategy.to_string());
+    meta
 }

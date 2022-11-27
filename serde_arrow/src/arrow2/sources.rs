@@ -154,7 +154,7 @@ pub fn build_dynamic_struct_source<'a>(
         let source = StructSource::new(names, validity, values);
         Ok(DynamicSource::new(source))
     } else {
-        let source = TupleSource::new(values);
+        let source = TupleSource::new(validity, values);
         Ok(DynamicSource::new(source))
     }
 }

@@ -122,9 +122,9 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                     Ok(None)
                 } else if !self.validity[self.offset] {
                     for val in &mut self.values {
-                        val.next()?
-                            .ok_or_else(|| error!("Null structs must still contain values"))?;
+                        consume_value(val)?;
                     }
+                    self.offset += 1;
                     Ok(Some(Event::Null))
                 } else {
                     self.next = Key(0);
@@ -182,13 +182,17 @@ enum StructSourceState {
 pub struct TupleSource<'a> {
     values: Vec<PeekableEventSource<'a, DynamicSource<'a>>>,
     next: TupleSourceState,
+    validity: Vec<bool>,
+    offset: usize,
 }
 
 impl<'a> TupleSource<'a> {
-    pub fn new(values: Vec<DynamicSource<'a>>) -> Self {
+    pub fn new(validity: Vec<bool>, values: Vec<DynamicSource<'a>>) -> Self {
         let values = values.into_iter().map(PeekableEventSource::new).collect();
         Self {
             values,
+            validity,
+            offset: 0,
             next: TupleSourceState::Start,
         }
     }
@@ -205,7 +209,14 @@ impl<'a> EventSource<'a> for TupleSource<'a> {
             Start => {
                 if self.values.is_empty() || self.values[0].peek()?.is_none() {
                     Ok(None)
+                } else if !self.validity[self.offset] {
+                    self.offset += 1;
+                    for val in &mut self.values {
+                        consume_value(val)?;
+                    }
+                    Ok(Some(Event::Null))
                 } else {
+                    self.offset += 1;
                     self.next = Value(0, 0);
                     Ok(Some(Event::StartTuple))
                 }
@@ -377,4 +388,20 @@ enum ListSourceState {
         offset: usize,
         depth: usize,
     },
+}
+
+// consume a complete value
+fn consume_value<'a, S: EventSource<'a>>(source: &mut S) -> Result<()> {
+    let mut depth = 0;
+
+    while let Some(ev) = source.next()? {
+        if ev.is_start() {
+            depth += 1;
+        } else if ev.is_end() && depth > 1 {
+            depth -= 1;
+        } else if (ev.is_value() && depth == 0) || (ev.is_end() && depth == 1) {
+            return Ok(());
+        }
+    }
+    fail!("Could not consume value");
 }

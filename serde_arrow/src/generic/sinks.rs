@@ -265,6 +265,7 @@ pub enum StructArrayBuilderState {
 pub struct TupleStructBuilder<B> {
     pub(crate) nullable: Vec<bool>,
     pub(crate) builders: Vec<B>,
+    pub(crate) validity: Vec<bool>,
     pub(crate) state: TupleArrayBuilderState,
 }
 
@@ -273,6 +274,7 @@ impl<B> TupleStructBuilder<B> {
         Self {
             builders,
             nullable,
+            validity: Vec::new(),
             state: TupleArrayBuilderState::Start,
         }
     }
@@ -284,28 +286,37 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
 
         self.state = match (self.state, event) {
             (Start, Event::StartTuple) => Value(0, 0),
-            (
-                Value(active, depth),
-                ev @ (Event::StartStruct
-                | Event::StartSequence
-                | Event::StartMap
-                | Event::StartTuple),
-            ) => {
+            (Start, Event::Null) => {
+                for builder in &mut self.builders {
+                    builder.accept(Event::Default)?;
+                }
+                self.validity.push(false);
+                Start
+            }
+            (Start, Event::Default) => {
+                for builder in &mut self.builders {
+                    builder.accept(Event::Default)?;
+                }
+                self.validity.push(true);
+                Start
+            }
+            (Start, ev) if ev.is_marker() => Start,
+            (Value(active, depth), ev) if ev.is_start() => {
                 self.builders[active].accept(ev)?;
                 Value(active, depth + 1)
             }
-            (Value(_, 0), Event::EndTuple) => Start,
-            (Value(_, 0), Event::EndStruct | Event::EndSequence | Event::EndMap) => {
+            (Value(_, 0), Event::EndTuple) => {
+                self.validity.push(true);
+                Start
+            }
+            (Value(_, 0), ev) if ev.is_end() => {
                 fail!("Unbalanced opening / close events in TupleStructBuilder")
             }
-            (
-                Value(active, 1),
-                ev @ (Event::EndStruct | Event::EndSequence | Event::EndMap | Event::EndTuple),
-            ) => {
+            (Value(active, 1), ev) if ev.is_end() => {
                 self.builders[active].accept(ev)?;
                 Value(active + 1, 0)
             }
-            (Value(active, 0), ev) => {
+            (Value(active, 0), ev) if !ev.is_marker() => {
                 self.builders[active].accept(ev)?;
                 Value(active + 1, 0)
             }
