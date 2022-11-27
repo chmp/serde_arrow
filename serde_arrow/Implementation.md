@@ -158,7 +158,7 @@ Supported arrow data types:
 - [ ] `LargeBinary`
 - [x] `Utf8`
 - [x] `LargeUtf8`
-- [ ] `List`: deserialization is supported, serialization is not supported
+- [x] `List`
 - [ ] `FixedSizeList`
 - [x] `LargeList`
 - [x] `Struct`

@@ -91,16 +91,20 @@ enum RecordSourceState {
 pub struct StructSource<'a> {
     fields: Vec<&'a str>,
     values: Vec<PeekableEventSource<'a, DynamicSource<'a>>>,
+    validity: Vec<bool>,
     next: StructSourceState,
+    offset: usize,
 }
 
 impl<'a> StructSource<'a> {
-    pub fn new(fields: Vec<&'a str>, values: Vec<DynamicSource<'a>>) -> Self {
+    pub fn new(fields: Vec<&'a str>, validity: Vec<bool>, values: Vec<DynamicSource<'a>>) -> Self {
         let values = values.into_iter().map(PeekableEventSource::new).collect();
         Self {
             fields,
             values,
+            validity,
             next: StructSourceState::Start,
+            offset: 0,
         }
     }
 }
@@ -116,8 +120,15 @@ impl<'a> EventSource<'a> for StructSource<'a> {
             Start => {
                 if self.fields.is_empty() || self.values[0].peek()?.is_none() {
                     Ok(None)
+                } else if !self.validity[self.offset] {
+                    for val in &mut self.values {
+                        val.next()?
+                            .ok_or_else(|| error!("Null structs must still contain values"))?;
+                    }
+                    Ok(Some(Event::Null))
                 } else {
                     self.next = Key(0);
+                    self.offset += 1;
                     Ok(Some(Event::StartStruct))
                 }
             }

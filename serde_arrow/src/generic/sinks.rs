@@ -5,7 +5,7 @@ use crate::{
         error::{error, fail},
         Event, EventSink,
     },
-    Result,
+    Error, Result,
 };
 
 pub trait ArrayBuilder<A>: EventSink {
@@ -129,6 +129,7 @@ impl<A> EventSink for RecordsBuilder<A> {
             }
             (Key, E::EndStruct) => StartMap,
             // Ignore some events
+            // TODO: push the ignore into the sub builders
             (Value(idx, depth), Event::Some) => Value(idx, depth),
             (Value(idx, depth), ev) => {
                 let next = match ev {
@@ -157,9 +158,14 @@ impl<A> EventSink for RecordsBuilder<A> {
 }
 
 pub struct StructArrayBuilder<B> {
+    // the names of the fields
     pub(crate) columns: Vec<String>,
+    // the nullability of the fields
     pub(crate) nullable: Vec<bool>,
+    // the builders of the sub arrays
     pub(crate) builders: Vec<B>,
+    // the validity of the items
+    pub(crate) validity: Vec<bool>,
     pub(crate) state: StructArrayBuilderState,
     pub(crate) seen: Vec<bool>,
 }
@@ -170,6 +176,7 @@ impl<B> StructArrayBuilder<B> {
         Self {
             columns,
             builders,
+            validity: Vec::new(),
             nullable,
             state: StructArrayBuilderState::Start,
             seen: vec![false; num_columns],
@@ -181,13 +188,25 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use StructArrayBuilderState::*;
 
+        println!("{:?} {}", self.state, event);
+
         match self.state {
             Start => match event {
                 Event::StartStruct => {
-                    self.state = Field;
                     self.seen = vec![false; self.columns.len()];
+                    self.state = Field;
                 }
-                _ => fail!("Expected start map"),
+                // ignore marker evetns
+                ev if ev.is_marker() => {
+                    self.state = Start;
+                }
+                Event::Null => {
+                    for b in &mut self.builders {
+                        b.accept(Event::Default)?;
+                    }
+                    self.validity.push(false);
+                }
+                _ => fail!("Expected StartMap or marker in StructArrayBuilder"),
             },
             Field => {
                 let key = match event {
@@ -198,6 +217,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                             // TODO: improve error message
                             fail!("Missing fields");
                         }
+                        self.validity.push(true);
                         self.state = Start;
                         return Ok(());
                     }
@@ -216,11 +236,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             }
             Value(active, depth) => {
                 self.state = match &event {
-                    Event::StartStruct
-                    | Event::StartSequence
-                    | Event::StartTuple
-                    | Event::StartMap => Value(active, depth + 1),
-                    Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap => {
+                    ev if ev.is_start() => Value(active, depth + 1),
+                    ev if ev.is_end() => {
                         match depth {
                             // the last closing event for the current value
                             1 => Field,
@@ -229,6 +246,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                             _ => Value(active, depth - 1),
                         }
                     }
+                    ev if ev.is_marker() => self.state,
                     _ if depth == 0 => Field,
                     _ => self.state,
                 };
@@ -310,75 +328,77 @@ pub enum TupleArrayBuilderState {
 }
 
 // TODO: move the generic parts into generic module
-pub struct ListArrayBuilder<B> {
+pub struct ListArrayBuilder<B, O> {
     pub builder: B,
     next: ListBuilderState,
-    pub offsets: Vec<i64>,
+    pub offsets: Vec<O>,
     pub validity: Vec<bool>,
     pub item_name: String,
     pub nullable: bool,
 }
 
-impl<B> ListArrayBuilder<B> {
+impl<B, O: Default> ListArrayBuilder<B, O> {
     pub fn new(builder: B, item_name: String, nullable: bool) -> Self {
         Self {
             builder,
             next: ListBuilderState::Start { offset: 0 },
-            offsets: vec![0],
+            offsets: vec![Default::default()],
             validity: Vec::new(),
             item_name,
             nullable,
         }
     }
+}
 
-    fn finalize_item(&mut self, end_offset: i64, nullable: bool) {
+impl<B, O> ListArrayBuilder<B, O> {
+    fn finalize_item(&mut self, end_offset: O, nullable: bool) {
         self.offsets.push(end_offset);
         self.validity.push(!nullable);
     }
 }
 
-impl<B: EventSink> EventSink for ListArrayBuilder<B> {
+impl<B: EventSink, O: TryFrom<i64>> EventSink for ListArrayBuilder<B, O>
+where
+    Error: From<O::Error>,
+{
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use ListBuilderState::*;
         self.next = match self.next {
             Start { offset } => match &event {
                 Event::StartSequence => Value { offset, depth: 0 },
+                // ignore marker events
+                ev if ev.is_marker() => Start { offset },
                 Event::Null => {
-                    self.finalize_item(offset, true);
+                    self.finalize_item(offset.try_into()?, true);
                     Start { offset }
                 }
                 ev => fail!("Invalid event {ev} in state Start"),
             },
             Value { offset, depth } => match &event {
-                Event::EndSequence => {
-                    if depth != 0 {
-                        self.builder.accept(event)?;
-                        Value {
-                            offset: if depth == 1 { offset + 1 } else { offset },
-                            depth: depth - 1,
-                        }
-                    } else {
-                        self.finalize_item(offset, false);
-                        Start { offset }
-                    }
-                }
-                Event::EndStruct => {
-                    if depth != 0 {
-                        self.builder.accept(event)?;
-                        Value {
-                            offset: if depth == 1 { offset + 1 } else { offset },
-                            depth: depth - 1,
-                        }
-                    } else {
-                        fail!("Invalid EndMap in list array")
-                    }
-                }
-                Event::StartSequence | Event::StartStruct => {
+                ev if ev.is_start() => {
                     self.builder.accept(event)?;
                     Value {
                         offset,
                         depth: depth + 1,
                     }
+                }
+                ev if ev.is_end() => {
+                    if depth != 0 {
+                        self.builder.accept(event)?;
+                        Value {
+                            offset: if depth == 1 { offset + 1 } else { offset },
+                            depth: depth - 1,
+                        }
+                    } else if matches!(ev, Event::EndSequence) {
+                        self.finalize_item(offset.try_into()?, false);
+                        Start { offset }
+                    } else {
+                        fail!("Invalid {ev} in list array")
+                    }
+                }
+                ev if ev.is_marker() => {
+                    self.builder.accept(event)?;
+                    Value { offset, depth }
                 }
                 _ => {
                     self.builder.accept(event)?;

@@ -40,6 +40,8 @@ pub enum Event<'a> {
     Str(&'a str),
     /// The owned variant of `Str`
     OwnedStr(String),
+    /// Push the default of the current type
+    Default,
     Bool(bool),
     I8(i8),
     I16(i16),
@@ -66,6 +68,7 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::EndMap => write!(f, "EndMap"),
             Event::Some => write!(f, "Some"),
             Event::Null => write!(f, "Null"),
+            Event::Default => write!(f, "Default"),
             Event::Bool(v) => write!(f, "Bool({v})"),
             Event::I8(v) => write!(f, "I8({v})"),
             Event::I16(v) => write!(f, "I16({v})"),
@@ -95,6 +98,7 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
             EndTuple => matches!(other, EndTuple),
             StartMap => matches!(other, StartMap),
             EndMap => matches!(other, EndMap),
+            Default => matches!(other, Default),
             Null => matches!(other, Null),
             Str(s) => match other {
                 Str(o) => s == o,
@@ -144,6 +148,7 @@ impl<'a> Event<'a> {
             Event::StartMap => Event::StartMap,
             Event::EndMap => Event::EndMap,
             Event::Some => Event::Some,
+            Event::Default => Event::Default,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),
             &Event::I16(v) => Event::I16(v),
@@ -166,6 +171,7 @@ impl<'a> Event<'a> {
     pub fn to_static(&self) -> Event<'static> {
         match self {
             &Event::Str(s) => Event::OwnedStr(s.to_owned()),
+            Event::OwnedStr(v) => Event::OwnedStr(v.clone()),
             Event::StartSequence => Event::StartSequence,
             Event::EndSequence => Event::EndSequence,
             Event::StartStruct => Event::StartStruct,
@@ -175,6 +181,7 @@ impl<'a> Event<'a> {
             Event::StartMap => Event::StartMap,
             Event::EndMap => Event::EndMap,
             Event::Some => Event::Some,
+            Event::Default => Event::Default,
             &Event::Bool(b) => Event::Bool(b),
             &Event::I8(v) => Event::I8(v),
             &Event::I16(v) => Event::I16(v),
@@ -186,9 +193,49 @@ impl<'a> Event<'a> {
             &Event::U64(v) => Event::U64(v),
             &Event::F32(v) => Event::F32(v),
             &Event::F64(v) => Event::F64(v),
-            Event::OwnedStr(v) => Event::OwnedStr(v.clone()),
             Event::Null => Event::Null,
         }
+    }
+
+    pub fn is_start(&self) -> bool {
+        matches!(
+            self,
+            Event::StartSequence | Event::StartStruct | Event::StartMap | Event::StartTuple
+        )
+    }
+
+    pub fn is_end(&self) -> bool {
+        matches!(
+            self,
+            Event::EndSequence | Event::EndStruct | Event::EndMap | Event::EndTuple
+        )
+    }
+
+    pub fn is_primitive(&self) -> bool {
+        matches!(
+            self,
+            Event::Bool(_)
+                | Event::Str(_)
+                | Event::OwnedStr(_)
+                | Event::I8(_)
+                | Event::I16(_)
+                | Event::I32(_)
+                | Event::I64(_)
+                | Event::U8(_)
+                | Event::U16(_)
+                | Event::U32(_)
+                | Event::U64(_)
+                | Event::F32(_)
+                | Event::F64(_)
+        )
+    }
+
+    pub fn is_value(&self) -> bool {
+        self.is_primitive() || matches!(self, Event::Null | Event::Default)
+    }
+
+    pub fn is_marker(&self) -> bool {
+        matches!(self, Event::Some)
     }
 }
 
@@ -229,7 +276,7 @@ macro_rules! event_implement_simple_try_from {
                 match val {
                     Event::$variant(val) => Ok(val),
                     // TODO: improve error message
-                    event => fail!("Invalid conversion from {}", event),
+                    event => fail!("Invalid conversion from {} to {}", event, stringify!($ty)),
                 }
             }
         }

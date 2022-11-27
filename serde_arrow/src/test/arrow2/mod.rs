@@ -1,4 +1,5 @@
 mod round_trip;
+mod round_trip_array;
 mod schema;
 mod schema_tracing;
 mod sinks;

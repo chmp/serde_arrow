@@ -103,10 +103,17 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                 Ok(DynamicArrayBuilder::new(builder))
             }
         }
-        DataType::LargeList(field) => {
-            // TODO: support the different sizes
+        // TODO: test List sink
+        DataType::List(field) => {
             let values = build_dynamic_array_builder(field.as_ref())?;
-            let builder = ListArrayBuilder::new(values, field.name.to_owned(), field.is_nullable);
+            let builder =
+                ListArrayBuilder::<_, i32>::new(values, field.name.to_owned(), field.is_nullable);
+            Ok(DynamicArrayBuilder::new(builder))
+        }
+        DataType::LargeList(field) => {
+            let values = build_dynamic_array_builder(field.as_ref())?;
+            let builder =
+                ListArrayBuilder::<_, i64>::new(values, field.name.to_owned(), field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
         _ => fail!(
@@ -144,7 +151,11 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
         }
         let data_type = DataType::Struct(fields);
 
-        Ok(Box::new(StructArray::new(data_type, values, None)))
+        Ok(Box::new(StructArray::new(
+            data_type,
+            values,
+            Some(self.validity.into()),
+        )))
     }
 }
 
@@ -193,7 +204,8 @@ impl NullArrayBuilder {
 impl EventSink for NullArrayBuilder {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
-            Event::Null => self.length += 1,
+            Event::Some => (),
+            Event::Null | Event::Default => self.length += 1,
             ev => fail!("NullArrayBuilder cannot accept event {ev}"),
         }
         Ok(())
@@ -228,7 +240,12 @@ impl<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> EventSink
     for PrimitiveArrayBuilder<T>
 {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.array.push(event.into_option()?);
+        match event {
+            Event::Some => (),
+            Event::Default => self.array.push(Some(T::default())),
+            Event::Null => self.array.push(None),
+            ev => self.array.push(Some(ev.try_into()?)),
+        }
         Ok(())
     }
 }
@@ -262,7 +279,12 @@ impl BooleanArrayBuilder {
 
 impl EventSink for BooleanArrayBuilder {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.array.push(event.into_option()?);
+        match event {
+            Event::Some => (),
+            Event::Default => self.array.push(Some(false)),
+            Event::Null => self.array.push(None),
+            ev => self.array.push(Some(ev.try_into()?)),
+        }
         Ok(())
     }
 }
@@ -290,7 +312,12 @@ impl<O: Offset> Utf8ArrayBuilder<O> {
 
 impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.array.push(event.into_option::<String>()?);
+        match event {
+            Event::Some => (),
+            Event::Default => self.array.push::<String>(Some(String::new())),
+            Event::Null => self.array.push::<String>(None),
+            ev => self.array.push::<String>(Some(ev.try_into()?)),
+        }
         Ok(())
     }
 }
@@ -305,7 +332,7 @@ impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
     }
 }
 
-impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B> {
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i64> {
     fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
         (*self).into_array()
     }
@@ -317,6 +344,30 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
         let values = self.builder.into_array()?;
         let array = ListArray::try_new(
             DataType::LargeList(Box::new(Field::new(
+                self.item_name,
+                values.data_type().clone(),
+                self.nullable,
+            ))),
+            Buffer::from(self.offsets),
+            values,
+            Some(Bitmap::from(self.validity)),
+        )?;
+        Ok(Box::new(array))
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i32> {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
+        let values = self.builder.into_array()?;
+        let array = ListArray::try_new(
+            DataType::List(Box::new(Field::new(
                 self.item_name,
                 values.data_type().clone(),
                 self.nullable,

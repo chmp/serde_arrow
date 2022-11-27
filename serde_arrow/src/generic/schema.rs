@@ -199,12 +199,8 @@ impl EventSink for Tracer {
                     tracer.accept(event)?;
                     *self = Tracer::Tuple(tracer);
                 }
-                Event::EndSequence | Event::EndStruct | Event::EndTuple => {
-                    fail!("Invalid end nesting events for unknown tracer")
-                }
-                Event::StartMap | Event::EndMap => {
-                    fail!("Maps are not yet supported")
-                }
+                ev if ev.is_end() => fail!("Invalid end nesting events for unknown tracer"),
+                ev => fail!("Internal error unmatched event {ev} in Tracer"),
             },
             Self::List(tracer) => tracer.accept(event)?,
             Self::Struct(tracer) => tracer.accept(event)?,

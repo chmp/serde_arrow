@@ -45,6 +45,8 @@ macro_rules! error {
         $crate::Error::Custom(format!($($tt)*))
     };
 }
+use std::convert::Infallible;
+
 pub(crate) use error;
 
 macro_rules! fail {
@@ -77,5 +79,11 @@ impl From<std::num::TryFromIntError> for Error {
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
         Error::Custom(format!("std::fmt::Error: {err}"))
+    }
+}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
     }
 }

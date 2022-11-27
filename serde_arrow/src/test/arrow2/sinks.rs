@@ -19,6 +19,112 @@ fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
     array.as_any().downcast_ref::<T>().unwrap()
 }
 
+macro_rules! test_option_support {
+    (test_name = $test_name:ident, data_type = $data_type:expr, value = $value:expr, ) => {
+        mod $test_name {
+            use arrow2::datatypes::{DataType, Field};
+
+            use crate::{
+                arrow2::sinks::build_dynamic_array_builder,
+                base::{Event, EventSink},
+                generic::sinks::ArrayBuilder,
+            };
+
+            #[test]
+            fn none_first() {
+                // for Null arrays Null's are considered values
+                let is_non_null_data_type = !matches!($data_type, DataType::Null);
+                let mut sink =
+                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                sink.accept(Event::Null).unwrap();
+                sink.accept(Event::Some).unwrap();
+                sink.accept($value).unwrap();
+
+                let array = sink.into_array().unwrap();
+
+                assert_eq!(array.len(), 2);
+                assert_eq!(array.is_null(0), is_non_null_data_type);
+                assert_eq!(array.is_null(1), false);
+            }
+
+            #[test]
+            fn some_first() {
+                // for Null arrays Null's are considered values
+                let is_non_null_data_type = !matches!($data_type, DataType::Null);
+                let mut sink =
+                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                sink.accept(Event::Some).unwrap();
+                sink.accept($value).unwrap();
+                sink.accept(Event::Null).unwrap();
+
+                let array = sink.into_array().unwrap();
+
+                assert_eq!(array.len(), 2);
+                assert_eq!(array.is_null(0), false);
+                assert_eq!(array.is_null(1), is_non_null_data_type);
+            }
+
+            #[test]
+            fn unmarked_some() {
+                // for Null arrays Null's are considered values
+                let is_non_null_data_type = !matches!($data_type, DataType::Null);
+                let mut sink =
+                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                sink.accept($value).unwrap();
+                sink.accept(Event::Null).unwrap();
+
+                let array = sink.into_array().unwrap();
+
+                assert_eq!(array.len(), 2);
+                assert_eq!(array.is_null(0), false);
+                assert_eq!(array.is_null(1), is_non_null_data_type);
+            }
+        }
+    };
+}
+
+test_option_support!(
+    test_name = option_support_null,
+    data_type = DataType::Null,
+    value = Event::Null,
+);
+
+test_option_support!(
+    test_name = option_support_bool,
+    data_type = DataType::Boolean,
+    value = Event::Bool(true),
+);
+
+test_option_support!(
+    test_name = option_support_i8,
+    data_type = DataType::Int8,
+    value = Event::I8(0),
+);
+
+test_option_support!(
+    test_name = option_support_i16,
+    data_type = DataType::Int16,
+    value = Event::I16(0),
+);
+
+test_option_support!(
+    test_name = option_support_f64,
+    data_type = DataType::Float64,
+    value = Event::F64(0.0),
+);
+
+test_option_support!(
+    test_name = option_support_utf8,
+    data_type = DataType::Utf8,
+    value = Event::Str("foo"),
+);
+
+test_option_support!(
+    test_name = option_support_large_utf8,
+    data_type = DataType::LargeUtf8,
+    value = Event::Str("foo"),
+);
+
 #[test]
 fn primitive_sink_i8() -> Result<()> {
     let mut sink = build_dynamic_array_builder(&Field::new("value", DataType::Int8, false))?;
@@ -34,6 +140,24 @@ fn primitive_sink_i8() -> Result<()> {
     assert_eq!(array.is_null(2), false);
 
     Ok(())
+}
+
+#[test]
+fn primitive_sink_i8_some() {
+    let mut sink =
+        build_dynamic_array_builder(&Field::new("value", DataType::Int8, false)).unwrap();
+    sink.accept(Event::Some).unwrap();
+    sink.accept(Event::I8(13)).unwrap();
+    sink.accept(Event::Null).unwrap();
+    sink.accept(Event::Some).unwrap();
+    sink.accept(Event::I8(42)).unwrap();
+
+    let array = sink.into_array().unwrap();
+
+    assert_eq!(array.len(), 3);
+    assert_eq!(array.is_null(0), false);
+    assert_eq!(array.is_null(1), true);
+    assert_eq!(array.is_null(2), false);
 }
 
 #[test]

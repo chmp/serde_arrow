@@ -144,8 +144,14 @@ pub fn build_dynamic_struct_source<'a>(
         values.push(build_dynamic_source(&fields[i], children[i].as_ref())?);
     }
 
+    let validity = if let Some(validity) = array.validity() {
+        validity.iter().collect()
+    } else {
+        vec![true; array.len()]
+    };
+
     if !as_tuple {
-        let source = StructSource::new(names, values);
+        let source = StructSource::new(names, validity, values);
         Ok(DynamicSource::new(source))
     } else {
         let source = TupleSource::new(values);

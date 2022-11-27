@@ -37,6 +37,11 @@ pub fn deserialize_from_source<
 
 /// A source of [Event] objects
 ///
+/// **Note**: implementations are not expected to yield `Some` events for
+/// nullable values, as the nullability can be recovered from the underlying
+/// arrays. This relaxed relaxed requirements implies that schema tracing from
+/// the Array sources may be unreliable.
+///
 pub trait EventSource<'a> {
     fn next(&mut self) -> Result<Option<Event<'a>>>;
 }
