@@ -131,7 +131,21 @@ test_round_trip!(
     test_name = nullable_vec_bool,
     field = Field::new("value", DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))), true),
     ty = Option<Vec<bool>>,
-    values = [Some(vec![true, false]), Some(vec![]), None],
+    values = [Some(vec![true, false]), None, Some(vec![])],
+);
+test_round_trip!(
+    test_name = nullable_vec_bool_nested,
+    field = Field::new(
+        "value",
+        DataType::LargeList(Box::new(Field::new(
+            "element",
+            DataType::LargeList(Box::new(Field::new("element", DataType::Boolean, false))),
+            false),
+        )),
+        true,
+    ),
+    ty = Option<Vec<Vec<bool>>>,
+    values = [Some(vec![vec![true], vec![false, false]]), None, Some(vec![vec![]])],
 );
 test_round_trip!(
     test_name = vec_nullable_bool,
