@@ -182,11 +182,11 @@ Supported Serde / Rust types:
 - [x] `Vec<T>`: if T is supported. Any type that serializes into a Serde
   sequence is supported
 - [ ] `Map<K, V>`
-- [ ] tuples: tuples or tuple structs are not yet supported. It is planned to
+- [x] tuples: tuples or tuple structs are not yet supported. It is planned to
   map them to struct arrays with numeric field names
 - [ ] `enum ... { }`: enums are not yet supported. It is planned to map them to
   union arrays
-- [x] `struct S(T)`: newtype structs are supported, it `T` is supported
+- [x] `struct S(T)`: newtype structs are supported, if `T` is supported
 
 [crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
 [crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
