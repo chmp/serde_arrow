@@ -1,7 +1,7 @@
 //! Test round trips on the individual array level without the out records
 //!
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use arrow2::datatypes::{DataType, Field};
 use serde::{Deserialize, Serialize};
@@ -167,6 +167,35 @@ test_round_trip!(
 );
 
 test_round_trip!(
+    test_name = struct_nullable_nested,
+    field = Field::new("value",DataType::Struct(vec![
+        Field::new("inner", DataType::Struct(vec![
+            Field::new("a", DataType::Boolean, false),
+            Field::new("b", DataType::Int64, false),
+            Field::new("c", DataType::Null, true),
+            Field::new("d", DataType::LargeUtf8, false),
+        ]), false),
+    ]),true),
+    ty = Option<Outer>,
+    values = [
+        Some(Outer {
+            inner: Struct {
+            a: true,
+            b: 42,
+            c: (),
+            d: String::from("hello"),
+        }}),
+        None,
+        Some(Outer {inner: Struct {
+            a: false,
+            b: 13,
+            c: (),
+            d: String::from("world"),
+        }}),
+    ],
+);
+
+test_round_trip!(
     test_name = struct_nullable_item,
     field = Field::new(
         "value",
@@ -226,6 +255,11 @@ test_round_trip!(
         Some(((false, 42), 13)),
     ],
 );
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Outer {
+    inner: Struct,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Struct {

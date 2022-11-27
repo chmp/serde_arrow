@@ -204,7 +204,13 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                     }
                     self.validity.push(false);
                 }
-                _ => fail!("Expected StartMap or marker in StructArrayBuilder"),
+                Event::Default => {
+                    for b in &mut self.builders {
+                        b.accept(Event::Default)?;
+                    }
+                    self.validity.push(true);
+                }
+                ev => fail!("Expected StartMap or marker in StructArrayBuilder, not {ev}"),
             },
             Field => {
                 let key = match event {
