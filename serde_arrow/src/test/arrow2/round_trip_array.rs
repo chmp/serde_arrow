@@ -23,9 +23,12 @@ macro_rules! test_round_trip {
         field = $field:expr,
         ty = $ty:ty,
         values = $values:expr,
+        $(define = { $($items:item)* } ,)?
     ) => {
         #[test]
         fn $test_name() {
+            $($($items)*)?
+
             let items: &[$ty] = &$values;
 
             let field = $field;
@@ -178,6 +181,20 @@ test_round_trip!(
             d: String::from("world"),
         }),
     ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            inner: Struct,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Struct {
+            a: bool,
+            b: i64,
+            c: (),
+            d: String,
+        }
+    },
 );
 
 test_round_trip!(
@@ -207,6 +224,20 @@ test_round_trip!(
             d: String::from("world"),
         }}),
     ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            inner: Struct,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Struct {
+            a: bool,
+            b: i64,
+            c: (),
+            d: String,
+        }
+    },
 );
 
 test_round_trip!(
@@ -236,6 +267,15 @@ test_round_trip!(
             d: None,
         },
     ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct StructNullable {
+            a: Option<bool>,
+            b: Option<i64>,
+            c: Option<()>,
+            d: Option<String>,
+        }
+    },
 );
 
 test_round_trip!(
@@ -269,27 +309,6 @@ test_round_trip!(
         Some(((false, 42), 13)),
     ],
 );
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Outer {
-    inner: Struct,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Struct {
-    a: bool,
-    b: i64,
-    c: (),
-    d: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct StructNullable {
-    a: Option<bool>,
-    b: Option<i64>,
-    c: Option<()>,
-    d: Option<String>,
-}
 
 fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
     let mut meta = BTreeMap::new();
