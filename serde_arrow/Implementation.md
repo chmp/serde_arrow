@@ -187,16 +187,18 @@ Supported Serde / Rust types:
 - [ ] `enum ... { }`: enums are not yet supported. It is planned to map them to
   union arrays
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
-- [ ] `chrono::DateTime<Utc>`: depends on the configured strategy:
+- [x] `chrono::DateTime<Utc>`: depends on the configured strategy:
   - mapped to UTF8 arrays without configuration
   - mapped to `Date64` with `Strategy::UtcDateTimeStr` and field data type `Date64`
   - mapped to `Date64` with field data type `Date64` and chrono configured to
-    serialize to timestamps
-- [ ] `chrono::NaiveDateTime`: depends on the configured strategy:
+    serialize to timestamps using
+    [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
+- [x] `chrono::NaiveDateTime`: depends on the configured strategy:
   - mapped to UTF8 arrays without configuration
   - mapped to `Date64` with `Strategy::NaiveDateTimeStr` and field data type `Date64`
   - mapped to `Date64` with field data type `Date64` and chrono configured to
-    serialize to timestamps
+    serialize to timestamps using
+    [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
 
 [crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
 [crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
@@ -208,3 +210,4 @@ Supported Serde / Rust types:
 
 [crate::base::EventSource]: https://docs.rs/serde_arrow
 [crate::base::EventSink]: https://docs.rs/serde_arrow
+[chrono-ts-microseconds]: https://docs.rs/chrono/latest/chrono/serde/ts_microseconds/
