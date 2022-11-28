@@ -1,4 +1,4 @@
-use arrow2::datatypes::{DataType, Field};
+use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::Serialize;
 
 use crate::arrow2::serialize_into_fields;
@@ -140,6 +140,45 @@ fn complex_example() {
             false,
         ),
     ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn union_example() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        item: Inner,
+    }
+
+    #[derive(Debug, Serialize)]
+    enum Inner {
+        U8(u8),
+        I32(i32),
+    }
+
+    let items = vec![
+        Item {
+            item: Inner::U8(21),
+        },
+        Item {
+            item: Inner::I32(42),
+        },
+    ];
+
+    let actual = serialize_into_fields(&items).unwrap();
+    let expected = vec![Field::new(
+        "item",
+        DataType::Union(
+            vec![
+                Field::new("U8", DataType::UInt8, false),
+                Field::new("I32", DataType::Int32, false),
+            ],
+            None,
+            UnionMode::Sparse,
+        ),
+        false,
+    )];
 
     assert_eq!(actual, expected);
 }

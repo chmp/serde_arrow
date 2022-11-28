@@ -101,18 +101,19 @@ impl EventSink for SchemaTracer {
                 ev => fail!("Invalid event {ev} in SchemaTracer, expected start of record"),
             },
             S::Record(depth) => match event {
-                ev @ E::EndStruct if depth == 0 => {
-                    self.tracer.accept(ev)?;
-                    S::StartRecord
-                }
-                ev @ (E::EndMap | E::EndSequence | E::EndTuple) if depth == 0 => {
-                    fail!("Invalid event {ev} in SchemaTracer, expected non-closing tag at depth 0")
-                }
-                ev @ (E::StartMap | E::StartSequence | E::StartTuple | E::StartStruct) => {
+                ev if ev.is_start() => {
                     self.tracer.accept(ev)?;
                     S::Record(depth + 1)
                 }
-                ev @ (E::EndMap | E::EndSequence | E::EndTuple | E::EndStruct) => {
+                ev if ev.is_end() && depth == 0 => {
+                    if matches!(ev, E::EndStruct) {
+                        self.tracer.accept(ev)?;
+                        S::StartRecord
+                    } else {
+                        fail!("Invalid event {ev} in SchemaTracer, expected non-closing tag at depth 0")
+                    }
+                }
+                ev if ev.is_end() => {
                     self.tracer.accept(ev)?;
                     S::Record(depth - 1)
                 }
@@ -148,6 +149,7 @@ pub enum Tracer {
     List(ListTracer),
     Primitive(PrimitiveTracer),
     Tuple(TupleTracer),
+    Union(UnionTracer),
 }
 
 impl Tracer {
@@ -199,6 +201,11 @@ impl EventSink for Tracer {
                     tracer.accept(event)?;
                     *self = Tracer::Tuple(tracer);
                 }
+                Event::Variant(_, _) => {
+                    let mut tracer = UnionTracer::new(tracer.nullable);
+                    tracer.accept(event)?;
+                    *self = Tracer::Union(tracer)
+                }
                 ev if ev.is_end() => fail!("Invalid end nesting events for unknown tracer"),
                 ev => fail!("Internal error unmatched event {ev} in Tracer"),
             },
@@ -206,6 +213,7 @@ impl EventSink for Tracer {
             Self::Struct(tracer) => tracer.accept(event)?,
             Self::Primitive(tracer) => tracer.accept(event)?,
             Self::Tuple(tracer) => tracer.accept(event)?,
+            Self::Union(tracer) => tracer.accept(event)?,
         }
         Ok(())
     }
@@ -217,6 +225,7 @@ impl EventSink for Tracer {
             Self::Struct(tracer) => tracer.finish(),
             Self::Primitive(tracer) => tracer.finish(),
             Self::Tuple(tracer) => tracer.finish(),
+            Self::Union(tracer) => tracer.finish(),
         }
     }
 }
@@ -285,17 +294,11 @@ impl StructTracer {
             }
             (Key, E::EndStruct) => Start,
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
-            (
-                Value(field, depth),
-                ev @ (E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple),
-            ) => {
+            (Value(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
                 Value(field, depth + 1)
             }
-            (
-                Value(field, depth),
-                ev @ (E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap),
-            ) => {
+            (Value(field, depth), ev) if ev.is_end() => {
                 self.field_tracers[field].accept(ev)?;
                 match depth {
                     0 => fail!("Invalid closing event in struct tracer in state Value"),
@@ -303,19 +306,18 @@ impl StructTracer {
                     depth => Value(field, depth - 1),
                 }
             }
-            // Some is always followed by the actual  value
-            (Value(field, 0), E::Some) => {
-                self.field_tracers[field].accept(E::Some)?;
-                Value(field, 0)
-            }
-            // Any event at depth == 0 that does not start a structure (is a complete value)
-            (Value(field, 0), ev) => {
+            (Value(field, depth), ev) if ev.is_marker() => {
                 self.field_tracers[field].accept(ev)?;
-                Key
+                // markers are always followed by the actual  value
+                Value(field, depth)
             }
             (Value(field, depth), ev) => {
                 self.field_tracers[field].accept(ev)?;
-                Value(field, depth)
+                match depth {
+                    // Any event at depth == 0 that does not start a structure (is a complete value)
+                    0 => Key,
+                    _ => Value(field, depth),
+                }
             }
         };
         Ok(())
@@ -356,17 +358,11 @@ impl TupleTracer {
             }
             (Start, ev) => fail!("Invalid event {ev} for tuple tracer in state Start"),
             (Item(_, 0), E::EndTuple) => Start,
-            (
-                Item(field, depth),
-                ev @ (E::StartSequence | E::StartStruct | E::StartTuple | E::StartMap),
-            ) => {
+            (Item(field, depth), ev) if ev.is_start() => {
                 self.field_tracer(field).accept(ev)?;
                 Item(field, depth + 1)
             }
-            (
-                Item(field, depth),
-                ev @ (E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap),
-            ) => {
+            (Item(field, depth), ev) if ev.is_end() => {
                 self.field_tracer(field).accept(ev)?;
                 match depth {
                     0 => fail!("Invalid closing event in struct tracer in state Value"),
@@ -374,10 +370,10 @@ impl TupleTracer {
                     depth => Item(field, depth - 1),
                 }
             }
-            // Some is always followed by the actual  value
-            (Item(field, 0), E::Some) => {
-                self.field_tracer(field).accept(E::Some)?;
-                Item(field, 0)
+            (Item(field, depth), ev) if ev.is_marker() => {
+                self.field_tracer(field).accept(ev)?;
+                // markers are always followed by the actual  value
+                Item(field, depth)
             }
             (Item(field, depth), ev) => {
                 self.field_tracer(field).accept(ev)?;
@@ -444,15 +440,18 @@ impl ListTracer {
                 Start
             }
             (Start, ev) => fail!("Invalid event {ev} for list tracer in state Start"),
-            (Item(0), E::EndSequence) => Start,
-            (Item(0), ev @ (E::EndStruct | E::EndMap | E::EndTuple)) => {
-                fail!("Invalid event {ev} for list tracer in state Item(0)")
+            (Item(0), ev) if ev.is_end() => {
+                if matches!(ev, E::EndSequence) {
+                    Start
+                } else {
+                    fail!("Invalid event {ev} for list tracer in state Item(0)")
+                }
             }
-            (Item(depth), ev @ (E::StartSequence | E::StartStruct)) => {
+            (Item(depth), ev) if ev.is_start() => {
                 self.item_tracer.accept(ev)?;
                 Item(depth + 1)
             }
-            (Item(depth), ev @ (E::EndSequence | E::EndStruct)) => {
+            (Item(depth), ev) if ev.is_end() => {
                 self.item_tracer.accept(ev)?;
                 Item(depth - 1)
             }
@@ -470,6 +469,104 @@ impl ListTracer {
         }
         Ok(())
     }
+}
+
+pub struct UnionTracer {
+    pub variants: Vec<Option<String>>,
+    pub tracers: Vec<Tracer>,
+    pub nullable: bool,
+    pub next: UnionTracerState,
+}
+
+impl UnionTracer {
+    pub fn new(nullable: bool) -> Self {
+        Self {
+            variants: Vec::new(),
+            tracers: Vec::new(),
+            nullable,
+            next: UnionTracerState::Inactive,
+        }
+    }
+
+    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        type S = UnionTracerState;
+        type E<'a> = Event<'a>;
+
+        self.next = match self.next {
+            S::Inactive => match event {
+                E::Variant(variant, idx) => {
+                    self.ensure_variant(variant, idx)?;
+                    S::Active(idx, 0)
+                }
+                E::OwnedVariant(variant, idx) => {
+                    self.ensure_variant(variant, idx)?;
+                    S::Active(idx, 0)
+                }
+                ev => fail!("Invalid event {ev} for UnionTracer in State Inactive"),
+            },
+            S::Active(idx, depth) => match event {
+                ev if ev.is_start() => {
+                    self.tracers[idx].accept(ev)?;
+                    S::Active(idx, depth + 1)
+                }
+                ev if ev.is_end() => match depth {
+                    0 => fail!("Invalid end event {ev} at depth 0 in UnionTracer"),
+                    1 => {
+                        self.tracers[idx].accept(ev)?;
+                        S::Inactive
+                    }
+                    _ => {
+                        self.tracers[idx].accept(ev)?;
+                        S::Active(idx, depth - 1)
+                    }
+                },
+                ev if ev.is_marker() => {
+                    self.tracers[idx].accept(ev)?;
+                    S::Active(idx, depth)
+                }
+                ev if ev.is_value() => {
+                    self.tracers[idx].accept(ev)?;
+                    match depth {
+                        0 => S::Inactive,
+                        _ => S::Active(idx, depth),
+                    }
+                }
+                _ => unreachable!(),
+            },
+        };
+        Ok(())
+    }
+
+    fn ensure_variant<S: Into<String> + AsRef<str>>(
+        &mut self,
+        variant: S,
+        idx: usize,
+    ) -> Result<()> {
+        while self.variants.len() <= idx {
+            self.variants.push(None);
+            self.tracers.push(Tracer::new());
+        }
+
+        if let Some(prev) = self.variants[idx].as_ref() {
+            let variant = variant.as_ref();
+            if prev != variant {
+                fail!("Incompatible names for variant {idx}: {prev}, {variant}");
+            }
+        } else {
+            self.variants[idx] = Some(variant.into());
+        }
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum UnionTracerState {
+    Inactive,
+    Active(usize, usize),
 }
 
 pub struct PrimitiveTracer {

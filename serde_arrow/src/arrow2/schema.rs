@@ -1,6 +1,6 @@
 use std::iter;
 
-use arrow2::datatypes::{DataType, Field};
+use arrow2::datatypes::{DataType, Field, UnionMode};
 
 use crate::{
     base::error::fail,
@@ -93,6 +93,25 @@ impl FieldBuilder<Field> for Tracer {
                 field
                     .metadata
                     .insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+                Ok(field)
+            }
+            Self::Union(tracer) => {
+                let mut fields = Vec::new();
+                for (idx, (name, tracer)) in
+                    std::iter::zip(&tracer.variants, &tracer.tracers).enumerate()
+                {
+                    let field = match name {
+                        Some(name) => tracer.to_field(name)?,
+                        None => tracer.to_field(&format!("unknown_variant_{idx}"))?,
+                    };
+                    fields.push(field);
+                }
+
+                let field = Field::new(
+                    name,
+                    DataType::Union(fields, None, UnionMode::Sparse),
+                    tracer.nullable,
+                );
                 Ok(field)
             }
         }

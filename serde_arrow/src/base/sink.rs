@@ -179,11 +179,13 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
     ) -> Result<()> {
-        fail!("serialize_newtype_variant not supported");
+        self.0
+            .accept(Event::Variant(variant, variant_index as usize))?;
+        value.serialize(EventSerializer(&mut *self.0))
     }
 
     fn serialize_tuple_variant(

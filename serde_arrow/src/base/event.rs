@@ -42,6 +42,10 @@ pub enum Event<'a> {
     OwnedStr(String),
     /// Push the default of the current type
     Default,
+    /// Denote the variant of a union
+    Variant(&'a str, usize),
+    /// The owned version of Variant
+    OwnedVariant(String, usize),
     Bool(bool),
     I8(i8),
     I16(i16),
@@ -80,6 +84,8 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::U64(v) => write!(f, "U64({v})"),
             Event::F32(v) => write!(f, "F32({v})"),
             Event::F64(v) => write!(f, "F64({v})"),
+            Event::Variant(n, i) => write!(f, "Variant({n:?}, {i})"),
+            Event::OwnedVariant(n, i) => write!(f, "OwnedVariant({n:?}, {i})"),
             Event::Str(v) => write!(f, "Str({v:?})"),
             Event::OwnedStr(v) => write!(f, "String({v:?})"),
         }
@@ -100,6 +106,16 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
             EndMap => matches!(other, EndMap),
             Default => matches!(other, Default),
             Null => matches!(other, Null),
+            Variant(n, i) => match other {
+                Variant(on, oi) if on == n && oi == i => true,
+                OwnedVariant(on, oi) if on == n && oi == i => true,
+                _ => false,
+            },
+            OwnedVariant(n, i) => match other {
+                Variant(on, oi) if on == n && oi == i => true,
+                OwnedVariant(on, oi) if on == n && oi == i => true,
+                _ => false,
+            },
             Str(s) => match other {
                 Str(o) => s == o,
                 OwnedStr(o) => s == o,
@@ -139,6 +155,8 @@ impl<'a> Event<'a> {
         match self {
             Event::OwnedStr(s) => Event::Str(s),
             Event::Str(s) => Event::Str(s),
+            Event::Variant(n, i) => Event::Variant(n, *i),
+            Event::OwnedVariant(n, i) => Event::Variant(n, *i),
             Event::StartSequence => Event::StartSequence,
             Event::EndSequence => Event::EndSequence,
             Event::StartStruct => Event::StartStruct,
@@ -172,6 +190,8 @@ impl<'a> Event<'a> {
         match self {
             &Event::Str(s) => Event::OwnedStr(s.to_owned()),
             Event::OwnedStr(v) => Event::OwnedStr(v.clone()),
+            &Event::Variant(n, i) => Event::OwnedVariant(n.to_owned(), i),
+            Event::OwnedVariant(n, i) => Event::OwnedVariant(n.clone(), *i),
             Event::StartSequence => Event::StartSequence,
             Event::EndSequence => Event::EndSequence,
             Event::StartStruct => Event::StartStruct,
@@ -235,7 +255,7 @@ impl<'a> Event<'a> {
     }
 
     pub fn is_marker(&self) -> bool {
-        matches!(self, Event::Some)
+        matches!(self, Event::Some | Event::Variant(_, _))
     }
 }
 
