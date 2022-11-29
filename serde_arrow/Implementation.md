@@ -162,7 +162,7 @@ Supported arrow data types:
 - [ ] `FixedSizeList`
 - [x] `LargeList`
 - [x] `Struct`
-- [ ] `Union`
+- [x] `Union`: at the moment only dense unions are supported
 - [ ] `Map`
 - [ ] `Dictionary`
 - [ ] `Decimal`
@@ -184,8 +184,9 @@ Supported Serde / Rust types:
 - [ ] `Map<K, V>`
 - [x] tuples: tuples or tuple structs are not yet supported. It is planned to
   map them to struct arrays with numeric field names
-- [ ] `enum ... { }`: enums are not yet supported. It is planned to map them to
-  union arrays
+- [x] `enum ... { }`: enums are mapped to union arrays. At the moment options of
+  unions are not supported. Also unions with more than 127 variants are not
+  supported
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
 - [x] `chrono::DateTime<Utc>`: depends on the configured strategy:
   - mapped to UTF8 arrays without configuration
