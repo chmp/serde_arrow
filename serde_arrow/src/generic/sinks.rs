@@ -342,7 +342,6 @@ pub enum TupleArrayBuilderState {
     Value(usize, usize),
 }
 
-// TODO: move the generic parts into generic module
 pub struct ListArrayBuilder<B, O> {
     pub builder: B,
     next: ListBuilderState,
@@ -438,4 +437,93 @@ where
 enum ListBuilderState {
     Start { offset: i64 },
     Value { offset: i64, depth: usize },
+}
+
+pub struct UnionArrayBuilder<B> {
+    next: UnionBuilderState,
+    pub current_field_offsets: Vec<i32>,
+    pub field_builders: Vec<B>,
+    pub field_nullable: Vec<bool>,
+    pub field_offsets: Vec<i32>,
+    pub field_types: Vec<i8>,
+    pub nullable: bool,
+}
+
+impl<B> UnionArrayBuilder<B> {
+    pub fn new(field_builders: Vec<B>, field_nullable: Vec<bool>, nullable: bool) -> Self {
+        let current_field_offsets = vec![0; field_builders.len()];
+        Self {
+            next: UnionBuilderState::Inactive,
+            current_field_offsets,
+            field_builders,
+            field_nullable,
+            field_offsets: Vec::new(),
+            field_types: Vec::new(),
+            nullable,
+        }
+    }
+}
+
+impl<B: EventSink> EventSink for UnionArrayBuilder<B> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        type S = UnionBuilderState;
+        type E<'a> = Event<'a>;
+
+        self.next = match self.next {
+            S::Inactive => match event {
+                E::Variant(_, idx) | E::OwnedVariant(_, idx) => {
+                    self.field_offsets.push(self.current_field_offsets[idx]);
+                    self.current_field_offsets[idx] += 1;
+                    self.field_types.push(i8::try_from(idx)?);
+
+                    S::Active(idx, 0)
+                }
+                E::Null | E::Some => fail!("Nullable Union arrays are not supported"), 
+                ev => fail!("Unexpected event {ev} in state Inactive of UnionArrayBuilder"),
+            },
+            S::Active(field, depth) => match event {
+                ev if ev.is_start() => {
+                    self.field_builders[field].accept(ev)?;
+                    S::Active(field, depth + 1)
+                }
+                ev if ev.is_end() => {
+                    match depth {
+                        0 => fail!("Invalid end event {ev} in state Active({field}, {depth}) in UnionArrayBuilder"),
+                        1 => {
+                            self.field_builders[field].accept(ev)?;
+                            S::Inactive
+                        }
+                        _ => {
+                            self.field_builders[field].accept(ev)?;
+                            S::Active(field, depth - 1)
+                        }
+                    }
+                }
+                ev if ev.is_marker() => {
+                    self.field_builders[field].accept(ev)?;
+                    S::Active(field, depth)
+                }
+                ev if ev.is_value() => {
+                    self.field_builders[field].accept(ev)?;
+                    match depth {
+                        0 => S::Inactive,
+                        _ => S::Active(field, depth),
+                    }
+                }
+                _ => unreachable!(),
+            }
+        };
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        // TODO: implement
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum UnionBuilderState {
+    Inactive,
+    Active(usize, usize),
 }

@@ -3,7 +3,7 @@
 
 use std::{collections::BTreeMap, fmt::Debug};
 
-use arrow2::datatypes::{DataType, Field};
+use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,6 +16,13 @@ use crate::{
     test::utils::collect_events,
     Strategy, STRATEGY_KEY,
 };
+
+/// Helper to define the metadata for the given strategy
+fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
+    let mut meta = BTreeMap::new();
+    meta.insert(STRATEGY_KEY.to_string(), strategy.to_string());
+    meta
+}
 
 macro_rules! test_round_trip {
     (
@@ -310,8 +317,31 @@ test_round_trip!(
     ],
 );
 
-fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
-    let mut meta = BTreeMap::new();
-    meta.insert(STRATEGY_KEY.to_string(), strategy.to_string());
-    meta
-}
+test_round_trip!(
+    test_name = enums,
+    field = Field::new(
+        "value",
+        DataType::Union(
+            vec![
+                Field::new("U8", DataType::UInt8, false),
+                Field::new("U16", DataType::UInt16, false),
+                Field::new("U32", DataType::UInt32, false),
+                Field::new("U64", DataType::UInt64, false),
+            ],
+            None,
+            UnionMode::Dense
+        ),
+        false
+    ),
+    ty = Item,
+    values = [Item::U32(2), Item::U64(3), Item::U8(0), Item::U16(1),],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            U8(u8),
+            U16(u16),
+            U32(u32),
+            U64(u64),
+        }
+    },
+);

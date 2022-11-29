@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use arrow2::{
-    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray, Utf8Array},
+    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray, UnionArray, Utf8Array},
     datatypes::{DataType, Field},
     types::{NativeType, Offset},
 };
@@ -14,7 +14,7 @@ use crate::{
     },
     generic::{
         chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
-        sources::{ListSource, RecordSource, StructSource},
+        sources::{ListSource, RecordSource, StructSource, UnionSource},
     },
     generic::{
         schema::{Strategy, STRATEGY_KEY},
@@ -105,7 +105,16 @@ pub fn build_dynamic_source<'a>(
         }
         DataType::List(field) => build_dynamic_list_source::<i32>(field.as_ref(), array)?,
         DataType::LargeList(field) => build_dynamic_list_source::<i64>(field.as_ref(), array)?,
-        dt => fail!("{dt:?} not yet supported"),
+        DataType::Union(fields, field_indices, mode) => {
+            if !mode.is_dense() {
+                fail!("Only dense unions are supported at the moment");
+            }
+            if field_indices.is_some() {
+                fail!("Explicit field indices are currently not supported for unions");
+            }
+            build_dynamic_union_source(fields, array)?
+        }
+        dt => fail!("Sources of type {dt:?} not yet supported"),
     };
     Ok(source)
 }
@@ -177,6 +186,34 @@ pub fn build_dynamic_list_source<'a, T: Offset>(
     };
 
     let source = ListSource::new(values, offsets, validity);
+    Ok(DynamicSource::new(source))
+}
+
+pub fn build_dynamic_union_source<'a>(
+    fields: &'a [Field],
+    array: &'a dyn Array,
+) -> Result<DynamicSource<'a>> {
+    let array = array
+        .as_any()
+        .downcast_ref::<UnionArray>()
+        .ok_or_else(|| error!("invalid array type {:?} for UnionArray", array.data_type()))?;
+
+    let mut names = Vec::new();
+    let mut sources = Vec::new();
+
+    for (field, array) in std::iter::zip(fields, array.fields()) {
+        names.push(field.name.as_str());
+        sources.push(build_dynamic_source(field, array.as_ref())?);
+    }
+
+    let mut types = Vec::new();
+    for ty in array.types().iter() {
+        types.push(u8::try_from(*ty)?);
+    }
+
+    // TODO: test that the offsets are dense
+
+    let source = UnionSource::new(names, sources, types);
     Ok(DynamicSource::new(source))
 }
 

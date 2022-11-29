@@ -175,7 +175,7 @@ fn union_example() {
                 Field::new("I32", DataType::Int32, false),
             ],
             None,
-            UnionMode::Sparse,
+            UnionMode::Dense,
         ),
         false,
     )];

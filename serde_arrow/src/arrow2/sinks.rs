@@ -1,9 +1,9 @@
 use arrow2::{
     array::Array,
-    array::{ListArray, MutableUtf8Array, NullArray, StructArray, Utf8Array},
+    array::{ListArray, MutableUtf8Array, NullArray, StructArray, UnionArray, Utf8Array},
     bitmap::Bitmap,
     buffer::Buffer,
-    datatypes::{DataType, Field},
+    datatypes::{DataType, Field, UnionMode},
     types::Offset,
 };
 
@@ -15,7 +15,7 @@ use crate::{
         sinks::{
             ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, RecordsBuilder,
             StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
-            TupleStructBuilder,
+            TupleStructBuilder, UnionArrayBuilder,
         },
     },
     Result,
@@ -116,6 +116,25 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                 ListArrayBuilder::<_, i64>::new(values, field.name.to_owned(), field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
+        DataType::Union(fields, field_indices, mode) => {
+            if field_indices.is_some() {
+                fail!("Union types with explicit field indices are not supported");
+            }
+            if !mode.is_dense() {
+                fail!("Only dense unions are supported at the moment");
+            }
+
+            let mut field_builders = Vec::new();
+            let mut field_nullable = Vec::new();
+
+            for field in fields {
+                field_builders.push(build_dynamic_array_builder(field)?);
+                field_nullable.push(field.is_nullable);
+            }
+
+            let builder = UnionArrayBuilder::new(field_builders, field_nullable, field.is_nullable);
+            Ok(DynamicArrayBuilder::new(builder))
+        }
         _ => fail!(
             "Cannot build sink for {} with type {:?}",
             field.name,
@@ -190,6 +209,41 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStru
             data_type,
             values,
             Some(self.validity.into()),
+        )))
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArrayBuilder<B> {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
+        let values: Result<Vec<Box<dyn Array>>> = self
+            .field_builders
+            .into_iter()
+            .map(|b| b.into_array())
+            .collect();
+        let values = values?;
+
+        let mut fields = Vec::new();
+        for (i, value) in values.iter().enumerate() {
+            fields.push(Field::new(
+                i.to_string(),
+                value.data_type().clone(),
+                self.field_nullable[i],
+            ));
+        }
+        let data_type = DataType::Union(fields, None, UnionMode::Dense);
+
+        Ok(Box::new(UnionArray::new(
+            data_type,
+            self.field_types.into(),
+            values,
+            Some(self.field_offsets.into()),
         )))
     }
 }

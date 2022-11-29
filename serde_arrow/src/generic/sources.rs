@@ -289,29 +289,25 @@ impl<'a> EventSource<'a> for ListSource<'a> {
         use ListSourceState::*;
         let res;
 
-        (self.state, res) = match self.state {
+        self.state = match self.state {
             Start { outer, offset } => {
                 if outer >= self.validity.len() {
                     return Ok(None);
                 }
 
                 if !self.validity[outer] {
-                    (
-                        Start {
-                            outer: outer + 1,
-                            offset,
-                        },
-                        Some(Event::Null),
-                    )
+                    res = Event::Null;
+                    Start {
+                        outer: outer + 1,
+                        offset,
+                    }
                 } else {
-                    (
-                        Value {
-                            outer,
-                            offset,
-                            depth: 0,
-                        },
-                        Some(Event::StartSequence),
-                    )
+                    res = Event::StartSequence;
+                    Value {
+                        outer,
+                        offset,
+                        depth: 0,
+                    }
                 }
             }
             Value {
@@ -323,57 +319,59 @@ impl<'a> EventSource<'a> for ListSource<'a> {
                     if depth != 0 {
                         fail!("Internal error: ended sequence at non-zero depth");
                     }
-                    (
-                        Start {
-                            outer: outer + 1,
-                            offset,
-                        },
-                        Some(Event::EndSequence),
-                    )
+                    res = Event::EndSequence;
+                    Start {
+                        outer: outer + 1,
+                        offset,
+                    }
                 } else {
-                    let ev = self.values.next()?;
+                    res = self
+                        .values
+                        .next()?
+                        .ok_or_else(|| error!("Unexpected end of value source"))?;
 
-                    match &ev {
-                        Some(Event::StartSequence | Event::StartStruct) => (
-                            Value {
+                    match &res {
+                        ev if ev.is_start() => Value {
+                            outer,
+                            offset,
+                            depth: depth + 1,
+                        },
+                        ev if ev.is_end() => match depth {
+                            0 => fail!("Internal error: ended sequence at zero depth"),
+                            1 => Value {
+                                outer,
+                                offset: offset + 1,
+                                depth: depth - 1,
+                            },
+                            _ => Value {
                                 outer,
                                 offset,
-                                depth: depth + 1,
+                                depth: depth - 1,
                             },
-                            ev,
-                        ),
-                        Some(Event::EndSequence | Event::EndStruct) => {
-                            let offset = match depth {
-                                0 => fail!("Internal error: ended sequence at zero depth"),
-                                1 => offset + 1,
-                                _ => offset,
-                            };
-                            (
-                                Value {
-                                    outer,
-                                    offset,
-                                    depth: depth - 1,
-                                },
-                                ev,
-                            )
-                        }
-                        Some(_) => {
-                            let offset = if depth == 0 { offset + 1 } else { offset };
-                            (
-                                Value {
-                                    outer,
-                                    offset,
-                                    depth,
-                                },
-                                ev,
-                            )
-                        }
-                        None => fail!("Unexpected end of value source"),
+                        },
+                        ev if ev.is_marker() => Value {
+                            outer,
+                            offset,
+                            depth,
+                        },
+                        ev if ev.is_value() => match depth {
+                            0 => Value {
+                                outer,
+                                offset: offset + 1,
+                                depth,
+                            },
+                            _ => Value {
+                                outer,
+                                offset,
+                                depth,
+                            },
+                        },
+                        _ => unreachable!(),
                     }
                 }
             }
         };
-        Ok(res)
+        Ok(Some(res))
     }
 }
 
@@ -386,6 +384,101 @@ enum ListSourceState {
     Value {
         outer: usize,
         offset: usize,
+        depth: usize,
+    },
+}
+
+pub struct UnionSource<'a> {
+    next: UnionSourceState,
+    sources: Vec<DynamicSource<'a>>,
+    names: Vec<&'a str>,
+    types: Vec<u8>,
+}
+
+impl<'a> UnionSource<'a> {
+    pub fn new(names: Vec<&'a str>, sources: Vec<DynamicSource<'a>>, types: Vec<u8>) -> Self {
+        Self {
+            next: UnionSourceState::Start { offset: 0 },
+            sources,
+            names,
+            types,
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for UnionSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        type S = UnionSourceState;
+        type E<'a> = Event<'a>;
+
+        let res;
+        self.next = match self.next {
+            S::Start { offset } => {
+                if offset >= self.types.len() {
+                    return Ok(None);
+                }
+
+                let variant = self.types[offset] as usize;
+                res = E::Variant(self.names[variant], variant);
+                S::Value {
+                    offset,
+                    variant,
+                    depth: 0,
+                }
+            }
+            S::Value {
+                offset,
+                variant,
+                depth,
+            } => {
+                res = self.sources[variant].next()?.ok_or_else(|| {
+                    error!("Unexpected end of child array {variant} in UnionSource")
+                })?;
+
+                match &res {
+                    ev if ev.is_start() => S::Value {
+                        offset,
+                        variant,
+                        depth: depth + 1,
+                    },
+                    ev if ev.is_end() => match depth {
+                        0 => fail!("Unexpected end event in UnionSource"),
+                        1 => S::Start { offset: offset + 1 },
+                        _ => S::Value {
+                            offset,
+                            variant,
+                            depth: depth - 1,
+                        },
+                    },
+                    ev if ev.is_marker() => S::Value {
+                        offset,
+                        variant,
+                        depth,
+                    },
+                    ev if ev.is_value() => match depth {
+                        0 => S::Start { offset: offset + 1 },
+                        _ => S::Value {
+                            offset,
+                            variant,
+                            depth,
+                        },
+                    },
+                    _ => unreachable!(),
+                }
+            }
+        };
+        Ok(Some(res))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum UnionSourceState {
+    Start {
+        offset: usize,
+    },
+    Value {
+        offset: usize,
+        variant: usize,
         depth: usize,
     },
 }

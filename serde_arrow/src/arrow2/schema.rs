@@ -109,7 +109,7 @@ impl FieldBuilder<Field> for Tracer {
 
                 let field = Field::new(
                     name,
-                    DataType::Union(fields, None, UnionMode::Sparse),
+                    DataType::Union(fields, None, UnionMode::Dense),
                     tracer.nullable,
                 );
                 Ok(field)

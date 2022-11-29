@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     base::{
         error::{error, fail},
@@ -7,7 +9,7 @@ use crate::{
 };
 
 use serde::{
-    de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},
+    de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize,
 };
 
@@ -138,6 +140,9 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Some(Event::OwnedStr(_)) => self.deserialize_string(visitor),
             Some(Event::StartStruct) => self.deserialize_map(visitor),
             Some(Event::StartSequence) => self.deserialize_seq(visitor),
+            Some(Event::Variant(_, _) | Event::OwnedVariant(_, _)) => {
+                self.deserialize_enum("", &[], visitor)
+            }
             ev => fail!("Invalid event in deserialize_any: {:?}", ev),
         }
     }
@@ -330,9 +335,9 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value> {
-        fail!("deserialize_enum: Enums are not supported at the moment")
+        visitor.visit_enum(&mut *self)
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -376,6 +381,128 @@ impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deseria
         V: DeserializeSeed<'de>,
     {
         seed.deserialize(&mut **self)
+    }
+}
+
+impl<'de, 'a, 'event, S: EventSource<'event>> EnumAccess<'de> for &'a mut Deserializer<'event, S> {
+    type Error = Error;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let (name, idx) = match required(self.source.next()?)? {
+            Event::Variant(name, idx) => (Cow::Borrowed(name), idx),
+            Event::OwnedVariant(name, idx) => (Cow::Owned(name), idx),
+            ev => fail!("variant_seed: Cannot handle {}", ev),
+        };
+
+        struct SeedDeserializer<'a> {
+            idx: usize,
+            name: &'a str,
+        }
+
+        macro_rules! unimplemented {
+            ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
+                fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
+                    fail!("{} is not implemented", stringify!($name))
+                }
+            };
+        }
+
+        impl<'de, 'a> de::Deserializer<'de> for SeedDeserializer<'a> {
+            type Error = Error;
+
+            fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+                self.deserialize_str(visitor)
+            }
+
+            fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+                self.deserialize_str(visitor)
+            }
+
+            fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+                visitor.visit_str(self.name)
+            }
+
+            fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+                visitor.visit_string(self.name.to_owned())
+            }
+
+            fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+                visitor.visit_u64(u64::try_from(self.idx)?)
+            }
+
+            unimplemented!('de, deserialize_bool);
+            unimplemented!('de, deserialize_i8);
+            unimplemented!('de, deserialize_i16);
+            unimplemented!('de, deserialize_i32);
+            unimplemented!('de, deserialize_i64);
+            unimplemented!('de, deserialize_u8);
+            unimplemented!('de, deserialize_u16);
+            unimplemented!('de, deserialize_u32);
+            unimplemented!('de, deserialize_f32);
+            unimplemented!('de, deserialize_f64);
+            unimplemented!('de, deserialize_char);
+            unimplemented!('de, deserialize_bytes);
+            unimplemented!('de, deserialize_byte_buf);
+            unimplemented!('de, deserialize_option);
+            unimplemented!('de, deserialize_unit);
+            unimplemented!('de, deserialize_unit_struct, _: &'static str);
+            unimplemented!('de, deserialize_newtype_struct, _: &'static str);
+            unimplemented!('de, deserialize_seq);
+            unimplemented!('de, deserialize_tuple, _: usize);
+            unimplemented!('de, deserialize_tuple_struct, _: &'static str, _: usize);
+            unimplemented!('de, deserialize_map);
+            unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
+            unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
+            unimplemented!('de, deserialize_ignored_any);
+        }
+
+        let val = seed.deserialize(SeedDeserializer {
+            idx,
+            name: name.as_ref(),
+        })?;
+        Ok((val, self))
+    }
+}
+
+impl<'de, 'a, 'event, S: EventSource<'event>> VariantAccess<'de>
+    for &'a mut Deserializer<'event, S>
+{
+    type Error = Error;
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        seed.deserialize(&mut *self)
+    }
+
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        de::Deserializer::deserialize_struct(self, "", fields, visitor)
+    }
+
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        de::Deserializer::deserialize_tuple(self, len, visitor)
+    }
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        match required(self.source.next()?)? {
+            Event::Null => Ok(()),
+            ev => fail!("deserialize_unit: Cannot handle {}", ev),
+        }
     }
 }
 
