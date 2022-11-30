@@ -494,7 +494,86 @@ test_round_trip!(
         false
     ),
     ty = HashMap<i64, bool>,
-    values = [hashmap!{0 => true, 1 => false, 2 => true}, hashmap!(3 => false, 4 => true), hashmap!()],
+    values = [
+        hashmap!{0 => true, 1 => false, 2 => true},
+        hashmap!{3 => false, 4 => true},
+        hashmap!{},
+    ],
+);
+
+test_round_trip!(
+    test_name = hash_maps_nullable,
+    field = Field::new(
+        "value",
+        DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                DataType::Struct(vec![
+                    Field::new("key", DataType::Int64, false),
+                    Field::new("value", DataType::Boolean, false),
+                ]),
+                false
+            )),
+            false,
+        ),
+        true
+    ),
+    ty = Option<HashMap<i64, bool>>,
+    values = [
+        Some(hashmap!{0 => true, 1 => false, 2 => true}),
+        Some(hashmap!{3 => false, 4 => true}),
+        Some(hashmap!{}),
+    ],
+);
+
+test_round_trip!(
+    test_name = hash_maps_nullable_keys,
+    field = Field::new(
+        "value",
+        DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                DataType::Struct(vec![
+                    Field::new("key", DataType::Int64, true),
+                    Field::new("value", DataType::Boolean, false),
+                ]),
+                false
+            )),
+            false,
+        ),
+        false
+    ),
+    ty = HashMap<Option<i64>, bool>,
+    values = [
+        hashmap!{Some(0) => true, Some(1) => false, Some(2) => true},
+        hashmap!{Some(3) => false, Some(4) => true},
+        hashmap!{},
+    ],
+);
+
+test_round_trip!(
+    test_name = hash_maps_nullable_values,
+    field = Field::new(
+        "value",
+        DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                DataType::Struct(vec![
+                    Field::new("key", DataType::Int64, false),
+                    Field::new("value", DataType::Boolean, true),
+                ]),
+                false
+            )),
+            false,
+        ),
+        false
+    ),
+    ty = HashMap<i64, Option<bool>>,
+    values = [
+        hashmap!{0 => Some(true), 1 => Some(false), 2 => Some(true)},
+        hashmap!{3 => Some(false), 4 => Some(true)},
+        hashmap!{},
+    ],
 );
 
 test_round_trip!(
@@ -515,5 +594,9 @@ test_round_trip!(
         false
     ),
     ty = BTreeMap<i64, bool>,
-    values = [btreemap!{0 => true, 1 => false, 2 => true}, btreemap!(3 => false, 4 => true), btreemap!()],
+    values = [
+        btreemap!{0 => true, 1 => false, 2 => true},
+        btreemap!{3 => false, 4 => true},
+        btreemap!{},
+    ],
 );
