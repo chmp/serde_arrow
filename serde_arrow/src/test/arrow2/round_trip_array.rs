@@ -28,12 +28,21 @@ fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
 }
 
 macro_rules! hashmap {
-    () => {
-        HashMap::new()
-    };
     ($($key:expr => $value:expr),*) => {
         {
+            #[allow(unused_mut)]
             let mut res = HashMap::new();
+            $(res.insert($key.into(), $value.into());)*
+            res
+        }
+    };
+}
+
+macro_rules! btreemap {
+    ($($key:expr => $value:expr),*) => {
+        {
+            #[allow(unused_mut)]
+            let mut res = BTreeMap::new();
             $(res.insert($key.into(), $value.into());)*
             res
         }
@@ -468,7 +477,7 @@ test_round_trip!(
 );
 
 test_round_trip!(
-    test_name = maps,
+    test_name = hash_maps,
     field = Field::new(
         "value",
         DataType::Map(
@@ -486,4 +495,25 @@ test_round_trip!(
     ),
     ty = HashMap<i64, bool>,
     values = [hashmap!{0 => true, 1 => false, 2 => true}, hashmap!(3 => false, 4 => true), hashmap!()],
+);
+
+test_round_trip!(
+    test_name = btree_maps,
+    field = Field::new(
+        "value",
+        DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                DataType::Struct(vec![
+                    Field::new("key", DataType::Int64, false),
+                    Field::new("value", DataType::Boolean, false),
+                ]),
+                false
+            )),
+            false,
+        ),
+        false
+    ),
+    ty = BTreeMap<i64, bool>,
+    values = [btreemap!{0 => true, 1 => false, 2 => true}, btreemap!(3 => false, 4 => true), btreemap!()],
 );

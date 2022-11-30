@@ -182,7 +182,8 @@ Supported Serde / Rust types:
 - [x] `struct S{ .. }`: if the fields are supported
 - [x] `Vec<T>`: if T is supported. Any type that serializes into a Serde
   sequence is supported
-- [ ] `Map<K, V>`
+- [x] `HashMap<K, V>, BTreeMap<K, V>` and similar map types are supported if `K`
+  and `V` are supported
 - [x] tuples: tuples or tuple structs are not yet supported. It is planned to
   map them to struct arrays with numeric field names
 - [x] `enum ... { }`: enums are mapped to union arrays. At the moment options of
