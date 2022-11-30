@@ -282,7 +282,7 @@ test_round_trip!(
             Field::new("c", DataType::Null, true),
             Field::new("d", DataType::LargeUtf8, true),
         ]),
-        false
+        false,
     ),
     ty = StructNullable,
     values = [
@@ -354,9 +354,9 @@ test_round_trip!(
                 Field::new("U64", DataType::UInt64, false),
             ],
             None,
-            UnionMode::Dense
+            UnionMode::Dense,
         ),
-        false
+        false,
     ),
     ty = Item,
     values = [Item::U32(2), Item::U64(3), Item::U8(0), Item::U16(1),],
@@ -383,7 +383,7 @@ test_round_trip!(
                         Field::new("0", DataType::UInt8, false),
                         Field::new("1", DataType::UInt32, false),
                     ]),
-                    false
+                    false,
                 )
                 .with_metadata(strategy_meta(Strategy::Tuple)),
                 Field::new(
@@ -392,14 +392,14 @@ test_round_trip!(
                         Field::new("0", DataType::UInt16, false),
                         Field::new("1", DataType::UInt64, false),
                     ]),
-                    false
+                    false,
                 )
                 .with_metadata(strategy_meta(Strategy::Tuple)),
             ],
             None,
-            UnionMode::Dense
+            UnionMode::Dense,
         ),
-        false
+        false,
     ),
     ty = Item,
     values = [Item::A(2, 3), Item::B(0, 1),],
@@ -424,7 +424,7 @@ test_round_trip!(
                         Field::new("a", DataType::UInt8, false),
                         Field::new("b", DataType::UInt32, false),
                     ]),
-                    false
+                    false,
                 ),
                 Field::new(
                     "B",
@@ -432,13 +432,13 @@ test_round_trip!(
                         Field::new("c", DataType::UInt16, false),
                         Field::new("d", DataType::UInt64, false),
                     ]),
-                    false
+                    false,
                 ),
             ],
             None,
-            UnionMode::Dense
+            UnionMode::Dense,
         ),
-        false
+        false,
     ),
     ty = Item,
     values = [Item::A { a: 2, b: 3 }, Item::B { c: 0, d: 1 },],
@@ -463,7 +463,7 @@ test_round_trip!(
             None,
             UnionMode::Dense
         ),
-        false
+        false,
     ),
     ty = Item,
     values = [Item::A, Item::B,],
@@ -491,7 +491,7 @@ test_round_trip!(
             )),
             false,
         ),
-        false
+        false,
     ),
     ty = HashMap<i64, bool>,
     values = [
@@ -516,7 +516,7 @@ test_round_trip!(
             )),
             false,
         ),
-        true
+        true,
     ),
     ty = Option<HashMap<i64, bool>>,
     values = [
@@ -541,7 +541,7 @@ test_round_trip!(
             )),
             false,
         ),
-        false
+        false,
     ),
     ty = HashMap<Option<i64>, bool>,
     values = [
@@ -566,7 +566,7 @@ test_round_trip!(
             )),
             false,
         ),
-        false
+        false,
     ),
     ty = HashMap<i64, Option<bool>>,
     values = [
@@ -591,7 +591,7 @@ test_round_trip!(
             )),
             false,
         ),
-        false
+        false,
     ),
     ty = BTreeMap<i64, bool>,
     values = [
