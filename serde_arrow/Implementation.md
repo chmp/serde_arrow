@@ -163,7 +163,7 @@ Supported arrow data types:
 - [x] `LargeList`
 - [x] `Struct`
 - [x] `Union`: at the moment only dense unions are supported
-- [ ] `Map`
+- [x] `Map`: at the moment only unsorted maps are supported
 - [ ] `Dictionary`
 - [ ] `Decimal`
 - [ ] `Decimal256`
