@@ -1,10 +1,10 @@
 use serde::ser::{
-    Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple, SerializeTupleStruct,
-    Serializer,
+    SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
+    SerializeTupleStruct, SerializeTupleVariant, Serializer,
 };
 use serde::Serialize;
 
-use crate::{base::error::fail, Error, Result};
+use crate::{Error, Result};
 
 use super::Event;
 
@@ -47,9 +47,9 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     type SerializeStruct = Self;
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
-    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = Self;
     type SerializeMap = Self;
-    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = Self;
 
     fn serialize_bool(self, val: bool) -> Result<()> {
         self.0.accept(val.into())
@@ -170,10 +170,12 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     fn serialize_unit_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
+        variant_index: u32,
+        variant: &'static str,
     ) -> Result<()> {
-        fail!("serialize_unit_variant not supported");
+        self.0
+            .accept(Event::Variant(variant, variant_index as usize))?;
+        self.0.accept(Event::Null)
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -191,21 +193,27 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
+        variant_index: u32,
+        variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        fail!("serialize_tuple_variant not supported");
+        self.0
+            .accept(Event::Variant(variant, variant_index as usize))?;
+        self.0.accept(Event::StartTuple)?;
+        Ok(self)
     }
 
     fn serialize_struct_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
+        variant_index: u32,
+        variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!("serialize_struct_variant not supported");
+        self.0
+            .accept(Event::Variant(variant, variant_index as usize))?;
+        self.0.accept(Event::StartStruct)?;
+        Ok(self)
     }
 }
 
@@ -213,10 +221,7 @@ impl<'a, S: EventSink> SerializeSeq for EventSerializer<'a, S> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
@@ -231,12 +236,12 @@ impl<'a, S: EventSink> SerializeTuple for EventSerializer<'a, S> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(self) -> Result<()> {
         self.0.accept(Event::EndTuple)?;
         Ok(())
     }
@@ -246,15 +251,27 @@ impl<'a, S: EventSink> SerializeTupleStruct for EventSerializer<'a, S> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
-    where
-        T: Serialize,
-    {
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(self) -> Result<()> {
+        self.0.accept(Event::EndTuple)?;
+        Ok(())
+    }
+}
+
+impl<'a, S: EventSink> SerializeTupleVariant for EventSerializer<'a, S> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        value.serialize(EventSerializer(&mut *self.0))?;
+        Ok(())
+    }
+
+    fn end(self) -> Result<()> {
         self.0.accept(Event::EndTuple)?;
         Ok(())
     }
@@ -268,6 +285,26 @@ impl<'a, S: EventSink> SerializeStruct for EventSerializer<'a, S> {
     where
         T: ?Sized + Serialize,
     {
+        self.0.accept(Event::Str(key))?;
+        value.serialize(EventSerializer(&mut *self.0))?;
+        Ok(())
+    }
+
+    fn end(self) -> Result<()> {
+        self.0.accept(Event::EndStruct)?;
+        Ok(())
+    }
+}
+
+impl<'a, S: EventSink> SerializeStructVariant for EventSerializer<'a, S> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
         self.0.accept(Event::Str(key))?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())

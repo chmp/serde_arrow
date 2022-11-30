@@ -175,6 +175,7 @@ Supported Serde / Rust types:
 - [x] `i8`, `i16`, `i32`, `i64`
 - [x] `u8`, `u16`, `u32`, `u64`
 - [x] `f32`, `f64`
+- [x] `char`: serialized as u32
 - [x] `Option<T>`: if `T` is supported
 - [x] `()`: serialized as a missing value, `Option<()>` is always deserialized
   as `None`
@@ -186,6 +187,7 @@ Supported Serde / Rust types:
   map them to struct arrays with numeric field names
 - [x] `enum ... { }`: enums are mapped to union arrays. At the moment options of
   unions are not supported. Also unions with more than 127 variants are not
+  supported. All types of union variants (unit, newtype, tuple, struct) are
   supported
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
 - [x] `chrono::DateTime<Utc>`: depends on the configured strategy:

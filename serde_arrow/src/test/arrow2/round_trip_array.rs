@@ -345,3 +345,109 @@ test_round_trip!(
         }
     },
 );
+
+test_round_trip!(
+    test_name = enums_tuple,
+    field = Field::new(
+        "value",
+        DataType::Union(
+            vec![
+                Field::new(
+                    "A",
+                    DataType::Struct(vec![
+                        Field::new("0", DataType::UInt8, false),
+                        Field::new("1", DataType::UInt32, false),
+                    ]),
+                    false
+                )
+                .with_metadata(strategy_meta(Strategy::Tuple)),
+                Field::new(
+                    "B",
+                    DataType::Struct(vec![
+                        Field::new("0", DataType::UInt16, false),
+                        Field::new("1", DataType::UInt64, false),
+                    ]),
+                    false
+                )
+                .with_metadata(strategy_meta(Strategy::Tuple)),
+            ],
+            None,
+            UnionMode::Dense
+        ),
+        false
+    ),
+    ty = Item,
+    values = [Item::A(2, 3), Item::B(0, 1),],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A(u8, u32),
+            B(u16, u64),
+        }
+    },
+);
+
+test_round_trip!(
+    test_name = enums_struct,
+    field = Field::new(
+        "value",
+        DataType::Union(
+            vec![
+                Field::new(
+                    "A",
+                    DataType::Struct(vec![
+                        Field::new("a", DataType::UInt8, false),
+                        Field::new("b", DataType::UInt32, false),
+                    ]),
+                    false
+                ),
+                Field::new(
+                    "B",
+                    DataType::Struct(vec![
+                        Field::new("c", DataType::UInt16, false),
+                        Field::new("d", DataType::UInt64, false),
+                    ]),
+                    false
+                ),
+            ],
+            None,
+            UnionMode::Dense
+        ),
+        false
+    ),
+    ty = Item,
+    values = [Item::A { a: 2, b: 3 }, Item::B { c: 0, d: 1 },],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A { a: u8, b: u32 },
+            B { c: u16, d: u64 },
+        }
+    },
+);
+
+test_round_trip!(
+    test_name = enums_union,
+    field = Field::new(
+        "value",
+        DataType::Union(
+            vec![
+                Field::new("A", DataType::Null, true),
+                Field::new("B", DataType::Null, true),
+            ],
+            None,
+            UnionMode::Dense
+        ),
+        false
+    ),
+    ty = Item,
+    values = [Item::A, Item::B,],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A,
+            B,
+        }
+    },
+);
+
