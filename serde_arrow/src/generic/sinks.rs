@@ -527,3 +527,122 @@ pub enum UnionBuilderState {
     Inactive,
     Active(usize, usize),
 }
+
+pub struct MapArrayBuilder<B> {
+    next: MapBuilderState,
+    pub key_builder: B,
+    pub val_builder: B,
+    pub offsets: Vec<i32>,
+    pub offset: i32,
+    pub validity: Vec<bool>,
+    pub nullable: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum MapBuilderState {
+    Start,
+    Key(usize),
+    Value(usize),
+}
+
+impl<B> MapArrayBuilder<B> {
+    pub fn new(key_builder: B, val_builder: B, nullable: bool) -> Self {
+        Self {
+            next: MapBuilderState::Start,
+            key_builder,
+            val_builder,
+            offsets: vec![0],
+            offset: 0,
+            validity: Vec::new(),
+            nullable,
+        }
+    }
+}
+
+impl<B: EventSink> EventSink for MapArrayBuilder<B> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        type S = MapBuilderState;
+        type E<'a> = Event<'a>;
+
+        self.next = match self.next {
+            S::Start => match event {
+                E::StartMap => S::Key(0),
+                E::Null => {
+                    self.offsets.push(self.offset);
+                    self.validity.push(false);
+                    S::Start
+                }
+                E::Some => S::Start,
+                ev => fail!("Unexpected event {ev} in state Start of MapArrayBuilder"),
+            },
+            S::Key(depth) => match event {
+                E::EndMap if depth == 0 => {
+                    self.offsets.push(self.offset);
+                    self.validity.push(true);
+                    S::Start
+                }
+                ev if ev.is_start() => {
+                    self.key_builder.accept(ev)?;
+                    S::Key(depth + 1)
+                }
+                ev if ev.is_end() => match depth {
+                    0 => fail!("Unexpected event {ev} in state Key(0) in MapArrayBuilder"),
+                    1 => {
+                        self.key_builder.accept(ev)?;
+                        S::Value(0)
+                    }
+                    _ => {
+                        self.key_builder.accept(ev)?;
+                        S::Key(depth - 1)
+                    }
+                },
+                ev if ev.is_marker() => {
+                    self.key_builder.accept(ev)?;
+                    S::Key(depth)
+                }
+                ev if ev.is_value() => {
+                    self.key_builder.accept(ev)?;
+                    if depth == 0 {
+                        S::Value(0)
+                    } else {
+                        S::Key(depth)
+                    }
+                }
+                _ => unreachable!(),
+            },
+            S::Value(depth) => match event {
+                ev if ev.is_start() => {
+                    self.val_builder.accept(ev)?;
+                    S::Value(depth + 1)
+                }
+                ev if ev.is_end() => match depth {
+                    0 => fail!("Unexpected event {ev} in state Value(0) of MapArrayBuilder"),
+                    1 => {
+                        self.val_builder.accept(ev)?;
+                        self.offset += 1;
+                        S::Key(0)
+                    }
+                    _ => {
+                        self.val_builder.accept(ev)?;
+                        S::Value(depth - 1)
+                    }
+                },
+                ev if ev.is_marker() => {
+                    self.val_builder.accept(ev)?;
+                    S::Value(depth)
+                }
+                ev if ev.is_value() => {
+                    self.val_builder.accept(ev)?;
+                    if depth == 0 {
+                        self.offset += 1;
+                        S::Key(0)
+                    } else {
+                        S::Value(depth)
+                    }
+                }
+                _ => unreachable!(),
+            },
+        };
+        Ok(())
+    }
+}

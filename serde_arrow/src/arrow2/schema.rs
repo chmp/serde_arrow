@@ -114,6 +114,18 @@ impl FieldBuilder<Field> for Tracer {
                 );
                 Ok(field)
             }
+            Self::Map(tracer) => {
+                let key = tracer.key.to_field("key")?;
+                let value = tracer.value.to_field("value")?;
+
+                let entries = Field::new("entries", DataType::Struct(vec![key, value]), false);
+                let field = Field::new(
+                    name,
+                    DataType::Map(Box::new(entries), false),
+                    tracer.nullable,
+                );
+                Ok(field)
+            }
         }
     }
 }

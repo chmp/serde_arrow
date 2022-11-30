@@ -1,6 +1,6 @@
 use arrow2::{
     array::Array,
-    array::{ListArray, MutableUtf8Array, NullArray, StructArray, UnionArray, Utf8Array},
+    array::{ListArray, MapArray, MutableUtf8Array, NullArray, StructArray, UnionArray, Utf8Array},
     bitmap::Bitmap,
     buffer::Buffer,
     datatypes::{DataType, Field, UnionMode},
@@ -13,7 +13,7 @@ use crate::{
         chrono::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
-            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, RecordsBuilder,
+            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder, RecordsBuilder,
             StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
             TupleStructBuilder, UnionArrayBuilder,
         },
@@ -133,6 +133,24 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
             }
 
             let builder = UnionArrayBuilder::new(field_builders, field_nullable, field.is_nullable);
+            Ok(DynamicArrayBuilder::new(builder))
+        }
+        DataType::Map(field, _) => {
+            let kv_fields = match field.data_type() {
+                DataType::Struct(fields) => fields,
+                dt => fail!("Expected inner field of Map to be Struct, found: {dt:?}"),
+            };
+            if kv_fields.len() != 2 {
+                fail!(
+                    "Expected two fields (key and value) in map struct, found: {}",
+                    kv_fields.len()
+                );
+            }
+
+            let key_builder = build_dynamic_array_builder(&kv_fields[0])?;
+            let val_builder = build_dynamic_array_builder(&kv_fields[1])?;
+
+            let builder = MapArrayBuilder::new(key_builder, val_builder, field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
         _ => fail!(
@@ -433,6 +451,39 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
             Buffer::from(self.offsets),
             values,
             Some(Bitmap::from(self.validity)),
+        )?;
+        Ok(Box::new(array))
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayBuilder<B> {
+    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<Box<dyn Array>>
+    where
+        Self: Sized,
+    {
+        let keys = self.key_builder.into_array()?;
+        let vals = self.val_builder.into_array()?;
+
+        // TODO: fix nullability of different fields
+        let entries_type = DataType::Struct(vec![
+            Field::new("key", keys.data_type().clone(), false),
+            Field::new("value", vals.data_type().clone(), false),
+        ]);
+
+        let entries = StructArray::try_new(entries_type.clone(), vec![keys, vals], None)?;
+        let entries: Box<dyn Array> = Box::new(entries);
+
+        let map_type = DataType::Map(Box::new(Field::new("entries", entries_type, false)), false);
+
+        let array = MapArray::try_new(
+            map_type,
+            self.offsets.into(),
+            entries,
+            Some(self.validity.into()),
         )?;
         Ok(Box::new(array))
     }

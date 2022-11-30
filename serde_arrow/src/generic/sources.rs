@@ -483,6 +483,172 @@ enum UnionSourceState {
     },
 }
 
+pub struct MapSource<'a> {
+    key_source: DynamicSource<'a>,
+    val_source: DynamicSource<'a>,
+    offsets: Vec<usize>,
+    validity: Vec<bool>,
+    next: MapSourceState,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum MapSourceState {
+    Start {
+        outer: usize,
+    },
+    Key {
+        outer: usize,
+        inner: usize,
+        depth: usize,
+    },
+    Value {
+        outer: usize,
+        inner: usize,
+        depth: usize,
+    },
+}
+
+impl<'a> MapSource<'a> {
+    pub fn new(
+        key_source: DynamicSource<'a>,
+        val_source: DynamicSource<'a>,
+        offsets: Vec<usize>,
+        validity: Vec<bool>,
+    ) -> Self {
+        Self {
+            next: MapSourceState::Start { outer: 0 },
+            key_source,
+            val_source,
+            validity,
+            offsets,
+        }
+    }
+}
+
+impl<'a> EventSource<'a> for MapSource<'a> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        type S = MapSourceState;
+        type E<'a> = Event<'a>;
+
+        let old_state = self.next;
+
+        let res: Event;
+        self.next =
+            match self.next {
+                S::Start { outer } if outer >= self.validity.len() => return Ok(None),
+                S::Start { outer } if !self.validity[outer] => {
+                    res = E::Null;
+                    S::Start { outer: outer + 1 }
+                }
+                S::Start { outer } => {
+                    res = E::StartMap;
+                    S::Key {
+                        outer,
+                        inner: self.offsets[outer],
+                        depth: 0,
+                    }
+                }
+                S::Key { outer, inner, .. } if inner >= self.offsets[outer + 1] => {
+                    res = E::EndMap;
+                    S::Start { outer: outer + 1 }
+                }
+                S::Key {
+                    outer,
+                    inner,
+                    depth,
+                } => {
+                    res = self.key_source.next()?.ok_or_else(|| {
+                        error!("Unexpected early stop of key_source in MapSource")
+                    })?;
+                    match &res {
+                        ev if ev.is_start() => S::Key {
+                            outer,
+                            inner,
+                            depth: depth + 1,
+                        },
+                        ev if ev.is_end() && depth == 0 => {
+                            fail!("Invalid close event {ev} at depth 0 in MapSource")
+                        }
+                        ev if ev.is_end() && depth == 1 => S::Value {
+                            outer,
+                            inner,
+                            depth: 0,
+                        },
+                        ev if ev.is_end() => S::Key {
+                            outer,
+                            inner,
+                            depth: depth - 1,
+                        },
+                        ev if ev.is_marker() => S::Key {
+                            outer,
+                            inner,
+                            depth,
+                        },
+                        ev if ev.is_value() && depth == 0 => S::Value {
+                            outer,
+                            inner,
+                            depth: 0,
+                        },
+                        ev if ev.is_value() => S::Key {
+                            outer,
+                            inner,
+                            depth,
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+                S::Value {
+                    outer,
+                    inner,
+                    depth,
+                } => {
+                    res = self.val_source.next()?.ok_or_else(|| {
+                        error!("Unexpected early stop of val_source in MapSource")
+                    })?;
+                    match &res {
+                        ev if ev.is_start() => S::Value {
+                            outer,
+                            inner,
+                            depth: depth + 1,
+                        },
+                        ev if ev.is_end() && depth == 0 => {
+                            fail!("Invalid close event {ev} at depth 0 in MapSource")
+                        }
+                        ev if ev.is_end() && depth == 1 => S::Key {
+                            outer,
+                            inner: inner + 1,
+                            depth: 0,
+                        },
+                        ev if ev.is_end() => S::Value {
+                            outer,
+                            inner,
+                            depth: depth - 1,
+                        },
+                        ev if ev.is_marker() => S::Value {
+                            outer,
+                            inner,
+                            depth,
+                        },
+                        ev if ev.is_value() && depth == 0 => S::Key {
+                            outer,
+                            inner: inner + 1,
+                            depth: 0,
+                        },
+                        ev if ev.is_value() => S::Value {
+                            outer,
+                            inner,
+                            depth,
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+            };
+        println!("{old_state:?} {res}");
+
+        Ok(Some(res))
+    }
+}
+
 // consume a complete value
 fn consume_value<'a, S: EventSource<'a>>(source: &mut S) -> Result<()> {
     let mut depth = 0;

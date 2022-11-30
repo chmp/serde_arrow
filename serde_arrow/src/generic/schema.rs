@@ -150,6 +150,7 @@ pub enum Tracer {
     Primitive(PrimitiveTracer),
     Tuple(TupleTracer),
     Union(UnionTracer),
+    Map(MapTracer),
 }
 
 impl Tracer {
@@ -201,6 +202,11 @@ impl EventSink for Tracer {
                     tracer.accept(event)?;
                     *self = Tracer::Tuple(tracer);
                 }
+                Event::StartMap => {
+                    let mut tracer = MapTracer::new(tracer.nullable);
+                    tracer.accept(event)?;
+                    *self = Tracer::Map(tracer);
+                }
                 Event::Variant(_, _) => {
                     let mut tracer = UnionTracer::new(tracer.nullable);
                     tracer.accept(event)?;
@@ -214,6 +220,7 @@ impl EventSink for Tracer {
             Self::Primitive(tracer) => tracer.accept(event)?,
             Self::Tuple(tracer) => tracer.accept(event)?,
             Self::Union(tracer) => tracer.accept(event)?,
+            Self::Map(tracer) => tracer.accept(event)?,
         }
         Ok(())
     }
@@ -226,6 +233,7 @@ impl EventSink for Tracer {
             Self::Primitive(tracer) => tracer.finish(),
             Self::Tuple(tracer) => tracer.finish(),
             Self::Union(tracer) => tracer.finish(),
+            Self::Map(tracer) => tracer.finish(),
         }
     }
 }
@@ -567,6 +575,117 @@ impl UnionTracer {
 pub enum UnionTracerState {
     Inactive,
     Active(usize, usize),
+}
+
+pub struct MapTracer {
+    pub key: Box<Tracer>,
+    pub value: Box<Tracer>,
+    pub nullable: bool,
+    next: MapTracerState,
+}
+
+impl MapTracer {
+    pub fn new(nullable: bool) -> Self {
+        Self {
+            nullable,
+            key: Box::new(Tracer::new()),
+            value: Box::new(Tracer::new()),
+            next: MapTracerState::Start,
+        }
+    }
+
+    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        type S = MapTracerState;
+        type E<'a> = Event<'a>;
+
+        self.next = match self.next {
+            S::Start => match event {
+                Event::StartMap => S::Key(0),
+                Event::Null | Event::Some => {
+                    self.nullable = true;
+                    S::Start
+                }
+                ev => fail!("Unexpected event {ev} in state Start of MapTracer"),
+            },
+            S::Key(depth) => match event {
+                ev if ev.is_end() => match depth {
+                    0 => {
+                        if !matches!(ev, E::EndMap) {
+                            fail!("Unexpected event {ev} in State Key at depth 0 in MapTracer")
+                        }
+                        S::Start
+                    }
+                    1 => {
+                        self.key.accept(ev)?;
+                        S::Value(0)
+                    }
+                    _ => {
+                        self.key.accept(ev)?;
+                        S::Key(depth - 1)
+                    }
+                },
+                ev if ev.is_start() => {
+                    self.key.accept(ev)?;
+                    S::Key(depth + 1)
+                }
+                ev if ev.is_marker() => {
+                    self.key.accept(ev)?;
+                    S::Key(depth)
+                }
+                ev if ev.is_value() => {
+                    self.key.accept(ev)?;
+                    if depth == 0 {
+                        S::Value(0)
+                    } else {
+                        S::Key(depth)
+                    }
+                }
+                _ => unreachable!(),
+            },
+            S::Value(depth) => match event {
+                ev if ev.is_end() => match depth {
+                    0 => fail!("Unexpected event {ev} in State Value at depth 0 in MapTracer"),
+                    1 => {
+                        self.value.accept(ev)?;
+                        S::Key(0)
+                    }
+                    _ => {
+                        self.value.accept(ev)?;
+                        S::Value(depth - 1)
+                    }
+                },
+                ev if ev.is_start() => {
+                    self.value.accept(ev)?;
+                    S::Value(depth + 1)
+                }
+                ev if ev.is_marker() => {
+                    self.value.accept(ev)?;
+                    S::Value(depth)
+                }
+                ev if ev.is_value() => {
+                    self.value.accept(ev)?;
+                    if depth == 0 {
+                        S::Key(0)
+                    } else {
+                        S::Value(depth)
+                    }
+                }
+                _ => unreachable!(),
+            },
+        };
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MapTracerState {
+    Start,
+    Key(usize),
+    Value(usize),
 }
 
 pub struct PrimitiveTracer {

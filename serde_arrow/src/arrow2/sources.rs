@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 
 use arrow2::{
-    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray, UnionArray, Utf8Array},
+    array::{
+        Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
+        Utf8Array,
+    },
     datatypes::{DataType, Field},
-    types::{NativeType, Offset},
+    types::{Index, NativeType, Offset},
 };
 
 use crate::{
@@ -14,7 +17,7 @@ use crate::{
     },
     generic::{
         chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
-        sources::{ListSource, RecordSource, StructSource, UnionSource},
+        sources::{ListSource, MapSource, RecordSource, StructSource, UnionSource},
     },
     generic::{
         schema::{Strategy, STRATEGY_KEY},
@@ -113,6 +116,20 @@ pub fn build_dynamic_source<'a>(
                 fail!("Explicit field indices are currently not supported for unions");
             }
             build_dynamic_union_source(fields, array)?
+        }
+        DataType::Map(field, _) => {
+            let kv_fields = match field.data_type() {
+                DataType::Struct(kv_fields) => kv_fields,
+                dt => fail!("Invalid field data type for MapArray, expected Struct, found {dt:?}"),
+            };
+            if kv_fields.len() != 2 {
+                fail!(
+                    "Invalid number of fields in MapArray, expected 2, found {}",
+                    kv_fields.len()
+                );
+            }
+
+            build_dynamic_map_source(&kv_fields[0], &kv_fields[1], array)?
         }
         dt => fail!("Sources of type {dt:?} not yet supported"),
     };
@@ -214,6 +231,43 @@ pub fn build_dynamic_union_source<'a>(
     // TODO: test that the offsets are dense
 
     let source = UnionSource::new(names, sources, types);
+    Ok(DynamicSource::new(source))
+}
+
+pub fn build_dynamic_map_source<'a>(
+    key_field: &'a Field,
+    val_field: &'a Field,
+    array: &'a dyn Array,
+) -> Result<DynamicSource<'a>> {
+    let array = array
+        .as_any()
+        .downcast_ref::<MapArray>()
+        .ok_or_else(|| error!("invalid array type {:?} for MapArray", array.data_type()))?;
+
+    let field = array.field();
+    let field = field
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .ok_or_else(|| error!("invalid array type {:?} for StructArray", field.data_type()))?;
+
+    let values = field.values();
+    if values.len() != 2 {
+        fail!(
+            "Invalid number of child arrays for MapArray, expected 2, found {}",
+            values.len()
+        );
+    }
+
+    let key_source = build_dynamic_source(key_field, values[0].as_ref())?;
+    let val_source = build_dynamic_source(val_field, values[1].as_ref())?;
+    let offsets: Vec<usize> = array.offsets().iter().map(Index::to_usize).collect();
+    let validity: Vec<bool> = if let Some(validity) = array.validity() {
+        validity.iter().collect()
+    } else {
+        vec![true; array.len()]
+    };
+
+    let source = MapSource::new(key_source, val_source, offsets, validity);
     Ok(DynamicSource::new(source))
 }
 

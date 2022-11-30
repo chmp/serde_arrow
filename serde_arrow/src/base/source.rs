@@ -310,13 +310,13 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.source.next()?, Some(Event::StartStruct)) {
+        if !matches!(self.source.next()?, Some(Event::StartMap)) {
             fail!("Expected start of map");
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.source.next()?, Some(Event::EndStruct)) {
+        if !matches!(self.source.next()?, Some(Event::EndMap)) {
             fail!("Expected end of map");
         }
         Ok(res)
@@ -328,7 +328,16 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
         _fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.deserialize_map(visitor)
+        if !matches!(self.source.next()?, Some(Event::StartStruct)) {
+            fail!("Expected start of struct");
+        }
+
+        let res = visitor.visit_map(&mut *self)?;
+
+        if !matches!(self.source.next()?, Some(Event::EndStruct)) {
+            fail!("Expected end of struct");
+        }
+        Ok(res)
     }
 
     fn deserialize_enum<V: Visitor<'de>>(
@@ -370,7 +379,10 @@ impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deseria
     where
         K: DeserializeSeed<'de>,
     {
-        if matches!(self.source.peek()?, Some(Event::EndStruct)) {
+        if matches!(
+            self.source.peek()?,
+            Some(Event::EndStruct) | Some(Event::EndMap)
+        ) {
             return Ok(None);
         }
         seed.deserialize(&mut **self).map(Some)

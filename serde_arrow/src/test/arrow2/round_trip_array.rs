@@ -1,7 +1,10 @@
 //! Test round trips on the individual array level without the out records
 //!
 
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+};
 
 use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
@@ -22,6 +25,19 @@ fn strategy_meta(strategy: Strategy) -> BTreeMap<String, String> {
     let mut meta = BTreeMap::new();
     meta.insert(STRATEGY_KEY.to_string(), strategy.to_string());
     meta
+}
+
+macro_rules! hashmap {
+    () => {
+        HashMap::new()
+    };
+    ($($key:expr => $value:expr),*) => {
+        {
+            let mut res = HashMap::new();
+            $(res.insert($key.into(), $value.into());)*
+            res
+        }
+    };
 }
 
 macro_rules! test_round_trip {
@@ -451,3 +467,23 @@ test_round_trip!(
     },
 );
 
+test_round_trip!(
+    test_name = maps,
+    field = Field::new(
+        "value",
+        DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                DataType::Struct(vec![
+                    Field::new("key", DataType::Int64, false),
+                    Field::new("value", DataType::Boolean, false),
+                ]),
+                false
+            )),
+            false,
+        ),
+        false
+    ),
+    ty = HashMap<i64, bool>,
+    values = [hashmap!{0 => true, 1 => false, 2 => true}, hashmap!(3 => false, 4 => true), hashmap!()],
+);
