@@ -143,7 +143,7 @@ Supported arrow data types:
 - [x] `Boolean`
 - [x] `Int8`, `Int16`, `Int32`, `Int64`
 - [x] `UInt8`, `UInt16`, `UInt32`, `UInt64`
-- [ ] `Float16`, 
+- [x] `Float16`:  can be serialized / deserialized from Rust `f32`
 - [x] `Float32`, `Float64`
 - [ ] `Timestamp`
 - [ ] `Date32`

@@ -4,7 +4,7 @@ use arrow2::{
     bitmap::Bitmap,
     buffer::Buffer,
     datatypes::{DataType, Field, UnionMode},
-    types::Offset,
+    types::{f16, Offset},
 };
 
 use crate::{
@@ -59,6 +59,7 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
         DataType::UInt16 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<u16>::new())),
         DataType::UInt32 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<u32>::new())),
         DataType::UInt64 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<u64>::new())),
+        DataType::Float16 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f16>::new())),
         DataType::Float32 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f32>::new())),
         DataType::Float64 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f64>::new())),
         DataType::Utf8 => Ok(DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new())),

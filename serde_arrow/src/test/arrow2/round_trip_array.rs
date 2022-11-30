@@ -53,6 +53,7 @@ macro_rules! test_round_trip {
     (
         test_name = $test_name:ident,
         field = $field:expr,
+        $(overwrite_field = $overwrite_field:expr,)?
         ty = $ty:ty,
         values = $values:expr,
         $(define = { $($items:item)* } ,)?
@@ -71,6 +72,9 @@ macro_rules! test_round_trip {
             }
             let res_field = tracer.to_field("value").unwrap();
             assert_eq!(res_field, field);
+
+            // overwrite the field to customize the serialization
+            $(let field = $overwrite_field;)?
 
             let mut sink = build_dynamic_array_builder(&field).unwrap();
             for item in items {
@@ -150,6 +154,14 @@ test_round_trip!(
     field = Field::new("value", DataType::Boolean, true),
     ty = Option<bool>,
     values = [Some(true), Some(false)],
+);
+
+test_round_trip!(
+    test_name = primitive_f16,
+    field = Field::new("value", DataType::Float32, false),
+    overwrite_field = Field::new("value", DataType::Float16, false),
+    ty = f32,
+    values = [0.0, 1.0, 2.0],
 );
 
 test_round_trip!(

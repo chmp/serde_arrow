@@ -6,7 +6,7 @@ use arrow2::{
         Utf8Array,
     },
     datatypes::{DataType, Field},
-    types::{Index, NativeType, Offset},
+    types::{f16, Index, NativeType, Offset},
 };
 
 use crate::{
@@ -59,6 +59,7 @@ pub fn build_dynamic_source<'a>(
         DataType::UInt16 => build_dynamic_primitive_source::<u16>(field, array)?,
         DataType::UInt32 => build_dynamic_primitive_source::<u32>(field, array)?,
         DataType::UInt64 => build_dynamic_primitive_source::<u64>(field, array)?,
+        DataType::Float16 => build_dynamic_primitive_source::<f16>(field, array)?,
         DataType::Float32 => build_dynamic_primitive_source::<f32>(field, array)?,
         DataType::Float64 => build_dynamic_primitive_source::<f64>(field, array)?,
         DataType::Boolean => DynamicSource::new(BooleanEventSource::new(

@@ -3,6 +3,7 @@
 pub(crate) mod schema;
 pub(crate) mod sinks;
 pub(crate) mod sources;
+mod type_support;
 
 use arrow2::{
     array::Array,
