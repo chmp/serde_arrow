@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+};
 
 use crate::{
     base::{
@@ -13,6 +16,19 @@ pub trait ArrayBuilder<A>: EventSink {
     fn into_array(self) -> Result<A>
     where
         Self: Sized;
+}
+
+impl<A, T: ArrayBuilder<A>> ArrayBuilder<A> for Box<T> {
+    fn box_into_array(self: Box<Self>) -> Result<A> {
+        (*self).into_array()
+    }
+
+    fn into_array(self) -> Result<A>
+    where
+        Self: Sized,
+    {
+        self.box_into_array()
+    }
 }
 
 pub struct DynamicArrayBuilder<A> {
@@ -49,15 +65,31 @@ impl<A> From<Box<dyn ArrayBuilder<A>>> for DynamicArrayBuilder<A> {
     }
 }
 
-pub struct RecordsBuilder<A> {
-    builders: Vec<DynamicArrayBuilder<A>>,
+pub struct ArraysBuilder<B, A>
+where
+    B: ArrayBuilder<A>,
+{
+    builders: Vec<B>,
     field_index: HashMap<String, usize>,
-    next: State,
+    next: RecordsBuilderState,
     seen: HashSet<usize>,
+    _phantom: PhantomData<A>,
 }
 
-impl<A> RecordsBuilder<A> {
-    pub fn new(columns: Vec<String>, builders: Vec<DynamicArrayBuilder<A>>) -> Result<Self> {
+#[derive(Debug, Clone, Copy)]
+enum RecordsBuilderState {
+    StartSequence,
+    StartMap,
+    Key,
+    Value(usize, usize),
+    Done,
+}
+
+impl<B, A> ArraysBuilder<B, A>
+where
+    B: ArrayBuilder<A>,
+{
+    pub fn new(columns: Vec<String>, builders: Vec<B>) -> Result<Self> {
         if columns.len() != builders.len() {
             fail!("Number of columns must be equal to the number of builders");
         }
@@ -73,15 +105,19 @@ impl<A> RecordsBuilder<A> {
         Ok(Self {
             builders,
             field_index,
-            next: State::StartSequence,
+            next: RecordsBuilderState::StartSequence,
             seen: HashSet::new(),
+            _phantom: PhantomData::default(),
         })
     }
 }
 
-impl<A> RecordsBuilder<A> {
+impl<B, A> ArraysBuilder<B, A>
+where
+    B: ArrayBuilder<A>,
+{
     pub fn into_records(self) -> Result<Vec<A>> {
-        if !matches!(self.next, State::Done) {
+        if !matches!(self.next, RecordsBuilderState::Done) {
             fail!("Invalid state");
         }
         let arrays: Result<Vec<A>> = self
@@ -94,64 +130,69 @@ impl<A> RecordsBuilder<A> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum State {
-    StartSequence,
-    StartMap,
-    Key,
-    Value(usize, usize),
-    Done,
-}
-
-impl<A> EventSink for RecordsBuilder<A> {
+impl<B, A> EventSink for ArraysBuilder<B, A>
+where
+    B: ArrayBuilder<A>,
+{
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use State::*;
+        use RecordsBuilderState::*;
         type E<'a> = Event<'a>;
 
-        self.next = match (self.next, event.to_self()) {
-            (StartSequence, E::StartSequence | E::StartTuple) => StartMap,
-            (StartMap, E::EndSequence | E::EndTuple) => Done,
-            (StartMap, E::StartStruct) => {
-                self.seen.clear();
-                Key
-            }
-            (Key, E::Str(k)) => {
-                let &idx = self
-                    .field_index
-                    .get(k)
-                    .ok_or_else(|| error!("Unknown field {k}"))?;
-                if self.seen.contains(&idx) {
-                    fail!("Duplicate field {k}");
+        self.next = match self.next {
+            StartSequence => match event {
+                E::StartSequence | E::StartTuple => StartMap,
+                ev => fail!("Unexpected event {ev} in state StartSequence of ArraysBuilders"),
+            },
+            StartMap => match event {
+                E::EndSequence | E::EndTuple => Done,
+                E::StartStruct => {
+                    self.seen.clear();
+                    Key
                 }
-                self.seen.insert(idx);
+                ev => fail!("Unexpected event {ev} in state StartMap of ArraysBuilder"),
+            },
+            Key => match event {
+                E::Str(k) => {
+                    let &idx = self
+                        .field_index
+                        .get(k)
+                        .ok_or_else(|| error!("Unknown field {k}"))?;
+                    if self.seen.contains(&idx) {
+                        fail!("Duplicate field {k}");
+                    }
+                    self.seen.insert(idx);
 
-                Value(idx, 0)
-            }
-            (Key, E::EndStruct) => StartMap,
-            // Ignore some events
-            // TODO: push the ignore into the sub builders
-            (Value(idx, depth), Event::Some) => Value(idx, depth),
-            (Value(idx, depth), ev) => {
-                let next = match ev {
-                    E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple => {
-                        Value(idx, depth + 1)
-                    }
-                    E::EndSequence | E::EndStruct | E::EndMap | E::EndTuple if depth > 1 => {
-                        Value(idx, depth - 1)
-                    }
-                    E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap if depth == 0 => {
-                        fail!("Invalid state")
-                    }
-                    // the closing event for the nested type
-                    E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap => Key,
-                    _ if depth == 0 => Key,
-                    _ => Value(idx, depth),
-                };
+                    Value(idx, 0)
+                }
+                E::EndStruct => StartMap,
+                ev => fail!("Unexpected event {ev} in state Key of ArraysBuilder"),
+            },
+            Value(idx, depth) => {
+                if event.is_marker() {
+                    Value(idx, depth)
+                } else {
+                    // TODO: fix the state machine here
+                    let next = match &event {
+                        E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple => {
+                            Value(idx, depth + 1)
+                        }
+                        E::EndSequence | E::EndStruct | E::EndMap | E::EndTuple if depth > 1 => {
+                            Value(idx, depth - 1)
+                        }
+                        E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap if depth == 0 => {
+                            fail!("Invalid state")
+                        }
+                        // the closing event for the nested type
+                        E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap => Key,
+                        _ if depth == 0 => Key,
+                        _ => Value(idx, depth),
+                    };
 
-                self.builders[idx].accept(ev)?;
-                next
+                    self.builders[idx].accept(event)?;
+                    next
+                }
             }
-            (state, ev) => fail!("Invalid event {ev} in state {state:?}"),
+            Done => fail!("Unexpected event {event} in state Done of ArraysBuilder"),
         };
         Ok(())
     }

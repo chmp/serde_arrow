@@ -8,10 +8,13 @@ readme = "../Readme.md"
 repository = "https://github.com/chmp/serde_arrow"
 license = "MIT"
 
-# [[bench]]
-# name = "arrow"
-# required-features = ["arrow"]
-# harness = false
+[lib]
+bench = false
+
+[[bench]]
+name = "arrow2"
+required-features = ["arrow2"]
+harness = false
 
 [package.metadata.docs.rs]
 features = ["arrow2"]
@@ -28,5 +31,8 @@ chrono = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-criterion = "0.3"
 rand = "0.8"
+
+# for benchmarks
+bincode = "1"
+criterion = "0.4"

@@ -13,10 +13,9 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 @cmd()
 def precommit():
-    cargo("fmt", cwd=self_path / "serde_arrow")
-    cargo("fmt", cwd=self_path / "example")
-    cargo("clippy", "--features", "arrow2", cwd=self_path / "serde_arrow")
-    cargo("test", "--features", "arrow2", cwd=self_path / "serde_arrow")
+    cargo("fmt")
+    cargo("clippy", "--features", "arrow2")
+    cargo("test", "--features", "arrow2")
 
 
 @cmd()
@@ -25,7 +24,12 @@ def test():
         ("--features", "arrow2"),
         (),
     ]:
-        cargo("test", *feature_flags, "--lib", cwd=self_path / "serde_arrow")
+        cargo("test", *feature_flags, "--lib")
+
+
+@cmd()
+def bench():
+    cargo("bench", "--features", "arrow2")
 
 
 @cmd()

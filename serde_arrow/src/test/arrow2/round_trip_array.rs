@@ -10,7 +10,7 @@ use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    arrow2::{sinks::build_dynamic_array_builder, sources::build_dynamic_source},
+    arrow2::{sinks::build_array_builder, sources::build_dynamic_source},
     base::{deserialize_from_source, serialize_into_sink, Event},
     generic::{
         schema::{FieldBuilder, Tracer},
@@ -76,7 +76,7 @@ macro_rules! test_round_trip {
             // overwrite the field to customize the serialization
             $(let field = $overwrite_field;)?
 
-            let mut sink = build_dynamic_array_builder(&field).unwrap();
+            let mut sink = build_array_builder(&field).unwrap();
             for item in items {
                 serialize_into_sink(&mut sink, &item).unwrap();
             }

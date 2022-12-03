@@ -13,7 +13,7 @@ use crate::{
         chrono::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
-            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder, RecordsBuilder,
+            ArrayBuilder, ArraysBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder,
             StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
             TupleStructBuilder, UnionArrayBuilder,
         },
@@ -33,19 +33,21 @@ use crate::{
 
 use super::schema::check_strategy;
 
-pub fn build_records_builder(fields: &[Field]) -> Result<RecordsBuilder<Box<dyn Array>>> {
+pub fn build_arrays_builder(
+    fields: &[Field],
+) -> Result<ArraysBuilder<DynamicArrayBuilder<Box<dyn Array>>, Box<dyn Array>>> {
     let mut columns = Vec::new();
     let mut builders = Vec::new();
 
     for field in fields {
-        builders.push(build_dynamic_array_builder(field)?);
+        builders.push(build_array_builder(field)?);
         columns.push(field.name.to_owned());
     }
 
-    RecordsBuilder::new(columns, builders)
+    ArraysBuilder::new(columns, builders)
 }
 
-pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
+pub fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
     check_strategy(field)?;
 
     match field.data_type() {
@@ -88,7 +90,7 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
 
             for field in fields {
                 columns.push(field.name.to_owned());
-                builders.push(build_dynamic_array_builder(field)?);
+                builders.push(build_array_builder(field)?);
                 nullable.push(field.is_nullable);
             }
 
@@ -106,13 +108,13 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
         }
         // TODO: test List sink
         DataType::List(field) => {
-            let values = build_dynamic_array_builder(field.as_ref())?;
+            let values = build_array_builder(field.as_ref())?;
             let builder =
                 ListArrayBuilder::<_, i32>::new(values, field.name.to_owned(), field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
         DataType::LargeList(field) => {
-            let values = build_dynamic_array_builder(field.as_ref())?;
+            let values = build_array_builder(field.as_ref())?;
             let builder =
                 ListArrayBuilder::<_, i64>::new(values, field.name.to_owned(), field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))
@@ -129,7 +131,7 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
             let mut field_nullable = Vec::new();
 
             for field in fields {
-                field_builders.push(build_dynamic_array_builder(field)?);
+                field_builders.push(build_array_builder(field)?);
                 field_nullable.push(field.is_nullable);
             }
 
@@ -148,8 +150,8 @@ pub fn build_dynamic_array_builder(field: &Field) -> Result<DynamicArrayBuilder<
                 );
             }
 
-            let key_builder = build_dynamic_array_builder(&kv_fields[0])?;
-            let val_builder = build_dynamic_array_builder(&kv_fields[1])?;
+            let key_builder = build_array_builder(&kv_fields[0])?;
+            let val_builder = build_array_builder(&kv_fields[1])?;
 
             let builder = MapArrayBuilder::new(key_builder, val_builder, field.is_nullable);
             Ok(DynamicArrayBuilder::new(builder))

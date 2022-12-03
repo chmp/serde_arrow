@@ -11,7 +11,7 @@ use arrow2::{
 };
 use serde::{Deserialize, Serialize};
 
-use self::{sinks::build_records_builder, sources::build_record_source};
+use self::{sinks::build_arrays_builder, sources::build_record_source};
 use crate::{
     base::{deserialize_from_source, error::fail, serialize_into_sink},
     generic::schema::{FieldBuilder, SchemaTracer},
@@ -71,7 +71,7 @@ pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<d
 where
     T: Serialize + ?Sized,
 {
-    let mut builder = build_records_builder(fields)?;
+    let mut builder = build_arrays_builder(fields)?;
     serialize_into_sink(&mut builder, items)?;
     builder.into_records()
 }

@@ -9,7 +9,7 @@ use arrow2::{
 use serde::Serialize;
 
 use crate::{
-    arrow2::{serialize_into_arrays, sinks::build_dynamic_array_builder},
+    arrow2::{serialize_into_arrays, sinks::build_array_builder},
     base::{Event, EventSink},
     generic::sinks::ArrayBuilder,
     Result,
@@ -25,7 +25,7 @@ macro_rules! test_option_support {
             use arrow2::datatypes::{DataType, Field};
 
             use crate::{
-                arrow2::sinks::build_dynamic_array_builder,
+                arrow2::sinks::build_array_builder,
                 base::{Event, EventSink},
                 generic::sinks::ArrayBuilder,
             };
@@ -35,7 +35,7 @@ macro_rules! test_option_support {
                 // for Null arrays Null's are considered values
                 let is_non_null_data_type = !matches!($data_type, DataType::Null);
                 let mut sink =
-                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                    build_array_builder(&Field::new("value", $data_type, false)).unwrap();
                 sink.accept(Event::Null).unwrap();
                 sink.accept(Event::Some).unwrap();
                 sink.accept($value).unwrap();
@@ -52,7 +52,7 @@ macro_rules! test_option_support {
                 // for Null arrays Null's are considered values
                 let is_non_null_data_type = !matches!($data_type, DataType::Null);
                 let mut sink =
-                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                    build_array_builder(&Field::new("value", $data_type, false)).unwrap();
                 sink.accept(Event::Some).unwrap();
                 sink.accept($value).unwrap();
                 sink.accept(Event::Null).unwrap();
@@ -69,7 +69,7 @@ macro_rules! test_option_support {
                 // for Null arrays Null's are considered values
                 let is_non_null_data_type = !matches!($data_type, DataType::Null);
                 let mut sink =
-                    build_dynamic_array_builder(&Field::new("value", $data_type, false)).unwrap();
+                    build_array_builder(&Field::new("value", $data_type, false)).unwrap();
                 sink.accept($value).unwrap();
                 sink.accept(Event::Null).unwrap();
 
@@ -127,7 +127,7 @@ test_option_support!(
 
 #[test]
 fn primitive_sink_i8() -> Result<()> {
-    let mut sink = build_dynamic_array_builder(&Field::new("value", DataType::Int8, false))?;
+    let mut sink = build_array_builder(&Field::new("value", DataType::Int8, false))?;
     sink.accept(Event::I8(13))?;
     sink.accept(Event::Null)?;
     sink.accept(Event::I8(42))?;
@@ -144,8 +144,7 @@ fn primitive_sink_i8() -> Result<()> {
 
 #[test]
 fn primitive_sink_i8_some() {
-    let mut sink =
-        build_dynamic_array_builder(&Field::new("value", DataType::Int8, false)).unwrap();
+    let mut sink = build_array_builder(&Field::new("value", DataType::Int8, false)).unwrap();
     sink.accept(Event::Some).unwrap();
     sink.accept(Event::I8(13)).unwrap();
     sink.accept(Event::Null).unwrap();
@@ -162,7 +161,7 @@ fn primitive_sink_i8_some() {
 
 #[test]
 fn boolean_sink() -> Result<()> {
-    let mut sink = build_dynamic_array_builder(&Field::new("value", DataType::Boolean, false))?;
+    let mut sink = build_array_builder(&Field::new("value", DataType::Boolean, false))?;
     sink.accept(Event::Bool(true))?;
     sink.accept(Event::Null)?;
     sink.accept(Event::Bool(false))?;
@@ -184,7 +183,7 @@ fn struct_sink() -> Result<()> {
         Field::new("b", DataType::Boolean, true),
     ];
 
-    let mut sink = build_dynamic_array_builder(&Field::new("s", DataType::Struct(fields), false))?;
+    let mut sink = build_array_builder(&Field::new("s", DataType::Struct(fields), false))?;
 
     sink.accept(Event::StartStruct)?;
     sink.accept(Event::Str("a"))?;
@@ -215,8 +214,7 @@ fn nested_struct_sink() -> Result<()> {
     ];
 
     let mut sink =
-        build_dynamic_array_builder(&Field::new("value", DataType::Struct(outer_fields), false))
-            .unwrap();
+        build_array_builder(&Field::new("value", DataType::Struct(outer_fields), false)).unwrap();
 
     sink.accept(Event::StartStruct).unwrap();
     sink.accept(Event::Str("a")).unwrap();

@@ -37,6 +37,16 @@ impl EventSink for Vec<Event<'static>> {
     }
 }
 
+impl<T: EventSink> EventSink for Box<T> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        self.as_mut().accept(event)
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.as_mut().finish()
+    }
+}
+
 struct EventSerializer<'a, S>(&'a mut S);
 
 impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
