@@ -3,6 +3,7 @@ use std::time::Duration;
 use arrow2::{
     array::{Array, ListArray, MutableArray, MutablePrimitiveArray, PrimitiveArray},
     datatypes::{DataType, Field},
+    types::Index,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -50,6 +51,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("benches");
     group.sample_size(20);
+    group.sampling_mode(criterion::SamplingMode::Flat);
     group.measurement_time(Duration::from_secs(60));
 
     group.bench_function("serialize_into_sink", |b| {
@@ -118,6 +120,48 @@ fn criterion_benchmark(c: &mut Criterion) {
                 )),
             ];
             black_box(arrays);
+        })
+    });
+
+    group.bench_function("manually_deserialize", |b| {
+        b.iter(|| {
+            let mut res = Vec::new();
+
+            let a = arrays[0]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<u16>>()
+                .unwrap();
+            let b = arrays[1]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<u32>>()
+                .unwrap();
+            let c = arrays[2]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<u64>>()
+                .unwrap();
+            let d = arrays[3].as_any().downcast_ref::<ListArray<i64>>().unwrap();
+            let d_offsets = d.offsets();
+            let d_values = d
+                .values()
+                .as_any()
+                .downcast_ref::<PrimitiveArray<f64>>()
+                .unwrap();
+
+            for i in 0..a.len() {
+                let mut d = Vec::new();
+                for offset in d_offsets[i]..d_offsets[i + 1] {
+                    d.push(d_values.value(offset.to_usize()));
+                }
+
+                res.push(Item {
+                    a: a.value(i),
+                    b: b.value(i),
+                    c: c.value(i),
+                    d,
+                });
+            }
+
+            black_box(res);
         })
     });
 
