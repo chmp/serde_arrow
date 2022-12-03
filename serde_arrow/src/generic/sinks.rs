@@ -6,6 +6,7 @@ use std::{
 use crate::{
     base::{
         error::{error, fail},
+        sink::sink_forward_generic_to_specialized,
         Event, EventSink,
     },
     Error, Result,
@@ -134,65 +135,400 @@ impl<B, A> EventSink for ArraysBuilder<B, A>
 where
     B: ArrayBuilder<A>,
 {
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+    sink_forward_generic_to_specialized!();
+
+    fn accept_start_sequence(&mut self) -> Result<()> {
         use RecordsBuilderState::*;
-        type E<'a> = Event<'a>;
-
         self.next = match self.next {
-            StartSequence => match event {
-                E::StartSequence | E::StartTuple => StartMap,
-                ev => fail!("Unexpected event {ev} in state StartSequence of ArraysBuilders"),
-            },
-            StartMap => match event {
-                E::EndSequence | E::EndTuple => Done,
-                E::StartStruct => {
-                    self.seen.clear();
-                    Key
-                }
-                ev => fail!("Unexpected event {ev} in state StartMap of ArraysBuilder"),
-            },
-            Key => match event {
-                E::Str(k) => {
-                    let &idx = self
-                        .field_index
-                        .get(k)
-                        .ok_or_else(|| error!("Unknown field {k}"))?;
-                    if self.seen.contains(&idx) {
-                        fail!("Duplicate field {k}");
-                    }
-                    self.seen.insert(idx);
-
-                    Value(idx, 0)
-                }
-                E::EndStruct => StartMap,
-                ev => fail!("Unexpected event {ev} in state Key of ArraysBuilder"),
-            },
+            StartSequence => StartMap,
             Value(idx, depth) => {
-                if event.is_marker() {
-                    Value(idx, depth)
-                } else {
-                    // TODO: fix the state machine here
-                    let next = match &event {
-                        E::StartSequence | E::StartStruct | E::StartMap | E::StartTuple => {
-                            Value(idx, depth + 1)
-                        }
-                        E::EndSequence | E::EndStruct | E::EndMap | E::EndTuple if depth > 1 => {
-                            Value(idx, depth - 1)
-                        }
-                        E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap if depth == 0 => {
-                            fail!("Invalid state")
-                        }
-                        // the closing event for the nested type
-                        E::EndSequence | E::EndStruct | E::EndTuple | E::EndMap => Key,
-                        _ if depth == 0 => Key,
-                        _ => Value(idx, depth),
-                    };
-
-                    self.builders[idx].accept(event)?;
-                    next
-                }
+                self.builders[idx].accept_start_sequence()?;
+                Value(idx, depth + 1)
             }
-            Done => fail!("Unexpected event {event} in state Done of ArraysBuilder"),
+            state => fail!("Cannot handle StartSequence in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_start_tuple(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            StartSequence => StartMap,
+            Value(idx, depth) => {
+                self.builders[idx].accept_start_tuple()?;
+                Value(idx, depth + 1)
+            }
+            state => fail!("Cannot handle StartTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_start_struct(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            StartMap => {
+                self.seen.clear();
+                Key
+            }
+            Value(idx, depth) => {
+                self.builders[idx].accept_start_struct()?;
+                Value(idx, depth + 1)
+            }
+            state => fail!("Cannot handle EndTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_start_map(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            Value(idx, depth) => {
+                self.builders[idx].accept_start_map()?;
+                Value(idx, depth + 1)
+            }
+            state => fail!("Cannot handle EndTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_end_sequence(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            StartMap => Done,
+            Value(idx, 1) => {
+                self.builders[idx].accept_end_sequence()?;
+                Key
+            }
+            Value(idx, depth) if depth > 1 => {
+                self.builders[idx].accept_end_sequence()?;
+                Value(idx, depth - 1)
+            }
+            state => fail!("Cannot handle EndSequence in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_end_tuple(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            StartMap => Done,
+            Value(idx, 1) => {
+                self.builders[idx].accept_end_tuple()?;
+                Key
+            }
+            Value(idx, depth) if depth > 1 => {
+                self.builders[idx].accept_end_tuple()?;
+                Value(idx, depth - 1)
+            }
+            state => fail!("Cannot handle EndTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_end_struct(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            Key => StartMap,
+            Value(idx, 1) => {
+                self.builders[idx].accept_end_struct()?;
+                Key
+            }
+            Value(idx, depth) if depth > 1 => {
+                self.builders[idx].accept_end_struct()?;
+                Value(idx, depth - 1)
+            }
+            state => fail!("Cannot handle EndTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_end_map(&mut self) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            Value(idx, 1) => {
+                self.builders[idx].accept_end_map()?;
+                Key
+            }
+            Value(idx, depth) if depth > 1 => {
+                self.builders[idx].accept_end_map()?;
+                Value(idx, depth - 1)
+            }
+            state => fail!("Cannot handle EndTuple in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_str(&mut self, val: &str) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            Key => {
+                let &idx = self
+                    .field_index
+                    .get(val)
+                    .ok_or_else(|| error!("Unknown field {val}"))?;
+                if self.seen.contains(&idx) {
+                    fail!("Duplicate field {val}");
+                }
+                self.seen.insert(idx);
+
+                Value(idx, 0)
+            }
+            Value(idx, 0) => {
+                self.builders[idx].accept_str(val)?;
+                Key
+            }
+            Value(idx, depth) => {
+                self.builders[idx].accept_str(val)?;
+                Value(idx, depth)
+            }
+            state => fail!("Cannot handle Str in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_owned_str(&mut self, val: String) -> Result<()> {
+        use RecordsBuilderState::*;
+        self.next = match self.next {
+            Key => {
+                let &idx = self
+                    .field_index
+                    .get(&val)
+                    .ok_or_else(|| error!("Unknown field {val}"))?;
+                if self.seen.contains(&idx) {
+                    fail!("Duplicate field {val}");
+                }
+                self.seen.insert(idx);
+
+                Value(idx, 0)
+            }
+            Value(idx, 0) => {
+                self.builders[idx].accept_owned_str(val)?;
+                Key
+            }
+            Value(idx, depth) => {
+                self.builders[idx].accept_owned_str(val)?;
+                Value(idx, depth)
+            }
+            state => fail!("Cannot handle OwnedStr in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_some(&mut self) -> Result<()> {
+        if let RecordsBuilderState::Value(field, _) = self.next {
+            self.builders[field].accept_some()
+        } else {
+            fail!("Cannot handle Some in state {:?}", self.next)
+        }
+    }
+
+    fn accept_variant(&mut self, name: &str, idx: usize) -> Result<()> {
+        if let RecordsBuilderState::Value(field, _) = self.next {
+            self.builders[field].accept_variant(name, idx)
+        } else {
+            fail!("Cannot handle Variant in state {:?}", self.next)
+        }
+    }
+
+    fn accept_owned_variant(&mut self, name: String, idx: usize) -> Result<()> {
+        if let RecordsBuilderState::Value(field, _) = self.next {
+            self.builders[field].accept_owned_variant(name, idx)
+        } else {
+            fail!("Cannot handle OwnedVariant in state {:?}", self.next)
+        }
+    }
+
+    fn accept_default(&mut self) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_default()?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_default()?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle Default in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_null(&mut self) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_null()?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_null()?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle Null in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_bool(&mut self, val: bool) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_bool(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_bool(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle Bool in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_i8(&mut self, val: i8) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_i8(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_i8(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle I8 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_i16(&mut self, val: i16) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_i16(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_i16(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle I16 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_i32(&mut self, val: i32) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_i32(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_i32(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle I32 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_i64(&mut self, val: i64) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_i64(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_i64(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle I64 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_u8(&mut self, val: u8) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_u8(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_u8(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle U8 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_u16(&mut self, val: u16) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_u16(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_u16(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle U16 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_u32(&mut self, val: u32) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_u32(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_u32(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle U32 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_u64(&mut self, val: u64) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_u64(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_u64(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle U64 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_f32(&mut self, val: f32) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_f32(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_f32(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle F32 in state {state:?}"),
+        };
+        Ok(())
+    }
+
+    fn accept_f64(&mut self, val: f64) -> Result<()> {
+        self.next = match self.next {
+            RecordsBuilderState::Value(field, 0) => {
+                self.builders[field].accept_f64(val)?;
+                RecordsBuilderState::Key
+            }
+            RecordsBuilderState::Value(field, depth) => {
+                self.builders[field].accept_f64(val)?;
+                RecordsBuilderState::Value(field, depth)
+            }
+            state => fail!("Cannot handle F64 in state {state:?}"),
         };
         Ok(())
     }

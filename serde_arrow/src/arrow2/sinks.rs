@@ -33,9 +33,11 @@ use crate::{
 
 use super::schema::check_strategy;
 
+type Arrow2ArrayBuilder = DynamicArrayBuilder<Box<dyn Array>>;
+
 pub fn build_arrays_builder(
     fields: &[Field],
-) -> Result<ArraysBuilder<DynamicArrayBuilder<Box<dyn Array>>, Box<dyn Array>>> {
+) -> Result<ArraysBuilder<Arrow2ArrayBuilder, Box<dyn Array>>> {
     let mut columns = Vec::new();
     let mut builders = Vec::new();
 
@@ -47,7 +49,7 @@ pub fn build_arrays_builder(
     ArraysBuilder::new(columns, builders)
 }
 
-pub fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
+pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
     check_strategy(field)?;
 
     match field.data_type() {
@@ -281,13 +283,27 @@ impl NullArrayBuilder {
 }
 
 impl EventSink for NullArrayBuilder {
+    fn accept_some(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn accept_null(&mut self) -> Result<()> {
+        self.length += 1;
+        Ok(())
+    }
+
+    fn accept_default(&mut self) -> Result<()> {
+        self.length += 1;
+        Ok(())
+    }
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
-            Event::Some => (),
-            Event::Null | Event::Default => self.length += 1,
+            Event::Some => self.accept_some(),
+            Event::Null => self.accept_null(),
+            Event::Default => self.accept_default(),
             ev => fail!("NullArrayBuilder cannot accept event {ev}"),
         }
-        Ok(())
     }
 }
 
@@ -315,24 +331,105 @@ impl<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> PrimitiveArrayBu
     }
 }
 
-impl<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> EventSink
-    for PrimitiveArrayBuilder<T>
-{
+macro_rules! impl_primitive_array_builder {
+    ($ty:ty, $func:ident, $variant:ident) => {
+        impl EventSink for PrimitiveArrayBuilder<$ty> {
+            fn $func(&mut self, val: $ty) -> Result<()> {
+                self.array.push(Some(val));
+                Ok(())
+            }
+
+            fn accept_default(&mut self) -> Result<()> {
+                self.array.push(Some(Default::default()));
+                Ok(())
+            }
+
+            fn accept_null(&mut self) -> Result<()> {
+                self.array.push(None);
+                Ok(())
+            }
+
+            fn accept_some(&mut self) -> Result<()> {
+                Ok(())
+            }
+
+            fn accept(&mut self, event: Event<'_>) -> Result<()> {
+                match event {
+                    Event::Some => self.accept_some(),
+                    Event::Default => self.accept_default(),
+                    Event::Null => self.accept_null(),
+                    Event::$variant(val) => self.$func(val),
+                    ev => fail!(
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{}>",
+                        stringify!($ty)
+                    ),
+                }
+            }
+        }
+
+        impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<$ty> {
+            fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
+                (*self).into_array()
+            }
+
+            fn into_array(self) -> Result<Box<dyn Array>>
+            where
+                Self: Sized,
+            {
+                Ok(Box::new(PrimitiveArray::from(self.array)))
+            }
+        }
+    };
+}
+
+impl_primitive_array_builder!(i8, accept_i8, I8);
+impl_primitive_array_builder!(i16, accept_i16, I16);
+impl_primitive_array_builder!(i32, accept_i32, I32);
+impl_primitive_array_builder!(i64, accept_i64, I64);
+
+impl_primitive_array_builder!(u8, accept_u8, U8);
+impl_primitive_array_builder!(u16, accept_u16, U16);
+impl_primitive_array_builder!(u32, accept_u32, U32);
+impl_primitive_array_builder!(u64, accept_u64, U64);
+
+impl_primitive_array_builder!(f32, accept_f32, F32);
+impl_primitive_array_builder!(f64, accept_f64, F64);
+
+impl EventSink for PrimitiveArrayBuilder<f16> {
+    fn accept_f32(&mut self, val: f32) -> Result<()> {
+        self.array.push(Some(f16::from_f32(val)));
+        Ok(())
+    }
+
+    fn accept_default(&mut self) -> Result<()> {
+        self.array.push(Some(Default::default()));
+        Ok(())
+    }
+
+    fn accept_null(&mut self) -> Result<()> {
+        self.array.push(None);
+        Ok(())
+    }
+
+    fn accept_some(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
-            Event::Some => (),
-            Event::Default => self.array.push(Some(T::default())),
-            Event::Null => self.array.push(None),
-            ev => self.array.push(Some(ev.try_into()?)),
+            Event::Some => self.accept_some(),
+            Event::Default => self.accept_default(),
+            Event::Null => self.accept_null(),
+            Event::F32(val) => self.accept_f32(val),
+            ev => fail!(
+                "Cannot handle event {ev} in PrimitiveArrayBuilder<{}>",
+                stringify!($ty)
+            ),
         }
-        Ok(())
     }
 }
 
-impl<T> ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<T>
-where
-    T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>,
-{
+impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<f16> {
     fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
         (*self).into_array()
     }
