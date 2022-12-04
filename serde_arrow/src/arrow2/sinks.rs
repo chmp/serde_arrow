@@ -421,10 +421,7 @@ impl EventSink for PrimitiveArrayBuilder<f16> {
             Event::Default => self.accept_default(),
             Event::Null => self.accept_null(),
             Event::F32(val) => self.accept_f32(val),
-            ev => fail!(
-                "Cannot handle event {ev} in PrimitiveArrayBuilder<{}>",
-                stringify!($ty)
-            ),
+            ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
         }
     }
 }
@@ -454,14 +451,33 @@ impl BooleanArrayBuilder {
 }
 
 impl EventSink for BooleanArrayBuilder {
+    fn accept_bool(&mut self, val: bool) -> Result<()> {
+        self.array.push(Some(val));
+        Ok(())
+    }
+
+    fn accept_default(&mut self) -> Result<()> {
+        self.array.push(Some(false));
+        Ok(())
+    }
+
+    fn accept_null(&mut self) -> Result<()> {
+        self.array.push(None);
+        Ok(())
+    }
+
+    fn accept_some(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
-            Event::Some => (),
-            Event::Default => self.array.push(Some(false)),
-            Event::Null => self.array.push(None),
-            ev => self.array.push(Some(ev.try_into()?)),
+            Event::Some => self.accept_some(),
+            Event::Default => self.accept_default(),
+            Event::Null => self.accept_null(),
+            Event::Bool(val) => self.accept_bool(val),
+            ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
-        Ok(())
     }
 }
 
@@ -487,14 +503,39 @@ impl<O: Offset> Utf8ArrayBuilder<O> {
 }
 
 impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
+    fn accept_str(&mut self, val: &str) -> Result<()> {
+        self.array.push(Some(val));
+        Ok(())
+    }
+
+    fn accept_owned_str(&mut self, val: String) -> Result<()> {
+        self.array.push(Some(val));
+        Ok(())
+    }
+
+    fn accept_default(&mut self) -> Result<()> {
+        self.array.push::<String>(Some(String::new()));
+        Ok(())
+    }
+
+    fn accept_null(&mut self) -> Result<()> {
+        self.array.push::<String>(None);
+        Ok(())
+    }
+
+    fn accept_some(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
-            Event::Some => (),
-            Event::Default => self.array.push::<String>(Some(String::new())),
-            Event::Null => self.array.push::<String>(None),
-            ev => self.array.push::<String>(Some(ev.try_into()?)),
+            Event::Some => self.accept_some(),
+            Event::Default => self.accept_default(),
+            Event::Null => self.accept_null(),
+            Event::Str(val) => self.accept_str(val),
+            Event::OwnedStr(val) => self.accept_owned_str(val),
+            ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
-        Ok(())
     }
 }
 

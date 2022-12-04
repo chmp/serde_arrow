@@ -1,41 +1,53 @@
 use std::time::Duration;
 
-use arrow2::{
-    array::{Array, ListArray, MutableArray, MutablePrimitiveArray, PrimitiveArray},
-    datatypes::{DataType, Field},
-    types::Index,
+use arrow2::array::{
+    Array, BooleanArray, MutableBooleanArray, MutablePrimitiveArray, PrimitiveArray,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use rand::{
-    distributions::{Standard, Uniform},
-    prelude::Distribution,
-    Rng,
-};
+use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
-use serde_arrow::{
-    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    base::{deserialize_from_source, serialize_into_sink, Event, EventSink},
-};
+use serde_arrow::arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields};
 
-// a sink that avoids allocations to "own" strings
-#[derive(Default)]
-struct BenchmarkSink(Vec<Event<'static>>);
+fn benchmark_primitives(c: &mut Criterion) {
+    let mut group = c.benchmark_group("primitives");
+    group.sample_size(20);
+    group.sampling_mode(criterion::SamplingMode::Flat);
+    group.measurement_time(Duration::from_secs(60));
 
-impl EventSink for BenchmarkSink {
-    fn accept(&mut self, event: Event<'_>) -> serde_arrow::Result<()> {
-        self.0.push(match event {
-            Event::Str(_) => Event::Str(""),
-            Event::OwnedStr(_) => Event::Str(""),
-            Event::Variant(_, idx) => Event::Variant("", idx),
-            Event::OwnedVariant(_, idx) => Event::Variant("", idx),
-            ev => ev.to_static(),
-        });
-        Ok(())
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Item {
+        a: u8,
+        b: u16,
+        c: u32,
+        d: u64,
+        e: i8,
+        f: i16,
+        g: i32,
+        h: i64,
+        i: f32,
+        j: f64,
+        k: bool,
     }
-}
 
-fn criterion_benchmark(c: &mut Criterion) {
+    impl Item {
+        fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+            Self {
+                a: Standard.sample(rng),
+                b: Standard.sample(rng),
+                c: Standard.sample(rng),
+                d: Standard.sample(rng),
+                e: Standard.sample(rng),
+                f: Standard.sample(rng),
+                g: Standard.sample(rng),
+                h: Standard.sample(rng),
+                i: Standard.sample(rng),
+                j: Standard.sample(rng),
+                k: Standard.sample(rng),
+            }
+        }
+    }
+
     let mut rng = rand::thread_rng();
 
     let items = (0..100_000)
@@ -43,44 +55,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         .collect::<Vec<_>>();
     let fields = serialize_into_fields(&items).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
-
-    let mut events_for_deserialization = Vec::new();
-    serialize_into_sink(&mut events_for_deserialization, &items).unwrap();
-
-    let bincode_for_deserialization = bincode::serialize(&items).unwrap();
-
-    let mut group = c.benchmark_group("benches");
-    group.sample_size(20);
-    group.sampling_mode(criterion::SamplingMode::Flat);
-    group.measurement_time(Duration::from_secs(60));
-
-    group.bench_function("serialize_into_sink", |b| {
-        b.iter(|| {
-            let mut events = BenchmarkSink::default();
-            serialize_into_sink(&mut events, &items).unwrap();
-            black_box(events)
-        });
-    });
-
-    group.bench_function("deserialize_from_source", |b| {
-        b.iter(|| {
-            black_box::<Vec<Item>>(deserialize_from_source(&events_for_deserialization).unwrap())
-        });
-    });
-
-    group.bench_function("serialize_into_bincode", |b| {
-        b.iter(|| {
-            let encoded = bincode::serialize(&items).unwrap();
-            black_box(encoded);
-        })
-    });
-
-    group.bench_function("deserialize_from_bincode", |b| {
-        b.iter(|| {
-            let decoded = bincode::serialize(&bincode_for_deserialization).unwrap();
-            black_box(decoded);
-        })
-    });
 
     group.bench_function("serialize_into_arrays", |b| {
         b.iter(|| black_box(serialize_into_arrays(&fields, &items).unwrap()));
@@ -92,32 +66,44 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.bench_function("manually_serialize", |b| {
         b.iter(|| {
-            let mut a = MutablePrimitiveArray::<u16>::new();
-            let mut b = MutablePrimitiveArray::<u32>::new();
-            let mut c = MutablePrimitiveArray::<u64>::new();
-            let mut d = MutablePrimitiveArray::<f64>::new();
-            let mut offsets: Vec<i64> = vec![0];
+            let mut a = MutablePrimitiveArray::<u8>::new();
+            let mut b = MutablePrimitiveArray::<u16>::new();
+            let mut c = MutablePrimitiveArray::<u32>::new();
+            let mut d = MutablePrimitiveArray::<u64>::new();
+            let mut e = MutablePrimitiveArray::<i8>::new();
+            let mut f = MutablePrimitiveArray::<i16>::new();
+            let mut g = MutablePrimitiveArray::<i32>::new();
+            let mut h = MutablePrimitiveArray::<i64>::new();
+            let mut i = MutablePrimitiveArray::<f32>::new();
+            let mut j = MutablePrimitiveArray::<f64>::new();
+            let mut k = MutableBooleanArray::new();
 
             for item in &items {
                 a.push(Some(item.a));
                 b.push(Some(item.b));
                 c.push(Some(item.c));
-                for &dd in &item.d {
-                    d.push(Some(dd));
-                }
-                offsets.push(d.len() as i64);
+                d.push(Some(item.d));
+                e.push(Some(item.e));
+                f.push(Some(item.f));
+                g.push(Some(item.g));
+                h.push(Some(item.h));
+                i.push(Some(item.i));
+                j.push(Some(item.j));
+                k.push(Some(item.k));
             }
 
             let arrays: Vec<Box<dyn Array>> = vec![
                 Box::new(PrimitiveArray::from(a)),
                 Box::new(PrimitiveArray::from(b)),
                 Box::new(PrimitiveArray::from(c)),
-                Box::new(ListArray::new(
-                    DataType::LargeList(Box::new(Field::new("item", DataType::Float64, false))),
-                    offsets.into(),
-                    Box::new(PrimitiveArray::from(d)),
-                    None,
-                )),
+                Box::new(PrimitiveArray::from(d)),
+                Box::new(PrimitiveArray::from(e)),
+                Box::new(PrimitiveArray::from(f)),
+                Box::new(PrimitiveArray::from(g)),
+                Box::new(PrimitiveArray::from(h)),
+                Box::new(PrimitiveArray::from(i)),
+                Box::new(PrimitiveArray::from(j)),
+                Box::new(BooleanArray::from(k)),
             ];
             black_box(arrays);
         })
@@ -129,35 +115,59 @@ fn criterion_benchmark(c: &mut Criterion) {
 
             let a = arrays[0]
                 .as_any()
-                .downcast_ref::<PrimitiveArray<u16>>()
+                .downcast_ref::<PrimitiveArray<u8>>()
                 .unwrap();
             let b = arrays[1]
                 .as_any()
-                .downcast_ref::<PrimitiveArray<u32>>()
+                .downcast_ref::<PrimitiveArray<u16>>()
                 .unwrap();
             let c = arrays[2]
                 .as_any()
+                .downcast_ref::<PrimitiveArray<u32>>()
+                .unwrap();
+            let d = arrays[3]
+                .as_any()
                 .downcast_ref::<PrimitiveArray<u64>>()
                 .unwrap();
-            let d = arrays[3].as_any().downcast_ref::<ListArray<i64>>().unwrap();
-            let d_offsets = d.offsets();
-            let d_values = d
-                .values()
+            let e = arrays[4]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<i8>>()
+                .unwrap();
+            let f = arrays[5]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<i16>>()
+                .unwrap();
+            let g = arrays[6]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<i32>>()
+                .unwrap();
+            let h = arrays[7]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<i64>>()
+                .unwrap();
+            let i = arrays[8]
+                .as_any()
+                .downcast_ref::<PrimitiveArray<f32>>()
+                .unwrap();
+            let j = arrays[9]
                 .as_any()
                 .downcast_ref::<PrimitiveArray<f64>>()
                 .unwrap();
+            let k = arrays[10].as_any().downcast_ref::<BooleanArray>().unwrap();
 
-            for i in 0..a.len() {
-                let mut d = Vec::new();
-                for offset in d_offsets[i]..d_offsets[i + 1] {
-                    d.push(d_values.value(offset.to_usize()));
-                }
-
+            for ii in 0..a.len() {
                 res.push(Item {
-                    a: a.value(i),
-                    b: b.value(i),
-                    c: c.value(i),
-                    d,
+                    a: a.value(ii),
+                    b: b.value(ii),
+                    c: c.value(ii),
+                    d: d.value(ii),
+                    e: e.value(ii),
+                    f: f.value(ii),
+                    g: g.value(ii),
+                    h: h.value(ii),
+                    i: i.value(ii),
+                    j: j.value(ii),
+                    k: k.value(ii),
                 });
             }
 
@@ -168,25 +178,5 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Item {
-    a: u16,
-    b: u32,
-    c: u64,
-    d: Vec<f64>,
-}
-
-impl Item {
-    fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        let len: usize = Uniform::new(1, 100).sample(rng);
-        Self {
-            a: Standard.sample(rng),
-            b: Standard.sample(rng),
-            c: Standard.sample(rng),
-            d: (0..len).map(|_| Standard.sample(rng)).collect(),
-        }
-    }
-}
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+criterion_group!(primitives, benchmark_primitives);
+criterion_main!(primitives);
