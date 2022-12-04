@@ -57,19 +57,19 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for RecordSource<'a, S> {
                     .next()?
                     .ok_or_else(|| error!("Unbalanced values"))?;
 
-                self.next = match (&ev, depth) {
-                    (E::StartStruct | E::StartSequence | E::StartTuple | E::StartMap, _) => {
-                        Value(i, depth + 1)
-                    }
-                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, 0) => {
-                        fail!("Invalid nested value")
-                    }
-                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, 1) => Key(i + 1),
-                    (E::EndStruct | E::EndSequence | E::EndTuple | E::EndMap, _) => {
-                        Value(i, depth - 1)
-                    }
-                    (_, 0) => Key(i + 1),
-                    _ => Value(i, depth),
+                self.next = match &ev {
+                    ev if ev.is_start() => Value(i, depth + 1),
+                    ev if ev.is_end() => match depth {
+                        0 => fail!("Invalid nested value"),
+                        1 => Key(i + 1),
+                        _ => Value(i, depth - 1),
+                    },
+                    ev if ev.is_marker() => Value(i, depth),
+                    ev if ev.is_value() => match depth {
+                        0 => Key(i + 1),
+                        _ => Value(i, depth),
+                    },
+                    _ => unreachable!(),
                 };
 
                 Ok(Some(ev))
@@ -144,35 +144,29 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                 let ev = self.values[i]
                     .next()?
                     .ok_or_else(|| error!("unbalanced array"))?;
-                self.next = match (&ev, depth) {
-                    (
-                        Event::StartStruct
-                        | Event::StartSequence
-                        | Event::StartMap
-                        | Event::StartTuple,
-                        _,
-                    ) => Value(i, depth + 1),
-                    (
-                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
-                        0,
-                    ) => fail!("Invalid nested value"),
-                    (
-                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
-                        1,
-                    ) => Key(i + 1),
-                    (
-                        Event::EndStruct | Event::EndSequence | Event::EndTuple | Event::EndMap,
-                        _,
-                    ) => Value(i, depth - 1),
-                    (_, 0) => Key(i + 1),
-                    _ => Value(i, depth),
+
+                self.next = match &ev {
+                    ev if ev.is_start() => Value(i, depth + 1),
+                    ev if ev.is_end() => match depth {
+                        0 => fail!("Invalid nested value"),
+                        1 => Key(i + 1),
+                        _ => Value(i, depth - 1),
+                    },
+                    ev if ev.is_marker() => Value(i, depth),
+                    ev if ev.is_value() => match depth {
+                        0 => Key(i + 1),
+                        _ => Value(i, depth),
+                    },
+                    _ => unreachable!(),
                 };
+
                 Ok(Some(ev))
             }
         }
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum StructSourceState {
     Start,
     Key(usize),

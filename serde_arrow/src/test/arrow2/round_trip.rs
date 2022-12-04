@@ -475,3 +475,56 @@ fn test_struct_with_options() {
 
     assert_eq!(items_from_arrays, items);
 }
+
+#[test]
+fn test_complex_benchmark_example() {
+    use rand::{
+        distributions::{Distribution, Standard, Uniform},
+        Rng,
+    };
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Item {
+        string: String,
+        points: Vec<(f32, f32)>,
+        float: Float,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    enum Float {
+        F32(f32),
+        F64(f64),
+    }
+
+    impl Item {
+        fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+            let n_string = Uniform::new(1, 20).sample(rng);
+            let n_points = Uniform::new(1, 20).sample(rng);
+            let is_f32: bool = Standard.sample(rng);
+
+            Self {
+                string: (0..n_string)
+                    .map(|_| -> char { Standard.sample(rng) })
+                    .collect(),
+                points: (0..n_points)
+                    .map(|_| (Standard.sample(rng), Standard.sample(rng)))
+                    .collect(),
+                float: if is_f32 {
+                    Float::F32(Standard.sample(rng))
+                } else {
+                    Float::F64(Standard.sample(rng))
+                },
+            }
+        }
+    }
+
+    let mut rng = rand::thread_rng();
+    let items: Vec<Item> = (0..10).map(|_| Item::random(&mut rng)).collect();
+
+    let fields = serialize_into_fields(&items).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+    let round_tripped: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    assert_eq!(items, round_tripped);
+}
