@@ -58,7 +58,44 @@ macro_rules! sink_forward_generic_to_specialized {
 
 pub(crate) use sink_forward_generic_to_specialized;
 
-/// An object that processes [Event] objects emitted during serialization of a type
+/// An object that processes [Event] objects emitted during serialization of a
+/// type
+///
+/// Note: both the generic `accept` and the specific `accept_*` methods may be
+/// called and must result in the same behavior. In the default implementation,
+/// this is accomplished by forwarding any of the specific methods to the
+/// generic method. When implementing the logic in terms of the specific
+/// methods, the generic `accept` method must be implemented to forward to the
+/// specific methods.
+///
+/// For example, to implement the behavior in the generic accept method use:
+///
+/// ```ignore
+/// fn accept(&mut self, event: Event<'_>) -> Result<()> {
+///     match event {
+///         Event::I8(val) => { /* some action */},
+///         ev => fail!("Unknown event {ev}"),
+///     }
+/// }
+/// ```
+///
+/// To implement the behavior in the specific methods use:
+///
+/// ```ignore
+/// fn accept(&mut self, event: Event<'_>) -> Result<()> {
+///     match event {
+///         Event::I8(val) => self.accept_i8(val),
+///         ev => fail!("Unknown event {ev}"),
+///     }
+/// }
+///
+/// fn accept_i8(&mut self, val: i8) -> Result<()> {
+///     /* some action */
+/// }
+/// ```
+///
+/// The specific methods can be much more performant in practice, but are more
+/// complicated to implement.
 ///
 pub trait EventSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()>;

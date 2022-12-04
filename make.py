@@ -34,7 +34,7 @@ def bench():
 
 @cmd()
 def doc():
-    cargo("doc", cwd=self_path / "serde_arrow")
+    cargo("doc", "--features", "arrow2", cwd=self_path / "serde_arrow")
 
 
 @cmd()

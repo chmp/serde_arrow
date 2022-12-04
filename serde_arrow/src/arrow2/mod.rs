@@ -47,6 +47,12 @@ use crate::{
 ///
 /// assert_eq!(fields, expected);
 /// ```
+/// To correctly the type information make sure to:
+///
+/// - include values for `Option<T>`
+/// - include all variants of an enum
+/// - include at least single element of a list a map
+///
 pub fn serialize_into_fields<T>(items: &T) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
@@ -67,6 +73,28 @@ where
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs).
 ///
+/// ```rust
+/// # use arrow2::datatypes::{Field, DataType};
+/// # use serde::Serialize;
+/// # use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+/// #
+/// ##[derive(Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let items = vec![
+///     Record { a: Some(1.0), b: 2},
+///     // ...
+/// ];
+///
+/// let fields = serialize_into_fields(&items).unwrap();
+/// let arrays = serialize_into_arrays(&fields, &items).unwrap();
+///
+/// assert_eq!(arrays.len(), 2);
+/// ```
+///
 pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
@@ -79,6 +107,31 @@ where
 /// Deserialize a type from the given arrays
 ///
 /// The type should be a list of records (e.g., a vector of structs).
+///
+/// ```rust
+/// # use arrow2::datatypes::{Field, DataType};
+/// # use serde::{Serialize, Deserialize};
+/// # use serde_arrow::arrow2::{
+/// #   serialize_into_fields,
+/// #   serialize_into_arrays,
+/// #   deserialize_from_arrays,
+/// # };
+/// #
+/// ##[derive(Deserialize, Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// // provide an example record to get the field information
+/// let fields = serialize_into_fields(&[Record { a: Some(1.0), b: 2}]).unwrap();
+/// # let items = &[Record { a: Some(1.0), b: 2}];
+/// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
+/// #
+///
+/// // deserialize the records from arrays
+/// let items: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
+/// ```
 ///
 pub fn deserialize_from_arrays<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
 where

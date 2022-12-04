@@ -135,6 +135,26 @@ Whereas the serializing the second type will generate an event sequence similar 
 - ...
 - `Event::EndSequence`
 
+Second, the events can be differently interpreted when creating the arrays. In
+the first case, a `UTF8` array would be created in the second case a `Int64`
+array. To create `Date64` set the type of the field to `Date64` and add
+additional metadata, in the case of strings:
+
+```rust
+let mut fields = serialize_into_fields(records).unwrap();
+
+let val_field = fields.iter_mut().find(|field| field.name == "date").unwrap();
+val_field.data_type = DataType::Date64;
+
+// only required if the datetime objects are serialized as strings
+val_field.metadata.insert(
+    STRATEGY_KEY.to_string(),
+    Strategy::NaiveDateTimeStr.to_string(),
+);
+```
+
+Currently only datetime objects are supported.
+
 ## Status
 
 Supported arrow data types:
