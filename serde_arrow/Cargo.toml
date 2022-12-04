@@ -11,6 +11,9 @@ license = "MIT"
 [lib]
 bench = false
 
+[features]
+default = ["arrow2"]
+
 [[bench]]
 name = "arrow2"
 required-features = ["arrow2"]

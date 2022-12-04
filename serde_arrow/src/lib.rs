@@ -34,6 +34,11 @@
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
+//! # Features:
+//!
+//! - `arrow2`: add support to (de)serialize to and from arrow2 arrays. This
+//!   feature is activated per default
+//!
 pub mod base;
 mod generic;
 
