@@ -59,3 +59,48 @@ fn implementation_docs() {
     let fields_from_items = serialize_into_fields(&items).unwrap();
     assert_eq!(fields_from_items, fields);
 }
+
+#[test]
+fn example_readme() -> Result<(), PanicOnError> {
+    #[derive(Serialize)]
+    struct Item {
+        a: f32,
+        b: i32,
+        point: Point,
+    }
+
+    #[derive(Serialize)]
+    struct Point(f32, f32);
+
+    let items = vec![
+        Item {
+            a: 1.0,
+            b: 1,
+            point: Point(0.0, 1.0),
+        },
+        Item {
+            a: 2.0,
+            b: 2,
+            point: Point(2.0, 3.0),
+        },
+        // ...
+    ];
+
+    // detect the field types and convert the items to arrays
+    use crate::arrow2::{serialize_into_arrays, serialize_into_fields};
+
+    let fields = serialize_into_fields(&items)?;
+    let arrays = serialize_into_arrays(&fields, &items)?;
+
+    std::mem::drop((fields, arrays));
+    Ok(())
+}
+
+#[derive(Debug)]
+struct PanicOnError;
+
+impl<E: std::error::Error> From<E> for PanicOnError {
+    fn from(e: E) -> Self {
+        panic!("Encountered error: {e}");
+    }
+}
