@@ -3,6 +3,7 @@ use std::iter;
 use arrow2::datatypes::{DataType, Field, UnionMode};
 
 use crate::{
+    arrow2::type_support::DataTypeDisplay,
     base::error::fail,
     generic::schema::{FieldBuilder, PrimitiveType, SchemaTracer, Strategy, Tracer, STRATEGY_KEY},
     Result,
@@ -20,18 +21,18 @@ pub fn check_strategy(field: &Field) -> Result<()> {
         Strategy::UtcDateTimeStr | Strategy::NaiveDateTimeStr => {
             if !matches!(field.data_type, DataType::Date64) {
                 fail!(
-                    "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt:?}",
+                    "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt}",
                     name = field.name,
-                    dt = field.data_type,
+                    dt = DataTypeDisplay(&field.data_type),
                 );
             }
         }
         Strategy::Tuple => {
             if !matches!(field.data_type, DataType::Struct(_)) {
                 fail!(
-                    "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt:?}",
+                    "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt}",
                     name = field.name,
-                    dt = field.data_type,
+                    dt = DataTypeDisplay(&field.data_type),
                 );
             }
         }

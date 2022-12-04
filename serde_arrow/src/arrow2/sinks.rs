@@ -31,7 +31,7 @@ use crate::{
     Error,
 };
 
-use super::schema::check_strategy;
+use super::{schema::check_strategy, type_support::DataTypeDisplay};
 
 type Arrow2ArrayBuilder = DynamicArrayBuilder<Box<dyn Array>>;
 
@@ -143,7 +143,10 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
         DataType::Map(field, _) => {
             let kv_fields = match field.data_type() {
                 DataType::Struct(fields) => fields,
-                dt => fail!("Expected inner field of Map to be Struct, found: {dt:?}"),
+                dt => fail!(
+                    "Expected inner field of Map to be Struct, found: {dt}",
+                    dt = DataTypeDisplay(dt),
+                ),
             };
             if kv_fields.len() != 2 {
                 fail!(
@@ -159,9 +162,9 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
             Ok(DynamicArrayBuilder::new(builder))
         }
         _ => fail!(
-            "Cannot build sink for {} with type {:?}",
-            field.name,
-            field.data_type
+            "Cannot build sink for {name} with type {dt}",
+            name = field.name,
+            dt = DataTypeDisplay(&field.data_type),
         ),
     }
 }

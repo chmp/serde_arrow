@@ -11,7 +11,9 @@ use arrow2::{
 };
 use serde::{Deserialize, Serialize};
 
-use self::{sinks::build_arrays_builder, sources::build_record_source};
+use self::{
+    sinks::build_arrays_builder, sources::build_record_source, type_support::DataTypeDisplay,
+};
 use crate::{
     base::{deserialize_from_source, error::fail, serialize_into_sink},
     generic::schema::{FieldBuilder, SchemaTracer},
@@ -64,7 +66,7 @@ where
     match root.data_type {
         DataType::Struct(fields) => Ok(fields),
         DataType::Null => fail!("No records found to determine schema"),
-        dt => fail!("Unexpected root data type {dt:?}"),
+        dt => fail!("Unexpected root data type {}", DataTypeDisplay(&dt)),
     }
 }
 

@@ -143,7 +143,8 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Some(Event::Variant(_, _) | Event::OwnedVariant(_, _)) => {
                 self.deserialize_enum("", &[], visitor)
             }
-            ev => fail!("Invalid event in deserialize_any: {:?}", ev),
+            Some(ev) => fail!("Invalid event in deserialize_any: Some({ev})"),
+            None => fail!("Invalid event in deserialize_any: None"),
         }
     }
 

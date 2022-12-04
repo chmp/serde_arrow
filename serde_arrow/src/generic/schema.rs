@@ -745,7 +745,7 @@ impl PrimitiveTracer {
             (E::Str(_) | E::OwnedStr(_), T::Str | T::Unknown) => {
                 self.item_type = T::Str;
             }
-            (ev, ty) => fail!("Cannot accept event {ev} for primitive type {ty:?}"),
+            (ev, ty) => fail!("Cannot accept event {ev} for primitive type {ty}"),
         }
         Ok(())
     }
@@ -770,4 +770,25 @@ pub enum PrimitiveType {
     U64,
     F32,
     F64,
+}
+
+impl std::fmt::Display for PrimitiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use PrimitiveType::*;
+        match self {
+            Unknown => write!(f, "Unknown"),
+            Bool => write!(f, "Bool"),
+            Str => write!(f, "Str"),
+            I8 => write!(f, "I8"),
+            I16 => write!(f, "I16"),
+            I32 => write!(f, "I32"),
+            I64 => write!(f, "I64"),
+            U8 => write!(f, "U8"),
+            U16 => write!(f, "U16"),
+            U32 => write!(f, "U32"),
+            U64 => write!(f, "U64"),
+            F32 => write!(f, "F32"),
+            F64 => write!(f, "F64"),
+        }
+    }
 }
