@@ -571,7 +571,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                     self.seen = vec![false; self.columns.len()];
                     self.state = Field;
                 }
-                // ignore marker evetns
+                // ignore marker events
                 ev if ev.is_marker() => {
                     self.state = Start;
                 }

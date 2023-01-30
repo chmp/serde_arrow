@@ -207,7 +207,12 @@ pub fn build_dynamic_list_source<'a, T: Offset>(
         })?;
 
     let values = build_dynamic_source(field, array.values().as_ref())?;
-    let offsets: Vec<usize> = array.offsets().iter().map(|o| o.to_usize()).collect();
+    let offsets: Vec<usize> = array
+        .offsets()
+        .buffer()
+        .iter()
+        .map(|o| o.to_usize())
+        .collect();
     let validity: Vec<bool> = if let Some(validity) = array.validity() {
         validity.iter().collect()
     } else {
@@ -281,7 +286,12 @@ pub fn build_dynamic_map_source<'a>(
 
     let key_source = build_dynamic_source(key_field, values[0].as_ref())?;
     let val_source = build_dynamic_source(val_field, values[1].as_ref())?;
-    let offsets: Vec<usize> = array.offsets().iter().map(Index::to_usize).collect();
+    let offsets: Vec<usize> = array
+        .offsets()
+        .buffer()
+        .iter()
+        .map(Index::to_usize)
+        .collect();
     let validity: Vec<bool> = if let Some(validity) = array.validity() {
         validity.iter().collect()
     } else {

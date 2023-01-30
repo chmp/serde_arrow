@@ -2,8 +2,8 @@ use arrow2::{
     array::Array,
     array::{ListArray, MapArray, MutableUtf8Array, NullArray, StructArray, UnionArray, Utf8Array},
     bitmap::Bitmap,
-    buffer::Buffer,
     datatypes::{DataType, Field, UnionMode},
+    offset::OffsetsBuffer,
     types::{f16, Offset},
 };
 
@@ -568,7 +568,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
                 values.data_type().clone(),
                 self.nullable,
             ))),
-            Buffer::from(self.offsets),
+            OffsetsBuffer::try_from(self.offsets)?,
             values,
             Some(Bitmap::from(self.validity)),
         )?;
@@ -592,7 +592,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
                 values.data_type().clone(),
                 self.nullable,
             ))),
-            Buffer::from(self.offsets),
+            OffsetsBuffer::try_from(self.offsets)?,
             values,
             Some(Bitmap::from(self.validity)),
         )?;
@@ -625,7 +625,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayB
 
         let array = MapArray::try_new(
             map_type,
-            self.offsets.into(),
+            OffsetsBuffer::try_from(self.offsets)?,
             entries,
             Some(self.validity.into()),
         )?;
