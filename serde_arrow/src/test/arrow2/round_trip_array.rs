@@ -51,16 +51,18 @@ macro_rules! btreemap {
 
 macro_rules! test_round_trip {
     (
+        $(#[$($tt:tt)*])?
         test_name = $test_name:ident,
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
         ty = $ty:ty,
         values = $values:expr,
-        $(define = { $($items:item)* } ,)?
+        $(define = { $($definitions:item)* } ,)?
     ) => {
+        $(#[$($tt)*])?
         #[test]
         fn $test_name() {
-            $($($items)*)?
+            $($($definitions)*)?
 
             let items: &[$ty] = &$values;
 
@@ -611,4 +613,47 @@ test_round_trip!(
         btreemap!{3 => false, 4 => true},
         btreemap!{},
     ],
+);
+
+test_round_trip!(
+    #[ignore = "flattened types are not yet supported"]
+    test_name = flattened_structures,
+    field = Field::new(
+        "value",
+        DataType::Struct(vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("b", DataType::Float32, false),
+            Field::new("c", DataType::Float64, false),
+        ]),
+        false,
+    ),
+    ty = Outer,
+    values = [
+        Outer {
+            a: 0,
+            inner: Inner { b: 1.0, c: 2.0 }
+        },
+        Outer {
+            a: 3,
+            inner: Inner { b: 4.0, c: 5.0 }
+        },
+        Outer {
+            a: 6,
+            inner: Inner { b: 7.0, c: 8.0 }
+        },
+    ],
+    define = {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            a: i64,
+            #[serde(flatten)]
+            inner: Inner,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Inner {
+            b: f32,
+            c: f64,
+        }
+    },
 );
