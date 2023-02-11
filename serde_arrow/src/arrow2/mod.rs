@@ -156,14 +156,17 @@ where
 /// let items: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
 /// ```
 ///
-pub fn deserialize_from_arrays<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+pub fn deserialize_from_arrays<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    deserialize_from_source(build_record_source(fields, arrays)?)
+    let source = build_record_source(fields, arrays)?;
+    deserialize_from_source(source)
 }
 
+/// Determine the schema of an object that represents a single array
+///
 pub fn serialize_into_field<T>(
     items: &T,
     name: &str,
@@ -177,6 +180,8 @@ where
     tracer.to_field(name)
 }
 
+/// Serialize an object that represents a single array into an array
+///
 pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<Box<dyn Array>>
 where
     T: Serialize + ?Sized,
@@ -186,6 +191,8 @@ where
     builder.into_array()
 }
 
+/// Deserialize an object that represents a single array from an array
+///
 pub fn deserialize_from_array<'de, T, A>(field: &Field, array: A) -> Result<T>
 where
     T: Deserialize<'de>,

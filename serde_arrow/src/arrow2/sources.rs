@@ -12,12 +12,12 @@ use arrow2::{
 use crate::{
     base::{
         error::{error, fail},
-        source::DynamicSource,
+        source::{AddOuterSequenceSource, DynamicSource},
         Event, EventSource,
     },
     generic::{
         chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
-        sources::{ListSource, MapSource, RecordSource, StructSource, UnionSource},
+        sources::{ListSource, MapSource, StructSource, UnionSource},
     },
     generic::{
         schema::{Strategy, STRATEGY_KEY},
@@ -28,19 +28,28 @@ use crate::{
 
 use super::{schema::check_strategy, type_support::DataTypeDisplay};
 
-pub fn build_record_source<'a, A: AsRef<dyn Array> + 'a>(
-    fields: &'a [Field],
-    arrays: &'a [A],
-) -> Result<RecordSource<'a, DynamicSource<'a>>> {
-    let mut columns = Vec::new();
-    let mut sources = Vec::new();
+pub(crate) fn build_record_source<'de, A>(
+    fields: &'de [Field],
+    arrays: &'de [A],
+) -> Result<AddOuterSequenceSource<StructSource<'de>>>
+where
+    A: AsRef<dyn Array>,
+{
+    let mut len = 0;
+    let mut names = Vec::new();
+    let mut values = Vec::new();
 
-    for i in 0..fields.len() {
-        columns.push(fields[i].name.as_str());
-        sources.push(build_dynamic_source(&fields[i], arrays[i].as_ref())?);
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        len = array.as_ref().len();
+        names.push(field.name.as_str());
+        values.push(build_dynamic_source(field, array.as_ref())?);
     }
 
-    Ok(RecordSource::new(columns, sources))
+    let validity = vec![true; len];
+
+    let source = StructSource::new(names, validity, values, false);
+    let source = AddOuterSequenceSource::new(source);
+    Ok(source)
 }
 
 pub fn build_dynamic_source<'a>(
