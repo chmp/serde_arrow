@@ -7,7 +7,7 @@ use crate::{
     base::error::{error, fail},
     generic::schema::{
         FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, SchemaTracer,
-        Strategy, StructTracer, StructTracerMode, Tracer, TupleTracer, UnionTracer, UnknownTracer,
+        Strategy, StructMode, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer,
         STRATEGY_KEY,
     },
     Result,
@@ -131,7 +131,7 @@ impl FieldBuilder<Field> for StructTracer {
             fields.push(tracer.to_field(name)?);
         }
         let mut field = Field::new(name, DataType::Struct(fields), self.nullable);
-        if let StructTracerMode::Map = self.mode {
+        if let StructMode::Map = self.mode {
             field
                 .metadata
                 .insert(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());

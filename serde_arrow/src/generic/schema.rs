@@ -116,7 +116,7 @@ impl EventSink for SchemaTracer {
                 E::EndSequence | E::EndTuple => S::Done,
                 ev @ E::StartStruct => {
                     if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(StructTracerMode::Struct, false));
+                        self.tracer = Some(StructTracer::new(StructMode::Struct, false));
                     }
 
                     self.tracer.as_mut().unwrap().accept(ev)?;
@@ -124,7 +124,7 @@ impl EventSink for SchemaTracer {
                 }
                 ev @ E::StartMap => {
                     if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(StructTracerMode::Map, false));
+                        self.tracer = Some(StructTracer::new(StructMode::Map, false));
                     }
 
                     self.tracer.as_mut().unwrap().accept(ev)?;
@@ -255,7 +255,7 @@ impl EventSink for Tracer {
                     *self = Tracer::List(tracer);
                 }
                 Event::StartStruct => {
-                    let mut tracer = StructTracer::new(StructTracerMode::Struct, tracer.nullable);
+                    let mut tracer = StructTracer::new(StructMode::Struct, tracer.nullable);
                     tracer.accept(event)?;
                     *self = Tracer::Struct(tracer);
                 }
@@ -320,13 +320,13 @@ impl UnknownTracer {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum StructTracerMode {
+pub enum StructMode {
     Struct,
     Map,
 }
 
 pub struct StructTracer {
-    pub mode: StructTracerMode,
+    pub mode: StructMode,
     pub field_tracers: Vec<Tracer>,
     pub nullable: bool,
     pub field_names: Vec<String>,
@@ -344,7 +344,7 @@ pub enum StructTracerState {
 }
 
 impl StructTracer {
-    pub fn new(mode: StructTracerMode, nullable: bool) -> Self {
+    pub fn new(mode: StructMode, nullable: bool) -> Self {
         Self {
             mode,
             field_tracers: Vec::new(),
@@ -371,8 +371,8 @@ impl EventSink for StructTracer {
         type E<'a> = Event<'a>;
 
         self.next = match (self.next, event) {
-            (Start, E::StartStruct) if self.mode == StructTracerMode::Struct => Key,
-            (Start, E::StartMap) if self.mode == StructTracerMode::Map => Key,
+            (Start, E::StartStruct) if self.mode == StructMode::Struct => Key,
+            (Start, E::StartMap) if self.mode == StructMode::Map => Key,
             (Start, E::Null | E::Some) => {
                 self.nullable = true;
                 Start
@@ -391,8 +391,8 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 }
             }
-            (Key, E::EndStruct) if self.mode == StructTracerMode::Struct => Start,
-            (Key, E::EndMap) if self.mode == StructTracerMode::Map => Start,
+            (Key, E::EndStruct) if self.mode == StructMode::Struct => Start,
+            (Key, E::EndMap) if self.mode == StructMode::Map => Start,
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
             (Value(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
@@ -431,14 +431,14 @@ impl EventSink for StructTracer {
         let max_count = self.counts.values().copied().max().unwrap_or_default();
 
         match self.mode {
-            StructTracerMode::Map => {
+            StructMode::Map => {
                 for (&field, &count) in self.counts.iter() {
                     if count != max_count {
                         self.field_tracers[field].mark_nullable();
                     }
                 }
             }
-            StructTracerMode::Struct => {
+            StructMode::Struct => {
                 let mut unbalanced = String::new();
                 for (&field, &count) in self.counts.iter() {
                     if count != max_count {
