@@ -49,7 +49,7 @@ use crate::{
 ///
 /// assert_eq!(fields, expected);
 /// ```
-/// To correctly the type information make sure to:
+/// To correctly record the type information make sure to:
 ///
 /// - include values for `Option<T>`
 /// - include all variants of an enum
