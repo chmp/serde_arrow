@@ -185,7 +185,7 @@ where
                 self.builders[idx].accept_start_struct()?;
                 Value(idx, depth + 1)
             }
-            state => fail!("Cannot handle EndTuple in state {state:?}"),
+            state => fail!("Cannot handle StartStruct in state {state:?}"),
         };
         Ok(())
     }
@@ -197,7 +197,7 @@ where
                 self.builders[idx].accept_start_map()?;
                 Value(idx, depth + 1)
             }
-            state => fail!("Cannot handle EndTuple in state {state:?}"),
+            state => fail!("Cannot handle StartMap in state {state:?}"),
         };
         Ok(())
     }
@@ -248,7 +248,7 @@ where
                 self.builders[idx].accept_end_struct()?;
                 Value(idx, depth - 1)
             }
-            state => fail!("Cannot handle EndTuple in state {state:?}"),
+            state => fail!("Cannot handle EndStruct in state {state:?}"),
         };
         Ok(())
     }
@@ -264,7 +264,7 @@ where
                 self.builders[idx].accept_end_map()?;
                 Value(idx, depth - 1)
             }
-            state => fail!("Cannot handle EndTuple in state {state:?}"),
+            state => fail!("Cannot handle EndMap in state {state:?}"),
         };
         Ok(())
     }
