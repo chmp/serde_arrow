@@ -10,13 +10,7 @@ use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    arrow2::{sinks::build_array_builder, sources::build_dynamic_source},
-    base::{deserialize_from_source, serialize_into_sink, Event},
-    generic::{
-        schema::{FieldBuilder, Tracer},
-        sinks::ArrayBuilder,
-    },
-    test::utils::collect_events,
+    arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
     Strategy, STRATEGY_KEY,
 };
 
@@ -68,34 +62,15 @@ macro_rules! test_round_trip {
 
             let field = $field;
 
-            let mut tracer = Tracer::new();
-            for item in items {
-                serialize_into_sink(&mut tracer, &item).unwrap();
-            }
-            let res_field = tracer.to_field("value").unwrap();
+            let res_field = serialize_into_field("value", &items).unwrap();
             assert_eq!(res_field, field);
 
             // overwrite the field to customize the serialization
             $(let field = $overwrite_field;)?
 
-            let mut sink = build_array_builder(&field).unwrap();
-            for item in items {
-                serialize_into_sink(&mut sink, &item).unwrap();
-            }
-            let array = sink.into_array().unwrap();
+            let array = serialize_into_array(&field, &items).unwrap();
 
-            let source = build_dynamic_source(&field, array.as_ref()).unwrap();
-            let events = collect_events(source).unwrap();
-
-            // add the outer sequence
-            let events = {
-                let mut events = events;
-                events.insert(0, Event::StartSequence);
-                events.push(Event::EndSequence);
-                events
-            };
-
-            let res_items: Vec<$ty> = deserialize_from_source(&events).unwrap();
+            let res_items: Vec<$ty> = deserialize_from_array(&field, array.as_ref()).unwrap();
             assert_eq!(res_items, items);
         }
     };

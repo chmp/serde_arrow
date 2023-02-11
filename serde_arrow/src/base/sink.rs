@@ -4,6 +4,7 @@ use serde::ser::{
 };
 use serde::Serialize;
 
+use crate::base::error::fail;
 use crate::{Error, Result};
 
 use super::Event;
@@ -205,6 +206,50 @@ pub trait EventSink {
 
     fn accept_f64(&mut self, val: f64) -> Result<()> {
         self.accept(Event::F64(val))
+    }
+}
+
+pub(crate) struct StripOuterSequenceSink<'e, E> {
+    wrapped: &'e mut E,
+    depth: usize,
+}
+
+impl<'e, E> StripOuterSequenceSink<'e, E> {
+    pub fn new(wrapped: &'e mut E) -> Self {
+        Self { wrapped, depth: 0 }
+    }
+}
+
+impl<'e, E: EventSink> EventSink for StripOuterSequenceSink<'e, E> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        match event {
+            ev if ev.is_start() => {
+                if self.depth > 0 {
+                    self.wrapped.accept(ev)?;
+                }
+                self.depth += 1;
+            }
+            ev if ev.is_end() => {
+                if self.depth > 1 {
+                    self.wrapped.accept(ev)?;
+                } else if self.depth == 0 {
+                    fail!("Invalid event {ev} at depth 0");
+                }
+                self.depth -= 1;
+            }
+            ev => {
+                if self.depth > 0 {
+                    self.wrapped.accept(ev)?;
+                } else {
+                    fail!("Invalid event {ev} at depth 0");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.wrapped.finish()
     }
 }
 

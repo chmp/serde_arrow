@@ -12,11 +12,19 @@ use arrow2::{
 use serde::{Deserialize, Serialize};
 
 use self::{
-    sinks::build_arrays_builder, sources::build_record_source, type_support::DataTypeDisplay,
+    sinks::{build_array_builder, build_arrays_builder},
+    sources::{build_dynamic_source, build_record_source},
+    type_support::DataTypeDisplay,
 };
 use crate::{
-    base::{deserialize_from_source, error::fail, serialize_into_sink},
-    generic::schema::{FieldBuilder, SchemaTracer},
+    base::{
+        deserialize_from_source, error::fail, serialize_into_sink, sink::StripOuterSequenceSink,
+        source::AddOuterSequenceSource,
+    },
+    generic::{
+        schema::{FieldBuilder, SchemaTracer, Tracer},
+        sinks::ArrayBuilder,
+    },
     Result,
 };
 
@@ -141,4 +149,32 @@ where
     A: AsRef<dyn Array>,
 {
     deserialize_from_source(build_record_source(fields, arrays)?)
+}
+
+pub fn serialize_into_field<T>(name: &str, items: &T) -> Result<Field>
+where
+    T: Serialize + ?Sized,
+{
+    let mut tracer = Tracer::new();
+    serialize_into_sink(&mut StripOuterSequenceSink::new(&mut tracer), items)?;
+    tracer.to_field(name)
+}
+
+pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<Box<dyn Array>>
+where
+    T: Serialize + ?Sized,
+{
+    let mut builder = build_array_builder(field)?;
+    serialize_into_sink(&mut StripOuterSequenceSink::new(&mut builder), items).unwrap();
+    builder.into_array()
+}
+
+pub fn deserialize_from_array<'de, T, A>(field: &Field, array: A) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array> + 'de,
+{
+    let source = build_dynamic_source(field, array.as_ref())?;
+    let source = AddOuterSequenceSource::new(source);
+    deserialize_from_source(source)
 }
