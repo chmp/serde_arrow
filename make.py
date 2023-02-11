@@ -13,10 +13,11 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
 @cmd()
-def precommit():
+@arg("--backtrace", action="store_true", default=False)
+def precommit(backtrace=False):
     cargo("fmt")
     cargo("clippy", "--features", "arrow2")
-    cargo("test", "--features", "arrow2", env=dict(os.environ, RUST_BACKTRACE="1"))
+    cargo("test", "--features", "arrow2", env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"))
 
 
 @cmd()
