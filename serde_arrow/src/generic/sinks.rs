@@ -504,13 +504,13 @@ where
 }
 
 pub struct StructArrayBuilder<B> {
-    // the names of the fields
+    /// the names of the fields
     pub(crate) columns: Vec<String>,
-    // the nullability of the fields
+    /// the nullability of the fields
     pub(crate) nullable: Vec<bool>,
-    // the builders of the sub arrays
+    /// the builders of the sub arrays
     pub(crate) builders: Vec<B>,
-    // the validity of the items
+    /// the validity of the items
     pub(crate) validity: Vec<bool>,
     pub(crate) state: StructArrayBuilderState,
     pub(crate) seen: Vec<bool>,

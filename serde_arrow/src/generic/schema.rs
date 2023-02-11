@@ -88,6 +88,15 @@ impl FromStr for Strategy {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum SchemaTracerState {
+    StartSequence,
+    StartRecord,
+    Record(usize),
+    Done,
+}
+
+/// Trace the schema for a list of records
 pub struct SchemaTracer {
     pub tracer: Option<StructTracer>,
     pub next: SchemaTracerState,
@@ -170,14 +179,6 @@ impl EventSink for SchemaTracer {
 
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum SchemaTracerState {
-    StartSequence,
-    StartRecord,
-    Record(usize),
-    Done,
 }
 
 pub enum Tracer {
@@ -371,8 +372,7 @@ impl EventSink for StructTracer {
         type E<'a> = Event<'a>;
 
         self.next = match (self.next, event) {
-            (Start, E::StartStruct) if self.mode == StructMode::Struct => Key,
-            (Start, E::StartMap) if self.mode == StructMode::Map => Key,
+            (Start, E::StartStruct | E::StartMap) => Key,
             (Start, E::Null | E::Some) => {
                 self.nullable = true;
                 Start
@@ -391,8 +391,7 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 }
             }
-            (Key, E::EndStruct) if self.mode == StructMode::Struct => Start,
-            (Key, E::EndMap) if self.mode == StructMode::Map => Start,
+            (Key, E::EndStruct | E::EndMap) => Start,
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
             (Value(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
@@ -429,31 +428,9 @@ impl EventSink for StructTracer {
         }
 
         let max_count = self.counts.values().copied().max().unwrap_or_default();
-
-        match self.mode {
-            StructMode::Map => {
-                for (&field, &count) in self.counts.iter() {
-                    if count != max_count {
-                        self.field_tracers[field].mark_nullable();
-                    }
-                }
-            }
-            StructMode::Struct => {
-                let mut unbalanced = String::new();
-                for (&field, &count) in self.counts.iter() {
-                    if count != max_count {
-                        if !unbalanced.is_empty() {
-                            unbalanced.push_str(", ");
-                        }
-                        unbalanced.push_str(&self.field_names[field]);
-                    }
-                }
-                if !unbalanced.is_empty() {
-                    fail!(
-                        "Not all fields found in all records. Unbalanced fields: {}",
-                        unbalanced
-                    )
-                }
+        for (&field, &count) in self.counts.iter() {
+            if count != max_count {
+                self.field_tracers[field].mark_nullable();
             }
         }
 
