@@ -12,7 +12,7 @@ use arrow2::{
 use serde::{Deserialize, Serialize};
 
 use self::{
-    sinks::{build_array_builder, build_arrays_builder},
+    sinks::build_array_builder,
     sources::{build_dynamic_source, build_record_source},
     type_support::DataTypeDisplay,
 };
@@ -23,7 +23,7 @@ use crate::{
     },
     generic::{
         schema::{FieldBuilder, SchemaTracer, SchemaTracingOptions, Tracer},
-        sinks::ArrayBuilder,
+        sinks::{ArrayBuilder, StructArrayBuilder},
     },
     Result,
 };
@@ -109,9 +109,19 @@ pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<d
 where
     T: Serialize + ?Sized,
 {
-    let mut builder = build_arrays_builder(fields)?;
-    serialize_into_sink(&mut builder, items)?;
-    builder.into_records()
+    let mut columnes = Vec::new();
+    let mut nullable = Vec::new();
+    let mut builders = Vec::new();
+    for field in fields {
+        columnes.push(field.name.to_owned());
+        nullable.push(field.is_nullable);
+        builders.push(build_array_builder(field)?);
+    }
+
+    let mut builder = StructArrayBuilder::new(columnes, nullable, builders);
+    serialize_into_sink(&mut StripOuterSequenceSink::new(&mut builder), items)?;
+
+    builder.into_values()
 }
 
 /// Deserialize a type from the given arrays

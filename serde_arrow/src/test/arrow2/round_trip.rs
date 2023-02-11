@@ -1,6 +1,8 @@
 // use the deprecated chrono API for now
 #![allow(deprecated)]
 
+use std::collections::HashMap;
+
 use arrow2::{
     array::PrimitiveArray,
     datatypes::{DataType, Field},
@@ -527,4 +529,40 @@ fn test_complex_benchmark_example() {
     let round_tripped: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
     assert_eq!(items, round_tripped);
+}
+
+#[test]
+fn test_maps_with_missing_items() {
+    let mut items: Vec<HashMap<String, i32>> = Vec::new();
+    let mut item = HashMap::new();
+    item.insert(String::from("a"), 0);
+    item.insert(String::from("b"), 1);
+    items.push(item);
+
+    let mut item = HashMap::new();
+    item.insert(String::from("a"), 2);
+    item.insert(String::from("c"), 3);
+    items.push(item);
+
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
+    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let actual: Vec<HashMap<String, Option<i32>>> =
+        deserialize_from_arrays(&fields, &arrays).unwrap();
+
+    // Note: missing items are serialized as null, therefore the deserialized
+    // type must support them
+    let mut expected: Vec<HashMap<String, Option<i32>>> = Vec::new();
+    let mut item = HashMap::new();
+    item.insert(String::from("a"), Some(0));
+    item.insert(String::from("b"), Some(1));
+    item.insert(String::from("c"), None);
+    expected.push(item);
+
+    let mut item = HashMap::new();
+    item.insert(String::from("a"), Some(2));
+    item.insert(String::from("b"), None);
+    item.insert(String::from("c"), Some(3));
+    expected.push(item);
+
+    assert_eq!(actual, expected);
 }

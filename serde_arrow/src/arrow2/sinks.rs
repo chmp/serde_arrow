@@ -13,7 +13,7 @@ use crate::{
         chrono::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
         schema::{Strategy, STRATEGY_KEY},
         sinks::{
-            ArrayBuilder, ArraysBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder,
+            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder,
             StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
             TupleStructBuilder, UnionArrayBuilder,
         },
@@ -34,20 +34,6 @@ use crate::{
 use super::{schema::check_strategy, type_support::DataTypeDisplay};
 
 type Arrow2ArrayBuilder = DynamicArrayBuilder<Box<dyn Array>>;
-
-pub fn build_arrays_builder(
-    fields: &[Field],
-) -> Result<ArraysBuilder<Arrow2ArrayBuilder, Box<dyn Array>>> {
-    let mut columns = Vec::new();
-    let mut builders = Vec::new();
-
-    for field in fields {
-        builders.push(build_array_builder(field)?);
-        columns.push(field.name.to_owned());
-    }
-
-    ArraysBuilder::new(columns, builders)
-}
 
 pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
     check_strategy(field)?;
@@ -173,6 +159,22 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
             name = field.name,
             dt = DataTypeDisplay(&field.data_type),
         ),
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> StructArrayBuilder<B> {
+    pub fn into_values(self) -> Result<Vec<Box<dyn Array>>> {
+        if !matches!(self.state, StructArrayBuilderState::Start) {
+            fail!("Invalid state at array construction");
+        }
+        if !self.finished {
+            fail!("Cannot build array from unfinished StructArrayBuilder");
+        }
+
+        let values: Result<Vec<Box<dyn Array>>> =
+            self.builders.into_iter().map(|b| b.into_array()).collect();
+        let values = values?;
+        Ok(values)
     }
 }
 

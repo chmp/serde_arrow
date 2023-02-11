@@ -356,15 +356,20 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if !matches!(self.source.next()?, Some(Event::StartMap)) {
-            fail!("Expected start of map");
+        match self.source.next()? {
+            Some(Event::StartMap) | Some(Event::StartStruct) => {}
+            Some(ev) => fail!("Expected StartMap, got Some({ev})"),
+            None => fail!("Expected StartMap, got None"),
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.source.next()?, Some(Event::EndMap)) {
-            fail!("Expected end of map");
+        match self.source.next()? {
+            Some(Event::EndMap) | Some(Event::EndStruct) => {}
+            Some(ev) => fail!("Expected EndMap, got Some({ev})"),
+            None => fail!("Expected EndMap, got None"),
         }
+
         Ok(res)
     }
 

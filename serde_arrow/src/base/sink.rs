@@ -22,6 +22,7 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     Ok(())
 }
 
+#[allow(unused)]
 macro_rules! sink_forward_generic_to_specialized {
     () => {
         fn accept(&mut self, event: Event<'_>) -> Result<()> {
@@ -58,6 +59,7 @@ macro_rules! sink_forward_generic_to_specialized {
     };
 }
 
+#[allow(unused)]
 pub(crate) use sink_forward_generic_to_specialized;
 
 /// An object that processes [Event] objects emitted during serialization of a
