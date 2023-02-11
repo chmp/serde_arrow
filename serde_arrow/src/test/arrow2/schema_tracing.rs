@@ -26,6 +26,7 @@ macro_rules! define_primitive_tests {
                 tracer
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, false);
@@ -43,6 +44,7 @@ macro_rules! define_primitive_tests {
                 tracer
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, false);
@@ -58,6 +60,7 @@ macro_rules! define_primitive_tests {
                 tracer
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, true);
@@ -73,6 +76,7 @@ macro_rules! define_primitive_tests {
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
                 tracer.accept(Event::Null).unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, true);
@@ -91,6 +95,7 @@ macro_rules! define_primitive_tests {
                 tracer
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, true);
@@ -109,6 +114,7 @@ macro_rules! define_primitive_tests {
                 tracer
                     .accept(Event::$event_variant(Default::default()))
                     .unwrap();
+                tracer.finish().unwrap();
 
                 let field: Field = tracer.to_field("item").unwrap();
                 let expected = Field::new("item", DataType::$data_type, true);

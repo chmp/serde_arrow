@@ -1,4 +1,7 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
 use crate::{
     base::{error::fail, Event, EventSink},
@@ -69,14 +72,14 @@ impl FromStr for Strategy {
 }
 
 pub struct SchemaTracer {
-    pub tracer: Tracer,
+    pub tracer: Option<StructTracer>,
     pub next: SchemaTracerState,
 }
 
 impl SchemaTracer {
     pub fn new() -> Self {
         Self {
-            tracer: Tracer::new(),
+            tracer: None,
             next: SchemaTracerState::StartSequence,
         }
     }
@@ -95,30 +98,43 @@ impl EventSink for SchemaTracer {
             S::StartRecord => match event {
                 E::EndSequence | E::EndTuple => S::Done,
                 ev @ E::StartStruct => {
-                    self.tracer.accept(ev)?;
+                    if self.tracer.is_none() {
+                        self.tracer = Some(StructTracer::new(StructTracerMode::Struct, false));
+                    }
+
+                    self.tracer.as_mut().unwrap().accept(ev)?;
+                    S::Record(0)
+                }
+                ev @ E::StartMap => {
+                    if self.tracer.is_none() {
+                        self.tracer = Some(StructTracer::new(StructTracerMode::Map, false));
+                    }
+
+                    self.tracer.as_mut().unwrap().accept(ev)?;
                     S::Record(0)
                 }
                 ev => fail!("Invalid event {ev} in SchemaTracer, expected start of record"),
             },
             S::Record(depth) => match event {
                 ev if ev.is_start() => {
-                    self.tracer.accept(ev)?;
+                    self.tracer.as_mut().unwrap().accept(ev)?;
                     S::Record(depth + 1)
                 }
                 ev if ev.is_end() && depth == 0 => {
-                    if matches!(ev, E::EndStruct) {
-                        self.tracer.accept(ev)?;
+                    // TODO: remember which mode we are in and only accept one or the other
+                    if matches!(ev, E::EndStruct | E::EndMap) {
+                        self.tracer.as_mut().unwrap().accept(ev)?;
                         S::StartRecord
                     } else {
                         fail!("Invalid event {ev} in SchemaTracer, expected non-closing tag at depth 0")
                     }
                 }
                 ev if ev.is_end() => {
-                    self.tracer.accept(ev)?;
+                    self.tracer.as_mut().unwrap().accept(ev)?;
                     S::Record(depth - 1)
                 }
                 ev => {
-                    self.tracer.accept(ev)?;
+                    self.tracer.as_mut().unwrap().accept(ev)?;
                     S::Record(depth)
                 }
             },
@@ -131,6 +147,10 @@ impl EventSink for SchemaTracer {
         if !matches!(self.next, SchemaTracerState::Done) {
             fail!("Incomplete structure in SchemaTracer");
         }
+        if let Some(tracer) = self.tracer.as_mut() {
+            tracer.finish()?;
+        }
+
         Ok(())
     }
 }
@@ -156,6 +176,31 @@ pub enum Tracer {
 impl Tracer {
     pub fn new() -> Self {
         Self::Unknown(UnknownTracer::new())
+    }
+
+    pub fn mark_nullable(&mut self) {
+        use Tracer::*;
+        match self {
+            Unknown(_) => {}
+            List(t) => {
+                t.nullable = true;
+            }
+            Map(t) => {
+                t.nullable = true;
+            }
+            Primitive(t) => {
+                t.nullable = true;
+            }
+            Tuple(t) => {
+                t.nullable = true;
+            }
+            Union(t) => {
+                t.nullable = true;
+            }
+            Struct(t) => {
+                t.nullable = true;
+            }
+        }
     }
 }
 
@@ -193,7 +238,7 @@ impl EventSink for Tracer {
                     *self = Tracer::List(tracer);
                 }
                 Event::StartStruct => {
-                    let mut tracer = StructTracer::new(tracer.nullable);
+                    let mut tracer = StructTracer::new(StructTracerMode::Struct, tracer.nullable);
                     tracer.accept(event)?;
                     *self = Tracer::Struct(tracer);
                 }
@@ -240,24 +285,38 @@ impl EventSink for Tracer {
 
 pub struct UnknownTracer {
     pub nullable: bool,
+    pub finished: bool,
 }
 
 impl UnknownTracer {
     pub fn new() -> Self {
-        Self { nullable: false }
+        Self {
+            nullable: false,
+            finished: false,
+        }
     }
 
     pub fn finish(&mut self) -> Result<()> {
+        self.finished = true;
         Ok(())
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum StructTracerMode {
+    Struct,
+    Map,
+}
+
 pub struct StructTracer {
+    pub mode: StructTracerMode,
     pub field_tracers: Vec<Tracer>,
     pub nullable: bool,
     pub field_names: Vec<String>,
     pub index: HashMap<String, usize>,
     pub next: StructTracerState,
+    pub counts: BTreeMap<usize, usize>,
+    pub finished: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -268,22 +327,35 @@ pub enum StructTracerState {
 }
 
 impl StructTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(mode: StructTracerMode, nullable: bool) -> Self {
         Self {
+            mode,
             field_tracers: Vec::new(),
             field_names: Vec::new(),
             index: HashMap::new(),
             nullable,
             next: StructTracerState::Start,
+            counts: BTreeMap::new(),
+            finished: false,
         }
     }
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+    pub fn mark_seen(&mut self, field: usize) {
+        self.counts.insert(
+            field,
+            self.counts.get(&field).copied().unwrap_or_default() + 1,
+        );
+    }
+}
+
+impl EventSink for StructTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use StructTracerState::*;
         type E<'a> = Event<'a>;
 
         self.next = match (self.next, event) {
-            (Start, E::StartStruct) => Key,
+            (Start, E::StartStruct) if self.mode == StructTracerMode::Struct => Key,
+            (Start, E::StartMap) if self.mode == StructTracerMode::Map => Key,
             (Start, E::Null | E::Some) => {
                 self.nullable = true;
                 Start
@@ -291,16 +363,19 @@ impl StructTracer {
             (Start, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
             (Key, E::Str(key)) => {
                 if let Some(&field) = self.index.get(key) {
+                    self.mark_seen(field);
                     Value(field, 0)
                 } else {
                     let field = self.field_tracers.len();
                     self.field_tracers.push(Tracer::new());
                     self.field_names.push(key.to_owned());
                     self.index.insert(key.to_owned(), field);
+                    self.mark_seen(field);
                     Value(field, 0)
                 }
             }
-            (Key, E::EndStruct) => Start,
+            (Key, E::EndStruct) if self.mode == StructTracerMode::Struct => Start,
+            (Key, E::EndMap) if self.mode == StructTracerMode::Map => Start,
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
             (Value(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
@@ -331,10 +406,46 @@ impl StructTracer {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
         if !matches!(self.next, StructTracerState::Start) {
             fail!("Incomplete struct in schema tracing");
         }
+
+        let max_count = self.counts.values().copied().max().unwrap_or_default();
+
+        match self.mode {
+            StructTracerMode::Map => {
+                for (&field, &count) in self.counts.iter() {
+                    if count != max_count {
+                        self.field_tracers[field].mark_nullable();
+                    }
+                }
+            }
+            StructTracerMode::Struct => {
+                let mut unbalanced = String::new();
+                for (&field, &count) in self.counts.iter() {
+                    if count != max_count {
+                        if !unbalanced.is_empty() {
+                            unbalanced.push_str(", ");
+                        }
+                        unbalanced.push_str(&self.field_names[field]);
+                    }
+                }
+                if !unbalanced.is_empty() {
+                    fail!(
+                        "Not all fields found in all records. Unbalanced fields: {}",
+                        unbalanced
+                    )
+                }
+            }
+        }
+
+        for tracer in &mut self.field_tracers {
+            tracer.finish()?;
+        }
+
+        self.finished = true;
+
         Ok(())
     }
 }
@@ -343,6 +454,7 @@ pub struct TupleTracer {
     pub field_tracers: Vec<Tracer>,
     pub nullable: bool,
     pub next: TupleTracerState,
+    pub finished: bool,
 }
 
 impl TupleTracer {
@@ -351,10 +463,20 @@ impl TupleTracer {
             field_tracers: Vec::new(),
             nullable,
             next: TupleTracerState::Start,
+            finished: false,
         }
     }
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+    fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
+        while self.field_tracers.len() <= idx {
+            self.field_tracers.push(Tracer::new());
+        }
+        &mut self.field_tracers[idx]
+    }
+}
+
+impl EventSink for TupleTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use TupleTracerState::*;
         type E<'a> = Event<'a>;
 
@@ -395,18 +517,15 @@ impl TupleTracer {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
         if !matches!(self.next, TupleTracerState::Start) {
             fail!("Incomplete tuple in schema tracing");
         }
-        Ok(())
-    }
-
-    fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
-        while self.field_tracers.len() <= idx {
-            self.field_tracers.push(Tracer::new());
+        for tracer in &mut self.field_tracers {
+            tracer.finish()?;
         }
-        &mut self.field_tracers[idx]
+        self.finished = true;
+        Ok(())
     }
 }
 
@@ -420,6 +539,7 @@ pub struct ListTracer {
     pub item_tracer: Box<Tracer>,
     pub nullable: bool,
     pub next: ListTracerState,
+    pub finished: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -434,10 +554,13 @@ impl ListTracer {
             item_tracer: Box::new(Tracer::new()),
             nullable,
             next: ListTracerState::Start,
+            finished: false,
         }
     }
+}
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+impl EventSink for ListTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use ListTracerState::*;
         type E<'a> = Event<'a>;
 
@@ -471,10 +594,12 @@ impl ListTracer {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
         if !matches!(self.next, ListTracerState::Start) {
             fail!("Incomplete list in schema tracing");
         }
+        self.item_tracer.finish()?;
+        self.finished = true;
         Ok(())
     }
 }
@@ -484,6 +609,7 @@ pub struct UnionTracer {
     pub tracers: Vec<Tracer>,
     pub nullable: bool,
     pub next: UnionTracerState,
+    pub finished: bool,
 }
 
 impl UnionTracer {
@@ -493,10 +619,34 @@ impl UnionTracer {
             tracers: Vec::new(),
             nullable,
             next: UnionTracerState::Inactive,
+            finished: false,
         }
     }
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+    fn ensure_variant<S: Into<String> + AsRef<str>>(
+        &mut self,
+        variant: S,
+        idx: usize,
+    ) -> Result<()> {
+        while self.variants.len() <= idx {
+            self.variants.push(None);
+            self.tracers.push(Tracer::new());
+        }
+
+        if let Some(prev) = self.variants[idx].as_ref() {
+            let variant = variant.as_ref();
+            if prev != variant {
+                fail!("Incompatible names for variant {idx}: {prev}, {variant}");
+            }
+        } else {
+            self.variants[idx] = Some(variant.into());
+        }
+        Ok(())
+    }
+}
+
+impl EventSink for UnionTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type S = UnionTracerState;
         type E<'a> = Event<'a>;
 
@@ -545,29 +695,13 @@ impl UnionTracer {
         Ok(())
     }
 
-    fn ensure_variant<S: Into<String> + AsRef<str>>(
-        &mut self,
-        variant: S,
-        idx: usize,
-    ) -> Result<()> {
-        while self.variants.len() <= idx {
-            self.variants.push(None);
-            self.tracers.push(Tracer::new());
+    fn finish(&mut self) -> Result<()> {
+        // TODO: add checks here?
+        for tracer in &mut self.tracers {
+            tracer.finish()?;
         }
-
-        if let Some(prev) = self.variants[idx].as_ref() {
-            let variant = variant.as_ref();
-            if prev != variant {
-                fail!("Incompatible names for variant {idx}: {prev}, {variant}");
-            }
-        } else {
-            self.variants[idx] = Some(variant.into());
-        }
+        self.finished = true;
         Ok(())
-    }
-
-    pub fn finish(&mut self) -> Result<()> {
-        todo!()
     }
 }
 
@@ -581,6 +715,7 @@ pub struct MapTracer {
     pub key: Box<Tracer>,
     pub value: Box<Tracer>,
     pub nullable: bool,
+    pub finished: bool,
     next: MapTracerState,
 }
 
@@ -591,10 +726,13 @@ impl MapTracer {
             key: Box::new(Tracer::new()),
             value: Box::new(Tracer::new()),
             next: MapTracerState::Start,
+            finished: true,
         }
     }
+}
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+impl EventSink for MapTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type S = MapTracerState;
         type E<'a> = Event<'a>;
 
@@ -676,7 +814,11 @@ impl MapTracer {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
+        // TODO: add checks
+        self.key.finish()?;
+        self.value.finish()?;
+        self.finished = true;
         Ok(())
     }
 }
@@ -691,6 +833,7 @@ pub enum MapTracerState {
 pub struct PrimitiveTracer {
     pub item_type: PrimitiveType,
     pub nullable: bool,
+    pub finished: bool,
 }
 
 impl PrimitiveTracer {
@@ -698,10 +841,13 @@ impl PrimitiveTracer {
         Self {
             item_type: PrimitiveType::Unknown,
             nullable,
+            finished: false,
         }
     }
+}
 
-    pub fn accept(&mut self, event: Event<'_>) -> Result<()> {
+impl EventSink for PrimitiveTracer {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type T = PrimitiveType;
         type E<'a> = Event<'a>;
 
@@ -750,7 +896,8 @@ impl PrimitiveTracer {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
+        self.finished = true;
         Ok(())
     }
 }

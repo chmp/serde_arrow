@@ -45,8 +45,14 @@ impl<A> DynamicArrayBuilder<A> {
 }
 
 impl<A> EventSink for DynamicArrayBuilder<A> {
+    // TODO: forward the the other methods?
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         self.builder.accept(event)
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.builder.finish()
     }
 }
 
@@ -74,6 +80,7 @@ where
     field_index: HashMap<String, usize>,
     next: RecordsBuilderState,
     seen: HashSet<usize>,
+    finished: bool,
     _phantom: PhantomData<A>,
 }
 
@@ -108,6 +115,7 @@ where
             field_index,
             next: RecordsBuilderState::StartSequence,
             seen: HashSet::new(),
+            finished: false,
             _phantom: PhantomData::default(),
         })
     }
@@ -120,6 +128,9 @@ where
     pub fn into_records(self) -> Result<Vec<A>> {
         if !matches!(self.next, RecordsBuilderState::Done) {
             fail!("Invalid state");
+        }
+        if !self.finished {
+            fail!("Cannot build records from an unfinished ArraysBuilder");
         }
         let arrays: Result<Vec<A>> = self
             .builders
@@ -532,6 +543,14 @@ where
         };
         Ok(())
     }
+
+    fn finish(&mut self) -> Result<()> {
+        for builder in &mut self.builders {
+            builder.finish()?;
+        }
+        self.finished = true;
+        Ok(())
+    }
 }
 
 pub struct StructArrayBuilder<B> {
@@ -545,6 +564,7 @@ pub struct StructArrayBuilder<B> {
     pub(crate) validity: Vec<bool>,
     pub(crate) state: StructArrayBuilderState,
     pub(crate) seen: Vec<bool>,
+    pub(crate) finished: bool,
 }
 
 impl<B> StructArrayBuilder<B> {
@@ -557,6 +577,7 @@ impl<B> StructArrayBuilder<B> {
             nullable,
             state: StructArrayBuilderState::Start,
             seen: vec![false; num_columns],
+            finished: false,
         }
     }
 }
@@ -636,6 +657,14 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
         }
         Ok(())
     }
+
+    fn finish(&mut self) -> Result<()> {
+        for builder in &mut self.builders {
+            builder.finish()?;
+        }
+        self.finished = true;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -650,6 +679,7 @@ pub struct TupleStructBuilder<B> {
     pub(crate) builders: Vec<B>,
     pub(crate) validity: Vec<bool>,
     pub(crate) state: TupleArrayBuilderState,
+    pub(crate) finished: bool,
 }
 
 impl<B> TupleStructBuilder<B> {
@@ -659,6 +689,7 @@ impl<B> TupleStructBuilder<B> {
             nullable,
             validity: Vec::new(),
             state: TupleArrayBuilderState::Start,
+            finished: false,
         }
     }
 }
@@ -711,6 +742,14 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
         };
         Ok(())
     }
+
+    fn finish(&mut self) -> Result<()> {
+        for builder in &mut self.builders {
+            builder.finish()?;
+        }
+        self.finished = true;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -726,6 +765,7 @@ pub struct ListArrayBuilder<B, O> {
     pub validity: Vec<bool>,
     pub item_name: String,
     pub nullable: bool,
+    pub finished: bool,
 }
 
 impl<B, O: Default> ListArrayBuilder<B, O> {
@@ -737,6 +777,7 @@ impl<B, O: Default> ListArrayBuilder<B, O> {
             validity: Vec::new(),
             item_name,
             nullable,
+            finished: false,
         }
     }
 }
@@ -802,6 +843,12 @@ where
         };
         Ok(())
     }
+
+    fn finish(&mut self) -> Result<()> {
+        self.builder.finish()?;
+        self.finished = true;
+        Ok(())
+    }
 }
 
 /// The state of the list builder
@@ -824,6 +871,7 @@ pub struct UnionArrayBuilder<B> {
     pub field_offsets: Vec<i32>,
     pub field_types: Vec<i8>,
     pub nullable: bool,
+    pub finished: bool,
 }
 
 impl<B> UnionArrayBuilder<B> {
@@ -837,6 +885,7 @@ impl<B> UnionArrayBuilder<B> {
             field_offsets: Vec::new(),
             field_types: Vec::new(),
             nullable,
+            finished: false,
         }
     }
 }
@@ -894,7 +943,10 @@ impl<B: EventSink> EventSink for UnionArrayBuilder<B> {
     }
 
     fn finish(&mut self) -> Result<()> {
-        // TODO: implement
+        for builder in &mut self.field_builders {
+            builder.finish()?;
+        }
+        self.finished = true;
         Ok(())
     }
 }
@@ -913,6 +965,7 @@ pub struct MapArrayBuilder<B> {
     pub offset: i32,
     pub validity: Vec<bool>,
     pub nullable: bool,
+    pub finished: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -932,6 +985,7 @@ impl<B> MapArrayBuilder<B> {
             offset: 0,
             validity: Vec::new(),
             nullable,
+            finished: false,
         }
     }
 }
@@ -1020,6 +1074,13 @@ impl<B: EventSink> EventSink for MapArrayBuilder<B> {
                 _ => unreachable!(),
             },
         };
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.key_builder.finish()?;
+        self.val_builder.finish()?;
+        self.finished = true;
         Ok(())
     }
 }

@@ -17,6 +17,10 @@ impl<B: EventSink> EventSink for NaiveDateTimeStrBuilder<B> {
             ev => ev,
         })
     }
+
+    fn finish(&mut self) -> Result<()> {
+        self.0.finish()
+    }
 }
 
 impl<A, B: ArrayBuilder<A>> ArrayBuilder<A> for NaiveDateTimeStrBuilder<B> {
@@ -38,6 +42,10 @@ impl<B: EventSink> EventSink for UtcDateTimeStrBuilder<B> {
             Event::Str(s) => Event::I64(s.parse::<DateTime<Utc>>()?.timestamp_millis()),
             ev => ev,
         })
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.0.finish()
     }
 }
 

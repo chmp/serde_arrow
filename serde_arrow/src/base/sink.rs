@@ -17,6 +17,7 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     value: &T,
 ) -> Result<()> {
     value.serialize(EventSerializer(sink))?;
+    sink.finish()?;
     Ok(())
 }
 
@@ -100,9 +101,7 @@ pub(crate) use sink_forward_generic_to_specialized;
 pub trait EventSink {
     fn accept(&mut self, event: Event<'_>) -> Result<()>;
 
-    fn finish(&mut self) -> Result<()> {
-        Ok(())
-    }
+    fn finish(&mut self) -> Result<()>;
 
     fn accept_start_sequence(&mut self) -> Result<()> {
         self.accept(Event::StartSequence)
@@ -212,6 +211,10 @@ pub trait EventSink {
 impl EventSink for Vec<Event<'static>> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         self.push(event.to_static());
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
         Ok(())
     }
 }

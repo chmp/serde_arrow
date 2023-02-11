@@ -12,7 +12,6 @@ use crate::{
     arrow2::{serialize_into_arrays, sinks::build_array_builder},
     base::{Event, EventSink},
     generic::sinks::ArrayBuilder,
-    Result,
 };
 
 fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
@@ -39,6 +38,7 @@ macro_rules! test_option_support {
                 sink.accept(Event::Null).unwrap();
                 sink.accept(Event::Some).unwrap();
                 sink.accept($value).unwrap();
+                sink.finish().unwrap();
 
                 let array = sink.into_array().unwrap();
 
@@ -56,6 +56,7 @@ macro_rules! test_option_support {
                 sink.accept(Event::Some).unwrap();
                 sink.accept($value).unwrap();
                 sink.accept(Event::Null).unwrap();
+                sink.finish().unwrap();
 
                 let array = sink.into_array().unwrap();
 
@@ -72,6 +73,7 @@ macro_rules! test_option_support {
                     build_array_builder(&Field::new("value", $data_type, false)).unwrap();
                 sink.accept($value).unwrap();
                 sink.accept(Event::Null).unwrap();
+                sink.finish().unwrap();
 
                 let array = sink.into_array().unwrap();
 
@@ -126,30 +128,12 @@ test_option_support!(
 );
 
 #[test]
-fn primitive_sink_i8() -> Result<()> {
-    let mut sink = build_array_builder(&Field::new("value", DataType::Int8, false))?;
-    sink.accept(Event::I8(13))?;
-    sink.accept(Event::Null)?;
-    sink.accept(Event::I8(42))?;
-
-    let array = sink.into_array()?;
-
-    assert_eq!(array.len(), 3);
-    assert_eq!(array.is_null(0), false);
-    assert_eq!(array.is_null(1), true);
-    assert_eq!(array.is_null(2), false);
-
-    Ok(())
-}
-
-#[test]
-fn primitive_sink_i8_some() {
+fn primitive_sink_i8() {
     let mut sink = build_array_builder(&Field::new("value", DataType::Int8, false)).unwrap();
-    sink.accept(Event::Some).unwrap();
     sink.accept(Event::I8(13)).unwrap();
     sink.accept(Event::Null).unwrap();
-    sink.accept(Event::Some).unwrap();
     sink.accept(Event::I8(42)).unwrap();
+    sink.finish().unwrap();
 
     let array = sink.into_array().unwrap();
 
@@ -160,53 +144,69 @@ fn primitive_sink_i8_some() {
 }
 
 #[test]
-fn boolean_sink() -> Result<()> {
-    let mut sink = build_array_builder(&Field::new("value", DataType::Boolean, false))?;
-    sink.accept(Event::Bool(true))?;
-    sink.accept(Event::Null)?;
-    sink.accept(Event::Bool(false))?;
+fn primitive_sink_i8_some() {
+    let mut sink = build_array_builder(&Field::new("value", DataType::Int8, false)).unwrap();
+    sink.accept(Event::Some).unwrap();
+    sink.accept(Event::I8(13)).unwrap();
+    sink.accept(Event::Null).unwrap();
+    sink.accept(Event::Some).unwrap();
+    sink.accept(Event::I8(42)).unwrap();
+    sink.finish().unwrap();
 
-    let array = sink.into_array()?;
+    let array = sink.into_array().unwrap();
 
     assert_eq!(array.len(), 3);
     assert_eq!(array.is_null(0), false);
     assert_eq!(array.is_null(1), true);
     assert_eq!(array.is_null(2), false);
-
-    Ok(())
 }
 
 #[test]
-fn struct_sink() -> Result<()> {
+fn boolean_sink() {
+    let mut sink = build_array_builder(&Field::new("value", DataType::Boolean, false)).unwrap();
+    sink.accept(Event::Bool(true)).unwrap();
+    sink.accept(Event::Null).unwrap();
+    sink.accept(Event::Bool(false)).unwrap();
+    sink.finish().unwrap();
+
+    let array = sink.into_array().unwrap();
+
+    assert_eq!(array.len(), 3);
+    assert_eq!(array.is_null(0), false);
+    assert_eq!(array.is_null(1), true);
+    assert_eq!(array.is_null(2), false);
+}
+
+#[test]
+fn struct_sink() {
     let fields = vec![
         Field::new("a", DataType::Int8, true),
         Field::new("b", DataType::Boolean, true),
     ];
 
-    let mut sink = build_array_builder(&Field::new("s", DataType::Struct(fields), false))?;
+    let mut sink = build_array_builder(&Field::new("s", DataType::Struct(fields), false)).unwrap();
 
-    sink.accept(Event::StartStruct)?;
-    sink.accept(Event::Str("a"))?;
-    sink.accept(Event::I8(0))?;
-    sink.accept(Event::Str("b"))?;
-    sink.accept(Event::Bool(false))?;
-    sink.accept(Event::EndStruct)?;
-    sink.accept(Event::StartStruct)?;
-    sink.accept(Event::Str("b"))?;
-    sink.accept(Event::Bool(true))?;
-    sink.accept(Event::Str("a"))?;
-    sink.accept(Event::Null)?;
-    sink.accept(Event::EndStruct)?;
+    sink.accept(Event::StartStruct).unwrap();
+    sink.accept(Event::Str("a")).unwrap();
+    sink.accept(Event::I8(0)).unwrap();
+    sink.accept(Event::Str("b")).unwrap();
+    sink.accept(Event::Bool(false)).unwrap();
+    sink.accept(Event::EndStruct).unwrap();
+    sink.accept(Event::StartStruct).unwrap();
+    sink.accept(Event::Str("b")).unwrap();
+    sink.accept(Event::Bool(true)).unwrap();
+    sink.accept(Event::Str("a")).unwrap();
+    sink.accept(Event::Null).unwrap();
+    sink.accept(Event::EndStruct).unwrap();
+    sink.finish().unwrap();
 
-    let array = sink.into_array()?;
+    let array = sink.into_array().unwrap();
 
     assert_eq!(array.len(), 2);
-
-    Ok(())
 }
 
 #[test]
-fn nested_struct_sink() -> Result<()> {
+fn nested_struct_sink() {
     let inner_fields = vec![Field::new("value", DataType::Boolean, false)];
     let outer_fields = vec![
         Field::new("a", DataType::Int8, true),
@@ -234,12 +234,11 @@ fn nested_struct_sink() -> Result<()> {
     sink.accept(Event::Str("a")).unwrap();
     sink.accept(Event::Null).unwrap();
     sink.accept(Event::EndStruct).unwrap();
+    sink.finish().unwrap();
 
     let array = sink.into_array().unwrap();
 
     assert_eq!(array.len(), 2);
-
-    Ok(())
 }
 
 #[test]

@@ -181,6 +181,9 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
         if !matches!(self.state, StructArrayBuilderState::Start) {
             fail!("Invalid state at array construction");
         }
+        if !self.finished {
+            fail!("Cannot build array from unfinished StructArrayBuilder");
+        }
 
         let values: Result<Vec<Box<dyn Array>>> =
             self.builders.into_iter().map(|b| b.into_array()).collect();
@@ -216,6 +219,9 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStru
         if !matches!(self.state, TupleArrayBuilderState::Start) {
             fail!("Invalid state at array construction");
         }
+        if !self.finished {
+            fail!("Cannot build array from unfinished TupleStructBuilder");
+        }
 
         let values: Result<Vec<Box<dyn Array>>> =
             self.builders.into_iter().map(|b| b.into_array()).collect();
@@ -248,6 +254,10 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArra
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished UnionArrayBuilder");
+        }
+
         let values: Result<Vec<Box<dyn Array>>> = self
             .field_builders
             .into_iter()
@@ -277,11 +287,15 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArra
 #[derive(Debug, Default)]
 pub struct NullArrayBuilder {
     length: usize,
+    finished: bool,
 }
 
 impl NullArrayBuilder {
     pub fn new() -> Self {
-        Self { length: 0 }
+        Self {
+            length: 0,
+            finished: true,
+        }
     }
 }
 
@@ -308,6 +322,11 @@ impl EventSink for NullArrayBuilder {
             ev => fail!("NullArrayBuilder cannot accept event {ev}"),
         }
     }
+
+    fn finish(&mut self) -> Result<()> {
+        self.finished = true;
+        Ok(())
+    }
 }
 
 impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
@@ -319,6 +338,9 @@ impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished NullArrayBuilder");
+        }
         Ok(Box::new(NullArray::new(DataType::Null, self.length)))
     }
 }
@@ -326,6 +348,7 @@ impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
 #[derive(Debug, Default)]
 pub struct PrimitiveArrayBuilder<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> {
     array: MutablePrimitiveArray<T>,
+    finished: bool,
 }
 
 impl<T: NativeType + for<'a> TryFrom<Event<'a>, Error = Error>> PrimitiveArrayBuilder<T> {
@@ -368,6 +391,11 @@ macro_rules! impl_primitive_array_builder {
                     ),
                 }
             }
+
+            fn finish(&mut self) -> Result<()> {
+                self.finished = true;
+                Ok(())
+            }
         }
 
         impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<$ty> {
@@ -379,6 +407,13 @@ macro_rules! impl_primitive_array_builder {
             where
                 Self: Sized,
             {
+                if !self.finished {
+                    fail!(concat!(
+                        "Cannot build array from unfinished PrimitiveArrayBuilder<",
+                        stringify!($ty),
+                        ">"
+                    ));
+                }
                 Ok(Box::new(PrimitiveArray::from(self.array)))
             }
         }
@@ -427,6 +462,11 @@ impl EventSink for PrimitiveArrayBuilder<f16> {
             ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
         }
     }
+
+    fn finish(&mut self) -> Result<()> {
+        self.finished = true;
+        Ok(())
+    }
 }
 
 impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<f16> {
@@ -438,6 +478,9 @@ impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<f16> {
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished PrimitiveArrayBuilder<f16>");
+        }
         Ok(Box::new(PrimitiveArray::from(self.array)))
     }
 }
@@ -445,6 +488,7 @@ impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<f16> {
 #[derive(Debug, Default)]
 pub struct BooleanArrayBuilder {
     array: MutableBooleanArray,
+    finished: bool,
 }
 
 impl BooleanArrayBuilder {
@@ -482,6 +526,12 @@ impl EventSink for BooleanArrayBuilder {
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }
+
+    fn finish(&mut self) -> Result<()> {
+        println!("Finish!!!");
+        self.finished = true;
+        Ok(())
+    }
 }
 
 impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
@@ -490,6 +540,9 @@ impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
     }
 
     fn into_array(self) -> Result<Box<dyn Array>> {
+        if !self.finished {
+            fail!("Cannot build array from unfinished BooleanArrayBuilder");
+        }
         Ok(Box::new(BooleanArray::from(self.array)))
     }
 }
@@ -497,6 +550,7 @@ impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
 #[derive(Debug, Default)]
 pub struct Utf8ArrayBuilder<O: Offset> {
     array: MutableUtf8Array<O>,
+    finished: bool,
 }
 
 impl<O: Offset> Utf8ArrayBuilder<O> {
@@ -540,6 +594,11 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }
+
+    fn finish(&mut self) -> Result<()> {
+        self.finished = true;
+        Ok(())
+    }
 }
 
 impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
@@ -548,6 +607,9 @@ impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
     }
 
     fn into_array(self) -> Result<Box<dyn Array>> {
+        if !self.finished {
+            fail!("Cannot build array from unfinished Utf8ArrayBuilder");
+        }
         Ok(Box::new(<Utf8Array<_> as From<_>>::from(self.array)))
     }
 }
@@ -561,6 +623,10 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished ListArrayBuilder");
+        }
+
         let values = self.builder.into_array()?;
         let array = ListArray::try_new(
             DataType::LargeList(Box::new(Field::new(
@@ -585,6 +651,10 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished ListArrayBuilder");
+        }
+
         let values = self.builder.into_array()?;
         let array = ListArray::try_new(
             DataType::List(Box::new(Field::new(
@@ -609,6 +679,10 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayB
     where
         Self: Sized,
     {
+        if !self.finished {
+            fail!("Cannot build array from unfinished MapArrayBuilder");
+        }
+
         let keys = self.key_builder.into_array()?;
         let vals = self.val_builder.into_array()?;
 

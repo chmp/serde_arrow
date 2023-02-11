@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::Serialize;
 
@@ -179,6 +181,67 @@ fn union_example() {
         ),
         false,
     )];
+
+    assert_eq!(actual, expected);
+}
+
+/// Test that using an outer map as the structuring element is supported.
+///
+/// Use `#[serde(flatten)]` to trigger this case.
+///
+#[test]
+fn outer_map() {
+    #[derive(Debug, Serialize)]
+    struct Item {
+        a: i8,
+        #[serde(flatten)]
+        b: Inner,
+    }
+
+    #[derive(Debug, Serialize)]
+    struct Inner {
+        value: bool,
+    }
+
+    let items = vec![Item {
+        a: 0,
+        b: Inner { value: true },
+    }];
+
+    let actual = serialize_into_fields(&items).unwrap();
+    let expected = vec![
+        Field::new("a", DataType::Int8, false),
+        Field::new("value", DataType::Boolean, false),
+    ];
+
+    assert_eq!(actual, expected);
+}
+
+/// Test that using an outer map as the structuring element and that fields not
+/// encountered in every record are marked as nullable
+///
+#[test]
+fn outer_map_missing_fields() {
+    let mut items = vec![];
+
+    let mut element = HashMap::<String, i32>::new();
+    element.insert(String::from("a"), 0);
+    element.insert(String::from("c"), 1);
+    items.push(element);
+
+    let mut element = HashMap::<String, i32>::new();
+    element.insert(String::from("b"), 2);
+    element.insert(String::from("c"), 3);
+    items.push(element);
+
+    let mut actual = serialize_into_fields(&items).unwrap();
+    actual.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let expected = vec![
+        Field::new("a", DataType::Int32, true),
+        Field::new("b", DataType::Int32, true),
+        Field::new("c", DataType::Int32, false),
+    ];
 
     assert_eq!(actual, expected);
 }
