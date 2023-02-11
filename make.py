@@ -1,4 +1,5 @@
 import argparse
+import os
 import pathlib
 import subprocess
 
@@ -15,7 +16,7 @@ arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 def precommit():
     cargo("fmt")
     cargo("clippy", "--features", "arrow2")
-    cargo("test", "--features", "arrow2")
+    cargo("test", "--features", "arrow2", env=dict(os.environ, RUST_BACKTRACE="1"))
 
 
 @cmd()
@@ -24,7 +25,7 @@ def test():
         ("--features", "arrow2"),
         (),
     ]:
-        cargo("test", *feature_flags, "--lib")
+        cargo("test", *feature_flags, "--lib", env=dict(os.environ, RUST_BACKTRACE="1"))
 
 
 @cmd()

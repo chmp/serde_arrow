@@ -1,3 +1,5 @@
+use std::{backtrace::Backtrace, convert::Infallible};
+
 /// A Result type that defaults to `serde_arrow`'s Error type
 ///
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -6,28 +8,68 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 /// At the moment only a generic string error is supported, but it is planned to
 /// offer concrete types to match against.
-#[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    Custom(String),
+    Custom(CustomError),
+}
+
+pub struct CustomError {
+    message: String,
+    backtrace: Backtrace,
+    cause: Option<Box<dyn std::error::Error + 'static>>,
+}
+
+impl Error {
+    pub fn custom(message: String) -> Self {
+        Self::Custom(CustomError {
+            message,
+            backtrace: Backtrace::capture(),
+            cause: None,
+        })
+    }
+
+    pub fn custom_from<E: std::error::Error + 'static>(message: String, cause: E) -> Self {
+        Self::Custom(CustomError {
+            message,
+            backtrace: Backtrace::capture(),
+            cause: Some(Box::new(cause)),
+        })
+    }
+}
+
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{self}>")
+    }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Custom(msg) => write!(f, "Error: {}", msg),
+            Error::Custom(e) => write!(
+                f,
+                "Error: {msg}\nBacktrace:\n{bt}",
+                msg = e.message,
+                bt = e.backtrace,
+            ),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        match self {
+            Self::Custom(e) => e.cause.as_ref().map(|e| e.as_ref()),
+        }
+    }
+}
 
 impl serde::ser::Error for Error {
     fn custom<T>(msg: T) -> Self
     where
         T: std::fmt::Display,
     {
-        Self::Custom(format!("serde::ser::Error: {}", msg))
+        Self::custom(format!("serde::ser::Error: {}", msg))
     }
 }
 
@@ -36,16 +78,15 @@ impl serde::de::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::Custom(format!("serde::de::Error: {}", msg))
+        Self::custom(format!("serde::de::Error: {}", msg))
     }
 }
 
 macro_rules! error {
     ($($tt:tt)*) => {
-        $crate::Error::Custom(format!($($tt)*))
+        $crate::Error::custom(format!($($tt)*))
     };
 }
-use std::convert::Infallible;
 
 pub(crate) use error;
 
@@ -59,26 +100,26 @@ pub(crate) use fail;
 
 #[cfg(feature = "arrow2")]
 impl From<arrow2::error::Error> for Error {
-    fn from(error: arrow2::error::Error) -> Error {
-        Error::Custom(format!("arrow2::Error: {error}"))
+    fn from(err: arrow2::error::Error) -> Error {
+        Self::custom_from(format!("arrow2::Error: {err}"), err)
     }
 }
 
 impl From<chrono::format::ParseError> for Error {
-    fn from(error: chrono::format::ParseError) -> Self {
-        Self::Custom(format!("chrono::ParseError: {error}"))
+    fn from(err: chrono::format::ParseError) -> Self {
+        Self::custom_from(format!("chrono::ParseError: {err}"), err)
     }
 }
 
 impl From<std::num::TryFromIntError> for Error {
-    fn from(error: std::num::TryFromIntError) -> Error {
-        Error::Custom(format!("arrow2::Error: {error}"))
+    fn from(err: std::num::TryFromIntError) -> Error {
+        Self::custom_from(format!("arrow2::Error: {err}"), err)
     }
 }
 
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
-        Error::Custom(format!("std::fmt::Error: {err}"))
+        Self::custom_from(format!("std::fmt::Error: {err}"), err)
     }
 }
 
