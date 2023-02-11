@@ -93,6 +93,16 @@ enum RecordsBuilderState {
     Done,
 }
 
+impl RecordsBuilderState {
+    fn primitive_transition(field: usize, depth: usize) -> Self {
+        if depth == 0 {
+            Self::Key
+        } else {
+            Self::Value(field, depth)
+        }
+    }
+}
+
 impl<B, A> ArraysBuilder<B, A>
 where
     B: ArrayBuilder<A>,
@@ -284,13 +294,9 @@ where
 
                 Value(idx, 0)
             }
-            Value(idx, 0) => {
-                self.builders[idx].accept_str(val)?;
-                Key
-            }
-            Value(idx, depth) => {
-                self.builders[idx].accept_str(val)?;
-                Value(idx, depth)
+            Value(field, depth) => {
+                self.builders[field].accept_str(val)?;
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle Str in state {state:?}"),
         };
@@ -312,13 +318,9 @@ where
 
                 Value(idx, 0)
             }
-            Value(idx, 0) => {
-                self.builders[idx].accept_owned_str(val)?;
-                Key
-            }
-            Value(idx, depth) => {
-                self.builders[idx].accept_owned_str(val)?;
-                Value(idx, depth)
+            Value(field, depth) => {
+                self.builders[field].accept_owned_str(val)?;
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle OwnedStr in state {state:?}"),
         };
@@ -351,13 +353,9 @@ where
 
     fn accept_default(&mut self) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_default()?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_default()?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle Default in state {state:?}"),
         };
@@ -366,13 +364,9 @@ where
 
     fn accept_null(&mut self) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_null()?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_null()?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle Null in state {state:?}"),
         };
@@ -381,13 +375,9 @@ where
 
     fn accept_bool(&mut self, val: bool) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_bool(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_bool(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle Bool in state {state:?}"),
         };
@@ -396,13 +386,9 @@ where
 
     fn accept_i8(&mut self, val: i8) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_i8(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_i8(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle I8 in state {state:?}"),
         };
@@ -411,13 +397,9 @@ where
 
     fn accept_i16(&mut self, val: i16) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_i16(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_i16(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle I16 in state {state:?}"),
         };
@@ -426,13 +408,9 @@ where
 
     fn accept_i32(&mut self, val: i32) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_i32(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_i32(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle I32 in state {state:?}"),
         };
@@ -441,13 +419,9 @@ where
 
     fn accept_i64(&mut self, val: i64) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_i64(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_i64(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle I64 in state {state:?}"),
         };
@@ -456,13 +430,9 @@ where
 
     fn accept_u8(&mut self, val: u8) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_u8(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_u8(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle U8 in state {state:?}"),
         };
@@ -471,13 +441,9 @@ where
 
     fn accept_u16(&mut self, val: u16) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_u16(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_u16(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle U16 in state {state:?}"),
         };
@@ -486,13 +452,9 @@ where
 
     fn accept_u32(&mut self, val: u32) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_u32(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_u32(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle U32 in state {state:?}"),
         };
@@ -501,13 +463,9 @@ where
 
     fn accept_u64(&mut self, val: u64) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_u64(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_u64(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle U64 in state {state:?}"),
         };
@@ -516,13 +474,9 @@ where
 
     fn accept_f32(&mut self, val: f32) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_f32(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_f32(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle F32 in state {state:?}"),
         };
@@ -531,13 +485,9 @@ where
 
     fn accept_f64(&mut self, val: f64) -> Result<()> {
         self.next = match self.next {
-            RecordsBuilderState::Value(field, 0) => {
-                self.builders[field].accept_f64(val)?;
-                RecordsBuilderState::Key
-            }
             RecordsBuilderState::Value(field, depth) => {
                 self.builders[field].accept_f64(val)?;
-                RecordsBuilderState::Value(field, depth)
+                RecordsBuilderState::primitive_transition(field, depth)
             }
             state => fail!("Cannot handle F64 in state {state:?}"),
         };
