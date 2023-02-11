@@ -1,5 +1,5 @@
 //! Test rust objects -> events -> arrays
-use std::any::Any;
+use std::{any::Any, collections::HashMap};
 
 use arrow2::{
     array::{Array, ListArray, PrimitiveArray, StructArray},
@@ -474,4 +474,39 @@ fn nested_list_structs_serialize() {
         downcast::<PrimitiveArray<i32>>(&children0[1]),
         &PrimitiveArray::<i32>::from_slice([1, 3])
     );
+}
+
+#[ignore = "Outer maps are not yet supported in sinks"]
+#[test]
+fn into_outer_maps_simple() {
+    let mut items = Vec::new();
+
+    let mut element = HashMap::<String, i32>::new();
+    element.insert(String::from("a"), 0);
+    element.insert(String::from("b"), 1);
+    items.push(element);
+
+    let mut element = HashMap::<String, i32>::new();
+    element.insert(String::from("a"), 2);
+    element.insert(String::from("b"), 3);
+    items.push(element);
+
+    let fields = [
+        Field::new("a", DataType::Int32, false),
+        Field::new("b", DataType::Int32, false),
+    ];
+
+    let values = serialize_into_arrays(&fields, &items).unwrap();
+
+    assert_eq!(values.len(), 2);
+
+    let actual0 = downcast::<PrimitiveArray<i8>>(&values[0]);
+    let expected0 = PrimitiveArray::<i8>::from_slice([0, 2]);
+
+    assert_eq!(actual0, &expected0);
+
+    let actual1 = downcast::<PrimitiveArray<i32>>(&values[1]);
+    let expected1 = PrimitiveArray::<i32>::from_slice([1, 3]);
+
+    assert_eq!(actual1, &expected1);
 }
