@@ -7,7 +7,8 @@ use crate::{
     base::error::{error, fail},
     generic::schema::{
         FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, SchemaTracer,
-        Strategy, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer, STRATEGY_KEY,
+        Strategy, StructTracer, StructTracerMode, Tracer, TupleTracer, UnionTracer, UnknownTracer,
+        STRATEGY_KEY,
     },
     Result,
 };
@@ -21,7 +22,7 @@ pub fn check_strategy(field: &Field) -> Result<()> {
     };
 
     match strategy_str.parse::<Strategy>()? {
-        Strategy::UtcDateTimeStr | Strategy::NaiveDateTimeStr => {
+        Strategy::UtcStrAsDate64 | Strategy::NaiveStrAsDate64 => {
             if !matches!(field.data_type, DataType::Date64) {
                 fail!(
                     "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt}",
@@ -30,7 +31,7 @@ pub fn check_strategy(field: &Field) -> Result<()> {
                 );
             }
         }
-        Strategy::Tuple => {
+        Strategy::TupleAsStruct | Strategy::MapAsStruct => {
             if !matches!(field.data_type, DataType::Struct(_)) {
                 fail!(
                     "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt}",
@@ -129,7 +130,13 @@ impl FieldBuilder<Field> for StructTracer {
         for (tracer, name) in iter::zip(&self.field_tracers, &self.field_names) {
             fields.push(tracer.to_field(name)?);
         }
-        Ok(Field::new(name, DataType::Struct(fields), self.nullable))
+        let mut field = Field::new(name, DataType::Struct(fields), self.nullable);
+        if let StructTracerMode::Map = self.mode {
+            field
+                .metadata
+                .insert(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());
+        }
+        Ok(field)
     }
 }
 
@@ -144,9 +151,10 @@ impl FieldBuilder<Field> for TupleTracer {
             fields.push(tracer.to_field(&idx.to_string())?);
         }
         let mut field = Field::new(name, DataType::Struct(fields), self.nullable);
-        field
-            .metadata
-            .insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+        field.metadata.insert(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        );
         Ok(field)
     }
 }

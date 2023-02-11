@@ -461,9 +461,10 @@ fn struct_tuple() {
         ]),
         false,
     );
-    expected
-        .metadata
-        .insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+    expected.metadata.insert(
+        STRATEGY_KEY.to_string(),
+        Strategy::TupleAsStruct.to_string(),
+    );
 
     assert_eq!(field, expected);
 }
@@ -486,7 +487,10 @@ fn struct_tuple_struct_nested() {
     tracer.finish().unwrap();
 
     let mut metadata: BTreeMap<String, String> = Default::default();
-    metadata.insert(STRATEGY_KEY.to_string(), Strategy::Tuple.to_string());
+    metadata.insert(
+        STRATEGY_KEY.to_string(),
+        Strategy::TupleAsStruct.to_string(),
+    );
 
     let field: Field = tracer.to_field("root").unwrap();
     let expected = Field::new(

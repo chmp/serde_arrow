@@ -72,10 +72,10 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
             if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
                 let strategy: Strategy = strategy.parse()?;
                 match strategy {
-                    Strategy::NaiveDateTimeStr => Ok(DynamicArrayBuilder::new(
+                    Strategy::NaiveStrAsDate64 => Ok(DynamicArrayBuilder::new(
                         NaiveDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
                     )),
-                    Strategy::UtcDateTimeStr => Ok(DynamicArrayBuilder::new(
+                    Strategy::UtcStrAsDate64 => Ok(DynamicArrayBuilder::new(
                         UtcDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
                     )),
                     s => fail!("Invalid strategy {s} for Date64 column"),
@@ -98,7 +98,7 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
 
             if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
                 let strategy: Strategy = strategy.parse()?;
-                if !matches!(strategy, Strategy::Tuple) {
+                if !matches!(strategy, Strategy::TupleAsStruct) {
                     fail!("Invalid strategy {strategy} for Struct column");
                 }
                 let builder = TupleStructBuilder::new(nullable, builders);

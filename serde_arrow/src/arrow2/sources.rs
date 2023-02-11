@@ -84,10 +84,10 @@ pub fn build_dynamic_source<'a>(
             if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
                 let strategy: Strategy = strategy.parse()?;
                 match strategy {
-                    Strategy::NaiveDateTimeStr => DynamicSource::new(NaiveDateTimeStrSource(
+                    Strategy::NaiveStrAsDate64 => DynamicSource::new(NaiveDateTimeStrSource(
                         PrimitiveEventSource::<i64>::from_array(array)?,
                     )),
-                    Strategy::UtcDateTimeStr => DynamicSource::new(UtcDateTimeStrSource(
+                    Strategy::UtcStrAsDate64 => DynamicSource::new(UtcDateTimeStrSource(
                         PrimitiveEventSource::<i64>::from_array(array)?,
                     )),
                     s => fail!("Invalid strategy {s} for Date64 column"),
@@ -99,7 +99,7 @@ pub fn build_dynamic_source<'a>(
         DataType::Struct(fields) => {
             if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
                 let strategy: Strategy = strategy.parse()?;
-                if !matches!(strategy, Strategy::Tuple) {
+                if !matches!(strategy, Strategy::TupleAsStruct) {
                     fail!("Invalid strategy {strategy} for Struct column");
                 }
                 build_dynamic_struct_source(fields, array, true)?

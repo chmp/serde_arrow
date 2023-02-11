@@ -31,7 +31,7 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// field.data_type = DataType::Date64;
 /// field.metadata.insert(
 ///     STRATEGY_KEY.to_string(),
-///     Strategy::UtcDateTimeStr.to_string(),
+///     Strategy::UtcStrAsDate64.to_string(),
 /// );
 /// # }
 /// # #[cfg(not(feature="arrow2"))]
@@ -40,20 +40,25 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 ///
 #[non_exhaustive]
 pub enum Strategy {
-    /// Arrow: Date64, serde: strings with UTC timezone
-    UtcDateTimeStr,
-    /// Arrow: Date64, serde: strings without a timezone
-    NaiveDateTimeStr,
+    /// Serialize Rust strings containing UTC datetimes with timezone as Arrows
+    /// Date64
+    UtcStrAsDate64,
+    /// Serialize Rust strings containing datetimes without timezone as Arrow
+    /// Date64
+    NaiveStrAsDate64,
     /// Serialize Rust tuples as Arrow structs
-    Tuple,
+    TupleAsStruct,
+    /// Serialize Rust maps as Arrow structs
+    MapAsStruct,
 }
 
 impl std::fmt::Display for Strategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UtcDateTimeStr => write!(f, "UtcDateTimeStr"),
-            Self::NaiveDateTimeStr => write!(f, "NaiveDateTimeStr"),
-            Self::Tuple => write!(f, "Tuple"),
+            Self::UtcStrAsDate64 => write!(f, "UtcStrAsDate64"),
+            Self::NaiveStrAsDate64 => write!(f, "NaiveStrAsDate64"),
+            Self::TupleAsStruct => write!(f, "TupleAsStruct"),
+            Self::MapAsStruct => write!(f, "MapAsStruct"),
         }
     }
 }
@@ -63,9 +68,10 @@ impl FromStr for Strategy {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "UtcDateTimeStr" => Ok(Self::UtcDateTimeStr),
-            "NaiveDateTimeStr" => Ok(Self::NaiveDateTimeStr),
-            "Tuple" => Ok(Self::Tuple),
+            "UtcStrAsDate64" => Ok(Self::UtcStrAsDate64),
+            "NaiveStrAsDate64" => Ok(Self::NaiveStrAsDate64),
+            "TupleAsStruct" => Ok(Self::TupleAsStruct),
+            "MapAsStruct" => Ok(Self::MapAsStruct),
             _ => fail!("Unknown strategy {s}"),
         }
     }

@@ -38,7 +38,7 @@ fn dtype_date64_naive_str() {
     val_field.data_type = DataType::Date64;
     val_field.metadata.insert(
         STRATEGY_KEY.to_string(),
-        Strategy::NaiveDateTimeStr.to_string(),
+        Strategy::NaiveStrAsDate64.to_string(),
     );
 
     println!("{fields:?}");
@@ -95,7 +95,7 @@ fn dtype_date64_str() {
     val_field.data_type = DataType::Date64;
     val_field.metadata.insert(
         STRATEGY_KEY.to_string(),
-        Strategy::UtcDateTimeStr.to_string(),
+        Strategy::UtcStrAsDate64.to_string(),
     );
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();

@@ -329,7 +329,7 @@ test_round_trip!(
     field = Field::new("value", DataType::Struct(vec![
         Field::new("0", DataType::Boolean, false),
         Field::new("1", DataType::Int64, false),
-    ]), true).with_metadata(strategy_meta(Strategy::Tuple)),
+    ]), true).with_metadata(strategy_meta(Strategy::TupleAsStruct)),
     ty = Option<(bool, i64)>,
     values = [
         Some((true, 21)),
@@ -345,9 +345,9 @@ test_round_trip!(
                 Field::new("0", DataType::Boolean, false),
                 Field::new("1", DataType::Int64, false),
             ]), false)
-            .with_metadata(strategy_meta(Strategy::Tuple)),
+            .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
         Field::new("1", DataType::Int64, false),
-    ]), true).with_metadata(strategy_meta(Strategy::Tuple)),
+    ]), true).with_metadata(strategy_meta(Strategy::TupleAsStruct)),
     ty = Option<((bool, i64), i64)>,
     values = [
         Some(((true, 21), 7)),
@@ -399,7 +399,7 @@ test_round_trip!(
                     ]),
                     false,
                 )
-                .with_metadata(strategy_meta(Strategy::Tuple)),
+                .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
                 Field::new(
                     "B",
                     DataType::Struct(vec![
@@ -408,7 +408,7 @@ test_round_trip!(
                     ]),
                     false,
                 )
-                .with_metadata(strategy_meta(Strategy::Tuple)),
+                .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
             ],
             None,
             UnionMode::Dense,
