@@ -603,7 +603,6 @@ test_round_trip!(
 );
 
 test_round_trip!(
-    #[ignore = "flattened types are not yet supported"]
     test_name = flattened_structures,
     field = Field::new(
         "value",
@@ -613,7 +612,8 @@ test_round_trip!(
             Field::new("c", DataType::Float64, false),
         ]),
         false,
-    ),
+    )
+    .with_metadata(strategy_meta(Strategy::MapAsStruct)),
     ty = Outer,
     values = [
         Outer {

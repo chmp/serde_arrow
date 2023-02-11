@@ -538,7 +538,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
 
         match self.state {
             Start => match event {
-                Event::StartStruct => {
+                Event::StartStruct | Event::StartMap => {
                     self.seen = vec![false; self.columns.len()];
                     self.state = Field;
                 }
@@ -558,15 +558,17 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                     }
                     self.validity.push(true);
                 }
-                ev => fail!("Expected StartMap or marker in StructArrayBuilder, not {ev}"),
+                ev => fail!(
+                    "Expected StartStruct, StartMap or marker in StructArrayBuilder, not {ev}"
+                ),
             },
             Field => {
                 let key = match event {
                     Event::Str(key) => key,
                     Event::OwnedStr(ref key) => key,
-                    Event::EndStruct => {
+                    Event::EndStruct | Event::EndMap => {
                         if !self.seen.iter().all(|&seen| seen) {
-                            // TODO: improve error message
+                            // TODO: fill out missing fields with Nones
                             fail!("Missing fields");
                         }
                         self.validity.push(true);

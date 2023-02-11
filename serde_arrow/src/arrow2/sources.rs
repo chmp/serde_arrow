@@ -97,14 +97,17 @@ pub fn build_dynamic_source<'a>(
             }
         }
         DataType::Struct(fields) => {
-            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
-                let strategy: Strategy = strategy.parse()?;
-                if !matches!(strategy, Strategy::TupleAsStruct) {
-                    fail!("Invalid strategy {strategy} for Struct column");
-                }
-                build_dynamic_struct_source(fields, array, true)?
-            } else {
-                build_dynamic_struct_source(fields, array, false)?
+            let strategy: Option<Strategy> =
+                if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
+                    Some(strategy.parse()?)
+                } else {
+                    None
+                };
+            match strategy {
+                Some(Strategy::TupleAsStruct) => build_dynamic_tuple_struct_source(fields, array)?,
+                Some(Strategy::MapAsStruct) => build_dynamic_struct_source(fields, array, true)?,
+                None => build_dynamic_struct_source(fields, array, false)?,
+                Some(strategy) => fail!("Invalid strategy {strategy} for Struct column"),
             }
         }
         DataType::List(field) => build_dynamic_list_source::<i32>(field.as_ref(), array)?,
@@ -161,7 +164,7 @@ pub fn build_dynamic_primitive_source<'a, T: Into<Event<'static>> + NativeType>(
 pub fn build_dynamic_struct_source<'a>(
     fields: &'a [Field],
     array: &'a dyn Array,
-    as_tuple: bool,
+    as_map: bool,
 ) -> Result<DynamicSource<'a>> {
     let array = array
         .as_any()
@@ -183,13 +186,34 @@ pub fn build_dynamic_struct_source<'a>(
         vec![true; array.len()]
     };
 
-    if !as_tuple {
-        let source = StructSource::new(names, validity, values);
-        Ok(DynamicSource::new(source))
-    } else {
-        let source = TupleSource::new(validity, values);
-        Ok(DynamicSource::new(source))
+    let source = StructSource::new(names, validity, values, as_map);
+    Ok(DynamicSource::new(source))
+}
+
+pub fn build_dynamic_tuple_struct_source<'a>(
+    fields: &'a [Field],
+    array: &'a dyn Array,
+) -> Result<DynamicSource<'a>> {
+    let array = array
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .ok_or_else(|| error!("mismatched type"))?;
+    let children = array.values();
+
+    let mut values: Vec<DynamicSource<'a>> = Vec::new();
+
+    for i in 0..fields.len() {
+        values.push(build_dynamic_source(&fields[i], children[i].as_ref())?);
     }
+
+    let validity = if let Some(validity) = array.validity() {
+        validity.iter().collect()
+    } else {
+        vec![true; array.len()]
+    };
+
+    let source = TupleSource::new(validity, values);
+    Ok(DynamicSource::new(source))
 }
 
 pub fn build_dynamic_list_source<'a, T: Offset>(

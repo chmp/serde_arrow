@@ -89,6 +89,7 @@ enum RecordSourceState {
 }
 
 pub struct StructSource<'a> {
+    as_map: bool,
     fields: Vec<&'a str>,
     values: Vec<PeekableEventSource<'a, DynamicSource<'a>>>,
     validity: Vec<bool>,
@@ -97,9 +98,15 @@ pub struct StructSource<'a> {
 }
 
 impl<'a> StructSource<'a> {
-    pub fn new(fields: Vec<&'a str>, validity: Vec<bool>, values: Vec<DynamicSource<'a>>) -> Self {
+    pub fn new(
+        fields: Vec<&'a str>,
+        validity: Vec<bool>,
+        values: Vec<DynamicSource<'a>>,
+        as_map: bool,
+    ) -> Self {
         let values = values.into_iter().map(PeekableEventSource::new).collect();
         Self {
+            as_map,
             fields,
             values,
             validity,
@@ -129,12 +136,20 @@ impl<'a> EventSource<'a> for StructSource<'a> {
                 } else {
                     self.next = Key(0);
                     self.offset += 1;
-                    Ok(Some(Event::StartStruct))
+                    if !self.as_map {
+                        Ok(Some(Event::StartStruct))
+                    } else {
+                        Ok(Some(Event::StartMap))
+                    }
                 }
             }
             Key(i) if i >= self.fields.len() => {
                 self.next = Start;
-                Ok(Some(Event::EndStruct))
+                if !self.as_map {
+                    Ok(Some(Event::EndStruct))
+                } else {
+                    Ok(Some(Event::EndMap))
+                }
             }
             Key(i) => {
                 self.next = Value(i, 0);

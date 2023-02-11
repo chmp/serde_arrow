@@ -96,16 +96,23 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
                 nullable.push(field.is_nullable);
             }
 
-            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
-                let strategy: Strategy = strategy.parse()?;
-                if !matches!(strategy, Strategy::TupleAsStruct) {
-                    fail!("Invalid strategy {strategy} for Struct column");
+            let strategy: Option<Strategy> =
+                if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
+                    Some(strategy.parse()?)
+                } else {
+                    None
+                };
+
+            match strategy {
+                Some(Strategy::TupleAsStruct) => {
+                    let builder = TupleStructBuilder::new(nullable, builders);
+                    Ok(DynamicArrayBuilder::new(builder))
                 }
-                let builder = TupleStructBuilder::new(nullable, builders);
-                Ok(DynamicArrayBuilder::new(builder))
-            } else {
-                let builder = StructArrayBuilder::new(columns, nullable, builders);
-                Ok(DynamicArrayBuilder::new(builder))
+                None | Some(Strategy::MapAsStruct) => {
+                    let builder = StructArrayBuilder::new(columns, nullable, builders);
+                    Ok(DynamicArrayBuilder::new(builder))
+                }
+                Some(strategy) => fail!("Invalid strategy {strategy} for Struct column"),
             }
         }
         // TODO: test List sink
