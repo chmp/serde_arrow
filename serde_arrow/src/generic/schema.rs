@@ -47,8 +47,19 @@ pub enum Strategy {
     /// Date64
     NaiveStrAsDate64,
     /// Serialize Rust tuples as Arrow structs
+    ///
+    /// This strategy is most-likely the most optimal one, as Rust tuples can
+    /// contain different types, whereas Arrow sequences must be of uniform type
+    ///
     TupleAsStruct,
     /// Serialize Rust maps as Arrow structs
+    ///
+    /// This strategy is most-likely the most optimal one:
+    ///
+    /// - using the `#[serde(flatten)]` attribute converts a struct into a map
+    /// - the support for arrow maps in the data ecosystem is limited (e.g.,
+    ///   polars does not support them)
+    ///
     MapAsStruct,
 }
 
