@@ -22,7 +22,7 @@
 //!
 //! // Auto-detect the arrow types. Result may need to be overwritten and
 //! // customized, see serde_arrow::Strategy for details.
-//! let fields = serialize_into_fields(&records)?;
+//! let fields = serialize_into_fields(&records, Default::default())?;
 //! let batch = serialize_into_arrays(&fields, &records)?;
 //!
 //! # Ok(())
@@ -49,7 +49,7 @@ pub mod arrow2;
 mod test;
 
 pub use base::error::{Error, Result};
-pub use generic::schema::{Strategy, STRATEGY_KEY};
+pub use generic::schema::{SchemaTracingOptions, Strategy, STRATEGY_KEY};
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

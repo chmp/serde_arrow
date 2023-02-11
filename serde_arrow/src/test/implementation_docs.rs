@@ -56,7 +56,7 @@ fn implementation_docs() {
 
     assert_eq!(items_from_arrays, items);
 
-    let fields_from_items = serialize_into_fields(&items).unwrap();
+    let fields_from_items = serialize_into_fields(&items, Default::default()).unwrap();
     assert_eq!(fields_from_items, fields);
 }
 
@@ -89,7 +89,7 @@ fn example_readme() -> Result<(), PanicOnError> {
     // detect the field types and convert the items to arrays
     use crate::arrow2::{serialize_into_arrays, serialize_into_fields};
 
-    let fields = serialize_into_fields(&items)?;
+    let fields = serialize_into_fields(&items, Default::default())?;
     let arrays = serialize_into_arrays(&fields, &items)?;
 
     std::mem::drop((fields, arrays));

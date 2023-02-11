@@ -22,7 +22,7 @@ use crate::{
         source::AddOuterSequenceSource,
     },
     generic::{
-        schema::{FieldBuilder, SchemaTracer, Tracer},
+        schema::{FieldBuilder, SchemaTracer, SchemaTracingOptions, Tracer},
         sinks::ArrayBuilder,
     },
     Result,
@@ -49,7 +49,7 @@ use crate::{
 ///     // ...
 /// ];
 ///
-/// let fields = serialize_into_fields(&items).unwrap();
+/// let fields = serialize_into_fields(&items, Default::default()).unwrap();
 /// let expected = vec![
 ///     Field::new("a", DataType::Float32, true),
 ///     Field::new("b", DataType::UInt64, false),
@@ -63,11 +63,11 @@ use crate::{
 /// - include all variants of an enum
 /// - include at least single element of a list a map
 ///
-pub fn serialize_into_fields<T>(items: &T) -> Result<Vec<Field>>
+pub fn serialize_into_fields<T>(items: &T, options: SchemaTracingOptions) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
 {
-    let mut schema = SchemaTracer::new();
+    let mut schema = SchemaTracer::new(options);
     serialize_into_sink(&mut schema, items)?;
 
     let root = schema.to_field("root")?;
@@ -99,7 +99,7 @@ where
 ///     // ...
 /// ];
 ///
-/// let fields = serialize_into_fields(&items).unwrap();
+/// let fields = serialize_into_fields(&items, Default::default()).unwrap();
 /// let arrays = serialize_into_arrays(&fields, &items).unwrap();
 ///
 /// assert_eq!(arrays.len(), 2);
@@ -134,7 +134,10 @@ where
 /// }
 ///
 /// // provide an example record to get the field information
-/// let fields = serialize_into_fields(&[Record { a: Some(1.0), b: 2}]).unwrap();
+/// let fields = serialize_into_fields(
+///     &[Record { a: Some(1.0), b: 2}],
+///     Default::default(),
+/// ).unwrap();
 /// # let items = &[Record { a: Some(1.0), b: 2}];
 /// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
 /// #
@@ -151,11 +154,15 @@ where
     deserialize_from_source(build_record_source(fields, arrays)?)
 }
 
-pub fn serialize_into_field<T>(name: &str, items: &T) -> Result<Field>
+pub fn serialize_into_field<T>(
+    items: &T,
+    name: &str,
+    options: SchemaTracingOptions,
+) -> Result<Field>
 where
     T: Serialize + ?Sized,
 {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(options);
     serialize_into_sink(&mut StripOuterSequenceSink::new(&mut tracer), items)?;
     tracer.to_field(name)
 }

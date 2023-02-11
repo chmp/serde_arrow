@@ -32,7 +32,7 @@ fn dtype_date64_naive_str() {
         },
     ];
 
-    let mut fields = serialize_into_fields(records).unwrap();
+    let mut fields = serialize_into_fields(records, Default::default()).unwrap();
 
     let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
     val_field.data_type = DataType::Date64;
@@ -90,7 +90,7 @@ fn dtype_date64_str() {
         },
     ];
 
-    let mut fields = serialize_into_fields(records).unwrap();
+    let mut fields = serialize_into_fields(records, Default::default()).unwrap();
     let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
     val_field.data_type = DataType::Date64;
     val_field.metadata.insert(
@@ -152,7 +152,7 @@ fn nested_list_structs() {
         },
     ];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
 
     let expected_fields = vec![field::large_list(
         "a",
@@ -208,7 +208,7 @@ fn nested_structs_lists_lists() {
         },
     ];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let expected_fields = vec![
         field::r#struct(
             "a",
@@ -253,7 +253,7 @@ fn byte_arrays() {
         },
     ];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
@@ -273,7 +273,7 @@ fn new_type_structs() {
 
     let items = vec![Item { a: U64(21) }, Item { a: U64(42) }];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
@@ -292,7 +292,7 @@ macro_rules! define_wrapper_test {
 
             let items = $init;
 
-            let fields = serialize_into_fields(&items).unwrap();
+            let fields = serialize_into_fields(&items, Default::default()).unwrap();
             let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
             let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
@@ -323,7 +323,7 @@ fn wrapper_tuple() {
 
     let items = (Item { a: 21 }, Item { a: 42 });
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
@@ -348,7 +348,7 @@ fn test_string_as_large_utf8() {
         },
     ];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let expected_fields = vec![Field::new("a", DataType::LargeUtf8, false)];
 
     assert_eq!(fields, expected_fields);
@@ -392,7 +392,7 @@ fn test_unit() {
 
     let items = vec![Item { a: () }, Item { a: () }];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let expected_fields = vec![Field::new("a", DataType::Null, true)];
 
     assert_eq!(fields, expected_fields);
@@ -412,7 +412,7 @@ fn test_tuple() {
 
     let items = vec![Item { a: (0, 1) }, Item { a: (2, 3) }];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
@@ -431,7 +431,7 @@ fn test_tuple_struct() {
 
     let items = vec![Item { a: Inner(0, 1) }, Item { a: Inner(2, 3) }];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
@@ -469,7 +469,7 @@ fn test_struct_with_options() {
         },
     ];
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
     let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
@@ -521,7 +521,7 @@ fn test_complex_benchmark_example() {
     let mut rng = rand::thread_rng();
     let items: Vec<Item> = (0..10).map(|_| Item::random(&mut rng)).collect();
 
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     let round_tripped: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();

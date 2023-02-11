@@ -96,17 +96,44 @@ pub enum SchemaTracerState {
     Done,
 }
 
+#[derive(Debug, Clone)]
+pub struct SchemaTracingOptions {
+    /// If true serialize maps as structs
+    pub map_as_struct: bool,
+}
+
+impl SchemaTracingOptions {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn map_as_struct(mut self, value: bool) -> Self {
+        self.map_as_struct = value;
+        self
+    }
+}
+
+impl Default for SchemaTracingOptions {
+    fn default() -> Self {
+        Self {
+            map_as_struct: true,
+        }
+    }
+}
+
 /// Trace the schema for a list of records
 pub struct SchemaTracer {
     pub tracer: Option<StructTracer>,
     pub next: SchemaTracerState,
+    pub options: SchemaTracingOptions,
 }
 
 impl SchemaTracer {
-    pub fn new() -> Self {
+    pub fn new(options: SchemaTracingOptions) -> Self {
         Self {
             tracer: None,
             next: SchemaTracerState::StartSequence,
+            options,
         }
     }
 }
@@ -125,7 +152,11 @@ impl EventSink for SchemaTracer {
                 E::EndSequence | E::EndTuple => S::Done,
                 ev @ E::StartStruct => {
                     if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(StructMode::Struct, false));
+                        self.tracer = Some(StructTracer::new(
+                            self.options.clone(),
+                            StructMode::Struct,
+                            false,
+                        ));
                     }
 
                     self.tracer.as_mut().unwrap().accept(ev)?;
@@ -133,7 +164,11 @@ impl EventSink for SchemaTracer {
                 }
                 ev @ E::StartMap => {
                     if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(StructMode::Map, false));
+                        self.tracer = Some(StructTracer::new(
+                            self.options.clone(),
+                            StructMode::Map,
+                            false,
+                        ));
                     }
 
                     self.tracer.as_mut().unwrap().accept(ev)?;
@@ -192,8 +227,8 @@ pub enum Tracer {
 }
 
 impl Tracer {
-    pub fn new() -> Self {
-        Self::Unknown(UnknownTracer::new())
+    pub fn new(options: SchemaTracingOptions) -> Self {
+        Self::Unknown(UnknownTracer::new(options))
     }
 
     pub fn mark_nullable(&mut self) {
@@ -228,7 +263,6 @@ pub trait FieldBuilder<F> {
 
 impl EventSink for Tracer {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        //
         match self {
             // NOTE: unknown tracer is the only tracer that change the internal type
             Self::Unknown(tracer) => match event {
@@ -251,27 +285,41 @@ impl EventSink for Tracer {
                     *self = Tracer::Primitive(tracer)
                 }
                 Event::StartSequence => {
-                    let mut tracer = ListTracer::new(tracer.nullable);
+                    let mut tracer = ListTracer::new(tracer.options.clone(), tracer.nullable);
                     tracer.accept(event)?;
                     *self = Tracer::List(tracer);
                 }
                 Event::StartStruct => {
-                    let mut tracer = StructTracer::new(StructMode::Struct, tracer.nullable);
+                    let mut tracer = StructTracer::new(
+                        tracer.options.clone(),
+                        StructMode::Struct,
+                        tracer.nullable,
+                    );
                     tracer.accept(event)?;
                     *self = Tracer::Struct(tracer);
                 }
                 Event::StartTuple => {
-                    let mut tracer = TupleTracer::new(tracer.nullable);
+                    let mut tracer = TupleTracer::new(tracer.options.clone(), tracer.nullable);
                     tracer.accept(event)?;
                     *self = Tracer::Tuple(tracer);
                 }
                 Event::StartMap => {
-                    let mut tracer = MapTracer::new(tracer.nullable);
-                    tracer.accept(event)?;
-                    *self = Tracer::Map(tracer);
+                    if tracer.options.map_as_struct {
+                        let mut tracer = StructTracer::new(
+                            tracer.options.clone(),
+                            StructMode::Map,
+                            tracer.nullable,
+                        );
+                        tracer.accept(event)?;
+                        *self = Tracer::Struct(tracer);
+                    } else {
+                        let mut tracer = MapTracer::new(tracer.options.clone(), tracer.nullable);
+                        tracer.accept(event)?;
+                        *self = Tracer::Map(tracer);
+                    }
                 }
                 Event::Variant(_, _) => {
-                    let mut tracer = UnionTracer::new(tracer.nullable);
+                    let mut tracer = UnionTracer::new(tracer.options.clone(), tracer.nullable);
                     tracer.accept(event)?;
                     *self = Tracer::Union(tracer)
                 }
@@ -304,13 +352,15 @@ impl EventSink for Tracer {
 pub struct UnknownTracer {
     pub nullable: bool,
     pub finished: bool,
+    pub options: SchemaTracingOptions,
 }
 
 impl UnknownTracer {
-    pub fn new() -> Self {
+    pub fn new(options: SchemaTracingOptions) -> Self {
         Self {
             nullable: false,
             finished: false,
+            options,
         }
     }
 
@@ -335,6 +385,7 @@ pub struct StructTracer {
     pub next: StructTracerState,
     pub counts: BTreeMap<usize, usize>,
     pub finished: bool,
+    pub options: SchemaTracingOptions,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -345,8 +396,9 @@ pub enum StructTracerState {
 }
 
 impl StructTracer {
-    pub fn new(mode: StructMode, nullable: bool) -> Self {
+    pub fn new(options: SchemaTracingOptions, mode: StructMode, nullable: bool) -> Self {
         Self {
+            options,
             mode,
             field_tracers: Vec::new(),
             field_names: Vec::new(),
@@ -384,7 +436,7 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 } else {
                     let field = self.field_tracers.len();
-                    self.field_tracers.push(Tracer::new());
+                    self.field_tracers.push(Tracer::new(self.options.clone()));
                     self.field_names.push(key.to_owned());
                     self.index.insert(key.to_owned(), field);
                     self.mark_seen(field);
@@ -449,11 +501,13 @@ pub struct TupleTracer {
     pub nullable: bool,
     pub next: TupleTracerState,
     pub finished: bool,
+    pub options: SchemaTracingOptions,
 }
 
 impl TupleTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
         Self {
+            options,
             field_tracers: Vec::new(),
             nullable,
             next: TupleTracerState::Start,
@@ -463,7 +517,7 @@ impl TupleTracer {
 
     fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
         while self.field_tracers.len() <= idx {
-            self.field_tracers.push(Tracer::new());
+            self.field_tracers.push(Tracer::new(self.options.clone()));
         }
         &mut self.field_tracers[idx]
     }
@@ -543,9 +597,9 @@ pub enum ListTracerState {
 }
 
 impl ListTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
         Self {
-            item_tracer: Box::new(Tracer::new()),
+            item_tracer: Box::new(Tracer::new(options)),
             nullable,
             next: ListTracerState::Start,
             finished: false,
@@ -604,11 +658,13 @@ pub struct UnionTracer {
     pub nullable: bool,
     pub next: UnionTracerState,
     pub finished: bool,
+    pub options: SchemaTracingOptions,
 }
 
 impl UnionTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
         Self {
+            options,
             variants: Vec::new(),
             tracers: Vec::new(),
             nullable,
@@ -624,7 +680,7 @@ impl UnionTracer {
     ) -> Result<()> {
         while self.variants.len() <= idx {
             self.variants.push(None);
-            self.tracers.push(Tracer::new());
+            self.tracers.push(Tracer::new(self.options.clone()));
         }
 
         if let Some(prev) = self.variants[idx].as_ref() {
@@ -714,11 +770,11 @@ pub struct MapTracer {
 }
 
 impl MapTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
         Self {
             nullable,
-            key: Box::new(Tracer::new()),
-            value: Box::new(Tracer::new()),
+            key: Box::new(Tracer::new(options.clone())),
+            value: Box::new(Tracer::new(options)),
             next: MapTracerState::Start,
             finished: true,
         }

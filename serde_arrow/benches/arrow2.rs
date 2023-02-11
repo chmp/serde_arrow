@@ -62,7 +62,7 @@ fn benchmark_primitives(c: &mut Criterion) {
     let items = (0..100_000)
         .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     group.bench_function("serialize_into_arrays", |b| {
@@ -233,7 +233,7 @@ fn benchmark_complex(c: &mut Criterion) {
     let items = (0..100_000)
         .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
-    let fields = serialize_into_fields(&items).unwrap();
+    let fields = serialize_into_fields(&items, Default::default()).unwrap();
     let arrays = serialize_into_arrays(&fields, &items).unwrap();
 
     group.bench_function("serialize_into_arrays", |b| {

@@ -77,7 +77,7 @@ fn main() -> Result<(), PanicOnError> {
         },
     ];
 
-    let fields = serde_arrow::arrow2::serialize_into_fields(&examples)?;
+    let fields = serde_arrow::arrow2::serialize_into_fields(&examples, Default::default())?;
     let arrays = serde_arrow::arrow2::serialize_into_arrays(&fields, &examples)?;
 
     let schema = Schema::from(fields);

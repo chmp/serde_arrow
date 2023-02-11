@@ -8,7 +8,7 @@ use crate::arrow2::serialize_into_fields;
 #[test]
 fn empty() {
     let items: Vec<i8> = Vec::new();
-    assert!(serialize_into_fields(&items).is_err());
+    assert!(serialize_into_fields(&items, Default::default()).is_err());
 }
 
 macro_rules! define_primitive_test {
@@ -23,7 +23,7 @@ macro_rules! define_primitive_test {
                 a: Default::default(),
             }];
 
-            let fields = serialize_into_fields(&items).unwrap();
+            let fields = serialize_into_fields(&items, Default::default()).unwrap();
             let expected = vec![Field::new("a", DataType::$variant, false)];
 
             assert_eq!(fields, expected);
@@ -53,7 +53,7 @@ fn option_only_nulls() {
 
     let items = vec![Item { a: None }, Item { a: None }, Item { a: None }];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![Field::new("a", DataType::Null, true)];
 
     assert_eq!(actual, expected);
@@ -68,7 +68,7 @@ fn option_only_somes() {
 
     let items = vec![Item { a: Some(0) }];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![Field::new("a", DataType::Int8, true)];
 
     assert_eq!(actual, expected);
@@ -95,7 +95,7 @@ fn nested_struct() {
         },
     ];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![Field::new(
         "b",
         DataType::Struct(vec![Field::new("value", DataType::Boolean, false)]),
@@ -133,7 +133,7 @@ fn complex_example() {
         },
     ];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![
         Field::new("a", DataType::Int8, true),
         Field::new(
@@ -168,7 +168,7 @@ fn union_example() {
         },
     ];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![Field::new(
         "item",
         DataType::Union(
@@ -208,7 +208,7 @@ fn outer_map() {
         b: Inner { value: true },
     }];
 
-    let actual = serialize_into_fields(&items).unwrap();
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
     let expected = vec![
         Field::new("a", DataType::Int8, false),
         Field::new("value", DataType::Boolean, false),
@@ -234,7 +234,7 @@ fn outer_map_missing_fields() {
     element.insert(String::from("c"), 3);
     items.push(element);
 
-    let mut actual = serialize_into_fields(&items).unwrap();
+    let mut actual = serialize_into_fields(&items, Default::default()).unwrap();
     actual.sort_by(|a, b| a.name.cmp(&b.name));
 
     let expected = vec![

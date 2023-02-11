@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
-    Strategy, STRATEGY_KEY,
+    SchemaTracingOptions, Strategy, STRATEGY_KEY,
 };
 
 /// Helper to define the metadata for the given strategy
@@ -47,6 +47,7 @@ macro_rules! test_round_trip {
     (
         $(#[$($tt:tt)*])?
         test_name = $test_name:ident,
+        $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
         ty = $ty:ty,
@@ -62,7 +63,13 @@ macro_rules! test_round_trip {
 
             let field = $field;
 
-            let res_field = serialize_into_field("value", &items).unwrap();
+            #[allow(unused)]
+            let options = SchemaTracingOptions::default();
+            $(let options = $tracing_options;)?
+
+            println!("{options:?}");
+
+            let res_field = serialize_into_field(&items, "value", options).unwrap();
             assert_eq!(res_field, field);
 
             // overwrite the field to customize the serialization
@@ -467,6 +474,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps,
+    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -492,6 +500,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable,
+    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -517,6 +526,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable_keys,
+    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -542,6 +552,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable_values,
+    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -567,6 +578,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = btree_maps,
+    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(

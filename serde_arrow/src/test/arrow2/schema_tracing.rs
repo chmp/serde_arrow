@@ -21,7 +21,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn single_event() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer
                     .accept(Event::$event_variant(Default::default()))
@@ -36,7 +36,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn multiple_events() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer
                     .accept(Event::$event_variant(Default::default()))
@@ -54,7 +54,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn leading_none() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer.accept(Event::Null).unwrap();
                 tracer
@@ -70,7 +70,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn trailing_none() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer
                     .accept(Event::$event_variant(Default::default()))
@@ -86,7 +86,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn leading_some() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer.accept(Event::Some).unwrap();
                 tracer
@@ -105,7 +105,7 @@ macro_rules! define_primitive_tests {
 
             #[test]
             fn trailing_some() {
-                let mut tracer = Tracer::new();
+                let mut tracer = Tracer::new(Default::default());
 
                 tracer
                     .accept(Event::$event_variant(Default::default()))
@@ -141,7 +141,7 @@ define_primitive_tests!(F64, Float64);
 
 #[test]
 fn empty_list() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
@@ -158,14 +158,14 @@ fn empty_list() {
 
 #[test]
 fn incomplete_list() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     assert!(tracer.finish().is_err());
 }
 
 #[test]
 fn nullable_list_null_first() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::Null).unwrap();
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
@@ -183,7 +183,7 @@ fn nullable_list_null_first() {
 
 #[test]
 fn nullable_list_null_second() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.accept(Event::Null).unwrap();
@@ -201,7 +201,7 @@ fn nullable_list_null_second() {
 
 #[test]
 fn nullable_list_some_first() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::Some).unwrap();
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
@@ -221,7 +221,7 @@ fn nullable_list_some_first() {
 
 #[test]
 fn nullable_list_some_second() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.accept(Event::Some).unwrap();
@@ -241,7 +241,7 @@ fn nullable_list_some_second() {
 
 #[test]
 fn primitive_lists() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::I8(0)).unwrap();
     tracer.accept(Event::I8(1)).unwrap();
@@ -265,7 +265,7 @@ fn primitive_lists() {
 
 #[test]
 fn nested_lists() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::I8(0)).unwrap();
@@ -300,7 +300,7 @@ fn nested_lists() {
 
 #[test]
 fn structs() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("hello")).unwrap();
     tracer.accept(Event::U8(0)).unwrap();
@@ -330,7 +330,7 @@ fn structs() {
 
 #[test]
 fn struct_nullable_trailing_null() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("hello")).unwrap();
     tracer.accept(Event::U8(0)).unwrap();
@@ -355,7 +355,7 @@ fn struct_nullable_trailing_null() {
 
 #[test]
 fn struct_nullable_leading_null() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::Null).unwrap();
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("hello")).unwrap();
@@ -380,7 +380,7 @@ fn struct_nullable_leading_null() {
 
 #[test]
 fn struct_nested_structs() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("hello")).unwrap();
     tracer.accept(Event::U8(0)).unwrap();
@@ -411,7 +411,7 @@ fn struct_nested_structs() {
 
 #[test]
 fn struct_nested_list() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("hello")).unwrap();
     tracer.accept(Event::U8(0)).unwrap();
@@ -443,7 +443,7 @@ fn struct_nested_list() {
 
 #[test]
 fn struct_tuple() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartTuple).unwrap();
     tracer.accept(Event::U8(0)).unwrap();
     tracer.accept(Event::U8(1)).unwrap();
@@ -471,7 +471,7 @@ fn struct_tuple() {
 
 #[test]
 fn struct_tuple_struct_nested() {
-    let mut tracer = Tracer::new();
+    let mut tracer = Tracer::new(Default::default());
     tracer.accept(Event::StartTuple).unwrap();
     tracer.accept(Event::StartStruct).unwrap();
     tracer.accept(Event::Str("foo")).unwrap();
