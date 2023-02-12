@@ -10,23 +10,18 @@ use arrow2::{
 };
 
 use crate::{
-    base::{
+    internal::{
+        chrono_support::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
         error::{error, fail},
-        source::{AddOuterSequenceSource, DynamicSource},
-        Event, EventSource,
-    },
-    generic::{
-        chrono::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
-        sources::{ListSource, MapSource, StructSource, UnionSource},
-    },
-    generic::{
+        event::Event,
+        generic_sources::{ListSource, MapSource, StructSource, TupleSource, UnionSource},
         schema::{Strategy, STRATEGY_KEY},
-        sources::TupleSource,
+        source::{AddOuterSequenceSource, DynamicSource, EventSource},
     },
     Result,
 };
 
-use super::{schema::check_strategy, type_support::DataTypeDisplay};
+use super::{display, schema::check_strategy};
 
 pub(crate) fn build_record_source<'de, A>(
     fields: &'de [Field],
@@ -135,7 +130,7 @@ pub fn build_dynamic_source<'a>(
                 DataType::Struct(kv_fields) => kv_fields,
                 dt => fail!(
                     "Invalid field data type for MapArray, expected Struct, found {dt}",
-                    dt = DataTypeDisplay(dt),
+                    dt = display::DataType(dt),
                 ),
             };
             if kv_fields.len() != 2 {
@@ -149,7 +144,7 @@ pub fn build_dynamic_source<'a>(
         }
         dt => fail!(
             "Sources of type {dt} not yet supported",
-            dt = DataTypeDisplay(dt),
+            dt = display::DataType(dt),
         ),
     };
     Ok(source)
@@ -163,8 +158,8 @@ pub fn build_dynamic_primitive_source<'a, T: Into<Event<'static>> + NativeType>(
         PrimitiveEventSource::<'a, T>::new(array.as_any().downcast_ref().ok_or_else(|| {
             error!(
                 "Mismatched type. Expected {dt_expected}, found: {dt_actual}",
-                dt_expected = DataTypeDisplay(&field.data_type),
-                dt_actual = DataTypeDisplay(array.data_type()),
+                dt_expected = display::DataType(&field.data_type),
+                dt_actual = display::DataType(array.data_type()),
             )
         })?);
     Ok(DynamicSource::new(source))
@@ -235,7 +230,7 @@ pub fn build_dynamic_list_source<'a, T: Offset>(
         .ok_or_else(|| {
             error!(
                 "invalid array type {dt} for LargeList",
-                dt = DataTypeDisplay(array.data_type())
+                dt = display::DataType(array.data_type())
             )
         })?;
 
@@ -263,7 +258,7 @@ pub fn build_dynamic_union_source<'a>(
     let array = array.as_any().downcast_ref::<UnionArray>().ok_or_else(|| {
         error!(
             "invalid array type {dt} for UnionArray",
-            dt = DataTypeDisplay(array.data_type())
+            dt = display::DataType(array.data_type())
         )
     })?;
 
@@ -294,7 +289,7 @@ pub fn build_dynamic_map_source<'a>(
     let array = array.as_any().downcast_ref::<MapArray>().ok_or_else(|| {
         error!(
             "invalid array type {dt} for MapArray",
-            dt = DataTypeDisplay(array.data_type())
+            dt = display::DataType(array.data_type())
         )
     })?;
 
@@ -305,7 +300,7 @@ pub fn build_dynamic_map_source<'a>(
         .ok_or_else(|| {
             error!(
                 "invalid array type {dt} for StructArray",
-                dt = DataTypeDisplay(field.data_type())
+                dt = display::DataType(field.data_type())
             )
         })?;
 

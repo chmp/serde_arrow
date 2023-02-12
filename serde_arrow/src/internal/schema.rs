@@ -4,11 +4,13 @@ use std::{
 };
 
 use crate::{
-    base::{error::fail, Event, EventSink},
+    internal::{error::fail, event::Event, sink::EventSink},
     Error, Result,
 };
 
-/// The metadata key under which to store the strategy (see [Strategy] for details)
+/// The metadata key under which to store the strategy
+///
+/// See the [module][crate::schema] for details.
 ///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
@@ -19,40 +21,31 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// Rust objects themselves, some field types are incorrectly recognized (e.g.,
 /// datetimes).
 ///
-/// For example, to let `serde_arrow` handle date time objects that are
-/// serialized to strings (chrono's default), use
-///
-/// ```rust
-/// # #[cfg(feature="arrow2")]
-/// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use serde_arrow::{STRATEGY_KEY, Strategy};
-/// # let mut field = Field::new("my_field", DataType::Null, false);
-/// field.data_type = DataType::Date64;
-/// field.metadata.insert(
-///     STRATEGY_KEY.to_string(),
-///     Strategy::UtcStrAsDate64.to_string(),
-/// );
-/// # }
-/// # #[cfg(not(feature="arrow2"))]
-/// # fn main() {}
-/// ```
-///
 #[non_exhaustive]
 pub enum Strategy {
+    /// Marker that the type of the field could not be determined during tracing
+    ///
+    InconsistentTypes,
     /// Serialize Rust strings containing UTC datetimes with timezone as Arrows
     /// Date64
+    ///
     UtcStrAsDate64,
     /// Serialize Rust strings containing datetimes without timezone as Arrow
     /// Date64
+    ///
     NaiveStrAsDate64,
-    /// Serialize Rust tuples as Arrow structs
+    /// Serialize Rust tuples as Arrow structs with numeric field names starting
+    /// at `"0"`
     ///
     /// This strategy is most-likely the most optimal one, as Rust tuples can
     /// contain different types, whereas Arrow sequences must be of uniform type
     ///
     TupleAsStruct,
     /// Serialize Rust maps as Arrow structs
+    ///
+    /// Fields that are not present in all instances of the map are marked as
+    /// nullable in schema tracing. In serialization these fields are written as
+    /// null value if not present.
     ///
     /// This strategy is most-likely the most optimal one:
     ///
@@ -66,6 +59,7 @@ pub enum Strategy {
 impl std::fmt::Display for Strategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InconsistentTypes => write!(f, "InconsistentTypes"),
             Self::UtcStrAsDate64 => write!(f, "UtcStrAsDate64"),
             Self::NaiveStrAsDate64 => write!(f, "NaiveStrAsDate64"),
             Self::TupleAsStruct => write!(f, "TupleAsStruct"),
@@ -79,6 +73,7 @@ impl FromStr for Strategy {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "InconsistentTypes" => Ok(Self::InconsistentTypes),
             "UtcStrAsDate64" => Ok(Self::UtcStrAsDate64),
             "NaiveStrAsDate64" => Ok(Self::NaiveStrAsDate64),
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
@@ -88,21 +83,16 @@ impl FromStr for Strategy {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum SchemaTracerState {
-    StartSequence,
-    StartRecord,
-    Record(usize),
-    Done,
-}
-
+/// Configure how the schema is traced
+///
 #[derive(Debug, Clone)]
-pub struct SchemaTracingOptions {
-    /// If true serialize maps as structs
+pub struct TracingOptions {
+    /// If `true` serialize maps as structs (the default). See
+    /// [Strategy::MapAsStruct] for details.
     pub map_as_struct: bool,
 }
 
-impl SchemaTracingOptions {
+impl TracingOptions {
     pub fn new() -> Self {
         Default::default()
     }
@@ -113,106 +103,11 @@ impl SchemaTracingOptions {
     }
 }
 
-impl Default for SchemaTracingOptions {
+impl Default for TracingOptions {
     fn default() -> Self {
         Self {
             map_as_struct: true,
         }
-    }
-}
-
-/// Trace the schema for a list of records
-pub struct SchemaTracer {
-    pub tracer: Option<StructTracer>,
-    pub next: SchemaTracerState,
-    pub options: SchemaTracingOptions,
-}
-
-impl SchemaTracer {
-    pub fn new(options: SchemaTracingOptions) -> Self {
-        Self {
-            tracer: None,
-            next: SchemaTracerState::StartSequence,
-            options,
-        }
-    }
-}
-
-impl EventSink for SchemaTracer {
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        type S = SchemaTracerState;
-        type E<'a> = Event<'a>;
-
-        self.next = match self.next {
-            S::StartSequence => match event {
-                E::StartSequence | E::StartTuple => S::StartRecord,
-                ev => fail!("Invalid event {ev} in SchemaTracer, expected start of outer sequence"),
-            },
-            S::StartRecord => match event {
-                E::EndSequence | E::EndTuple => S::Done,
-                ev @ E::StartStruct => {
-                    if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(
-                            self.options.clone(),
-                            StructMode::Struct,
-                            false,
-                        ));
-                    }
-
-                    self.tracer.as_mut().unwrap().accept(ev)?;
-                    S::Record(0)
-                }
-                ev @ E::StartMap => {
-                    if self.tracer.is_none() {
-                        self.tracer = Some(StructTracer::new(
-                            self.options.clone(),
-                            StructMode::Map,
-                            false,
-                        ));
-                    }
-
-                    self.tracer.as_mut().unwrap().accept(ev)?;
-                    S::Record(0)
-                }
-                ev => fail!("Invalid event {ev} in SchemaTracer, expected start of record"),
-            },
-            S::Record(depth) => match event {
-                ev if ev.is_start() => {
-                    self.tracer.as_mut().unwrap().accept(ev)?;
-                    S::Record(depth + 1)
-                }
-                ev if ev.is_end() && depth == 0 => {
-                    // TODO: remember which mode we are in and only accept one or the other
-                    if matches!(ev, E::EndStruct | E::EndMap) {
-                        self.tracer.as_mut().unwrap().accept(ev)?;
-                        S::StartRecord
-                    } else {
-                        fail!("Invalid event {ev} in SchemaTracer, expected non-closing tag at depth 0")
-                    }
-                }
-                ev if ev.is_end() => {
-                    self.tracer.as_mut().unwrap().accept(ev)?;
-                    S::Record(depth - 1)
-                }
-                ev => {
-                    self.tracer.as_mut().unwrap().accept(ev)?;
-                    S::Record(depth)
-                }
-            },
-            S::Done => fail!("Invalid event {event} in SchemaTracer, expected no more events"),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, SchemaTracerState::Done) {
-            fail!("Incomplete structure in SchemaTracer");
-        }
-        if let Some(tracer) = self.tracer.as_mut() {
-            tracer.finish()?;
-        }
-
-        Ok(())
     }
 }
 
@@ -227,7 +122,7 @@ pub enum Tracer {
 }
 
 impl Tracer {
-    pub fn new(options: SchemaTracingOptions) -> Self {
+    pub fn new(options: TracingOptions) -> Self {
         Self::Unknown(UnknownTracer::new(options))
     }
 
@@ -352,11 +247,11 @@ impl EventSink for Tracer {
 pub struct UnknownTracer {
     pub nullable: bool,
     pub finished: bool,
-    pub options: SchemaTracingOptions,
+    pub options: TracingOptions,
 }
 
 impl UnknownTracer {
-    pub fn new(options: SchemaTracingOptions) -> Self {
+    pub fn new(options: TracingOptions) -> Self {
         Self {
             nullable: false,
             finished: false,
@@ -385,7 +280,7 @@ pub struct StructTracer {
     pub next: StructTracerState,
     pub counts: BTreeMap<usize, usize>,
     pub finished: bool,
-    pub options: SchemaTracingOptions,
+    pub options: TracingOptions,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -396,7 +291,7 @@ pub enum StructTracerState {
 }
 
 impl StructTracer {
-    pub fn new(options: SchemaTracingOptions, mode: StructMode, nullable: bool) -> Self {
+    pub fn new(options: TracingOptions, mode: StructMode, nullable: bool) -> Self {
         Self {
             options,
             mode,
@@ -501,11 +396,11 @@ pub struct TupleTracer {
     pub nullable: bool,
     pub next: TupleTracerState,
     pub finished: bool,
-    pub options: SchemaTracingOptions,
+    pub options: TracingOptions,
 }
 
 impl TupleTracer {
-    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
+    pub fn new(options: TracingOptions, nullable: bool) -> Self {
         Self {
             options,
             field_tracers: Vec::new(),
@@ -597,7 +492,7 @@ pub enum ListTracerState {
 }
 
 impl ListTracer {
-    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
+    pub fn new(options: TracingOptions, nullable: bool) -> Self {
         Self {
             item_tracer: Box::new(Tracer::new(options)),
             nullable,
@@ -658,11 +553,11 @@ pub struct UnionTracer {
     pub nullable: bool,
     pub next: UnionTracerState,
     pub finished: bool,
-    pub options: SchemaTracingOptions,
+    pub options: TracingOptions,
 }
 
 impl UnionTracer {
-    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
+    pub fn new(options: TracingOptions, nullable: bool) -> Self {
         Self {
             options,
             variants: Vec::new(),
@@ -770,7 +665,7 @@ pub struct MapTracer {
 }
 
 impl MapTracer {
-    pub fn new(options: SchemaTracingOptions, nullable: bool) -> Self {
+    pub fn new(options: TracingOptions, nullable: bool) -> Self {
         Self {
             nullable,
             key: Box::new(Tracer::new(options.clone())),

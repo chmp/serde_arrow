@@ -1,9 +1,9 @@
 use crate::{
-    base::{
-        source::{DynamicSource, IntoEventSource},
-        Event, EventSource,
+    internal::{
+        event::Event,
+        generic_sources::ListSource,
+        source::{DynamicSource, EventSource, IntoEventSource},
     },
-    generic::sources::ListSource,
     test::utils::collect_events,
 };
 

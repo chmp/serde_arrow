@@ -1,7 +1,7 @@
 //! The underlying data format used to interact with serde
 //!
 
-use crate::{base::error::fail, Error, Result};
+use crate::{internal::error::fail, Error, Result};
 
 /// The events used to interact with serde
 ///
@@ -150,7 +150,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    /// shorten the lifetime of the event
+    /// Shorten the lifetime of the event
     pub fn to_self(&self) -> Event<'_> {
         match self {
             Event::OwnedStr(s) => Event::Str(s),
@@ -182,9 +182,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    /// Increase the lifetime of the event to static
-    ///
-    /// This function clones any borrowed strings.
+    /// Increase the lifetime of the event to static by cloning any borrowed strings
     ///
     pub fn to_static(&self) -> Event<'static> {
         match self {
@@ -217,6 +215,7 @@ impl<'a> Event<'a> {
         }
     }
 
+    /// Test whether the event increases the nesting level
     pub fn is_start(&self) -> bool {
         matches!(
             self,
@@ -224,6 +223,7 @@ impl<'a> Event<'a> {
         )
     }
 
+    /// Test whether the event decreases the nesting level
     pub fn is_end(&self) -> bool {
         matches!(
             self,
@@ -231,6 +231,10 @@ impl<'a> Event<'a> {
         )
     }
 
+    /// Test whether the event encodes a primitive value
+    ///
+    /// Note: `Null`, `Default` are not considered a primitive value. Use
+    /// [is_value][Event::is_value] to include them.
     pub fn is_primitive(&self) -> bool {
         matches!(
             self,
@@ -250,10 +254,12 @@ impl<'a> Event<'a> {
         )
     }
 
+    /// Test whether the event encodes a self-contained value
     pub fn is_value(&self) -> bool {
         self.is_primitive() || matches!(self, Event::Null | Event::Default)
     }
 
+    /// Test whether the event modifies the following value
     pub fn is_marker(&self) -> bool {
         matches!(self, Event::Some | Event::Variant(_, _))
     }

@@ -1,11 +1,8 @@
-use crate::{
-    base::{deserialize_from_source, serialize_into_sink, Event},
-    Result,
-};
+use crate::internal::{event::Event, sink::serialize_into_sink, source::deserialize_from_source};
 use serde::{Deserialize, Serialize};
 
 #[test]
-fn example() -> Result<()> {
+fn example() {
     #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
     struct Example {
         int8: i8,
@@ -18,7 +15,7 @@ fn example() -> Result<()> {
     ];
 
     let mut events = Vec::new();
-    serialize_into_sink(&mut events, &items)?;
+    serialize_into_sink(&mut events, &items).unwrap();
     let expected = vec![
         Event::StartSequence,
         Event::StartStruct,
@@ -37,14 +34,12 @@ fn example() -> Result<()> {
     ];
     assert_eq!(events, expected);
 
-    let round_tripped: Vec<Example> = deserialize_from_source(&events)?;
+    let round_tripped: Vec<Example> = deserialize_from_source(&events).unwrap();
     assert_eq!(&round_tripped, items);
-
-    Ok(())
 }
 
 #[test]
-fn example_options() -> Result<()> {
+fn example_options() {
     #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
     struct Example {
         int8: Option<i8>,
@@ -53,7 +48,7 @@ fn example_options() -> Result<()> {
     let items: &[Example] = &[Example { int8: Some(0) }, Example { int8: None }];
 
     let mut events = Vec::new();
-    serialize_into_sink(&mut events, &items)?;
+    serialize_into_sink(&mut events, &items).unwrap();
     let expected = vec![
         Event::StartSequence,
         Event::StartStruct,
@@ -69,14 +64,12 @@ fn example_options() -> Result<()> {
     ];
     assert_eq!(events, expected);
 
-    let round_tripped: Vec<Example> = deserialize_from_source(&events)?;
+    let round_tripped: Vec<Example> = deserialize_from_source(&events).unwrap();
     assert_eq!(&round_tripped, items);
-
-    Ok(())
 }
 
 #[test]
-fn outer_struct() -> Result<()> {
+fn outer_struct() {
     #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
     struct Wrapper {
         ints: Vec<i8>,
@@ -89,7 +82,7 @@ fn outer_struct() -> Result<()> {
     };
 
     let mut events = Vec::new();
-    serialize_into_sink(&mut events, &item)?;
+    serialize_into_sink(&mut events, &item).unwrap();
     let expected = vec![
         Event::StartStruct,
         Event::Str("ints"),
@@ -108,14 +101,12 @@ fn outer_struct() -> Result<()> {
     ];
     assert_eq!(events, expected);
 
-    let round_tripped: Wrapper = deserialize_from_source(&events)?;
+    let round_tripped: Wrapper = deserialize_from_source(&events).unwrap();
     assert_eq!(round_tripped, item);
-
-    Ok(())
 }
 
 #[test]
-fn nested_struct() -> Result<()> {
+fn nested_struct() {
     #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
     struct Outer {
         int: i32,
@@ -146,7 +137,7 @@ fn nested_struct() -> Result<()> {
     ];
 
     let mut events = Vec::new();
-    serialize_into_sink(&mut events, &items)?;
+    serialize_into_sink(&mut events, &items).unwrap();
     let expected = vec![
         Event::StartSequence,
         Event::StartStruct,
@@ -175,8 +166,6 @@ fn nested_struct() -> Result<()> {
     ];
     assert_eq!(events, expected);
 
-    let round_tripped: Vec<Outer> = deserialize_from_source(&events)?;
+    let round_tripped: Vec<Outer> = deserialize_from_source(&events).unwrap();
     assert_eq!(round_tripped, items);
-
-    Ok(())
 }

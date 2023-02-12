@@ -3,7 +3,7 @@
 
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone, Utc};
 
-use crate::{base::error::error, Result};
+use crate::{internal::error::error, Result};
 
 #[test]
 fn test_parse_utc() -> Result<()> {

@@ -1,7 +1,8 @@
+mod generic_sources;
 mod round_trip;
 mod round_trip_array;
 mod schema;
-mod schema_tracing;
+mod schema_events;
 mod sinks;
 mod sources;
 pub(crate) mod utils;

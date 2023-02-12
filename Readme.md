@@ -6,6 +6,7 @@
 | [Example](#example)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Implementation.md#status)
+| [Development](#development)
 | [License](#license)
 
 **Warning:** this package is in an experiment at the moment.
@@ -75,6 +76,17 @@ pl.read_parquet("example.pq")
 import pandas as pd
 pd.read_parquet("example.pq")
 ```
+
+# Development
+
+All common tasks are bundled in the `make.py` script:
+
+```bash
+# format the code and run tests
+python make.py precommit
+```
+
+Run `python make.py --help` for details.
 
 # License
 

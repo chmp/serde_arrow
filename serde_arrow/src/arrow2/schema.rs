@@ -1,17 +1,27 @@
 use std::iter;
 
-use arrow2::datatypes::{DataType, Field, UnionMode};
+use arrow2::datatypes::{DataType, Field, Metadata, UnionMode};
 
 use crate::{
-    arrow2::type_support::DataTypeDisplay,
-    base::error::{error, fail},
-    generic::schema::{
-        FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, SchemaTracer,
-        Strategy, StructMode, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer,
-        STRATEGY_KEY,
+    arrow2::display,
+    internal::{
+        error::fail,
+        schema::{
+            FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, Strategy,
+            StructMode, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer,
+            STRATEGY_KEY,
+        },
     },
     Result,
 };
+
+impl From<Strategy> for Metadata {
+    fn from(value: Strategy) -> Self {
+        let mut res = Metadata::new();
+        res.insert(STRATEGY_KEY.to_string(), value.to_string());
+        res
+    }
+}
 
 /// Make sure the field is configured correctly if a strategy is used
 ///
@@ -22,12 +32,21 @@ pub fn check_strategy(field: &Field) -> Result<()> {
     };
 
     match strategy_str.parse::<Strategy>()? {
+        Strategy::InconsistentTypes => {
+            if !matches!(field.data_type, DataType::Null) {
+                fail!(
+                    "Invalid strategy for field {name}: {strategy_str} expects the data type Null, found: {dt}",
+                    name = display::Str(&field.name),
+                    dt = display::DataType(&field.data_type),
+                );
+            }
+        }
         Strategy::UtcStrAsDate64 | Strategy::NaiveStrAsDate64 => {
             if !matches!(field.data_type, DataType::Date64) {
                 fail!(
                     "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt}",
-                    name = field.name,
-                    dt = DataTypeDisplay(&field.data_type),
+                    name = display::Str(&field.name),
+                    dt = display::DataType(&field.data_type),
                 );
             }
         }
@@ -35,8 +54,8 @@ pub fn check_strategy(field: &Field) -> Result<()> {
             if !matches!(field.data_type, DataType::Struct(_)) {
                 fail!(
                     "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt}",
-                    name = field.name,
-                    dt = DataTypeDisplay(&field.data_type),
+                    name = display::Str(&field.name),
+                    dt = display::DataType(&field.data_type),
                 );
             }
         }
@@ -45,12 +64,11 @@ pub fn check_strategy(field: &Field) -> Result<()> {
     Ok(())
 }
 
-impl FieldBuilder<Field> for SchemaTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        self.tracer
-            .as_ref()
-            .ok_or_else(|| error!("Tracing did not encounter any records"))?
-            .to_field(name)
+pub fn get_optional_strategy(metadata: &Metadata) -> Result<Option<Strategy>> {
+    if let Some(strategy) = metadata.get(STRATEGY_KEY) {
+        Ok(Some(strategy.parse()?))
+    } else {
+        Ok(None)
     }
 }
 

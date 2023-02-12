@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    base::Event,
+    internal::{
+        event::Event,
+        schema::{Strategy, STRATEGY_KEY},
+    },
     test::arrow2::utils::{collect_events_from_array, field},
-    Strategy, STRATEGY_KEY,
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled

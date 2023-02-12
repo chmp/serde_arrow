@@ -1,8 +1,8 @@
 use crate::{
-    base::{
+    internal::{
         error::{error, fail},
-        source::{DynamicSource, PeekableEventSource},
-        Event, EventSource,
+        event::Event,
+        source::{DynamicSource, EventSource, PeekableEventSource},
     },
     Result,
 };
@@ -458,8 +458,6 @@ impl<'a> EventSource<'a> for MapSource<'a> {
         type S = MapSourceState;
         type E<'a> = Event<'a>;
 
-        let old_state = self.next;
-
         let res: Event;
         self.next =
             match self.next {
@@ -571,7 +569,6 @@ impl<'a> EventSource<'a> for MapSource<'a> {
                     }
                 }
             };
-        println!("{old_state:?} {res}");
 
         Ok(Some(res))
     }

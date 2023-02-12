@@ -1,9 +1,11 @@
+//! Test the schema tracing on the serde level
 use std::collections::HashMap;
 
 use arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::Serialize;
+use serde_json::json;
 
-use crate::arrow2::serialize_into_fields;
+use crate::{arrow2::serialize_into_fields, schema::Strategy};
 
 #[test]
 fn empty() {
@@ -242,6 +244,23 @@ fn outer_map_missing_fields() {
         Field::new("b", DataType::Int32, true),
         Field::new("c", DataType::Int32, false),
     ];
+
+    assert_eq!(actual, expected);
+}
+
+/// Test that inconsistent types are detected
+#[ignore = "Detecting inconsistent types is not yet supported"]
+#[test]
+fn inconsistent_types() {
+    let items = json!([
+        {"value": 1},
+        {"value": true},
+    ]);
+
+    let actual = serialize_into_fields(&items, Default::default()).unwrap();
+
+    let expected = vec![Field::new("value", DataType::Null, false)
+        .with_metadata(Strategy::InconsistentTypes.into())];
 
     assert_eq!(actual, expected);
 }

@@ -1,6 +1,6 @@
 use std::{backtrace::Backtrace, convert::Infallible};
 
-/// A Result type that defaults to `serde_arrow`'s Error type
+/// A Result type that defaults to `serde_arrow`'s [Error] type
 ///
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -8,15 +8,15 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 /// At the moment only a generic string error is supported, but it is planned to
 /// offer concrete types to match against.
+///
+/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [std::backtrace]
+/// for details. This backtrace is included when printing the error. If the
+/// error is caused byanother error, that error can be retrieved with the
+/// [std::error::Error::source] function.
+///
 #[non_exhaustive]
 pub enum Error {
     Custom(CustomError),
-}
-
-pub struct CustomError {
-    message: String,
-    backtrace: Backtrace,
-    cause: Option<Box<dyn std::error::Error + 'static>>,
 }
 
 impl Error {
@@ -35,6 +35,26 @@ impl Error {
             cause: Some(Box::new(cause)),
         })
     }
+}
+
+impl Error {
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Custom(err) => &err.message,
+        }
+    }
+
+    pub fn backtrace(&self) -> &Backtrace {
+        match self {
+            Self::Custom(err) => &err.backtrace,
+        }
+    }
+}
+
+pub struct CustomError {
+    message: String,
+    backtrace: Backtrace,
+    cause: Option<Box<dyn std::error::Error + 'static>>,
 }
 
 impl std::fmt::Debug for Error {
@@ -57,7 +77,7 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn std::error::Error> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Custom(e) => e.cause.as_ref().map(|e| e.as_ref()),
         }
@@ -92,7 +112,7 @@ pub(crate) use error;
 
 macro_rules! fail {
     ($($tt:tt)*) => {
-        return Err($crate::base::error::error!($($tt)*))
+        return Err($crate::internal::error::error!($($tt)*))
     };
 }
 

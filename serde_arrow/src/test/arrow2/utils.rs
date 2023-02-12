@@ -2,7 +2,7 @@ use arrow2::{array::Array, datatypes::Field};
 
 use crate::{
     arrow2::sources::build_record_source,
-    base::{Event, EventSource},
+    internal::{event::Event, source::EventSource},
     Result,
 };
 

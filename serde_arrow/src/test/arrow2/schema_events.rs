@@ -1,11 +1,15 @@
+//! Test the schema tracing on the event level
 use std::collections::BTreeMap;
 
 use arrow2::datatypes::{DataType, Field};
 
 use crate::{
-    base::{Event, EventSink},
-    generic::schema::{FieldBuilder, Tracer},
-    Strategy, STRATEGY_KEY,
+    internal::{
+        event::Event,
+        schema::{FieldBuilder, Tracer},
+        sink::EventSink,
+    },
+    schema::{Strategy, STRATEGY_KEY},
 };
 
 macro_rules! define_primitive_tests {
@@ -14,9 +18,10 @@ macro_rules! define_primitive_tests {
         mod $event_variant {
             use arrow2::datatypes::{DataType, Field};
 
-            use crate::{
-                base::{Event, EventSink},
-                generic::schema::{FieldBuilder, Tracer},
+            use crate::internal::{
+                event::Event,
+                schema::{FieldBuilder, Tracer},
+                sink::EventSink,
             };
 
             #[test]

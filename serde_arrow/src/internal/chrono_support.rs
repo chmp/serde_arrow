@@ -1,11 +1,11 @@
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
 use crate::{
-    base::{Event, EventSink, EventSource},
+    internal::{event::Event, sink::EventSink, source::EventSource},
     Result,
 };
 
-use super::sinks::ArrayBuilder;
+use super::generic_sinks::ArrayBuilder;
 
 #[derive(Debug)]
 pub struct NaiveDateTimeStrBuilder<B>(pub B);

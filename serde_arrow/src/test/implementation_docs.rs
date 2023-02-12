@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    base::{deserialize_from_source, serialize_into_sink, Event},
+    internal::{event::Event, sink::serialize_into_sink, source::deserialize_from_source},
 };
 
 #[test]

@@ -8,15 +8,15 @@ use arrow2::{
 };
 
 use crate::{
-    base::error::fail,
-    generic::{
-        chrono::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
-        schema::{Strategy, STRATEGY_KEY},
-        sinks::{
+    internal::{
+        chrono_support::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
+        error::fail,
+        generic_sinks::{
             ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder,
             StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
             TupleStructBuilder, UnionArrayBuilder,
         },
+        schema::Strategy,
     },
     Result,
 };
@@ -26,20 +26,44 @@ use arrow2::{
     types::NativeType,
 };
 
-use crate::{
-    base::{Event, EventSink},
-    Error,
+use crate::internal::{error::Error, event::Event, sink::EventSink};
+
+use super::{
+    display,
+    schema::{check_strategy, get_optional_strategy},
 };
 
-use super::{schema::check_strategy, type_support::DataTypeDisplay};
-
 type Arrow2ArrayBuilder = DynamicArrayBuilder<Box<dyn Array>>;
+
+pub fn build_struct_array_builder_from_fields(
+    fields: &[Field],
+) -> Result<StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>> {
+    let mut columnes = Vec::new();
+    let mut nullable = Vec::new();
+    let mut builders = Vec::new();
+    for field in fields {
+        columnes.push(field.name.to_owned());
+        nullable.push(field.is_nullable);
+        builders.push(build_array_builder(field)?);
+    }
+
+    let builder = StructArrayBuilder::new(columnes, nullable, builders);
+
+    Ok(builder)
+}
 
 pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
     check_strategy(field)?;
 
     match field.data_type() {
-        DataType::Null => Ok(DynamicArrayBuilder::new(NullArrayBuilder::new())),
+        DataType::Null => match get_optional_strategy(&field.metadata)? {
+            None => Ok(DynamicArrayBuilder::new(NullArrayBuilder::new())),
+            Some(s) => fail!(
+                "Invalid strategy {s} for column {name} with type {dt}",
+                name = display::Str(&field.name),
+                dt = display::DataType(field.data_type()),
+            ),
+        },
         DataType::Boolean => Ok(DynamicArrayBuilder::new(BooleanArrayBuilder::new())),
         DataType::Int8 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i8>::new())),
         DataType::Int16 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i16>::new())),
@@ -54,23 +78,20 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
         DataType::Float64 => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<f64>::new())),
         DataType::Utf8 => Ok(DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new())),
         DataType::LargeUtf8 => Ok(DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::new())),
-        DataType::Date64 => {
-            if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
-                let strategy: Strategy = strategy.parse()?;
-                match strategy {
-                    Strategy::NaiveStrAsDate64 => Ok(DynamicArrayBuilder::new(
-                        NaiveDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
-                    )),
-                    Strategy::UtcStrAsDate64 => Ok(DynamicArrayBuilder::new(
-                        UtcDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
-                    )),
-                    s => fail!("Invalid strategy {s} for Date64 column"),
-                }
-            } else {
-                // TODO: is this correct?
-                Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i64>::new()))
-            }
-        }
+        DataType::Date64 => match get_optional_strategy(&field.metadata)? {
+            Some(Strategy::NaiveStrAsDate64) => Ok(DynamicArrayBuilder::new(
+                NaiveDateTimeStrBuilder(PrimitiveArrayBuilder::<i64>::new()),
+            )),
+            Some(Strategy::UtcStrAsDate64) => Ok(DynamicArrayBuilder::new(UtcDateTimeStrBuilder(
+                PrimitiveArrayBuilder::<i64>::new(),
+            ))),
+            None => Ok(DynamicArrayBuilder::new(PrimitiveArrayBuilder::<i64>::new())),
+            Some(s) => fail!(
+                "Invalid strategy {s} for column {name} with type {dt}",
+                name = display::Str(&field.name),
+                dt = display::DataType(field.data_type()),
+            ),
+        },
         DataType::Struct(fields) => {
             let mut columns = Vec::new();
             let mut builders = Vec::new();
@@ -82,14 +103,7 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
                 nullable.push(field.is_nullable);
             }
 
-            let strategy: Option<Strategy> =
-                if let Some(strategy) = field.metadata.get(STRATEGY_KEY) {
-                    Some(strategy.parse()?)
-                } else {
-                    None
-                };
-
-            match strategy {
+            match get_optional_strategy(&field.metadata)? {
                 Some(Strategy::TupleAsStruct) => {
                     let builder = TupleStructBuilder::new(nullable, builders);
                     Ok(DynamicArrayBuilder::new(builder))
@@ -138,7 +152,7 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
                 DataType::Struct(fields) => fields,
                 dt => fail!(
                     "Expected inner field of Map to be Struct, found: {dt}",
-                    dt = DataTypeDisplay(dt),
+                    dt = display::DataType(dt),
                 ),
             };
             if kv_fields.len() != 2 {
@@ -157,7 +171,7 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
         _ => fail!(
             "Cannot build sink for {name} with type {dt}",
             name = field.name,
-            dt = DataTypeDisplay(&field.data_type),
+            dt = display::DataType(&field.data_type),
         ),
     }
 }
@@ -537,7 +551,6 @@ impl EventSink for BooleanArrayBuilder {
     }
 
     fn finish(&mut self) -> Result<()> {
-        println!("Finish!!!");
         self.finished = true;
         Ok(())
     }

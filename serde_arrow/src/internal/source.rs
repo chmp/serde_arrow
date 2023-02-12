@@ -1,11 +1,8 @@
 use std::borrow::Cow;
 
-use crate::{
-    base::{
-        error::{error, fail},
-        Event,
-    },
-    Error, Result,
+use crate::internal::{
+    error::{error, fail, Error, Result},
+    event::Event,
 };
 
 use serde::{
@@ -37,7 +34,7 @@ pub fn deserialize_from_source<
     Ok(res)
 }
 
-/// A source of [Event] objects
+/// A source of [Events][Event] that can be used to deserialize rust objects
 ///
 /// **Note**: implementations are not expected to yield `Some` events for
 /// nullable values, as the nullability can be recovered from the underlying

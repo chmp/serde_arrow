@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{
     arrow2::sources::{build_dynamic_source, build_record_source},
-    base::{deserialize_from_source, Event},
+    internal::{event::Event, source::deserialize_from_source},
     test::utils::collect_events,
     Result,
 };

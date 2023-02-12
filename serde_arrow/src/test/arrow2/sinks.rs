@@ -10,8 +10,7 @@ use serde::Serialize;
 
 use crate::{
     arrow2::{serialize_into_arrays, sinks::build_array_builder},
-    base::{Event, EventSink},
-    generic::sinks::ArrayBuilder,
+    internal::{event::Event, generic_sinks::ArrayBuilder, sink::EventSink},
 };
 
 fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
@@ -25,8 +24,7 @@ macro_rules! test_option_support {
 
             use crate::{
                 arrow2::sinks::build_array_builder,
-                base::{Event, EventSink},
-                generic::sinks::ArrayBuilder,
+                internal::{event::Event, generic_sinks::ArrayBuilder, sink::EventSink},
             };
 
             #[test]
@@ -476,7 +474,6 @@ fn nested_list_structs_serialize() {
     );
 }
 
-#[ignore = "Outer maps are not yet supported in sinks"]
 #[test]
 fn into_outer_maps_simple() {
     let mut items = Vec::new();
@@ -500,8 +497,8 @@ fn into_outer_maps_simple() {
 
     assert_eq!(values.len(), 2);
 
-    let actual0 = downcast::<PrimitiveArray<i8>>(&values[0]);
-    let expected0 = PrimitiveArray::<i8>::from_slice([0, 2]);
+    let actual0 = downcast::<PrimitiveArray<i32>>(&values[0]);
+    let expected0 = PrimitiveArray::<i32>::from_slice([0, 2]);
 
     assert_eq!(actual0, &expected0);
 

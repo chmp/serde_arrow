@@ -1,7 +1,4 @@
-use crate::{
-    base::{Event, EventSource},
-    Result,
-};
+use crate::internal::{error::Result, event::Event, source::EventSource};
 
 pub fn collect_events<'event, S: EventSource<'event> + 'event>(
     mut source: S,

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
-    SchemaTracingOptions, Strategy, STRATEGY_KEY,
+    schema::{Strategy, TracingOptions, STRATEGY_KEY},
 };
 
 /// Helper to define the metadata for the given strategy
@@ -64,7 +64,7 @@ macro_rules! test_round_trip {
             let field = $field;
 
             #[allow(unused)]
-            let options = SchemaTracingOptions::default();
+            let options = TracingOptions::default();
             $(let options = $tracing_options;)?
 
             println!("{options:?}");
@@ -474,7 +474,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps,
-    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
+    tracing_options = TracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -500,7 +500,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable,
-    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
+    tracing_options = TracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -526,7 +526,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable_keys,
-    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
+    tracing_options = TracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -552,7 +552,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = hash_maps_nullable_values,
-    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
+    tracing_options = TracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(
@@ -578,7 +578,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = btree_maps,
-    tracing_options = SchemaTracingOptions::new().map_as_struct(false),
+    tracing_options = TracingOptions::new().map_as_struct(false),
     field = Field::new(
         "value",
         DataType::Map(

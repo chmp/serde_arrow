@@ -4,10 +4,10 @@ use serde::ser::{
 };
 use serde::Serialize;
 
-use crate::base::error::fail;
-use crate::{Error, Result};
-
-use super::Event;
+use crate::internal::{
+    error::{fail, Error, Result},
+    event::Event,
+};
 
 /// Serialize a type into an [EventSink]
 ///
@@ -62,8 +62,7 @@ macro_rules! sink_forward_generic_to_specialized {
 #[allow(unused)]
 pub(crate) use sink_forward_generic_to_specialized;
 
-/// An object that processes [Event] objects emitted during serialization of a
-/// type
+/// Processes [Events][Event] emitted during serialization of a type
 ///
 /// Note: both the generic `accept` and the specific `accept_*` methods may be
 /// called and must result in the same behavior. In the default implementation,
@@ -211,18 +210,22 @@ pub trait EventSink {
     }
 }
 
-pub(crate) struct StripOuterSequenceSink<'e, E> {
-    wrapped: &'e mut E,
+pub(crate) struct StripOuterSequenceSink<E> {
+    wrapped: E,
     depth: usize,
 }
 
-impl<'e, E> StripOuterSequenceSink<'e, E> {
-    pub fn new(wrapped: &'e mut E) -> Self {
+impl<E> StripOuterSequenceSink<E> {
+    pub fn new(wrapped: E) -> Self {
         Self { wrapped, depth: 0 }
+    }
+
+    pub fn into_inner(self) -> E {
+        self.wrapped
     }
 }
 
-impl<'e, E: EventSink> EventSink for StripOuterSequenceSink<'e, E> {
+impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match event {
             ev if ev.is_start() => {
@@ -276,7 +279,7 @@ impl<T: EventSink> EventSink for Box<T> {
     }
 }
 
-struct EventSerializer<'a, S>(&'a mut S);
+pub(crate) struct EventSerializer<'a, S>(pub &'a mut S);
 
 impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     type Ok = ();

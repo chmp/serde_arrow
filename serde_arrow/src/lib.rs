@@ -39,8 +39,12 @@
 //! - `arrow2`: add support to (de)serialize to and from arrow2 arrays. This
 //!   feature is activated per default
 //!
-pub mod base;
-mod generic;
+//! # Status
+//!
+//! For an overview over the supported Arrow and Rust types see status section
+//! in the [implementation notes][implementation]   
+//!
+mod internal;
 
 #[cfg(feature = "arrow2")]
 pub mod arrow2;
@@ -48,8 +52,45 @@ pub mod arrow2;
 #[cfg(test)]
 mod test;
 
-pub use base::error::{Error, Result};
-pub use generic::schema::{SchemaTracingOptions, Strategy, STRATEGY_KEY};
+pub use internal::error::{Error, Result};
+
+/// Common abstractions used in `serde_arrow`
+///
+/// The underlying abstraction is a stream of event objects, similar to the
+/// tokens of [serde_test](https://docs.rs/serde_test/latest/).
+///
+pub mod base {
+    pub use crate::internal::event::Event;
+    pub use crate::internal::sink::{serialize_into_sink, EventSink};
+    pub use crate::internal::source::{deserialize_from_source, EventSource};
+}
+
+/// Helpers to configure how Arrow and Rust types are translated into one
+/// another
+///
+/// All customization of the types happens via the metadata of the fields
+/// structs describing arrays. For example, to let `serde_arrow` handle date
+/// time objects that are serialized to strings (chrono's default), use
+///
+/// ```rust
+/// # #[cfg(feature="arrow2")]
+/// # fn main() {
+/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
+/// # let mut field = Field::new("my_field", DataType::Null, false);
+/// field.data_type = DataType::Date64;
+/// field.metadata.insert(
+///     STRATEGY_KEY.to_string(),
+///     Strategy::UtcStrAsDate64.to_string(),
+/// );
+/// # }
+/// # #[cfg(not(feature="arrow2"))]
+/// # fn main() {}
+/// ```
+///
+pub mod schema {
+    pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
+}
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

@@ -1,7 +1,8 @@
 use crate::{
-    base::{
+    internal::{
         error::{error, fail},
-        Event, EventSink,
+        event::Event,
+        sink::EventSink,
     },
     Error, Result,
 };

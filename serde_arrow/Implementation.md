@@ -1,4 +1,4 @@
-# Implementation notes
+# Implementation notes & status
 
 `serde_arrow` allows to convert between Rust objects that implement
 [Serialize][serde::Serialize] or [Deserialize][serde::Deserialize] and arrow
@@ -149,7 +149,7 @@ val_field.data_type = DataType::Date64;
 // only required if the datetime objects are serialized as strings
 val_field.metadata.insert(
     STRATEGY_KEY.to_string(),
-    Strategy::NaiveDateTimeStr.to_string(),
+    Strategy::NaiveStrAsDate64.to_string(),
 );
 ```
 
@@ -213,13 +213,13 @@ Supported Serde / Rust types:
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
 - [x] `chrono::DateTime<Utc>`: depends on the configured strategy:
   - mapped to UTF8 arrays without configuration
-  - mapped to `Date64` with `Strategy::UtcDateTimeStr` and field data type `Date64`
+  - mapped to `Date64` with `Strategy::UtcStrAsDate64` and field data type `Date64`
   - mapped to `Date64` with field data type `Date64` and chrono configured to
     serialize to timestamps using
     [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
 - [x] `chrono::NaiveDateTime`: depends on the configured strategy:
   - mapped to UTF8 arrays without configuration
-  - mapped to `Date64` with `Strategy::NaiveDateTimeStr` and field data type `Date64`
+  - mapped to `Date64` with `Strategy::NaiveStrAsDate64` and field data type `Date64`
   - mapped to `Date64` with field data type `Date64` and chrono configured to
     serialize to timestamps using
     [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
