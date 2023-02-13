@@ -1,4 +1,5 @@
 mod api_chrono;
+mod error;
 mod events;
 
 #[cfg(all(test, feature = "arrow2"))]
