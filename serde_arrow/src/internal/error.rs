@@ -28,7 +28,10 @@ impl Error {
         })
     }
 
-    pub fn custom_from<E: std::error::Error + 'static>(message: String, cause: E) -> Self {
+    pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
+        message: String,
+        cause: E,
+    ) -> Self {
         Self::Custom(CustomError {
             message,
             backtrace: Backtrace::capture(),
@@ -54,7 +57,7 @@ impl Error {
 pub struct CustomError {
     message: String,
     backtrace: Backtrace,
-    cause: Option<Box<dyn std::error::Error + 'static>>,
+    cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for Error {
@@ -79,7 +82,10 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Custom(e) => e.cause.as_ref().map(|e| e.as_ref()),
+            Self::Custom(CustomError {
+                cause: Some(err), ..
+            }) => Some(err.as_ref()),
+            _ => None,
         }
     }
 }
