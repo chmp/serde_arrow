@@ -79,14 +79,15 @@ pd.read_parquet("example.pq")
 
 # Development
 
-All common tasks are bundled in the `make.py` script:
+All common tasks are bundled in the `x.py` script:
 
 ```bash
 # format the code and run tests
-python make.py precommit
+python x.py precommit
 ```
 
-Run `python make.py --help` for details.
+Run `python x.py --help` for details. The script only uses standard Python
+modules can can be run without installing further packages.
 
 # License
 
