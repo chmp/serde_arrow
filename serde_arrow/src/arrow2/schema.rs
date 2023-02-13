@@ -5,7 +5,7 @@ use arrow2::datatypes::{DataType, Field, Metadata, UnionMode};
 use crate::{
     arrow2::display,
     internal::{
-        error::fail,
+        error::{error, fail},
         schema::{
             FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, Strategy,
             StructMode, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer,
@@ -213,5 +213,86 @@ impl FieldBuilder<Field> for MapTracer {
         let entries = Field::new("entries", DataType::Struct(vec![key, value]), false);
         let field = Field::new(name, DataType::Map(Box::new(entries), false), self.nullable);
         Ok(field)
+    }
+}
+
+/// Lookup a nested field among a set of top-level fields
+///
+/// The `path` argument should be a dotted path to the target field, e.g.,
+/// `"parent.child.subchild"`. This helper is intended to simplify modifying
+/// nested schemas.
+///
+/// Example:
+///
+/// ```rust
+/// # use arrow2::datatypes::DataType;
+/// # use chrono::NaiveDateTime;
+/// # use serde::Serialize;
+/// #
+/// use serde_arrow::{
+///     arrow2::{serialize_into_fields, experimental::find_field_mut},
+///     schema::{Strategy, TracingOptions},
+/// };
+///
+/// ##[derive(Serialize, Default)]
+/// struct Outer {
+///     a: u32,
+///     b: Nested,
+/// }
+///
+/// ##[derive(Serialize, Default)]
+/// struct Nested {
+///     dt: NaiveDateTime,
+/// }
+///
+/// let mut fields = serialize_into_fields(
+///     &[Outer::default()],
+///     TracingOptions::default(),
+/// ).unwrap();
+///
+/// let dt_field = find_field_mut(&mut fields, "b.dt").unwrap();
+/// dt_field.data_type = DataType::Date64;
+/// dt_field.metadata = Strategy::NaiveStrAsDate64.into();
+/// ```
+pub fn find_field_mut<'f>(fields: &'f mut [Field], path: &'_ str) -> Result<&'f mut Field> {
+    if path.is_empty() {
+        fail!("Cannot get field with empty path");
+    } else if let Some((head, tail)) = path.split_once('.') {
+        let field = find_field_shallow(fields, head)?;
+        let fields = get_child_fields(&mut field.data_type)?;
+        find_field_mut(fields, tail)
+    } else {
+        find_field_shallow(fields, path)
+    }
+}
+
+fn find_field_shallow<'f>(fields: &'f mut [Field], name: &'_ str) -> Result<&'f mut Field> {
+    fields
+        .iter_mut()
+        .find(|f| f.name == name)
+        .ok_or_else(|| error!("Cannot find field {name}"))
+}
+
+fn get_child_fields(dt: &mut DataType) -> Result<&mut [Field]> {
+    match dt {
+        DataType::Struct(fields) | DataType::Union(fields, _, _) => Ok(fields),
+        DataType::List(field) | DataType::LargeList(field) | DataType::FixedSizeList(field, _) => {
+            get_child_fields(&mut field.as_mut().data_type)
+        }
+        DataType::Extension(_, dt, _) | DataType::Dictionary(_, dt, _) => get_child_fields(dt),
+        DataType::Map(field, _) => {
+            let fields = match &mut field.data_type {
+                DataType::Struct(fields) => fields,
+                dt => fail!(
+                    "Expected struct as the interior type of a map, found: {dt}",
+                    dt = display::DataType(dt)
+                ),
+            };
+            Ok(fields)
+        }
+        dt => fail!(
+            "Data type {dt} does not support nested fields",
+            dt = display::DataType(dt)
+        ),
     }
 }

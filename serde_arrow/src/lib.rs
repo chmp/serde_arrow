@@ -88,6 +88,11 @@ pub mod base {
 /// # fn main() {}
 /// ```
 ///
+/// For arrow2, the experimental [find_field_mut][] function may
+/// be helpful to modify nested schemas genreated by tracing.
+///
+/// [find_field_mut]: crate::arrow2::experimental::find_field_mut
+///
 pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
 }

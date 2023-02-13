@@ -16,7 +16,7 @@
 //! e.g., a vector of structs. Functions working on single arrays expect vectors
 //! of arrays elements.
 //!
-mod display;
+pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod sinks;
 pub(crate) mod sources;
@@ -336,14 +336,16 @@ pub mod experimental {
 
     /// Format the fields as a string
     ///
-    /// The fields are displayed as Rust code that is equivalent to reconstructing
-    /// the fields. The code assumes the following use statement:
+    /// The fields are displayed as Rust code that allows to build the fields in
+    /// code. The following symbols are assumed to be in scope:
     ///
-    /// ```
+    /// ```rust
     /// use arrow2::datatypes::{DataType, Field, Metadata};
     /// ```
     ///
     pub fn format_fields(fields: &[Field]) -> String {
         display::Fields(fields).to_string()
     }
+
+    pub use super::schema::find_field_mut;
 }
