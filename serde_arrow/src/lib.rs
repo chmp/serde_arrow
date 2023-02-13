@@ -1,14 +1,14 @@
-//! # `serde_arrow` - convert sequences of structs / maps to arrow tables
+//! # `serde_arrow` - convert sequences Rust objects to arrow2 arrays
 //!
-//! Usage:
+//! Usage (requires the `arrow2` feature):
 //!
 //! ```rust
-//! # use serde_arrow::{Result, Schema};
 //! # use serde::Serialize;
-//! # use std::convert::TryFrom;
-//! #
-//! # fn main() -> Result<()> {
-//! #[derive(Serialize)]
+//! # #[cfg(feature = "arrow2")]
+//! # fn main() -> serde_arrow::Result<()> {
+//! use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+//!
+//! ##[derive(Serialize)]
 //! struct Example {
 //!     a: f32,
 //!     b: i32,
@@ -20,33 +20,82 @@
 //!     Example { a: 3.0, b: 3 },
 //! ];
 //!
-//! // try to auto-detect the arrow types, result can be overwritten and customized
-//! let schema = Schema::from_records(&records)?;
-//! let batch = serde_arrow::to_record_batch(&records, &schema)?;
+//! // Auto-detect the arrow types. Result may need to be overwritten and
+//! // customized, see serde_arrow::Strategy for details.
+//! let fields = serialize_into_fields(&records, Default::default())?;
+//! let batch = serialize_into_arrays(&fields, &records)?;
 //!
-//! assert_eq!(batch.num_rows(), 3);
-//! assert_eq!(batch.num_columns(), 2);
 //! # Ok(())
 //! # }
+//! # #[cfg(not(feature = "arrow2"))]
+//! # fn main() { }
 //! ```
 //!
 //! See [implementation] for an explanation of how this package works and its
 //! underlying data model.
 //!
-pub mod event;
-mod ops;
-mod schema;
-mod util;
+//! # Features:
+//!
+//! - `arrow2`: add support to (de)serialize to and from arrow2 arrays. This
+//!   feature is activated per default
+//!
+//! # Status
+//!
+//! For an overview over the supported Arrow and Rust types see status section
+//! in the [implementation notes][implementation]   
+//!
+mod internal;
+
+#[cfg(feature = "arrow2")]
+pub mod arrow2;
 
 #[cfg(test)]
 mod test;
 
-pub use schema::{DataType, Schema};
-// pub use serializer::to_record_batch;
-pub use util::error::{Error, Result};
-pub use util::hl::to_ipc_writer;
+pub use internal::error::{Error, Result};
 
-pub use ops::{from_record_batch, to_record_batch, trace_schema};
+/// Common abstractions used in `serde_arrow`
+///
+/// The underlying abstraction is a stream of event objects, similar to the
+/// tokens of [serde_test](https://docs.rs/serde_test/latest/).
+///
+pub mod base {
+    pub use crate::internal::event::Event;
+    pub use crate::internal::sink::{serialize_into_sink, EventSink};
+    pub use crate::internal::source::{deserialize_from_source, EventSource};
+}
+
+/// Helpers to configure how Arrow and Rust types are translated into one
+/// another
+///
+/// All customization of the types happens via the metadata of the fields
+/// structs describing arrays. For example, to let `serde_arrow` handle date
+/// time objects that are serialized to strings (chrono's default), use
+///
+/// ```rust
+/// # #[cfg(feature="arrow2")]
+/// # fn main() {
+/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
+/// # let mut field = Field::new("my_field", DataType::Null, false);
+/// field.data_type = DataType::Date64;
+/// field.metadata.insert(
+///     STRATEGY_KEY.to_string(),
+///     Strategy::UtcStrAsDate64.to_string(),
+/// );
+/// # }
+/// # #[cfg(not(feature="arrow2"))]
+/// # fn main() {}
+/// ```
+///
+/// For arrow2, the experimental [find_field_mut][] function may
+/// be helpful to modify nested schemas genreated by tracing.
+///
+/// [find_field_mut]: crate::arrow2::experimental::find_field_mut
+///
+pub mod schema {
+    pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
+}
 
 #[doc = include_str!("../Implementation.md")]
 // NOTE: hide the implementation documentation from doctests

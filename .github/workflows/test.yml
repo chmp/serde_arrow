@@ -1,4 +1,4 @@
-name: Rust
+name: Test
 
 on:
   push:
@@ -16,9 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: rustc 
+    - name: rustc
       run: rustc --version
-    - name: cargo version 
+    - name: cargo version
       run: cargo --version
     - name: Build
       run: cargo build --verbose --features arrow2

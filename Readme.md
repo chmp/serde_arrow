@@ -6,11 +6,12 @@
 | [Example](#example)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Implementation.md#status)
+| [Development](#development)
 | [License](#license)
 
 **Warning:** this package is in an experiment at the moment.
 
-[Arrow][arrow] is a powerful library to work with data frame like structures.
+[Arrow2][arrow2] is a powerful library to work with data frame like structures.
 The surrounding ecosystem includes a rich set of libraries, ranging from data
 frames via [Polars][polars] to query engines via [DataFusion][datafusion].
 However, it's API due to the statically typed nature of Rust can be at times
@@ -23,7 +24,7 @@ types is as easy as using Serde's derive macros.
 See the [implementation notes](serde_arrow/Implementation.md) for details on how
 it is implemented. This package is optimized for ease of use, not performance.
 
-[arrow]: https://docs.rs/arrow/latest/arrow/
+[arrow2]: https://docs.rs/arrow2/latest/arrow2/
 [polars]: https://github.com/pola-rs/polars
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
@@ -31,41 +32,67 @@ it is implemented. This package is optimized for ease of use, not performance.
 
 ```rust
 #[derive(Serialize)]
-struct Example {
+struct Item {
     a: f32,
     b: i32,
+    point: Point,
 }
 
-let examples = vec![
-    Example { a: 1.0, b: 1 },
-    Example { a: 2.0, b: 2 },
+#[derive(Serialize)]
+struct Point(f32, f32);
+
+let items = vec![
+    Item { a: 1.0, b: 1, point: Point(0.0, 1.0) },
+    Item { a: 2.0, b: 2, point: Point(2.0, 3.0) },
+    // ...
 ];
 
-// Detect the schema from the supplied data
-use serde_arrow::Schema;
-let schema = Schema::from_records(&examples)?;
+// detect the field types and convert the items to arrays
+use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 
-// Write the records into an IPC file
-let out  = File::create("examples.arrow")?;
-serde_arrow::to_ipc_writer(out, &examples, &schema)?;
+let fields = serialize_into_fields(&items)?;
+let arrays = serialize_into_arrays(&fields, &items)?;
 
-// NOTE: the records can also be converted into a RecordBatch. The RecordBatch
-// can then be used to convert it into a polars DataFrame or written to parquet.
-//
-// let batch = serde_arrow::to_record_batch(&examples, schema)?;
+// using the helper method defined in the arrow2 guide at
+// https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
+use  arrow2::{chunk::Chunk, datatypes::Schema};
+
+write_chunk(
+    "example.pq",
+    Schema::from(fields),
+    Chunk::new(items),
+)?;
+
 ```
 
 The written file can now be read in Python via
 
 ```python
+# using polars
+import polars as pl
+pl.read_parquet("example.pq")
+
+# using pandas
 import pandas as pd
-pd.read_feather("examples.arrow")
+pd.read_parquet("example.pq")
 ```
+
+# Development
+
+All common tasks are bundled in the `x.py` script:
+
+```bash
+# format the code and run tests
+python x.py precommit
+```
+
+Run `python x.py --help` for details. The script only uses standard Python
+modules can can be run without installing further packages.
 
 # License
 
 ```text
-Copyright (c) 2021 - 2022 Christopher Prohm
+Copyright (c) 2021 - 2023 Christopher Prohm
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
