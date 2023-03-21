@@ -4,9 +4,16 @@ use arrow2::{
     datatypes::Field,
 };
 
-type Result<T, E = PanicOnError> = std::result::Result<T, E>;
+#[derive(Debug, Clone, Copy)]
+struct PanicOnError;
 
-fn main() -> Result<()> {
+impl<E: std::fmt::Display> From<E> for PanicOnError {
+    fn from(value: E) -> Self {
+        panic!("{value}")
+    }
+}
+
+fn main() -> Result<(), PanicOnError> {
     let arrow2_array = Int32Array::from(&[Some(1), None, Some(3)]);
     let arrow2_array = Box::new(arrow2_array);
     let arrow2_field = Field::new("a", arrow2_array.data_type().clone(), true);
@@ -27,15 +34,6 @@ fn main() -> Result<()> {
         println!("array[2]:    {}", arrow_array.value(2));
     }
     Ok(())
-}
-
-#[derive(Debug, Clone, Copy)]
-struct PanicOnError;
-
-impl<E: std::fmt::Display> From<E> for PanicOnError {
-    fn from(value: E) -> Self {
-        panic!("{value}")
-    }
 }
 
 fn convert_arrow2_to_arrow(array: Box<dyn Array>, field: &Field) -> arrow::ffi::ArrowArray {
