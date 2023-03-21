@@ -7,7 +7,8 @@
 Drop support [arrow][] in favor of [arrow2][]. Arrow2 is a smaller, faster to
 build implementation of the Arrow format that follow semver. It is also used by
 [polars][]. That said most of the implementation is pretty generic and [arrow][]
-support could be added.
+support could be added. To convert arrow2 arrays into arrow arrays and record
+batches see the [arrow2-to-arrow][] example.
 
 ### More flexible support for Rust / Arrow features
 
@@ -35,3 +36,4 @@ items (`ArraysBuilder`).
 [arrow]: https://github.com/apache/arrow-rs
 [arrow2]: https://github.com/jorgecarleitao/arrow2
 [polars]: https://github.com/pola-rs/polars
+[arrow2-to-arrow]: ./arrow2-to-arrow
