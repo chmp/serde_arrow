@@ -1,2 +1,9 @@
 [workspace]
-members = ["serde_arrow", "example"]
+members = [
+    "serde_arrow",
+    "example",
+]
+
+exclude = [
+    "arrow2-to-arrow",
+]
