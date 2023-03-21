@@ -1,5 +1,11 @@
 # Example how to convert arrow2 arrays to arrow arrays using the FFI interface
 
+The [example](src/main.rs) demonstrates
+
+- how to build an arrow array from arrow2 arrays in `example_array`
+- how to build an arrow record batch from arrow2 arrays in
+  `example_record_batch`
+
 Relevant docs:
 
 - https://docs.rs/arrow/latest/arrow/ffi/index.html
