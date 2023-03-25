@@ -10,7 +10,10 @@ use serde::Serialize;
 
 use crate::{
     arrow2::{serialize_into_arrays, sinks::build_array_builder},
-    internal::{event::Event, generic_sinks::ArrayBuilder, sink::EventSink},
+    internal::{
+        event::Event,
+        sink::{ArrayBuilder, EventSink},
+    },
 };
 
 fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
@@ -24,7 +27,10 @@ macro_rules! test_option_support {
 
             use crate::{
                 arrow2::sinks::build_array_builder,
-                internal::{event::Event, generic_sinks::ArrayBuilder, sink::EventSink},
+                internal::{
+                    event::Event,
+                    sink::{ArrayBuilder, EventSink},
+                },
             };
 
             #[test]
@@ -38,7 +44,7 @@ macro_rules! test_option_support {
                 sink.accept($value).unwrap();
                 sink.finish().unwrap();
 
-                let array = sink.into_array().unwrap();
+                let array = sink.build_array().unwrap();
 
                 assert_eq!(array.len(), 2);
                 assert_eq!(array.is_null(0), is_non_null_data_type);
@@ -56,7 +62,7 @@ macro_rules! test_option_support {
                 sink.accept(Event::Null).unwrap();
                 sink.finish().unwrap();
 
-                let array = sink.into_array().unwrap();
+                let array = sink.build_array().unwrap();
 
                 assert_eq!(array.len(), 2);
                 assert_eq!(array.is_null(0), false);
@@ -73,7 +79,7 @@ macro_rules! test_option_support {
                 sink.accept(Event::Null).unwrap();
                 sink.finish().unwrap();
 
-                let array = sink.into_array().unwrap();
+                let array = sink.build_array().unwrap();
 
                 assert_eq!(array.len(), 2);
                 assert_eq!(array.is_null(0), false);
@@ -133,7 +139,7 @@ fn primitive_sink_i8() {
     sink.accept(Event::I8(42)).unwrap();
     sink.finish().unwrap();
 
-    let array = sink.into_array().unwrap();
+    let array = sink.build_array().unwrap();
 
     assert_eq!(array.len(), 3);
     assert_eq!(array.is_null(0), false);
@@ -151,7 +157,7 @@ fn primitive_sink_i8_some() {
     sink.accept(Event::I8(42)).unwrap();
     sink.finish().unwrap();
 
-    let array = sink.into_array().unwrap();
+    let array = sink.build_array().unwrap();
 
     assert_eq!(array.len(), 3);
     assert_eq!(array.is_null(0), false);
@@ -167,7 +173,7 @@ fn boolean_sink() {
     sink.accept(Event::Bool(false)).unwrap();
     sink.finish().unwrap();
 
-    let array = sink.into_array().unwrap();
+    let array = sink.build_array().unwrap();
 
     assert_eq!(array.len(), 3);
     assert_eq!(array.is_null(0), false);
@@ -198,7 +204,7 @@ fn struct_sink() {
     sink.accept(Event::EndStruct).unwrap();
     sink.finish().unwrap();
 
-    let array = sink.into_array().unwrap();
+    let array = sink.build_array().unwrap();
 
     assert_eq!(array.len(), 2);
 }
@@ -234,7 +240,7 @@ fn nested_struct_sink() {
     sink.accept(Event::EndStruct).unwrap();
     sink.finish().unwrap();
 
-    let array = sink.into_array().unwrap();
+    let array = sink.build_array().unwrap();
 
     assert_eq!(array.len(), 2);
 }

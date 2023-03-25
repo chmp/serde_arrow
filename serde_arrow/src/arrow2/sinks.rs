@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use arrow2::{
     array::Array,
     array::{
-        DictionaryArray, DictionaryKey, ListArray, MapArray, MutableDictionaryArray,
-        MutableUtf8Array, NullArray, StructArray, TryPush, UnionArray, Utf8Array,
+        DictionaryArray, DictionaryKey, ListArray, MapArray, MutableArray, MutableUtf8Array,
+        NullArray, StructArray, UnionArray, Utf8Array,
     },
     bitmap::Bitmap,
     datatypes::{DataType, Field, IntegerType, UnionMode},
@@ -13,13 +15,13 @@ use arrow2::{
 use crate::{
     internal::{
         chrono_support::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
-        error::fail,
+        error::{error, fail},
         generic_sinks::{
-            ArrayBuilder, DynamicArrayBuilder, ListArrayBuilder, MapArrayBuilder,
-            StructArrayBuilder, StructArrayBuilderState, TupleArrayBuilderState,
-            TupleStructBuilder, UnionArrayBuilder,
+            ListArrayBuilder, MapArrayBuilder, StructArrayBuilder, TupleStructBuilder,
+            UnionArrayBuilder,
         },
         schema::Strategy,
+        sink::{macros, ArrayBuilder, DynamicArrayBuilder},
     },
     Result,
 };
@@ -180,7 +182,7 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
             }
             let is_large_utf8 = match data_type.as_ref() {
                 DataType::UInt8 => false,
-                DataType::LargeBinary => true,
+                DataType::LargeUtf8 => true,
                 dt => fail!(
                     "At the moment only string dictionaries are supported, found {}",
                     display::DataType(dt)
@@ -224,43 +226,30 @@ pub fn build_array_builder(field: &Field) -> Result<Arrow2ArrayBuilder> {
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> StructArrayBuilder<B> {
-    pub fn into_values(self) -> Result<Vec<Box<dyn Array>>> {
-        if !matches!(self.state, StructArrayBuilderState::Start) {
-            fail!("Invalid state at array construction");
-        }
+    pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
         if !self.finished {
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
         let values: Result<Vec<Box<dyn Array>>> =
-            self.builders.into_iter().map(|b| b.into_array()).collect();
+            self.builders.iter_mut().map(|b| b.build_array()).collect();
         let values = values?;
         Ok(values)
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArrayBuilder<B> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
-        if !matches!(self.state, StructArrayBuilderState::Start) {
-            fail!("Invalid state at array construction");
-        }
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
         let values: Result<Vec<Box<dyn Array>>> =
-            self.builders.into_iter().map(|b| b.into_array()).collect();
+            self.builders.iter_mut().map(|b| b.build_array()).collect();
         let values = values?;
 
         let mut fields = Vec::new();
-        for (i, column) in self.columns.into_iter().enumerate() {
+        for (i, column) in self.columns.iter().enumerate() {
             fields.push(Field::new(
                 column,
                 values[i].data_type().clone(),
@@ -272,29 +261,19 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
         Ok(Box::new(StructArray::new(
             data_type,
             values,
-            Some(self.validity.into()),
+            Some(std::mem::take(&mut self.validity).into()),
         )))
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStructBuilder<B> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
-        if !matches!(self.state, TupleArrayBuilderState::Start) {
-            fail!("Invalid state at array construction");
-        }
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
         let values: Result<Vec<Box<dyn Array>>> =
-            self.builders.into_iter().map(|b| b.into_array()).collect();
+            self.builders.iter_mut().map(|b| b.build_array()).collect();
         let values = values?;
 
         let mut fields = Vec::new();
@@ -310,28 +289,21 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStru
         Ok(Box::new(StructArray::new(
             data_type,
             values,
-            Some(self.validity.into()),
+            Some(std::mem::take(&mut self.validity).into()),
         )))
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArrayBuilder<B> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished UnionArrayBuilder");
         }
 
         let values: Result<Vec<Box<dyn Array>>> = self
             .field_builders
-            .into_iter()
-            .map(|b| b.into_array())
+            .iter_mut()
+            .map(|b| b.build_array())
             .collect();
         let values = values?;
 
@@ -347,9 +319,9 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArra
 
         Ok(Box::new(UnionArray::new(
             data_type,
-            self.field_types.into(),
+            self.field_types.clone().into(),
             values,
-            Some(self.field_offsets.into()),
+            Some(std::mem::take(&mut self.field_offsets).into()),
         )))
     }
 }
@@ -370,28 +342,28 @@ impl NullArrayBuilder {
 }
 
 impl EventSink for NullArrayBuilder {
-    fn accept_some(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn accept_null(&mut self) -> Result<()> {
-        self.length += 1;
-        Ok(())
-    }
-
-    fn accept_default(&mut self) -> Result<()> {
-        self.length += 1;
-        Ok(())
-    }
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        match event {
-            Event::Some => self.accept_some(),
-            Event::Null => self.accept_null(),
-            Event::Default => self.accept_default(),
-            ev => fail!("NullArrayBuilder cannot accept event {ev}"),
+    macros::forward_generic_to_specialized!();
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        if !matches!(ev, Event::Some) {
+            fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
         }
-    }
+        Ok(())
+    });
+    macros::accept_value!((this, ev, _val, _next) {
+        match ev {
+            Event::Null | Event::Default => {
+                this.length += 1;
+            },
+            ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+        }
+        Ok(())
+    });
 
     fn finish(&mut self) -> Result<()> {
         self.finished = true;
@@ -400,18 +372,14 @@ impl EventSink for NullArrayBuilder {
 }
 
 impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished NullArrayBuilder");
         }
-        Ok(Box::new(NullArray::new(DataType::Null, self.length)))
+        let res = Box::new(NullArray::new(DataType::Null, self.length));
+        *self = Self::new();
+
+        Ok(res)
     }
 }
 
@@ -424,37 +392,28 @@ pub struct PrimitiveArrayBuilder<T: NativeType + for<'a> TryFrom<Event<'a>, Erro
 macro_rules! impl_primitive_array_builder {
     ($ty:ty, $func:ident, $variant:ident) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
-            fn $func(&mut self, val: $ty) -> Result<()> {
-                self.array.push(Some(val));
-                Ok(())
-            }
-
-            fn accept_default(&mut self) -> Result<()> {
-                self.array.push(Some(Default::default()));
-                Ok(())
-            }
-
-            fn accept_null(&mut self) -> Result<()> {
-                self.array.push(None);
-                Ok(())
-            }
-
-            fn accept_some(&mut self) -> Result<()> {
-                Ok(())
-            }
-
-            fn accept(&mut self, event: Event<'_>) -> Result<()> {
-                match event {
-                    Event::Some => self.accept_some(),
-                    Event::Default => self.accept_default(),
-                    Event::Null => self.accept_null(),
-                    Event::$variant(val) => self.$func(val),
-                    ev => fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{}>",
-                        stringify!($ty)
-                    ),
+            macros::forward_generic_to_specialized!();
+            macros::accept_start!((_this, ev, _val, _next) {
+                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+            });
+            macros::accept_end!((_this, ev, _val, _next) {
+                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+            });
+            macros::accept_marker!((_this, ev, _val, _next) {
+                if !matches!(ev, Event::Some) {
+                    fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
                 }
-            }
+                Ok(())
+            });
+            macros::accept_value!((this, ev, _val, _next) {
+                match ev {
+                    Event::$variant(_) => this.array.push(Some(ev.try_into()?)),
+                    Event::Null => this.array.push(None),
+                    Event::Default => this.array.push(Some(Default::default())),
+                    ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+                }
+                Ok(())
+            });
 
             fn finish(&mut self) -> Result<()> {
                 self.finished = true;
@@ -463,14 +422,7 @@ macro_rules! impl_primitive_array_builder {
         }
 
         impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<$ty> {
-            fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-                (*self).into_array()
-            }
-
-            fn into_array(self) -> Result<Box<dyn Array>>
-            where
-                Self: Sized,
-            {
+            fn build_array(&mut self) -> Result<Box<dyn Array>> {
                 if !self.finished {
                     fail!(concat!(
                         "Cannot build array from unfinished PrimitiveArrayBuilder<",
@@ -478,7 +430,8 @@ macro_rules! impl_primitive_array_builder {
                         ">"
                     ));
                 }
-                Ok(Box::new(PrimitiveArray::from(self.array)))
+                let array = std::mem::take(&mut self.array);
+                Ok(Box::new(PrimitiveArray::from(array)))
             }
         }
     };
@@ -498,34 +451,28 @@ impl_primitive_array_builder!(f32, accept_f32, F32);
 impl_primitive_array_builder!(f64, accept_f64, F64);
 
 impl EventSink for PrimitiveArrayBuilder<f16> {
-    fn accept_f32(&mut self, val: f32) -> Result<()> {
-        self.array.push(Some(f16::from_f32(val)));
+    macros::forward_generic_to_specialized!();
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        if !matches!(ev, Event::Some) {
+            fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+        }
         Ok(())
-    }
-
-    fn accept_default(&mut self) -> Result<()> {
-        self.array.push(Some(Default::default()));
-        Ok(())
-    }
-
-    fn accept_null(&mut self) -> Result<()> {
-        self.array.push(None);
-        Ok(())
-    }
-
-    fn accept_some(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        match event {
-            Event::Some => self.accept_some(),
-            Event::Default => self.accept_default(),
-            Event::Null => self.accept_null(),
-            Event::F32(val) => self.accept_f32(val),
+    });
+    macros::accept_value!((this, ev, _val, _next) {
+        match ev {
+            Event::F32(_) => this.array.push(Some(f16::from_f32(ev.try_into()?))),
+            Event::Null => this.array.push(None),
+            Event::Default => this.array.push(Some(Default::default())),
             ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
         }
-    }
+        Ok(())
+    });
 
     fn finish(&mut self) -> Result<()> {
         self.finished = true;
@@ -534,18 +481,13 @@ impl EventSink for PrimitiveArrayBuilder<f16> {
 }
 
 impl ArrayBuilder<Box<dyn Array>> for PrimitiveArrayBuilder<f16> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished PrimitiveArrayBuilder<f16>");
         }
-        Ok(Box::new(PrimitiveArray::from(self.array)))
+
+        let array = std::mem::take(&mut self.array);
+        Ok(Box::new(PrimitiveArray::from(array)))
     }
 }
 
@@ -556,34 +498,28 @@ pub struct BooleanArrayBuilder {
 }
 
 impl EventSink for BooleanArrayBuilder {
-    fn accept_bool(&mut self, val: bool) -> Result<()> {
-        self.array.push(Some(val));
-        Ok(())
-    }
-
-    fn accept_default(&mut self) -> Result<()> {
-        self.array.push(Some(false));
-        Ok(())
-    }
-
-    fn accept_null(&mut self) -> Result<()> {
-        self.array.push(None);
-        Ok(())
-    }
-
-    fn accept_some(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        match event {
-            Event::Some => self.accept_some(),
-            Event::Default => self.accept_default(),
-            Event::Null => self.accept_null(),
-            Event::Bool(val) => self.accept_bool(val),
-            ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
+    macros::forward_generic_to_specialized!();
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        if !matches!(ev, Event::Some) {
+            fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
         }
-    }
+        Ok(())
+    });
+    macros::accept_value!((this, ev, _val, _next) {
+        match ev {
+            Event::Bool(_) => this.array.push(Some(ev.try_into()?)),
+            Event::Null => this.array.push(None),
+            Event::Default => this.array.push(Some(Default::default())),
+            ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+        }
+        Ok(())
+    });
 
     fn finish(&mut self) -> Result<()> {
         self.finished = true;
@@ -592,16 +528,52 @@ impl EventSink for BooleanArrayBuilder {
 }
 
 impl ArrayBuilder<Box<dyn Array>> for BooleanArrayBuilder {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>> {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished BooleanArrayBuilder");
         }
-        Ok(Box::new(BooleanArray::from(self.array)))
+
+        let array = std::mem::take(&mut self.array);
+        Ok(Box::new(BooleanArray::from(array)))
     }
+}
+
+macro_rules! fail_on_non_string_primitive {
+    ($context:literal) => {
+        fn accept_bool(&mut self, _val: bool) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_i8(&mut self, _val: i8) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_i16(&mut self, _val: i16) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_i32(&mut self, _val: i32) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_i64(&mut self, _val: i64) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_u8(&mut self, _val: u8) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_u16(&mut self, _val: u16) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_u32(&mut self, _val: u32) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_u64(&mut self, _val: u64) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_f32(&mut self, _val: f32) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+        fn accept_f64(&mut self, _val: f64) -> Result<()> {
+            fail!("{} cannot accept Event::Bool", $context)
+        }
+    };
 }
 
 #[derive(Debug, Default)]
@@ -611,6 +583,21 @@ pub struct Utf8ArrayBuilder<O: Offset> {
 }
 
 impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Utf8ArrayBuilder cannot accept {ev}")
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Utf8ArrayBuilder cannot accept {ev}")
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        match ev {
+            Event::Some => Ok(()),
+            _ => fail!("Utf8ArrayBuilder cannot accept {ev}"),
+        }
+    });
+
+    fail_on_non_string_primitive!("Utf8ArrayBuilder");
+
     fn accept_str(&mut self, val: &str) -> Result<()> {
         self.array.push(Some(val));
         Ok(())
@@ -628,10 +615,6 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
 
     fn accept_null(&mut self) -> Result<()> {
         self.array.push::<String>(None);
-        Ok(())
-    }
-
-    fn accept_some(&mut self) -> Result<()> {
         Ok(())
     }
 
@@ -653,74 +636,93 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
 }
 
 impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>> {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished Utf8ArrayBuilder");
         }
-        Ok(Box::new(<Utf8Array<_> as From<_>>::from(self.array)))
+        let array = std::mem::take(&mut self.array);
+        Ok(Box::new(<Utf8Array<_> as From<_>>::from(array)))
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i64> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished ListArrayBuilder");
         }
 
-        let values = self.builder.into_array()?;
+        let values = self.builder.build_array()?;
         let array = ListArray::try_new(
             DataType::LargeList(Box::new(Field::new(
-                self.item_name,
+                self.item_name.clone(),
                 values.data_type().clone(),
                 self.nullable,
             ))),
-            OffsetsBuffer::try_from(self.offsets)?,
+            OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
-            Some(Bitmap::from(self.validity)),
+            Some(Bitmap::from(std::mem::take(&mut self.validity))),
         )?;
+
         Ok(Box::new(array))
     }
 }
 
 #[derive(Debug, Default)]
 pub struct DictionaryUtf8ArrayBuilder<K: DictionaryKey, O: Offset> {
-    array: MutableDictionaryArray<K, MutableUtf8Array<O>>,
+    index: HashMap<String, K>,
+    keys: MutablePrimitiveArray<K>,
+    values: MutableUtf8Array<O>,
     finished: bool,
 }
 
+impl<K: DictionaryKey, O: Offset> DictionaryUtf8ArrayBuilder<K, O> {
+    fn get_key<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Result<K> {
+        if self.index.contains_key(s.as_ref()) {
+            Ok(self.index[s.as_ref()])
+        } else {
+            let idx = K::try_from(self.index.len()).map_err(|_| error!("Cannot convert index"))?;
+            self.values.push(Some(s.as_ref()));
+            self.index.insert(s.into(), idx);
+            Ok(idx)
+        }
+    }
+}
+
 impl<K: DictionaryKey, O: Offset> EventSink for DictionaryUtf8ArrayBuilder<K, O> {
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in DictionaryUtf8ArrayBuilder")
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in DictionaryUtf8ArrayBuilder")
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        match ev {
+            Event::Some => Ok(()),
+            _ => fail!("Cannot handle event {ev} in DictionaryUtf8ArrayBuilder"),
+        }
+    });
+    fail_on_non_string_primitive!("DictionaryUtf8ArrayBuilder");
+
     fn accept_str(&mut self, val: &str) -> Result<()> {
-        self.array.try_push(Some(val))?;
+        let key = self.get_key(val)?;
+        self.keys.push(Some(key));
         Ok(())
     }
 
     fn accept_owned_str(&mut self, val: String) -> Result<()> {
-        self.array.try_push(Some(val))?;
+        let key = self.get_key(val)?;
+        self.keys.push(Some(key));
         Ok(())
     }
 
     fn accept_default(&mut self) -> Result<()> {
-        self.array.try_push(Some(""))?;
+        let key = self.get_key("")?;
+        self.keys.push(Some(key));
         Ok(())
     }
 
     fn accept_null(&mut self) -> Result<()> {
-        self.array.push_null();
-        Ok(())
-    }
-
-    fn accept_some(&mut self) -> Result<()> {
+        self.keys.push_null();
         Ok(())
     }
 
@@ -744,61 +746,54 @@ impl<K: DictionaryKey, O: Offset> EventSink for DictionaryUtf8ArrayBuilder<K, O>
 impl<K: DictionaryKey, O: Offset> ArrayBuilder<Box<dyn Array>>
     for DictionaryUtf8ArrayBuilder<K, O>
 {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>> {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished Utf8ArrayBuilder");
         }
-        Ok(Box::new(DictionaryArray::from(self.array)))
+
+        let dt = DataType::Dictionary(
+            K::KEY_TYPE,
+            Box::new(self.values.data_type().clone()),
+            false,
+        );
+        let res = DictionaryArray::try_new(
+            dt,
+            std::mem::take(&mut self.keys).into(),
+            self.values.as_box(),
+        )?;
+        Ok(Box::new(res))
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i32> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished ListArrayBuilder");
         }
 
-        let values = self.builder.into_array()?;
+        let values = self.builder.build_array()?;
         let array = ListArray::try_new(
             DataType::List(Box::new(Field::new(
-                self.item_name,
+                self.item_name.clone(),
                 values.data_type().clone(),
                 self.nullable,
             ))),
-            OffsetsBuffer::try_from(self.offsets)?,
+            OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
-            Some(Bitmap::from(self.validity)),
+            Some(Bitmap::from(std::mem::take(&mut self.validity))),
         )?;
         Ok(Box::new(array))
     }
 }
 
 impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayBuilder<B> {
-    fn box_into_array(self: Box<Self>) -> Result<Box<dyn Array>> {
-        (*self).into_array()
-    }
-
-    fn into_array(self) -> Result<Box<dyn Array>>
-    where
-        Self: Sized,
-    {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
         if !self.finished {
             fail!("Cannot build array from unfinished MapArrayBuilder");
         }
 
-        let keys = self.key_builder.into_array()?;
-        let vals = self.val_builder.into_array()?;
+        let keys = self.key_builder.build_array()?;
+        let vals = self.val_builder.build_array()?;
 
         // TODO: fix nullability of different fields
         let entries_type = DataType::Struct(vec![
@@ -813,9 +808,9 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayB
 
         let array = MapArray::try_new(
             map_type,
-            OffsetsBuffer::try_from(self.offsets)?,
+            OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             entries,
-            Some(self.validity.into()),
+            Some(std::mem::take(&mut self.validity).into()),
         )?;
         Ok(Box::new(array))
     }
