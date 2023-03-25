@@ -34,8 +34,9 @@
 //! # fn main() { }
 //! ```
 //!
-//! See [implementation] for an explanation of how this package works and its
-//! underlying data model.
+//! See the [quickstart guide][docs::quickstart] for more examples of how to use
+//! this package. See the [implementation notes][docs::implementation] for an
+//! explanation of how this package works and its underlying data model.
 //!
 //! # Features:
 //!
@@ -45,7 +46,7 @@
 //! # Status
 //!
 //! For an overview over the supported Arrow and Rust types see status section
-//! in the [implementation notes][implementation]   
+//! in the [implementation notes][docs::implementation]
 //!
 mod internal;
 
@@ -82,10 +83,7 @@ pub mod base {
 /// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
 /// # let mut field = Field::new("my_field", DataType::Null, false);
 /// field.data_type = DataType::Date64;
-/// field.metadata.insert(
-///     STRATEGY_KEY.to_string(),
-///     Strategy::UtcStrAsDate64.to_string(),
-/// );
+/// field.metadata = Strategy::UtcStrAsDate64.into();
 /// # }
 /// # #[cfg(not(feature="arrow2"))]
 /// # fn main() {}
@@ -100,7 +98,13 @@ pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
 }
 
-#[doc = include_str!("../Implementation.md")]
-// NOTE: hide the implementation documentation from doctests
-#[cfg(not(doctest))]
-pub mod implementation {}
+/// Documentation only modules
+pub mod docs {
+    #[doc = include_str!("../Implementation.md")]
+    #[cfg(not(doctest))]
+    pub mod implementation {}
+
+    #[doc = include_str!("../Quickstart.md")]
+    #[cfg(not(doctest))]
+    pub mod quickstart {}
+}
