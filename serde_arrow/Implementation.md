@@ -147,10 +147,7 @@ let val_field = fields.iter_mut().find(|field| field.name == "date").unwrap();
 val_field.data_type = DataType::Date64;
 
 // only required if the datetime objects are serialized as strings
-val_field.metadata.insert(
-    STRATEGY_KEY.to_string(),
-    Strategy::NaiveStrAsDate64.to_string(),
-);
+val_field.metadata = Strategy::NaiveStrAsDate64.into();
 ```
 
 Currently only datetime objects are supported.
