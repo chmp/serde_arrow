@@ -184,7 +184,8 @@ Supported arrow data types:
 - [x] `Struct`
 - [x] `Union`: at the moment only dense unions are supported
 - [x] `Map`: at the moment only unsorted maps are supported
-- [ ] `Dictionary`
+- [x] `Dictionary`: at the moment only Utf8 and LargeUtf8 as values are
+  supported  
 - [ ] `Decimal`
 - [ ] `Decimal256`
 - [ ] `Extension`

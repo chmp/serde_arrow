@@ -34,9 +34,12 @@ use self::{
 };
 use crate::internal::{
     error::{fail, Result},
-    generic_sinks::{ArrayBuilder, DynamicArrayBuilder, StructArrayBuilder},
+    generic_sinks::StructArrayBuilder,
     schema::{FieldBuilder, Tracer, TracingOptions},
-    sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
+    sink::{
+        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
+        StripOuterSequenceSink,
+    },
     source::{deserialize_from_source, AddOuterSequenceSource},
 };
 
@@ -73,7 +76,7 @@ use crate::internal::{
 ///
 /// - include values for `Option<T>`
 /// - include all variants of an enum
-/// - include at least single element of a list a map
+/// - include at least single element of a list or a map
 ///
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<Field>>
 where
@@ -127,7 +130,7 @@ where
     let mut builder = StripOuterSequenceSink::new(builder);
     serialize_into_sink(&mut builder, items)?;
 
-    builder.into_inner().into_values()
+    builder.into_inner().build_arrays()
 }
 
 /// Deserialize a type from the given arrays
@@ -222,7 +225,7 @@ where
     let builder = build_array_builder(field)?;
     let mut builder = StripOuterSequenceSink::new(builder);
     serialize_into_sink(&mut builder, items).unwrap();
-    builder.into_inner().into_array()
+    builder.into_inner().build_array()
 }
 
 /// Deserialize an object that represents a single array from an array
@@ -301,6 +304,11 @@ impl std::fmt::Debug for ArraysBuilder {
 }
 
 impl ArraysBuilder {
+    /// Build a new ArraysBuilder for the given fields
+    ///
+    /// This method may fail when unsupported data types are encountered in the
+    /// given fields.
+    ///
     pub fn new(fields: &[Field]) -> Result<Self> {
         let fields = fields.to_vec();
         let builder = build_struct_array_builder_from_fields(&fields)?;
@@ -308,10 +316,18 @@ impl ArraysBuilder {
         Ok(Self { fields, builder })
     }
 
-    /// Add a new row to the arrays
+    /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
         item.serialize(EventSerializer(&mut self.builder))?;
+        Ok(())
+    }
+
+    /// Add multiple records to the arrays
+    ///
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        let mut builder = StripOuterSequenceSink::new(&mut self.builder);
+        items.serialize(EventSerializer(&mut builder))?;
         Ok(())
     }
 
@@ -324,7 +340,7 @@ impl ArraysBuilder {
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;
-        builder.into_values()
+        builder.build_arrays()
     }
 }
 

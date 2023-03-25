@@ -8,6 +8,8 @@ use crate::{
     Error, Result,
 };
 
+use super::sink::macros;
+
 /// The metadata key under which to store the strategy
 ///
 /// See the [module][crate::schema] for details.
@@ -85,11 +87,23 @@ impl FromStr for Strategy {
 
 /// Configure how the schema is traced
 ///
+/// Example:
+///
+/// ```rust
+/// # use serde_arrow::schema::TracingOptions;
+/// let tracing_options = TracingOptions::default()
+///     .map_as_struct(true)
+///     .string_dictionary_encoding(false);
+/// ```
+///
 #[derive(Debug, Clone)]
 pub struct TracingOptions {
     /// If `true` serialize maps as structs (the default). See
     /// [Strategy::MapAsStruct] for details.
     pub map_as_struct: bool,
+
+    /// If `true` serialize strings dictionary encoded. The default is `false`.
+    pub string_dictionary_encoding: bool,
 }
 
 impl TracingOptions {
@@ -101,12 +115,18 @@ impl TracingOptions {
         self.map_as_struct = value;
         self
     }
+
+    pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
+        self.string_dictionary_encoding = value;
+        self
+    }
 }
 
 impl Default for TracingOptions {
     fn default() -> Self {
         Self {
             map_as_struct: true,
+            string_dictionary_encoding: false,
         }
     }
 }
@@ -157,6 +177,8 @@ pub trait FieldBuilder<F> {
 }
 
 impl EventSink for Tracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         match self {
             // NOTE: unknown tracer is the only tracer that change the internal type
@@ -175,7 +197,10 @@ impl EventSink for Tracer {
                 | Event::F64(_)
                 | Event::Str(_)
                 | Event::OwnedStr(_) => {
-                    let mut tracer = PrimitiveTracer::new(tracer.nullable);
+                    let mut tracer = PrimitiveTracer::new(
+                        tracer.nullable,
+                        tracer.options.string_dictionary_encoding,
+                    );
                     tracer.accept(event)?;
                     *self = Tracer::Primitive(tracer)
                 }
@@ -314,6 +339,8 @@ impl StructTracer {
 }
 
 impl EventSink for StructTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use StructTracerState::*;
         type E<'a> = Event<'a>;
@@ -419,6 +446,8 @@ impl TupleTracer {
 }
 
 impl EventSink for TupleTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use TupleTracerState::*;
         type E<'a> = Event<'a>;
@@ -503,6 +532,8 @@ impl ListTracer {
 }
 
 impl EventSink for ListTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use ListTracerState::*;
         type E<'a> = Event<'a>;
@@ -591,6 +622,8 @@ impl UnionTracer {
 }
 
 impl EventSink for UnionTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type S = UnionTracerState;
         type E<'a> = Event<'a>;
@@ -677,6 +710,8 @@ impl MapTracer {
 }
 
 impl EventSink for MapTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type S = MapTracerState;
         type E<'a> = Event<'a>;
@@ -776,22 +811,26 @@ pub enum MapTracerState {
 }
 
 pub struct PrimitiveTracer {
+    pub string_dictionary_encoding: bool,
     pub item_type: PrimitiveType,
     pub nullable: bool,
     pub finished: bool,
 }
 
 impl PrimitiveTracer {
-    pub fn new(nullable: bool) -> Self {
+    pub fn new(nullable: bool, string_dictionary_encoding: bool) -> Self {
         Self {
             item_type: PrimitiveType::Unknown,
             nullable,
+            string_dictionary_encoding,
             finished: false,
         }
     }
 }
 
 impl EventSink for PrimitiveTracer {
+    macros::forward_specialized_to_generic!();
+
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         type T = PrimitiveType;
         type E<'a> = Event<'a>;
