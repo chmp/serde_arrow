@@ -2,7 +2,7 @@
 
 ## 0.6.0
 
-### Remove support arrow in favor of arrow2
+### Removed support arrow in favor of arrow2
 
 Drop support [arrow][] in favor of [arrow2][]. Arrow2 is a smaller, faster to
 build implementation of the Arrow format that follow semver. It is also used by
