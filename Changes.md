@@ -17,7 +17,7 @@ batches see the [arrow2-to-arrow][] example.
 - Rust: Struct, Lists, Maps, Enums, Tuples
 - Arrow: Struct, List, Maps, Unions, ...
 
-### Removal of custom API
+### Removal of custom schema APIs
 
 `serde_arrow` no longer relies on its own schema object. Now all schema
 information is retrieved from arrow fields with additional metadata.
@@ -28,6 +28,11 @@ In addition to the previous API that worked on a sequence of records,
 `serde_arrow` now also supports to operate on a sequence of individual items
 (`serialize_into_array`, `deserialize_form_array`) and to operate on single
 items (`ArraysBuilder`).
+
+## Support for dictionary encoded strings (categories)
+
+`serde_arrow` supports dictionary encoding for string arrays. This way string
+arrays are encoded via a lookup table to avoid including repeated string values.
 
 ## 0.5.0
 
