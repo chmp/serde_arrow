@@ -466,10 +466,7 @@ fn struct_tuple() {
         ]),
         false,
     );
-    expected.metadata.insert(
-        STRATEGY_KEY.to_string(),
-        Strategy::TupleAsStruct.to_string(),
-    );
+    expected.metadata = Strategy::TupleAsStruct.into();
 
     assert_eq!(field, expected);
 }

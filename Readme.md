@@ -4,6 +4,7 @@
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Changes](Changes.md)
 | [Example](#example)
+| [Performance](#performance)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Implementation.md#status)
 | [Development](#development)
@@ -19,10 +20,7 @@ cumbersome to use directly. This package, `serde_arrow`, tries to bridge this
 gap by offering a simple way to convert Rust objects into Arrow objects and vice
 versa.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
-types is as easy as using Serde's derive macros. 
-
-See the [implementation notes](serde_arrow/Implementation.md) for details on how
-it is implemented. This package is optimized for ease of use, not performance.
+types is as easy as using Serde's derive macros.
 
 [arrow2]: https://docs.rs/arrow2/latest/arrow2/
 [polars]: https://github.com/pola-rs/polars
@@ -77,7 +75,18 @@ import pandas as pd
 pd.read_parquet("example.pq")
 ```
 
-# Development
+## Performance
+
+See the [implementation notes](serde_arrow/Implementation.md) for details on how
+it is implemented.
+
+This package is optimized for ease of use, not performance. Depending on the
+complexity of the types, a performance penality of 4x - 7x compared to manually
+building the arrays can be expected. More complex types incur a smaller
+performance penalty. See the [benches](serde_arrow/benches/arrow2.rs) for
+details.
+
+## Development
 
 All common tasks are bundled in the `x.py` script:
 
@@ -89,7 +98,7 @@ python x.py precommit
 Run `python x.py --help` for details. The script only uses standard Python
 modules can can be run without installing further packages.
 
-# License
+## License
 
 ```text
 Copyright (c) 2021 - 2023 Christopher Prohm

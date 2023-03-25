@@ -240,7 +240,7 @@ impl FieldBuilder<Field> for MapTracer {
 /// # use serde::Serialize;
 /// #
 /// use serde_arrow::{
-///     arrow2::{serialize_into_fields, experimental::find_field_mut},
+///     arrow2::{serialize_into_fields, experimental},
 ///     schema::{Strategy, TracingOptions},
 /// };
 ///
@@ -260,7 +260,7 @@ impl FieldBuilder<Field> for MapTracer {
 ///     TracingOptions::default(),
 /// ).unwrap();
 ///
-/// let dt_field = find_field_mut(&mut fields, "b.dt").unwrap();
+/// let dt_field = experimental::find_field_mut(&mut fields, "b.dt").unwrap();
 /// dt_field.data_type = DataType::Date64;
 /// dt_field.metadata = Strategy::NaiveStrAsDate64.into();
 /// ```

@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    internal::{
-        event::Event,
-        schema::{Strategy, STRATEGY_KEY},
-    },
+    internal::{event::Event, schema::Strategy},
     test::arrow2::utils::{collect_events_from_array, field},
 };
 
@@ -40,10 +37,7 @@ fn dtype_date64_naive_str() {
 
     let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
     val_field.data_type = DataType::Date64;
-    val_field.metadata.insert(
-        STRATEGY_KEY.to_string(),
-        Strategy::NaiveStrAsDate64.to_string(),
-    );
+    val_field.metadata = Strategy::NaiveStrAsDate64.into();
 
     println!("{fields:?}");
 
@@ -97,10 +91,7 @@ fn dtype_date64_str() {
     let mut fields = serialize_into_fields(records, Default::default()).unwrap();
     let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
     val_field.data_type = DataType::Date64;
-    val_field.metadata.insert(
-        STRATEGY_KEY.to_string(),
-        Strategy::UtcStrAsDate64.to_string(),
-    );
+    val_field.metadata = Strategy::UtcStrAsDate64.into();
 
     let arrays = serialize_into_arrays(&fields, records).unwrap();
 
