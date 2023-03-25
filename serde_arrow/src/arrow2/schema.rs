@@ -1,6 +1,6 @@
 use std::iter;
 
-use arrow2::datatypes::{DataType, Field, Metadata, UnionMode};
+use arrow2::datatypes::{DataType, Field, IntegerType, Metadata, UnionMode};
 
 use crate::{
     arrow2::display,
@@ -107,7 +107,17 @@ impl FieldBuilder<Field> for PrimitiveTracer {
         match self.item_type {
             T::Unknown => Ok(Field::new(name, D::Null, self.nullable)),
             T::Bool => Ok(Field::new(name, D::Boolean, self.nullable)),
-            T::Str => Ok(Field::new(name, D::LargeUtf8, self.nullable)),
+            T::Str => {
+                if !self.string_dictionary_encoding {
+                    Ok(Field::new(name, D::LargeUtf8, self.nullable))
+                } else {
+                    Ok(Field::new(
+                        name,
+                        DataType::Dictionary(IntegerType::UInt32, Box::new(D::LargeUtf8), false),
+                        self.nullable,
+                    ))
+                }
+            }
             T::I8 => Ok(Field::new(name, D::Int8, self.nullable)),
             T::I16 => Ok(Field::new(name, D::Int16, self.nullable)),
             T::I32 => Ok(Field::new(name, D::Int32, self.nullable)),

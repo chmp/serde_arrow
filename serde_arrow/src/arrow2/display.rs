@@ -1,7 +1,8 @@
 //! Helpers to display [arrow2] types as valid rust code
 //!
 use arrow2::datatypes::{
-    DataType as Arrow2DataType, Field as Arrow2Field, Metadata as Arrow2Metadata,
+    DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
+    Metadata as Arrow2Metadata,
 };
 
 use super::schema::get_optional_strategy;
@@ -80,6 +81,23 @@ impl<'a> std::fmt::Display for Strategy<'a> {
     }
 }
 
+pub struct IntegerType<'a>(pub &'a Arrow2IntegerType);
+
+impl<'a> std::fmt::Display for IntegerType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Arrow2IntegerType::Int8 => write!(f, "IntegerType::Int8"),
+            Arrow2IntegerType::Int16 => write!(f, "IntegerType::Int16"),
+            Arrow2IntegerType::Int32 => write!(f, "IntegerType::Int32"),
+            Arrow2IntegerType::Int64 => write!(f, "IntegerType::Int64"),
+            Arrow2IntegerType::UInt8 => write!(f, "IntegerType::UInt8"),
+            Arrow2IntegerType::UInt16 => write!(f, "IntegerType::UInt16"),
+            Arrow2IntegerType::UInt32 => write!(f, "IntegerType::UInt32"),
+            Arrow2IntegerType::UInt64 => write!(f, "IntegerType::UInt64"),
+        }
+    }
+}
+
 pub struct DataType<'a>(pub &'a Arrow2DataType);
 
 impl<'a> std::fmt::Display for DataType<'a> {
@@ -139,7 +157,13 @@ impl<'a> std::fmt::Display for DataType<'a> {
             Duration(_) => write!(ff, "DataType::Duration(?)"),
             Interval(_) => write!(ff, "DataType::Interval(?)"),
             Union(_, _, _) => write!(ff, "DataType::Union(?, ?, ?)"),
-            Dictionary(_, _, _) => write!(ff, "DataType::Dictionary(?, ?, ?)"),
+            Dictionary(itype, dt, sorted) => write!(
+                ff,
+                "DataType::Dictionary({}, {}, {})",
+                IntegerType(itype),
+                DataType(dt),
+                sorted
+            ),
         }
     }
 }

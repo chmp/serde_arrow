@@ -6,7 +6,10 @@
 //! # use serde::Serialize;
 //! # #[cfg(feature = "arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
-//! use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+//! use serde_arrow::{
+//!     schema::TracingOptions,
+//!     arrow2::{serialize_into_fields, serialize_into_arrays}
+//! };
 //!
 //! ##[derive(Serialize)]
 //! struct Example {
@@ -22,7 +25,7 @@
 //!
 //! // Auto-detect the arrow types. Result may need to be overwritten and
 //! // customized, see serde_arrow::Strategy for details.
-//! let fields = serialize_into_fields(&records, Default::default())?;
+//! let fields = serialize_into_fields(&records, TracingOptions::default())?;
 //! let batch = serialize_into_arrays(&fields, &records)?;
 //!
 //! # Ok(())
