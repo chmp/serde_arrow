@@ -22,6 +22,9 @@ pub(crate) mod sinks;
 pub(crate) mod sources;
 mod type_support;
 
+#[cfg(test)]
+mod test;
+
 use crate::impls::arrow2::{
     array::Array,
     datatypes::{DataType, Field},

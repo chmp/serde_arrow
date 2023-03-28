@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use serde_arrow::impls::arrow2::{
     array::{
         Array, BooleanArray, MutableArray, MutableBooleanArray, MutablePrimitiveArray,
@@ -8,7 +9,6 @@ use serde_arrow::impls::arrow2::{
     buffer::Buffer,
     datatypes::{DataType, Field, UnionMode},
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use rand::{
     distributions::{Standard, Uniform},

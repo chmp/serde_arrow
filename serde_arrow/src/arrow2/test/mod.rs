@@ -1,4 +1,5 @@
 mod generic_sources;
+mod implementation_docs;
 mod round_trip;
 mod round_trip_array;
 mod schema;

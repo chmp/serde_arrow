@@ -3,17 +3,17 @@
 
 use std::collections::HashMap;
 
-use crate::impls::arrow2::{
-    array::PrimitiveArray,
-    datatypes::{DataType, Field},
-};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::utils::{collect_events_from_array, field};
 use crate::{
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
+    impls::arrow2::{
+        array::PrimitiveArray,
+        datatypes::{DataType, Field},
+    },
     internal::{event::Event, schema::Strategy},
-    test::arrow2::utils::{collect_events_from_array, field},
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled

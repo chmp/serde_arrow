@@ -70,7 +70,6 @@ pub mod arrow2;
 #[cfg(test)]
 mod test;
 
-
 pub use internal::error::{Error, Result};
 
 /// Common abstractions used in `serde_arrow`
