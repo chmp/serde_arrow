@@ -48,17 +48,17 @@ let items = vec![
 // detect the field types and convert the items to arrays
 use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 
-let fields = serialize_into_fields(&items)?;
+let fields = serialize_into_fields(&items, TracingOptions::default())?;
 let arrays = serialize_into_arrays(&fields, &items)?;
 
 // using the helper method defined in the arrow2 guide at
 // https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-use  arrow2::{chunk::Chunk, datatypes::Schema};
+use arrow2::{chunk::Chunk, datatypes::Schema};
 
 write_chunk(
     "example.pq",
     Schema::from(fields),
-    Chunk::new(items),
+    Chunk::new(arrays),
 )?;
 
 ```
