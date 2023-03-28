@@ -31,7 +31,10 @@ def precommit(backtrace=False):
     check_docs_config()
 
     cargo("fmt")
-    cargo("check", "--features", ",".join(all_arrow2_features))
+
+    for arrow2_feature in all_arrow2_features:
+        cargo("check", "--features", arrow2_feature)
+
     cargo("clippy", "--features", default_arrow2_feature)
     cargo(
         "test",
@@ -67,7 +70,7 @@ def test():
 
 @cmd()
 def bench():
-    cargo("bench", "--features", "arrow2")
+    cargo("bench", "--features", default_arrow2_feature)
     summarize_bench()
 
 
@@ -133,7 +136,7 @@ def collect(kv_pairs):
 
 @cmd()
 def doc():
-    cargo("doc", "--features", "arrow2", cwd=self_path / "serde_arrow")
+    cargo("doc", "--features", default_arrow2_feature, cwd=self_path / "serde_arrow")
 
 
 @cmd()

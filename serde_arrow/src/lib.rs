@@ -1,10 +1,10 @@
 //! # `serde_arrow` - convert sequences Rust objects to arrow2 arrays
 //!
-//! Usage (requires the `arrow2` feature):
+//! Usage (requires one of `arrow2` feature, see below):
 //!
 //! ```rust
 //! # use serde::Serialize;
-//! # #[cfg(feature = "arrow2")]
+//! # #[cfg(feature = "arrow2-0-17")]
 //! # fn main() -> serde_arrow::Result<()> {
 //! use serde_arrow::{
 //!     schema::TracingOptions,
@@ -30,7 +30,7 @@
 //!
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "arrow2"))]
+//! # #[cfg(not(feature = "arrow2-0-17"))]
 //! # fn main() { }
 //! ```
 //!
@@ -40,22 +40,36 @@
 //!
 //! # Features:
 //!
-//! - `arrow2`: add support to (de)serialize to and from arrow2 arrays. This
-//!   feature is activated per default
+//! The features enable specific versions of the `arrow2` crate to be supported
+//! by the library:
+//!
+//! | Feature       | Arrow2 Version |
+//! |---------------|----------------|
+//! | `arrow2-0-17` | `arrow2=0.17`  |
+//! | `arrow2-0-16` | `arrow2=0.16`  |
 //!
 //! # Status
 //!
 //! For an overview over the supported Arrow and Rust types see status section
 //! in the [implementation notes][docs::implementation]
 //!
-pub mod impls;
 mod internal;
+
+/// The arrow implementations used
+pub mod impls {
+    #[cfg(feature = "arrow2-0-17")]
+    pub use arrow2_0_17 as arrow2;
+
+    #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
+    pub use arrow2_0_16 as arrow2;
+}
 
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
 #[cfg(test)]
 mod test;
+
 
 pub use internal::error::{Error, Result};
 

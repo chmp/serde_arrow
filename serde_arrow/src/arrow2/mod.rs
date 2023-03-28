@@ -1,6 +1,6 @@
 //! arrow2 dependent functionality (requires the `arrow2` feature)
 //!
-//! Functions to convert [arrow2] arrays from and into Rust objects.
+//! Functions to convert `arrow2  arrays from and into Rust objects.
 //!
 //! The functions come in pairs: some work on single  arrays, i.e., the series
 //! of a data frames, some work on multiples arrays, i.e., data frames

@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use arrow2::{
+use serde_arrow::impls::arrow2::{
     array::{
         Array, BooleanArray, MutableArray, MutableBooleanArray, MutablePrimitiveArray,
         MutableUtf8Array, PrimitiveArray, StructArray, UnionArray, Utf8Array,
     },
     buffer::Buffer,
-    datatypes::{DataType, Field},
+    datatypes::{DataType, Field, UnionMode},
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -297,7 +297,7 @@ fn benchmark_complex(c: &mut Criterion) {
                             Field::new("F64", DataType::Float64, false),
                         ],
                         None,
-                        arrow2::datatypes::UnionMode::Dense,
+                        UnionMode::Dense,
                     ),
                     Buffer::from(floats_variant),
                     vec![

@@ -16,7 +16,7 @@ default = []
 
 [[bench]]
 name = "arrow2"
-required-features = ["arrow2"]
+required-features = ["arrow2-0-17"]
 harness = false
 
 [package.metadata.docs.rs]

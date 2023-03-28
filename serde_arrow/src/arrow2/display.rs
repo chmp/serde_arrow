@@ -1,4 +1,4 @@
-//! Helpers to display [arrow2] types as valid rust code
+//! Helpers to display `arrow2` types as valid rust code
 //!
 use crate::impls::arrow2::datatypes::{
     DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
