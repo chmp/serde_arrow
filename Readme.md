@@ -48,7 +48,7 @@ let items = vec![
 // detect the field types and convert the items to arrays
 use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 
-let fields = serialize_into_fields(&items, TracingOptions::new())?;
+let fields = serialize_into_fields(&items, TracingOptions::default())?;
 let arrays = serialize_into_arrays(&fields, &items)?;
 
 // using the helper method defined in the arrow2 guide at
