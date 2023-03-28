@@ -8,7 +8,7 @@ mod sinks;
 mod sources;
 pub(crate) mod utils;
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::{Array, MutableArray, MutablePrimitiveArray, MutableStructArray, StructArray},
     datatypes::{DataType as Arrow2DataType, Field},
 };

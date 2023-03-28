@@ -124,13 +124,6 @@ macro_rules! fail {
 
 pub(crate) use fail;
 
-#[cfg(feature = "arrow2")]
-impl From<arrow2::error::Error> for Error {
-    fn from(err: arrow2::error::Error) -> Error {
-        Self::custom_from(format!("arrow2::Error: {err}"), err)
-    }
-}
-
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {
         Self::custom_from(format!("chrono::ParseError: {err}"), err)

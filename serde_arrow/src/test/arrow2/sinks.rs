@@ -1,7 +1,7 @@
 //! Test rust objects -> events -> arrays
 use std::{any::Any, collections::HashMap};
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::{Array, ListArray, PrimitiveArray, StructArray},
     bitmap::Bitmap,
     datatypes::{DataType, Field},
@@ -23,7 +23,7 @@ fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
 macro_rules! test_option_support {
     (test_name = $test_name:ident, data_type = $data_type:expr, value = $value:expr, ) => {
         mod $test_name {
-            use arrow2::datatypes::{DataType, Field};
+            use crate::impls::arrow2::datatypes::{DataType, Field};
 
             use crate::{
                 arrow2::sinks::build_array_builder,

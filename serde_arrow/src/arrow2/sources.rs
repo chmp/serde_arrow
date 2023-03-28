@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::{
         Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
         Utf8Array,

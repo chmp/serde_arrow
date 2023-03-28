@@ -12,7 +12,7 @@ license = "MIT"
 bench = false
 
 [features]
-default = ["arrow2"]
+default = []
 
 [[bench]]
 name = "arrow2"
@@ -23,7 +23,9 @@ harness = false
 features = ["arrow2"]
 
 [dependencies]
-arrow2 = {version = "0.16", optional = true }
+arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
+arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true }
+
 
 serde = "1.0"
 

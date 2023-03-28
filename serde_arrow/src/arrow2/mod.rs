@@ -22,7 +22,7 @@ pub(crate) mod sinks;
 pub(crate) mod sources;
 mod type_support;
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::Array,
     datatypes::{DataType, Field},
 };
@@ -49,7 +49,7 @@ use crate::internal::{
 /// structs).
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::serialize_into_fields;
 /// #
@@ -138,7 +138,7 @@ where
 /// The type should be a list of records (e.g., a vector of structs).
 ///
 /// ```rust
-/// # use arrow2::datatypes::{Field, DataType};
+/// # use serde_arrow::impls::arrow2::datatypes::{Field, DataType};
 /// # use serde::{Serialize, Deserialize};
 /// # use serde_arrow::arrow2::{
 /// #   serialize_into_fields,
@@ -179,8 +179,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
 /// #
@@ -205,8 +204,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
 /// #
@@ -235,8 +233,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{
 /// #   serialize_into_field,
@@ -264,7 +261,7 @@ where
 /// Usage:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{ArraysBuilder};
 /// #
@@ -346,18 +343,15 @@ impl ArraysBuilder {
 
 /// Experimental functionality that is not subject to semver compatibility
 pub mod experimental {
-    use arrow2::datatypes::Field;
+    use crate::impls::arrow2::datatypes::Field;
 
     use super::display;
 
     /// Format the fields as a string
     ///
     /// The fields are displayed as Rust code that allows to build the fields in
-    /// code. The following symbols are assumed to be in scope:
-    ///
-    /// ```rust
-    /// use arrow2::datatypes::{DataType, Field, Metadata};
-    /// ```
+    /// code. The following symbols of the `arrow2::datatypes `module are
+    /// assumed to be in scope `DataType`, `Field`, `Metadata`.
     ///
     pub fn format_fields(fields: &[Field]) -> String {
         display::Fields(fields).to_string()

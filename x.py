@@ -15,6 +15,10 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
+default_arrow2_feature = "arrow2-0-17"
+all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
+
+
 @cmd()
 @arg("--backtrace", action="store_true", default=False)
 def precommit(backtrace=False):
@@ -24,11 +28,12 @@ def precommit(backtrace=False):
     )
 
     cargo("fmt")
-    cargo("clippy", "--features", "arrow2")
+    cargo("check", "--features", ",".join(all_arrow2_features))
+    cargo("clippy", "--features", default_arrow2_feature)
     cargo(
         "test",
         "--features",
-        "arrow2",
+        default_arrow2_feature,
         env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
     )
 
@@ -36,7 +41,7 @@ def precommit(backtrace=False):
 @cmd()
 def test():
     for feature_flags in [
-        ("--features", "arrow2"),
+        ("--features", default_arrow2_feature),
         (),
     ]:
         cargo("test", *feature_flags, "--lib", env=dict(os.environ, RUST_BACKTRACE="1"))

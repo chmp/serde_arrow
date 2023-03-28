@@ -1,4 +1,4 @@
-use arrow2::{
+use crate::impls::arrow2::{
     array::{Array, BooleanArray, PrimitiveArray, StructArray},
     datatypes::{DataType, Field},
 };

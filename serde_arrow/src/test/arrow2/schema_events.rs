@@ -1,7 +1,7 @@
 //! Test the schema tracing on the event level
 use std::collections::BTreeMap;
 
-use arrow2::datatypes::{DataType, Field};
+use crate::impls::arrow2::datatypes::{DataType, Field};
 
 use crate::{
     internal::{
@@ -16,7 +16,7 @@ macro_rules! define_primitive_tests {
     ($event_variant:ident, $data_type:ident) => {
         #[allow(non_snake_case)]
         mod $event_variant {
-            use arrow2::datatypes::{DataType, Field};
+            use crate::impls::arrow2::datatypes::{DataType, Field};
 
             use crate::internal::{
                 event::Event,

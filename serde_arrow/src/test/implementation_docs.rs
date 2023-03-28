@@ -1,4 +1,4 @@
-use arrow2::datatypes::{DataType, Field};
+use crate::impls::arrow2::datatypes::{DataType, Field};
 use serde::{Deserialize, Serialize};
 
 use crate::{

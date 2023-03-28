@@ -1,6 +1,6 @@
 //! Helpers to display [arrow2] types as valid rust code
 //!
-use arrow2::datatypes::{
+use crate::impls::arrow2::datatypes::{
     DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
     Metadata as Arrow2Metadata,
 };
@@ -170,8 +170,8 @@ impl<'a> std::fmt::Display for DataType<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::impls::arrow2::datatypes::{DataType, Field, Metadata};
     use crate::schema::Strategy;
-    use arrow2::datatypes::{DataType, Field, Metadata};
 
     //# start tests
     #[test]

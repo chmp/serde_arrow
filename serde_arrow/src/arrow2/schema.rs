@@ -1,6 +1,6 @@
 use std::iter;
 
-use arrow2::datatypes::{DataType, Field, IntegerType, Metadata, UnionMode};
+use crate::impls::arrow2::datatypes::{DataType, Field, IntegerType, Metadata, UnionMode};
 
 use crate::{
     arrow2::display,
@@ -235,7 +235,7 @@ impl FieldBuilder<Field> for MapTracer {
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::DataType;
+/// # use serde_arrow::impls::arrow2::datatypes::DataType;
 /// # use chrono::NaiveDateTime;
 /// # use serde::Serialize;
 /// #

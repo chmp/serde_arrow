@@ -48,9 +48,10 @@
 //! For an overview over the supported Arrow and Rust types see status section
 //! in the [implementation notes][docs::implementation]
 //!
+pub mod impls;
 mod internal;
 
-#[cfg(feature = "arrow2")]
+#[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
 #[cfg(test)]

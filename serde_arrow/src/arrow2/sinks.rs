@@ -1,37 +1,32 @@
 use std::collections::HashMap;
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::Array,
     array::{
-        DictionaryArray, DictionaryKey, ListArray, MapArray, MutableArray, MutableUtf8Array,
-        NullArray, StructArray, UnionArray, Utf8Array,
+        BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, MutableArray,
+        MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array, NullArray, PrimitiveArray,
+        StructArray, UnionArray, Utf8Array,
     },
     bitmap::Bitmap,
     datatypes::{DataType, Field, IntegerType, UnionMode},
     offset::OffsetsBuffer,
-    types::{f16, Offset},
+    types::{f16, NativeType, Offset},
 };
 
 use crate::{
     internal::{
         chrono_support::{NaiveDateTimeStrBuilder, UtcDateTimeStrBuilder},
-        error::{error, fail},
+        error::{error, fail, Error},
+        event::Event,
         generic_sinks::{
             ListArrayBuilder, MapArrayBuilder, StructArrayBuilder, TupleStructBuilder,
             UnionArrayBuilder,
         },
         schema::Strategy,
-        sink::{macros, ArrayBuilder, DynamicArrayBuilder},
+        sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
     Result,
 };
-
-use arrow2::{
-    array::{BooleanArray, MutableBooleanArray, MutablePrimitiveArray, PrimitiveArray},
-    types::NativeType,
-};
-
-use crate::internal::{error::Error, event::Event, sink::EventSink};
 
 use super::{
     display,
