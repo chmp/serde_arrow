@@ -20,7 +20,7 @@ required-features = ["arrow2"]
 harness = false
 
 [package.metadata.docs.rs]
-features = ["arrow2"]
+features = ["arrow2-0-17"]
 
 [dependencies]
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }

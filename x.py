@@ -5,6 +5,7 @@ import pathlib
 import statistics
 import subprocess
 import sys
+import toml
 
 self_path = pathlib.Path(__file__).parent.resolve()
 
@@ -27,6 +28,8 @@ def precommit(backtrace=False):
         self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py",
     )
 
+    check_docs_config()
+
     cargo("fmt")
     cargo("check", "--features", ",".join(all_arrow2_features))
     cargo("clippy", "--features", default_arrow2_feature)
@@ -36,6 +39,21 @@ def precommit(backtrace=False):
         default_arrow2_feature,
         env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
     )
+
+
+@cmd()
+def check_docs_config():
+    with open(self_path / "serde_arrow" / "Cargo.toml", "rt") as fobj:
+        config = toml.load(fobj)
+
+    docs_features = sorted(config["package"]["metadata"]["docs"]["rs"]["features"])
+    expected_features = [default_arrow2_feature]
+
+    if docs_features != expected_features:
+        raise ValueError(
+            "Invalid docs.rs configuration. "
+            f"Expected features {expected_features}, found: {docs_features}"
+        )
 
 
 @cmd()
