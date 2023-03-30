@@ -14,18 +14,22 @@ bench = false
 [features]
 default = []
 
+arrow-36 = ["dep:arrow-array-36", "dep:arrow-schema-36"]
+
 [[bench]]
 name = "arrow2"
 required-features = ["arrow2-0-17"]
 harness = false
 
 [package.metadata.docs.rs]
-features = ["arrow2-0-17"]
+features = ["arrow2-0-17", "arrow-36"]
 
 [dependencies]
+arrow-array-36 = { package = "arrow-array", version = "36.0.0", optional = true }
+arrow-schema-36 = { package = "arrow-schema", version = "36.0.0", optional = true }
+
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
 arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true }
-
 
 serde = "1.0"
 

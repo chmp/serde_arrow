@@ -1,3 +1,5 @@
+use chrono::{NaiveDateTime, TimeZone, Utc};
+
 use crate::{
     internal::{
         error::{error, fail},
@@ -588,4 +590,38 @@ fn consume_value<'a, S: EventSource<'a>>(source: &mut S) -> Result<()> {
         }
     }
     fail!("Could not consume value");
+}
+
+pub struct NaiveDateTimeStrSource<S>(pub S);
+
+impl<'a, S: EventSource<'a>> EventSource<'a> for NaiveDateTimeStrSource<S> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        match self.0.next()? {
+            Some(Event::I64(val)) => {
+                // TODO: update with chrono 0.5
+                #[allow(deprecated)]
+                let val = NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+                // NOTE: chrono documents that Debug, not Display, can be parsed
+                Ok(Some(format!("{:?}", val).into()))
+            }
+            ev => Ok(ev),
+        }
+    }
+}
+
+pub struct UtcDateTimeStrSource<S>(pub S);
+
+impl<'a, S: EventSource<'a>> EventSource<'a> for UtcDateTimeStrSource<S> {
+    fn next(&mut self) -> Result<Option<Event<'a>>> {
+        match self.0.next()? {
+            Some(Event::I64(val)) => {
+                // TODO: update with chrono 0.5
+                #[allow(deprecated)]
+                let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+                // NOTE: chrono documents that Debug, not Display, can be parsed
+                Ok(Some(format!("{:?}", val).into()))
+            }
+            ev => Ok(ev),
+        }
+    }
 }

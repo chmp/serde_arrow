@@ -16,8 +16,11 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
-default_arrow2_feature = "arrow2-0-17"
+all_arrow_features = ["arrow-36"]
+
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
+
+default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
 
 @cmd()
@@ -32,14 +35,14 @@ def precommit(backtrace=False):
 
     cargo("fmt")
 
-    for arrow2_feature in all_arrow2_features:
+    for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
         cargo("check", "--features", arrow2_feature)
 
-    cargo("clippy", "--features", default_arrow2_feature)
+    cargo("clippy", "--features", default_features)
     cargo(
         "test",
         "--features",
-        default_arrow2_feature,
+        default_features,
         env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
     )
 
@@ -50,7 +53,7 @@ def check_docs_config():
         config = toml.load(fobj)
 
     docs_features = sorted(config["package"]["metadata"]["docs"]["rs"]["features"])
-    expected_features = [default_arrow2_feature]
+    expected_features = sorted(default_features.split(","))
 
     if docs_features != expected_features:
         raise ValueError(
@@ -62,7 +65,7 @@ def check_docs_config():
 @cmd()
 def test():
     for feature_flags in [
-        ("--features", default_arrow2_feature),
+        ("--features", default_features),
         (),
     ]:
         cargo("test", *feature_flags, "--lib", env=dict(os.environ, RUST_BACKTRACE="1"))
@@ -70,7 +73,7 @@ def test():
 
 @cmd()
 def bench():
-    cargo("bench", "--features", default_arrow2_feature)
+    cargo("bench", "--features", default_features)
     summarize_bench()
 
 

@@ -40,8 +40,13 @@
 //!
 //! # Features:
 //!
-//! The features enable specific versions of the `arrow2` crate to be supported
-//! by the library:
+//! The features to enable specific versions of the `arrow` crate
+//!
+//! | Feature    | Arrow Version |
+//! |------------|---------------|
+//! | `arrow-36` | `arrow=36`    |
+//!
+//! The features to enable specific versions of the `arrow2` crate
 //!
 //! | Feature       | Arrow2 Version |
 //! |---------------|----------------|
@@ -62,10 +67,19 @@ pub mod impls {
 
     #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
     pub use arrow2_0_16 as arrow2;
+
+    #[cfg(feature = "arrow-36")]
+    pub mod arrow {
+        pub use arrow_array_36 as array;
+        pub use arrow_schema_36 as schema;
+    }
 }
 
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
+
+#[cfg(any(feature = "arrow-36"))]
+pub mod arrow;
 
 #[cfg(test)]
 mod test;

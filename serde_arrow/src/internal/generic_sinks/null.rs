@@ -1,0 +1,52 @@
+use crate::{
+    base::{Event, EventSink},
+    internal::{
+        error::{fail, Result},
+        sink::macros,
+    },
+};
+
+#[derive(Debug, Default)]
+pub struct NullArrayBuilder {
+    pub length: usize,
+    pub finished: bool,
+}
+
+impl NullArrayBuilder {
+    pub fn new() -> Self {
+        Self {
+            length: 0,
+            finished: true,
+        }
+    }
+}
+
+impl EventSink for NullArrayBuilder {
+    macros::forward_generic_to_specialized!();
+    macros::accept_start!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_end!((_this, ev, _val, _next) {
+        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+    });
+    macros::accept_marker!((_this, ev, _val, _next) {
+        if !matches!(ev, Event::Some) {
+            fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+        }
+        Ok(())
+    });
+    macros::accept_value!((this, ev, _val, _next) {
+        match ev {
+            Event::Null | Event::Default => {
+                this.length += 1;
+            },
+            ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+        }
+        Ok(())
+    });
+
+    fn finish(&mut self) -> Result<()> {
+        self.finished = true;
+        Ok(())
+    }
+}

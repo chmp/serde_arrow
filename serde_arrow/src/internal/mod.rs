@@ -1,4 +1,3 @@
-pub(crate) mod chrono_support;
 pub(crate) mod error;
 pub(crate) mod event;
 pub(crate) mod generic_sinks;

@@ -294,13 +294,14 @@ impl<'a> From<&'a str> for Event<'a> {
     }
 }
 
-macro_rules! event_implement_simple_try_from {
-    ($ty:ty, $variant:ident) => {
+macro_rules! event_implement_try_from_from_event {
+    ($ty:ty, $($variant:ident),*) => {
         impl<'a> TryFrom<Event<'a>> for $ty {
             type Error = Error;
             fn try_from(val: Event<'_>) -> Result<$ty> {
                 match val {
-                    Event::$variant(val) => Ok(val),
+                    $(Event::$variant(val) => Ok(val.try_into()?),)*
+
                     // TODO: improve error message
                     event => fail!("Invalid conversion from {} to {}", event, stringify!($ty)),
                 }
@@ -309,25 +310,19 @@ macro_rules! event_implement_simple_try_from {
     };
 }
 
-event_implement_simple_try_from!(bool, Bool);
-event_implement_simple_try_from!(i8, I8);
-event_implement_simple_try_from!(i16, I16);
-event_implement_simple_try_from!(i32, I32);
-event_implement_simple_try_from!(i64, I64);
-event_implement_simple_try_from!(u8, U8);
-event_implement_simple_try_from!(u16, U16);
-event_implement_simple_try_from!(u32, U32);
-event_implement_simple_try_from!(u64, U64);
-event_implement_simple_try_from!(f32, F32);
-event_implement_simple_try_from!(f64, F64);
+event_implement_try_from_from_event!(bool, Bool);
 
-impl<'a> TryFrom<Event<'a>> for String {
-    type Error = Error;
-    fn try_from(val: Event<'_>) -> Result<String> {
-        match val {
-            Event::Str(val) => Ok(val.to_owned()),
-            Event::OwnedStr(val) => Ok(val),
-            event => fail!("Cannot convert {} to string", event),
-        }
-    }
-}
+event_implement_try_from_from_event!(i8, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(i16, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(i32, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(i64, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+
+event_implement_try_from_from_event!(u8, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(u16, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(u32, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+event_implement_try_from_from_event!(u64, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
+
+event_implement_try_from_from_event!(f32, F32);
+event_implement_try_from_from_event!(f64, F32, F64);
+
+event_implement_try_from_from_event!(String, Str, OwnedStr);

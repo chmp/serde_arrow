@@ -32,7 +32,7 @@ use crate::impls::arrow2::{
 use serde::{Deserialize, Serialize};
 
 use self::{
-    sinks::{build_array_builder, build_struct_array_builder_from_fields},
+    sinks::build_array_builder,
     sources::{build_dynamic_source, build_record_source},
 };
 use crate::internal::{
@@ -45,6 +45,23 @@ use crate::internal::{
     },
     source::{deserialize_from_source, AddOuterSequenceSource},
 };
+
+fn build_struct_array_builder_from_fields(
+    fields: &[Field],
+) -> Result<StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>> {
+    let mut columnes = Vec::new();
+    let mut nullable = Vec::new();
+    let mut builders = Vec::new();
+    for field in fields {
+        columnes.push(field.name.to_owned());
+        nullable.push(field.is_nullable);
+        builders.push(build_array_builder(field)?);
+    }
+
+    let builder = StructArrayBuilder::new(columnes, nullable, builders);
+
+    Ok(builder)
+}
 
 /// Determine the schema (as a list of fields) for the given items
 ///

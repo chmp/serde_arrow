@@ -23,6 +23,7 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// Rust objects themselves, some field types are incorrectly recognized (e.g.,
 /// datetimes).
 ///
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Strategy {
     /// Marker that the type of the field could not be determined during tracing
@@ -83,6 +84,40 @@ impl FromStr for Strategy {
             _ => fail!("Unknown strategy {s}"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GenericDataType {
+    Null,
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F16,
+    F32,
+    F64,
+    Utf8,
+    LargeUtf8,
+    Date64,
+    Struct,
+    List,
+    LargeList,
+    Union,
+    Map,
+    Dictionary,
+}
+
+pub struct GenericField {
+    pub data_type: GenericDataType,
+    pub name: String,
+    pub strategy: Option<Strategy>,
+    pub nullable: bool,
+    pub children: Vec<GenericField>,
 }
 
 /// Configure how the schema is traced

@@ -11,10 +11,12 @@ use crate::impls::arrow2::{
 
 use crate::{
     internal::{
-        chrono_support::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
         error::{error, fail},
         event::Event,
-        generic_sources::{ListSource, MapSource, StructSource, TupleSource, UnionSource},
+        generic_sources::{
+            ListSource, MapSource, NaiveDateTimeStrSource, StructSource, TupleSource, UnionSource,
+            UtcDateTimeStrSource,
+        },
         schema::{Strategy, STRATEGY_KEY},
         source::{AddOuterSequenceSource, DynamicSource, EventSource},
     },
