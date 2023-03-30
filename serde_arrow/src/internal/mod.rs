@@ -10,8 +10,13 @@ use serde::Serialize;
 
 use self::{
     error::{fail, Result},
+    generic_sinks::{
+        DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NaiveDateTimeStrBuilder,
+        PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
+        UtcDateTimeStrBuilder,
+    },
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
-    sink::{serialize_into_sink, StripOuterSequenceSink},
+    sink::{serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, StripOuterSequenceSink},
 };
 
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<GenericField>>
@@ -45,4 +50,49 @@ where
     serialize_into_sink(&mut tracer, items)?;
     let field = tracer.into_inner().to_field(name)?;
     Ok(field)
+}
+
+pub fn serialize_into_arrays<T, Arrow>(
+    fields: &[GenericField],
+    items: &T,
+) -> Result<Vec<Arrow::ArrayRef>>
+where
+    T: Serialize + ?Sized,
+    Arrow: PrimitiveBuilders,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+{
+    let builder = generic_sinks::build_struct_array_builder::<Arrow>(fields)?;
+    let mut builder = StripOuterSequenceSink::new(builder);
+
+    serialize_into_sink(&mut builder, items)?;
+    builder.into_inner().build_arrays()
+}
+
+pub fn serialize_into_array<T, Arrow>(field: &GenericField, items: &T) -> Result<Arrow::ArrayRef>
+where
+    T: Serialize + ?Sized,
+    Arrow: PrimitiveBuilders,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+{
+    let builder = generic_sinks::build_array_builder::<Arrow>(field)?;
+    let mut builder = StripOuterSequenceSink::new(builder);
+
+    serialize_into_sink(&mut builder, items).unwrap();
+    builder.into_inner().build_array()
 }

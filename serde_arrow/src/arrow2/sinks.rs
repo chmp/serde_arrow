@@ -15,16 +15,15 @@ use crate::{
         error::{fail, Result},
         event::Event,
         generic_sinks::{
-            self, DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder,
-            StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
+            DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, StructArrayBuilder,
+            TupleStructBuilder, UnionArrayBuilder,
         },
         generic_sinks::{NullArrayBuilder, PrimitiveBuilders},
-        schema::GenericField,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
 };
 
-struct Arrow2PrimitiveBuilders;
+pub struct Arrow2PrimitiveBuilders;
 
 impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
     type ArrayRef = Box<dyn Array>;
@@ -92,24 +91,6 @@ impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
     fn date64() -> DynamicArrayBuilder<Self::ArrayRef> {
         // TODO: is this correct? Shouldn't this be a separate type?
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default())
-    }
-}
-
-pub fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
-    let field: GenericField = field.try_into()?;
-    generic_sinks::build_array_builder::<Arrow2PrimitiveBuilders>(&field)
-}
-
-impl<B: ArrayBuilder<Box<dyn Array>>> StructArrayBuilder<B> {
-    pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        if !self.finished {
-            fail!("Cannot build array from unfinished StructArrayBuilder");
-        }
-
-        let values: Result<Vec<Box<dyn Array>>> =
-            self.builders.iter_mut().map(|b| b.build_array()).collect();
-        let values = values?;
-        Ok(values)
     }
 }
 
@@ -218,6 +199,28 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
             values,
             Some(Bitmap::from(std::mem::take(&mut self.validity))),
         )?;
+        Ok(Box::new(array))
+    }
+}
+
+impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i64> {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
+        if !self.finished {
+            fail!("Cannot build array from unfinished ListArrayBuilder");
+        }
+
+        let values = self.builder.build_array()?;
+        let array = ListArray::try_new(
+            DataType::LargeList(Box::new(Field::new(
+                self.item_name.clone(),
+                values.data_type().clone(),
+                self.nullable,
+            ))),
+            OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
+            values,
+            Some(Bitmap::from(std::mem::take(&mut self.validity))),
+        )?;
+
         Ok(Box::new(array))
     }
 }
@@ -400,28 +403,6 @@ impl<O: Offset> ArrayBuilder<Box<dyn Array>> for Utf8ArrayBuilder<O> {
         }
         let array = std::mem::take(&mut self.array);
         Ok(Box::new(<Utf8Array<_> as From<_>>::from(array)))
-    }
-}
-
-impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArrayBuilder<B, i64> {
-    fn build_array(&mut self) -> Result<Box<dyn Array>> {
-        if !self.finished {
-            fail!("Cannot build array from unfinished ListArrayBuilder");
-        }
-
-        let values = self.builder.build_array()?;
-        let array = ListArray::try_new(
-            DataType::LargeList(Box::new(Field::new(
-                self.item_name.clone(),
-                values.data_type().clone(),
-                self.nullable,
-            ))),
-            OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
-            values,
-            Some(Bitmap::from(std::mem::take(&mut self.validity))),
-        )?;
-
-        Ok(Box::new(array))
     }
 }
 

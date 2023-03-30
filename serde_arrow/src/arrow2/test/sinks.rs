@@ -1,20 +1,29 @@
 //! Test rust objects -> events -> arrays
 use std::{any::Any, collections::HashMap};
 
-use crate::impls::arrow2::{
-    array::{Array, ListArray, PrimitiveArray, StructArray},
-    bitmap::Bitmap,
-    datatypes::{DataType, Field},
-};
 use serde::Serialize;
 
 use crate::{
-    arrow2::{serialize_into_arrays, sinks::build_array_builder},
+    arrow2::{serialize_into_arrays, sinks::Arrow2PrimitiveBuilders},
+    impls::arrow2::{
+        array::{Array, ListArray, PrimitiveArray, StructArray},
+        bitmap::Bitmap,
+        datatypes::{DataType, Field},
+    },
     internal::{
+        error::Result,
         event::Event,
+        generic_sinks,
+        schema::GenericField,
+        sink::DynamicArrayBuilder,
         sink::{ArrayBuilder, EventSink},
     },
 };
+
+fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
+    let field = GenericField::try_from(field)?;
+    generic_sinks::build_array_builder::<Arrow2PrimitiveBuilders>(&field)
+}
 
 fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
     array.as_any().downcast_ref::<T>().unwrap()
@@ -23,10 +32,9 @@ fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {
 macro_rules! test_option_support {
     (test_name = $test_name:ident, data_type = $data_type:expr, value = $value:expr, ) => {
         mod $test_name {
-            use crate::impls::arrow2::datatypes::{DataType, Field};
-
+            use super::build_array_builder;
             use crate::{
-                arrow2::sinks::build_array_builder,
+                impls::arrow2::datatypes::{DataType, Field},
                 internal::{
                     event::Event,
                     sink::{ArrayBuilder, EventSink},

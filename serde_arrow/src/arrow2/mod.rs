@@ -1,4 +1,4 @@
-//! arrow2 dependent functionality (requires the `arrow2` feature)
+//! arrow2 dependent functionality (requires one the `arrow2-*` features)
 //!
 //! Functions to convert `arrow2  arrays from and into Rust objects.
 //!
@@ -32,37 +32,17 @@ use crate::{
     internal::{
         self,
         error::Result,
-        generic_sinks::StructArrayBuilder,
-        schema::TracingOptions,
-        sink::{
-            serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
-            StripOuterSequenceSink,
-        },
+        generic_sinks::{self, StructArrayBuilder},
+        schema::{GenericField, TracingOptions},
+        sink::{DynamicArrayBuilder, EventSerializer, EventSink, StripOuterSequenceSink},
         source::{deserialize_from_source, AddOuterSequenceSource},
     },
 };
 
 use self::{
-    sinks::build_array_builder,
+    sinks::Arrow2PrimitiveBuilders,
     sources::{build_dynamic_source, build_record_source},
 };
-
-fn build_struct_array_builder_from_fields(
-    fields: &[Field],
-) -> Result<StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>> {
-    let mut columnes = Vec::new();
-    let mut nullable = Vec::new();
-    let mut builders = Vec::new();
-    for field in fields {
-        columnes.push(field.name.to_owned());
-        nullable.push(field.is_nullable);
-        builders.push(build_array_builder(field)?);
-    }
-
-    let builder = StructArrayBuilder::new(columnes, nullable, builders);
-
-    Ok(builder)
-}
 
 /// Determine the schema (as a list of fields) for the given items
 ///
@@ -141,11 +121,11 @@ pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<d
 where
     T: Serialize + ?Sized,
 {
-    let builder = build_struct_array_builder_from_fields(fields)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
-    serialize_into_sink(&mut builder, items)?;
-
-    builder.into_inner().build_arrays()
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+    internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
 }
 
 /// Deserialize a type from the given arrays
@@ -233,10 +213,8 @@ pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<Box<dyn Array
 where
     T: Serialize + ?Sized,
 {
-    let builder = build_array_builder(field)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
-    serialize_into_sink(&mut builder, items).unwrap();
-    builder.into_inner().build_array()
+    let field: GenericField = field.try_into()?;
+    internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
 }
 
 /// Deserialize an object that represents a single array from an array
@@ -303,7 +281,7 @@ where
 /// assert_eq!(arrays.len(), 2);
 /// ```
 pub struct ArraysBuilder {
-    fields: Vec<Field>,
+    fields: Vec<GenericField>,
     builder: StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>,
 }
 
@@ -320,8 +298,12 @@ impl ArraysBuilder {
     /// given fields.
     ///
     pub fn new(fields: &[Field]) -> Result<Self> {
-        let fields = fields.to_vec();
-        let builder = build_struct_array_builder_from_fields(&fields)?;
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let builder =
+            generic_sinks::build_struct_array_builder::<Arrow2PrimitiveBuilders>(&fields)?;
 
         Ok(Self { fields, builder })
     }
@@ -346,7 +328,8 @@ impl ArraysBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        let mut builder = build_struct_array_builder_from_fields(&self.fields)?;
+        let mut builder =
+            generic_sinks::build_struct_array_builder::<Arrow2PrimitiveBuilders>(&self.fields)?;
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;

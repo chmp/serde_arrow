@@ -45,6 +45,34 @@ pub trait PrimitiveBuilders {
     fn date64() -> DynamicArrayBuilder<Self::ArrayRef>;
 }
 
+pub fn build_struct_array_builder<Arrow>(
+    fields: &[GenericField],
+) -> Result<StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>>
+where
+    Arrow: PrimitiveBuilders,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+{
+    let mut columnes = Vec::new();
+    let mut nullable = Vec::new();
+    let mut builders = Vec::new();
+
+    for field in fields {
+        columnes.push(field.name.to_owned());
+        nullable.push(field.nullable);
+        builders.push(build_array_builder::<Arrow>(field)?);
+    }
+
+    Ok(StructArrayBuilder::new(columnes, nullable, builders))
+}
+
 pub fn build_array_builder<Arrow>(
     field: &GenericField,
 ) -> Result<DynamicArrayBuilder<Arrow::ArrayRef>>
