@@ -139,7 +139,7 @@ def collect(kv_pairs):
 
 @cmd()
 def doc():
-    cargo("doc", "--features", default_arrow2_feature, cwd=self_path / "serde_arrow")
+    cargo("doc", "--features", default_features, cwd=self_path / "serde_arrow")
 
 
 @cmd()
