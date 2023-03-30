@@ -1,8 +1,9 @@
-use crate::impls::arrow2::types::f16;
-
-use crate::internal::{
-    error::{fail, Error, Result},
-    event::Event,
+use crate::{
+    impls::arrow2::types::f16,
+    internal::{
+        error::{fail, Error, Result},
+        event::Event,
+    },
 };
 
 impl<'a> TryFrom<Event<'a>> for f16 {

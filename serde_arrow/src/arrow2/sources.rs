@@ -1,15 +1,14 @@
 use std::marker::PhantomData;
 
-use crate::impls::arrow2::{
-    array::{
-        Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
-        Utf8Array,
-    },
-    datatypes::{DataType, Field},
-    types::{f16, Index, NativeType, Offset},
-};
-
 use crate::{
+    impls::arrow2::{
+        array::{
+            Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
+            Utf8Array,
+        },
+        datatypes::{DataType, Field},
+        types::{f16, Index, NativeType, Offset},
+    },
     internal::{
         error::{error, fail},
         event::Event,

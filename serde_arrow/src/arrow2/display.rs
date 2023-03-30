@@ -1,11 +1,12 @@
 //! Helpers to display `arrow2` types as valid rust code
 //!
-use crate::impls::arrow2::datatypes::{
-    DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
-    Metadata as Arrow2Metadata,
+use crate::{
+    impls::arrow2::datatypes::{
+        DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
+        Metadata as Arrow2Metadata,
+    },
+    schema::{Strategy as SerdeArrowStrategy, STRATEGY_KEY},
 };
-
-use crate::schema::{Strategy as SerdeArrowStrategy, STRATEGY_KEY};
 
 pub struct Str<'a>(pub &'a str);
 

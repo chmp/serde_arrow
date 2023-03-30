@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
-use arrow_array_36::{builder::GenericStringBuilder, OffsetSizeTrait};
-
 use crate::{
     base::Event,
     impls::arrow::array::{
-        builder::{BooleanBuilder, PrimitiveBuilder},
+        builder::{BooleanBuilder, GenericStringBuilder, PrimitiveBuilder},
         types::{
             Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
             UInt32Type, UInt64Type, UInt8Type,
         },
-        ArrayRef, NullArray,
+        ArrayRef, NullArray, OffsetSizeTrait,
     },
     internal::{
         error::{fail, Result},

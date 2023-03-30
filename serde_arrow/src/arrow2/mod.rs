@@ -25,25 +25,25 @@ mod type_support;
 #[cfg(test)]
 mod test;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     impls::arrow2::{array::Array, datatypes::Field},
-    internal::schema::GenericDataType,
+    internal::{
+        error::{fail, Result},
+        generic_sinks::StructArrayBuilder,
+        schema::{GenericDataType, Tracer, TracingOptions},
+        sink::{
+            serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
+            StripOuterSequenceSink,
+        },
+        source::{deserialize_from_source, AddOuterSequenceSource},
+    },
 };
-use serde::{Deserialize, Serialize};
 
 use self::{
     sinks::build_array_builder,
     sources::{build_dynamic_source, build_record_source},
-};
-use crate::internal::{
-    error::{fail, Result},
-    generic_sinks::StructArrayBuilder,
-    schema::{Tracer, TracingOptions},
-    sink::{
-        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
-        StripOuterSequenceSink,
-    },
-    source::{deserialize_from_source, AddOuterSequenceSource},
 };
 
 fn build_struct_array_builder_from_fields(
