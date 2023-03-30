@@ -1,20 +1,12 @@
 use crate::{
     arrow2::display,
-    impls::arrow2::datatypes::{DataType, Field, IntegerType, Metadata, UnionMode},
+    impls::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     internal::{
         error::{error, fail, Error},
         schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
     Result,
 };
-
-impl From<Strategy> for Metadata {
-    fn from(value: Strategy) -> Self {
-        let mut res = Metadata::new();
-        res.insert(STRATEGY_KEY.to_string(), value.to_string());
-        res
-    }
-}
 
 /// Make sure the field is configured correctly if a strategy is used
 ///

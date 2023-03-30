@@ -87,6 +87,22 @@ impl FromStr for Strategy {
     }
 }
 
+impl From<Strategy> for BTreeMap<String, String> {
+    fn from(value: Strategy) -> Self {
+        let mut res = BTreeMap::new();
+        res.insert(STRATEGY_KEY.to_string(), value.to_string());
+        res
+    }
+}
+
+impl From<Strategy> for HashMap<String, String> {
+    fn from(value: Strategy) -> Self {
+        let mut res = HashMap::new();
+        res.insert(STRATEGY_KEY.to_string(), value.to_string());
+        res
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GenericDataType {
     Null,

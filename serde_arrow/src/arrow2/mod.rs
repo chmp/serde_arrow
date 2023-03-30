@@ -30,9 +30,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     impls::arrow2::{array::Array, datatypes::Field},
     internal::{
-        error::{fail, Result},
+        self,
+        error::Result,
         generic_sinks::StructArrayBuilder,
-        schema::{GenericDataType, Tracer, TracingOptions},
+        schema::TracingOptions,
         sink::{
             serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
             StripOuterSequenceSink,
@@ -102,18 +103,10 @@ pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Ve
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
-    serialize_into_sink(&mut tracer, items)?;
-    let root = tracer.into_inner().to_field("root")?;
-
-    match root.data_type {
-        GenericDataType::Struct => {}
-        GenericDataType::Null => fail!("No records found to determine schema"),
-        dt => fail!("Unexpected root data type {dt:?}"),
-    };
-
-    root.children.iter().map(|f| f.try_into()).collect()
+    internal::serialize_into_fields(items, options)?
+        .iter()
+        .map(|f| f.try_into())
+        .collect()
 }
 
 /// Build arrays from the given items
@@ -215,10 +208,7 @@ pub fn serialize_into_field<T>(items: &T, name: &str, options: TracingOptions) -
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
-    serialize_into_sink(&mut tracer, items)?;
-    let field = tracer.into_inner().to_field(name)?;
+    let field = internal::serialize_into_field(items, name, options)?;
     (&field).try_into()
 }
 
