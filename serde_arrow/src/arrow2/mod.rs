@@ -25,9 +25,9 @@ mod type_support;
 #[cfg(test)]
 mod test;
 
-use crate::impls::arrow2::{
-    array::Array,
-    datatypes::{DataType, Field},
+use crate::{
+    impls::arrow2::{array::Array, datatypes::Field},
+    internal::schema::GenericDataType,
 };
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +38,7 @@ use self::{
 use crate::internal::{
     error::{fail, Result},
     generic_sinks::StructArrayBuilder,
-    schema::{FieldBuilder, Tracer, TracingOptions},
+    schema::{Tracer, TracingOptions},
     sink::{
         serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
         StripOuterSequenceSink,
@@ -108,10 +108,12 @@ where
     let root = tracer.into_inner().to_field("root")?;
 
     match root.data_type {
-        DataType::Struct(fields) => Ok(fields),
-        DataType::Null => fail!("No records found to determine schema"),
-        dt => fail!("Unexpected root data type {}", display::DataType(&dt)),
-    }
+        GenericDataType::Struct => {}
+        GenericDataType::Null => fail!("No records found to determine schema"),
+        dt => fail!("Unexpected root data type {dt:?}"),
+    };
+
+    root.children.iter().map(|f| f.try_into()).collect()
 }
 
 /// Build arrays from the given items
@@ -216,7 +218,8 @@ where
     let tracer = Tracer::new(options);
     let mut tracer = StripOuterSequenceSink::new(tracer);
     serialize_into_sink(&mut tracer, items)?;
-    tracer.into_inner().to_field(name)
+    let field = tracer.into_inner().to_field(name)?;
+    (&field).try_into()
 }
 
 /// Serialize an object that represents a single array into an array

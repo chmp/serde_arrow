@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    iter,
     str::FromStr,
 };
 
@@ -23,7 +24,7 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// Rust objects themselves, some field types are incorrectly recognized (e.g.,
 /// datetimes).
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Strategy {
     /// Marker that the type of the field could not be determined during tracing
@@ -112,12 +113,60 @@ pub enum GenericDataType {
     Dictionary,
 }
 
+impl std::fmt::Display for GenericDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use GenericDataType::*;
+        match self {
+            Null => write!(f, "Null"),
+            Bool => write!(f, "Bool"),
+            Utf8 => write!(f, "Utf8"),
+            LargeUtf8 => write!(f, "LargeUtf8"),
+            I8 => write!(f, "I8"),
+            I16 => write!(f, "I16"),
+            I32 => write!(f, "I32"),
+            I64 => write!(f, "I64"),
+            U8 => write!(f, "U8"),
+            U16 => write!(f, "U16"),
+            U32 => write!(f, "U32"),
+            U64 => write!(f, "U64"),
+            F16 => write!(f, "F16"),
+            F32 => write!(f, "F32"),
+            F64 => write!(f, "F64"),
+            Date64 => write!(f, "F64"),
+            Struct => write!(f, "Struct"),
+            List => write!(f, "List"),
+            LargeList => write!(f, "LargeList"),
+            Union => write!(f, "Union"),
+            Map => write!(f, "Map"),
+            Dictionary => write!(f, "Dictionary"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct GenericField {
     pub data_type: GenericDataType,
     pub name: String,
     pub strategy: Option<Strategy>,
     pub nullable: bool,
     pub children: Vec<GenericField>,
+}
+
+impl GenericField {
+    pub fn new(name: &str, data_type: GenericDataType, nullable: bool) -> Self {
+        Self {
+            name: name.to_string(),
+            data_type,
+            nullable,
+            children: Vec::new(),
+            strategy: None,
+        }
+    }
+
+    pub fn with_child(mut self, child: GenericField) -> Self {
+        self.children.push(child);
+        self
+    }
 }
 
 /// Configure how the schema is traced
@@ -181,6 +230,19 @@ impl Tracer {
         Self::Unknown(UnknownTracer::new(options))
     }
 
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        use Tracer::*;
+        match self {
+            Unknown(t) => t.to_field(name),
+            List(t) => t.to_field(name),
+            Map(t) => t.to_field(name),
+            Primitive(t) => t.to_field(name),
+            Tuple(t) => t.to_field(name),
+            Union(t) => t.to_field(name),
+            Struct(t) => t.to_field(name),
+        }
+    }
+
     pub fn mark_nullable(&mut self) {
         use Tracer::*;
         match self {
@@ -205,10 +267,6 @@ impl Tracer {
             }
         }
     }
-}
-
-pub trait FieldBuilder<F> {
-    fn to_field(&self, name: &str) -> Result<F>;
 }
 
 impl EventSink for Tracer {
@@ -319,6 +377,17 @@ impl UnknownTracer {
         }
     }
 
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+        Ok(GenericField::new(
+            name,
+            GenericDataType::Null,
+            self.nullable,
+        ))
+    }
+
     pub fn finish(&mut self) -> Result<()> {
         self.finished = true;
         Ok(())
@@ -363,6 +432,22 @@ impl StructTracer {
             counts: BTreeMap::new(),
             finished: false,
         }
+    }
+
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
+        for (tracer, name) in iter::zip(&self.field_tracers, &self.field_names) {
+            field.children.push(tracer.to_field(name)?);
+        }
+
+        if let StructMode::Map = self.mode {
+            field.strategy = Some(Strategy::MapAsStruct);
+        }
+        Ok(field)
     }
 
     pub fn mark_seen(&mut self, field: usize) {
@@ -472,6 +557,20 @@ impl TupleTracer {
         }
     }
 
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
+        for (idx, tracer) in self.field_tracers.iter().enumerate() {
+            field.children.push(tracer.to_field(&idx.to_string())?);
+        }
+        field.strategy = Some(Strategy::TupleAsStruct);
+
+        Ok(field)
+    }
+
     fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
         while self.field_tracers.len() <= idx {
             self.field_tracers.push(Tracer::new(self.options.clone()));
@@ -564,6 +663,17 @@ impl ListTracer {
             finished: false,
         }
     }
+
+    fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::LargeList, self.nullable);
+        field.children.push(self.item_tracer.to_field("element")?);
+
+        Ok(field)
+    }
 }
 
 impl EventSink for ListTracer {
@@ -632,6 +742,23 @@ impl UnionTracer {
             next: UnionTracerState::Inactive,
             finished: false,
         }
+    }
+
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
+        for (idx, (name, tracer)) in std::iter::zip(&self.variants, &self.tracers).enumerate() {
+            field.children.push(if let Some(name) = name {
+                tracer.to_field(name)?
+            } else {
+                tracer.to_field(&format!("unknown_variant_{idx}"))?
+            });
+        }
+
+        Ok(field)
     }
 
     fn ensure_variant<S: Into<String> + AsRef<str>>(
@@ -742,6 +869,18 @@ impl MapTracer {
             finished: true,
         }
     }
+
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::Map, self.nullable);
+        field.children.push(self.key.to_field("key")?);
+        field.children.push(self.value.to_field("value")?);
+
+        Ok(field)
+    }
 }
 
 impl EventSink for MapTracer {
@@ -847,7 +986,7 @@ pub enum MapTracerState {
 
 pub struct PrimitiveTracer {
     pub string_dictionary_encoding: bool,
-    pub item_type: PrimitiveType,
+    pub item_type: GenericDataType,
     pub nullable: bool,
     pub finished: bool,
 }
@@ -855,10 +994,32 @@ pub struct PrimitiveTracer {
 impl PrimitiveTracer {
     pub fn new(nullable: bool, string_dictionary_encoding: bool) -> Self {
         Self {
-            item_type: PrimitiveType::Unknown,
+            item_type: GenericDataType::Null,
             nullable,
             string_dictionary_encoding,
             finished: false,
+        }
+    }
+
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        type D = GenericDataType;
+
+        if !self.finished {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        match self.item_type {
+            D::LargeUtf8 => {
+                if !self.string_dictionary_encoding {
+                    Ok(GenericField::new(name, D::LargeUtf8, self.nullable))
+                } else {
+                    let field = GenericField::new(name, D::Dictionary, self.nullable)
+                        .with_child(GenericField::new("key", D::U32, false))
+                        .with_child(GenericField::new("value", D::LargeUtf8, false));
+                    Ok(field)
+                }
+            }
+            dt => Ok(GenericField::new(name, dt, self.nullable)),
         }
     }
 }
@@ -867,48 +1028,48 @@ impl EventSink for PrimitiveTracer {
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        type T = PrimitiveType;
+        type D = GenericDataType;
         type E<'a> = Event<'a>;
 
         match (event, self.item_type) {
             (E::Some | Event::Null, _) => {
                 self.nullable = true;
             }
-            (E::Bool(_), T::Bool | T::Unknown) => {
-                self.item_type = T::Bool;
+            (E::Bool(_), D::Bool | D::Null) => {
+                self.item_type = D::Bool;
             }
-            (E::I8(_), T::I8 | T::Unknown) => {
-                self.item_type = T::I8;
+            (E::I8(_), D::I8 | D::Null) => {
+                self.item_type = D::I8;
             }
-            (E::I16(_), T::I16 | T::Unknown) => {
-                self.item_type = T::I16;
+            (E::I16(_), D::I16 | D::Null) => {
+                self.item_type = D::I16;
             }
-            (E::I32(_), T::I32 | T::Unknown) => {
-                self.item_type = T::I32;
+            (E::I32(_), D::I32 | D::Null) => {
+                self.item_type = D::I32;
             }
-            (E::I64(_), T::I64 | T::Unknown) => {
-                self.item_type = T::I64;
+            (E::I64(_), D::I64 | D::Null) => {
+                self.item_type = D::I64;
             }
-            (E::U8(_), T::U8 | T::Unknown) => {
-                self.item_type = T::U8;
+            (E::U8(_), D::U8 | D::Null) => {
+                self.item_type = D::U8;
             }
-            (E::U16(_), T::U16 | T::Unknown) => {
-                self.item_type = T::U16;
+            (E::U16(_), D::U16 | D::Null) => {
+                self.item_type = D::U16;
             }
-            (E::U32(_), T::U32 | T::Unknown) => {
-                self.item_type = T::U32;
+            (E::U32(_), D::U32 | D::Null) => {
+                self.item_type = D::U32;
             }
-            (E::U64(_), T::U64 | T::Unknown) => {
-                self.item_type = T::U64;
+            (E::U64(_), D::U64 | D::Null) => {
+                self.item_type = D::U64;
             }
-            (E::F32(_), T::F32 | T::Unknown) => {
-                self.item_type = T::F32;
+            (E::F32(_), D::F32 | D::Null) => {
+                self.item_type = D::F32;
             }
-            (E::F64(_), T::F64 | T::Unknown) => {
-                self.item_type = T::F64;
+            (E::F64(_), D::F64 | D::Null) => {
+                self.item_type = D::F64;
             }
-            (E::Str(_) | E::OwnedStr(_), T::Str | T::Unknown) => {
-                self.item_type = T::Str;
+            (E::Str(_) | E::OwnedStr(_), D::LargeUtf8 | D::Null) => {
+                self.item_type = D::LargeUtf8;
             }
             (ev, ty) => fail!("Cannot accept event {ev} for primitive type {ty}"),
         }
@@ -918,43 +1079,5 @@ impl EventSink for PrimitiveTracer {
     fn finish(&mut self) -> Result<()> {
         self.finished = true;
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PrimitiveType {
-    Unknown,
-    Bool,
-    Str,
-    I8,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
-    F32,
-    F64,
-}
-
-impl std::fmt::Display for PrimitiveType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use PrimitiveType::*;
-        match self {
-            Unknown => write!(f, "Unknown"),
-            Bool => write!(f, "Bool"),
-            Str => write!(f, "Str"),
-            I8 => write!(f, "I8"),
-            I16 => write!(f, "I16"),
-            I32 => write!(f, "I32"),
-            I64 => write!(f, "I64"),
-            U8 => write!(f, "U8"),
-            U16 => write!(f, "U16"),
-            U32 => write!(f, "U32"),
-            U64 => write!(f, "U64"),
-            F32 => write!(f, "F32"),
-            F64 => write!(f, "F64"),
-        }
     }
 }

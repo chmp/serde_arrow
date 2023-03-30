@@ -5,8 +5,7 @@ use crate::impls::arrow2::datatypes::{
     Metadata as Arrow2Metadata,
 };
 
-use super::schema::get_optional_strategy;
-use crate::schema::Strategy as SerdeArrowStrategy;
+use crate::schema::{Strategy as SerdeArrowStrategy, STRATEGY_KEY};
 
 pub struct Str<'a>(pub &'a str);
 
@@ -56,7 +55,7 @@ pub struct Metadata<'a>(pub &'a Arrow2Metadata);
 
 impl<'a> std::fmt::Display for Metadata<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match get_optional_strategy(self.0).ok().flatten() {
+        match get_optional_strategy(self.0) {
             Some(strategy) if self.0.len() == 1 => write!(f, "{}.into()", Strategy(&strategy)),
             _ => {
                 write!(f, "Metadata::from([")?;
@@ -71,6 +70,13 @@ impl<'a> std::fmt::Display for Metadata<'a> {
             }
         }
     }
+}
+
+fn get_optional_strategy(metadata: &Arrow2Metadata) -> Option<SerdeArrowStrategy> {
+    metadata
+        .get(STRATEGY_KEY)?
+        .parse::<SerdeArrowStrategy>()
+        .ok()
 }
 
 pub struct Strategy<'a>(pub &'a SerdeArrowStrategy);
