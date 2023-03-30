@@ -3,7 +3,6 @@ mod implementation_docs;
 mod round_trip;
 mod round_trip_array;
 mod schema;
-mod schema_events;
 mod schema_mod;
 mod sinks;
 mod sources;
