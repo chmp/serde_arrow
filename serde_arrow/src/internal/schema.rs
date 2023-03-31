@@ -812,6 +812,7 @@ impl EventSink for UnionTracer {
                     self.ensure_variant(variant, idx)?;
                     S::Active(idx, 0)
                 }
+                E::Some => fail!("Nullable unions are not supported"),
                 E::OwnedVariant(variant, idx) => {
                     self.ensure_variant(variant, idx)?;
                     S::Active(idx, 0)
