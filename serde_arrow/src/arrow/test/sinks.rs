@@ -25,6 +25,12 @@ struct S {
     b: &'static str,
 }
 
+#[derive(Serialize)]
+enum E1 {
+    A(u32),
+    B(f32),
+}
+
 test!(example_bool, [true, false]);
 test!(example_u8, [1_u8, 2, 3, 4, 5]);
 test!(example_u32, [1_u16, 2, 3, 4, 5]);
@@ -38,6 +44,7 @@ test!(example_f32, [1.0_f32, 2.0, 3.0, 4.0, 5.0]);
 test!(example_f64, [1.0_f64, 2.0, 3.0, 4.0, 5.0]);
 test!(example_strings, ["a", "b", "c", "d", "e"]);
 test!(example_tuples, [(1.0_f64, 2_u64), (3.0, 4)]);
+test!(example_enums, [E1::A(2), E1::B(21.0), E1::A(13)]);
 test!(
     example_struct,
     [S { a: 21, b: "hello" }, S { a: 42, b: "world" }]

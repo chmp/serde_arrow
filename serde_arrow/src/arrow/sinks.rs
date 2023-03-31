@@ -329,6 +329,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
             fail!("Cannot build array from unfinished UnionArrayBuilder");
         }
 
+        let field_types = std::mem::take(&mut self.field_types);
         let field_offsets = std::mem::take(&mut self.field_offsets);
 
         let values = self
@@ -337,9 +338,11 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
             .map(|b| b.build_array())
             .collect::<Result<Vec<_>>>()?;
 
-        let len = field_offsets.len();
+        let len = field_types.len();
+
         let mut fields = Vec::new();
         let mut field_indices = Vec::new();
+
         for (i, value) in values.iter().enumerate() {
             fields.push(Field::new(
                 i.to_string(),
@@ -349,13 +352,15 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
             field_indices.push(i8::try_from(i)?);
         }
 
-        let type_ids = Buffer::from_vec(field_offsets);
+        let field_types = Buffer::from_vec(field_types);
+        let field_offsets = Buffer::from_vec(field_offsets);
 
-        let data_type = DataType::Union(fields, field_indices, UnionMode::Sparse);
+        let data_type = DataType::Union(fields, field_indices, UnionMode::Dense);
 
         let res = ArrayData::builder(data_type)
             .len(len)
-            .add_buffer(type_ids)
+            .add_buffer(field_types)
+            .add_buffer(field_offsets)
             .child_data(values)
             .build()?;
 

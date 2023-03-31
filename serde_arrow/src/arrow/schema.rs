@@ -83,7 +83,7 @@ impl TryFrom<&Field> for GenericField {
                 {
                     fail!("Union types with explicit field indices are not supported");
                 }
-                if matches!(mode, UnionMode::Dense) {
+                if !matches!(mode, UnionMode::Dense) {
                     fail!("Only dense unions are supported at the moment");
                 }
 
