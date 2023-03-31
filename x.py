@@ -31,14 +31,32 @@ def precommit(backtrace=False):
         self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py",
     )
 
-    check_docs_config()
+    fmt()
+    check()
+    lint()
+    test(backtrace=backtrace)
 
+
+@cmd()
+def fmt():
     cargo("fmt")
 
+@cmd()
+def check():
+    cargo("check")
     for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
         cargo("check", "--features", arrow2_feature)
 
+@cmd()
+def lint():
+    check_docs_config()
     cargo("clippy", "--features", default_features)
+
+
+@cmd()
+@arg("--backtrace", action="store_true", default=False)
+def test(backtrace=False):
+    # TODO: include other feature flag combinations?
     cargo(
         "test",
         "--features",
@@ -60,15 +78,6 @@ def check_docs_config():
             "Invalid docs.rs configuration. "
             f"Expected features {expected_features}, found: {docs_features}"
         )
-
-
-@cmd()
-def test():
-    for feature_flags in [
-        ("--features", default_features),
-        (),
-    ]:
-        cargo("test", *feature_flags, "--lib", env=dict(os.environ, RUST_BACKTRACE="1"))
 
 
 @cmd()
