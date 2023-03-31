@@ -393,7 +393,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
         values.data_type().clone(),
         true, // TODO: find a consistent way of getting this
     ));
-    let data_type = GenericListArray::<i32>::DATA_TYPE_CONSTRUCTOR(field);
+    let data_type = GenericListArray::<O>::DATA_TYPE_CONSTRUCTOR(field);
     let array_data_builder = ArrayData::builder(data_type)
         .len(len)
         .add_buffer(offset_buffer)

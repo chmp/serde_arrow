@@ -70,6 +70,8 @@ test!(
     ]
 );
 test!(example_enums, [E1::A(2), E1::B(21.0), E1::A(13)]);
-
-// TODO: fix this
-// test!(example_lists, [vec![1_u8, 2, 3], vec![4, 5], vec![]]);
+test!(example_lists, [vec![1_u8, 2, 3], vec![4, 5], vec![]]);
+test!(
+    example_lists_opt,
+    [Some(vec![1_u8, 2, 3]), None, Some(vec![])]
+);
