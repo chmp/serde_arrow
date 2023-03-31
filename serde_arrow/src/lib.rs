@@ -71,6 +71,8 @@ pub mod impls {
     #[cfg(feature = "arrow-36")]
     pub mod arrow {
         pub use arrow_array_36 as array;
+        pub use arrow_buffer_36 as buffer;
+        pub use arrow_data_36 as data;
         pub use arrow_schema_36 as schema;
     }
 }

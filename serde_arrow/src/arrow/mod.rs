@@ -2,11 +2,18 @@
 //!
 mod schema;
 mod sinks;
+mod type_support;
+
+#[cfg(test)]
+mod test;
 
 use serde::Serialize;
 
 use crate::{
-    impls::arrow::{array::ArrayRef, schema::Field},
+    impls::arrow::{
+        array::{self, ArrayRef},
+        schema::Field,
+    },
     internal::{
         self,
         error::Result,
@@ -62,16 +69,17 @@ where
         .iter()
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
-    internal::serialize_into_arrays::<T, ArrowPrimitiveBuilders>(&fields, items)
+    let arrays = internal::serialize_into_arrays::<T, ArrowPrimitiveBuilders>(&fields, items)?;
+    Ok(arrays.into_iter().map(array::make_array).collect())
 }
 
 /// Serialize an object that represents a single array into an array
-///
 ///
 pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<ArrayRef>
 where
     T: Serialize + ?Sized,
 {
     let field: GenericField = field.try_into()?;
-    internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)
+    let data = internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)?;
+    Ok(array::make_array(data))
 }

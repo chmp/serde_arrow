@@ -25,40 +25,40 @@ pub use r#union::UnionArrayBuilder;
 pub use tuple::TupleStructBuilder;
 
 pub trait PrimitiveBuilders {
-    type ArrayRef: 'static;
+    type Output: 'static;
 
-    fn null() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn bool() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn i8() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn i16() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn i32() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn i64() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn u8() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn u16() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn u32() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn u64() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn f16() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn f32() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn f64() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn utf8() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn large_utf8() -> DynamicArrayBuilder<Self::ArrayRef>;
-    fn date64() -> DynamicArrayBuilder<Self::ArrayRef>;
+    fn null() -> DynamicArrayBuilder<Self::Output>;
+    fn bool() -> DynamicArrayBuilder<Self::Output>;
+    fn i8() -> DynamicArrayBuilder<Self::Output>;
+    fn i16() -> DynamicArrayBuilder<Self::Output>;
+    fn i32() -> DynamicArrayBuilder<Self::Output>;
+    fn i64() -> DynamicArrayBuilder<Self::Output>;
+    fn u8() -> DynamicArrayBuilder<Self::Output>;
+    fn u16() -> DynamicArrayBuilder<Self::Output>;
+    fn u32() -> DynamicArrayBuilder<Self::Output>;
+    fn u64() -> DynamicArrayBuilder<Self::Output>;
+    fn f16() -> DynamicArrayBuilder<Self::Output>;
+    fn f32() -> DynamicArrayBuilder<Self::Output>;
+    fn f64() -> DynamicArrayBuilder<Self::Output>;
+    fn utf8() -> DynamicArrayBuilder<Self::Output>;
+    fn large_utf8() -> DynamicArrayBuilder<Self::Output>;
+    fn date64() -> DynamicArrayBuilder<Self::Output>;
 }
 
 pub fn build_struct_array_builder<Arrow>(
     fields: &[GenericField],
-) -> Result<StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>>
+) -> Result<StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>>
 where
     Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
     let mut columnes = Vec::new();
     let mut nullable = Vec::new();
@@ -75,18 +75,18 @@ where
 
 pub fn build_array_builder<Arrow>(
     field: &GenericField,
-) -> Result<DynamicArrayBuilder<Arrow::ArrayRef>>
+) -> Result<DynamicArrayBuilder<Arrow::Output>>
 where
     Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
     use GenericDataType::*;
     match field.data_type {

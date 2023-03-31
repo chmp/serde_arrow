@@ -26,69 +26,69 @@ use crate::{
 pub struct Arrow2PrimitiveBuilders;
 
 impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
-    type ArrayRef = Box<dyn Array>;
+    type Output = Box<dyn Array>;
 
-    fn null() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn null() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(NullArrayBuilder::new())
     }
 
-    fn bool() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn bool() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutableBooleanArray>::default())
     }
 
-    fn i8() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn i8() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i8>>::default())
     }
 
-    fn i16() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn i16() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i16>>::default())
     }
 
-    fn i32() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn i32() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i32>>::default())
     }
 
-    fn i64() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn i64() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default())
     }
 
-    fn u8() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn u8() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u8>>::default())
     }
 
-    fn u16() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn u16() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u16>>::default())
     }
 
-    fn u32() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn u32() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u32>>::default())
     }
 
-    fn u64() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn u64() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u64>>::default())
     }
 
-    fn f16() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn f16() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f16>>::default())
     }
 
-    fn f32() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn f32() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f32>>::default())
     }
 
-    fn f64() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn f64() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f64>>::default())
     }
 
-    fn utf8() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn utf8() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::default())
     }
 
-    fn large_utf8() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn large_utf8() -> DynamicArrayBuilder<Self::Output> {
         DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::default())
     }
 
-    fn date64() -> DynamicArrayBuilder<Self::ArrayRef> {
+    fn date64() -> DynamicArrayBuilder<Self::Output> {
         // TODO: is this correct? Shouldn't this be a separate type?
         DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default())
     }

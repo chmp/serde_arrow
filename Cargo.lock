@@ -933,6 +933,8 @@ version = "0.6.0-rc.0"
 dependencies = [
  "anyhow",
  "arrow-array",
+ "arrow-buffer",
+ "arrow-data",
  "arrow-schema",
  "arrow2 0.16.0",
  "arrow2 0.17.0",

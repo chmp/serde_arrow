@@ -55,19 +55,19 @@ where
 pub fn serialize_into_arrays<T, Arrow>(
     fields: &[GenericField],
     items: &T,
-) -> Result<Vec<Arrow::ArrayRef>>
+) -> Result<Vec<Arrow::Output>>
 where
     T: Serialize + ?Sized,
     Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
     let builder = generic_sinks::build_struct_array_builder::<Arrow>(fields)?;
     let mut builder = StripOuterSequenceSink::new(builder);
@@ -76,19 +76,19 @@ where
     builder.into_inner().build_arrays()
 }
 
-pub fn serialize_into_array<T, Arrow>(field: &GenericField, items: &T) -> Result<Arrow::ArrayRef>
+pub fn serialize_into_array<T, Arrow>(field: &GenericField, items: &T) -> Result<Arrow::Output>
 where
     T: Serialize + ?Sized,
     Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i32>: ArrayBuilder<Arrow::ArrayRef>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::ArrayRef>, i64>: ArrayBuilder<Arrow::ArrayRef>,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
     let builder = generic_sinks::build_array_builder::<Arrow>(field)?;
     let mut builder = StripOuterSequenceSink::new(builder);
