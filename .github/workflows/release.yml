@@ -20,7 +20,7 @@ jobs:
     - name: cargo version
       run: cargo --version
     - name: Run tests
-      run: cargo test --verbose --features arrow2
+      run: cargo test --verbose --features arrow2-0-17,arrow-36
     - name: Publish to crates.io
       working-directory: serde_arrow
       run: cargo publish
