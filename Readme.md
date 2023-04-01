@@ -25,9 +25,9 @@ derive macros.
 
 In the Rust ecosystem there are two competing implemenetations of the arrow
 in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-supports both with limiting feature sets. Schema tracing and serialization from
-Rust structs to arrays is implemented for both. Deserialization from arrays to
-Rust structs is currently only implemented for `arrow2`.
+supports both. Schema tracing and serialization from Rust structs to arrays is
+implemented for both. Deserialization from arrays to Rust structs is currently
+only implemented for `arrow2`.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
 [arrow2]: https://docs.rs/arrow2/latest/arrow2/
