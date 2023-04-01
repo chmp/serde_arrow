@@ -26,7 +26,7 @@
 //! // Auto-detect the arrow types. Result may need to be overwritten and
 //! // customized, see serde_arrow::Strategy for details.
 //! let fields = serialize_into_fields(&records, TracingOptions::default())?;
-//! let batch = serialize_into_arrays(&fields, &records)?;
+//! let arrays = serialize_into_arrays(&fields, &records)?;
 //!
 //! # Ok(())
 //! # }
@@ -34,9 +34,8 @@
 //! # fn main() { }
 //! ```
 //!
-//! See the [quickstart guide][docs::quickstart] for more examples of how to use
-//! this package. See the [implementation notes][docs::implementation] for an
-//! explanation of how this package works and its underlying data model.
+//! The generated arrays can then be written to disk, e.g., as parquet, and
+//! loaded in another system.
 //!
 //! ```rust,ignore
 //! use arrow2::{chunk::Chunk, datatypes::Schema};
@@ -48,6 +47,10 @@
 //!     Chunk::new(arrays),
 //! )?;
 //! ```
+//!
+//! See the [quickstart guide][docs::quickstart] for more examples of how to use
+//! this package. See the [implementation notes][docs::implementation] for an
+//! explanation of how this package works and its underlying data model.
 //!
 //! # Features:
 //!
