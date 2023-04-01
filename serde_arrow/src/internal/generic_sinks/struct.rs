@@ -2,7 +2,7 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{error, fail},
-        sink::macros,
+        sink::{macros, ArrayBuilder},
     },
     Result,
 };
@@ -33,6 +33,19 @@ impl<B> StructArrayBuilder<B> {
             seen: vec![false; num_columns],
             finished: false,
         }
+    }
+
+    pub fn build_arrays<A>(&mut self) -> Result<Vec<A>>
+    where
+        B: ArrayBuilder<A>,
+    {
+        if !self.finished {
+            fail!("Cannot build array from unfinished StructArrayBuilder");
+        }
+
+        let values: Result<Vec<A>> = self.builders.iter_mut().map(|b| b.build_array()).collect();
+        let values = values?;
+        Ok(values)
     }
 }
 

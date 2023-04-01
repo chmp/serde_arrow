@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use arrow2::{
+use crate::impls::arrow2::{
     datatypes::{Field, PhysicalType},
     types::PrimitiveType,
 };

@@ -1,26 +1,17 @@
 //! Test the schema tracing on the event level
-use std::collections::BTreeMap;
-
-use arrow2::datatypes::{DataType, Field};
-
+use crate::internal::schema::{GenericDataType, GenericField};
 use crate::{
-    internal::{
-        event::Event,
-        schema::{FieldBuilder, Tracer},
-        sink::EventSink,
-    },
-    schema::{Strategy, STRATEGY_KEY},
+    internal::{event::Event, schema::Tracer, sink::EventSink},
+    schema::Strategy,
 };
 
 macro_rules! define_primitive_tests {
     ($event_variant:ident, $data_type:ident) => {
         #[allow(non_snake_case)]
         mod $event_variant {
-            use arrow2::datatypes::{DataType, Field};
-
             use crate::internal::{
                 event::Event,
-                schema::{FieldBuilder, Tracer},
+                schema::{GenericDataType, GenericField, Tracer},
                 sink::EventSink,
             };
 
@@ -33,8 +24,8 @@ macro_rules! define_primitive_tests {
                     .unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, false);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, false);
 
                 assert_eq!(field, expected);
             }
@@ -51,8 +42,8 @@ macro_rules! define_primitive_tests {
                     .unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, false);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, false);
 
                 assert_eq!(field, expected);
             }
@@ -67,8 +58,8 @@ macro_rules! define_primitive_tests {
                     .unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, true);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, true);
 
                 assert_eq!(field, expected);
             }
@@ -83,8 +74,8 @@ macro_rules! define_primitive_tests {
                 tracer.accept(Event::Null).unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, true);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, true);
 
                 assert_eq!(field, expected);
             }
@@ -102,8 +93,8 @@ macro_rules! define_primitive_tests {
                     .unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, true);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, true);
 
                 assert_eq!(field, expected);
             }
@@ -121,8 +112,8 @@ macro_rules! define_primitive_tests {
                     .unwrap();
                 tracer.finish().unwrap();
 
-                let field: Field = tracer.to_field("item").unwrap();
-                let expected = Field::new("item", DataType::$data_type, true);
+                let field = tracer.to_field("item").unwrap();
+                let expected = GenericField::new("item", GenericDataType::$data_type, true);
 
                 assert_eq!(field, expected);
             }
@@ -130,19 +121,19 @@ macro_rules! define_primitive_tests {
     };
 }
 
-define_primitive_tests!(Bool, Boolean);
+define_primitive_tests!(Bool, Bool);
 define_primitive_tests!(Str, LargeUtf8);
 define_primitive_tests!(OwnedStr, LargeUtf8);
-define_primitive_tests!(I8, Int8);
-define_primitive_tests!(I16, Int16);
-define_primitive_tests!(I32, Int32);
-define_primitive_tests!(I64, Int64);
-define_primitive_tests!(U8, UInt8);
-define_primitive_tests!(U16, UInt16);
-define_primitive_tests!(U32, UInt32);
-define_primitive_tests!(U64, UInt64);
-define_primitive_tests!(F32, Float32);
-define_primitive_tests!(F64, Float64);
+define_primitive_tests!(I8, I8);
+define_primitive_tests!(I16, I16);
+define_primitive_tests!(I32, I32);
+define_primitive_tests!(I64, I64);
+define_primitive_tests!(U8, U8);
+define_primitive_tests!(U16, U16);
+define_primitive_tests!(U32, U32);
+define_primitive_tests!(U64, U64);
+define_primitive_tests!(F32, F32);
+define_primitive_tests!(F64, F64);
 
 #[test]
 fn empty_list() {
@@ -151,12 +142,11 @@ fn empty_list() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Null, false))),
-        false,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -176,12 +166,11 @@ fn nullable_list_null_first() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Null, false))),
-        true,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -194,12 +183,11 @@ fn nullable_list_null_second() {
     tracer.accept(Event::Null).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Null, false))),
-        true,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -214,12 +202,11 @@ fn nullable_list_some_first() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Null, false))),
-        true,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -234,12 +221,11 @@ fn nullable_list_some_second() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Null, false))),
-        true,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -258,12 +244,11 @@ fn primitive_lists() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new("element", DataType::Int8, false))),
-        false,
-    );
+    let field = tracer.to_field("root").unwrap();
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
+    expected
+        .children
+        .push(GenericField::new("element", GenericDataType::I8, false));
 
     assert_eq!(field, expected);
 }
@@ -289,16 +274,15 @@ fn nested_lists() {
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::LargeList(Box::new(Field::new(
-            "element",
-            DataType::LargeList(Box::new(Field::new("element", DataType::Int8, false))),
-            false,
-        ))),
-        false,
-    );
+    let field = tracer.to_field("root").unwrap();
+
+    let mut inner = GenericField::new("element", GenericDataType::LargeList, false);
+    inner
+        .children
+        .push(GenericField::new("element", GenericDataType::I8, false));
+
+    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
+    expected.children.push(inner);
 
     assert_eq!(field, expected);
 }
@@ -320,15 +304,13 @@ fn structs() {
     tracer.accept(Event::EndStruct).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("hello", DataType::UInt8, false),
-            Field::new("world", DataType::Int32, false),
-        ]),
-        false,
-    );
+    let field = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, false);
+    expected.children = vec![
+        GenericField::new("hello", GenericDataType::U8, false),
+        GenericField::new("world", GenericDataType::I32, false),
+    ];
 
     assert_eq!(field, expected);
 }
@@ -345,15 +327,13 @@ fn struct_nullable_trailing_null() {
     tracer.accept(Event::Null).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("hello", DataType::UInt8, false),
-            Field::new("world", DataType::Int32, false),
-        ]),
-        true,
-    );
+    let field: GenericField = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, true);
+    expected.children = vec![
+        GenericField::new("hello", GenericDataType::U8, false),
+        GenericField::new("world", GenericDataType::I32, false),
+    ];
 
     assert_eq!(field, expected);
 }
@@ -370,15 +350,13 @@ fn struct_nullable_leading_null() {
     tracer.accept(Event::EndStruct).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("hello", DataType::UInt8, false),
-            Field::new("world", DataType::Int32, false),
-        ]),
-        true,
-    );
+    let field = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, true);
+    expected.children = vec![
+        GenericField::new("hello", GenericDataType::U8, false),
+        GenericField::new("world", GenericDataType::I32, false),
+    ];
 
     assert_eq!(field, expected);
 }
@@ -397,19 +375,15 @@ fn struct_nested_structs() {
     tracer.accept(Event::EndStruct).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("hello", DataType::UInt8, false),
-            Field::new(
-                "world",
-                DataType::Struct(vec![Field::new("foo", DataType::Int32, false)]),
-                false,
-            ),
-        ]),
-        false,
-    );
+    let field: GenericField = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, false);
+    expected.children =
+        vec![
+            GenericField::new("hello", GenericDataType::U8, false),
+            GenericField::new("world", GenericDataType::Struct, false)
+                .with_child(GenericField::new("foo", GenericDataType::I32, false)),
+        ];
 
     assert_eq!(field, expected);
 }
@@ -429,19 +403,15 @@ fn struct_nested_list() {
     tracer.accept(Event::EndStruct).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("hello", DataType::UInt8, false),
-            Field::new(
-                "world",
-                DataType::LargeList(Box::new(Field::new("element", DataType::LargeUtf8, false))),
-                false,
-            ),
-        ]),
-        false,
-    );
+    let field = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, false);
+    expected.children = vec![
+        GenericField::new("hello", GenericDataType::U8, false),
+        GenericField::new("world", GenericDataType::LargeList, false).with_child(
+            GenericField::new("element", GenericDataType::LargeUtf8, false),
+        ),
+    ];
 
     assert_eq!(field, expected);
 }
@@ -456,17 +426,15 @@ fn struct_tuple() {
     tracer.accept(Event::EndTuple).unwrap();
     tracer.finish().unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let mut expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new("0", DataType::UInt8, false),
-            Field::new("1", DataType::UInt8, false),
-            Field::new("2", DataType::UInt8, false),
-        ]),
-        false,
-    );
-    expected.metadata = Strategy::TupleAsStruct.into();
+    let field: GenericField = tracer.to_field("root").unwrap();
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, false);
+    expected.children = vec![
+        GenericField::new("0", GenericDataType::U8, false),
+        GenericField::new("1", GenericDataType::U8, false),
+        GenericField::new("2", GenericDataType::U8, false),
+    ];
+    expected.strategy = Some(Strategy::TupleAsStruct);
 
     assert_eq!(field, expected);
 }
@@ -488,37 +456,27 @@ fn struct_tuple_struct_nested() {
     tracer.accept(Event::EndTuple).unwrap();
     tracer.finish().unwrap();
 
-    let mut metadata: BTreeMap<String, String> = Default::default();
-    metadata.insert(
-        STRATEGY_KEY.to_string(),
-        Strategy::TupleAsStruct.to_string(),
-    );
+    let field: GenericField = tracer.to_field("root").unwrap();
 
-    let field: Field = tracer.to_field("root").unwrap();
-    let expected = Field::new(
-        "root",
-        DataType::Struct(vec![
-            Field::new(
-                "0",
-                DataType::Struct(vec![
-                    Field::new("foo", DataType::UInt8, false),
-                    Field::new(
-                        "bar",
-                        DataType::Struct(vec![
-                            Field::new("0", DataType::UInt8, false),
-                            Field::new("1", DataType::UInt8, false),
-                        ]),
-                        false,
-                    )
-                    .with_metadata(metadata.clone()),
-                ]),
-                false,
-            ),
-            Field::new("1", DataType::UInt8, false),
-        ]),
-        false,
-    )
-    .with_metadata(metadata);
+    let mut expected2 = GenericField::new("bar", GenericDataType::Struct, false);
+    expected2.children = vec![
+        GenericField::new("0", GenericDataType::U8, false),
+        GenericField::new("1", GenericDataType::U8, false),
+    ];
+    expected2.strategy = Some(Strategy::TupleAsStruct);
+
+    let mut expected1 = GenericField::new("0", GenericDataType::Struct, false);
+    expected1.children = vec![
+        GenericField::new("foo", GenericDataType::U8, false),
+        expected2,
+    ];
+
+    let mut expected = GenericField::new("root", GenericDataType::Struct, false);
+    expected.children = vec![
+        expected1,
+        GenericField::new("1", GenericDataType::U8, false),
+    ];
+    expected.strategy = Some(Strategy::TupleAsStruct);
 
     assert_eq!(field, expected);
 }

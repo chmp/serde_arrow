@@ -6,7 +6,7 @@ use std::{
     fmt::Debug,
 };
 
-use arrow2::datatypes::{DataType, Field, UnionMode};
+use crate::impls::arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
 
 use crate::{

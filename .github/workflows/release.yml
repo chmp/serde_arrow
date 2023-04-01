@@ -19,8 +19,17 @@ jobs:
       run: rustc --version
     - name: cargo version
       run: cargo --version
+    # TODO: autogenerate
+    - name: check
+      run: |
+        cargo check --verbose
+        cargo check --verbose --features arrow2-0-16
+        cargo check --verbose --features arrow2-0-17
+        cargo check --verbose --features arrow-35
+        cargo check --verbose --features arrow-36
+    # TODO: autogenerate
     - name: Run tests
-      run: cargo test --verbose --features arrow2
+      run: cargo test --verbose --features arrow2-0-17,arrow-36
     - name: Publish to crates.io
       working-directory: serde_arrow
       run: cargo publish

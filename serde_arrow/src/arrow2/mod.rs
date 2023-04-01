@@ -1,6 +1,6 @@
-//! arrow2 dependent functionality (requires the `arrow2` feature)
+//! arrow2 dependent functionality (requires one the `arrow2-*` features)
 //!
-//! Functions to convert [arrow2] arrays from and into Rust objects.
+//! Functions to convert `arrow2  arrays from and into Rust objects.
 //!
 //! The functions come in pairs: some work on single  arrays, i.e., the series
 //! of a data frames, some work on multiples arrays, i.e., data frames
@@ -22,25 +22,24 @@ pub(crate) mod sinks;
 pub(crate) mod sources;
 mod type_support;
 
-use arrow2::{
-    array::Array,
-    datatypes::{DataType, Field},
-};
+#[cfg(test)]
+mod test;
+
 use serde::{Deserialize, Serialize};
 
-use self::{
-    sinks::{build_array_builder, build_struct_array_builder_from_fields},
-    sources::{build_dynamic_source, build_record_source},
-};
-use crate::internal::{
-    error::{fail, Result},
-    generic_sinks::StructArrayBuilder,
-    schema::{FieldBuilder, Tracer, TracingOptions},
-    sink::{
-        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
-        StripOuterSequenceSink,
+use crate::{
+    impls::arrow2::{array::Array, datatypes::Field},
+    internal::{
+        self,
+        error::Result,
+        schema::{GenericField, TracingOptions},
+        source::{deserialize_from_source, AddOuterSequenceSource},
     },
-    source::{deserialize_from_source, AddOuterSequenceSource},
+};
+
+use self::{
+    sinks::Arrow2PrimitiveBuilders,
+    sources::{build_dynamic_source, build_record_source},
 };
 
 /// Determine the schema (as a list of fields) for the given items
@@ -49,7 +48,7 @@ use crate::internal::{
 /// structs).
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::serialize_into_fields;
 /// #
@@ -82,16 +81,10 @@ pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Ve
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
-    serialize_into_sink(&mut tracer, items)?;
-    let root = tracer.into_inner().to_field("root")?;
-
-    match root.data_type {
-        DataType::Struct(fields) => Ok(fields),
-        DataType::Null => fail!("No records found to determine schema"),
-        dt => fail!("Unexpected root data type {}", display::DataType(&dt)),
-    }
+    internal::serialize_into_fields(items, options)?
+        .iter()
+        .map(|f| f.try_into())
+        .collect()
 }
 
 /// Build arrays from the given items
@@ -126,11 +119,11 @@ pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<d
 where
     T: Serialize + ?Sized,
 {
-    let builder = build_struct_array_builder_from_fields(fields)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
-    serialize_into_sink(&mut builder, items)?;
-
-    builder.into_inner().build_arrays()
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+    internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
 }
 
 /// Deserialize a type from the given arrays
@@ -138,7 +131,7 @@ where
 /// The type should be a list of records (e.g., a vector of structs).
 ///
 /// ```rust
-/// # use arrow2::datatypes::{Field, DataType};
+/// # use serde_arrow::impls::arrow2::datatypes::{Field, DataType};
 /// # use serde::{Serialize, Deserialize};
 /// # use serde_arrow::arrow2::{
 /// #   serialize_into_fields,
@@ -179,8 +172,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
 /// #
@@ -194,10 +186,8 @@ pub fn serialize_into_field<T>(items: &T, name: &str, options: TracingOptions) -
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
-    serialize_into_sink(&mut tracer, items)?;
-    tracer.into_inner().to_field(name)
+    let field = internal::serialize_into_field(items, name, options)?;
+    (&field).try_into()
 }
 
 /// Serialize an object that represents a single array into an array
@@ -205,8 +195,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
 /// #
@@ -222,10 +211,8 @@ pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<Box<dyn Array
 where
     T: Serialize + ?Sized,
 {
-    let builder = build_array_builder(field)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
-    serialize_into_sink(&mut builder, items).unwrap();
-    builder.into_inner().build_array()
+    let field: GenericField = field.try_into()?;
+    internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
 }
 
 /// Deserialize an object that represents a single array from an array
@@ -235,8 +222,7 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use arrow2::array::Array;
+/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{
 /// #   serialize_into_field,
@@ -264,7 +250,7 @@ where
 /// Usage:
 ///
 /// ```rust
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
 /// # use serde::Serialize;
 /// # use serde_arrow::arrow2::{ArraysBuilder};
 /// #
@@ -293,13 +279,12 @@ where
 /// assert_eq!(arrays.len(), 2);
 /// ```
 pub struct ArraysBuilder {
-    fields: Vec<Field>,
-    builder: StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>,
+    inner: internal::ArraysBuilder<Arrow2PrimitiveBuilders>,
 }
 
 impl std::fmt::Debug for ArraysBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArraysBuilder{{ fields: {:?} }}", self.fields)
+        write!(f, "ArraysBuilder<...>")
     }
 }
 
@@ -310,25 +295,25 @@ impl ArraysBuilder {
     /// given fields.
     ///
     pub fn new(fields: &[Field]) -> Result<Self> {
-        let fields = fields.to_vec();
-        let builder = build_struct_array_builder_from_fields(&fields)?;
-
-        Ok(Self { fields, builder })
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            inner: internal::ArraysBuilder::new(fields)?,
+        })
     }
 
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        item.serialize(EventSerializer(&mut self.builder))?;
-        Ok(())
+        self.inner.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        let mut builder = StripOuterSequenceSink::new(&mut self.builder);
-        items.serialize(EventSerializer(&mut builder))?;
-        Ok(())
+        self.inner.extend(items)
     }
 
     /// Build the arrays built from the rows pushed to far.
@@ -336,28 +321,21 @@ impl ArraysBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        let mut builder = build_struct_array_builder_from_fields(&self.fields)?;
-        std::mem::swap(&mut builder, &mut self.builder);
-
-        builder.finish()?;
-        builder.build_arrays()
+        self.inner.build_arrays()
     }
 }
 
 /// Experimental functionality that is not subject to semver compatibility
 pub mod experimental {
-    use arrow2::datatypes::Field;
+    use crate::impls::arrow2::datatypes::Field;
 
     use super::display;
 
     /// Format the fields as a string
     ///
     /// The fields are displayed as Rust code that allows to build the fields in
-    /// code. The following symbols are assumed to be in scope:
-    ///
-    /// ```rust
-    /// use arrow2::datatypes::{DataType, Field, Metadata};
-    /// ```
+    /// code. The following symbols of the `arrow2::datatypes `module are
+    /// assumed to be in scope `DataType`, `Field`, `Metadata`.
     ///
     pub fn format_fields(fields: &[Field]) -> String {
         display::Fields(fields).to_string()

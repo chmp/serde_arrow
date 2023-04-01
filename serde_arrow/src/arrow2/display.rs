@@ -1,12 +1,12 @@
-//! Helpers to display [arrow2] types as valid rust code
+//! Helpers to display `arrow2` types as valid rust code
 //!
-use arrow2::datatypes::{
-    DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
-    Metadata as Arrow2Metadata,
+use crate::{
+    impls::arrow2::datatypes::{
+        DataType as Arrow2DataType, Field as Arrow2Field, IntegerType as Arrow2IntegerType,
+        Metadata as Arrow2Metadata,
+    },
+    schema::{Strategy as SerdeArrowStrategy, STRATEGY_KEY},
 };
-
-use super::schema::get_optional_strategy;
-use crate::schema::Strategy as SerdeArrowStrategy;
 
 pub struct Str<'a>(pub &'a str);
 
@@ -56,7 +56,7 @@ pub struct Metadata<'a>(pub &'a Arrow2Metadata);
 
 impl<'a> std::fmt::Display for Metadata<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match get_optional_strategy(self.0).ok().flatten() {
+        match get_optional_strategy(self.0) {
             Some(strategy) if self.0.len() == 1 => write!(f, "{}.into()", Strategy(&strategy)),
             _ => {
                 write!(f, "Metadata::from([")?;
@@ -71,6 +71,13 @@ impl<'a> std::fmt::Display for Metadata<'a> {
             }
         }
     }
+}
+
+fn get_optional_strategy(metadata: &Arrow2Metadata) -> Option<SerdeArrowStrategy> {
+    metadata
+        .get(STRATEGY_KEY)?
+        .parse::<SerdeArrowStrategy>()
+        .ok()
 }
 
 pub struct Strategy<'a>(pub &'a SerdeArrowStrategy);
@@ -170,8 +177,8 @@ impl<'a> std::fmt::Display for DataType<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::impls::arrow2::datatypes::{DataType, Field, Metadata};
     use crate::schema::Strategy;
-    use arrow2::datatypes::{DataType, Field, Metadata};
 
     //# start tests
     #[test]

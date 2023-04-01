@@ -1,10 +1,9 @@
 pub mod macros;
 
 use serde::ser::{
-    SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
+    Serialize, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
     SerializeTupleStruct, SerializeTupleVariant, Serializer,
 };
-use serde::Serialize;
 
 use crate::internal::{
     error::{fail, Error, Result},

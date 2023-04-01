@@ -1,20 +1,21 @@
 use std::marker::PhantomData;
 
-use arrow2::{
-    array::{
-        Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
-        Utf8Array,
-    },
-    datatypes::{DataType, Field},
-    types::{f16, Index, NativeType, Offset},
-};
-
 use crate::{
+    impls::arrow2::{
+        array::{
+            Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, UnionArray,
+            Utf8Array,
+        },
+        datatypes::{DataType, Field},
+        types::{f16, Index, NativeType, Offset},
+    },
     internal::{
-        chrono_support::{NaiveDateTimeStrSource, UtcDateTimeStrSource},
         error::{error, fail},
         event::Event,
-        generic_sources::{ListSource, MapSource, StructSource, TupleSource, UnionSource},
+        generic_sources::{
+            ListSource, MapSource, NaiveDateTimeStrSource, StructSource, TupleSource, UnionSource,
+            UtcDateTimeStrSource,
+        },
         schema::{Strategy, STRATEGY_KEY},
         source::{AddOuterSequenceSource, DynamicSource, EventSource},
     },

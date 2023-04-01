@@ -1,8 +1,9 @@
-use arrow2::types::f16;
-
-use crate::internal::{
-    error::{fail, Error, Result},
-    event::Event,
+use crate::{
+    impls::arrow2::types::f16,
+    internal::{
+        error::{fail, Error, Result},
+        event::Event,
+    },
 };
 
 impl<'a> TryFrom<Event<'a>> for f16 {
@@ -19,5 +20,11 @@ impl<'a> TryFrom<Event<'a>> for f16 {
 impl<'a> From<f16> for Event<'a> {
     fn from(value: f16) -> Self {
         Event::F32(value.to_f32())
+    }
+}
+
+impl From<crate::impls::arrow2::error::Error> for Error {
+    fn from(err: crate::impls::arrow2::error::Error) -> Error {
+        Self::custom_from(format!("arrow2::Error: {err}"), err)
     }
 }

@@ -1,13 +1,12 @@
 use std::borrow::Cow;
 
+use serde::de::{
+    self, Deserialize, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor,
+};
+
 use crate::internal::{
     error::{error, fail, Error, Result},
     event::Event,
-};
-
-use serde::{
-    de::{self, DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
-    Deserialize,
 };
 
 /// Deserialize a type from an [EventSource]

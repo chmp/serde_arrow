@@ -12,16 +12,24 @@
 
 **Warning:** this package is in an experiment at the moment.
 
-[Arrow2][arrow2] is a powerful library to work with data frame like structures.
-The surrounding ecosystem includes a rich set of libraries, ranging from data
-frames via [Polars][polars] to query engines via [DataFusion][datafusion].
-However, it's API due to the statically typed nature of Rust can be at times
-cumbersome to use directly. This package, `serde_arrow`, tries to bridge this
-gap by offering a simple way to convert Rust objects into Arrow objects and vice
-versa.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
-interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
-types is as easy as using Serde's derive macros.
+The arrow in-memory format is a powerful way to work with data frame like
+structures. The surrounding ecosystem includes a rich set of libraries, ranging
+from data frames via [Polars][polars] to query engines via
+[DataFusion][datafusion]. However, the API of the underlying rust crates can be
+at times cumbersome to use directly due to the statically typed nature of Rust.
+This package, `serde_arrow`, tries to bridge this gap by offering a simple way
+to convert Rust objects into Arrow objects and vice versa.  `serde_arrow` relies
+on the [Serde](https://serde.rs) package to interpret Rust objects. Therefore,
+adding support for `serde_arrow` to custom types is as easy as using Serde's
+derive macros.
 
+In the Rust ecosystem there are two competing implemenetations of the arrow
+in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
+supports both with limiting feature sets. Schema tracing and serialization from
+Rust structs to arrays is implemented for both. Deserialization from arrays to
+Rust structs is currently only implemented for `arrow2`.
+
+[arrow]: https://docs.rs/arrow/latest/arrow/
 [arrow2]: https://docs.rs/arrow2/latest/arrow2/
 [polars]: https://github.com/pola-rs/polars
 [datafusion]: https://github.com/apache/arrow-datafusion/
@@ -50,17 +58,20 @@ use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 
 let fields = serialize_into_fields(&items, TracingOptions::default())?;
 let arrays = serialize_into_arrays(&fields, &items)?;
+```
 
-// using the helper method defined in the arrow2 guide at
-// https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
+These arrays can now be written to disk using the helper method defined in the
+[arrow2 guide][arrow2-guide]. For parquet:
+
+```rust,ignore
 use arrow2::{chunk::Chunk, datatypes::Schema};
 
+// see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
 write_chunk(
     "example.pq",
     Schema::from(fields),
     Chunk::new(arrays),
 )?;
-
 ```
 
 The written file can now be read in Python via
@@ -74,6 +85,8 @@ pl.read_parquet("example.pq")
 import pandas as pd
 pd.read_parquet("example.pq")
 ```
+
+[arrow2-guide](https://jorgecarleitao.github.io/arrow2)
 
 ## Performance
 

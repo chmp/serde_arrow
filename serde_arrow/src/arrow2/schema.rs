@@ -1,30 +1,16 @@
-use std::iter;
-
-use arrow2::datatypes::{DataType, Field, IntegerType, Metadata, UnionMode};
-
 use crate::{
     arrow2::display,
+    impls::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     internal::{
-        error::{error, fail},
-        schema::{
-            FieldBuilder, ListTracer, MapTracer, PrimitiveTracer, PrimitiveType, Strategy,
-            StructMode, StructTracer, Tracer, TupleTracer, UnionTracer, UnknownTracer,
-            STRATEGY_KEY,
-        },
+        error::{error, fail, Error},
+        schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
     Result,
 };
 
-impl From<Strategy> for Metadata {
-    fn from(value: Strategy) -> Self {
-        let mut res = Metadata::new();
-        res.insert(STRATEGY_KEY.to_string(), value.to_string());
-        res
-    }
-}
-
 /// Make sure the field is configured correctly if a strategy is used
 ///
+/// TODO: make this a generic method
 pub fn check_strategy(field: &Field) -> Result<()> {
     let strategy_str = match field.metadata.get(STRATEGY_KEY) {
         Some(strategy_str) => strategy_str,
@@ -64,168 +50,6 @@ pub fn check_strategy(field: &Field) -> Result<()> {
     Ok(())
 }
 
-pub fn get_optional_strategy(metadata: &Metadata) -> Result<Option<Strategy>> {
-    if let Some(strategy) = metadata.get(STRATEGY_KEY) {
-        Ok(Some(strategy.parse()?))
-    } else {
-        Ok(None)
-    }
-}
-
-impl FieldBuilder<Field> for Tracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        match self {
-            Self::Unknown(tracer) => tracer.to_field(name),
-            Self::Primitive(tracer) => tracer.to_field(name),
-            Self::List(tracer) => tracer.to_field(name),
-            Self::Struct(tracer) => tracer.to_field(name),
-            Self::Tuple(tracer) => tracer.to_field(name),
-            Self::Union(tracer) => tracer.to_field(name),
-            Self::Map(tracer) => tracer.to_field(name),
-        }
-    }
-}
-
-impl FieldBuilder<Field> for UnknownTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-        Ok(Field::new(name, DataType::Null, self.nullable))
-    }
-}
-
-impl FieldBuilder<Field> for PrimitiveTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        type T = PrimitiveType;
-        type D = DataType;
-
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        match self.item_type {
-            T::Unknown => Ok(Field::new(name, D::Null, self.nullable)),
-            T::Bool => Ok(Field::new(name, D::Boolean, self.nullable)),
-            T::Str => {
-                if !self.string_dictionary_encoding {
-                    Ok(Field::new(name, D::LargeUtf8, self.nullable))
-                } else {
-                    Ok(Field::new(
-                        name,
-                        DataType::Dictionary(IntegerType::UInt32, Box::new(D::LargeUtf8), false),
-                        self.nullable,
-                    ))
-                }
-            }
-            T::I8 => Ok(Field::new(name, D::Int8, self.nullable)),
-            T::I16 => Ok(Field::new(name, D::Int16, self.nullable)),
-            T::I32 => Ok(Field::new(name, D::Int32, self.nullable)),
-            T::I64 => Ok(Field::new(name, D::Int64, self.nullable)),
-            T::U8 => Ok(Field::new(name, D::UInt8, self.nullable)),
-            T::U16 => Ok(Field::new(name, D::UInt16, self.nullable)),
-            T::U32 => Ok(Field::new(name, D::UInt32, self.nullable)),
-            T::U64 => Ok(Field::new(name, D::UInt64, self.nullable)),
-            T::F32 => Ok(Field::new(name, D::Float32, self.nullable)),
-            T::F64 => Ok(Field::new(name, D::Float64, self.nullable)),
-        }
-    }
-}
-
-impl FieldBuilder<Field> for ListTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        let item_type = self.item_tracer.to_field("element")?;
-        let item_type = Box::new(item_type);
-        Ok(Field::new(
-            name,
-            DataType::LargeList(item_type),
-            self.nullable,
-        ))
-    }
-}
-
-impl FieldBuilder<Field> for StructTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        let mut fields = Vec::new();
-        for (tracer, name) in iter::zip(&self.field_tracers, &self.field_names) {
-            fields.push(tracer.to_field(name)?);
-        }
-        let mut field = Field::new(name, DataType::Struct(fields), self.nullable);
-        if let StructMode::Map = self.mode {
-            field
-                .metadata
-                .insert(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());
-        }
-        Ok(field)
-    }
-}
-
-impl FieldBuilder<Field> for TupleTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        let mut fields = Vec::new();
-        for (idx, tracer) in self.field_tracers.iter().enumerate() {
-            fields.push(tracer.to_field(&idx.to_string())?);
-        }
-        let mut field = Field::new(name, DataType::Struct(fields), self.nullable);
-        field.metadata.insert(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        );
-        Ok(field)
-    }
-}
-
-impl FieldBuilder<Field> for UnionTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        let mut fields = Vec::new();
-        for (idx, (name, tracer)) in std::iter::zip(&self.variants, &self.tracers).enumerate() {
-            let field = match name {
-                Some(name) => tracer.to_field(name)?,
-                None => tracer.to_field(&format!("unknown_variant_{idx}"))?,
-            };
-            fields.push(field);
-        }
-
-        let field = Field::new(
-            name,
-            DataType::Union(fields, None, UnionMode::Dense),
-            self.nullable,
-        );
-        Ok(field)
-    }
-}
-
-impl FieldBuilder<Field> for MapTracer {
-    fn to_field(&self, name: &str) -> Result<Field> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        let key = self.key.to_field("key")?;
-        let value = self.value.to_field("value")?;
-
-        let entries = Field::new("entries", DataType::Struct(vec![key, value]), false);
-        let field = Field::new(name, DataType::Map(Box::new(entries), false), self.nullable);
-        Ok(field)
-    }
-}
-
 /// Lookup a nested field among a set of top-level fields
 ///
 /// The `path` argument should be a dotted path to the target field, e.g.,
@@ -235,7 +59,7 @@ impl FieldBuilder<Field> for MapTracer {
 /// Example:
 ///
 /// ```rust
-/// # use arrow2::datatypes::DataType;
+/// # use serde_arrow::impls::arrow2::datatypes::DataType;
 /// # use chrono::NaiveDateTime;
 /// # use serde::Serialize;
 /// #
@@ -304,5 +128,217 @@ fn get_child_fields(dt: &mut DataType) -> Result<&mut [Field]> {
             "Data type {dt} does not support nested fields",
             dt = display::DataType(dt)
         ),
+    }
+}
+
+impl TryFrom<&Field> for GenericField {
+    type Error = Error;
+
+    fn try_from(field: &Field) -> Result<Self> {
+        let strategy: Option<Strategy> = match field.metadata.get(STRATEGY_KEY) {
+            Some(strategy_str) => Some(strategy_str.parse::<Strategy>()?),
+            None => None,
+        };
+        let name = field.name.to_owned();
+        let nullable = field.is_nullable;
+
+        let mut children = Vec::<GenericField>::new();
+        let data_type = match &field.data_type {
+            DataType::Boolean => GenericDataType::Bool,
+            DataType::Null => GenericDataType::Null,
+            DataType::Int8 => GenericDataType::I8,
+            DataType::Int16 => GenericDataType::I16,
+            DataType::Int32 => GenericDataType::I32,
+            DataType::Int64 => GenericDataType::I64,
+            DataType::UInt8 => GenericDataType::U8,
+            DataType::UInt16 => GenericDataType::U16,
+            DataType::UInt32 => GenericDataType::U32,
+            DataType::UInt64 => GenericDataType::U64,
+            DataType::Float16 => GenericDataType::F16,
+            DataType::Float32 => GenericDataType::F32,
+            DataType::Float64 => GenericDataType::F64,
+            DataType::Utf8 => GenericDataType::Utf8,
+            DataType::LargeUtf8 => GenericDataType::LargeUtf8,
+            DataType::Date64 => GenericDataType::Date64,
+            DataType::List(field) => {
+                children.push(GenericField::try_from(field.as_ref())?);
+                GenericDataType::List
+            }
+            DataType::LargeList(field) => {
+                children.push(field.as_ref().try_into()?);
+                GenericDataType::LargeList
+            }
+            DataType::Struct(fields) => {
+                for field in fields {
+                    children.push(field.try_into()?);
+                }
+                GenericDataType::Struct
+            }
+            DataType::Map(field, _) => {
+                let kv_fields = match field.data_type() {
+                    DataType::Struct(fields) => fields,
+                    dt => fail!(
+                        "Expected inner field of Map to be Struct, found: {dt}",
+                        dt = display::DataType(dt),
+                    ),
+                };
+                if kv_fields.len() != 2 {
+                    fail!(
+                        "Expected two fields (key and value) in map struct, found: {}",
+                        kv_fields.len()
+                    );
+                }
+                for field in kv_fields {
+                    children.push(field.try_into()?);
+                }
+                GenericDataType::Map
+            }
+            DataType::Union(fields, field_indices, mode) => {
+                if field_indices.is_some() {
+                    fail!("Union types with explicit field indices are not supported");
+                }
+                if !mode.is_dense() {
+                    fail!("Only dense unions are supported at the moment");
+                }
+
+                for field in fields {
+                    children.push(field.try_into()?);
+                }
+                GenericDataType::Union
+            }
+            DataType::Dictionary(int_type, data_type, sorted) => {
+                if *sorted {
+                    fail!("Sorted dictionary are not supported");
+                }
+                let key_type = match int_type {
+                    IntegerType::Int8 => DataType::Int8,
+                    IntegerType::Int16 => DataType::Int16,
+                    IntegerType::Int32 => DataType::Int32,
+                    IntegerType::Int64 => DataType::Int64,
+                    IntegerType::UInt8 => DataType::UInt8,
+                    IntegerType::UInt16 => DataType::UInt16,
+                    IntegerType::UInt32 => DataType::UInt32,
+                    IntegerType::UInt64 => DataType::UInt64,
+                };
+                children.push((&Field::new("", key_type, false)).try_into()?);
+                children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
+                GenericDataType::Dictionary
+            }
+            dt => fail!("Cannot convert data type {dt}", dt = display::DataType(dt)),
+        };
+
+        Ok(GenericField {
+            data_type,
+            name,
+            strategy,
+            children,
+            nullable,
+        })
+    }
+}
+
+impl TryFrom<&GenericField> for Field {
+    type Error = Error;
+
+    fn try_from(value: &GenericField) -> Result<Self> {
+        let data_type = match &value.data_type {
+            GenericDataType::Null => DataType::Null,
+            GenericDataType::Bool => DataType::Boolean,
+            GenericDataType::I8 => DataType::Int8,
+            GenericDataType::I16 => DataType::Int16,
+            GenericDataType::I32 => DataType::Int32,
+            GenericDataType::I64 => DataType::Int64,
+            GenericDataType::U8 => DataType::UInt8,
+            GenericDataType::U16 => DataType::UInt16,
+            GenericDataType::U32 => DataType::UInt32,
+            GenericDataType::U64 => DataType::UInt64,
+            GenericDataType::F16 => DataType::Float16,
+            GenericDataType::F32 => DataType::Float32,
+            GenericDataType::F64 => DataType::Float64,
+            GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Utf8 => DataType::Utf8,
+            GenericDataType::LargeUtf8 => DataType::LargeUtf8,
+            GenericDataType::List => DataType::List(Box::new(
+                value
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("List must a single child"))?
+                    .try_into()?,
+            )),
+            GenericDataType::LargeList => DataType::LargeList(Box::new(
+                value
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("List must a single child"))?
+                    .try_into()?,
+            )),
+            GenericDataType::Struct => DataType::Struct(
+                value
+                    .children
+                    .iter()
+                    .map(Field::try_from)
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+            GenericDataType::Map => {
+                let key_field: Field = value
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("Map must a two children"))?
+                    .try_into()?;
+                let val_field: Field = value
+                    .children
+                    .get(1)
+                    .ok_or_else(|| error!("Map must a two children"))?
+                    .try_into()?;
+                let element_field = Field::new(
+                    "entries",
+                    DataType::Struct(vec![key_field, val_field]),
+                    false,
+                );
+
+                DataType::Map(Box::new(element_field), false)
+            }
+            GenericDataType::Union => DataType::Union(
+                value
+                    .children
+                    .iter()
+                    .map(Field::try_from)
+                    .collect::<Result<Vec<_>>>()?,
+                None,
+                UnionMode::Dense,
+            ),
+            GenericDataType::Dictionary => {
+                let key_field = value
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("Dictionary must a two children"))?;
+                let val_field: Field = value
+                    .children
+                    .get(1)
+                    .ok_or_else(|| error!("Dictionary must a two children"))?
+                    .try_into()?;
+
+                let key_type = match &key_field.data_type {
+                    GenericDataType::U8 => IntegerType::UInt8,
+                    GenericDataType::U16 => IntegerType::UInt16,
+                    GenericDataType::U32 => IntegerType::UInt32,
+                    GenericDataType::U64 => IntegerType::UInt64,
+                    GenericDataType::I8 => IntegerType::Int8,
+                    GenericDataType::I16 => IntegerType::Int16,
+                    GenericDataType::I32 => IntegerType::Int32,
+                    GenericDataType::I64 => IntegerType::Int64,
+                    _ => fail!("Invalid key type for dictionary"),
+                };
+
+                DataType::Dictionary(key_type, Box::new(val_field.data_type), false)
+            }
+        };
+
+        let mut field = Field::new(&value.name, data_type, value.nullable);
+        if let Some(strategy) = value.strategy.as_ref() {
+            field.metadata = strategy.clone().into();
+        }
+
+        Ok(field)
     }
 }

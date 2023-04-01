@@ -21,7 +21,16 @@ jobs:
       run: rustc --version
     - name: cargo version
       run: cargo --version
+    # TODO: auto-generate
+    - name: check
+      run: |
+        cargo check --verbose
+        cargo check --verbose --features arrow2-0-16
+        cargo check --verbose --features arrow2-0-17
+        cargo check --verbose --features arrow-35
+        cargo check --verbose --features arrow-36
+    # TODO: auto-generate
     - name: Build
-      run: cargo build --verbose --features arrow2
+      run: cargo build --verbose --features arrow2-0-17,arrow-36
     - name: Run tests
-      run: cargo test --verbose --features arrow2
+      run: cargo test --verbose --features arrow2-0-17,arrow-36

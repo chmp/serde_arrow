@@ -1,14 +1,14 @@
 mod generic_sources;
+mod implementation_docs;
 mod round_trip;
 mod round_trip_array;
 mod schema;
-mod schema_events;
 mod schema_mod;
 mod sinks;
 mod sources;
 pub(crate) mod utils;
 
-use arrow2::{
+use crate::impls::arrow2::{
     array::{Array, MutableArray, MutablePrimitiveArray, MutableStructArray, StructArray},
     datatypes::{DataType as Arrow2DataType, Field},
 };

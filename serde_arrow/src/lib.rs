@@ -1,10 +1,10 @@
 //! # `serde_arrow` - convert sequences Rust objects to arrow2 arrays
 //!
-//! Usage (requires the `arrow2` feature):
+//! Usage (requires one of `arrow2` feature, see below):
 //!
 //! ```rust
 //! # use serde::Serialize;
-//! # #[cfg(feature = "arrow2")]
+//! # #[cfg(feature = "arrow2-0-17")]
 //! # fn main() -> serde_arrow::Result<()> {
 //! use serde_arrow::{
 //!     schema::TracingOptions,
@@ -30,7 +30,7 @@
 //!
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "arrow2"))]
+//! # #[cfg(not(feature = "arrow2-0-17"))]
 //! # fn main() { }
 //! ```
 //!
@@ -38,10 +38,39 @@
 //! this package. See the [implementation notes][docs::implementation] for an
 //! explanation of how this package works and its underlying data model.
 //!
+//! ```rust,ignore
+//! use arrow2::{chunk::Chunk, datatypes::Schema};
+//!
+//! // see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
+//! write_chunk(
+//!     "example.pq",
+//!     Schema::from(fields),
+//!     Chunk::new(arrays),
+//! )?;
+//! ```
+//!
 //! # Features:
 //!
-//! - `arrow2`: add support to (de)serialize to and from arrow2 arrays. This
-//!   feature is activated per default
+//! The `arrow-*` and `arrow2-*` feature groupss are comptaible with each other.
+//! I.e., it is possible to use `arrow` and `arrow2` togehter.
+//!
+//! Within each group the highest version is selected, if multiple features are
+//! activated. E.g, when selecting  `arrow2-0-16` and `arrow2-0-17` the version
+//! `arrow2==0.17` will be used.
+//!
+//! The features to enable specific versions of the `arrow` crate
+//!
+//! | Feature    | Arrow Version |
+//! |------------|---------------|
+//! | `arrow-36` | `arrow=36`    |
+//! | `arrow-35` | `arrow=35`    |
+//!
+//! The features to enable specific versions of the `arrow2` crate
+//!
+//! | Feature       | Arrow2 Version |
+//! |---------------|----------------|
+//! | `arrow2-0-17` | `arrow2=0.17`  |
+//! | `arrow2-0-16` | `arrow2=0.16`  |
 //!
 //! # Status
 //!
@@ -50,8 +79,36 @@
 //!
 mod internal;
 
-#[cfg(feature = "arrow2")]
+/// The arrow implementations used
+pub mod impls {
+    #[cfg(feature = "arrow2-0-17")]
+    pub use arrow2_0_17 as arrow2;
+
+    #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
+    pub use arrow2_0_16 as arrow2;
+
+    #[cfg(feature = "arrow-36")]
+    pub mod arrow {
+        pub use arrow_array_36 as array;
+        pub use arrow_buffer_36 as buffer;
+        pub use arrow_data_36 as data;
+        pub use arrow_schema_36 as schema;
+    }
+
+    #[cfg(all(feature = "arrow-35", not(feature = "arrow-36")))]
+    pub mod arrow {
+        pub use arrow_array_35 as array;
+        pub use arrow_buffer_35 as buffer;
+        pub use arrow_data_35 as data;
+        pub use arrow_schema_35 as schema;
+    }
+}
+
+#[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
+
+#[cfg(any(feature = "arrow-36", feature = "arrow-35"))]
+pub mod arrow;
 
 #[cfg(test)]
 mod test;

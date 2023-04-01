@@ -5,6 +5,7 @@ import pathlib
 import statistics
 import subprocess
 import sys
+import toml
 
 self_path = pathlib.Path(__file__).parent.resolve()
 
@@ -15,6 +16,11 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
+all_arrow_features = ["arrow-35", "arrow-36"]
+all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
+default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
+
+
 @cmd()
 @arg("--backtrace", action="store_true", default=False)
 def precommit(backtrace=False):
@@ -23,28 +29,58 @@ def precommit(backtrace=False):
         self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py",
     )
 
+    fmt()
+    check()
+    lint()
+    test(backtrace=backtrace)
+
+
+@cmd()
+def fmt():
     cargo("fmt")
-    cargo("clippy", "--features", "arrow2")
+
+@cmd()
+def check():
+    cargo("check")
+    for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
+        cargo("check", "--features", arrow2_feature)
+
+@cmd()
+def lint():
+    check_docs_config()
+    cargo("clippy", "--features", default_features)
+
+
+@cmd()
+@arg("--backtrace", action="store_true", default=False)
+def test(backtrace=False):
+    # TODO: include other feature flag combinations?
     cargo(
         "test",
         "--features",
-        "arrow2",
+        default_features,
         env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
     )
 
 
 @cmd()
-def test():
-    for feature_flags in [
-        ("--features", "arrow2"),
-        (),
-    ]:
-        cargo("test", *feature_flags, "--lib", env=dict(os.environ, RUST_BACKTRACE="1"))
+def check_docs_config():
+    with open(self_path / "serde_arrow" / "Cargo.toml", "rt") as fobj:
+        config = toml.load(fobj)
+
+    docs_features = sorted(config["package"]["metadata"]["docs"]["rs"]["features"])
+    expected_features = sorted(default_features.split(","))
+
+    if docs_features != expected_features:
+        raise ValueError(
+            "Invalid docs.rs configuration. "
+            f"Expected features {expected_features}, found: {docs_features}"
+        )
 
 
 @cmd()
 def bench():
-    cargo("bench", "--features", "arrow2")
+    cargo("bench", "--features", default_features)
     summarize_bench()
 
 
@@ -110,7 +146,7 @@ def collect(kv_pairs):
 
 @cmd()
 def doc():
-    cargo("doc", "--features", "arrow2", cwd=self_path / "serde_arrow")
+    cargo("doc", "--features", default_features, cwd=self_path / "serde_arrow")
 
 
 @cmd()
