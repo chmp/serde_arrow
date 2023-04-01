@@ -86,7 +86,7 @@ import pandas as pd
 pd.read_parquet("example.pq")
 ```
 
-[arrow2-guide](https://jorgecarleitao.github.io/arrow2)
+[arrow2-guide]: https://jorgecarleitao.github.io/arrow2
 
 ## Performance
 
