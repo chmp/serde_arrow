@@ -54,26 +54,23 @@
 //!
 //! # Features:
 //!
+//! Which version of `arrow` or `arrow2` is used can be selected via features.
+//! Per default no arrow implementation is used. In that case only the base
+//! features of `serde_arrow` are availble.
+//!
 //! The `arrow-*` and `arrow2-*` feature groupss are comptaible with each other.
-//! I.e., it is possible to use `arrow` and `arrow2` togehter.
+//! I.e., it is possible to use `arrow` and `arrow2` togehter. Within each group
+//! the highest version is selected, if multiple features are activated. E.g,
+//! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
 //!
-//! Within each group the highest version is selected, if multiple features are
-//! activated. E.g, when selecting  `arrow2-0-16` and `arrow2-0-17` the version
-//! `arrow2==0.17` will be used.
+//! Available features:
 //!
-//! The features to enable specific versions of the `arrow` crate
-//!
-//! | Feature    | Arrow Version |
-//! |------------|---------------|
-//! | `arrow-36` | `arrow=36`    |
-//! | `arrow-35` | `arrow=35`    |
-//!
-//! The features to enable specific versions of the `arrow2` crate
-//!
-//! | Feature       | Arrow2 Version |
-//! |---------------|----------------|
-//! | `arrow2-0-17` | `arrow2=0.17`  |
-//! | `arrow2-0-16` | `arrow2=0.16`  |
+//! | Feature       | Arrow Version |
+//! |---------------|---------------|
+//! | `arrow-36`    | `arrow=36`    |
+//! | `arrow-35`    | `arrow=35`    |
+//! | `arrow2-0-17` | `arrow2=0.17` |
+//! | `arrow2-0-16` | `arrow2=0.16` |
 //!
 //! # Status
 //!
