@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 use crate::{
@@ -15,6 +17,17 @@ macro_rules! test {
             let array = serialize_into_array(&field, &items).unwrap();
 
             assert_eq!(array.len(), items.len());
+        }
+    };
+}
+
+macro_rules! hashmap {
+    ($($key:expr => $value:expr),*) => {
+        {
+            #[allow(unused_mut)]
+            let mut res = HashMap::new();
+            $(res.insert($key.into(), $value.into());)*
+            res
         }
     };
 }
@@ -75,3 +88,56 @@ test!(
     example_lists_opt,
     [Some(vec![1_u8, 2, 3]), None, Some(vec![])]
 );
+
+#[test]
+fn example_dictionary_str() {
+    let items = &[Some("a"), Some("b"), None, Some("c"), Some("b")];
+
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().string_dictionary_encoding(true),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+
+    let nulls = (0..array.len())
+        .into_iter()
+        .map(|idx| array.is_null(idx))
+        .collect::<Vec<_>>();
+    assert_eq!(nulls, vec![false, false, true, false, false]);
+}
+
+#[test]
+fn example_map_ints() {
+    let items: &[HashMap<u32, u64>] = &[
+        hashmap!(1_u32 => 2_u64, 3_u32 => 4_u64),
+        hashmap!(5_u32 => 6_u64),
+    ];
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().map_as_struct(false),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+}
+
+#[test]
+fn example_map_str_float() {
+    let items: &[HashMap<&'static str, f32>] =
+        &[hashmap!("a" => 13.0, "b" => 21.0), hashmap!("c" => 42.0)];
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().map_as_struct(false),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+}

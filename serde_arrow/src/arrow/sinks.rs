@@ -3,9 +3,10 @@ use crate::{
     impls::arrow::{
         array::{
             self,
+            array::ArrowPrimitiveType,
             builder::BooleanBufferBuilder,
             builder::{BooleanBuilder, GenericStringBuilder, PrimitiveBuilder},
-            types::{ArrowPrimitiveType, Float16Type},
+            types::Float16Type,
             types::{
                 Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
                 UInt32Type, UInt64Type, UInt8Type,
@@ -113,27 +114,43 @@ pub struct PrimitiveArrayBuilder<B> {
 }
 
 macro_rules! impl_primitive_array_builder {
-    ($ty:ty, $variant:ident) => {
+    ($ty:ty, $($variant:ident),*) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
             macros::forward_generic_to_specialized!();
             macros::accept_start!((_this, ev, _val, _next) {
-                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                fail!(
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    ev=ev,
+                    ty=stringify!($ty),
+                );
             });
             macros::accept_end!((_this, ev, _val, _next) {
-                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                fail!(
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    ev=ev,
+                    ty=stringify!($ty),
+                );
             });
             macros::accept_marker!((_this, ev, _val, _next) {
                 if !matches!(ev, Event::Some) {
-                    fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                    fail!(
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        ev=ev,
+                        ty=stringify!($ty),
+                    );
                 }
                 Ok(())
             });
             macros::accept_value!((this, ev, _val, _next) {
                 match ev {
-                    Event::$variant(_) => this.array.append_value(ev.try_into()?),
+                    $(Event::$variant(_) => this.array.append_value(ev.try_into()?),)*
                     Event::Null => this.array.append_null(),
                     Event::Default => this.array.append_value(Default::default()),
-                    ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+                    ev => fail!(
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        ev=ev,
+                        ty=stringify!($ty),
+                    ),
                 }
                 Ok(())
             });
@@ -159,15 +176,95 @@ macro_rules! impl_primitive_array_builder {
     };
 }
 
-impl_primitive_array_builder!(PrimitiveBuilder<Int8Type>, I8);
-impl_primitive_array_builder!(PrimitiveBuilder<Int16Type>, I16);
-impl_primitive_array_builder!(PrimitiveBuilder<Int32Type>, I32);
-impl_primitive_array_builder!(PrimitiveBuilder<Int64Type>, I64);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Int8Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Int16Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Int32Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Int64Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
 
-impl_primitive_array_builder!(PrimitiveBuilder<UInt8Type>, U8);
-impl_primitive_array_builder!(PrimitiveBuilder<UInt16Type>, U16);
-impl_primitive_array_builder!(PrimitiveBuilder<UInt32Type>, U32);
-impl_primitive_array_builder!(PrimitiveBuilder<UInt64Type>, U64);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<UInt8Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<UInt16Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<UInt32Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    PrimitiveBuilder<UInt64Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
 
 impl_primitive_array_builder!(PrimitiveBuilder<Float32Type>, F32);
 impl_primitive_array_builder!(PrimitiveBuilder<Float64Type>, F64);
@@ -405,24 +502,86 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
 
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for ListArrayBuilder<B, i32> {
     fn build_array(&mut self) -> Result<ArrayData> {
+        if !self.finished {
+            fail!("Cannot build array from unfinished ListArrayBuilder");
+        }
         build_list_array(self)
     }
 }
 
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for ListArrayBuilder<B, i64> {
     fn build_array(&mut self) -> Result<ArrayData> {
+        if !self.finished {
+            fail!("Cannot build array from unfinished ListArrayBuilder");
+        }
         build_list_array(self)
     }
 }
 
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> {
     fn build_array(&mut self) -> Result<ArrayData> {
-        fail!("Map array construction is currently not supported")
+        if !self.finished {
+            fail!("Cannot build array from unfinished MapArrayBuilder");
+        }
+
+        // TODO: add a reset method and call it in builders
+
+        let keys = self.key_builder.build_array()?;
+        let values = self.val_builder.build_array()?;
+
+        let len = self.validity.len();
+
+        let offsets = std::mem::take(&mut self.offsets);
+        let offsets = Buffer::from_vec(offsets);
+
+        let validity = std::mem::take(&mut self.validity);
+        let validity = build_null_bit_buffer(validity);
+
+        let inner = StructArray::from(vec![
+            (
+                Field::new("key", keys.data_type().clone(), false),
+                array::make_array(keys),
+            ),
+            (
+                Field::new("value", values.data_type().clone(), true),
+                array::make_array(values),
+            ),
+        ]);
+
+        let data_type = DataType::Map(
+            Box::new(Field::new(
+                "entries",
+                inner.data_type().clone(),
+                self.nullable,
+            )),
+            false,
+        );
+
+        let res = ArrayData::builder(data_type)
+            .len(len)
+            .add_buffer(offsets)
+            .add_child_data(inner.into_data())
+            .null_bit_buffer(Some(validity))
+            .build()?;
+        Ok(res)
     }
 }
 
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for DictionaryUtf8ArrayBuilder<B> {
     fn build_array(&mut self) -> Result<ArrayData> {
-        fail!("Cannot build dictionary arrays")
+        let values = self.values.build_array()?;
+        let keys = self.keys.build_array()?;
+
+        let data_type = DataType::Dictionary(
+            Box::new(keys.data_type().clone()),
+            Box::new(values.data_type().clone()),
+        );
+
+        let res = keys
+            .into_builder()
+            .data_type(data_type)
+            .child_data(vec![values])
+            .build()?;
+        Ok(res)
     }
 }

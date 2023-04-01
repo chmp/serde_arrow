@@ -32,9 +32,7 @@ use crate::{
     internal::{
         self,
         error::Result,
-        generic_sinks::{self, StructArrayBuilder},
         schema::{GenericField, TracingOptions},
-        sink::{DynamicArrayBuilder, EventSerializer, EventSink, StripOuterSequenceSink},
         source::{deserialize_from_source, AddOuterSequenceSource},
     },
 };
@@ -281,13 +279,12 @@ where
 /// assert_eq!(arrays.len(), 2);
 /// ```
 pub struct ArraysBuilder {
-    fields: Vec<GenericField>,
-    builder: StructArrayBuilder<DynamicArrayBuilder<Box<dyn Array>>>,
+    inner: internal::ArraysBuilder<Arrow2PrimitiveBuilders>,
 }
 
 impl std::fmt::Debug for ArraysBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArraysBuilder{{ fields: {:?} }}", self.fields)
+        write!(f, "ArraysBuilder<...>")
     }
 }
 
@@ -302,25 +299,21 @@ impl ArraysBuilder {
             .iter()
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
-        let builder =
-            generic_sinks::build_struct_array_builder::<Arrow2PrimitiveBuilders>(&fields)?;
-
-        Ok(Self { fields, builder })
+        Ok(Self {
+            inner: internal::ArraysBuilder::new(fields)?,
+        })
     }
 
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        item.serialize(EventSerializer(&mut self.builder))?;
-        Ok(())
+        self.inner.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        let mut builder = StripOuterSequenceSink::new(&mut self.builder);
-        items.serialize(EventSerializer(&mut builder))?;
-        Ok(())
+        self.inner.extend(items)
     }
 
     /// Build the arrays built from the rows pushed to far.
@@ -328,12 +321,7 @@ impl ArraysBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        let mut builder =
-            generic_sinks::build_struct_array_builder::<Arrow2PrimitiveBuilders>(&self.fields)?;
-        std::mem::swap(&mut builder, &mut self.builder);
-
-        builder.finish()?;
-        builder.build_arrays()
+        self.inner.build_arrays()
     }
 }
 

@@ -4,7 +4,10 @@ use std::{any::Any, collections::HashMap};
 use serde::Serialize;
 
 use crate::{
-    arrow2::{serialize_into_arrays, sinks::Arrow2PrimitiveBuilders},
+    arrow2::{
+        serialize_into_array, serialize_into_arrays, serialize_into_field,
+        sinks::Arrow2PrimitiveBuilders,
+    },
     impls::arrow2::{
         array::{Array, ListArray, PrimitiveArray, StructArray},
         bitmap::Bitmap,
@@ -14,11 +17,22 @@ use crate::{
         error::Result,
         event::Event,
         generic_sinks,
-        schema::GenericField,
+        schema::{GenericField, TracingOptions},
         sink::DynamicArrayBuilder,
         sink::{ArrayBuilder, EventSink},
     },
 };
+
+macro_rules! hashmap {
+    ($($key:expr => $value:expr),*) => {
+        {
+            #[allow(unused_mut)]
+            let mut res = HashMap::new();
+            $(res.insert($key.into(), $value.into());)*
+            res
+        }
+    };
+}
 
 fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
     let field = GenericField::try_from(field)?;
@@ -520,4 +534,72 @@ fn into_outer_maps_simple() {
     let expected1 = PrimitiveArray::<i32>::from_slice([1, 3]);
 
     assert_eq!(actual1, &expected1);
+}
+
+#[test]
+fn example_dictionary_str() {
+    let items = &["a", "b", "a", "c", "b"];
+
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().string_dictionary_encoding(true),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+}
+
+#[test]
+fn example_dictionary_str_opt() {
+    let items = &[Some("a"), Some("b"), None, Some("c"), Some("b")];
+
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().string_dictionary_encoding(true),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+
+    let nulls = (0..array.len())
+        .into_iter()
+        .map(|idx| array.is_null(idx))
+        .collect::<Vec<_>>();
+    assert_eq!(nulls, vec![false, false, true, false, false]);
+}
+
+#[test]
+fn example_map_ints() {
+    let items: &[HashMap<u32, u64>] = &[
+        hashmap!(1_u32 => 2_u64, 3_u32 => 4_u64),
+        hashmap!(5_u32 => 6_u64),
+    ];
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().map_as_struct(false),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
+}
+
+#[test]
+fn example_map_str_float() {
+    let items: &[HashMap<&'static str, f32>] =
+        &[hashmap!("a" => 13.0, "b" => 21.0), hashmap!("c" => 42.0)];
+    let field = serialize_into_field(
+        &items,
+        "root",
+        TracingOptions::default().map_as_struct(false),
+    )
+    .unwrap();
+    let array = serialize_into_array(&field, &items).unwrap();
+
+    assert_eq!(array.len(), items.len());
 }

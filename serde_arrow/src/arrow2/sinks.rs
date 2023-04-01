@@ -274,27 +274,43 @@ pub struct PrimitiveArrayBuilder<B> {
 }
 
 macro_rules! impl_primitive_array_builder {
-    ($ty:ty, $array:ty, $variant:ident) => {
+    ($ty:ty, $array:ty, $($variant:ident),*) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
             macros::forward_generic_to_specialized!();
             macros::accept_start!((_this, ev, _val, _next) {
-                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                fail!(
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    ev=ev,
+                    ty=stringify!($ty),
+                );
             });
             macros::accept_end!((_this, ev, _val, _next) {
-                fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                fail!(
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    ev=ev,
+                    ty=stringify!($ty),
+                );
             });
             macros::accept_marker!((_this, ev, _val, _next) {
                 if !matches!(ev, Event::Some) {
-                    fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+                    fail!(
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        ev=ev,
+                        ty=stringify!($ty),
+                    );
                 }
                 Ok(())
             });
             macros::accept_value!((this, ev, _val, _next) {
                 match ev {
-                    Event::$variant(_) => this.array.push(Some(ev.try_into()?)),
+                    $(Event::$variant(_) => this.array.push(Some(ev.try_into()?)),)*
                     Event::Null => this.array.push(None),
                     Event::Default => this.array.push(Some(Default::default())),
-                    ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+                    ev => fail!(
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        ev=ev,
+                        ty=stringify!($ty),
+                    ),
                 }
                 Ok(())
             });
@@ -321,15 +337,103 @@ macro_rules! impl_primitive_array_builder {
     };
 }
 
-impl_primitive_array_builder!(MutablePrimitiveArray<i8>, PrimitiveArray<_>, I8);
-impl_primitive_array_builder!(MutablePrimitiveArray<i16>, PrimitiveArray<_>, I16);
-impl_primitive_array_builder!(MutablePrimitiveArray<i32>, PrimitiveArray<_>, I32);
-impl_primitive_array_builder!(MutablePrimitiveArray<i64>, PrimitiveArray<_>, I64);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<i8>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<i16>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<i32>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<i64>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
 
-impl_primitive_array_builder!(MutablePrimitiveArray<u8>, PrimitiveArray<_>, U8);
-impl_primitive_array_builder!(MutablePrimitiveArray<u16>, PrimitiveArray<_>, U16);
-impl_primitive_array_builder!(MutablePrimitiveArray<u32>, PrimitiveArray<_>, U32);
-impl_primitive_array_builder!(MutablePrimitiveArray<u64>, PrimitiveArray<_>, U64);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<u8>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<u16>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<u32>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+impl_primitive_array_builder!(
+    MutablePrimitiveArray<u64>,
+    PrimitiveArray<_>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
 
 impl_primitive_array_builder!(MutablePrimitiveArray<f16>, PrimitiveArray<_>, F32);
 impl_primitive_array_builder!(MutablePrimitiveArray<f32>, PrimitiveArray<_>, F32);

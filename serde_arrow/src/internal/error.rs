@@ -11,8 +11,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 /// The error carries a backtrace if `RUST_BACKTRACE=1`, see [std::backtrace]
 /// for details. This backtrace is included when printing the error. If the
-/// error is caused byanother error, that error can be retrieved with the
-/// [std::error::Error::source] function.
+/// error is caused by another error, that error can be retrieved with the
+/// [source][std::error::Error::source] function.
 ///
 #[non_exhaustive]
 pub enum Error {

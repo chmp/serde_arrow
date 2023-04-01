@@ -59,8 +59,6 @@ where
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs).
 ///
-/// To build arrays record by record use [ArraysBuilder].
-///
 pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>>
 where
     T: Serialize + ?Sized,
@@ -82,4 +80,54 @@ where
     let field: GenericField = field.try_into()?;
     let data = internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)?;
     Ok(array::make_array(data))
+}
+
+/// Build arrays record by record
+///
+pub struct ArraysBuilder {
+    inner: internal::ArraysBuilder<ArrowPrimitiveBuilders>,
+}
+
+impl std::fmt::Debug for ArraysBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ArraysBuilder<...>")
+    }
+}
+
+impl ArraysBuilder {
+    /// Build a new ArraysBuilder for the given fields
+    ///
+    /// This method may fail when unsupported data types are encountered in the
+    /// given fields.
+    ///
+    pub fn new(fields: &[Field]) -> Result<Self> {
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            inner: internal::ArraysBuilder::new(fields)?,
+        })
+    }
+
+    /// Add a single record to the arrays
+    ///
+    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+        self.inner.push(item)
+    }
+
+    /// Add multiple records to the arrays
+    ///
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        self.inner.extend(items)
+    }
+
+    /// Build the arrays built from the rows pushed to far.
+    ///
+    /// This operation will reset the underlying buffers and start a new batch.
+    ///
+    pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
+        let data = self.inner.build_arrays()?;
+        Ok(data.into_iter().map(array::make_array).collect())
+    }
 }

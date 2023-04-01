@@ -1026,13 +1026,13 @@ impl PrimitiveTracer {
         }
 
         match self.item_type {
-            D::LargeUtf8 => {
+            dt @ (D::LargeUtf8 | D::Utf8) => {
                 if !self.string_dictionary_encoding {
-                    Ok(GenericField::new(name, D::LargeUtf8, self.nullable))
+                    Ok(GenericField::new(name, dt, self.nullable))
                 } else {
                     let field = GenericField::new(name, D::Dictionary, self.nullable)
                         .with_child(GenericField::new("key", D::U32, false))
-                        .with_child(GenericField::new("value", D::LargeUtf8, false));
+                        .with_child(GenericField::new("value", dt, false));
                     Ok(field)
                 }
             }
