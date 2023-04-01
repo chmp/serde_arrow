@@ -14,6 +14,7 @@ bench = false
 [features]
 default = []
 
+arrow-35 = ["dep:arrow-array-35", "dep:arrow-schema-35", "dep:arrow-data-35", "dep:arrow-buffer-35"]
 arrow-36 = ["dep:arrow-array-36", "dep:arrow-schema-36", "dep:arrow-data-36", "dep:arrow-buffer-36"]
 
 [[bench]]
@@ -25,6 +26,11 @@ harness = false
 features = ["arrow2-0-17", "arrow-36"]
 
 [dependencies]
+arrow-array-35 = { package = "arrow-array", version = "35", optional = true }
+arrow-buffer-35 = { package = "arrow-buffer", version = "35", optional = true }
+arrow-data-35 = { package = "arrow-data", version="35", optional = true }
+arrow-schema-35 = { package = "arrow-schema", version = "35", optional = true }
+
 arrow-array-36 = { package = "arrow-array", version = "36", optional = true }
 arrow-buffer-36 = { package = "arrow-buffer", version = "36", optional = true }
 arrow-data-36 = { package = "arrow-data", version="36", optional = true }

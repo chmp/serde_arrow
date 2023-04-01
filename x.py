@@ -16,10 +16,8 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
-all_arrow_features = ["arrow-36"]
-
+all_arrow_features = ["arrow-35", "arrow-36"]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
-
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
 
