@@ -6,11 +6,12 @@ use std::{
     fmt::Debug,
 };
 
-use crate::impls::arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
+    impls::arrow2::datatypes::{DataType, Field, UnionMode},
+    internal::schema::GenericField,
     schema::{Strategy, TracingOptions, STRATEGY_KEY},
 };
 
@@ -45,7 +46,6 @@ macro_rules! btreemap {
 
 macro_rules! test_round_trip {
     (
-        $(#[$($tt:tt)*])?
         test_name = $test_name:ident,
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
@@ -54,31 +54,55 @@ macro_rules! test_round_trip {
         values = $values:expr,
         $(define = { $($definitions:item)* } ,)?
     ) => {
-        $(#[$($tt)*])?
-        #[test]
-        fn $test_name() {
-            $($($definitions)*)?
+        #[allow(unused)]
+        mod $test_name {
+            use super::*;
 
-            let items: &[$ty] = &$values;
+            #[test]
+            fn tracing() {
+                $($($definitions)*)?
 
-            let field = $field;
+                let items: &[$ty] = &$values;
+                let field = $field;
 
-            #[allow(unused)]
-            let options = TracingOptions::default();
-            $(let options = $tracing_options;)?
+                #[allow(unused)]
+                let options = TracingOptions::default();
+                $(let options = $tracing_options;)?
 
-            println!("{options:?}");
+                println!("{options:?}");
 
-            let res_field = serialize_into_field(&items, "value", options).unwrap();
-            assert_eq!(res_field, field);
+                let res_field = serialize_into_field(&items, "value", options).unwrap();
+                assert_eq!(res_field, field);
+            }
 
-            // overwrite the field to customize the serialization
-            $(let field = $overwrite_field;)?
+            #[test]
+            fn round_trip_array() {
+                $($($definitions)*)?
 
-            let array = serialize_into_array(&field, &items).unwrap();
+                let items: &[$ty] = &$values;
+                let field = $field;
+                $(let field = $overwrite_field;)?
 
-            let res_items: Vec<$ty> = deserialize_from_array(&field, array.as_ref()).unwrap();
-            assert_eq!(res_items, items);
+                let array = serialize_into_array(&field, &items).unwrap();
+                assert_eq!(field.data_type(), array.data_type());
+
+                let res_items: Vec<$ty> = deserialize_from_array(&field, array.as_ref()).unwrap();
+                assert_eq!(res_items, items);
+            }
+
+            #[test]
+            fn field_to_generic_and_back() {
+                $($($definitions)*)?
+
+                let items: &[$ty] = &$values;
+                let field = $field;
+                $(let field = $overwrite_field;)?
+
+                let actual = GenericField::try_from(&field).unwrap();
+                let actual = Field::try_from(&actual).unwrap();
+
+                assert_eq!(field, actual);
+            }
         }
     };
 }
