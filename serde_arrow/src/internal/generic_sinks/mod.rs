@@ -60,17 +60,15 @@ where
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
-    let mut columnes = Vec::new();
-    let mut nullable = Vec::new();
+    let mut field_meta = Vec::new();
     let mut builders = Vec::new();
 
     for field in fields {
-        columnes.push(field.name.to_owned());
-        nullable.push(field.nullable);
+        field_meta.push(field.into());
         builders.push(build_array_builder::<Arrow>(field)?);
     }
 
-    Ok(StructArrayBuilder::new(columnes, nullable, builders))
+    Ok(StructArrayBuilder::new(field_meta, builders))
 }
 
 pub fn build_array_builder<Arrow>(
@@ -122,21 +120,20 @@ where
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
-                let nullable = field.children.iter().map(|f| f.nullable).collect();
+                let field_meta = field.children.iter().map(|f| f.into()).collect();
 
-                let builder = TupleStructBuilder::new(nullable, builders);
+                let builder = TupleStructBuilder::new(field_meta, builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             None | Some(Strategy::MapAsStruct) => {
-                let names = field.children.iter().map(|f| f.name.to_owned()).collect();
+                let field_meta = field.children.iter().map(|f| f.into()).collect();
                 let builders = field
                     .children
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
-                let nullable = field.children.iter().map(|f| f.nullable).collect();
 
-                let builder = StructArrayBuilder::new(names, nullable, builders);
+                let builder = StructArrayBuilder::new(field_meta, builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             Some(strategy) => fail!("Invalid strategy {strategy} for type Struct"),

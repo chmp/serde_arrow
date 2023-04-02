@@ -392,11 +392,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<
         let mut data = Vec::new();
         for (i, builder) in self.builders.iter_mut().enumerate() {
             let arr = builder.build_array()?;
-            let field = Field::new(
-                self.columns[i].to_string(),
-                arr.data_type().clone(),
-                self.nullable[i],
-            );
+            let field = self.field_meta[i].to_arrow(arr.data_type());
             data.push((field, array::make_array(arr)));
         }
         Ok(StructArray::from(data).into_data())
@@ -413,7 +409,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
         let mut data = Vec::new();
         for (i, builder) in self.builders.iter_mut().enumerate() {
             let arr = builder.build_array()?;
-            let field = Field::new(i.to_string(), arr.data_type().clone(), self.nullable[i]);
+            let field = self.field_meta[i].to_arrow(arr.data_type());
             data.push((field, array::make_array(arr)));
         }
         Ok(StructArray::from(data).into_data())
