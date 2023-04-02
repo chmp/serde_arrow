@@ -910,9 +910,12 @@ impl MapTracer {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
+        let mut entries = GenericField::new("entries", GenericDataType::Struct, false);
+        entries.children.push(self.key.to_field("key")?);
+        entries.children.push(self.value.to_field("value")?);
+
         let mut field = GenericField::new(name, GenericDataType::Map, self.nullable);
-        field.children.push(self.key.to_field("key")?);
-        field.children.push(self.value.to_field("value")?);
+        field.children.push(entries);
 
         Ok(field)
     }

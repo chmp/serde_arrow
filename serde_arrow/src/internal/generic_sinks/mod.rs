@@ -167,19 +167,30 @@ where
             )))
         }
         Map => {
-            let key = field
+            let entries = field
                 .children
                 .get(0)
-                .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let key = build_array_builder::<Arrow>(key)?;
+                .ok_or_else(|| error!("Dictionary must have an entries child"))?;
 
-            let value = field
+            if !matches!(entries.data_type, GenericDataType::Struct) {
+                fail!("The entries child of a map must be of type struct");
+            }
+            let key = entries
+                .children
+                .get(0)
+                .ok_or_else(|| error!("Dictionary entries must have key, value children"))?;
+            let value = entries
                 .children
                 .get(1)
-                .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let value = build_array_builder::<Arrow>(value)?;
+                .ok_or_else(|| error!("Dictionary entries must have key, value children"))?;
 
-            let builder = MapArrayBuilder::new(key, value, field.nullable);
+            let builder = MapArrayBuilder::new(
+                entries.into(),
+                key.into(),
+                build_array_builder::<Arrow>(key)?,
+                value.into(),
+                build_array_builder::<Arrow>(value)?,
+            );
             Ok(DynamicArrayBuilder::new(builder))
         }
         ty @ (List | LargeList) => {

@@ -7,7 +7,7 @@ use crate::{
             UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
-        datatypes::{DataType, Field, IntegerType, UnionMode},
+        datatypes::{DataType, IntegerType, UnionMode},
         offset::OffsetsBuffer,
         types::{f16, Offset},
     },
@@ -216,14 +216,14 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayB
 
         // TODO: fix nullability of different fields
         let entries_type = DataType::Struct(vec![
-            Field::new("key", keys.data_type().clone(), false),
-            Field::new("value", vals.data_type().clone(), false),
+            self.key_meta.to_arrow2(keys.data_type()),
+            self.val_meta.to_arrow2(vals.data_type()),
         ]);
 
         let entries = StructArray::try_new(entries_type.clone(), vec![keys, vals], None)?;
         let entries: Box<dyn Array> = Box::new(entries);
 
-        let map_type = DataType::Map(Box::new(Field::new("entries", entries_type, false)), false);
+        let map_type = DataType::Map(Box::new(self.field_meta.to_arrow2(&entries_type)), false);
 
         let array = MapArray::try_new(
             map_type,

@@ -15,7 +15,7 @@ use crate::{
         },
         buffer::Buffer,
         data::ArrayData,
-        schema::{DataType, Field, UnionMode},
+        schema::{DataType, UnionMode},
     },
     internal::{
         error::{fail, Result},
@@ -527,23 +527,16 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
 
         let inner = StructArray::from(vec![
             (
-                Field::new("key", keys.data_type().clone(), false),
+                self.key_meta.to_arrow(keys.data_type()),
                 array::make_array(keys),
             ),
             (
-                Field::new("value", values.data_type().clone(), true),
+                self.val_meta.to_arrow(values.data_type()),
                 array::make_array(values),
             ),
         ]);
 
-        let data_type = DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                inner.data_type().clone(),
-                self.nullable,
-            )),
-            false,
-        );
+        let data_type = DataType::Map(Box::new(self.field_meta.to_arrow(inner.data_type())), false);
 
         let res = ArrayData::builder(data_type)
             .len(len)

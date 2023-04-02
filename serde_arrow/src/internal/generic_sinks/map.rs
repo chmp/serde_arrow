@@ -2,18 +2,21 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{fail, Result},
+        schema::FieldMetadata,
         sink::macros,
     },
 };
 
 pub struct MapArrayBuilder<B> {
     next: MapBuilderState,
+    pub field_meta: FieldMetadata,
+    pub key_meta: FieldMetadata,
     pub key_builder: B,
+    pub val_meta: FieldMetadata,
     pub val_builder: B,
     pub offsets: Vec<i32>,
     pub offset: i32,
     pub validity: Vec<bool>,
-    pub nullable: bool,
     pub finished: bool,
 }
 
@@ -25,15 +28,23 @@ enum MapBuilderState {
 }
 
 impl<B> MapArrayBuilder<B> {
-    pub fn new(key_builder: B, val_builder: B, nullable: bool) -> Self {
+    pub fn new(
+        field_meta: FieldMetadata,
+        key_meta: FieldMetadata,
+        key_builder: B,
+        val_meta: FieldMetadata,
+        val_builder: B,
+    ) -> Self {
         Self {
-            next: MapBuilderState::Start,
+            field_meta,
+            key_meta,
             key_builder,
+            val_meta,
             val_builder,
+            next: MapBuilderState::Start,
             offsets: vec![0],
             offset: 0,
             validity: Vec::new(),
-            nullable,
             finished: false,
         }
     }
