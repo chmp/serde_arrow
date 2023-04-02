@@ -477,11 +477,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
     let null_bit_buffer = build_null_bit_buffer(validity);
     let offset_buffer = Buffer::from_vec(offsets);
 
-    let field = Box::new(Field::new(
-        "item",
-        values.data_type().clone(),
-        true, // TODO: find a consistent way of getting this
-    ));
+    let field = Box::new(this.field_meta.to_arrow(values.data_type()));
     let data_type = GenericListArray::<O>::DATA_TYPE_CONSTRUCTOR(field);
     let array_data_builder = ArrayData::builder(data_type)
         .len(len)

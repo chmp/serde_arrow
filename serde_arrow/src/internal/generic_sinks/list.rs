@@ -1,28 +1,26 @@
 use crate::{
     base::{Event, EventSink},
-    internal::{error::fail, sink::macros},
+    internal::{error::fail, schema::FieldMetadata, sink::macros},
     Error, Result,
 };
 
 pub struct ListArrayBuilder<B, O> {
+    pub field_meta: FieldMetadata,
     pub builder: B,
     next: ListBuilderState,
     pub offsets: Vec<O>,
     pub validity: Vec<bool>,
-    pub item_name: String,
-    pub nullable: bool,
     pub finished: bool,
 }
 
 impl<B, O: Default> ListArrayBuilder<B, O> {
-    pub fn new(builder: B, item_name: String, nullable: bool) -> Self {
+    pub fn new(field_meta: FieldMetadata, builder: B) -> Self {
         Self {
+            field_meta,
             builder,
             next: ListBuilderState::Start { offset: 0 },
             offsets: vec![Default::default()],
             validity: Vec::new(),
-            item_name,
-            nullable,
             finished: false,
         }
     }

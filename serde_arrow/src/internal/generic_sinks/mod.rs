@@ -188,16 +188,16 @@ where
                 .first()
                 .ok_or_else(|| error!("List must have a single child"))?;
             let values = build_array_builder::<Arrow>(child)?;
-            let name = field.name.to_string();
-            let nullable = field.nullable;
 
             if let List = ty {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i32>::new(
-                    values, name, nullable,
+                    child.into(),
+                    values,
                 )))
             } else {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i64>::new(
-                    values, name, nullable,
+                    child.into(),
+                    values,
                 )))
             }
         }

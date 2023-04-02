@@ -178,11 +178,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
 
         let values = self.builder.build_array()?;
         let array = ListArray::try_new(
-            DataType::List(Box::new(Field::new(
-                self.item_name.clone(),
-                values.data_type().clone(),
-                self.nullable,
-            ))),
+            DataType::List(Box::new(self.field_meta.to_arrow2(values.data_type()))),
             OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
             Some(Bitmap::from(std::mem::take(&mut self.validity))),
@@ -199,11 +195,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
 
         let values = self.builder.build_array()?;
         let array = ListArray::try_new(
-            DataType::LargeList(Box::new(Field::new(
-                self.item_name.clone(),
-                values.data_type().clone(),
-                self.nullable,
-            ))),
+            DataType::LargeList(Box::new(self.field_meta.to_arrow2(values.data_type()))),
             OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
             Some(Bitmap::from(std::mem::take(&mut self.validity))),
