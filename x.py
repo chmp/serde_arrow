@@ -5,7 +5,6 @@ import pathlib
 import statistics
 import subprocess
 import sys
-import toml
 
 self_path = pathlib.Path(__file__).parent.resolve()
 
@@ -39,15 +38,17 @@ def precommit(backtrace=False):
 def fmt():
     cargo("fmt")
 
+
 @cmd()
 def check():
     cargo("check")
     for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
         cargo("check", "--features", arrow2_feature)
 
+
 @cmd()
 def lint():
-    check_docs_config()
+    check_cargo_toml()
     cargo("clippy", "--features", default_features)
 
 
@@ -64,18 +65,34 @@ def test(backtrace=False):
 
 
 @cmd()
-def check_docs_config():
+def check_cargo_toml():
+    import toml
+
     with open(self_path / "serde_arrow" / "Cargo.toml", "rt") as fobj:
         config = toml.load(fobj)
 
-    docs_features = sorted(config["package"]["metadata"]["docs"]["rs"]["features"])
-    expected_features = sorted(default_features.split(","))
+    for label, features in [
+        (
+            "docs.rs configuration",
+            config["package"]["metadata"]["docs"]["rs"]["features"],
+        ),
+        *[
+            (f"test {target['name']}", target["required-features"])
+            for target in config.get("test", [])
+        ],
+        *[
+            (f"bench {target['name']}", target["required-features"])
+            for target in config.get("bench", [])
+        ],
+    ]:
+        actual_features = sorted(features)
+        expected_features = sorted(default_features.split(","))
 
-    if docs_features != expected_features:
-        raise ValueError(
-            "Invalid docs.rs configuration. "
-            f"Expected features {expected_features}, found: {docs_features}"
-        )
+        if actual_features != expected_features:
+            raise ValueError(
+                f"Invalid {label}. "
+                f"Expected features {expected_features}, found: {actual_features}"
+            )
 
 
 @cmd()
