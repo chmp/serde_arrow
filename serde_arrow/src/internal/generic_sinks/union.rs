@@ -2,14 +2,14 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{fail, Result},
-        schema::FieldMetadata,
+        schema::FieldMeta,
         sink::macros,
     },
 };
 
 pub struct UnionArrayBuilder<B> {
     next: UnionBuilderState,
-    pub field_meta: Vec<FieldMetadata>,
+    pub field_meta: Vec<FieldMeta>,
     pub nullable: bool,
 
     pub current_field_offsets: Vec<i32>,
@@ -20,7 +20,7 @@ pub struct UnionArrayBuilder<B> {
 }
 
 impl<B> UnionArrayBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMetadata>, field_builders: Vec<B>, nullable: bool) -> Self {
+    pub fn new(field_meta: Vec<FieldMeta>, field_builders: Vec<B>, nullable: bool) -> Self {
         let current_field_offsets = vec![0; field_builders.len()];
         Self {
             field_meta,

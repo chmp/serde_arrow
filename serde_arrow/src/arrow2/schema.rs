@@ -3,7 +3,7 @@ use crate::{
     impls::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     internal::{
         error::{error, fail, Error},
-        schema::{FieldMetadata, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
+        schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
     Result,
 };
@@ -317,7 +317,7 @@ impl TryFrom<&GenericField> for Field {
     }
 }
 
-impl FieldMetadata {
+impl FieldMeta {
     pub fn to_arrow2(&self, data_type: &DataType) -> Field {
         let mut field = Field::new(self.name.to_string(), data_type.clone(), self.nullable);
         field.metadata = self.strategy.clone().map(|s| s.into()).unwrap_or_default();

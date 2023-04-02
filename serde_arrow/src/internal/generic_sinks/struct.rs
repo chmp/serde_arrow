@@ -2,14 +2,14 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{error, fail},
-        schema::FieldMetadata,
+        schema::FieldMeta,
         sink::{macros, ArrayBuilder},
     },
     Result,
 };
 
 pub struct StructArrayBuilder<B> {
-    pub(crate) field_meta: Vec<FieldMetadata>,
+    pub(crate) field_meta: Vec<FieldMeta>,
     /// the builders of the sub arrays
     pub(crate) builders: Vec<B>,
     /// the validity of the items
@@ -20,7 +20,7 @@ pub struct StructArrayBuilder<B> {
 }
 
 impl<B> StructArrayBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMetadata>, builders: Vec<B>) -> Self {
+    pub fn new(field_meta: Vec<FieldMeta>, builders: Vec<B>) -> Self {
         let num_columns = field_meta.len();
         Self {
             field_meta,

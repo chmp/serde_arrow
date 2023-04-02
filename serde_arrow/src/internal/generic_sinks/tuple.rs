@@ -2,13 +2,13 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{fail, Result},
-        schema::FieldMetadata,
+        schema::FieldMeta,
         sink::macros,
     },
 };
 
 pub struct TupleStructBuilder<B> {
-    pub(crate) field_meta: Vec<FieldMetadata>,
+    pub(crate) field_meta: Vec<FieldMeta>,
     pub(crate) builders: Vec<B>,
     pub(crate) validity: Vec<bool>,
     pub(crate) state: TupleArrayBuilderState,
@@ -16,7 +16,7 @@ pub struct TupleStructBuilder<B> {
 }
 
 impl<B> TupleStructBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMetadata>, builders: Vec<B>) -> Self {
+    pub fn new(field_meta: Vec<FieldMeta>, builders: Vec<B>) -> Self {
         Self {
             field_meta,
             builders,
