@@ -165,11 +165,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArra
 
         let mut fields = Vec::new();
         for (i, value) in values.iter().enumerate() {
-            fields.push(Field::new(
-                i.to_string(),
-                value.data_type().clone(),
-                self.field_nullable[i],
-            ));
+            fields.push(self.field_meta[i].to_arrow2(value.data_type()));
         }
         let data_type = DataType::Union(fields, None, UnionMode::Dense);
 

@@ -441,11 +441,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
         let mut field_indices = Vec::new();
 
         for (i, value) in values.iter().enumerate() {
-            fields.push(Field::new(
-                i.to_string(),
-                value.data_type().clone(),
-                self.field_nullable[i],
-            ));
+            fields.push(self.field_meta[i].to_arrow(value.data_type()));
             field_indices.push(i8::try_from(i)?);
         }
 

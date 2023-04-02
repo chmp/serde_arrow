@@ -147,9 +147,9 @@ where
                 .iter()
                 .map(build_array_builder::<Arrow>)
                 .collect::<Result<Vec<_>>>()?;
-            let nullable = field.children.iter().map(|f| f.nullable).collect();
+            let meta = field.children.iter().map(|f| f.into()).collect();
 
-            let builder = UnionArrayBuilder::new(builders, nullable, field.nullable);
+            let builder = UnionArrayBuilder::new(meta, builders, field.nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
         Dictionary => {
