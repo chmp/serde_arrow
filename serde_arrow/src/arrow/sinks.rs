@@ -23,6 +23,7 @@ use crate::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
         },
+        schema::FieldMeta,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
 };
@@ -382,20 +383,41 @@ impl<O: OffsetSizeTrait> ArrayBuilder<ArrayData> for Utf8ArrayBuilder<O> {
     }
 }
 
+fn build_struct_array<B>(
+    field_meta: &[FieldMeta],
+    builders: &mut [B],
+    validity: &mut Vec<bool>,
+) -> Result<ArrayData>
+where
+    B: ArrayBuilder<ArrayData>,
+{
+    let validity = std::mem::take(validity);
+    let len = validity.len();
+    let validity = build_null_bit_buffer(validity);
+
+    let mut fields = Vec::new();
+    let mut data = Vec::new();
+
+    for (i, builder) in builders.iter_mut().enumerate() {
+        let arr = builder.build_array()?;
+        fields.push(field_meta[i].to_arrow(arr.data_type()));
+        data.push(arr);
+    }
+
+    Ok(ArrayData::builder(DataType::Struct(fields))
+        .len(len)
+        .null_bit_buffer(Some(validity))
+        .child_data(data)
+        .build()?)
+}
+
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<B> {
     fn build_array(&mut self) -> Result<ArrayData> {
         if !self.finished {
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
-        // TODO: use manual built include the null bits?
-        let mut data = Vec::new();
-        for (i, builder) in self.builders.iter_mut().enumerate() {
-            let arr = builder.build_array()?;
-            let field = self.field_meta[i].to_arrow(arr.data_type());
-            data.push((field, array::make_array(arr)));
-        }
-        Ok(StructArray::from(data).into_data())
+        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
     }
 }
 
@@ -405,14 +427,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
-        // TODO: use manual built include the null bits?
-        let mut data = Vec::new();
-        for (i, builder) in self.builders.iter_mut().enumerate() {
-            let arr = builder.build_array()?;
-            let field = self.field_meta[i].to_arrow(arr.data_type());
-            data.push((field, array::make_array(arr)));
-        }
-        Ok(StructArray::from(data).into_data())
+        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
     }
 }
 

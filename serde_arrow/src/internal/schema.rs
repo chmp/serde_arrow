@@ -183,6 +183,11 @@ impl GenericField {
         self.children.push(child);
         self
     }
+
+    pub fn with_strategy(mut self, strategy: Strategy) -> Self {
+        self.strategy = Some(strategy);
+        self
+    }
 }
 
 // Any non-dtype related info about a field

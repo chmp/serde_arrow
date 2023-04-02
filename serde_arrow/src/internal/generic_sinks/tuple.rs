@@ -39,13 +39,10 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
         use TupleArrayBuilderState::*;
 
         this.state = match this.state {
-            Start => {
-                if matches!(ev, Event::StartTuple) {
-                    Value(0, 0)
-                } else {
-                    fail!("Invalid event {ev} in state {:?}", this.state)
-                }
-            }
+            Start => match ev {
+                Event::StartTuple => Value(0, 0),
+                ev => fail!("Invalid event {ev} in state {:?} [TupleStructBuilder]", this.state),
+            },
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;
                 Value(active, depth + 1)
@@ -63,7 +60,7 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
                     this.validity.push(true);
                     Start
                 } else {
-                    fail!("Unbalanced opening / close events in TupleStructBuilder")
+                    fail!("Unbalanced opening / close events [TupleStructBuilder]")
                 }
             }
             Value(active, depth) => {
@@ -73,14 +70,11 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
         };
         Ok(())
     });
-    macros::accept_marker!((this, ev, val, next) {
+    macros::accept_marker!((this, _ev, val, next) {
         use TupleArrayBuilderState::*;
 
         this.state = match this.state {
             Start => Start,
-            Value(_, 0) => {
-                fail!("Invalid event {ev} in state {:?}", this.state)
-            }
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;
                 Value(active, depth)
@@ -106,7 +100,7 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
                     this.validity.push(true);
                     Start
                 } else {
-                    fail!("Invalid event {ev} in state {:?}", this.state)
+                    fail!("Invalid event {ev} in state {:?} [TupleStructBuilder]", this.state)
                 }
             }
             Value(active, 0) => {
@@ -123,7 +117,10 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
 
     fn finish(&mut self) -> Result<()> {
         if !matches!(self.state, TupleArrayBuilderState::Start) {
-            fail!("Invalid state at array construction");
+            fail!(
+                "Invalid state {:?} in finish [TupleStructBuilder]",
+                self.state
+            );
         }
         for builder in &mut self.builders {
             builder.finish()?;
