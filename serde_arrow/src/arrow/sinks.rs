@@ -15,7 +15,7 @@ use crate::{
         },
         buffer::Buffer,
         data::ArrayData,
-        schema::{DataType, Field, UnionMode},
+        schema::{DataType, UnionMode},
     },
     internal::{
         error::{fail, Result},
@@ -23,6 +23,7 @@ use crate::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
         },
+        schema::FieldMeta,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
 };
@@ -382,24 +383,41 @@ impl<O: OffsetSizeTrait> ArrayBuilder<ArrayData> for Utf8ArrayBuilder<O> {
     }
 }
 
+fn build_struct_array<B>(
+    field_meta: &[FieldMeta],
+    builders: &mut [B],
+    validity: &mut Vec<bool>,
+) -> Result<ArrayData>
+where
+    B: ArrayBuilder<ArrayData>,
+{
+    let validity = std::mem::take(validity);
+    let len = validity.len();
+    let validity = build_null_bit_buffer(validity);
+
+    let mut fields = Vec::new();
+    let mut data = Vec::new();
+
+    for (i, builder) in builders.iter_mut().enumerate() {
+        let arr = builder.build_array()?;
+        fields.push(field_meta[i].to_arrow(arr.data_type()));
+        data.push(arr);
+    }
+
+    Ok(ArrayData::builder(DataType::Struct(fields))
+        .len(len)
+        .null_bit_buffer(Some(validity))
+        .child_data(data)
+        .build()?)
+}
+
 impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<B> {
     fn build_array(&mut self) -> Result<ArrayData> {
         if !self.finished {
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
-        // TODO: use manual built include the null bits?
-        let mut data = Vec::new();
-        for (i, builder) in self.builders.iter_mut().enumerate() {
-            let arr = builder.build_array()?;
-            let field = Field::new(
-                self.columns[i].to_string(),
-                arr.data_type().clone(),
-                self.nullable[i],
-            );
-            data.push((field, array::make_array(arr)));
-        }
-        Ok(StructArray::from(data).into_data())
+        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
     }
 }
 
@@ -409,14 +427,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
-        // TODO: use manual built include the null bits?
-        let mut data = Vec::new();
-        for (i, builder) in self.builders.iter_mut().enumerate() {
-            let arr = builder.build_array()?;
-            let field = Field::new(i.to_string(), arr.data_type().clone(), self.nullable[i]);
-            data.push((field, array::make_array(arr)));
-        }
-        Ok(StructArray::from(data).into_data())
+        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
     }
 }
 
@@ -441,11 +452,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
         let mut field_indices = Vec::new();
 
         for (i, value) in values.iter().enumerate() {
-            fields.push(Field::new(
-                i.to_string(),
-                value.data_type().clone(),
-                self.field_nullable[i],
-            ));
+            fields.push(self.field_meta[i].to_arrow(value.data_type()));
             field_indices.push(i8::try_from(i)?);
         }
 
@@ -485,11 +492,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
     let null_bit_buffer = build_null_bit_buffer(validity);
     let offset_buffer = Buffer::from_vec(offsets);
 
-    let field = Box::new(Field::new(
-        "item",
-        values.data_type().clone(),
-        true, // TODO: find a consistent way of getting this
-    ));
+    let field = Box::new(this.field_meta.to_arrow(values.data_type()));
     let data_type = GenericListArray::<O>::DATA_TYPE_CONSTRUCTOR(field);
     let array_data_builder = ArrayData::builder(data_type)
         .len(len)
@@ -539,23 +542,16 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
 
         let inner = StructArray::from(vec![
             (
-                Field::new("key", keys.data_type().clone(), false),
+                self.key_meta.to_arrow(keys.data_type()),
                 array::make_array(keys),
             ),
             (
-                Field::new("value", values.data_type().clone(), true),
+                self.val_meta.to_arrow(values.data_type()),
                 array::make_array(values),
             ),
         ]);
 
-        let data_type = DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                inner.data_type().clone(),
-                self.nullable,
-            )),
-            false,
-        );
+        let data_type = DataType::Map(Box::new(self.field_meta.to_arrow(inner.data_type())), false);
 
         let res = ArrayData::builder(data_type)
             .len(len)

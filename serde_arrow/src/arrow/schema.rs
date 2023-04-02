@@ -2,7 +2,7 @@ use crate::{
     impls::arrow::schema::{DataType, Field, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
+        schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
 };
 
@@ -60,19 +60,7 @@ impl TryFrom<&Field> for GenericField {
                 GenericDataType::Struct
             }
             DataType::Map(field, _) => {
-                let kv_fields = match field.data_type() {
-                    DataType::Struct(fields) => fields,
-                    dt => fail!("Expected inner field of Map to be Struct, found: {dt:?}",),
-                };
-                if kv_fields.len() != 2 {
-                    fail!(
-                        "Expected two fields (key and value) in map struct, found: {}",
-                        kv_fields.len()
-                    );
-                }
-                for field in kv_fields {
-                    children.push(field.try_into()?);
-                }
+                children.push(field.as_ref().try_into()?);
                 GenericDataType::Map
             }
             DataType::Union(fields, field_indices, mode) => {
@@ -157,22 +145,11 @@ impl TryFrom<&GenericField> for Field {
                     .collect::<Result<Vec<_>>>()?,
             ),
             GenericDataType::Map => {
-                let key_field: Field = value
+                let element_field: Field = value
                     .children
                     .get(0)
-                    .ok_or_else(|| error!("Map must a two children"))?
+                    .ok_or_else(|| error!("Map must a single child"))?
                     .try_into()?;
-                let val_field: Field = value
-                    .children
-                    .get(1)
-                    .ok_or_else(|| error!("Map must a two children"))?
-                    .try_into()?;
-                let element_field = Field::new(
-                    "entries",
-                    DataType::Struct(vec![key_field, val_field]),
-                    false,
-                );
-
                 DataType::Map(Box::new(element_field), false)
             }
             GenericDataType::Union => DataType::Union(
@@ -220,5 +197,13 @@ impl TryFrom<&GenericField> for Field {
         }
 
         Ok(field)
+    }
+}
+
+impl FieldMeta {
+    pub fn to_arrow(&self, data_type: &DataType) -> Field {
+        let mut field = Field::new(self.name.to_string(), data_type.clone(), self.nullable);
+        field.set_metadata(self.strategy.clone().map(|s| s.into()).unwrap_or_default());
+        field
     }
 }

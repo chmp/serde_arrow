@@ -110,6 +110,13 @@ pub mod arrow2;
 #[cfg(any(feature = "arrow-36", feature = "arrow-35"))]
 pub mod arrow;
 
+#[cfg(all(
+    test,
+    any(feature = "arrow-36", feature = "arrow-35"),
+    any(feature = "arrow2-0-17", feature = "arrow2-0-16")
+))]
+mod test_impls;
+
 #[cfg(test)]
 mod test;
 

@@ -17,6 +17,7 @@ macro_rules! test {
             let array = serialize_into_array(&field, &items).unwrap();
 
             assert_eq!(array.len(), items.len());
+            assert_eq!(array.data_type(), field.data_type());
         }
     };
 }
@@ -141,3 +142,12 @@ fn example_map_str_float() {
 
     assert_eq!(array.len(), items.len());
 }
+
+test!(
+    example_list_nullable_u64,
+    [
+        vec![Some(1_u64), None, Some(2_u64)],
+        vec![Some(4_u64), None],
+        vec![]
+    ]
+);

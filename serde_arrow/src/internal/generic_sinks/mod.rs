@@ -60,17 +60,15 @@ where
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
-    let mut columnes = Vec::new();
-    let mut nullable = Vec::new();
+    let mut field_meta = Vec::new();
     let mut builders = Vec::new();
 
     for field in fields {
-        columnes.push(field.name.to_owned());
-        nullable.push(field.nullable);
+        field_meta.push(field.into());
         builders.push(build_array_builder::<Arrow>(field)?);
     }
 
-    Ok(StructArrayBuilder::new(columnes, nullable, builders))
+    Ok(StructArrayBuilder::new(field_meta, builders))
 }
 
 pub fn build_array_builder<Arrow>(
@@ -122,21 +120,20 @@ where
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
-                let nullable = field.children.iter().map(|f| f.nullable).collect();
+                let field_meta = field.children.iter().map(|f| f.into()).collect();
 
-                let builder = TupleStructBuilder::new(nullable, builders);
+                let builder = TupleStructBuilder::new(field_meta, builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             None | Some(Strategy::MapAsStruct) => {
-                let names = field.children.iter().map(|f| f.name.to_owned()).collect();
+                let field_meta = field.children.iter().map(|f| f.into()).collect();
                 let builders = field
                     .children
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
-                let nullable = field.children.iter().map(|f| f.nullable).collect();
 
-                let builder = StructArrayBuilder::new(names, nullable, builders);
+                let builder = StructArrayBuilder::new(field_meta, builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             Some(strategy) => fail!("Invalid strategy {strategy} for type Struct"),
@@ -147,9 +144,9 @@ where
                 .iter()
                 .map(build_array_builder::<Arrow>)
                 .collect::<Result<Vec<_>>>()?;
-            let nullable = field.children.iter().map(|f| f.nullable).collect();
+            let meta = field.children.iter().map(|f| f.into()).collect();
 
-            let builder = UnionArrayBuilder::new(builders, nullable, field.nullable);
+            let builder = UnionArrayBuilder::new(meta, builders, field.nullable);
             Ok(DynamicArrayBuilder::new(builder))
         }
         Dictionary => {
@@ -170,19 +167,30 @@ where
             )))
         }
         Map => {
-            let key = field
+            let entries = field
                 .children
                 .get(0)
-                .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let key = build_array_builder::<Arrow>(key)?;
+                .ok_or_else(|| error!("Dictionary must have an entries child"))?;
 
-            let value = field
+            if !matches!(entries.data_type, GenericDataType::Struct) {
+                fail!("The entries child of a map must be of type struct");
+            }
+            let key = entries
+                .children
+                .get(0)
+                .ok_or_else(|| error!("Dictionary entries must have key, value children"))?;
+            let value = entries
                 .children
                 .get(1)
-                .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let value = build_array_builder::<Arrow>(value)?;
+                .ok_or_else(|| error!("Dictionary entries must have key, value children"))?;
 
-            let builder = MapArrayBuilder::new(key, value, field.nullable);
+            let builder = MapArrayBuilder::new(
+                entries.into(),
+                key.into(),
+                build_array_builder::<Arrow>(key)?,
+                value.into(),
+                build_array_builder::<Arrow>(value)?,
+            );
             Ok(DynamicArrayBuilder::new(builder))
         }
         ty @ (List | LargeList) => {
@@ -191,16 +199,16 @@ where
                 .first()
                 .ok_or_else(|| error!("List must have a single child"))?;
             let values = build_array_builder::<Arrow>(child)?;
-            let name = field.name.to_string();
-            let nullable = field.nullable;
 
             if let List = ty {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i32>::new(
-                    values, name, nullable,
+                    child.into(),
+                    values,
                 )))
             } else {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i64>::new(
-                    values, name, nullable,
+                    child.into(),
+                    values,
                 )))
             }
         }

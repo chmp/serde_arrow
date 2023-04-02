@@ -2,16 +2,14 @@ use crate::{
     base::{Event, EventSink},
     internal::{
         error::{error, fail},
+        schema::FieldMeta,
         sink::{macros, ArrayBuilder},
     },
     Result,
 };
 
 pub struct StructArrayBuilder<B> {
-    /// the names of the fields
-    pub(crate) columns: Vec<String>,
-    /// the nullability of the fields
-    pub(crate) nullable: Vec<bool>,
+    pub(crate) field_meta: Vec<FieldMeta>,
     /// the builders of the sub arrays
     pub(crate) builders: Vec<B>,
     /// the validity of the items
@@ -22,13 +20,12 @@ pub struct StructArrayBuilder<B> {
 }
 
 impl<B> StructArrayBuilder<B> {
-    pub fn new(columns: Vec<String>, nullable: Vec<bool>, builders: Vec<B>) -> Self {
-        let num_columns = columns.len();
+    pub fn new(field_meta: Vec<FieldMeta>, builders: Vec<B>) -> Self {
+        let num_columns = field_meta.len();
         Self {
-            columns,
+            field_meta,
             builders,
             validity: Vec::new(),
-            nullable,
             state: StructArrayBuilderState::Start,
             seen: vec![false; num_columns],
             finished: false,
@@ -63,7 +60,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
         this.state = match this.state {
             Start => {
                 if matches!(ev, Event::StartStruct | Event::StartMap) {
-                    this.seen = vec![false; this.columns.len()];
+                    this.seen = vec![false; this.field_meta.len()];
                     Field
                 } else {
                     fail!(
@@ -89,8 +86,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             Field => if matches!(ev, Event::EndStruct | Event::EndMap) {
                 for (idx, seen) in this.seen.iter().enumerate() {
                     if !seen {
-                        if !this.nullable[idx] {
-                            fail!("Missing field {} is not nullable", this.columns[idx]);
+                        if !this.field_meta[idx].nullable {
+                            fail!("Missing field {} is not nullable", this.field_meta[idx].name);
                         }
                         this.builders[idx].accept_null()?;
                     }
@@ -160,12 +157,12 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 };
 
                 let idx = this
-                    .columns
+                    .field_meta
                     .iter()
-                    .position(|col| col == key)
+                    .position(|m| m.name == key)
                     .ok_or_else(|| error!("unknown field {key}"))?;
                 if this.seen[idx] {
-                    fail!("Duplicate field {}", this.columns[idx]);
+                    fail!("Duplicate field {}", this.field_meta[idx].name);
                 }
                 this.seen[idx] = true;
                 Value(idx, 0)
