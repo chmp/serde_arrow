@@ -2,13 +2,20 @@
 
 ## 0.6.0
 
-### Removed support arrow in favor of arrow2
+### Add support for arrow2
 
-Drop support [arrow][] in favor of [arrow2][]. Arrow2 is a smaller, faster to
-build implementation of the Arrow format that follow semver. It is also used by
-[polars][]. That said most of the implementation is pretty generic and [arrow][]
-support could be added. To convert arrow2 arrays into arrow arrays and record
-batches see the [arrow2-to-arrow][] example.
+Now both [arrow][] and [arrow2][] are supported. Use the features to select the
+relevant version of either crate. E.g., to use `serde_arrow` with `arrow=0.36`:
+
+```
+serde_arrow = { version = "0.6", features = ["arrow-36"] }
+```
+
+### Deserialization support (arrow2 only)
+
+`serde_arrow` now supports to deserialize Rust objects from arrays. At the
+moment this operation is only support for `arrow2`. Adding support `arrow` is
+[planned](https://github.com/chmp/serde_arrow/issues/38).
 
 ### More flexible support for Rust / Arrow features
 
