@@ -312,11 +312,6 @@ fn benchmark_complex(c: &mut Criterion) {
         })
     });
 
-    // TODO: implement
-    // group.bench_function("manually_deserialize", |b| {
-    //     b.iter(|| { })
-    // });
-
     group.finish();
 }
 
