@@ -47,6 +47,9 @@ pub enum Strategy {
     TupleAsStruct,
     /// Serialize Rust maps as Arrow structs
     ///
+    /// The field names are sorted by name to ensure unordered map (e.g.,
+    /// HashMap) have a defined order.
+    ///
     /// Fields that are not present in all instances of the map are marked as
     /// nullable in schema tracing. In serialization these fields are written as
     /// null value if not present.
@@ -510,6 +513,7 @@ impl StructTracer {
         }
 
         if let StructMode::Map = self.mode {
+            field.children.sort_by(|a, b| a.name.cmp(&b.name));
             field.strategy = Some(Strategy::MapAsStruct);
         }
         Ok(field)

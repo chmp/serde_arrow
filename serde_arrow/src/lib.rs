@@ -140,6 +140,10 @@ pub use internal::error::{Error, Result};
 ///   - Rationale: `polars` cannot handle 64 bit keys in its default
 ///     configuration
 ///
+/// Null-only fields (e.g., fields of type `()` or fields with only `None`
+/// entries) result in errors per default. [TracingOptions::allow_null_fields][value@crate::internal::schema::TracingOptions::allow_null_fields]
+/// allows to disable this behavior.
+///
 /// All customization of the types happens via the metadata of the fields
 /// structs describing arrays. For example, to let `serde_arrow` handle date
 /// time objects that are serialized to strings (chrono's default), use
