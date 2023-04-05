@@ -1,11 +1,10 @@
-use std::{fs::File, path::Path};
+use std::{collections::HashMap, fs::File, path::Path};
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
 use arrow2::{array::Array, chunk::Chunk, datatypes::Schema, io::ipc::write};
 
-#[allow(unused)]
 macro_rules! hashmap {
     () => {
         ::std::collections::HashMap::new()
@@ -26,7 +25,7 @@ struct Example {
     float32: f32,
     date64: NaiveDateTime,
     boolean: bool,
-    // map: HashMap<String, i32>,
+    map: HashMap<String, i32>,
     nested: Nested,
 }
 
@@ -51,7 +50,7 @@ fn main() -> Result<(), PanicOnError> {
             int32: 4,
             date64: NaiveDateTime::from_timestamp(0, 0),
             boolean: true,
-            // map: hashmap! { "a" => 2 },
+            map: hashmap! { "a" => 2 },
             nested: Nested {
                 a: Some(42.0),
                 b: Nested2 {
@@ -66,7 +65,7 @@ fn main() -> Result<(), PanicOnError> {
             int32: 5,
             date64: NaiveDateTime::from_timestamp(5 * 24 * 60 * 60, 0),
             boolean: false,
-            // map: hashmap! { "a" => 3 },
+            map: hashmap! { "a" => 3 },
             nested: Nested {
                 a: None,
                 b: Nested2 {
