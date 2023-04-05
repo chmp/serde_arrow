@@ -1,9 +1,7 @@
-use crate::{
-    base::{Event, EventSink},
-    internal::{
-        error::{fail, Result},
-        sink::macros,
-    },
+use crate::internal::{
+    error::{fail, Result},
+    event::Event,
+    sink::{macros, EventSink},
 };
 
 #[derive(Debug, Default)]

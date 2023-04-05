@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use serde_arrow::impls::arrow2::{
+use serde_arrow::_impl::arrow2::{
     array::{
         Array, BooleanArray, MutableArray, MutableBooleanArray, MutablePrimitiveArray,
         MutableUtf8Array, PrimitiveArray, StructArray, UnionArray, Utf8Array,

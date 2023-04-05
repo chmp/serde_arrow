@@ -1,4 +1,22 @@
-//! Support for the arrow crate (requires one the `arrow-*` features)
+//! Support for the `arrow` crate (requires one the `arrow-*` features)
+//!
+//! Functions to convert Arrow arrays from and into Rust objects.
+//!
+//! The functions come in pairs: some work on single  arrays, i.e., the series
+//! of a data frames, some work on multiples arrays, i.e., data frames
+//! themselves.
+//!
+//! | operation      | mutliple arrays           |  single array            |
+//! |----------------|---------------------------|--------------------------|
+//! | schema tracing | [serialize_into_fields]   | [serialize_into_field]   |
+//! | Rust to arrow2 | [serialize_into_arrays]   | [serialize_into_array]   |
+//! | Builder        | [ArraysBuilder]           | [ArrayBuilder]           |
+//!
+//! Functions working on multiple arrays expect sequences of records in Rust,
+//! e.g., a vector of structs. Functions working on single arrays expect vectors
+//! of arrays elements.
+//!
+//! Deserialization from `arrow` arrays to Rust objects is not yet supported.
 //!
 mod schema;
 mod sinks;
@@ -10,7 +28,7 @@ mod test;
 use serde::Serialize;
 
 use crate::{
-    impls::arrow::{
+    _impl::arrow::{
         array::{self, ArrayRef},
         schema::Field,
     },
@@ -82,10 +100,43 @@ where
     Ok(array::make_array(data))
 }
 
+pub struct ArrayBuilder {
+    inner: internal::GenericArrayBuilder<ArrowPrimitiveBuilders>,
+}
+
+impl ArrayBuilder {
+    pub fn new(field: &Field) -> Result<Self> {
+        Ok(Self {
+            inner: internal::GenericArrayBuilder::new(GenericField::try_from(field)?)?,
+        })
+    }
+
+    /// Add a single record to the arrays
+    ///
+    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+        self.inner.push(item)
+    }
+
+    /// Add multiple records to the arrays
+    ///
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        self.inner.extend(items)
+    }
+
+    /// Build the arrays built from the rows pushed to far.
+    ///
+    /// This operation will reset the underlying buffers and start a new batch.
+    ///
+    pub fn build_array(&mut self) -> Result<ArrayRef> {
+        let data = self.inner.build_array()?;
+        Ok(array::make_array(data))
+    }
+}
+
 /// Build arrays record by record
 ///
 pub struct ArraysBuilder {
-    inner: internal::ArraysBuilder<ArrowPrimitiveBuilders>,
+    inner: internal::GenericArraysBuilder<ArrowPrimitiveBuilders>,
 }
 
 impl std::fmt::Debug for ArraysBuilder {
@@ -106,7 +157,7 @@ impl ArraysBuilder {
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            inner: internal::ArraysBuilder::new(fields)?,
+            inner: internal::GenericArraysBuilder::new(fields)?,
         })
     }
 

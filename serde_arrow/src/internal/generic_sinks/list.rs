@@ -1,7 +1,8 @@
-use crate::{
-    base::{Event, EventSink},
-    internal::{error::fail, schema::FieldMeta, sink::macros},
-    Error, Result,
+use crate::internal::{
+    error::{fail, Error, Result},
+    event::Event,
+    schema::FieldMeta,
+    sink::{macros, EventSink},
 };
 
 pub struct ListArrayBuilder<B, O> {

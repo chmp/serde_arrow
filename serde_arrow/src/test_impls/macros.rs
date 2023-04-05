@@ -84,6 +84,34 @@ macro_rules! test_example_impl {
                 );
             }
         }
+
+        #[test]
+        fn builder() {
+            $($($definitions)*)?
+
+            let items: &[$ty] = &$values;
+            let field = $field;
+            $(let field = $overwrite_field;)?
+            let field: Field = (&field).try_into().unwrap();
+
+            let array_reference = serialize_into_array(&field, &items).unwrap();
+
+            let mut builder = ArrayBuilder::new(&field).unwrap();
+
+            // build using extend
+            builder.extend(items).unwrap();
+
+            let array = builder.build_array().unwrap();
+            assert_eq!(array.as_ref(), array_reference.as_ref());
+
+            // re-use the builder
+            for item in items {
+                builder.push(item).unwrap();
+            }
+
+            let array = builder.build_array().unwrap();
+            assert_eq!(array.as_ref(), array_reference.as_ref());
+        }
     };
 }
 
@@ -100,8 +128,8 @@ macro_rules! test_example {
                 use serde::Serialize;
 
                 use crate::{
-                    arrow::{serialize_into_field, serialize_into_array},
-                    impls::arrow::schema::Field,
+                    arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow::schema::Field,
                 };
 
                 $crate::test_impls::macros::test_example_impl!(
@@ -113,8 +141,8 @@ macro_rules! test_example {
                 use serde::Serialize;
 
                 use crate::{
-                    arrow2::{serialize_into_field, serialize_into_array},
-                    impls::arrow2::datatypes::Field,
+                    arrow2::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow2::datatypes::Field,
                 };
 
                 $crate::test_impls::macros::test_example_impl!(

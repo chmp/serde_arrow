@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{
-    base::Event,
-    internal::error::{error, fail, Result},
-    internal::sink::{macros, EventSink},
+use crate::internal::{
+    error::{error, fail, Result},
+    event::Event,
+    sink::{macros, EventSink},
 };
 
 #[derive(Debug, Default)]

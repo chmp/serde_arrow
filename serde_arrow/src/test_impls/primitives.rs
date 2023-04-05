@@ -200,3 +200,15 @@ test_example!(
     values = [Some("a"), None, None, Some("d")],
     nulls = [false, true, true, false],
 );
+
+test_example!(
+    test_name = newtype_i64,
+    field = GenericField::new("root", GenericDataType::I64, false),
+    ty = I64,
+    values = [I64(-1), I64(2), I64(3), I64(-4)],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize)]
+        struct I64(i64);
+    },
+);

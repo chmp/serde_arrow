@@ -1,4 +1,4 @@
-use crate::impls::arrow2::{array::Array, datatypes::Field};
+use crate::_impl::arrow2::{array::Array, datatypes::Field};
 
 use crate::{
     arrow2::sources::build_record_source,
@@ -23,7 +23,7 @@ where
 }
 
 pub mod field {
-    use crate::impls::arrow2::datatypes::{DataType, Field};
+    use crate::_impl::arrow2::datatypes::{DataType, Field};
 
     pub fn uint8(name: &str, nullable: bool) -> Field {
         Field::new(name, DataType::UInt8, nullable)

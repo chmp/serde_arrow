@@ -24,7 +24,7 @@
 //! ];
 //!
 //! // Auto-detect the arrow types. Result may need to be overwritten and
-//! // customized, see serde_arrow::Strategy for details.
+//! // customized, see serde_arrow::schema::Strategy for details.
 //! let fields = serialize_into_fields(&records, TracingOptions::default())?;
 //! let arrays = serialize_into_arrays(&fields, &records)?;
 //!
@@ -59,7 +59,7 @@
 //! features of `serde_arrow` are availble.
 //!
 //! The `arrow-*` and `arrow2-*` feature groupss are comptaible with each other.
-//! I.e., it is possible to use `arrow` and `arrow2` togehter. Within each group
+//! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
 //! the highest version is selected, if multiple features are activated. E.g,
 //! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
 //!
@@ -79,8 +79,11 @@
 //!
 mod internal;
 
-/// The arrow implementations used
-pub mod impls {
+/// **DO NOT USE** This module is an internal implementation detail and not
+/// subject to any compatibility promise
+///
+/// The arrow impls selected via features. Exported to allow usage in doc tests.
+pub mod _impl {
     #[cfg(feature = "arrow2-0-17")]
     pub use arrow2_0_17 as arrow2;
 
@@ -120,21 +123,22 @@ mod test_impls;
 #[cfg(test)]
 mod test;
 
+pub use crate::internal::event::Event;
+pub use crate::internal::sink::{serialize_into_sink, EventSink};
+pub use crate::internal::source::{deserialize_from_source, EventSource};
 pub use internal::error::{Error, Result};
-
-/// Common abstractions used in `serde_arrow`
-///
-/// The underlying abstraction is a stream of event objects, similar to the
-/// tokens of [serde_test](https://docs.rs/serde_test/latest/).
-///
-pub mod base {
-    pub use crate::internal::event::Event;
-    pub use crate::internal::sink::{serialize_into_sink, EventSink};
-    pub use crate::internal::source::{deserialize_from_source, EventSource};
-}
 
 /// Helpers to configure how Arrow and Rust types are translated into one
 /// another
+///
+/// When tracing the schema using the `serialize_into_fields` methods, the
+/// following defaults are used:
+///
+/// - Strings: `LargeUtf8`, i.e., i64 offsets
+/// - Lists: `LargeList`, i.e., i64 offsets
+/// - Strings with dictionary encoding: U32 keys and LargeUtf8 values
+///   - Rationale: `polars` cannot handle 64 bit keys in its default
+///     configuration
 ///
 /// All customization of the types happens via the metadata of the fields
 /// structs describing arrays. For example, to let `serde_arrow` handle date
@@ -153,8 +157,8 @@ pub mod base {
 /// # fn main() {}
 /// ```
 ///
-/// For arrow2, the experimental [find_field_mut][] function may
-/// be helpful to modify nested schemas genreated by tracing.
+/// For arrow2, the experimental [find_field_mut][] function may be helpful to
+/// modify nested schemas genreated by tracing.
 ///
 /// [find_field_mut]: crate::arrow2::experimental::find_field_mut
 ///

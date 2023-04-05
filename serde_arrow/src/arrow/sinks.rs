@@ -1,6 +1,5 @@
 use crate::{
-    base::Event,
-    impls::arrow::{
+    _impl::arrow::{
         array::{
             self,
             array::ArrowPrimitiveType,
@@ -19,6 +18,7 @@ use crate::{
     },
     internal::{
         error::{fail, Result},
+        event::Event,
         generic_sinks::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,

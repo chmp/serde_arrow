@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 
 use super::utils::{collect_events_from_array, field};
 use crate::{
-    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    impls::arrow2::{
+    _impl::arrow2::{
         array::PrimitiveArray,
         datatypes::{DataType, Field},
     },
+    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
     internal::{event::Event, schema::Strategy},
 };
 

@@ -1,6 +1,6 @@
 use crate::{
+    _impl::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     arrow2::display,
-    impls::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     internal::{
         error::{error, fail, Error},
         schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
@@ -59,7 +59,7 @@ pub fn check_strategy(field: &Field) -> Result<()> {
 /// Example:
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::datatypes::DataType;
+/// # use serde_arrow::_impl::arrow2::datatypes::DataType;
 /// # use chrono::NaiveDateTime;
 /// # use serde::Serialize;
 /// #

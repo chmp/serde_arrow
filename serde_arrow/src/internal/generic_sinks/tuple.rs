@@ -1,10 +1,8 @@
-use crate::{
-    base::{Event, EventSink},
-    internal::{
-        error::{fail, Result},
-        schema::FieldMeta,
-        sink::macros,
-    },
+use crate::internal::{
+    error::{fail, Result},
+    event::Event,
+    schema::FieldMeta,
+    sink::{macros, EventSink},
 };
 
 pub struct TupleStructBuilder<B> {

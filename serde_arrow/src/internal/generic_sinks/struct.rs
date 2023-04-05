@@ -1,11 +1,8 @@
-use crate::{
-    base::{Event, EventSink},
-    internal::{
-        error::{error, fail},
-        schema::FieldMeta,
-        sink::{macros, ArrayBuilder},
-    },
-    Result,
+use crate::internal::{
+    error::{error, fail, Result},
+    event::Event,
+    schema::FieldMeta,
+    sink::{macros, ArrayBuilder, EventSink},
 };
 
 pub struct StructArrayBuilder<B> {

@@ -226,6 +226,10 @@ pub struct TracingOptions {
     pub map_as_struct: bool,
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
+    ///
+    /// If `true` will trace strings not as `LargeUtf8`, but as
+    /// `Dictionary(UInt64, LargeUtf8)`.
+    ///
     pub string_dictionary_encoding: bool,
 }
 
@@ -234,11 +238,13 @@ impl TracingOptions {
         Default::default()
     }
 
+    /// Set the `map_as_struct` value
     pub fn map_as_struct(mut self, value: bool) -> Self {
         self.map_as_struct = value;
         self
     }
 
+    /// Set the `string_dictionary_encoding` value
     pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
         self.string_dictionary_encoding = value;
         self

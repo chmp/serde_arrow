@@ -9,8 +9,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    _impl::arrow2::datatypes::{DataType, Field, UnionMode},
     arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
-    impls::arrow2::datatypes::{DataType, Field, UnionMode},
     internal::schema::GenericField,
     schema::{Strategy, TracingOptions, STRATEGY_KEY},
 };

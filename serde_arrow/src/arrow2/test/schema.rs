@@ -1,7 +1,7 @@
 //! Test the schema tracing on the serde level
 use std::collections::HashMap;
 
-use crate::impls::arrow2::datatypes::{DataType, Field, UnionMode};
+use crate::_impl::arrow2::datatypes::{DataType, Field, UnionMode};
 use serde::Serialize;
 use serde_json::json;
 

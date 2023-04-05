@@ -1,5 +1,5 @@
 use crate::{
-    impls::arrow2::{
+    _impl::arrow2::{
         array::Array,
         array::{
             BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, MutableBooleanArray,
