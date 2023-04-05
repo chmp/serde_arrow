@@ -38,7 +38,6 @@ struct Nested {
 #[derive(Serialize)]
 struct Nested2 {
     foo: String,
-    bar: (),
 }
 
 #[allow(deprecated)]
@@ -55,7 +54,6 @@ fn main() -> Result<(), PanicOnError> {
                 a: Some(42.0),
                 b: Nested2 {
                     foo: String::from("hello"),
-                    bar: (),
                 },
             },
         },
@@ -70,7 +68,6 @@ fn main() -> Result<(), PanicOnError> {
                 a: None,
                 b: Nested2 {
                     foo: String::from("world"),
-                    bar: (),
                 },
             },
         },

@@ -1,7 +1,10 @@
 //! Test the schema tracing on the serde level
 use std::collections::HashMap;
 
-use crate::_impl::arrow2::datatypes::{DataType, Field, UnionMode};
+use crate::{
+    _impl::arrow2::datatypes::{DataType, Field, UnionMode},
+    internal::schema::TracingOptions,
+};
 use serde::Serialize;
 use serde_json::json;
 
@@ -55,7 +58,11 @@ fn option_only_nulls() {
 
     let items = vec![Item { a: None }, Item { a: None }, Item { a: None }];
 
-    let actual = serialize_into_fields(&items, Default::default()).unwrap();
+    // per default none only fields are not allowed
+    assert!(serialize_into_fields(&items, TracingOptions::default()).is_err());
+
+    let actual =
+        serialize_into_fields(&items, TracingOptions::default().allow_null_fields(true)).unwrap();
     let expected = vec![Field::new("a", DataType::Null, true)];
 
     assert_eq!(actual, expected);

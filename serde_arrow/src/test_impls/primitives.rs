@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = null,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Null, true),
     ty = (),
     values = [(), (), ()],

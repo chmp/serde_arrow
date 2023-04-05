@@ -1,5 +1,6 @@
 //! Test the schema tracing on the event level
 use crate::internal::schema::{GenericDataType, GenericField};
+use crate::schema::TracingOptions;
 use crate::{
     internal::{event::Event, schema::Tracer, sink::EventSink},
     schema::Strategy,
@@ -137,16 +138,15 @@ define_primitive_tests!(F64, F64);
 
 #[test]
 fn empty_list() {
-    let mut tracer = Tracer::new(Default::default());
+    // without items the type cannot be determined
+    let mut tracer = Tracer::new(TracingOptions::default().allow_null_fields(true));
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::Null, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, false)
+        .with_child(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -160,41 +160,40 @@ fn incomplete_list() {
 
 #[test]
 fn nullable_list_null_first() {
-    let mut tracer = Tracer::new(Default::default());
+    // NOTE: here the type cannot be determined
+    let mut tracer = Tracer::new(TracingOptions::default().allow_null_fields(true));
     tracer.accept(Event::Null).unwrap();
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::Null, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, true)
+        .with_child(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
 
 #[test]
 fn nullable_list_null_second() {
-    let mut tracer = Tracer::new(Default::default());
+    // NOTE: here the type cannot be determined
+    let mut tracer = Tracer::new(TracingOptions::default().allow_null_fields(true));
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.accept(Event::Null).unwrap();
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::Null, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, true)
+        .with_child(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
 
 #[test]
 fn nullable_list_some_first() {
-    let mut tracer = Tracer::new(Default::default());
+    // NOTE: here the type cannot be determined
+    let mut tracer = Tracer::new(TracingOptions::default().allow_null_fields(true));
     tracer.accept(Event::Some).unwrap();
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
@@ -203,17 +202,16 @@ fn nullable_list_some_first() {
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::Null, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, true)
+        .with_child(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
 
 #[test]
 fn nullable_list_some_second() {
-    let mut tracer = Tracer::new(Default::default());
+    // NOTE: here the type cannot be determined
+    let mut tracer = Tracer::new(TracingOptions::default().allow_null_fields(true));
     tracer.accept(Event::StartSequence).unwrap();
     tracer.accept(Event::EndSequence).unwrap();
     tracer.accept(Event::Some).unwrap();
@@ -222,10 +220,8 @@ fn nullable_list_some_second() {
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, true);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::Null, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, true)
+        .with_child(GenericField::new("element", GenericDataType::Null, false));
 
     assert_eq!(field, expected);
 }
@@ -245,10 +241,8 @@ fn primitive_lists() {
     tracer.finish().unwrap();
 
     let field = tracer.to_field("root").unwrap();
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
-    expected
-        .children
-        .push(GenericField::new("element", GenericDataType::I8, false));
+    let expected = GenericField::new("root", GenericDataType::LargeList, false)
+        .with_child(GenericField::new("element", GenericDataType::I8, false));
 
     assert_eq!(field, expected);
 }
@@ -276,13 +270,10 @@ fn nested_lists() {
 
     let field = tracer.to_field("root").unwrap();
 
-    let mut inner = GenericField::new("element", GenericDataType::LargeList, false);
-    inner
-        .children
-        .push(GenericField::new("element", GenericDataType::I8, false));
-
-    let mut expected = GenericField::new("root", GenericDataType::LargeList, false);
-    expected.children.push(inner);
+    let expected = GenericField::new("root", GenericDataType::LargeList, false).with_child(
+        GenericField::new("element", GenericDataType::LargeList, false)
+            .with_child(GenericField::new("element", GenericDataType::I8, false)),
+    );
 
     assert_eq!(field, expected);
 }

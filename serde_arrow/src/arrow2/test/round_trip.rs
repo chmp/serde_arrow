@@ -13,7 +13,10 @@ use crate::{
         datatypes::{DataType, Field},
     },
     arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    internal::{event::Event, schema::Strategy},
+    internal::{
+        event::Event,
+        schema::{Strategy, TracingOptions},
+    },
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -387,7 +390,8 @@ fn test_unit() {
 
     let items = vec![Item { a: () }, Item { a: () }];
 
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
+    let fields =
+        serialize_into_fields(&items, TracingOptions::default().allow_null_fields(true)).unwrap();
     let expected_fields = vec![Field::new("a", DataType::Null, true)];
 
     assert_eq!(fields, expected_fields);

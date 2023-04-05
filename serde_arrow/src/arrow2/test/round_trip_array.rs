@@ -211,6 +211,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new("value",DataType::Struct(vec![
         Field::new("a", DataType::Boolean, false),
         Field::new("b", DataType::Int64, false),
@@ -251,6 +252,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable_nested,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new("value",DataType::Struct(vec![
         Field::new("inner", DataType::Struct(vec![
             Field::new("a", DataType::Boolean, false),
@@ -294,6 +296,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable_item,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new(
         "value",
         DataType::Struct(vec![
@@ -473,6 +476,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = enums_union,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new(
         "value",
         DataType::Union(
