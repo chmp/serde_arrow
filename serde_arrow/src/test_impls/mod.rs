@@ -1,3 +1,4 @@
+mod chrono;
 mod dictionary;
 mod list;
 mod macros;

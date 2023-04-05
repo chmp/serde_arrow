@@ -7,8 +7,8 @@ use crate::{
             builder::{BooleanBuilder, GenericStringBuilder, PrimitiveBuilder},
             types::Float16Type,
             types::{
-                Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-                UInt32Type, UInt64Type, UInt8Type,
+                Date64Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+                UInt16Type, UInt32Type, UInt64Type, UInt8Type,
             },
             Array, GenericListArray, NullArray, OffsetSizeTrait, StructArray,
         },
@@ -86,8 +86,7 @@ impl PrimitiveBuilders for ArrowPrimitiveBuilders {
     }
 
     fn date64() -> DynamicArrayBuilder<Self::Output> {
-        // TODO: check type?
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::default())
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::default())
     }
 
     fn utf8() -> DynamicArrayBuilder<Self::Output> {
@@ -257,6 +256,18 @@ impl_primitive_array_builder!(
 );
 impl_primitive_array_builder!(
     PrimitiveBuilder<UInt64Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Date64Type>,
     U8,
     I8,
     U16,

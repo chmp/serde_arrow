@@ -52,7 +52,8 @@ fn dtype_date64_naive_str() {
         .as_any()
         .downcast_ref::<PrimitiveArray<i64>>()
         .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24]);
+    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
+        .to(DataType::Date64);
 
     assert_eq!(actual, &expected);
 
@@ -104,7 +105,8 @@ fn dtype_date64_str() {
         .as_any()
         .downcast_ref::<PrimitiveArray<i64>>()
         .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24]);
+    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
+        .to(DataType::Date64);
 
     assert_eq!(actual, &expected);
 
