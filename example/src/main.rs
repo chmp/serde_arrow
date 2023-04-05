@@ -3,7 +3,13 @@ use std::{collections::HashMap, fs::File, path::Path};
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use arrow2::{array::Array, chunk::Chunk, datatypes::Schema, io::ipc::write};
+use arrow2::{
+    array::Array,
+    chunk::Chunk,
+    datatypes::{DataType, Field, Schema},
+    io::ipc::write,
+};
+use serde_arrow::schema::Strategy;
 
 macro_rules! hashmap {
     () => {
@@ -73,8 +79,15 @@ fn main() -> Result<(), PanicOnError> {
         },
     ];
 
-    let fields = serde_arrow::arrow2::serialize_into_fields(&examples, Default::default())?;
-    let arrays = serde_arrow::arrow2::serialize_into_arrays(&fields, &examples)?;
+    use serde_arrow::arrow2::{
+        experimental::find_field_mut, serialize_into_arrays, serialize_into_fields,
+    };
+
+    let mut fields = serialize_into_fields(&examples, Default::default())?;
+    *find_field_mut(&mut fields, "date64")? = Field::new("date64", DataType::Date64, false)
+        .with_metadata(Strategy::NaiveStrAsDate64.into());
+
+    let arrays = serialize_into_arrays(&fields, &examples)?;
 
     let schema = Schema::from(fields);
     let chunk = Chunk::new(arrays);
