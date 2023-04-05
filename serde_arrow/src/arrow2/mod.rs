@@ -257,6 +257,25 @@ where
 
 /// Build a single array record by record
 ///
+/// Example:
+///
+/// ```rust
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// use arrow2::datatypes::{Field, DataType};
+/// use serde_arrow::arrow2::ArrayBuilder;
+///
+/// let field = Field::new("value", DataType::Int64, false);
+/// let mut builder = ArrayBuilder::new(&field).unwrap();
+///
+/// builder.push(&-1_i64).unwrap();
+/// builder.push(&2_i64).unwrap();
+/// builder.push(&-3_i64).unwrap();
+///
+/// builder.extend(&[4_i64, -5, 6]).unwrap();
+///
+/// let array = builder.build_array().unwrap();
+/// assert_eq!(array.len(), 6);
+/// ```
 pub struct ArrayBuilder {
     inner: internal::GenericArrayBuilder<Arrow2PrimitiveBuilders>,
 }
@@ -294,10 +313,11 @@ impl ArrayBuilder {
 /// Usage:
 ///
 /// ```rust
-/// # use serde_arrow::_impl::arrow2::datatypes::{DataType, Field};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{ArraysBuilder};
-/// #
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde::Serialize;
+/// use serde_arrow::arrow2::{ArraysBuilder};
+///
 /// ##[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -310,17 +330,20 @@ impl ArrayBuilder {
 /// ];
 /// let mut builder = ArraysBuilder::new(&fields).unwrap();
 ///
-/// for item in &[
-///     Record { a: Some(1.0), b: 2},
-///     Record { a: Some(3.0), b: 4},
-///     Record { a: Some(5.0), b: 5},
-///     // ...
-/// ] {
-///     builder.push(item).unwrap()
-/// }
-///  
+/// builder.push(&Record { a: Some(1.0), b: 2}).unwrap();
+/// builder.push(&Record { a: Some(3.0), b: 4}).unwrap();
+/// builder.push(&Record { a: Some(5.0), b: 5}).unwrap();
+///
+/// builder.extend(&[
+///     Record { a: Some(6.0), b: 7},
+///     Record { a: Some(8.0), b: 9},
+///     Record { a: Some(10.0), b: 11},
+/// ]).unwrap();
+///
 /// let arrays = builder.build_arrays().unwrap();
+///
 /// assert_eq!(arrays.len(), 2);
+/// assert_eq!(arrays[0].len(), 6);
 /// ```
 pub struct ArraysBuilder {
     inner: internal::GenericArraysBuilder<Arrow2PrimitiveBuilders>,
