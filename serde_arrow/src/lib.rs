@@ -1,6 +1,24 @@
-//! # `serde_arrow` - convert sequences Rust objects to arrow2 arrays
+//! # `serde_arrow` - convert sequences Rust objects to / from arrow arrays
 //!
-//! Usage (requires one of `arrow2` feature, see below):
+//! The arrow in-memory format is a powerful way to work with data frame like
+//! structures. However, the API of the underlying Rust crates can be at times
+//! cumbersome to use due to the statically typed nature of Rust.
+//!
+//! `serde_arrow`, offers a simple way to convert Rust objects into Arrow arrays
+//! and back. `serde_arrow` relies on the [Serde](https://serde.rs) package to
+//! interpret Rust objects. Therefore, adding support for `serde_arrow` to
+//! custom types is as easy as using Serde's derive macros.
+//!
+//! [polars]: https://github.com/pola-rs/polars
+//! [datafusion]: https://github.com/apache/arrow-datafusion/
+//!
+//! In the Rust ecosystem there are two competing implemenetations of the arrow
+//! in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
+//! supports both for schema tracing and serialization from Rust structs to
+//! arrays. Deserialization from arrays to Rust structs is currently only
+//! implemented for `arrow2`.
+//!
+//! ## Usage (requires one of `arrow2` feature, see below):
 //!
 //! ```rust
 //! # use serde::Serialize;
@@ -48,9 +66,14 @@
 //! )?;
 //! ```
 //!
-//! See the [quickstart guide][docs::quickstart] for more examples of how to use
-//! this package. See the [implementation notes][docs::implementation] for an
-//! explanation of how this package works and its underlying data model.
+//! See also:
+//!
+//! - the [quickstart guide][docs::quickstart] for more examples of how to use
+//!   this package
+//! - the [implementation notes][docs::implementation] for an explanation of how
+//!   this package works and its underlying data model
+//! - the [status summary][docs::status] for an overview over the supported
+//!   Arrow and Rust constructs
 //!
 //! # Features:
 //!
@@ -72,15 +95,10 @@
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 //!
-//! # Status
-//!
-//! For an overview over the supported Arrow and Rust types see status section
-//! in the [implementation notes][docs::implementation]
-//!
 mod internal;
 
 /// **DO NOT USE** This module is an internal implementation detail and not
-/// subject to any compatibility promise
+/// subject to any compatibility promises
 ///
 /// The arrow impls selected via features. Exported to allow usage in doc tests.
 pub mod _impl {
@@ -179,4 +197,8 @@ pub mod docs {
     #[doc = include_str!("../Quickstart.md")]
     #[cfg(not(doctest))]
     pub mod quickstart {}
+
+    #[doc = include_str!("../Status.md")]
+    #[cfg(not(doctest))]
+    pub mod status {}
 }
