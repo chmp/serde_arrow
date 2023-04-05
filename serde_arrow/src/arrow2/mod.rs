@@ -57,10 +57,12 @@ use self::{
 /// Usage:
 ///
 /// ```rust
-/// # use serde_arrow::_impl::arrow2::datatypes::{DataType, Field};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::serialize_into_fields;
+/// # use serde_arrow::_impl::arrow2 as arrow2;
 /// #
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde::Serialize;
+/// use serde_arrow::arrow2::serialize_into_fields;
+///
 /// ##[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -100,6 +102,7 @@ where
 ///
 /// ```rust
 /// use serde::Serialize;
+/// use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 ///
 /// ##[derive(Serialize)]
 /// struct Record {
@@ -111,8 +114,6 @@ where
 ///     Record { a: Some(1.0), b: 2},
 ///     // ...
 /// ];
-///
-/// use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
 ///
 /// let fields = serialize_into_fields(&items, Default::default()).unwrap();
 /// let arrays = serialize_into_arrays(&fields, &items).unwrap();
@@ -137,13 +138,6 @@ where
 ///
 /// ```rust
 /// use serde::{Deserialize, Serialize};
-///
-/// ##[derive(Deserialize, Serialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-///
 /// use serde_arrow::{
 ///     arrow2::{
 ///         deserialize_from_arrays,
@@ -152,6 +146,12 @@ where
 ///     },
 ///     schema::TracingOptions,
 /// };
+///
+/// ##[derive(Deserialize, Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
 ///
 /// // provide an example record to get the field information
 /// let fields = serialize_into_fields(
@@ -200,13 +200,16 @@ where
 
 /// Serialize a sequence of objects representing a single array into an array
 ///
+/// To build the array item by item use [ArrayBuilder].
+///
 /// Example:
 ///
 /// ```rust
-/// # use serde_arrow::_impl::arrow2::{array::Array, datatypes::{DataType, Field}};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
+/// # use serde_arrow::_impl::arrow2 as arrow2;
 /// #
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde_arrow::arrow2::serialize_into_array;
+///
 /// let items: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
 ///
 /// let field = Field::new("floats", DataType::Float32, false);
