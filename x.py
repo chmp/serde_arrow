@@ -44,7 +44,11 @@ def fmt():
 def check():
     cargo("check")
     for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-        cargo("check", "--features", arrow2_feature)
+        cargo(
+            "check",
+            "--features",
+            arrow2_feature,
+        )
 
 
 @cmd()

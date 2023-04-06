@@ -1,4 +1,4 @@
-use crate::_impl::arrow::schema::ArrowError;
+use crate::_impl::arrow::error::ArrowError;
 
 use crate::Error;
 

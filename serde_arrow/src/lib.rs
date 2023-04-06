@@ -13,8 +13,8 @@
 //! [datafusion]: https://github.com/apache/arrow-datafusion/
 //!
 //! In the Rust ecosystem there are two competing implemenetations of the arrow
-//! in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-//! supports both for schema tracing and serialization from Rust structs to
+//! in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
+//! [`arrow2`][arrow2] for schema tracing and serialization from Rust structs to
 //! arrays. Deserialization from arrays to Rust structs is currently only
 //! implemented for `arrow2`.
 //!
@@ -108,21 +108,54 @@ pub mod _impl {
     #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
     pub use arrow2_0_16 as arrow2;
 
-    #[cfg(feature = "arrow-36")]
-    pub mod arrow {
-        pub use arrow_array_36 as array;
-        pub use arrow_buffer_36 as buffer;
-        pub use arrow_data_36 as data;
-        pub use arrow_schema_36 as schema;
+    /// build a "fake" arrow crate from the smaller sub-crates
+    #[allow(unused)]
+    macro_rules! build_arrow_crate {
+        ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
+            pub mod arrow {
+                pub mod array {
+                    pub use $arrow_array::array::{
+                        make_array, Array, ArrayRef, ArrowPrimitiveType, GenericListArray,
+                        NullArray, OffsetSizeTrait, StructArray,
+                    };
+                    pub use $arrow_array::builder::{
+                        BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
+                        PrimitiveBuilder,
+                    };
+                    pub use $arrow_data::ArrayData;
+                }
+                pub mod buffer {
+                    pub use $arrow_buffer::Buffer;
+                }
+                pub mod datatypes {
+                    pub use $arrow_array::types::{
+                        Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
+                        Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+                    };
+                    pub use $arrow_schema::{DataType, Field, UnionMode};
+                }
+                pub mod error {
+                    pub use $arrow_schema::ArrowError;
+                }
+            }
+        };
     }
 
+    #[cfg(feature = "arrow-36")]
+    build_arrow_crate!(
+        arrow_array_36,
+        arrow_buffer_36,
+        arrow_data_36,
+        arrow_schema_36
+    );
+
     #[cfg(all(feature = "arrow-35", not(feature = "arrow-36")))]
-    pub mod arrow {
-        pub use arrow_array_35 as array;
-        pub use arrow_buffer_35 as buffer;
-        pub use arrow_data_35 as data;
-        pub use arrow_schema_35 as schema;
-    }
+    build_arrow_crate!(
+        arrow_array_35,
+        arrow_buffer_35,
+        arrow_data_35,
+        arrow_schema_35
+    );
 }
 
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]

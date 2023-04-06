@@ -1,20 +1,15 @@
 use crate::{
     _impl::arrow::{
         array::{
-            self,
-            array::ArrowPrimitiveType,
-            builder::BooleanBufferBuilder,
-            builder::{BooleanBuilder, GenericStringBuilder, PrimitiveBuilder},
-            types::Float16Type,
-            types::{
-                Date64Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-                UInt16Type, UInt32Type, UInt64Type, UInt8Type,
-            },
-            Array, GenericListArray, NullArray, OffsetSizeTrait, StructArray,
+            self, Array, ArrayData, ArrowPrimitiveType, BooleanBufferBuilder, BooleanBuilder,
+            GenericListArray, GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder,
+            StructArray,
         },
         buffer::Buffer,
-        data::ArrayData,
-        schema::{DataType, UnionMode},
+        datatypes::{
+            DataType, Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
+            Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        },
     },
     internal::{
         error::{fail, Result},

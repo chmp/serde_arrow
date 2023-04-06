@@ -161,7 +161,7 @@ macro_rules! test_example {
 
                 use crate::{
                     arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
-                    _impl::arrow::schema::Field,
+                    _impl::arrow::datatypes::Field,
                     test_impls::macros::{btree_map, hash_map},
                 };
 

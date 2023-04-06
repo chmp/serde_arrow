@@ -1,6 +1,6 @@
 //! Support for the `arrow2` crate (requires one the `arrow2-*` features)
 //!
-//! Functions to convert Arrow arrays from and into Rust objects.
+//! Functions to convert Rust objects into Arrow arrays and back.
 //!
 //! The functions come in pairs: some work on single  arrays, i.e., the series
 //! of a data frames, some work on multiples arrays, i.e., data frames
@@ -54,7 +54,7 @@ use self::{
 /// - include all variants of an enum
 /// - include at least single element of a list or a map
 ///
-/// Usage:
+/// Example:
 ///
 /// ```rust
 /// # use serde_arrow::_impl::arrow2 as arrow2;
@@ -181,8 +181,8 @@ where
 ///
 /// ```rust
 /// # use serde_arrow::_impl::arrow2 as arrow2;
-/// use arrow2::{array::Array, datatypes::{DataType, Field}};
-/// use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde_arrow::arrow2::serialize_into_field;
 ///
 /// let items: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
 ///
@@ -199,8 +199,6 @@ where
 }
 
 /// Serialize a sequence of objects representing a single array into an array
-///
-/// To build the array item by item use [ArrayBuilder].
 ///
 /// Example:
 ///
@@ -310,7 +308,7 @@ impl ArrayBuilder {
 
 /// Build arrays record by record
 ///
-/// Usage:
+/// Example:
 ///
 /// ```rust
 /// # use serde_arrow::_impl::arrow2 as arrow2;
