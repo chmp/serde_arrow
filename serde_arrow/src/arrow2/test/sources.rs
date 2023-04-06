@@ -7,8 +7,7 @@ use crate::{
         datatypes::{DataType, Field},
     },
     arrow2::sources::{build_dynamic_source, build_record_source},
-    internal::{event::Event, source::deserialize_from_source},
-    Result,
+    internal::{error::Result, event::Event, source::deserialize_from_source},
 };
 
 #[test]

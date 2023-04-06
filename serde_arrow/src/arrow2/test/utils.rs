@@ -2,8 +2,7 @@ use crate::_impl::arrow2::{array::Array, datatypes::Field};
 
 use crate::{
     arrow2::sources::build_record_source,
-    internal::{event::Event, source::EventSource},
-    Result,
+    internal::{error::Result, event::Event, source::EventSource},
 };
 
 /// Collect the events for the given array

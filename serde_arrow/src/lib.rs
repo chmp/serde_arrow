@@ -18,7 +18,32 @@
 //! arrays. Deserialization from arrays to Rust structs is currently only
 //! implemented for `arrow2`.
 //!
-//! ## Usage (requires one of `arrow2` feature, see below):
+//! ## Overview
+//!
+//! The functions come in pairs: some work on single  arrays, i.e., the series
+//! of a data frames, some work on multiples arrays, i.e., data frames
+//! themselves.
+//!
+//! | implementation | operation | mutliple arrays           |  single array            |
+//! |---|---|---|---|
+//! | **arrow** | schema tracing | [arrow::serialize_into_fields] | [arrow::serialize_into_field] |
+//! | | Rust to Arrow | [arrow::serialize_into_arrays] | [arrow::serialize_into_array] |
+//! | | Arrow to Rust | not supported | not supported |
+//! | | Builder | [arrow::ArraysBuilder] | [arrow::ArrayBuilder] |
+//! | | | | |
+//! | **arrow2** | schema tracing | [arrow2::serialize_into_fields] | [arrow2::serialize_into_field] |
+//! | | Rust to Arrow | [arrow2::serialize_into_arrays] | [arrow2::serialize_into_array] |
+//! | | Arrow to Rust | [arrow2::deserialize_from_arrays] | [arrow2::deserialize_from_array] |
+//! | | Builder | [arrow2::ArraysBuilder] | [arrow2::ArrayBuilder] |
+//!
+//! Functions working on multiple arrays expect sequences of records in Rust,
+//! e.g., a vector of structs. Functions working on single arrays expect vectors
+//! of arrays elements.
+//!
+//!
+//! ## Example
+//!
+//! Requires one of `arrow2` feature (see below).
 //!
 //! ```rust
 //! # use serde::Serialize;
@@ -68,12 +93,12 @@
 //!
 //! See also:
 //!
-//! - the [quickstart guide][docs::quickstart] for more examples of how to use
-//!   this package
-//! - the [implementation notes][docs::implementation] for an explanation of how
-//!   this package works and its underlying data model
-//! - the [status summary][docs::status] for an overview over the supported
-//!   Arrow and Rust constructs
+//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
+//!   to use this package
+//! - the [implementation notes][_impl::docs::implementation] for an explanation
+//!   of how this package works and its underlying data model
+//! - the [status summary][_impl::docs::status] for an overview over the
+//!   supported Arrow and Rust constructs
 //!
 //! # Features:
 //!
@@ -97,21 +122,32 @@
 //!
 mod internal;
 
-/// **DO NOT USE** This module is an internal implementation detail and not
-/// subject to any compatibility promises
+/// Internal. Do not use
 ///
-/// The arrow impls selected via features. Exported to allow usage in doc tests.
+/// This module is an internal implementation detail and not subject to any
+/// compatibility promises. It re-exports the  arrow impls selected via features
+/// to allow usage in doc tests or benchmarks.
+///
 pub mod _impl {
+    #[allow(unused)]
+    macro_rules! build_arrow2_crate {
+        ($arrow2:ident) => {
+            /// Re-export the used arrow2 crate
+            pub use $arrow2 as arrow2;
+        };
+    }
+
     #[cfg(feature = "arrow2-0-17")]
-    pub use arrow2_0_17 as arrow2;
+    build_arrow2_crate!(arrow2_0_17);
 
     #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
-    pub use arrow2_0_16 as arrow2;
+    build_arrow2_crate!(arrow2_0_16);
 
-    /// build a "fake" arrow crate from the smaller sub-crates
     #[allow(unused)]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
+            /// A "fake" arrow crate re-exporting the relevant definitions of the
+            /// used arrow-* subcrates
             pub mod arrow {
                 pub mod array {
                     pub use $arrow_array::array::{
@@ -156,6 +192,20 @@ pub mod _impl {
         arrow_data_35,
         arrow_schema_35
     );
+
+    pub mod docs {
+        #[doc = include_str!("../Implementation.md")]
+        #[cfg(not(doctest))]
+        pub mod implementation {}
+
+        #[doc = include_str!("../Quickstart.md")]
+        #[cfg(not(doctest))]
+        pub mod quickstart {}
+
+        #[doc = include_str!("../Status.md")]
+        #[cfg(not(doctest))]
+        pub mod status {}
+    }
 }
 
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
@@ -174,10 +224,17 @@ mod test_impls;
 #[cfg(test)]
 mod test;
 
-pub use crate::internal::event::Event;
-pub use crate::internal::sink::{serialize_into_sink, EventSink};
-pub use crate::internal::source::{deserialize_from_source, EventSource};
-pub use internal::error::{Error, Result};
+pub use crate::internal::error::{Error, Result};
+
+/// The basic machinery powering `serde_arrow`
+///
+/// This module collects helpers to convert objects to events and back.
+///
+pub mod base {
+    pub use crate::internal::event::Event;
+    pub use crate::internal::sink::{serialize_into_sink, EventSink};
+    pub use crate::internal::source::{deserialize_from_source, EventSource};
+}
 
 /// Helpers to configure how Arrow and Rust types are translated into one
 /// another
@@ -192,7 +249,8 @@ pub use internal::error::{Error, Result};
 ///     configuration
 ///
 /// Null-only fields (e.g., fields of type `()` or fields with only `None`
-/// entries) result in errors per default. [TracingOptions::allow_null_fields][value@crate::internal::schema::TracingOptions::allow_null_fields]
+/// entries) result in errors per default.
+/// [`TracingOptions::allow_null_fields`][crate::internal::schema::TracingOptions::allow_null_fields]
 /// allows to disable this behavior.
 ///
 /// All customization of the types happens via the metadata of the fields
@@ -219,19 +277,4 @@ pub use internal::error::{Error, Result};
 ///
 pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
-}
-
-/// Documentation only modules
-pub mod docs {
-    #[doc = include_str!("../Implementation.md")]
-    #[cfg(not(doctest))]
-    pub mod implementation {}
-
-    #[doc = include_str!("../Quickstart.md")]
-    #[cfg(not(doctest))]
-    pub mod quickstart {}
-
-    #[doc = include_str!("../Status.md")]
-    #[cfg(not(doctest))]
-    pub mod status {}
 }

@@ -110,7 +110,7 @@ impl serde::de::Error for Error {
 
 macro_rules! error {
     ($($tt:tt)*) => {
-        $crate::Error::custom(format!($($tt)*))
+        $crate::internal::error::Error::custom(format!($($tt)*))
     };
 }
 

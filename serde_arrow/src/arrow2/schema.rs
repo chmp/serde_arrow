@@ -2,10 +2,9 @@ use crate::{
     _impl::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
     arrow2::display,
     internal::{
-        error::{error, fail, Error},
+        error::{error, fail, Error, Result},
         schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
-    Result,
 };
 
 /// Make sure the field is configured correctly if a strategy is used

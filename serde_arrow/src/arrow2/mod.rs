@@ -2,21 +2,7 @@
 //!
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
-//! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frames, some work on multiples arrays, i.e., data frames
-//! themselves.
-//!
-//! | operation      | mutliple arrays           |  single array            |
-//! |----------------|---------------------------|--------------------------|
-//! | schema tracing | [serialize_into_fields]   | [serialize_into_field]   |
-//! | Rust to arrow2 | [serialize_into_arrays]   | [serialize_into_array]   |
-//! | arrow2 to Rust | [deserialize_from_arrays] | [deserialize_from_array] |
-//! | Builder        | [ArraysBuilder]           | [ArrayBuilder]           |
-//!
-//! Functions working on multiple arrays expect sequences of records in Rust,
-//! e.g., a vector of structs. Functions working on single arrays expect vectors
-//! of arrays elements.
-//!
+#![deny(missing_docs)]
 pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod sinks;
@@ -253,7 +239,7 @@ where
     deserialize_from_source(source)
 }
 
-/// Build a single array record by record
+/// Build a single array item by item
 ///
 /// Example:
 ///
@@ -279,25 +265,29 @@ pub struct ArrayBuilder {
 }
 
 impl ArrayBuilder {
+    /// Construct a new build for the given field
+    ///
+    /// This method may fail for an unsupported data type of the given field.
+    ///
     pub fn new(field: &Field) -> Result<Self> {
         Ok(Self {
             inner: internal::GenericArrayBuilder::new(GenericField::try_from(field)?)?,
         })
     }
 
-    /// Add a single record to the arrays
+    /// Add a single item to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
         self.inner.push(item)
     }
 
-    /// Add multiple records to the arrays
+    /// Add multiple items to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         self.inner.extend(items)
     }
 
-    /// Build the arrays built from the rows pushed to far.
+    /// Build the array from the rows pushed to far.
     ///
     /// This operation will reset the underlying buffers and start a new batch.
     ///
@@ -381,7 +371,7 @@ impl ArraysBuilder {
         self.inner.extend(items)
     }
 
-    /// Build the arrays built from the rows pushed to far.
+    /// Build the arrays from the rows pushed to far.
     ///
     /// This operation will reset the underlying buffers and start a new batch.
     ///

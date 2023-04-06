@@ -10,7 +10,7 @@ use crate::{
         types::{f16, Index, NativeType, Offset},
     },
     internal::{
-        error::{error, fail},
+        error::{error, fail, Result},
         event::Event,
         generic_sources::{
             ListSource, MapSource, NaiveDateTimeStrSource, StructSource, TupleSource, UnionSource,
@@ -19,7 +19,6 @@ use crate::{
         schema::{Strategy, STRATEGY_KEY},
         source::{AddOuterSequenceSource, DynamicSource, EventSource},
     },
-    Result,
 };
 
 use super::{display, schema::check_strategy};

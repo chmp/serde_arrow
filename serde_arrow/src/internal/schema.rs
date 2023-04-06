@@ -4,9 +4,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    internal::{error::fail, event::Event, sink::EventSink},
-    Error, Result,
+use crate::internal::{
+    error::{fail, Error, Result},
+    event::Event,
+    sink::EventSink,
 };
 
 use super::sink::macros;
@@ -230,7 +231,7 @@ pub struct TracingOptions {
     pub allow_null_fields: bool,
 
     /// If `true` serialize maps as structs (the default). See
-    /// [Strategy::MapAsStruct] for details.
+    /// [`Strategy::MapAsStruct`] for details.
     pub map_as_struct: bool,
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
