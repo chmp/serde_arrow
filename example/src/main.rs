@@ -1,11 +1,16 @@
-use std::{fs::File, path::Path};
+use std::{collections::HashMap, fs::File, path::Path};
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use arrow2::{array::Array, chunk::Chunk, datatypes::Schema, io::ipc::write};
+use arrow2::{
+    array::Array,
+    chunk::Chunk,
+    datatypes::{DataType, Field, Schema},
+    io::ipc::write,
+};
+use serde_arrow::schema::Strategy;
 
-#[allow(unused)]
 macro_rules! hashmap {
     () => {
         ::std::collections::HashMap::new()
@@ -26,7 +31,7 @@ struct Example {
     float32: f32,
     date64: NaiveDateTime,
     boolean: bool,
-    // map: HashMap<String, i32>,
+    map: HashMap<String, i32>,
     nested: Nested,
 }
 
@@ -39,7 +44,6 @@ struct Nested {
 #[derive(Serialize)]
 struct Nested2 {
     foo: String,
-    bar: (),
 }
 
 #[allow(deprecated)]
@@ -51,12 +55,11 @@ fn main() -> Result<(), PanicOnError> {
             int32: 4,
             date64: NaiveDateTime::from_timestamp(0, 0),
             boolean: true,
-            // map: hashmap! { "a" => 2 },
+            map: hashmap! { "a" => 2 },
             nested: Nested {
                 a: Some(42.0),
                 b: Nested2 {
                     foo: String::from("hello"),
-                    bar: (),
                 },
             },
         },
@@ -66,19 +69,25 @@ fn main() -> Result<(), PanicOnError> {
             int32: 5,
             date64: NaiveDateTime::from_timestamp(5 * 24 * 60 * 60, 0),
             boolean: false,
-            // map: hashmap! { "a" => 3 },
+            map: hashmap! { "a" => 3 },
             nested: Nested {
                 a: None,
                 b: Nested2 {
                     foo: String::from("world"),
-                    bar: (),
                 },
             },
         },
     ];
 
-    let fields = serde_arrow::arrow2::serialize_into_fields(&examples, Default::default())?;
-    let arrays = serde_arrow::arrow2::serialize_into_arrays(&fields, &examples)?;
+    use serde_arrow::arrow2::{
+        experimental::find_field_mut, serialize_into_arrays, serialize_into_fields,
+    };
+
+    let mut fields = serialize_into_fields(&examples, Default::default())?;
+    *find_field_mut(&mut fields, "date64")? = Field::new("date64", DataType::Date64, false)
+        .with_metadata(Strategy::NaiveStrAsDate64.into());
+
+    let arrays = serialize_into_arrays(&fields, &examples)?;
 
     let schema = Schema::from(fields);
     let chunk = Chunk::new(arrays);

@@ -1,5 +1,5 @@
 use crate::{
-    impls::arrow::schema::{DataType, Field, UnionMode},
+    _impl::arrow::datatypes::{DataType, Field, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
         schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},

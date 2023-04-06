@@ -4,14 +4,14 @@ use std::{any::Any, collections::HashMap};
 use serde::Serialize;
 
 use crate::{
-    arrow2::{
-        serialize_into_array, serialize_into_arrays, serialize_into_field,
-        sinks::Arrow2PrimitiveBuilders,
-    },
-    impls::arrow2::{
+    _impl::arrow2::{
         array::{Array, ListArray, PrimitiveArray, StructArray},
         bitmap::Bitmap,
         datatypes::{DataType, Field},
+    },
+    arrow2::{
+        serialize_into_array, serialize_into_arrays, serialize_into_field,
+        sinks::Arrow2PrimitiveBuilders,
     },
     internal::{
         error::Result,
@@ -48,7 +48,7 @@ macro_rules! test_option_support {
         mod $test_name {
             use super::build_array_builder;
             use crate::{
-                impls::arrow2::datatypes::{DataType, Field},
+                _impl::arrow2::datatypes::{DataType, Field},
                 internal::{
                     event::Event,
                     sink::{ArrayBuilder, EventSink},

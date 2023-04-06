@@ -1,5 +1,5 @@
 use crate::{
-    impls::arrow2::{
+    _impl::arrow2::{
         array::Array,
         array::{
             BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, MutableBooleanArray,
@@ -89,8 +89,12 @@ impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
     }
 
     fn date64() -> DynamicArrayBuilder<Self::Output> {
-        // TODO: is this correct? Shouldn't this be a separate type?
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default())
+        let builder = PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default();
+        let builder = PrimitiveArrayBuilder {
+            array: builder.array.to(DataType::Date64),
+            finished: builder.finished,
+        };
+        DynamicArrayBuilder::new(builder)
     }
 }
 

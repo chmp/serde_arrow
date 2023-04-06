@@ -1,4 +1,4 @@
-# `serde_arrow` - convert sequences of structs / maps to and from arrow tables
+# `serde_arrow` - convert sequences of structs / maps to and from arrow arrays
 
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
@@ -6,7 +6,7 @@
 | [Example](#example)
 | [Performance](#performance)
 | [How does it work?](serde_arrow/Implementation.md)
-| [Status](serde_arrow/Implementation.md#status)
+| [Status](serde_arrow/Status.md)
 | [Development](#development)
 | [License](#license)
 
@@ -15,19 +15,19 @@
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
 from data frames via [Polars][polars] to query engines via
-[DataFusion][datafusion]. However, the API of the underlying rust crates can be
-at times cumbersome to use directly due to the statically typed nature of Rust.
-This package, `serde_arrow`, tries to bridge this gap by offering a simple way
-to convert Rust objects into Arrow objects and vice versa.  `serde_arrow` relies
-on the [Serde](https://serde.rs) package to interpret Rust objects. Therefore,
-adding support for `serde_arrow` to custom types is as easy as using Serde's
-derive macros.
+[DataFusion][datafusion]. However, the API of the underlying Rust crates can be
+at times cumbersome to use due to the statically typed nature of Rust.
+
+`serde_arrow`, offers a simple way to convert Rust objects into Arrow arrays and
+back.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
+interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
+types is as easy as using Serde's derive macros.
 
 In the Rust ecosystem there are two competing implemenetations of the arrow
 in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-supports both. Schema tracing and serialization from Rust structs to arrays is
-implemented for both. Deserialization from arrays to Rust structs is currently
-only implemented for `arrow2`.
+supports both for schema tracing and serialization from Rust structs to arrays.
+Deserialization from arrays to Rust structs is currently only implemented for
+`arrow2`.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
 [arrow2]: https://docs.rs/arrow2/latest/arrow2/
@@ -91,7 +91,8 @@ pd.read_parquet("example.pq")
 ## Performance
 
 See the [implementation notes](serde_arrow/Implementation.md) for details on how
-it is implemented.
+it is implemented and [status summary](serde_arrow/Status.md) for a list of
+supported Rust and Arrow constructs.
 
 This package is optimized for ease of use, not performance. Depending on the
 complexity of the types, a performance penality of 4x - 7x compared to manually

@@ -4,9 +4,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    internal::{error::fail, event::Event, sink::EventSink},
-    Error, Result,
+use crate::internal::{
+    error::{fail, Error, Result},
+    event::Event,
+    sink::EventSink,
 };
 
 use super::sink::macros;
@@ -46,6 +47,9 @@ pub enum Strategy {
     ///
     TupleAsStruct,
     /// Serialize Rust maps as Arrow structs
+    ///
+    /// The field names are sorted by name to ensure unordered map (e.g.,
+    /// HashMap) have a defined order.
     ///
     /// Fields that are not present in all instances of the map are marked as
     /// nullable in schema tracing. In serialization these fields are written as
@@ -221,12 +225,31 @@ impl From<&GenericField> for FieldMeta {
 ///
 #[derive(Debug, Clone)]
 pub struct TracingOptions {
+    /// If `true`, accept null-only fields (e.g., fields with type `()` or fields
+    /// with only `None` entries). If `false`, schema tracing will fail in this
+    /// case
+    pub allow_null_fields: bool,
+
     /// If `true` serialize maps as structs (the default). See
-    /// [Strategy::MapAsStruct] for details.
+    /// [`Strategy::MapAsStruct`] for details.
     pub map_as_struct: bool,
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
+    ///
+    /// If `true` will trace strings not as `LargeUtf8`, but as
+    /// `Dictionary(UInt64, LargeUtf8)`.
+    ///
     pub string_dictionary_encoding: bool,
+}
+
+impl Default for TracingOptions {
+    fn default() -> Self {
+        Self {
+            allow_null_fields: false,
+            map_as_struct: true,
+            string_dictionary_encoding: false,
+        }
+    }
 }
 
 impl TracingOptions {
@@ -234,23 +257,22 @@ impl TracingOptions {
         Default::default()
     }
 
+    /// Set the `allow_null_fields` value
+    pub fn allow_null_fields(mut self, value: bool) -> Self {
+        self.allow_null_fields = value;
+        self
+    }
+
+    /// Set the `map_as_struct` value
     pub fn map_as_struct(mut self, value: bool) -> Self {
         self.map_as_struct = value;
         self
     }
 
+    /// Set the `string_dictionary_encoding` value
     pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
         self.string_dictionary_encoding = value;
         self
-    }
-}
-
-impl Default for TracingOptions {
-    fn default() -> Self {
-        Self {
-            map_as_struct: true,
-            string_dictionary_encoding: false,
-        }
     }
 }
 
@@ -332,6 +354,7 @@ impl EventSink for Tracer {
                     let mut tracer = PrimitiveTracer::new(
                         tracer.nullable,
                         tracer.options.string_dictionary_encoding,
+                        tracer.options.allow_null_fields,
                     );
                     tracer.accept(event)?;
                     *self = Tracer::Primitive(tracer)
@@ -420,6 +443,13 @@ impl UnknownTracer {
         if !self.finished {
             fail!("Cannot build field {name} from unfinished tracer");
         }
+        if !self.options.allow_null_fields {
+            fail!(concat!(
+                "Encountered null only field. This error can be disabled by ",
+                "setting `allow_null_fields` to `true` in `TracingOptions`",
+            ));
+        }
+
         Ok(GenericField::new(
             name,
             GenericDataType::Null,
@@ -484,6 +514,7 @@ impl StructTracer {
         }
 
         if let StructMode::Map = self.mode {
+            field.children.sort_by(|a, b| a.name.cmp(&b.name));
             field.strategy = Some(Strategy::MapAsStruct);
         }
         Ok(field)
@@ -1029,15 +1060,17 @@ pub enum MapTracerState {
 
 pub struct PrimitiveTracer {
     pub string_dictionary_encoding: bool,
+    pub allow_null_fields: bool,
     pub item_type: GenericDataType,
     pub nullable: bool,
     pub finished: bool,
 }
 
 impl PrimitiveTracer {
-    pub fn new(nullable: bool, string_dictionary_encoding: bool) -> Self {
+    pub fn new(nullable: bool, string_dictionary_encoding: bool, allow_null_fields: bool) -> Self {
         Self {
             item_type: GenericDataType::Null,
+            allow_null_fields,
             nullable,
             string_dictionary_encoding,
             finished: false,
@@ -1049,6 +1082,13 @@ impl PrimitiveTracer {
 
         if !self.finished {
             fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        if !self.allow_null_fields && matches!(self.item_type, D::Null) {
+            fail!(concat!(
+                "Encountered null only field. This error can be disabled by ",
+                "setting `allow_null_fields` to `true` in `TracingOptions`",
+            ));
         }
 
         match self.item_type {

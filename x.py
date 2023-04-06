@@ -31,6 +31,7 @@ def precommit(backtrace=False):
     fmt()
     check()
     lint()
+    example()
     test(backtrace=backtrace)
 
 
@@ -43,13 +44,22 @@ def fmt():
 def check():
     cargo("check")
     for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-        cargo("check", "--features", arrow2_feature)
+        cargo(
+            "check",
+            "--features",
+            arrow2_feature,
+        )
 
 
 @cmd()
 def lint():
     check_cargo_toml()
     cargo("clippy", "--features", default_features)
+
+
+@cmd()
+def example():
+    cargo("run", "-p", "example")
 
 
 @cmd()
@@ -164,14 +174,6 @@ def collect(kv_pairs):
 @cmd()
 def doc():
     cargo("doc", "--features", default_features, cwd=self_path / "serde_arrow")
-
-
-@cmd()
-def release():
-    cargo("package", "--list", cwd=self_path / "serde_arrow")
-
-    if input("Continue [y/N]") == "y":
-        cargo("publish", cwd=self_path / "serde_arrow")
 
 
 def cargo(*args, **kwargs):

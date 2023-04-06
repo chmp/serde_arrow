@@ -2,13 +2,12 @@ use serde::Deserialize;
 
 use crate::test::utils::collect_events;
 use crate::{
-    arrow2::sources::{build_dynamic_source, build_record_source},
-    impls::arrow2::{
+    _impl::arrow2::{
         array::{Array, BooleanArray, PrimitiveArray, StructArray},
         datatypes::{DataType, Field},
     },
-    internal::{event::Event, source::deserialize_from_source},
-    Result,
+    arrow2::sources::{build_dynamic_source, build_record_source},
+    internal::{error::Result, event::Event, source::deserialize_from_source},
 };
 
 #[test]

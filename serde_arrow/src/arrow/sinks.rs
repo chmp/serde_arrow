@@ -1,24 +1,19 @@
 use crate::{
-    base::Event,
-    impls::arrow::{
+    _impl::arrow::{
         array::{
-            self,
-            array::ArrowPrimitiveType,
-            builder::BooleanBufferBuilder,
-            builder::{BooleanBuilder, GenericStringBuilder, PrimitiveBuilder},
-            types::Float16Type,
-            types::{
-                Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-                UInt32Type, UInt64Type, UInt8Type,
-            },
-            Array, GenericListArray, NullArray, OffsetSizeTrait, StructArray,
+            self, Array, ArrayData, ArrowPrimitiveType, BooleanBufferBuilder, BooleanBuilder,
+            GenericListArray, GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder,
+            StructArray,
         },
         buffer::Buffer,
-        data::ArrayData,
-        schema::{DataType, UnionMode},
+        datatypes::{
+            DataType, Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
+            Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        },
     },
     internal::{
         error::{fail, Result},
+        event::Event,
         generic_sinks::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
@@ -86,8 +81,7 @@ impl PrimitiveBuilders for ArrowPrimitiveBuilders {
     }
 
     fn date64() -> DynamicArrayBuilder<Self::Output> {
-        // TODO: check type?
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::default())
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::default())
     }
 
     fn utf8() -> DynamicArrayBuilder<Self::Output> {
@@ -257,6 +251,18 @@ impl_primitive_array_builder!(
 );
 impl_primitive_array_builder!(
     PrimitiveBuilder<UInt64Type>,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64
+);
+
+impl_primitive_array_builder!(
+    PrimitiveBuilder<Date64Type>,
     U8,
     I8,
     U16,

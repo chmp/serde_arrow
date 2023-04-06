@@ -100,12 +100,57 @@ where
     builder.into_inner().build_array()
 }
 
-pub struct ArraysBuilder<Arrow: PrimitiveBuilders> {
+pub struct GenericArrayBuilder<Arrow: PrimitiveBuilders> {
+    builder: DynamicArrayBuilder<Arrow::Output>,
+    field: GenericField,
+}
+
+impl<Arrow> GenericArrayBuilder<Arrow>
+where
+    Arrow: PrimitiveBuilders,
+    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
+    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+{
+    pub fn new(field: GenericField) -> Result<Self> {
+        Ok(Self {
+            builder: generic_sinks::build_array_builder::<Arrow>(&field)?,
+            field,
+        })
+    }
+
+    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+        item.serialize(EventSerializer(&mut self.builder))?;
+        Ok(())
+    }
+
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        let mut builder = StripOuterSequenceSink::new(&mut self.builder);
+        items.serialize(EventSerializer(&mut builder))?;
+        Ok(())
+    }
+
+    pub fn build_array(&mut self) -> Result<Arrow::Output> {
+        let mut builder = generic_sinks::build_array_builder::<Arrow>(&self.field)?;
+        std::mem::swap(&mut builder, &mut self.builder);
+
+        builder.finish()?;
+        builder.build_array()
+    }
+}
+
+pub struct GenericArraysBuilder<Arrow: PrimitiveBuilders> {
     fields: Vec<GenericField>,
     builder: StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>,
 }
 
-impl<Arrow> ArraysBuilder<Arrow>
+impl<Arrow> GenericArraysBuilder<Arrow>
 where
     Arrow: PrimitiveBuilders,
     NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,

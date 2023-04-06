@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use serde_arrow::impls::arrow2::{
+use serde_arrow::_impl::arrow2::{
     array::{
         Array, BooleanArray, MutableArray, MutableBooleanArray, MutablePrimitiveArray,
         MutableUtf8Array, PrimitiveArray, StructArray, UnionArray, Utf8Array,
@@ -311,11 +311,6 @@ fn benchmark_complex(c: &mut Criterion) {
             black_box(arrays);
         })
     });
-
-    // TODO: implement
-    // group.bench_function("manually_deserialize", |b| {
-    //     b.iter(|| { })
-    // });
 
     group.finish();
 }

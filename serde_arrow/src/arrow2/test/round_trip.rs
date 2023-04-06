@@ -8,12 +8,15 @@ use serde::{Deserialize, Serialize};
 
 use super::utils::{collect_events_from_array, field};
 use crate::{
-    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
-    impls::arrow2::{
+    _impl::arrow2::{
         array::PrimitiveArray,
         datatypes::{DataType, Field},
     },
-    internal::{event::Event, schema::Strategy},
+    arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields},
+    internal::{
+        event::Event,
+        schema::{Strategy, TracingOptions},
+    },
 };
 
 /// Test that dates as RFC 3339 strings are correctly handled
@@ -49,7 +52,8 @@ fn dtype_date64_naive_str() {
         .as_any()
         .downcast_ref::<PrimitiveArray<i64>>()
         .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24]);
+    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
+        .to(DataType::Date64);
 
     assert_eq!(actual, &expected);
 
@@ -101,7 +105,8 @@ fn dtype_date64_str() {
         .as_any()
         .downcast_ref::<PrimitiveArray<i64>>()
         .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24]);
+    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
+        .to(DataType::Date64);
 
     assert_eq!(actual, &expected);
 
@@ -387,7 +392,8 @@ fn test_unit() {
 
     let items = vec![Item { a: () }, Item { a: () }];
 
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
+    let fields =
+        serialize_into_fields(&items, TracingOptions::default().allow_null_fields(true)).unwrap();
     let expected_fields = vec![Field::new("a", DataType::Null, true)];
 
     assert_eq!(fields, expected_fields);

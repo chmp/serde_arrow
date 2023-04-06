@@ -36,9 +36,29 @@ The traced field `val` will be of type `Utf8`. To store it as `Date64` field,
 modify the data type as in
 
 ```rust
-let val_field = find_field_mut(&mut fields, "val").unwrap();
-val_field.data_type = DataType::Date64;
-val_field.metadata = Strategy::NaiveStrAsDate64.into();
+*find_field_mut(&mut fields, "val").unwrap() = Field::new(
+    "val", DataType::Date64, false,
+).with_metadata(Strategy::NaiveStrAsDate64.into());
+```
+
+Integer fields containing timestamps in milliseconds since the epoch can be
+directly stored as `Date64`:
+
+```rust
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Record {
+    timestamp: i64,
+}
+
+let records: &[Record] = &[
+    Record { timestamp: 12 * 60 * 60 * 24 * 1000 },
+    Record { timestamp: 9 * 60 * 60 * 24 * 1000 },
+];
+
+let mut fields = serialize_into_fields(records, Default::default()).unwrap();
+find_field_mut(&mut fields, "timestmap").unwrap() = Field::new(
+    "timestamp", DataType::Date64, false,
+);
 ```
 
 ## Dictionary encoding for strings

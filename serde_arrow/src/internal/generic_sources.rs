@@ -1,12 +1,9 @@
 use chrono::{NaiveDateTime, TimeZone, Utc};
 
-use crate::{
-    internal::{
-        error::{error, fail},
-        event::Event,
-        source::{DynamicSource, EventSource, PeekableEventSource},
-    },
-    Result,
+use crate::internal::{
+    error::{error, fail, Result},
+    event::Event,
+    source::{DynamicSource, EventSource, PeekableEventSource},
 };
 
 pub struct StructSource<'a> {

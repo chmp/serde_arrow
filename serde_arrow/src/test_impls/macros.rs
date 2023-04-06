@@ -1,3 +1,33 @@
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),*) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+pub(crate) use btree_map;
+
+macro_rules! hash_map {
+    () => {
+        ::std::collections::HashMap::new()
+    };
+    ($($key:expr => $value:expr),*) => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+pub(crate) use hash_map;
+
 macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
@@ -84,6 +114,34 @@ macro_rules! test_example_impl {
                 );
             }
         }
+
+        #[test]
+        fn builder() {
+            $($($definitions)*)?
+
+            let items: &[$ty] = &$values;
+            let field = $field;
+            $(let field = $overwrite_field;)?
+            let field: Field = (&field).try_into().unwrap();
+
+            let array_reference = serialize_into_array(&field, &items).unwrap();
+
+            let mut builder = ArrayBuilder::new(&field).unwrap();
+
+            // build using extend
+            builder.extend(items).unwrap();
+
+            let array = builder.build_array().unwrap();
+            assert_eq!(array.as_ref(), array_reference.as_ref());
+
+            // re-use the builder
+            for item in items {
+                builder.push(item).unwrap();
+            }
+
+            let array = builder.build_array().unwrap();
+            assert_eq!(array.as_ref(), array_reference.as_ref());
+        }
     };
 }
 
@@ -97,11 +155,14 @@ macro_rules! test_example {
         #[allow(unused)]
         mod $test_name {
             mod arrow {
+                use std::collections::{BTreeMap, HashMap};
+
                 use serde::Serialize;
 
                 use crate::{
-                    arrow::{serialize_into_field, serialize_into_array},
-                    impls::arrow::schema::Field,
+                    arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow::datatypes::Field,
+                    test_impls::macros::{btree_map, hash_map},
                 };
 
                 $crate::test_impls::macros::test_example_impl!(
@@ -110,11 +171,14 @@ macro_rules! test_example {
                 );
             }
             mod arrow2 {
+                use std::collections::{BTreeMap, HashMap};
+
                 use serde::Serialize;
 
                 use crate::{
-                    arrow2::{serialize_into_field, serialize_into_array},
-                    impls::arrow2::datatypes::Field,
+                    arrow2::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow2::datatypes::Field,
+                    test_impls::macros::{btree_map, hash_map},
                 };
 
                 $crate::test_impls::macros::test_example_impl!(

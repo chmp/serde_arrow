@@ -1,7 +1,7 @@
 //! The underlying data format used to interact with serde
 //!
 
-use crate::{internal::error::fail, Error, Result};
+use crate::internal::error::{fail, Error, Result};
 
 /// The events used to interact with serde
 ///
@@ -216,6 +216,14 @@ impl<'a> Event<'a> {
     }
 
     /// Test whether the event increases the nesting level
+    ///
+    /// The following events are considered start events:
+    ///
+    /// - [`Event::StartSequence`]
+    /// - [`Event::StartTuple`]
+    /// - [`Event::StartStruct`]
+    /// - [`Event::StartMap`]
+    ///
     pub fn is_start(&self) -> bool {
         matches!(
             self,
@@ -224,6 +232,14 @@ impl<'a> Event<'a> {
     }
 
     /// Test whether the event decreases the nesting level
+    ///
+    /// The following events are considered end events:
+    ///
+    /// - [`Event::EndSequence`]
+    /// - [`Event::EndTuple`]
+    /// - [`Event::EndStruct`]
+    /// - [`Event::EndMap`]
+    ///
     pub fn is_end(&self) -> bool {
         matches!(
             self,
@@ -233,8 +249,9 @@ impl<'a> Event<'a> {
 
     /// Test whether the event encodes a primitive value
     ///
-    /// Note: `Null`, `Default` are not considered a primitive value. Use
-    /// [is_value][Event::is_value] to include them.
+    /// Note: [`Event::Null`] and [`Event::Default`] are not considered a
+    /// primitive value. Use [is_value][Event::is_value] to include them.
+    ///
     pub fn is_primitive(&self) -> bool {
         matches!(
             self,
@@ -260,6 +277,10 @@ impl<'a> Event<'a> {
     }
 
     /// Test whether the event modifies the following value
+    ///
+    /// The events [`Event::Some`] and [`Event::Variant`] are considered marker
+    /// events.
+    ///
     pub fn is_marker(&self) -> bool {
         matches!(self, Event::Some | Event::Variant(_, _))
     }

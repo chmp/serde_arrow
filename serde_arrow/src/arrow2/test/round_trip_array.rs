@@ -9,8 +9,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    _impl::arrow2::datatypes::{DataType, Field, UnionMode},
     arrow2::{deserialize_from_array, serialize_into_array, serialize_into_field},
-    impls::arrow2::datatypes::{DataType, Field, UnionMode},
     internal::schema::GenericField,
     schema::{Strategy, TracingOptions, STRATEGY_KEY},
 };
@@ -211,6 +211,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new("value",DataType::Struct(vec![
         Field::new("a", DataType::Boolean, false),
         Field::new("b", DataType::Int64, false),
@@ -251,6 +252,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable_nested,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new("value",DataType::Struct(vec![
         Field::new("inner", DataType::Struct(vec![
             Field::new("a", DataType::Boolean, false),
@@ -294,6 +296,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = struct_nullable_item,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new(
         "value",
         DataType::Struct(vec![
@@ -473,6 +476,7 @@ test_round_trip!(
 
 test_round_trip!(
     test_name = enums_union,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
     field = Field::new(
         "value",
         DataType::Union(

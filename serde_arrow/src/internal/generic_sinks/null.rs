@@ -1,9 +1,7 @@
-use crate::{
-    base::{Event, EventSink},
-    internal::{
-        error::{fail, Result},
-        sink::macros,
-    },
+use crate::internal::{
+    error::{fail, Result},
+    event::Event,
+    sink::{macros, EventSink},
 };
 
 #[derive(Debug, Default)]
@@ -24,14 +22,14 @@ impl NullArrayBuilder {
 impl EventSink for NullArrayBuilder {
     macros::forward_generic_to_specialized!();
     macros::accept_start!((_this, ev, _val, _next) {
-        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+        fail!("Cannot handle event {ev} in NullArrayBuilder");
     });
     macros::accept_end!((_this, ev, _val, _next) {
-        fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+        fail!("Cannot handle event {ev} in NullArrayBuilder");
     });
     macros::accept_marker!((_this, ev, _val, _next) {
         if !matches!(ev, Event::Some) {
-            fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>");
+            fail!("Cannot handle event {ev} in NullArrayBuilder");
         }
         Ok(())
     });
@@ -40,7 +38,7 @@ impl EventSink for NullArrayBuilder {
             Event::Null | Event::Default => {
                 this.length += 1;
             },
-            ev => fail!("Cannot handle event {ev} in PrimitiveArrayBuilder<f16>"),
+            ev => fail!("Cannot handle event {ev} in NullArrayBuilder"),
         }
         Ok(())
     });

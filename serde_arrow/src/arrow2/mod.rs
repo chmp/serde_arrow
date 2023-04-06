@@ -1,21 +1,8 @@
-//! arrow2 dependent functionality (requires one the `arrow2-*` features)
+//! Support for the `arrow2` crate (requires one the `arrow2-*` features)
 //!
-//! Functions to convert `arrow2  arrays from and into Rust objects.
+//! Functions to convert Rust objects into Arrow arrays and back.
 //!
-//! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frames, some work on multiples arrays, i.e., data frames
-//! themselves.
-//!
-//! | operation | mutliple arrays |  single array  |
-//! |---|-----------------|----------------|
-//! | schema tracing | [serialize_into_fields] | [serialize_into_field] |
-//! | Rust to arrow2 | [serialize_into_arrays] | [serialize_into_array] |
-//! | arrow2 to Rust | [deserialize_from_arrays] | [deserialize_from_array] |
-//!
-//! Functions working on multiple arrays expect sequences of records in Rust,
-//! e.g., a vector of structs. Functions working on single arrays expect vectors
-//! of arrays elements.
-//!
+#![deny(missing_docs)]
 pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod sinks;
@@ -28,7 +15,7 @@ mod test;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    impls::arrow2::{array::Array, datatypes::Field},
+    _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
         self,
         error::Result,
@@ -47,11 +34,21 @@ use self::{
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs).
 ///
+/// To correctly record the type information make sure to:
+///
+/// - include values for `Option<T>`
+/// - include all variants of an enum
+/// - include at least single element of a list or a map
+///
+/// Example:
+///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::serialize_into_fields;
+/// # use serde_arrow::_impl::arrow2 as arrow2;
 /// #
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde::Serialize;
+/// use serde_arrow::arrow2::serialize_into_fields;
+///
 /// ##[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -71,11 +68,6 @@ use self::{
 ///
 /// assert_eq!(fields, expected);
 /// ```
-/// To correctly record the type information make sure to:
-///
-/// - include values for `Option<T>`
-/// - include all variants of an enum
-/// - include at least single element of a list or a map
 ///
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<Field>>
 where
@@ -95,9 +87,9 @@ where
 /// To build arrays record by record use [ArraysBuilder].
 ///
 /// ```rust
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
-/// #
+/// use serde::Serialize;
+/// use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+///
 /// ##[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -131,14 +123,16 @@ where
 /// The type should be a list of records (e.g., a vector of structs).
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::datatypes::{Field, DataType};
-/// # use serde::{Serialize, Deserialize};
-/// # use serde_arrow::arrow2::{
-/// #   serialize_into_fields,
-/// #   serialize_into_arrays,
-/// #   deserialize_from_arrays,
-/// # };
-/// #
+/// use serde::{Deserialize, Serialize};
+/// use serde_arrow::{
+///     arrow2::{
+///         deserialize_from_arrays,
+///         serialize_into_arrays,
+///         serialize_into_fields,
+///     },
+///     schema::TracingOptions,
+/// };
+///
 /// ##[derive(Deserialize, Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -148,7 +142,7 @@ where
 /// // provide an example record to get the field information
 /// let fields = serialize_into_fields(
 ///     &[Record { a: Some(1.0), b: 2}],
-///     Default::default(),
+///     TracingOptions::default(),
 /// ).unwrap();
 /// # let items = &[Record { a: Some(1.0), b: 2}];
 /// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
@@ -172,10 +166,10 @@ where
 /// Example:
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
-/// #
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde_arrow::arrow2::serialize_into_field;
+///
 /// let items: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
 ///
 /// let field = serialize_into_field(&items, "floats", Default::default()).unwrap();
@@ -190,15 +184,16 @@ where
     (&field).try_into()
 }
 
-/// Serialize an object that represents a single array into an array
+/// Serialize a sequence of objects representing a single array into an array
 ///
 /// Example:
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{serialize_into_field, serialize_into_array};
+/// # use serde_arrow::_impl::arrow2 as arrow2;
 /// #
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde_arrow::arrow2::serialize_into_array;
+///
 /// let items: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
 ///
 /// let field = Field::new("floats", DataType::Float32, false);
@@ -215,23 +210,22 @@ where
     internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
 }
 
-/// Deserialize an object that represents a single array from an array
-///
-/// /// Determine the schema of an object that represents a single array
+/// Deserialize a sequence of objects from a single array
 ///
 /// Example:
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::{array::Array, datatypes::{DataType, Field}};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{
-/// #   serialize_into_field,
-/// #   serialize_into_array,
-/// #   deserialize_from_array,
-/// # };
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// #
+/// use arrow2::{array::Array, datatypes::{DataType, Field}};
+/// use serde_arrow::arrow2::{
+///   serialize_into_array,
+///   deserialize_from_array,
+/// };
+///
 /// let field = Field::new("floats", DataType::Float32, false);
-/// # let base_items: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
-/// # let array = serialize_into_array(&field, &base_items).unwrap();
+///
+/// let array = serialize_into_array(&field,  &vec![1.0_f32, 2.0, 3.0]).unwrap();
 /// let items: Vec<f32> = deserialize_from_array(&field, &array).unwrap();
 /// ```
 ///
@@ -245,15 +239,73 @@ where
     deserialize_from_source(source)
 }
 
-/// Build arrays record by record
+/// Build a single array item by item
 ///
-/// Usage:
+/// Example:
 ///
 /// ```rust
-/// # use serde_arrow::impls::arrow2::datatypes::{DataType, Field};
-/// # use serde::Serialize;
-/// # use serde_arrow::arrow2::{ArraysBuilder};
-/// #
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// use arrow2::datatypes::{Field, DataType};
+/// use serde_arrow::arrow2::ArrayBuilder;
+///
+/// let field = Field::new("value", DataType::Int64, false);
+/// let mut builder = ArrayBuilder::new(&field).unwrap();
+///
+/// builder.push(&-1_i64).unwrap();
+/// builder.push(&2_i64).unwrap();
+/// builder.push(&-3_i64).unwrap();
+///
+/// builder.extend(&[4_i64, -5, 6]).unwrap();
+///
+/// let array = builder.build_array().unwrap();
+/// assert_eq!(array.len(), 6);
+/// ```
+pub struct ArrayBuilder {
+    inner: internal::GenericArrayBuilder<Arrow2PrimitiveBuilders>,
+}
+
+impl ArrayBuilder {
+    /// Construct a new build for the given field
+    ///
+    /// This method may fail for an unsupported data type of the given field.
+    ///
+    pub fn new(field: &Field) -> Result<Self> {
+        Ok(Self {
+            inner: internal::GenericArrayBuilder::new(GenericField::try_from(field)?)?,
+        })
+    }
+
+    /// Add a single item to the arrays
+    ///
+    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+        self.inner.push(item)
+    }
+
+    /// Add multiple items to the arrays
+    ///
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        self.inner.extend(items)
+    }
+
+    /// Build the array from the rows pushed to far.
+    ///
+    /// This operation will reset the underlying buffers and start a new batch.
+    ///
+    pub fn build_array(&mut self) -> Result<Box<dyn Array>> {
+        self.inner.build_array()
+    }
+}
+
+/// Build arrays record by record
+///
+/// Example:
+///
+/// ```rust
+/// # use serde_arrow::_impl::arrow2 as arrow2;
+/// use arrow2::datatypes::{DataType, Field};
+/// use serde::Serialize;
+/// use serde_arrow::arrow2::{ArraysBuilder};
+///
 /// ##[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -266,20 +318,23 @@ where
 /// ];
 /// let mut builder = ArraysBuilder::new(&fields).unwrap();
 ///
-/// for item in &[
-///     Record { a: Some(1.0), b: 2},
-///     Record { a: Some(3.0), b: 4},
-///     Record { a: Some(5.0), b: 5},
-///     // ...
-/// ] {
-///     builder.push(item).unwrap()
-/// }
-///  
+/// builder.push(&Record { a: Some(1.0), b: 2}).unwrap();
+/// builder.push(&Record { a: Some(3.0), b: 4}).unwrap();
+/// builder.push(&Record { a: Some(5.0), b: 5}).unwrap();
+///
+/// builder.extend(&[
+///     Record { a: Some(6.0), b: 7},
+///     Record { a: Some(8.0), b: 9},
+///     Record { a: Some(10.0), b: 11},
+/// ]).unwrap();
+///
 /// let arrays = builder.build_arrays().unwrap();
+///
 /// assert_eq!(arrays.len(), 2);
+/// assert_eq!(arrays[0].len(), 6);
 /// ```
 pub struct ArraysBuilder {
-    inner: internal::ArraysBuilder<Arrow2PrimitiveBuilders>,
+    inner: internal::GenericArraysBuilder<Arrow2PrimitiveBuilders>,
 }
 
 impl std::fmt::Debug for ArraysBuilder {
@@ -300,7 +355,7 @@ impl ArraysBuilder {
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
-            inner: internal::ArraysBuilder::new(fields)?,
+            inner: internal::GenericArraysBuilder::new(fields)?,
         })
     }
 
@@ -316,7 +371,7 @@ impl ArraysBuilder {
         self.inner.extend(items)
     }
 
-    /// Build the arrays built from the rows pushed to far.
+    /// Build the arrays from the rows pushed to far.
     ///
     /// This operation will reset the underlying buffers and start a new batch.
     ///
@@ -327,19 +382,5 @@ impl ArraysBuilder {
 
 /// Experimental functionality that is not subject to semver compatibility
 pub mod experimental {
-    use crate::impls::arrow2::datatypes::Field;
-
-    use super::display;
-
-    /// Format the fields as a string
-    ///
-    /// The fields are displayed as Rust code that allows to build the fields in
-    /// code. The following symbols of the `arrow2::datatypes `module are
-    /// assumed to be in scope `DataType`, `Field`, `Metadata`.
-    ///
-    pub fn format_fields(fields: &[Field]) -> String {
-        display::Fields(fields).to_string()
-    }
-
     pub use super::schema::find_field_mut;
 }
