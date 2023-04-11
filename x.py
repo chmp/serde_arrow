@@ -1,4 +1,5 @@
 import argparse
+import itertools as it
 import json
 import os
 import pathlib
@@ -15,7 +16,7 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
-all_arrow_features = ["arrow-35", "arrow-36"]
+all_arrow_features = ["arrow-35", "arrow-36", "arrow-37"]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
@@ -139,28 +140,30 @@ def summarize_bench():
 
     median_times = {k: statistics.median(v) for k, v in grouped_times.items()}
 
-    print(f"{'':23s} serde_arrow   manual   ratio")
-    for group in ["complex", "primitives"]:
-        for op_label, serde_arrow_key, manual_key in [
-            ("serialize", "serialize_into_arrays", "manually_serialize")
-        ]:
-            serde_arrow_time = median_times[group, serde_arrow_key]
-            manual_time = median_times[group, manual_key]
-            label = f"{op_label}({group})"
-            print(
-                f"{label:23s} "
-                f"{1000 * serde_arrow_time:9.1f}ms "
-                f"{1000 * manual_time:6.1f}ms "
-                f"{serde_arrow_time / manual_time:6.1f}x"
+    for group in sorted({g for g, _ in median_times}):
+        print("# ", group)
+        times_in_group = {n: v for (g, n), v in median_times.items() if g == group}
+
+        rows = [["label", "time [ms]", *sorted(k[:15] for k in times_in_group)]]
+
+        for label, time in sorted(times_in_group.items()):
+            rows.append(
+                [
+                    label,
+                    f"{1000 * time:7.2f}",
+                    *(f"{time / cmp:.2f}" for _, cmp in sorted(times_in_group.items())),
+                ]
             )
 
-    print()
-    print()
+        widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+        for row in rows:
+            padded_row = [
+                (str.ljust if idx == 0 else str.rjust)(item, width)
+                for idx, item, width in zip(it.count(), row, widths)
+            ]
+            print("   ".join(padded_row))
 
-    print("# raw times")
-    for (g, n), v in sorted(median_times.items()):
-        label = f"{g}, {n}"
-        print(f"{label:40s} {1000 * v:8.1f}ms")
+        print()
 
 
 def collect(kv_pairs):

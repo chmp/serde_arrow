@@ -1,12 +1,15 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     error::{error, fail, Result},
     event::Event,
-    schema::FieldMeta,
+    schema::GenericField,
     sink::{macros, ArrayBuilder, EventSink},
 };
 
 pub struct StructArrayBuilder<B> {
-    pub(crate) field_meta: Vec<FieldMeta>,
+    pub(crate) field: GenericField,
+    pub(crate) field_lookup: BTreeMap<String, usize>,
     /// the builders of the sub arrays
     pub(crate) builders: Vec<B>,
     /// the validity of the items
@@ -17,10 +20,17 @@ pub struct StructArrayBuilder<B> {
 }
 
 impl<B> StructArrayBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMeta>, builders: Vec<B>) -> Self {
-        let num_columns = field_meta.len();
+    pub fn new(field: GenericField, builders: Vec<B>) -> Self {
+        let num_columns = field.children.len();
+
+        let mut field_lookup = BTreeMap::new();
+        for (idx, child) in field.children.iter().enumerate() {
+            field_lookup.insert(child.name.to_string(), idx);
+        }
+
         Self {
-            field_meta,
+            field,
+            field_lookup,
             builders,
             validity: Vec::new(),
             state: StructArrayBuilderState::Start,
@@ -46,7 +56,7 @@ impl<B> StructArrayBuilder<B> {
 #[derive(Debug, Clone, Copy)]
 pub enum StructArrayBuilderState {
     Start,
-    Field,
+    Field(usize),
     Value(usize, usize),
 }
 
@@ -57,15 +67,15 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
         this.state = match this.state {
             Start => {
                 if matches!(ev, Event::StartStruct | Event::StartMap) {
-                    this.seen = vec![false; this.field_meta.len()];
-                    Field
+                    this.seen = vec![false; this.field_lookup.len()];
+                    Field(0)
                 } else {
                     fail!(
                             "Expected StartStruct, StartMap or marker in StructArrayBuilder, not {ev}"
                         )
                 }
             }
-            Field => fail!("Unexpected event while waiting for field: {ev}"),
+            Field(_) => fail!("Unexpected event while waiting for field: {ev}"),
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;
                 Value(active, depth + 1)
@@ -80,11 +90,11 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             Start => fail!(
                 "Expected StartStruct, StartMap or marker in StructArrayBuilder, not {ev}"
             ),
-            Field => if matches!(ev, Event::EndStruct | Event::EndMap) {
+            Field(_) => if matches!(ev, Event::EndStruct | Event::EndMap) {
                 for (idx, seen) in this.seen.iter().enumerate() {
                     if !seen {
-                        if !this.field_meta[idx].nullable {
-                            fail!("Missing field {} is not nullable", this.field_meta[idx].name);
+                        if !this.field.children[idx].nullable {
+                            fail!("Missing field {} is not nullable", this.field.children[idx].name);
                         }
                         this.builders[idx].accept_null()?;
                     }
@@ -98,7 +108,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 next(&mut this.builders[active], val)?;
                 match depth {
                     // the last closing event for the current value
-                    1 => Field,
+                    1 => Field(active + 1),
                     // TODO: check is this event possible?
                     0 => fail!("Unbalanced opening / close events in StructArrayBuilder"),
                     _ => Value(active, depth - 1),
@@ -113,7 +123,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
 
         this.state = match this.state {
             Start => Start,
-            Field => fail!("Unexpected event while waiting for field: {ev}"),
+            Field(_) => fail!("Unexpected event while waiting for field: {ev}"),
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;
                 Value(active, depth)
@@ -146,20 +156,25 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 }
                 Start
             }
-            Field => {
+            Field(best_guess) => {
                 let key = match ev {
                     Event::Str(key) => key,
                     Event::OwnedStr(ref key) => key,
                     ev => fail!("Unexpected event while waiting for field: {ev}"),
                 };
 
-                let idx = this
-                    .field_meta
-                    .iter()
-                    .position(|m| m.name == key)
-                    .ok_or_else(|| error!("unknown field {key}"))?;
+                let idx = if best_guess < this.field.children.len() && this.field.children[best_guess].name == key {
+                    best_guess
+                } else {
+                    this
+                        .field_lookup
+                        .get(key)
+                        .copied()
+                        .ok_or_else(|| error!("unknown field {key}"))?
+                };
+
                 if this.seen[idx] {
-                    fail!("Duplicate field {}", this.field_meta[idx].name);
+                    fail!("Duplicate field {}", this.field.children[idx].name);
                 }
                 this.seen[idx] = true;
                 Value(idx, 0)
@@ -167,7 +182,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;
                 if depth == 0 {
-                    Field
+                    Field(active + 1)
                 } else {
                     Value(active, depth)
                 }

@@ -60,15 +60,15 @@ where
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
-    let mut field_meta = Vec::new();
     let mut builders = Vec::new();
-
     for field in fields {
-        field_meta.push(field.into());
         builders.push(build_array_builder::<Arrow>(field)?);
     }
 
-    Ok(StructArrayBuilder::new(field_meta, builders))
+    let mut field = GenericField::new("dummy", GenericDataType::Struct, true);
+    field.children = fields.to_vec();
+
+    Ok(StructArrayBuilder::new(field, builders))
 }
 
 pub fn build_array_builder<Arrow>(
@@ -120,20 +120,18 @@ where
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
-                let field_meta = field.children.iter().map(|f| f.into()).collect();
 
-                let builder = TupleStructBuilder::new(field_meta, builders);
+                let builder = TupleStructBuilder::new(field.clone(), builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             None | Some(Strategy::MapAsStruct) => {
-                let field_meta = field.children.iter().map(|f| f.into()).collect();
                 let builders = field
                     .children
                     .iter()
                     .map(build_array_builder::<Arrow>)
                     .collect::<Result<Vec<_>>>()?;
 
-                let builder = StructArrayBuilder::new(field_meta, builders);
+                let builder = StructArrayBuilder::new(field.clone(), builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             Some(strategy) => fail!("Invalid strategy {strategy} for type Struct"),
@@ -144,9 +142,8 @@ where
                 .iter()
                 .map(build_array_builder::<Arrow>)
                 .collect::<Result<Vec<_>>>()?;
-            let meta = field.children.iter().map(|f| f.into()).collect();
 
-            let builder = UnionArrayBuilder::new(meta, builders, field.nullable);
+            let builder = UnionArrayBuilder::new(field.clone(), builders);
             Ok(DynamicArrayBuilder::new(builder))
         }
         Dictionary => {
@@ -185,10 +182,8 @@ where
                 .ok_or_else(|| error!("Dictionary entries must have key, value children"))?;
 
             let builder = MapArrayBuilder::new(
-                entries.into(),
-                key.into(),
+                field.clone(),
                 build_array_builder::<Arrow>(key)?,
-                value.into(),
                 build_array_builder::<Arrow>(value)?,
             );
             Ok(DynamicArrayBuilder::new(builder))
@@ -202,12 +197,12 @@ where
 
             if let List = ty {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i32>::new(
-                    child.into(),
+                    field.clone(),
                     values,
                 )))
             } else {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i64>::new(
-                    child.into(),
+                    field.clone(),
                     values,
                 )))
             }

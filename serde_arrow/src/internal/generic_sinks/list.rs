@@ -1,12 +1,12 @@
 use crate::internal::{
     error::{fail, Error, Result},
     event::Event,
-    schema::FieldMeta,
+    schema::GenericField,
     sink::{macros, EventSink},
 };
 
 pub struct ListArrayBuilder<B, O> {
-    pub field_meta: FieldMeta,
+    pub field: GenericField,
     pub builder: B,
     next: ListBuilderState,
     pub offsets: Vec<O>,
@@ -15,9 +15,9 @@ pub struct ListArrayBuilder<B, O> {
 }
 
 impl<B, O: Default> ListArrayBuilder<B, O> {
-    pub fn new(field_meta: FieldMeta, builder: B) -> Self {
+    pub fn new(field: GenericField, builder: B) -> Self {
         Self {
-            field_meta,
+            field,
             builder,
             next: ListBuilderState::Start { offset: 0 },
             offsets: vec![Default::default()],

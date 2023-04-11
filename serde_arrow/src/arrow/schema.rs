@@ -1,8 +1,9 @@
+use super::type_support::FieldRef;
 use crate::{
     _impl::arrow::datatypes::{DataType, Field, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{FieldMeta, GenericDataType, GenericField, Strategy, STRATEGY_KEY},
+        schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
     },
 };
 
@@ -55,7 +56,7 @@ impl TryFrom<&Field> for GenericField {
             }
             DataType::Struct(fields) => {
                 for field in fields {
-                    children.push(field.try_into()?);
+                    children.push(field.as_field_ref().try_into()?);
                 }
                 GenericDataType::Struct
             }
@@ -63,6 +64,21 @@ impl TryFrom<&Field> for GenericField {
                 children.push(field.as_ref().try_into()?);
                 GenericDataType::Map
             }
+            #[cfg(feature = "arrow-37")]
+            DataType::Union(fields, mode) => {
+                if !matches!(mode, UnionMode::Dense) {
+                    fail!("Only dense unions are supported at the moment");
+                }
+
+                for (pos, (idx, field)) in fields.iter().enumerate() {
+                    if pos as i8 != idx {
+                        fail!("Union types with explicit field indices are not supported");
+                    }
+                    children.push(field.as_ref().try_into()?);
+                }
+                GenericDataType::Union
+            }
+            #[cfg(not(feature = "arrow-37"))]
             DataType::Union(fields, field_indices, mode) => {
                 if field_indices
                     .iter()
@@ -123,26 +139,32 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::Date64 => DataType::Date64,
             GenericDataType::Utf8 => DataType::Utf8,
             GenericDataType::LargeUtf8 => DataType::LargeUtf8,
-            GenericDataType::List => DataType::List(Box::new(
-                value
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("List must a single child"))?
-                    .try_into()?,
-            )),
-            GenericDataType::LargeList => DataType::LargeList(Box::new(
-                value
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("List must a single child"))?
-                    .try_into()?,
-            )),
+            GenericDataType::List => DataType::List(
+                Box::<Field>::new(
+                    value
+                        .children
+                        .get(0)
+                        .ok_or_else(|| error!("List must a single child"))?
+                        .try_into()?,
+                )
+                .into(),
+            ),
+            GenericDataType::LargeList => DataType::LargeList(
+                Box::<Field>::new(
+                    value
+                        .children
+                        .get(0)
+                        .ok_or_else(|| error!("List must a single child"))?
+                        .try_into()?,
+                )
+                .into(),
+            ),
             GenericDataType::Struct => DataType::Struct(
                 value
                     .children
                     .iter()
                     .map(Field::try_from)
-                    .collect::<Result<Vec<_>>>()?,
+                    .collect::<Result<_>>()?,
             ),
             GenericDataType::Map => {
                 let element_field: Field = value
@@ -150,8 +172,17 @@ impl TryFrom<&GenericField> for Field {
                     .get(0)
                     .ok_or_else(|| error!("Map must a single child"))?
                     .try_into()?;
-                DataType::Map(Box::new(element_field), false)
+                DataType::Map(Box::new(element_field).into(), false)
             }
+            #[cfg(feature = "arrow-37")]
+            GenericDataType::Union => {
+                let mut fields = Vec::new();
+                for (idx, field) in value.children.iter().enumerate() {
+                    fields.push((idx as i8, std::sync::Arc::new(Field::try_from(field)?)));
+                }
+                DataType::Union(fields.into_iter().collect(), UnionMode::Dense)
+            }
+            #[cfg(not(feature = "arrow-37"))]
             GenericDataType::Union => DataType::Union(
                 value
                     .children
@@ -197,13 +228,5 @@ impl TryFrom<&GenericField> for Field {
         }
 
         Ok(field)
-    }
-}
-
-impl FieldMeta {
-    pub fn to_arrow(&self, data_type: &DataType) -> Field {
-        let mut field = Field::new(self.name.to_string(), data_type.clone(), self.nullable);
-        field.set_metadata(self.strategy.clone().map(|s| s.into()).unwrap_or_default());
-        field
     }
 }
