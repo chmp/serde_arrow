@@ -122,7 +122,6 @@ fn benchmark_serialize_arrow2_primitives(c: &mut Criterion) {
     group.finish();
 }
 
-
 fn benchmark_deserialize_arrow2_primitives(c: &mut Criterion) {
     let mut group = c.benchmark_group("deserialize_arrow2_primitives");
     group.sample_size(20);
@@ -139,7 +138,9 @@ fn benchmark_deserialize_arrow2_primitives(c: &mut Criterion) {
 
     group.bench_function("serde_arrow", |b| {
         b.iter(|| {
-            black_box::<Vec<primitives::Item>>(arrow2::deserialize_from_arrays(&fields, &arrays).unwrap())
+            black_box::<Vec<primitives::Item>>(
+                arrow2::deserialize_from_arrays(&fields, &arrays).unwrap(),
+            )
         });
     });
 
