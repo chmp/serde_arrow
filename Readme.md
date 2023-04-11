@@ -4,6 +4,7 @@
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Changes](Changes.md)
 | [Example](#example)
+| [Related packages](#related-packages)
 | [Performance](#performance)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Status.md)
@@ -99,6 +100,19 @@ complexity of the types, a performance penality of 4x - 7x compared to manually
 building the arrays can be expected. More complex types incur a smaller
 performance penalty. See the [benches](serde_arrow/benches/arrow2.rs) for
 details.
+
+## Related packages
+
+- [`arrow`][arrow]: the JSON component of the official Arrow package supports
+   serializing objects that support serialize via the [RawDecoder][raw-decoder]
+   object. It supports primitives types, structs and lists
+- [`arrow2-convert`][arrow2-convert]: adds derive macros to convert objects from
+  and to arrow2 arrays. It supports primitive types, structs, lists, and
+  chrono's date time types. Enum support is experimental according to the
+  Readme
+
+[raw-decoder]: https://docs.rs/arrow-json/37.0.0/arrow_json/struct.RawDecoder.html#method.serialize
+[arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
 
 ## Development
 
