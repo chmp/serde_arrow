@@ -7,7 +7,7 @@ use crate::{
             UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
-        datatypes::{DataType, IntegerType, UnionMode},
+        datatypes::{DataType, Field, IntegerType},
         offset::OffsetsBuffer,
         types::{f16, Offset},
     },
@@ -19,6 +19,7 @@ use crate::{
             TupleStructBuilder, UnionArrayBuilder,
         },
         generic_sinks::{NullArrayBuilder, PrimitiveBuilders},
+        schema::GenericField,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
 };
@@ -108,14 +109,8 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for StructArr
             self.builders.iter_mut().map(|b| b.build_array()).collect();
         let values = values?;
 
-        let mut fields = Vec::new();
-        for (i, value) in values.iter().enumerate() {
-            fields.push(self.field_meta[i].to_arrow2(value.data_type()));
-        }
-        let data_type = DataType::Struct(fields);
-
         Ok(Box::new(StructArray::new(
-            data_type,
+            field_to_datatype(&self.field)?,
             values,
             Some(std::mem::take(&mut self.validity).into()),
         )))
@@ -132,14 +127,8 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for TupleStru
             self.builders.iter_mut().map(|b| b.build_array()).collect();
         let values = values?;
 
-        let mut fields = Vec::new();
-        for (i, value) in values.iter().enumerate() {
-            fields.push(self.field_meta[i].to_arrow2(value.data_type()));
-        }
-        let data_type = DataType::Struct(fields);
-
         Ok(Box::new(StructArray::new(
-            data_type,
+            field_to_datatype(&self.field)?,
             values,
             Some(std::mem::take(&mut self.validity).into()),
         )))
@@ -159,14 +148,8 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for UnionArra
             .collect();
         let values = values?;
 
-        let mut fields = Vec::new();
-        for (i, value) in values.iter().enumerate() {
-            fields.push(self.field_meta[i].to_arrow2(value.data_type()));
-        }
-        let data_type = DataType::Union(fields, None, UnionMode::Dense);
-
         Ok(Box::new(UnionArray::new(
-            data_type,
+            field_to_datatype(&self.field)?,
             self.field_types.clone().into(),
             values,
             Some(std::mem::take(&mut self.field_offsets).into()),
@@ -182,7 +165,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
 
         let values = self.builder.build_array()?;
         let array = ListArray::try_new(
-            DataType::List(Box::new(self.field_meta.to_arrow2(values.data_type()))),
+            field_to_datatype(&self.field)?,
             OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
             Some(Bitmap::from(std::mem::take(&mut self.validity))),
@@ -199,7 +182,7 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for ListArray
 
         let values = self.builder.build_array()?;
         let array = ListArray::try_new(
-            DataType::LargeList(Box::new(self.field_meta.to_arrow2(values.data_type()))),
+            field_to_datatype(&self.field)?,
             OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             values,
             Some(Bitmap::from(std::mem::take(&mut self.validity))),
@@ -218,19 +201,18 @@ impl<B: ArrayBuilder<Box<dyn Array>>> ArrayBuilder<Box<dyn Array>> for MapArrayB
         let keys = self.key_builder.build_array()?;
         let vals = self.val_builder.build_array()?;
 
-        // TODO: fix nullability of different fields
-        let entries_type = DataType::Struct(vec![
-            self.key_meta.to_arrow2(keys.data_type()),
-            self.val_meta.to_arrow2(vals.data_type()),
-        ]);
+        let dtype = field_to_datatype(&self.field)?;
 
-        let entries = StructArray::try_new(entries_type.clone(), vec![keys, vals], None)?;
+        let entries_field = match dtype {
+            DataType::Map(inner, _) => inner.as_ref().clone(),
+            _ => fail!("Invalid data type during struct construction"),
+        };
+
+        let entries = StructArray::try_new(entries_field.data_type, vec![keys, vals], None)?;
         let entries: Box<dyn Array> = Box::new(entries);
 
-        let map_type = DataType::Map(Box::new(self.field_meta.to_arrow2(&entries_type)), false);
-
         let array = MapArray::try_new(
-            map_type,
+            field_to_datatype(&self.field)?,
             OffsetsBuffer::try_from(std::mem::take(&mut self.offsets))?,
             entries,
             Some(std::mem::take(&mut self.validity).into()),
@@ -540,4 +522,9 @@ where
             fail!("...")
         }
     }
+}
+
+fn field_to_datatype(field: &GenericField) -> Result<DataType> {
+    let field: Field = field.try_into()?;
+    Ok(field.data_type)
 }

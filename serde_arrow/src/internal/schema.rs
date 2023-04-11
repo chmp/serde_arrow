@@ -194,24 +194,6 @@ impl GenericField {
     }
 }
 
-// Any non-dtype related info about a field
-#[derive(Debug, Clone)]
-pub struct FieldMeta {
-    pub name: String,
-    pub nullable: bool,
-    pub strategy: Option<Strategy>,
-}
-
-impl From<&GenericField> for FieldMeta {
-    fn from(value: &GenericField) -> Self {
-        Self {
-            name: value.name.to_string(),
-            nullable: value.nullable,
-            strategy: value.strategy.clone(),
-        }
-    }
-}
-
 /// Configure how the schema is traced
 ///
 /// Example:

@@ -1,5 +1,7 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use arrow_json_37::RawReaderBuilder;
+use arrow_schema_37::Schema;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use serde_arrow::_impl::arrow2::{
     array::{
@@ -16,31 +18,28 @@ use rand::{
     Rng,
 };
 use serde::{Deserialize, Serialize};
-use serde_arrow::arrow2::{deserialize_from_arrays, serialize_into_arrays, serialize_into_fields};
+use serde_arrow::{arrow, arrow2};
 
-fn benchmark_primitives(c: &mut Criterion) {
-    let mut group = c.benchmark_group("primitives");
-    group.sample_size(20);
-    group.sampling_mode(criterion::SamplingMode::Flat);
-    group.measurement_time(Duration::from_secs(60));
+mod primitives {
+    use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
-    struct Item {
-        a: u8,
-        b: u16,
-        c: u32,
-        d: u64,
-        e: i8,
-        f: i16,
-        g: i32,
-        h: i64,
-        i: f32,
-        j: f64,
-        k: bool,
+    pub struct Item {
+        pub a: u8,
+        pub b: u16,
+        pub c: u32,
+        pub d: u64,
+        pub e: i8,
+        pub f: i16,
+        pub g: i32,
+        pub h: i64,
+        pub i: f32,
+        pub j: f64,
+        pub k: bool,
     }
 
     impl Item {
-        fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
             Self {
                 a: Standard.sample(rng),
                 b: Standard.sample(rng),
@@ -56,24 +55,26 @@ fn benchmark_primitives(c: &mut Criterion) {
             }
         }
     }
+}
+
+fn benchmark_serialize_arrow2_primitives(c: &mut Criterion) {
+    let mut group = c.benchmark_group("serialize_arrow2_primitives");
+    group.sample_size(20);
+    group.sampling_mode(criterion::SamplingMode::Flat);
+    group.measurement_time(Duration::from_secs(60));
 
     let mut rng = rand::thread_rng();
 
     let items = (0..100_000)
-        .map(|_| Item::random(&mut rng))
+        .map(|_| primitives::Item::random(&mut rng))
         .collect::<Vec<_>>();
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
-    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let fields = arrow2::serialize_into_fields(&items, Default::default()).unwrap();
 
-    group.bench_function("serialize_into_arrays", |b| {
-        b.iter(|| black_box(serialize_into_arrays(&fields, &items).unwrap()));
+    group.bench_function("serde_arrow", |b| {
+        b.iter(|| black_box(arrow2::serialize_into_arrays(&fields, &items).unwrap()));
     });
 
-    group.bench_function("deserialize_from_arrays", |b| {
-        b.iter(|| black_box::<Vec<Item>>(deserialize_from_arrays(&fields, &arrays).unwrap()));
-    });
-
-    group.bench_function("manually_serialize", |b| {
+    group.bench_function("manual", |b| {
         b.iter(|| {
             let mut a = MutablePrimitiveArray::<u8>::new();
             let mut b = MutablePrimitiveArray::<u16>::new();
@@ -118,7 +119,31 @@ fn benchmark_primitives(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("manually_deserialize", |b| {
+    group.finish();
+}
+
+
+fn benchmark_deserialize_arrow2_primitives(c: &mut Criterion) {
+    let mut group = c.benchmark_group("deserialize_arrow2_primitives");
+    group.sample_size(20);
+    group.sampling_mode(criterion::SamplingMode::Flat);
+    group.measurement_time(Duration::from_secs(60));
+
+    let mut rng = rand::thread_rng();
+
+    let items = (0..100_000)
+        .map(|_| primitives::Item::random(&mut rng))
+        .collect::<Vec<_>>();
+    let fields = arrow2::serialize_into_fields(&items, Default::default()).unwrap();
+    let arrays = arrow2::serialize_into_arrays(&fields, &items).unwrap();
+
+    group.bench_function("serde_arrow", |b| {
+        b.iter(|| {
+            black_box::<Vec<primitives::Item>>(arrow2::deserialize_from_arrays(&fields, &arrays).unwrap())
+        });
+    });
+
+    group.bench_function("manual", |b| {
         b.iter(|| {
             let mut res = Vec::new();
 
@@ -165,7 +190,7 @@ fn benchmark_primitives(c: &mut Criterion) {
             let k = arrays[10].as_any().downcast_ref::<BooleanArray>().unwrap();
 
             for ii in 0..a.len() {
-                res.push(Item {
+                res.push(primitives::Item {
                     a: a.value(ii),
                     b: b.value(ii),
                     c: c.value(ii),
@@ -187,8 +212,8 @@ fn benchmark_primitives(c: &mut Criterion) {
     group.finish();
 }
 
-fn benchmark_complex(c: &mut Criterion) {
-    let mut group = c.benchmark_group("complex");
+fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
+    let mut group = c.benchmark_group("serialize_arrow2_complex");
     group.sample_size(20);
     group.sampling_mode(criterion::SamplingMode::Flat);
     group.measurement_time(Duration::from_secs(60));
@@ -233,18 +258,13 @@ fn benchmark_complex(c: &mut Criterion) {
     let items = (0..100_000)
         .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
-    let arrays = serialize_into_arrays(&fields, &items).unwrap();
+    let fields = arrow2::serialize_into_fields(&items, Default::default()).unwrap();
 
-    group.bench_function("serialize_into_arrays", |b| {
-        b.iter(|| black_box(serialize_into_arrays(&fields, &items).unwrap()));
+    group.bench_function("serde_arrow", |b| {
+        b.iter(|| black_box(arrow2::serialize_into_arrays(&fields, &items).unwrap()));
     });
 
-    group.bench_function("deserialize_from_arrays", |b| {
-        b.iter(|| black_box::<Vec<Item>>(deserialize_from_arrays(&fields, &arrays).unwrap()));
-    });
-
-    group.bench_function("manually_serialize", |b| {
+    group.bench_function("manual", |b| {
         b.iter(|| {
             let mut string = MutableUtf8Array::<i64>::new();
             let mut points_0 = MutablePrimitiveArray::<f32>::new();
@@ -315,5 +335,87 @@ fn benchmark_complex(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_primitives, benchmark_complex);
+/// a simplified benchmark that is supported by arrow
+fn benchmark_serialize_arrow_complex(c: &mut Criterion) {
+    let mut group = c.benchmark_group("serialize_arrow_complex");
+    group.sample_size(20);
+    group.sampling_mode(criterion::SamplingMode::Flat);
+    group.measurement_time(Duration::from_secs(60));
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Item {
+        string: String,
+        points: Vec<Point>,
+        child: SubItem,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Point {
+        x: f32,
+        y: f32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct SubItem {
+        a: bool,
+        b: f64,
+        c: Option<f32>,
+    }
+
+    impl Item {
+        fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+            let n_string = Uniform::new(1, 50).sample(rng);
+            let n_points = Uniform::new(1, 50).sample(rng);
+
+            Self {
+                string: (0..n_string)
+                    .map(|_| -> char { Standard.sample(rng) })
+                    .collect(),
+                points: (0..n_points)
+                    .map(|_| Point {
+                        x: Standard.sample(rng),
+                        y: Standard.sample(rng),
+                    })
+                    .collect(),
+                child: SubItem {
+                    a: Standard.sample(rng),
+                    b: Standard.sample(rng),
+                    c: Standard.sample(rng),
+                },
+            }
+        }
+    }
+
+    let mut rng = rand::thread_rng();
+
+    let items = (0..100_000)
+        .map(|_| Item::random(&mut rng))
+        .collect::<Vec<_>>();
+    let fields = arrow::serialize_into_fields(&items, Default::default()).unwrap();
+
+    group.bench_function("arrow", |b| {
+        b.iter(|| {
+            let schema = Schema::new(fields.clone());
+            let mut decoder = RawReaderBuilder::new(Arc::new(schema))
+                .build_decoder()
+                .unwrap();
+            decoder.serialize(&items).unwrap();
+            black_box(decoder.flush().unwrap().unwrap());
+        });
+    });
+
+    group.bench_function("serde_arrow", |b| {
+        b.iter(|| black_box(arrow::serialize_into_arrays(&fields, &items).unwrap()));
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    benchmark_serialize_arrow2_primitives,
+    benchmark_deserialize_arrow2_primitives,
+    benchmark_serialize_arrow2_complex,
+    benchmark_serialize_arrow_complex,
+);
 criterion_main!(benches);

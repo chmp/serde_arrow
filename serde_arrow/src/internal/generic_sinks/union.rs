@@ -1,14 +1,13 @@
 use crate::internal::{
     error::{fail, Result},
     event::Event,
-    schema::FieldMeta,
+    schema::GenericField,
     sink::{macros, EventSink},
 };
 
 pub struct UnionArrayBuilder<B> {
     next: UnionBuilderState,
-    pub field_meta: Vec<FieldMeta>,
-    pub nullable: bool,
+    pub field: GenericField,
 
     pub current_field_offsets: Vec<i32>,
     pub field_builders: Vec<B>,
@@ -18,11 +17,10 @@ pub struct UnionArrayBuilder<B> {
 }
 
 impl<B> UnionArrayBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMeta>, field_builders: Vec<B>, nullable: bool) -> Self {
+    pub fn new(field: GenericField, field_builders: Vec<B>) -> Self {
         let current_field_offsets = vec![0; field_builders.len()];
         Self {
-            field_meta,
-            nullable,
+            field,
 
             next: UnionBuilderState::Inactive,
             current_field_offsets,

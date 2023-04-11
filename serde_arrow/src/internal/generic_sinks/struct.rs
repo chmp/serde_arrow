@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 use crate::internal::{
     error::{error, fail, Result},
     event::Event,
-    schema::FieldMeta,
+    schema::GenericField,
     sink::{macros, ArrayBuilder, EventSink},
 };
 
 pub struct StructArrayBuilder<B> {
-    pub(crate) field_meta: Vec<FieldMeta>,
+    pub(crate) field: GenericField,
     pub(crate) field_lookup: BTreeMap<String, usize>,
     /// the builders of the sub arrays
     pub(crate) builders: Vec<B>,
@@ -20,16 +20,16 @@ pub struct StructArrayBuilder<B> {
 }
 
 impl<B> StructArrayBuilder<B> {
-    pub fn new(field_meta: Vec<FieldMeta>, builders: Vec<B>) -> Self {
-        let num_columns = field_meta.len();
+    pub fn new(field: GenericField, builders: Vec<B>) -> Self {
+        let num_columns = field.children.len();
 
         let mut field_lookup = BTreeMap::new();
-        for (idx, meta) in field_meta.iter().enumerate() {
-            field_lookup.insert(meta.name.to_string(), idx);
+        for (idx, child) in field.children.iter().enumerate() {
+            field_lookup.insert(child.name.to_string(), idx);
         }
 
         Self {
-            field_meta,
+            field,
             field_lookup,
             builders,
             validity: Vec::new(),
@@ -67,7 +67,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
         this.state = match this.state {
             Start => {
                 if matches!(ev, Event::StartStruct | Event::StartMap) {
-                    this.seen = vec![false; this.field_meta.len()];
+                    this.seen = vec![false; this.field_lookup.len()];
                     Field(0)
                 } else {
                     fail!(
@@ -93,8 +93,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
             Field(_) => if matches!(ev, Event::EndStruct | Event::EndMap) {
                 for (idx, seen) in this.seen.iter().enumerate() {
                     if !seen {
-                        if !this.field_meta[idx].nullable {
-                            fail!("Missing field {} is not nullable", this.field_meta[idx].name);
+                        if !this.field.children[idx].nullable {
+                            fail!("Missing field {} is not nullable", this.field.children[idx].name);
                         }
                         this.builders[idx].accept_null()?;
                     }
@@ -163,7 +163,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                     ev => fail!("Unexpected event while waiting for field: {ev}"),
                 };
 
-                let idx = if best_guess < this.field_meta.len() && this.field_meta[best_guess].name == key {
+                let idx = if best_guess < this.field.children.len() && this.field.children[best_guess].name == key {
                     best_guess
                 } else {
                     this
@@ -174,7 +174,7 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 };
 
                 if this.seen[idx] {
-                    fail!("Duplicate field {}", this.field_meta[idx].name);
+                    fail!("Duplicate field {}", this.field.children[idx].name);
                 }
                 this.seen[idx] = true;
                 Value(idx, 0)

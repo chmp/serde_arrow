@@ -2,13 +2,12 @@ use crate::{
     _impl::arrow::{
         array::{
             self, Array, ArrayData, ArrowPrimitiveType, BooleanBufferBuilder, BooleanBuilder,
-            GenericListArray, GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder,
-            StructArray,
+            GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder, StructArray,
         },
         buffer::Buffer,
         datatypes::{
-            DataType, Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
-            Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+            DataType, Date64Type, Field, Float16Type, Float32Type, Float64Type, Int16Type,
+            Int32Type, Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
         },
     },
     internal::{
@@ -18,10 +17,12 @@ use crate::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
         },
-        schema::FieldMeta,
+        schema::GenericField,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
 };
+
+use super::type_support::FieldRef;
 
 pub struct ArrowPrimitiveBuilders;
 
@@ -390,7 +391,7 @@ impl<O: OffsetSizeTrait> ArrayBuilder<ArrayData> for Utf8ArrayBuilder<O> {
 }
 
 fn build_struct_array<B>(
-    field_meta: &[FieldMeta],
+    field: &GenericField,
     builders: &mut [B],
     validity: &mut Vec<bool>,
 ) -> Result<ArrayData>
@@ -401,16 +402,12 @@ where
     let len = validity.len();
     let validity = build_null_bit_buffer(validity);
 
-    let mut fields = Vec::new();
     let mut data = Vec::new();
-
-    for (i, builder) in builders.iter_mut().enumerate() {
-        let arr = builder.build_array()?;
-        fields.push(field_meta[i].to_arrow(arr.data_type()));
-        data.push(arr);
+    for builder in builders {
+        data.push(builder.build_array()?);
     }
 
-    Ok(ArrayData::builder(DataType::Struct(fields))
+    Ok(ArrayData::builder(field_to_datatype(field)?)
         .len(len)
         .null_bit_buffer(Some(validity))
         .child_data(data)
@@ -423,7 +420,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
-        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
+        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
     }
 }
 
@@ -433,7 +430,7 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
-        build_struct_array(&self.field_meta, &mut self.builders, &mut self.validity)
+        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
     }
 }
 
@@ -454,23 +451,10 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
 
         let len = field_types.len();
 
-        let mut fields = Vec::new();
-        let mut field_indices = Vec::new();
-
-        for (i, value) in values.iter().enumerate() {
-            fields.push(self.field_meta[i].to_arrow(value.data_type()));
-            field_indices.push(i8::try_from(i)?);
-        }
-
-        let field_types = Buffer::from_vec(field_types);
-        let field_offsets = Buffer::from_vec(field_offsets);
-
-        let data_type = DataType::Union(fields, field_indices, UnionMode::Dense);
-
-        let res = ArrayData::builder(data_type)
+        let res = ArrayData::builder(field_to_datatype(&self.field)?)
             .len(len)
-            .add_buffer(field_types)
-            .add_buffer(field_offsets)
+            .add_buffer(Buffer::from_vec(field_types))
+            .add_buffer(Buffer::from_vec(field_offsets))
             .child_data(values)
             .build()?;
 
@@ -498,9 +482,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
     let null_bit_buffer = build_null_bit_buffer(validity);
     let offset_buffer = Buffer::from_vec(offsets);
 
-    let field = Box::new(this.field_meta.to_arrow(values.data_type()));
-    let data_type = GenericListArray::<O>::DATA_TYPE_CONSTRUCTOR(field);
-    let array_data_builder = ArrayData::builder(data_type)
+    let array_data_builder = ArrayData::builder(field_to_datatype(&this.field)?)
         .len(len)
         .add_buffer(offset_buffer)
         .add_child_data(values)
@@ -546,20 +528,32 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
         let validity = std::mem::take(&mut self.validity);
         let validity = build_null_bit_buffer(validity);
 
-        let inner = StructArray::from(vec![
-            (
-                self.key_meta.to_arrow(keys.data_type()),
-                array::make_array(keys),
-            ),
-            (
-                self.val_meta.to_arrow(values.data_type()),
-                array::make_array(values),
-            ),
-        ]);
+        let keys = array::make_array(keys);
+        let values = array::make_array(values);
 
-        let data_type = DataType::Map(Box::new(self.field_meta.to_arrow(inner.data_type())), false);
+        let dtype = field_to_datatype(&self.field)?;
 
-        let res = ArrayData::builder(data_type)
+        let inner_field = match &dtype {
+            DataType::Map(inner, _) => inner.as_field_ref(),
+            _ => fail!("Invalid datatype during map construction"),
+        };
+
+        let (key_field, val_field) = match inner_field.data_type() {
+            DataType::Struct(entries) => {
+                if entries.len() != 2 {
+                    fail!("Invalid number of fields in map dtype")
+                }
+                (
+                    entries[0].as_field_ref().clone(),
+                    entries[1].as_field_ref().clone(),
+                )
+            }
+            _ => fail!("Invalid datatype during map construction"),
+        };
+
+        let inner = StructArray::from(vec![(key_field, keys), (val_field, values)]);
+
+        let res = ArrayData::builder(dtype)
             .len(len)
             .add_buffer(offsets)
             .add_child_data(inner.into_data())
@@ -586,4 +580,9 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for DictionaryUtf8Array
             .build()?;
         Ok(res)
     }
+}
+
+fn field_to_datatype(field: &GenericField) -> Result<DataType> {
+    let field: Field = field.try_into()?;
+    Ok(field.data_type().clone())
 }

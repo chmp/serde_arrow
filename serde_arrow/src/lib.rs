@@ -115,6 +115,7 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-37`    | `arrow=37`    |
 //! | `arrow-36`    | `arrow=36`    |
 //! | `arrow-35`    | `arrow=35`    |
 //! | `arrow2-0-17` | `arrow2=0.17` |
@@ -177,7 +178,15 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow-36")]
+    #[cfg(feature = "arrow-37")]
+    build_arrow_crate!(
+        arrow_array_37,
+        arrow_buffer_37,
+        arrow_data_37,
+        arrow_schema_37
+    );
+
+    #[cfg(all(feature = "arrow-36", not(feature = "arrow-37")))]
     build_arrow_crate!(
         arrow_array_36,
         arrow_buffer_36,
@@ -185,7 +194,11 @@ pub mod _impl {
         arrow_schema_36
     );
 
-    #[cfg(all(feature = "arrow-35", not(feature = "arrow-36")))]
+    #[cfg(all(
+        feature = "arrow-35",
+        not(feature = "arrow-36"),
+        not(feature = "arrow-37")
+    ))]
     build_arrow_crate!(
         arrow_array_35,
         arrow_buffer_35,
@@ -211,12 +224,12 @@ pub mod _impl {
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
-#[cfg(any(feature = "arrow-36", feature = "arrow-35"))]
+#[cfg(any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"))]
 pub mod arrow;
 
 #[cfg(all(
     test,
-    any(feature = "arrow-36", feature = "arrow-35"),
+    any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"),
     any(feature = "arrow2-0-17", feature = "arrow2-0-16")
 ))]
 mod test_impls;
