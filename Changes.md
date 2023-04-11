@@ -1,5 +1,9 @@
 # Change log
 
+## 0.6.1
+
+- Add support for `arrow=37` with the `arrow-37` feature
+
 ## 0.6.0
 
 ### Add support for arrow2
