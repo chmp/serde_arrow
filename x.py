@@ -32,8 +32,8 @@ def precommit(backtrace=False):
     fmt()
     check()
     lint()
-    example()
     test(backtrace=backtrace)
+    example()
 
 
 @cmd()
