@@ -63,7 +63,10 @@ where
 {
     let mut builders = Vec::new();
     for field in fields {
-        builders.push(build_array_builder::<Arrow>(format!("{path}.{}", field.name), field)?);
+        builders.push(build_array_builder::<Arrow>(
+            format!("{path}.{}", field.name),
+            field,
+        )?);
     }
 
     let mut field = GenericField::new("dummy", GenericDataType::Struct, true);

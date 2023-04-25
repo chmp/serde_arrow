@@ -38,51 +38,75 @@ impl PrimitiveBuilders for ArrowPrimitiveBuilders {
     }
 
     fn u8(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::new(
+            path,
+        ))
     }
 
     fn u16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::new(
+            path,
+        ))
     }
 
     fn u32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::new(
+            path,
+        ))
     }
 
     fn u64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::new(
+            path,
+        ))
     }
 
     fn i8(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::new(
+            path,
+        ))
     }
 
     fn i16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::new(
+            path,
+        ))
     }
 
     fn i32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::new(
+            path,
+        ))
     }
 
     fn i64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::new(
+            path,
+        ))
     }
 
     fn f16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::new(
+            path,
+        ))
     }
 
     fn f32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::new(
+            path,
+        ))
     }
 
     fn f64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::new(
+            path,
+        ))
     }
 
     fn date64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::new(
+            path,
+        ))
     }
 
     fn utf8(path: String) -> DynamicArrayBuilder<Self::Output> {

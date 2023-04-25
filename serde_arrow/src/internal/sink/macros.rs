@@ -561,37 +561,81 @@ pub(crate) use accept_marker;
 macro_rules! fail_on_non_string_primitive {
     ($context:literal) => {
         fn accept_bool(&mut self, _val: bool) -> Result<()> {
-            fail!("{} cannot accept Event::Bool [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::Bool [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i8(&mut self, _val: i8) -> Result<()> {
-            fail!("{} cannot accept Event::I8 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::I8 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i16(&mut self, _val: i16) -> Result<()> {
-            fail!("{} cannot accept Event::I16 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::I16 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i32(&mut self, _val: i32) -> Result<()> {
-            fail!("{} cannot accept Event::I32 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::I32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i64(&mut self, _val: i64) -> Result<()> {
-            fail!("{} cannot accept Event::I64 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::I64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u8(&mut self, _val: u8) -> Result<()> {
-            fail!("{} cannot accept Event::U8 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::U8 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u16(&mut self, _val: u16) -> Result<()> {
-            fail!("{} cannot accept Event::U16 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::U16 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u32(&mut self, _val: u32) -> Result<()> {
-            fail!("{} cannot accept Event::U32 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::U32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u64(&mut self, _val: u64) -> Result<()> {
-            fail!("{} cannot accept Event::U64 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::U64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_f32(&mut self, _val: f32) -> Result<()> {
-            fail!("{} cannot accept Event::F32 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::F32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_f64(&mut self, _val: f64) -> Result<()> {
-            fail!("{} cannot accept Event::F64 [{path}]", $context, path=self.path)
+            fail!(
+                "{} cannot accept Event::F64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
     };
 }

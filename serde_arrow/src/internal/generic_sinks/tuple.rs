@@ -97,7 +97,7 @@ impl<B: EventSink> EventSink for TupleStructBuilder<B> {
                 }
                 this.validity.push(true);
                 S::WaitForStart
-            } 
+            }
             (S::Item(active, 0), _) => {
                 next(&mut this.builders[active], val)?;
                 S::WaitForItem(active + 1)

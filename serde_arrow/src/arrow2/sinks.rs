@@ -38,47 +38,69 @@ impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
     }
 
     fn i8(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i8>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i8>>::new(
+            path,
+        ))
     }
 
     fn i16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i16>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i16>>::new(
+            path,
+        ))
     }
 
     fn i32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i32>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i32>>::new(
+            path,
+        ))
     }
 
     fn i64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::new(
+            path,
+        ))
     }
 
     fn u8(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u8>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u8>>::new(
+            path,
+        ))
     }
 
     fn u16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u16>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u16>>::new(
+            path,
+        ))
     }
 
     fn u32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u32>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u32>>::new(
+            path,
+        ))
     }
 
     fn u64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u64>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u64>>::new(
+            path,
+        ))
     }
 
     fn f16(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f16>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f16>>::new(
+            path,
+        ))
     }
 
     fn f32(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f32>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f32>>::new(
+            path,
+        ))
     }
 
     fn f64(path: String) -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f64>>::new(path))
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f64>>::new(
+            path,
+        ))
     }
 
     fn utf8(path: String) -> DynamicArrayBuilder<Self::Output> {

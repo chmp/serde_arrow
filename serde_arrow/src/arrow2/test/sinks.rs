@@ -36,7 +36,7 @@ macro_rules! hashmap {
 
 fn build_array_builder(field: &Field) -> Result<DynamicArrayBuilder<Box<dyn Array>>> {
     let field = GenericField::try_from(field)?;
-    generic_sinks::build_array_builder::<Arrow2PrimitiveBuilders>(&field)
+    generic_sinks::build_array_builder::<Arrow2PrimitiveBuilders>(String::from("$"), &field)
 }
 
 fn downcast<T: Any>(array: &Box<dyn Array>) -> &T {

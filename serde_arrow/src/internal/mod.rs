@@ -1,3 +1,4 @@
+pub mod bytecode;
 pub(crate) mod error;
 pub(crate) mod event;
 pub(crate) mod generic_sinks;
@@ -17,8 +18,8 @@ use self::{
     },
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
     sink::{
-        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer,
-        EventSink, StripOuterSequenceSink,
+        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
+        StripOuterSequenceSink,
     },
 };
 
@@ -140,7 +141,8 @@ where
     }
 
     pub fn build_array(&mut self) -> Result<Arrow::Output> {
-        let mut builder = generic_sinks::build_array_builder::<Arrow>(String::from("$"), &self.field)?;
+        let mut builder =
+            generic_sinks::build_array_builder::<Arrow>(String::from("$"), &self.field)?;
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;
@@ -168,7 +170,10 @@ where
 {
     pub fn new(fields: Vec<GenericField>) -> Result<Self> {
         Ok(Self {
-            builder: generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &fields)?,
+            builder: generic_sinks::build_struct_array_builder::<Arrow>(
+                String::from("$"),
+                &fields,
+            )?,
             fields,
         })
     }
@@ -185,7 +190,8 @@ where
     }
 
     pub fn build_arrays(&mut self) -> Result<Vec<Arrow::Output>> {
-        let mut builder = generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &self.fields)?;
+        let mut builder =
+            generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &self.fields)?;
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;

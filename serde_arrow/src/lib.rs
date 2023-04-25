@@ -130,6 +130,8 @@ mod internal;
 /// to allow usage in doc tests or benchmarks.
 ///
 pub mod _impl {
+    pub use crate::internal::bytecode;
+
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
         ($arrow2:ident) => {
