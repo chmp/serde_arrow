@@ -783,13 +783,13 @@ impl EventSink for ListTracer {
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use {ListTracerState as S, Event as E};
+        use {Event as E, ListTracerState as S};
 
         self.next = match (self.next, event) {
             (S::WaitForStart, E::Null | E::Some) => {
                 self.nullable = true;
                 S::WaitForStart
-            } 
+            }
             (S::WaitForStart, E::StartSequence) => S::WaitForItem,
             (S::WaitForItem, E::EndSequence) => S::WaitForStart,
             (S::WaitForItem, E::Item) => S::Item(0),
@@ -810,7 +810,7 @@ impl EventSink for ListTracer {
                     self.item_tracer.accept(ev)?;
                     S::Item(depth - 1)
                 }
-            }
+            },
             (S::Item(0), ev) if ev.is_value() => {
                 self.item_tracer.accept(ev)?;
                 S::WaitForItem
@@ -887,15 +887,12 @@ impl UnionTracer {
             self.variants.push(None);
         }
 
-        if !self.tracers.contains_key(&idx) {
-            self.tracers.insert(
-                idx,
-                Tracer::new(
-                    format!("{path}.{key}", path = self.path, key = variant.as_ref()),
-                    self.options.clone(),
-                ),
-            );
-        }
+        self.tracers.entry(idx).or_insert_with(|| {
+            Tracer::new(
+                format!("{path}.{key}", path = self.path, key = variant.as_ref()),
+                self.options.clone(),
+            )
+        });
 
         if let Some(prev) = self.variants[idx].as_ref() {
             let variant = variant.as_ref();
@@ -964,7 +961,7 @@ impl EventSink for UnionTracer {
 
     fn finish(&mut self) -> Result<()> {
         // TODO: add checks here?
-        for (_, tracer) in &mut self.tracers {
+        for tracer in self.tracers.values_mut() {
             tracer.finish()?;
         }
         self.finished = true;
