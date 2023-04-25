@@ -415,6 +415,10 @@ impl<'de, 'a, 'event, S: EventSource<'event>> SeqAccess<'de> for &'a mut Deseria
         if matches!(self.source.peek()?, Some(Event::EndSequence)) {
             return Ok(None);
         }
+        // ignore event markers to be forwards compatible
+        if matches!(self.source.peek()?, Some(Event::Item)) {
+            self.source.next()?;
+        }
         seed.deserialize(&mut **self).map(Some)
     }
 }

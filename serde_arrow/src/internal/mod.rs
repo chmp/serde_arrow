@@ -17,8 +17,8 @@ use self::{
     },
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
     sink::{
-        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
-        StripOuterSequenceSink,
+        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer,
+        EventSink, StripOuterSequenceSink,
     },
 };
 
@@ -26,7 +26,7 @@ pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Ve
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
+    let tracer = Tracer::new(String::from("$"), options);
     let mut tracer = StripOuterSequenceSink::new(tracer);
     serialize_into_sink(&mut tracer, items)?;
     let root = tracer.into_inner().to_field("root")?;
@@ -48,9 +48,11 @@ pub fn serialize_into_field<T>(
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
+    let tracer = Tracer::new(String::from("$"), options);
+    let tracer = StripOuterSequenceSink::new(tracer);
+    let mut tracer = tracer;
     serialize_into_sink(&mut tracer, items)?;
+
     let field = tracer.into_inner().to_field(name)?;
     Ok(field)
 }
@@ -72,7 +74,7 @@ where
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
-    let builder = generic_sinks::build_struct_array_builder::<Arrow>(fields)?;
+    let builder = generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), fields)?;
     let mut builder = StripOuterSequenceSink::new(builder);
 
     serialize_into_sink(&mut builder, items)?;
@@ -93,8 +95,9 @@ where
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
 {
-    let builder = generic_sinks::build_array_builder::<Arrow>(field)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
+    let builder = generic_sinks::build_array_builder::<Arrow>(String::from("$"), field)?;
+    let builder = StripOuterSequenceSink::new(builder);
+    let mut builder = builder;
 
     serialize_into_sink(&mut builder, items).unwrap();
     builder.into_inner().build_array()
@@ -120,7 +123,7 @@ where
 {
     pub fn new(field: GenericField) -> Result<Self> {
         Ok(Self {
-            builder: generic_sinks::build_array_builder::<Arrow>(&field)?,
+            builder: generic_sinks::build_array_builder::<Arrow>(String::from("$"), &field)?,
             field,
         })
     }
@@ -137,7 +140,7 @@ where
     }
 
     pub fn build_array(&mut self) -> Result<Arrow::Output> {
-        let mut builder = generic_sinks::build_array_builder::<Arrow>(&self.field)?;
+        let mut builder = generic_sinks::build_array_builder::<Arrow>(String::from("$"), &self.field)?;
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;
@@ -165,7 +168,7 @@ where
 {
     pub fn new(fields: Vec<GenericField>) -> Result<Self> {
         Ok(Self {
-            builder: generic_sinks::build_struct_array_builder::<Arrow>(&fields)?,
+            builder: generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &fields)?,
             fields,
         })
     }
@@ -182,7 +185,7 @@ where
     }
 
     pub fn build_arrays(&mut self) -> Result<Vec<Arrow::Output>> {
-        let mut builder = generic_sinks::build_struct_array_builder::<Arrow>(&self.fields)?;
+        let mut builder = generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &self.fields)?;
         std::mem::swap(&mut builder, &mut self.builder);
 
         builder.finish()?;

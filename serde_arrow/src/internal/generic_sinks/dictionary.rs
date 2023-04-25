@@ -8,14 +8,16 @@ use crate::internal::{
 
 #[derive(Debug, Default)]
 pub struct DictionaryUtf8ArrayBuilder<B> {
+    pub path: String,
     pub index: HashMap<String, u64>,
     pub keys: B,
     pub values: B,
 }
 
 impl<B> DictionaryUtf8ArrayBuilder<B> {
-    pub fn new(keys: B, values: B) -> Self {
+    pub fn new(path: String, keys: B, values: B) -> Self {
         Self {
+            path,
             index: Default::default(),
             keys,
             values,

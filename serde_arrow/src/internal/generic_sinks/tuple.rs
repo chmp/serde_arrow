@@ -6,6 +6,7 @@ use crate::internal::{
 };
 
 pub struct TupleStructBuilder<B> {
+    pub(crate) path: String,
     pub(crate) field: GenericField,
     pub(crate) builders: Vec<B>,
     pub(crate) validity: Vec<bool>,
@@ -14,12 +15,13 @@ pub struct TupleStructBuilder<B> {
 }
 
 impl<B> TupleStructBuilder<B> {
-    pub fn new(field: GenericField, builders: Vec<B>) -> Self {
+    pub fn new(path: String, field: GenericField, builders: Vec<B>) -> Self {
         Self {
+            path,
             field,
             builders,
             validity: Vec::new(),
-            state: TupleArrayBuilderState::Start,
+            state: TupleArrayBuilderState::WaitForStart,
             finished: false,
         }
     }
@@ -27,94 +29,91 @@ impl<B> TupleStructBuilder<B> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TupleArrayBuilderState {
-    Start,
-    Value(usize, usize),
+    WaitForStart,
+    WaitForItem(usize),
+    Item(usize, usize),
 }
 
 impl<B: EventSink> EventSink for TupleStructBuilder<B> {
     macros::forward_generic_to_specialized!();
     macros::accept_start!((this, ev, val, next) {
-        use TupleArrayBuilderState::*;
-
-        this.state = match this.state {
-            Start => match ev {
-                Event::StartTuple => Value(0, 0),
-                ev => fail!("Invalid event {ev} in state {:?} [TupleStructBuilder]", this.state),
-            },
-            Value(active, depth) => {
+        use {TupleArrayBuilderState as S, Event as E};
+        this.state = match (this.state, ev) {
+            (S::WaitForStart, E::StartTuple) => S::WaitForItem(0),
+            (S::Item(active, depth), _) => {
                 next(&mut this.builders[active], val)?;
-                Value(active, depth + 1)
+                S::Item(active, depth + 1)
             }
+            (state, ev) => fail!("TupleStructBuilder: Invalid event {ev} in state {state:?} [{path}]", path=this.path),
         };
         Ok(())
     });
     macros::accept_end!((this, ev, val, next) {
-        use TupleArrayBuilderState::*;
-
-        this.state = match this.state {
-            Start => fail!("Invalid event {ev} in state {:?}", this.state),
-            Value(_, 0) => {
-                if matches!(ev, Event::EndTuple) {
-                    this.validity.push(true);
-                    Start
-                } else {
-                    fail!("Unbalanced opening / close events [TupleStructBuilder]")
-                }
-            }
-            Value(active, depth) => {
+        use {TupleArrayBuilderState as S, Event as E};
+        this.state = match (this.state, ev) {
+            (S::Item(active, 1), _) => {
                 next(&mut this.builders[active], val)?;
-                Value(active + 1, depth - 1)
+                S::WaitForItem(active + 1)
             }
+            (S::Item(active, depth), _)  if depth > 1 => {
+                next(&mut this.builders[active], val)?;
+                S::Item(active, depth - 1)
+            }
+            (S::WaitForItem(_), E::EndTuple) => {
+                this.validity.push(true);
+                S::WaitForStart
+            },
+            (state, ev) => fail!("TupleStructBuilder: Invalid event {ev} in state {state:?} [{path}]", path=this.path),
         };
         Ok(())
     });
-    macros::accept_marker!((this, _ev, val, next) {
-        use TupleArrayBuilderState::*;
-
-        this.state = match this.state {
-            Start => Start,
-            Value(active, depth) => {
+    macros::accept_marker!((this, ev, val, next) {
+        use {TupleArrayBuilderState as S, Event as E};
+        this.state = match (this.state, ev) {
+            (S::WaitForStart, E::Some) => S::WaitForStart,
+            (S::WaitForItem(field), E::Some) => S::WaitForItem(field),
+            (S::WaitForItem(field), E::Item) => S::Item(field, 0),
+            (S::Item(active, depth), _) => {
                 next(&mut this.builders[active], val)?;
-                Value(active, depth)
+                S::Item(active, depth)
             }
+            (state, ev) => fail!("TupleStructBuilder: Invalid event {ev} in state {state:?} [{path}]", path=this.path),
         };
         Ok(())
     });
     macros::accept_value!((this, ev, val, next) {
-        use TupleArrayBuilderState::*;
-
-        this.state = match this.state {
-            Start => {
-                if matches!(ev, Event::Null) {
-                    for builder in &mut this.builders {
-                        builder.accept_default()?;
-                    }
-                    this.validity.push(false);
-                    Start
-                } else if matches!(ev, Event::Default) {
-                    for builder in &mut this.builders {
-                        builder.accept_default()?;
-                    }
-                    this.validity.push(true);
-                    Start
-                } else {
-                    fail!("Invalid event {ev} in state {:?} [TupleStructBuilder]", this.state)
+        use {TupleArrayBuilderState as S, Event as E};
+        this.state = match (this.state, ev) {
+            (S::WaitForStart, E::Null) => {
+                for builder in &mut this.builders {
+                    builder.accept_default()?;
                 }
+                this.validity.push(false);
+                S::WaitForStart
             }
-            Value(active, 0) => {
+            (S::WaitForStart, Event::Default) => {
+                for builder in &mut this.builders {
+                    builder.accept_default()?;
+                }
+                this.validity.push(true);
+                S::WaitForStart
+            } 
+            (S::Item(active, 0), _) => {
                 next(&mut this.builders[active], val)?;
-                Value(active + 1, 0)
+                S::WaitForItem(active + 1)
             }
-            Value(active, depth) => {
+            (S::Item(active, depth), _) => {
                 next(&mut this.builders[active], val)?;
-                Value(active, depth)
+                S::Item(active, depth)
             }
+            (state, ev) => fail!("TupleStructBuilder: Invalid event {ev} in state {state:?} [{path}]", path=this.path),
         };
         Ok(())
     });
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, TupleArrayBuilderState::Start) {
+        use TupleArrayBuilderState as S;
+        if !matches!(self.state, S::WaitForStart) {
             fail!(
                 "Invalid state {:?} in finish [TupleStructBuilder]",
                 self.state

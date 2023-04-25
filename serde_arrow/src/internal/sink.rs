@@ -70,6 +70,7 @@ pub trait EventSink {
     fn accept_end_struct(&mut self) -> Result<()>;
     fn accept_start_map(&mut self) -> Result<()>;
     fn accept_end_map(&mut self) -> Result<()>;
+    fn accept_item(&mut self) -> Result<()>;
     fn accept_some(&mut self) -> Result<()>;
     fn accept_null(&mut self) -> Result<()>;
     fn accept_default(&mut self) -> Result<()>;
@@ -92,14 +93,54 @@ pub trait EventSink {
     fn finish(&mut self) -> Result<()>;
 }
 
+#[allow(unused)]
+pub(crate) struct DebugSink<E> {
+    wrapped: E,
+}
+
+impl<E> DebugSink<E> {
+    #[allow(unused)]
+    pub fn new(wrapped: E) -> Self {
+        Self { wrapped }
+    }
+
+    #[allow(unused)]
+    pub fn into_inner(self) -> E {
+        self.wrapped
+    }
+}
+
+impl<E: EventSink> EventSink for DebugSink<E> {
+    macros::forward_specialized_to_generic!();
+
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        println!("{event}");
+        self.wrapped.accept(event)
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.wrapped.finish()
+    }
+}
+
 pub(crate) struct StripOuterSequenceSink<E> {
     wrapped: E,
-    depth: usize,
+    state: StripOuterSequenceState,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum StripOuterSequenceState {
+    WaitForStart,
+    WaitForItem,
+    Item(usize),
 }
 
 impl<E> StripOuterSequenceSink<E> {
     pub fn new(wrapped: E) -> Self {
-        Self { wrapped, depth: 0 }
+        Self {
+            wrapped,
+            state: StripOuterSequenceState::WaitForStart,
+        }
     }
 
     pub fn into_inner(self) -> E {
@@ -109,38 +150,59 @@ impl<E> StripOuterSequenceSink<E> {
 
 impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
     macros::forward_generic_to_specialized!();
-    macros::accept_start!((this, _ev, val, next) {
-        if this.depth > 0 {
-            next(&mut this.wrapped, val)?;
-        }
-        this.depth += 1;
+    macros::accept_start!((this, ev, val, next) {
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            WaitForStart => WaitForItem,
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth + 1)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
         Ok(())
     });
     macros::accept_end!((this, ev, val, next) {
-        if this.depth > 1 {
-            next(&mut this.wrapped, val)?;
-        } else if this.depth == 0 {
-            fail!("Invalid event {ev} at depth 0");
-        }
-        this.depth -= 1;
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            Item(1) => {
+                next(&mut this.wrapped, val)?;
+                WaitForItem
+            }
+            Item(depth) if depth > 1 => {
+                next(&mut this.wrapped, val)?;
+                Item(depth - 1)
+            }
+            WaitForItem => WaitForStart,
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
         Ok(())
     });
     macros::accept_value!((this, ev, val, next) {
-        if this.depth > 0 {
-            next(&mut this.wrapped, val)?;
-        } else {
-            fail!("Invalid event {ev} at depth 0");
-        }
-
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            Item(0) => {
+                next(&mut this.wrapped, val)?;
+                WaitForItem
+            }
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
         Ok(())
     });
     macros::accept_marker!((this, ev, val, next) {
-        if this.depth > 0 {
-            next(&mut this.wrapped, val)?;
-        } else {
-            fail!("Invalid event {ev} at depth 0");
-        }
-
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            WaitForItem if matches!(ev, Event::Item) => Item(0),
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
         Ok(())
     });
 
@@ -339,6 +401,7 @@ impl<'a, S: EventSink> Serializer for EventSerializer<'a, S> {
     fn serialize_bytes(self, val: &[u8]) -> Result<()> {
         self.0.accept_start_sequence()?;
         for &b in val {
+            self.0.accept_item()?;
             self.0.accept_u8(b)?;
         }
         self.0.accept_end_sequence()?;
@@ -451,6 +514,7 @@ impl<'a, S: EventSink> SerializeSeq for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.0.accept_item()?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
@@ -466,6 +530,7 @@ impl<'a, S: EventSink> SerializeTuple for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.0.accept_item()?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
@@ -481,6 +546,7 @@ impl<'a, S: EventSink> SerializeTupleStruct for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.0.accept_item()?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }
@@ -496,6 +562,7 @@ impl<'a, S: EventSink> SerializeTupleVariant for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.0.accept_item()?;
         value.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }

@@ -269,8 +269,8 @@ pub enum Tracer {
 }
 
 impl Tracer {
-    pub fn new(options: TracingOptions) -> Self {
-        Self::Unknown(UnknownTracer::new(options))
+    pub fn new(path: String, options: TracingOptions) -> Self {
+        Self::Unknown(UnknownTracer::new(path, options))
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
@@ -342,12 +342,17 @@ impl EventSink for Tracer {
                     *self = Tracer::Primitive(tracer)
                 }
                 Event::StartSequence => {
-                    let mut tracer = ListTracer::new(tracer.options.clone(), tracer.nullable);
+                    let mut tracer = ListTracer::new(
+                        tracer.path.clone(),
+                        tracer.options.clone(),
+                        tracer.nullable,
+                    );
                     tracer.accept(event)?;
                     *self = Tracer::List(tracer);
                 }
                 Event::StartStruct => {
                     let mut tracer = StructTracer::new(
+                        tracer.path.clone(),
                         tracer.options.clone(),
                         StructMode::Struct,
                         tracer.nullable,
@@ -356,13 +361,18 @@ impl EventSink for Tracer {
                     *self = Tracer::Struct(tracer);
                 }
                 Event::StartTuple => {
-                    let mut tracer = TupleTracer::new(tracer.options.clone(), tracer.nullable);
+                    let mut tracer = TupleTracer::new(
+                        tracer.path.clone(),
+                        tracer.options.clone(),
+                        tracer.nullable,
+                    );
                     tracer.accept(event)?;
                     *self = Tracer::Tuple(tracer);
                 }
                 Event::StartMap => {
                     if tracer.options.map_as_struct {
                         let mut tracer = StructTracer::new(
+                            tracer.path.clone(),
                             tracer.options.clone(),
                             StructMode::Map,
                             tracer.nullable,
@@ -370,18 +380,32 @@ impl EventSink for Tracer {
                         tracer.accept(event)?;
                         *self = Tracer::Struct(tracer);
                     } else {
-                        let mut tracer = MapTracer::new(tracer.options.clone(), tracer.nullable);
+                        let mut tracer = MapTracer::new(
+                            tracer.path.clone(),
+                            tracer.options.clone(),
+                            tracer.nullable,
+                        );
                         tracer.accept(event)?;
                         *self = Tracer::Map(tracer);
                     }
                 }
                 Event::Variant(_, _) => {
-                    let mut tracer = UnionTracer::new(tracer.options.clone(), tracer.nullable);
+                    let mut tracer = UnionTracer::new(
+                        tracer.path.clone(),
+                        tracer.options.clone(),
+                        tracer.nullable,
+                    );
                     tracer.accept(event)?;
                     *self = Tracer::Union(tracer)
                 }
-                ev if ev.is_end() => fail!("Invalid end nesting events for unknown tracer"),
-                ev => fail!("Internal error unmatched event {ev} in Tracer"),
+                ev if ev.is_end() => fail!(
+                    "Invalid end nesting events for unknown tracer ({path})",
+                    path = tracer.path
+                ),
+                ev => fail!(
+                    "Internal error unmatched event {ev} in Tracer ({path})",
+                    path = tracer.path
+                ),
             },
             Self::List(tracer) => tracer.accept(event)?,
             Self::Struct(tracer) => tracer.accept(event)?,
@@ -409,14 +433,16 @@ impl EventSink for Tracer {
 pub struct UnknownTracer {
     pub nullable: bool,
     pub finished: bool,
+    pub path: String,
     pub options: TracingOptions,
 }
 
 impl UnknownTracer {
-    pub fn new(options: TracingOptions) -> Self {
+    pub fn new(path: String, options: TracingOptions) -> Self {
         Self {
             nullable: false,
             finished: false,
+            path,
             options,
         }
     }
@@ -460,6 +486,7 @@ pub struct StructTracer {
     pub next: StructTracerState,
     pub counts: BTreeMap<usize, usize>,
     pub finished: bool,
+    pub path: String,
     pub options: TracingOptions,
 }
 
@@ -471,8 +498,9 @@ pub enum StructTracerState {
 }
 
 impl StructTracer {
-    pub fn new(options: TracingOptions, mode: StructMode, nullable: bool) -> Self {
+    pub fn new(path: String, options: TracingOptions, mode: StructMode, nullable: bool) -> Self {
         Self {
+            path,
             options,
             mode,
             field_tracers: Vec::new(),
@@ -530,7 +558,10 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 } else {
                     let field = self.field_tracers.len();
-                    self.field_tracers.push(Tracer::new(self.options.clone()));
+                    self.field_tracers.push(Tracer::new(
+                        format!("{path}.{key}", path = self.path),
+                        self.options.clone(),
+                    ));
                     self.field_names.push(key.to_owned());
                     self.index.insert(key.to_owned(), field);
                     self.mark_seen(field);
@@ -595,16 +626,18 @@ pub struct TupleTracer {
     pub nullable: bool,
     pub next: TupleTracerState,
     pub finished: bool,
+    pub path: String,
     pub options: TracingOptions,
 }
 
 impl TupleTracer {
-    pub fn new(options: TracingOptions, nullable: bool) -> Self {
+    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
+            path,
             options,
             field_tracers: Vec::new(),
             nullable,
-            next: TupleTracerState::Start,
+            next: TupleTracerState::WaitForStart,
             finished: false,
         }
     }
@@ -625,10 +658,20 @@ impl TupleTracer {
 
     fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
         while self.field_tracers.len() <= idx {
-            self.field_tracers.push(Tracer::new(self.options.clone()));
+            self.field_tracers.push(Tracer::new(
+                format!("{path}.{idx}", path = self.path),
+                self.options.clone(),
+            ));
         }
         &mut self.field_tracers[idx]
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TupleTracerState {
+    WaitForStart,
+    WaitForItem(usize),
+    Item(usize, usize),
 }
 
 impl EventSink for TupleTracer {
@@ -639,13 +682,21 @@ impl EventSink for TupleTracer {
         type E<'a> = Event<'a>;
 
         self.next = match (self.next, event) {
-            (Start, Event::StartTuple) => Item(0, 0),
-            (Start, E::Null | E::Some) => {
+            (WaitForStart, Event::StartTuple) => WaitForItem(0),
+            (WaitForStart, E::Null | E::Some) => {
                 self.nullable = true;
-                Start
+                WaitForStart
             }
-            (Start, ev) => fail!("Invalid event {ev} for tuple tracer in state Start"),
-            (Item(_, 0), E::EndTuple) => Start,
+            (WaitForStart, ev) => fail!(
+                "Invalid event {ev} for TupleTracer in state Start [{path}]",
+                path = self.path
+            ),
+            (WaitForItem(field), Event::Item) => Item(field, 0),
+            (WaitForItem(_), E::EndTuple) => WaitForStart,
+            (WaitForItem(field), ev) => fail!(
+                "Invalid event {ev} for TupleTracer in state WaitForItem({field}) [{path}]",
+                path = self.path
+            ),
             (Item(field, depth), ev) if ev.is_start() => {
                 self.field_tracer(field).accept(ev)?;
                 Item(field, depth + 1)
@@ -653,8 +704,11 @@ impl EventSink for TupleTracer {
             (Item(field, depth), ev) if ev.is_end() => {
                 self.field_tracer(field).accept(ev)?;
                 match depth {
-                    0 => fail!("Invalid closing event in struct tracer in state Value"),
-                    1 => Item(field + 1, 0),
+                    0 => fail!(
+                        "Invalid closing event in TupleTracer in state Value [{path}]",
+                        path = self.path
+                    ),
+                    1 => WaitForItem(field + 1),
                     depth => Item(field, depth - 1),
                 }
             }
@@ -667,7 +721,7 @@ impl EventSink for TupleTracer {
                 self.field_tracer(field).accept(ev)?;
                 match depth {
                     // Any event at depth == 0 that does not start a structure (is a complete value)
-                    0 => Item(field + 1, 0),
+                    0 => WaitForItem(field + 1),
                     _ => Item(field, depth),
                 }
             }
@@ -676,7 +730,7 @@ impl EventSink for TupleTracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, TupleTracerState::Start) {
+        if !matches!(self.next, TupleTracerState::WaitForStart) {
             fail!("Incomplete tuple in schema tracing");
         }
         for tracer in &mut self.field_tracers {
@@ -687,31 +741,28 @@ impl EventSink for TupleTracer {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum TupleTracerState {
-    Start,
-    Item(usize, usize),
-}
-
 pub struct ListTracer {
     pub item_tracer: Box<Tracer>,
     pub nullable: bool,
     pub next: ListTracerState,
     pub finished: bool,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ListTracerState {
-    Start,
+    WaitForStart,
+    WaitForItem,
     Item(usize),
 }
 
 impl ListTracer {
-    pub fn new(options: TracingOptions, nullable: bool) -> Self {
+    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
-            item_tracer: Box::new(Tracer::new(options)),
+            path: path.clone(),
+            item_tracer: Box::new(Tracer::new(path, options)),
             nullable,
-            next: ListTracerState::Start,
+            next: ListTracerState::WaitForStart,
             finished: false,
         }
     }
@@ -732,41 +783,52 @@ impl EventSink for ListTracer {
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use ListTracerState::*;
-        type E<'a> = Event<'a>;
+        use {ListTracerState as S, Event as E};
 
         self.next = match (self.next, event) {
-            (Start, E::StartSequence) => Item(0),
-            (Start, E::Null | E::Some) => {
+            (S::WaitForStart, E::Null | E::Some) => {
                 self.nullable = true;
-                Start
+                S::WaitForStart
+            } 
+            (S::WaitForStart, E::StartSequence) => S::WaitForItem,
+            (S::WaitForItem, E::EndSequence) => S::WaitForStart,
+            (S::WaitForItem, E::Item) => S::Item(0),
+            (S::Item(depth), ev) if ev.is_start() => {
+                self.item_tracer.accept(ev)?;
+                S::Item(depth + 1)
             }
-            (Start, ev) => fail!("Invalid event {ev} for list tracer in state Start"),
-            (Item(0), ev) if ev.is_end() => {
-                if matches!(ev, E::EndSequence) {
-                    Start
-                } else {
-                    fail!("Invalid event {ev} for list tracer in state Item(0)")
+            (S::Item(depth), ev) if ev.is_end() => match depth {
+                0 => fail!(
+                    "Invalid event {ev} for list tracer ({path}) in state Item(0)",
+                    path = self.path
+                ),
+                1 => {
+                    self.item_tracer.accept(ev)?;
+                    S::WaitForItem
+                }
+                depth => {
+                    self.item_tracer.accept(ev)?;
+                    S::Item(depth - 1)
                 }
             }
-            (Item(depth), ev) if ev.is_start() => {
+            (S::Item(0), ev) if ev.is_value() => {
                 self.item_tracer.accept(ev)?;
-                Item(depth + 1)
+                S::WaitForItem
             }
-            (Item(depth), ev) if ev.is_end() => {
+            (S::Item(depth), ev) => {
                 self.item_tracer.accept(ev)?;
-                Item(depth - 1)
+                S::Item(depth)
             }
-            (Item(depth), ev) => {
-                self.item_tracer.accept(ev)?;
-                Item(depth)
-            }
+            (state, ev) => fail!(
+                "Invalid event {ev} for list tracer ({path}) in state {state:?}",
+                path = self.path
+            ),
         };
         Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, ListTracerState::Start) {
+        if !matches!(self.next, ListTracerState::WaitForStart) {
             fail!("Incomplete list in schema tracing");
         }
         self.item_tracer.finish()?;
@@ -777,19 +839,21 @@ impl EventSink for ListTracer {
 
 pub struct UnionTracer {
     pub variants: Vec<Option<String>>,
-    pub tracers: Vec<Tracer>,
+    pub tracers: BTreeMap<usize, Tracer>,
     pub nullable: bool,
     pub next: UnionTracerState,
     pub finished: bool,
+    pub path: String,
     pub options: TracingOptions,
 }
 
 impl UnionTracer {
-    pub fn new(options: TracingOptions, nullable: bool) -> Self {
+    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
+            path,
             options,
             variants: Vec::new(),
-            tracers: Vec::new(),
+            tracers: BTreeMap::new(),
             nullable,
             next: UnionTracerState::Inactive,
             finished: false,
@@ -802,7 +866,8 @@ impl UnionTracer {
         }
 
         let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
-        for (idx, (name, tracer)) in std::iter::zip(&self.variants, &self.tracers).enumerate() {
+        for (idx, (name, (_, tracer))) in std::iter::zip(&self.variants, &self.tracers).enumerate()
+        {
             field.children.push(if let Some(name) = name {
                 tracer.to_field(name)?
             } else {
@@ -820,7 +885,16 @@ impl UnionTracer {
     ) -> Result<()> {
         while self.variants.len() <= idx {
             self.variants.push(None);
-            self.tracers.push(Tracer::new(self.options.clone()));
+        }
+
+        if !self.tracers.contains_key(&idx) {
+            self.tracers.insert(
+                idx,
+                Tracer::new(
+                    format!("{path}.{key}", path = self.path, key = variant.as_ref()),
+                    self.options.clone(),
+                ),
+            );
         }
 
         if let Some(prev) = self.variants[idx].as_ref() {
@@ -857,26 +931,26 @@ impl EventSink for UnionTracer {
             },
             S::Active(idx, depth) => match event {
                 ev if ev.is_start() => {
-                    self.tracers[idx].accept(ev)?;
+                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                     S::Active(idx, depth + 1)
                 }
                 ev if ev.is_end() => match depth {
                     0 => fail!("Invalid end event {ev} at depth 0 in UnionTracer"),
                     1 => {
-                        self.tracers[idx].accept(ev)?;
+                        self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                         S::Inactive
                     }
                     _ => {
-                        self.tracers[idx].accept(ev)?;
+                        self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                         S::Active(idx, depth - 1)
                     }
                 },
                 ev if ev.is_marker() => {
-                    self.tracers[idx].accept(ev)?;
+                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                     S::Active(idx, depth)
                 }
                 ev if ev.is_value() => {
-                    self.tracers[idx].accept(ev)?;
+                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                     match depth {
                         0 => S::Inactive,
                         _ => S::Active(idx, depth),
@@ -890,7 +964,7 @@ impl EventSink for UnionTracer {
 
     fn finish(&mut self) -> Result<()> {
         // TODO: add checks here?
-        for tracer in &mut self.tracers {
+        for (_, tracer) in &mut self.tracers {
             tracer.finish()?;
         }
         self.finished = true;
@@ -905,6 +979,7 @@ pub enum UnionTracerState {
 }
 
 pub struct MapTracer {
+    pub path: String,
     pub key: Box<Tracer>,
     pub value: Box<Tracer>,
     pub nullable: bool,
@@ -913,12 +988,13 @@ pub struct MapTracer {
 }
 
 impl MapTracer {
-    pub fn new(options: TracingOptions, nullable: bool) -> Self {
+    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
             nullable,
-            key: Box::new(Tracer::new(options.clone())),
-            value: Box::new(Tracer::new(options)),
+            key: Box::new(Tracer::new(format!("{path}.$key"), options.clone())),
+            value: Box::new(Tracer::new(format!("{path}.$value"), options)),
             next: MapTracerState::Start,
+            path,
             finished: true,
         }
     }

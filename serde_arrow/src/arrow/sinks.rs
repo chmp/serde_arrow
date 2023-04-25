@@ -29,68 +29,68 @@ pub struct ArrowPrimitiveBuilders;
 impl PrimitiveBuilders for ArrowPrimitiveBuilders {
     type Output = ArrayData;
 
-    fn null() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(NullArrayBuilder::new())
+    fn null(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(NullArrayBuilder::new(path))
     }
 
-    fn bool() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<BooleanBuilder>::default())
+    fn bool(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<BooleanBuilder>::new(path))
     }
 
-    fn u8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::default())
+    fn u8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::new(path))
     }
 
-    fn u16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::default())
+    fn u16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::new(path))
     }
 
-    fn u32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::default())
+    fn u32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::new(path))
     }
 
-    fn u64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::default())
+    fn u64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::new(path))
     }
 
-    fn i8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::default())
+    fn i8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::new(path))
     }
 
-    fn i16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::default())
+    fn i16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::new(path))
     }
 
-    fn i32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::default())
+    fn i32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::new(path))
     }
 
-    fn i64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::default())
+    fn i64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::new(path))
     }
 
-    fn f16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::default())
+    fn f16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::new(path))
     }
 
-    fn f32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::default())
+    fn f32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::new(path))
     }
 
-    fn f64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::default())
+    fn f64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::new(path))
     }
 
-    fn date64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::default())
+    fn date64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::new(path))
     }
 
-    fn utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::default())
+    fn utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new(path))
     }
 
-    fn large_utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::default())
+    fn large_utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::new(path))
     }
 }
 
@@ -105,34 +105,48 @@ impl ArrayBuilder<ArrayData> for NullArrayBuilder {
 
 #[derive(Debug, Default)]
 pub struct PrimitiveArrayBuilder<B> {
+    path: String,
     array: B,
     finished: bool,
+}
+
+impl<B: Default> PrimitiveArrayBuilder<B> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: B::default(),
+            finished: false,
+        }
+    }
 }
 
 macro_rules! impl_primitive_array_builder {
     ($ty:ty, $($variant:ident),*) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
             macros::forward_generic_to_specialized!();
-            macros::accept_start!((_this, ev, _val, _next) {
+            macros::accept_start!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_end!((_this, ev, _val, _next) {
+            macros::accept_end!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_marker!((_this, ev, _val, _next) {
+            macros::accept_marker!((this, ev, _val, _next) {
                 if !matches!(ev, Event::Some) {
                     fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     );
                 }
                 Ok(())
@@ -143,9 +157,10 @@ macro_rules! impl_primitive_array_builder {
                     Event::Null => this.array.append_null(),
                     Event::Default => this.array.append_value(Default::default()),
                     ev => fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     ),
                 }
                 Ok(())
@@ -324,8 +339,19 @@ impl ArrayBuilder<ArrayData> for PrimitiveArrayBuilder<PrimitiveBuilder<Float16T
 
 #[derive(Debug, Default)]
 pub struct Utf8ArrayBuilder<O: OffsetSizeTrait> {
+    path: String,
     array: GenericStringBuilder<O>,
     finished: bool,
+}
+
+impl<O: OffsetSizeTrait> Utf8ArrayBuilder<O> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: Default::default(),
+            finished: false,
+        }
+    }
 }
 
 impl<O: OffsetSizeTrait> EventSink for Utf8ArrayBuilder<O> {
