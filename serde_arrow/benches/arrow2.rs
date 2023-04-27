@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
-use arrow_json_37::RawReaderBuilder;
-use arrow_schema_37::Schema;
+use arrow_json_38::RawReaderBuilder;
+use arrow_schema_38::Schema;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use serde_arrow::_impl::arrow2::{
     array::{
@@ -24,30 +24,26 @@ mod bytecode {
     use serde::Serialize;
     use serde_arrow::{
         Result,
-        _impl::bytecode::{Bytecode, Interpreter, ListDefinition, StructDefinition},
+        _impl::{
+            bytecode::{compile_serialization, Interpreter},
+            GenericField,
+        },
         base::serialize_into_sink,
+        Error,
     };
 
-    pub fn serialize<T: Serialize + ?Sized>(items: &T) -> Result<usize> {
-        let (program, lists, structs) = build_programm();
-        let mut interpreter = Interpreter {
-            lists,
-            structs,
-            program,
-            program_counter: 0,
-            u8: vec![vec![]; 1],
-            u16: vec![vec![]; 1],
-            u32: vec![vec![]; 1],
-            u64: vec![vec![]; 1],
-            i8: vec![vec![]; 1],
-            i16: vec![vec![]; 1],
-            i32: vec![vec![]; 1],
-            i64: vec![vec![]; 1],
-            f32: vec![vec![]; 1],
-            f64: vec![vec![]; 1],
-            bool: vec![vec![]; 1],
-            utf8: vec![vec![]; 0],
-        };
+    pub fn serialize<F, T>(fields: &[F], items: &T) -> Result<usize>
+    where
+        GenericField: for<'a> TryFrom<&'a F, Error = Error>,
+        T: Serialize + ?Sized,
+    {
+        let fields = fields
+            .into_iter()
+            .map(|f| f.try_into())
+            .collect::<Result<Vec<GenericField>>>()?;
+        let program = compile_serialization(&fields)?;
+        // println!("{program:?}");
+        let mut interpreter = Interpreter::new(program);
 
         serialize_into_sink(&mut interpreter, items)?;
 
@@ -62,101 +58,6 @@ mod bytecode {
             + interpreter.f32.len()
             + interpreter.f64.len()
             + interpreter.bool.len())
-    }
-
-    #[test]
-    fn example() {
-        #[derive(Serialize)]
-        struct Item {
-            a: u8,
-            b: u16,
-        }
-
-        let items = &[
-            Item { a: 0, b: 1 },
-            Item { a: 2, b: 3 },
-            Item { a: 4, b: 5 },
-        ];
-
-        assert_eq!(interpreter.u8[0], vec![Some(0), Some(2), Some(4)]);
-        assert_eq!(interpreter.u16[0], vec![Some(1), Some(3), Some(5)]);
-    }
-
-    macro_rules! btree_map {
-        ($($key:expr => $val:expr,)*) => {
-            {
-                #[allow(unused_mut)]
-                let mut res = std::collections::BTreeMap::new();
-                $(res.insert($key.into(), $val.into());)*
-                res
-            }
-        };
-    }
-
-    #[rustfmt::skip]
-    fn build_programm() -> (Vec<Bytecode>, Vec<ListDefinition>, Vec<StructDefinition>) {
-        let program = vec![
-            /*  0 */ Bytecode::ListStart(0),
-            /*  1 */ Bytecode::ListItem(0),
-            /*  2 */ Bytecode::StructStart(9),
-            /*  3 */ Bytecode::StructField(0, "a".into()),
-            /*  4 */ Bytecode::PushU8(0),
-            /*  5 */ Bytecode::StructField(0, "b".into()),
-            /*  6 */ Bytecode::PushU16(0),
-            /*  7 */ Bytecode::StructField(0, "c".into()),
-            /*  8 */ Bytecode::PushU32(0),
-            /*  9 */ Bytecode::StructField(0, "d".into()),
-            /* 10 */ Bytecode::PushU64(0),
-            /* 11 */ Bytecode::StructField(0, "e".into()),
-            /* 12 */ Bytecode::PushI8(0),
-            /* 13 */ Bytecode::StructField(0, "f".into()),
-            /* 14 */ Bytecode::PushI16(0),
-            /* 15 */ Bytecode::StructField(0, "g".into()),
-            /* 16 */ Bytecode::PushI32(0),
-            /* 17 */ Bytecode::StructField(0, "h".into()),
-            /* 18 */ Bytecode::PushI64(0),
-            /* 19 */ Bytecode::StructField(0, "i".into()),
-            /* 20 */ Bytecode::PushF32(0),
-            /* 21 */ Bytecode::StructField(0, "j".into()),
-            /* 22 */ Bytecode::PushF64(0),
-            /* 23 */ Bytecode::StructField(0, "k".into()),
-            /* 24 */ Bytecode::PushBool(0),
-            /* 25 */ Bytecode::StructEnd(0),
-            /* 26 */ Bytecode::ListEnd(0),
-            /* 27 */ Bytecode::ProgramEnd,
-        ];
-
-        let lists = vec![
-            ListDefinition {
-                start: 0,
-                end: 26,
-                item: 2,
-                r#return: 27,
-            },
-
-        ];
-        let structs = vec![
-            StructDefinition {
-                start: 2,
-                end: 25,
-                r#return: 1,
-                fields: btree_map!{
-                    "a" => 3_usize,
-                    "b" => 5_usize,
-                    "c" => 7_usize,
-                    "d" => 9_usize,
-                    "e" => 11_usize,
-                    "f" => 13_usize,
-                    "g" => 15_usize,
-                    "h" => 17_usize,
-                    "i" => 19_usize,
-                    "j" => 21_usize,
-                    "k" => 13_usize,
-                },
-            },
-        ];
-
-        (program, lists, structs)
     }
 }
 
@@ -211,7 +112,7 @@ fn benchmark_serialize_arrow2_primitives(c: &mut Criterion) {
     let fields = arrow2::serialize_into_fields(&items, Default::default()).unwrap();
 
     group.bench_function("serde_arrow_bytecode", |b| {
-        b.iter(|| black_box(bytecode::serialize(&items).unwrap()));
+        b.iter(|| black_box(bytecode::serialize(&fields, &items).unwrap()));
     });
 
     group.bench_function("serde_arrow", |b| {
@@ -480,126 +381,6 @@ fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
     group.finish();
 }
 
-mod bytecode2 {
-    use serde::Serialize;
-    use serde_arrow::{
-        Result,
-        _impl::bytecode::{Bytecode, Interpreter, ListDefinition, StructDefinition},
-        base::serialize_into_sink,
-    };
-
-    pub fn serialize<T: Serialize + ?Sized>(items: &T) -> Result<usize> {
-        let (program, lists, structs) = build_programm();
-        let mut interpreter = Interpreter {
-            program,
-            lists,
-            structs,
-            program_counter: 0,
-            u8: vec![vec![]; 0],
-            u16: vec![vec![]; 0],
-            u32: vec![vec![]; 0],
-            u64: vec![vec![]; 0],
-            i8: vec![vec![]; 0],
-            i16: vec![vec![]; 0],
-            i32: vec![vec![]; 0],
-            i64: vec![vec![]; 0],
-            f32: vec![vec![]; 3],
-            f64: vec![vec![]; 1],
-            bool: vec![vec![]; 1],
-            utf8: vec![vec![]; 1],
-        };
-
-        serialize_into_sink(&mut interpreter, &items)?;
-
-        Ok(interpreter.u8.len()
-            + interpreter.u16.len()
-            + interpreter.u32.len()
-            + interpreter.u64.len()
-            + interpreter.i8.len()
-            + interpreter.i16.len()
-            + interpreter.i32.len()
-            + interpreter.i64.len()
-            + interpreter.f32.len()
-            + interpreter.f64.len()
-            + interpreter.bool.len())
-    }
-
-    macro_rules! btree_map {
-        ($($key:expr => $val:expr,)*) => {
-            {
-                #[allow(unused_mut)]
-                let mut res = std::collections::BTreeMap::new();
-                $(res.insert($key.into(), $val.into());)*
-                res
-            }
-        };
-    }
-
-    #[rustfmt::skip]
-    fn build_programm() -> (Vec<Bytecode>, Vec<ListDefinition>, Vec<StructDefinition>) {
-        let program = vec![
-            /*  0 */ Bytecode::ListStart(0),
-            /*  1 */ Bytecode::ListItem(0),
-            /*  2 */ Bytecode::StructStart(9),
-            /*  3 */ Bytecode::StructField(0, "string".into()),
-            /*  4 */ Bytecode::PushLargeUTF8(0),
-            /*  5 */ Bytecode::StructField(0, "points".into()),
-            /*  6 */ Bytecode::ListStart(1),
-            /*  7 */ Bytecode::ListItem(1),
-            /*  8 */ Bytecode::StructStart(1),
-            /*  9 */ Bytecode::StructField(1, "x".into()),
-            /* 10 */ Bytecode::PushF32(0),
-            /* 11 */ Bytecode::StructField(1, "y".into()),
-            /* 12 */ Bytecode::PushF32(1),
-            /* 13 */ Bytecode::StructEnd(1),
-            /* 14 */ Bytecode::ListEnd(1),
-            /* 15 */ Bytecode::StructField(0, "child".into()),
-            /* 16 */ Bytecode::StructStart(2),
-            /* 17 */ Bytecode::StructField(2, "a".into()),
-            /* 18 */ Bytecode::PushBool(0),
-            /* 19 */ Bytecode::StructField(2, "b".into()),
-            /* 20 */ Bytecode::PushF64(0),
-            /* 21 */ Bytecode::StructField(2, "c".into()),
-            /* 22 */ Bytecode::Option(24),
-            /* 23 */ Bytecode::PushF32(2),
-            /* 24 */ Bytecode::StructEnd(2),
-            /* 25 */ Bytecode::StructEnd(0),
-            /* 26 */ Bytecode::ListEnd(0),
-            /* 27 */ Bytecode::ProgramEnd,
-        ];
-
-        let lists = vec![
-            ListDefinition {
-                start: 0,
-                end: 26,
-                item: 2,
-                r#return: 27,
-            },
-            ListDefinition {
-                start: 6,
-                end: 15,
-                item: 8,
-                r#return: 15,
-            },
-            
-        ];
-        let structs = vec![
-            StructDefinition {
-                start: 2,
-                end: 25,
-                r#return: 1,
-                fields: btree_map!{
-                    "string" => 3_usize,
-                    "points" => 6_usize,
-                    "child" => 16_usize,
-                },
-            },
-        ];
-
-        (program, lists, structs)
-    }
-}
-
 /// a simplified benchmark that is supported by arrow
 fn benchmark_serialize_arrow_complex(c: &mut Criterion) {
     let mut group = c.benchmark_group("serialize_arrow_complex");
@@ -659,7 +440,7 @@ fn benchmark_serialize_arrow_complex(c: &mut Criterion) {
     let fields = arrow::serialize_into_fields(&items, Default::default()).unwrap();
 
     group.bench_function("serde_arrow_bytecode", |b| {
-        b.iter(|| black_box(bytecode2::serialize(&items).unwrap()));
+        b.iter(|| black_box(bytecode::serialize(&fields, &items).unwrap()));
     });
 
     group.bench_function("arrow", |b| {

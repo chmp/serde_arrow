@@ -131,6 +131,7 @@ mod internal;
 ///
 pub mod _impl {
     pub use crate::internal::bytecode;
+    pub use crate::internal::schema::GenericField;
 
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
@@ -161,10 +162,13 @@ pub mod _impl {
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
                         PrimitiveBuilder,
                     };
+                    pub use $arrow_array::cast::AsArray;
                     pub use $arrow_data::ArrayData;
                 }
                 pub mod buffer {
-                    pub use $arrow_buffer::Buffer;
+                    pub use $arrow_buffer::buffer::{
+                        BooleanBuffer, Buffer, NullBuffer, ScalarBuffer,
+                    };
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
@@ -180,7 +184,15 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow-37")]
+    #[cfg(feature = "arrow-38")]
+    build_arrow_crate!(
+        arrow_array_38,
+        arrow_buffer_38,
+        arrow_data_38,
+        arrow_schema_38
+    );
+
+    #[cfg(all(feature = "arrow-37", not(feature = "arrow-38")))]
     build_arrow_crate!(
         arrow_array_37,
         arrow_buffer_37,
@@ -188,24 +200,16 @@ pub mod _impl {
         arrow_schema_37
     );
 
-    #[cfg(all(feature = "arrow-36", not(feature = "arrow-37")))]
+    #[cfg(all(
+        feature = "arrow-36",
+        not(feature = "arrow-37"),
+        not(feature = "arrow-38")
+    ))]
     build_arrow_crate!(
         arrow_array_36,
         arrow_buffer_36,
         arrow_data_36,
         arrow_schema_36
-    );
-
-    #[cfg(all(
-        feature = "arrow-35",
-        not(feature = "arrow-36"),
-        not(feature = "arrow-37")
-    ))]
-    build_arrow_crate!(
-        arrow_array_35,
-        arrow_buffer_35,
-        arrow_data_35,
-        arrow_schema_35
     );
 
     pub mod docs {
@@ -226,12 +230,12 @@ pub mod _impl {
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
-#[cfg(any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"))]
+#[cfg(any(feature = "arrow-36", feature = "arrow-37", feature = "arrow-38"))]
 pub mod arrow;
 
 #[cfg(all(
     test,
-    any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"),
+    any(feature = "arrow-36", feature = "arrow-37", feature = "arrow-38"),
     any(feature = "arrow2-0-17", feature = "arrow2-0-16")
 ))]
 mod test_impls;
