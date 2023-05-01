@@ -1,6 +1,6 @@
 use super::{
     buffers::{BitBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
-    compiler::{ArrayMapping, Bytecode, ListDefinition, Program, StructDefinition},
+    compiler::{ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition},
 };
 
 use crate::internal::{
@@ -14,6 +14,7 @@ pub struct Interpreter {
     pub program: Vec<Bytecode>,
     pub structs: Vec<StructDefinition>,
     pub lists: Vec<ListDefinition>,
+    pub nulls: Vec<NullDefinition>,
     pub array_mapping: Vec<ArrayMapping>,
     pub buffers: Buffers,
 }
@@ -43,6 +44,7 @@ impl Interpreter {
             program: program.program,
             structs: program.structs,
             lists: program.large_lists,
+            nulls: program.nulls,
             array_mapping: program.array_mapping,
             program_counter: 0,
             buffers: Buffers {
@@ -200,9 +202,10 @@ impl EventSink for Interpreter {
     }
 
     fn accept_some(&mut self) -> Result<()> {
-        // TODO: increment the validity of whatever value
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            Bytecode::Option(_) => {
+            &B::Option(_, validity) => {
+                self.buffers.validity[validity].push(true)?;
                 self.program_counter += 1;
                 Ok(())
             }
@@ -211,10 +214,10 @@ impl EventSink for Interpreter {
     }
 
     fn accept_null(&mut self) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::Option(if_none) => {
-                // TODO: fix this. How to do this generically?
-                self.buffers.large_utf8[0].push_null()?;
+            &B::Option(if_none, validity) => {
+                self.apply_null(validity)?;
                 self.program_counter = if_none;
                 Ok(())
             }
@@ -280,6 +283,34 @@ impl EventSink for Interpreter {
     }
 
     fn finish(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+macro_rules! apply_null {
+    ($this:expr, $validity:expr, $name:ident) => {
+        for &idx in &$this.nulls[$validity].$name {
+            $this.buffers.$name[idx].push(Default::default())?;
+        }
+    };
+}
+
+impl Interpreter {
+    fn apply_null(&mut self, validity: usize) -> Result<()> {
+        apply_null!(self, validity, bool);
+        apply_null!(self, validity, u8);
+        apply_null!(self, validity, u16);
+        apply_null!(self, validity, u32);
+        apply_null!(self, validity, u64);
+        apply_null!(self, validity, i8);
+        apply_null!(self, validity, i16);
+        apply_null!(self, validity, i32);
+        apply_null!(self, validity, i64);
+        apply_null!(self, validity, f32);
+        apply_null!(self, validity, f64);
+        apply_null!(self, validity, utf8);
+        apply_null!(self, validity, large_utf8);
+        apply_null!(self, validity, validity);
         Ok(())
     }
 }

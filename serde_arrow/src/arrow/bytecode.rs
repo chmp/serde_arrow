@@ -1,12 +1,12 @@
 #![allow(missing_docs)]
 use crate::internal::{
     bytecode::{
-        buffers::{BitBuffer, BoolBuffer, PrimitiveBuffer, StringBuffer},
+        buffers::{BitBuffer, BoolBuffer, PrimitiveBuffer},
         compiler::ArrayMapping,
         interpreter::Buffers,
         Interpreter,
     },
-    error::{fail, Result},
+    error::Result,
 };
 
 use crate::_impl::arrow::{
@@ -71,7 +71,7 @@ macro_rules! impl_primitive_buffer_to_arrow {
             fn into_arrow_array_data(self) -> Result<ArrayData> {
                 let len = self.validity.len;
                 let null_buffer = Buffer::from(self.validity.buffer);
-                let data = ScalarBuffer::from(self.data).into_inner();
+                let data = ScalarBuffer::from(self.buffer).into_inner();
 
                 Ok(ArrayData::try_new(
                     DataType::$arrow_datatype,
@@ -87,34 +87,6 @@ macro_rules! impl_primitive_buffer_to_arrow {
 }
 
 impl_primitive_buffer_to_arrow!();
-
-macro_rules! impl_string_buffer_to_arrow {
-    () => {
-        impl_string_buffer_to_arrow!(i32, Utf8);
-        impl_string_buffer_to_arrow!(i64, LargeUtf8);
-    };
-    ($ty:ty, $dtype:ident) => {
-        impl IntoArrowArrayData for StringBuffer<$ty> {
-            fn into_arrow_array_data(self) -> Result<ArrayData> {
-                let len = self.validity.len;
-                let null_buffer = Buffer::from(self.validity.buffer);
-                let offsets = ScalarBuffer::from(self.offsets.offsets).into_inner();
-                let data = ScalarBuffer::from(self.data).into_inner();
-
-                Ok(ArrayData::try_new(
-                    DataType::$dtype,
-                    len,
-                    Some(null_buffer),
-                    0,
-                    vec![offsets, data],
-                    vec![],
-                )?)
-            }
-        }
-    };
-}
-
-impl_string_buffer_to_arrow!();
 
 #[cfg(test)]
 mod validity_bitmap {
@@ -143,99 +115,6 @@ mod validity_bitmap {
     }
 }
 
-#[cfg(test)]
-mod u16_array {
-    use super::IntoArrowArrayData;
-    use crate::internal::bytecode::buffers::PrimitiveBuffer;
-
-    use crate::_impl::arrow::{
-        array::{make_array, Array, AsArray},
-        datatypes::UInt16Type,
-    };
-
-    #[test]
-    fn example() {
-        let mut buffer = PrimitiveBuffer::<u16>::new();
-
-        buffer.push(0).unwrap();
-        buffer.push_null().unwrap();
-        buffer.push_null().unwrap();
-        buffer.push(6).unwrap();
-        buffer.push(8).unwrap();
-        buffer.push_null().unwrap();
-        buffer.push(12).unwrap();
-
-        let data = buffer.into_arrow_array_data().unwrap();
-
-        let array = make_array(data);
-        let array = array.as_primitive_opt::<UInt16Type>().unwrap();
-
-        assert_eq!(array.len(), 7);
-
-        assert_eq!(array.is_null(0), false);
-        assert_eq!(array.value(0), 0);
-
-        assert_eq!(array.is_null(1), true);
-        assert_eq!(array.value(1), 0);
-
-        assert_eq!(array.is_null(2), true);
-        assert_eq!(array.value(2), 0);
-
-        assert_eq!(array.is_null(3), false);
-        assert_eq!(array.value(3), 6);
-
-        assert_eq!(array.is_null(4), false);
-        assert_eq!(array.value(4), 8);
-
-        assert_eq!(array.is_null(5), true);
-        assert_eq!(array.value(5), 0);
-
-        assert_eq!(array.is_null(6), false);
-        assert_eq!(array.value(6), 12);
-    }
-}
-
-#[cfg(test)]
-mod utf8_array {
-    use super::IntoArrowArrayData;
-    use crate::internal::bytecode::buffers::StringBuffer;
-
-    use crate::_impl::arrow::array::{make_array, Array, AsArray};
-
-    #[test]
-    fn example() {
-        let mut buffer = StringBuffer::<i64>::new();
-
-        buffer.push("foo").unwrap();
-        buffer.push_null().unwrap();
-        buffer.push_null().unwrap();
-        buffer.push("bar").unwrap();
-        buffer.push("baz").unwrap();
-
-        let data = buffer.into_arrow_array_data().unwrap();
-
-        let array = make_array(data);
-        let array = array.as_string_opt::<i64>().unwrap();
-
-        assert_eq!(array.len(), 5);
-
-        assert_eq!(array.is_null(0), false);
-        assert_eq!(array.value(0), "foo");
-
-        assert_eq!(array.is_null(1), true);
-        assert_eq!(array.value(1), "");
-
-        assert_eq!(array.is_null(2), true);
-        assert_eq!(array.value(2), "");
-
-        assert_eq!(array.is_null(3), false);
-        assert_eq!(array.value(3), "bar");
-
-        assert_eq!(array.is_null(4), false);
-        assert_eq!(array.value(4), "baz");
-    }
-}
-
 impl Interpreter {
     /// Build the arrow arrays
     pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
@@ -251,19 +130,22 @@ impl Interpreter {
 
 macro_rules! build_primitive_array_data {
     ($buffers:expr, $dtype:ident, $ty:ident, $buffer:expr, $validity:expr) => {{
-        let data = std::mem::take(&mut $buffers.bool[$buffer]);
+        let data = std::mem::take(&mut $buffers.$ty[$buffer]);
 
         let len = data.len();
         let data = ScalarBuffer::from(data.buffer).into_inner();
-        if $validity.is_some() {
-            fail!("Nullable primitives are not yet supported");
-        }
-        // let null_buffer = Buffer::from(self.validity.buffer);
+
+        let validity = if let Some(validity) = $validity {
+            let validity = std::mem::take(&mut $buffers.validity[validity]);
+            Some(Buffer::from(validity.buffer))
+        } else {
+            None
+        };
 
         Ok(ArrayData::try_new(
             DataType::$dtype,
             len,
-            None, // Some(null_buffer),
+            validity,
             0,
             vec![data],
             vec![],
@@ -277,18 +159,86 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         &M::Bool {
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Boolean, bool, buffer, validity),
-        &M::U8(_, idx) => buffers.u8[idx].take_as_arrow_array_data(),
-        &M::U16(_, idx) => buffers.u16[idx].take_as_arrow_array_data(),
-        &M::U32(_, idx) => buffers.u32[idx].take_as_arrow_array_data(),
-        &M::U64(_, idx) => buffers.u64[idx].take_as_arrow_array_data(),
-        &M::I8(_, idx) => buffers.i8[idx].take_as_arrow_array_data(),
-        &M::I16(_, idx) => buffers.i16[idx].take_as_arrow_array_data(),
-        &M::I32(_, idx) => buffers.i32[idx].take_as_arrow_array_data(),
-        &M::I64(_, idx) => buffers.i64[idx].take_as_arrow_array_data(),
-        &M::F32(_, idx) => buffers.f32[idx].take_as_arrow_array_data(),
-        &M::F64(_, idx) => buffers.f64[idx].take_as_arrow_array_data(),
-        &M::Utf8(_, idx) => buffers.utf8[idx].take_as_arrow_array_data(),
-        &M::LargeUtf8(_, idx) => buffers.large_utf8[idx].take_as_arrow_array_data(),
+        &M::U8 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, UInt8, u8, buffer, validity),
+        &M::U16 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, UInt16, u16, buffer, validity),
+        &M::U32 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, UInt32, u32, buffer, validity),
+        &M::U64 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, UInt64, u64, buffer, validity),
+        &M::I8 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Int8, i8, buffer, validity),
+        &M::I16 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Int16, i16, buffer, validity),
+        &M::I32 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Int32, i32, buffer, validity),
+        &M::I64 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Int64, i64, buffer, validity),
+        &M::F32 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Float32, f32, buffer, validity),
+        &M::F64 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Float64, f64, buffer, validity),
+        &M::Utf8 {
+            buffer, validity, ..
+        } => {
+            let buffer = std::mem::take(&mut buffers.utf8[buffer]);
+            let len = buffer.len();
+
+            let offsets = ScalarBuffer::from(buffer.offsets.offsets).into_inner();
+            let data = ScalarBuffer::from(buffer.data).into_inner();
+
+            let validity = if let Some(validity) = validity {
+                let validity = std::mem::take(&mut buffers.validity[validity]);
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            Ok(ArrayData::try_new(
+                DataType::LargeUtf8,
+                len,
+                validity,
+                0,
+                vec![offsets, data],
+                vec![],
+            )?)
+        }
+        &M::LargeUtf8 {
+            buffer, validity, ..
+        } => {
+            let buffer = std::mem::take(&mut buffers.large_utf8[buffer]);
+            let len = buffer.len();
+
+            let offsets = ScalarBuffer::from(buffer.offsets.offsets).into_inner();
+            let data = ScalarBuffer::from(buffer.data).into_inner();
+
+            let validity = if let Some(validity) = validity {
+                let validity = std::mem::take(&mut buffers.validity[validity]);
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            Ok(ArrayData::try_new(
+                DataType::LargeUtf8,
+                len,
+                validity,
+                0,
+                vec![offsets, data],
+                vec![],
+            )?)
+        }
         M::Struct {
             field,
             fields,

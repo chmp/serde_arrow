@@ -21,6 +21,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_bool,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Bool, true),
     ty = Option<bool>,
     values = [Some(true), None, Some(false)],
@@ -55,6 +56,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_u16,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U16, true),
     ty = Option<u16>,
     values = [Some(1), None, Some(3), Some(4)],
@@ -72,6 +74,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_u32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U32, true),
     ty = Option<u32>,
     values = [Some(1), None, Some(3), Some(4)],
@@ -89,6 +92,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_u64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U64, true),
     ty = Option<u64>,
     values = [Some(1), None, Some(3), Some(4)],
@@ -106,6 +110,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_i8,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I8, true),
     ty = Option<i8>,
     values = [Some(-1), None, Some(3), Some(-4)],
@@ -123,6 +128,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_i16,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I16, true),
     ty = Option<i16>,
     values = [Some(-1), None, Some(3), Some(-4)],
@@ -140,6 +146,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_i32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I32, true),
     ty = Option<i32>,
     values = [Some(-1), None, Some(3), Some(-4)],
@@ -157,6 +164,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_i64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I64, true),
     ty = Option<i64>,
     values = [Some(-1), None, Some(3), Some(-4)],
@@ -174,6 +182,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_f32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::F32, true),
     ty = Option<f32>,
     values = [Some(-1.0), None, Some(3.0), Some(-4.0)],
@@ -191,6 +200,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_f64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::F64, true),
     ty = Option<f64>,
     values = [Some(-1.0), None, Some(3.0), Some(-4.0)],
@@ -208,6 +218,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_str,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, true),
     ty = Option<&str>,
     values = [Some("a"), None, None, Some("d")],
@@ -226,3 +237,5 @@ test_example!(
         struct I64(i64);
     },
 );
+
+// TODO: test Utf8 with i32 offset

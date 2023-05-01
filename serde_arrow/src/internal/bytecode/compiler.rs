@@ -77,8 +77,8 @@ pub enum Bytecode {
     PushBool(usize),
     PushUTF8(usize),
     PushLargeUTF8(usize),
-    /// `Option(if_none)`
-    Option(usize),
+    /// `Option(if_none, validity)`
+    Option(usize, usize),
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -93,6 +93,111 @@ pub struct ListDefinition {
     pub offset: usize,
 }
 
+#[derive(Default, Debug, PartialEq)]
+pub struct NullDefinition {
+    pub bool: Vec<usize>,
+    pub u8: Vec<usize>,
+    pub u16: Vec<usize>,
+    pub u32: Vec<usize>,
+    pub u64: Vec<usize>,
+    pub i8: Vec<usize>,
+    pub i16: Vec<usize>,
+    pub i32: Vec<usize>,
+    pub i64: Vec<usize>,
+    pub f32: Vec<usize>,
+    pub f64: Vec<usize>,
+    pub utf8: Vec<usize>,
+    pub large_utf8: Vec<usize>,
+    pub validity: Vec<usize>,
+}
+
+impl NullDefinition {
+    pub fn update_from_array_mapping(&mut self, m: &ArrayMapping) -> Result<()> {
+        match m {
+            &ArrayMapping::Bool {
+                buffer, validity, ..
+            } => {
+                self.bool.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::U8 {
+                buffer, validity, ..
+            } => {
+                self.u8.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::U16 {
+                buffer, validity, ..
+            } => {
+                self.u16.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::U32 {
+                buffer, validity, ..
+            } => {
+                self.u32.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::U64 {
+                buffer, validity, ..
+            } => {
+                self.u64.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::I8 {
+                buffer, validity, ..
+            } => {
+                self.i8.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::I16 {
+                buffer, validity, ..
+            } => {
+                self.i16.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::I32 {
+                buffer, validity, ..
+            } => {
+                self.i32.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::I64 {
+                buffer, validity, ..
+            } => {
+                self.i64.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::F32 {
+                buffer, validity, ..
+            } => {
+                self.f32.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::F64 {
+                buffer, validity, ..
+            } => {
+                self.f64.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::Utf8 {
+                buffer, validity, ..
+            } => {
+                self.utf8.push(buffer);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::LargeUtf8 {
+                buffer, validity, ..
+            } => {
+                self.large_utf8.push(buffer);
+                self.validity.extend(validity);
+            }
+            m => todo!("cannot update null definition from {m:?}"),
+        }
+        Ok(())
+    }
+}
+
 /// Map the array to the corresponding builders
 #[derive(Debug)]
 pub enum ArrayMapping {
@@ -101,18 +206,66 @@ pub enum ArrayMapping {
         buffer: usize,
         validity: Option<usize>,
     },
-    U8(GenericField, usize),
-    U16(GenericField, usize),
-    U32(GenericField, usize),
-    U64(GenericField, usize),
-    I8(GenericField, usize),
-    I16(GenericField, usize),
-    I32(GenericField, usize),
-    I64(GenericField, usize),
-    F32(GenericField, usize),
-    F64(GenericField, usize),
-    Utf8(GenericField, usize),
-    LargeUtf8(GenericField, usize),
+    U8 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    U16 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    U32 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    U64 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    I8 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    I16 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    I32 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    I64 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    F32 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    F64 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    Utf8 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    LargeUtf8 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
     List {
         field: GenericField,
         item: Box<ArrayMapping>,
@@ -138,6 +291,7 @@ pub struct Program {
     pub(crate) program: Vec<Bytecode>,
     pub(crate) large_lists: Vec<ListDefinition>,
     pub(crate) structs: Vec<StructDefinition>,
+    pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
     pub(crate) num_bool: usize,
     pub(crate) num_u8: usize,
@@ -161,10 +315,11 @@ impl Program {
     pub fn new(options: CompilationOptions) -> Self {
         Self {
             options,
-            program: Default::default(),
-            large_lists: Default::default(),
-            structs: Default::default(),
-            array_mapping: Default::default(),
+            program: Vec::new(),
+            large_lists: Vec::new(),
+            structs: Vec::new(),
+            nulls: Vec::new(),
+            array_mapping: Vec::new(),
             num_bool: 0,
             num_u8: 0,
             num_u16: 0,
@@ -232,10 +387,16 @@ impl Program {
         Ok(())
     }
 
-    fn compile_struct(&mut self, field: &GenericField) -> Result<ArrayMapping> {
+    fn compile_struct(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
         if field.nullable {
+            if validity.is_none() {
+                fail!("inconsistent arguments");
+            }
             // TODO: if supported, check that at least a single field is present
-
             fail!("Nullable structs are not supported");
         }
 
@@ -260,17 +421,25 @@ impl Program {
         Ok(ArrayMapping::Struct {
             field: field.clone(),
             fields: field_mapping,
-            validity: None,
+            validity,
         })
     }
 
-    fn compile_list(&mut self, _field: &GenericField) -> Result<ArrayMapping> {
+    fn compile_list(
+        &mut self,
+        _field: &GenericField,
+        _validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
         fail!("Cannot compile lists: Not implemented")
     }
 
-    fn compile_large_list(&mut self, field: &GenericField) -> Result<ArrayMapping> {
-        if field.nullable {
-            fail!("Nullable lists are not supported");
+    fn compile_large_list(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
+        if field.nullable != validity.is_some() {
+            fail!("inconsistent arguments");
         }
 
         let item = field
@@ -297,25 +466,33 @@ impl Program {
             field: field.clone(),
             item: Box::new(field_mapping),
             offsets,
-            validity: None,
+            validity,
         })
     }
 
     fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
         let mut nullable_idx = None;
-        if field.nullable {
-            nullable_idx = Some(self.program.len());
-            self.program.push(Bytecode::Option(0));
-        }
+        let validity = if field.nullable {
+            let validity = self.num_validity.next_value();
+            self.nulls.push(NullDefinition::default());
 
-        let array_mapping = self.compile_field_inner(field)?;
+            nullable_idx = Some(self.program.len());
+            self.program.push(Bytecode::Option(0, validity));
+
+            Some(validity)
+        } else {
+            None
+        };
+
+        let array_mapping = self.compile_field_inner(field, validity)?;
 
         if let Some(nullable_idx) = nullable_idx {
             let current_program_len = self.program.len();
-            let Bytecode::Option(if_none) = &mut self.program[nullable_idx] else {
+            let Bytecode::Option(if_none, validity) = &mut self.program[nullable_idx] else {
                 fail!("Internal error during compilation");
             };
             *if_none = current_program_len;
+            self.nulls[*validity].update_from_array_mapping(&array_mapping)?;
         }
 
         Ok(array_mapping)
@@ -323,16 +500,12 @@ impl Program {
 }
 
 macro_rules! compile_primtive {
-    ($this:expr, $field:expr, $num:ident, $instr:ident, $mapping:ident) => {{
-        if $field.nullable {
-            fail!("Nullable primitive fields are not supported");
-        }
-
+    ($this:expr, $field:expr, $validity:expr, $num:ident, $instr:ident, $mapping:ident) => {{
         $this.program.push(Bytecode::$instr($this.$num));
         let res = ArrayMapping::$mapping {
             field: $field.clone(),
             buffer: $this.$num,
-            validity: None,
+            validity: $validity,
         };
 
         $this.$num += 1;
@@ -341,99 +514,37 @@ macro_rules! compile_primtive {
 }
 
 impl Program {
-    fn compile_field_inner(&mut self, field: &GenericField) -> Result<ArrayMapping> {
-        fn prim(
-            program: &mut Vec<Bytecode>,
-            num: &mut usize,
-            field: &GenericField,
-            ctor: fn(usize) -> Bytecode,
-            mapping: fn(GenericField, usize) -> ArrayMapping,
-        ) -> Result<ArrayMapping> {
-            program.push(ctor(*num));
-            let res = mapping(field.clone(), *num);
-            *num += 1;
-            Ok(res)
-        }
-
-        use {ArrayMapping as M, Bytecode as B, GenericDataType as D};
+    fn compile_field_inner(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
+        use GenericDataType as D;
 
         match field.data_type {
-            D::Bool => compile_primtive!(self, field, num_bool, PushBool, Bool),
-            D::U8 => prim(&mut self.program, &mut self.num_u8, field, B::PushU8, M::U8),
-            D::U16 => prim(
-                &mut self.program,
-                &mut self.num_u16,
+            D::Bool => compile_primtive!(self, field, validity, num_bool, PushBool, Bool),
+            D::U8 => compile_primtive!(self, field, validity, num_u8, PushU8, U8),
+            D::U16 => compile_primtive!(self, field, validity, num_u16, PushU16, U16),
+            D::U32 => compile_primtive!(self, field, validity, num_u32, PushU32, U32),
+            D::U64 => compile_primtive!(self, field, validity, num_u64, PushU64, U64),
+            D::I8 => compile_primtive!(self, field, validity, num_i8, PushI8, I8),
+            D::I16 => compile_primtive!(self, field, validity, num_i16, PushI16, I16),
+            D::I32 => compile_primtive!(self, field, validity, num_i32, PushI32, I32),
+            D::I64 => compile_primtive!(self, field, validity, num_i64, PushI64, I64),
+            D::F32 => compile_primtive!(self, field, validity, num_f32, PushF32, F32),
+            D::F64 => compile_primtive!(self, field, validity, num_f64, PushF64, F64),
+            D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUTF8, Utf8),
+            D::LargeUtf8 => compile_primtive!(
+                self,
                 field,
-                B::PushU16,
-                M::U16,
+                validity,
+                num_large_utf8,
+                PushLargeUTF8,
+                LargeUtf8
             ),
-            D::U32 => prim(
-                &mut self.program,
-                &mut self.num_u32,
-                field,
-                B::PushU32,
-                M::U32,
-            ),
-            D::U64 => prim(
-                &mut self.program,
-                &mut self.num_u64,
-                field,
-                B::PushU64,
-                M::U64,
-            ),
-            D::I8 => prim(&mut self.program, &mut self.num_i8, field, B::PushI8, M::I8),
-            D::I16 => prim(
-                &mut self.program,
-                &mut self.num_i16,
-                field,
-                B::PushI16,
-                M::I16,
-            ),
-            D::I32 => prim(
-                &mut self.program,
-                &mut self.num_i32,
-                field,
-                B::PushI32,
-                M::I32,
-            ),
-            D::I64 => prim(
-                &mut self.program,
-                &mut self.num_i64,
-                field,
-                B::PushI64,
-                M::I64,
-            ),
-            D::F32 => prim(
-                &mut self.program,
-                &mut self.num_f32,
-                field,
-                B::PushF32,
-                M::F32,
-            ),
-            D::F64 => prim(
-                &mut self.program,
-                &mut self.num_f64,
-                field,
-                B::PushF64,
-                M::F64,
-            ),
-            D::Utf8 => prim(
-                &mut self.program,
-                &mut self.num_utf8,
-                field,
-                B::PushUTF8,
-                M::Utf8,
-            ),
-            D::LargeUtf8 => prim(
-                &mut self.program,
-                &mut self.num_large_utf8,
-                field,
-                B::PushLargeUTF8,
-                M::LargeUtf8,
-            ),
-            D::Struct => self.compile_struct(field),
-            D::List => self.compile_list(field),
-            D::LargeList => self.compile_large_list(field),
+            D::Struct => self.compile_struct(field, validity),
+            D::List => self.compile_list(field, validity),
+            D::LargeList => self.compile_large_list(field, validity),
             dt => fail!("cannot compile {dt}: not implemented"),
         }
     }
@@ -443,6 +554,8 @@ impl Program {
     fn validate(&self) -> Result<()> {
         self.validate_lists()?;
         self.validate_structs()?;
+        self.validate_nulls()?;
+        self.validate_array_mappings()?;
         Ok(())
     }
 
@@ -492,12 +605,153 @@ impl Program {
         Ok(())
     }
 
+    fn validate_nulls(&self) -> Result<()> {
+        for (idx, null) in self.nulls.iter().enumerate() {
+            if null.bool.iter().any(|&idx| idx >= self.num_bool) {
+                fail!("invalid null definition {idx}: bool out of bounds {null:?}");
+            }
+            if null.u8.iter().any(|&idx| idx >= self.num_u8) {
+                fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
+            }
+            if null.u16.iter().any(|&idx| idx >= self.num_u16) {
+                fail!("invalid null definition {idx}: u16 out of bounds {null:?}");
+            }
+            if null.u32.iter().any(|&idx| idx >= self.num_u32) {
+                fail!("invalid null definition {idx}: u32 out of bounds {null:?}");
+            }
+            if null.u64.iter().any(|&idx| idx >= self.num_u64) {
+                fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
+            }
+            if null.i8.iter().any(|&idx| idx >= self.num_i8) {
+                fail!("invalid null definition {idx}: i8 out of bounds {null:?}");
+            }
+            if null.i16.iter().any(|&idx| idx >= self.num_i16) {
+                fail!("invalid null definition {idx}: i16 out of bounds {null:?}");
+            }
+            if null.i32.iter().any(|&idx| idx >= self.num_i32) {
+                fail!("invalid null definition {idx}: i32 out of bounds {null:?}");
+            }
+            if null.i64.iter().any(|&idx| idx >= self.num_i64) {
+                fail!("invalid null definition {idx}: i64 out of bounds {null:?}");
+            }
+            if null.f32.iter().any(|&idx| idx >= self.num_f32) {
+                fail!("invalid null definition {idx}: f32 out of bounds {null:?}");
+            }
+            if null.f64.iter().any(|&idx| idx >= self.num_f64) {
+                fail!("invalid null definition {idx}: f64 out of bounds {null:?}");
+            }
+            if null.utf8.iter().any(|&idx| idx >= self.num_utf8) {
+                fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
+            }
+            if null
+                .large_utf8
+                .iter()
+                .any(|&idx| idx >= self.num_large_utf8)
+            {
+                fail!("invalid null definition {idx}: large_u8 out of bounds {null:?}");
+            }
+            if null.validity.iter().any(|&idx| idx >= self.num_validity) {
+                fail!("invalid null definition {idx}: validity out of bounds {null:?}");
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_array_mappings(&self) -> Result<()> {
+        for (idx, array_mapping) in self.array_mapping.iter().enumerate() {
+            self.validate_array_mapping(format!("{idx}"), array_mapping)?;
+        }
+        Ok(())
+    }
+
     fn instruction_before(&self, idx: usize) -> Option<&Bytecode> {
         if idx != 0 {
             self.program.get(idx - 1)
         } else {
             None
         }
+    }
+}
+
+macro_rules! validate_array_mapping_primitive {
+    ($this:expr, $path:expr, $array_mapping:expr, $variant:ident, $counter:ident) => {
+        {
+            let ArrayMapping::$variant { field, buffer, validity } = $array_mapping else { unreachable!() };
+            if *buffer >= $this.$counter {
+                fail!(
+                    "invalid array mapping {path}: buffer index ({buffer}) out of bounds ({counter}) ({array_mapping:?})",
+                    path=$path,
+                    buffer=*buffer,
+                    counter=$this.$counter,
+                    array_mapping=$array_mapping,
+                );
+            }
+            if validity.is_some() != field.nullable {
+                fail!(
+                    "invalid array mapping {path}: inconsistent nullability ({array_mapping:?})",
+                    path=$path,
+                    array_mapping=$array_mapping,
+                );
+            }
+            if let &Some(validity) = validity {
+                if validity >= $this.num_validity {
+                    fail!(
+                        "invalid array mapping {path}: validity out of bounds ({array_mapping:?})",
+                        path=$path,
+                        array_mapping=$array_mapping,
+                    );
+                }
+            }
+        }
+    };
+}
+
+impl Program {
+    fn validate_array_mapping(&self, path: String, array_mapping: &ArrayMapping) -> Result<()> {
+        use ArrayMapping::*;
+        match array_mapping {
+            Bool { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, Bool, num_bool)
+            }
+            U8 { .. } => validate_array_mapping_primitive!(self, path, array_mapping, U8, num_u8),
+            U16 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, U16, num_u16)
+            }
+            U32 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, U32, num_u32)
+            }
+            U64 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, U64, num_u64)
+            }
+            I8 { .. } => validate_array_mapping_primitive!(self, path, array_mapping, I8, num_i8),
+            I16 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, I16, num_i16)
+            }
+            I32 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, I32, num_i32)
+            }
+            I64 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, I64, num_i64)
+            }
+            F32 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, F32, num_f32)
+            }
+            F64 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, F64, num_f64)
+            }
+            Utf8 { .. } => {
+                validate_array_mapping_primitive!(self, path, array_mapping, Utf8, num_utf8)
+            }
+            LargeUtf8 { .. } => validate_array_mapping_primitive!(
+                self,
+                path,
+                array_mapping,
+                LargeUtf8,
+                num_large_utf8
+            ),
+            _ => {}
+        }
+        Ok(())
     }
 }
 
@@ -569,7 +823,7 @@ mod test {
                 Bytecode::OuterSequenceItem(0),
                 Bytecode::OuterRecordStart(0),
                 Bytecode::OuterRecordField(0, "foo".into()),
-                Bytecode::Option(6),
+                Bytecode::Option(6, 0),
                 Bytecode::PushU8(0),
                 Bytecode::OuterRecordField(0, "bar".into()),
                 Bytecode::StructStart(1),
@@ -629,7 +883,7 @@ mod test {
                 Bytecode::StructField(2, "b".into()),
                 Bytecode::PushF64(0),
                 Bytecode::StructField(2, "c".into()),
-                Bytecode::Option(24),
+                Bytecode::Option(24, 0),
                 Bytecode::PushF32(2),
                 Bytecode::StructEnd(2),
                 Bytecode::OuterRecordEnd(0),

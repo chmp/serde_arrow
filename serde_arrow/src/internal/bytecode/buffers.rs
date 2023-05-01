@@ -123,14 +123,15 @@ impl BoolBuffer {
 
 #[derive(Debug, Clone)]
 pub struct PrimitiveBuffer<T> {
-    pub(crate) data: Vec<T>,
+    pub(crate) buffer: Vec<T>,
+    // TODO: remove
     pub(crate) validity: BitBuffer,
 }
 
 impl<T> std::default::Default for PrimitiveBuffer<T> {
     fn default() -> Self {
         Self {
-            data: Vec::new(),
+            buffer: Vec::new(),
             validity: BitBuffer::new(),
         }
     }
@@ -141,17 +142,17 @@ impl<T> PrimitiveBuffer<T> {
         Self::default()
     }
 
-    pub fn push(&mut self, val: T) -> Result<()> {
-        self.data.push(val);
-        self.validity.push(true)?;
-        Ok(())
+    pub fn len(&self) -> usize {
+        self.buffer.len()
     }
-}
 
-impl<T: Default> PrimitiveBuffer<T> {
-    pub fn push_null(&mut self) -> Result<()> {
-        self.data.push(Default::default());
-        self.validity.push(false)?;
+    pub fn is_empty(&self) -> bool {
+        self.buffer.is_empty()
+    }
+
+    pub fn push(&mut self, val: T) -> Result<()> {
+        self.buffer.push(val);
+        self.validity.push(true)?;
         Ok(())
     }
 }
@@ -190,6 +191,15 @@ impl<O: Offset> OffsetBuilder<O> {
         Self::default()
     }
 
+    /// The number of items pushed (one less than the number of offsets)
+    pub fn len(&self) -> usize {
+        self.offsets.len() - 1
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.offsets.len() <= 1
+    }
+
     pub fn push(&mut self, num_items: usize) -> Result<()> {
         let last_offset = self
             .offsets
@@ -208,7 +218,6 @@ impl<O: Offset> OffsetBuilder<O> {
 pub struct StringBuffer<O> {
     pub(crate) data: Vec<u8>,
     pub(crate) offsets: OffsetBuilder<O>,
-    pub(crate) validity: BitBuffer,
 }
 
 impl<O: Offset> std::default::Default for StringBuffer<O> {
@@ -216,7 +225,6 @@ impl<O: Offset> std::default::Default for StringBuffer<O> {
         Self {
             offsets: Default::default(),
             data: Default::default(),
-            validity: Default::default(),
         }
     }
 }
@@ -226,17 +234,17 @@ impl<O: Offset> StringBuffer<O> {
         Self::default()
     }
 
+    pub fn len(&self) -> usize {
+        self.offsets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.offsets.is_empty()
+    }
+
     pub fn push(&mut self, val: &str) -> Result<()> {
         self.data.extend(val.as_bytes().iter().copied());
         self.offsets.push(val.len())?;
-        self.validity.push(true)?;
-
-        Ok(())
-    }
-
-    pub fn push_null(&mut self) -> Result<()> {
-        self.offsets.push(0)?;
-        self.validity.push(false)?;
 
         Ok(())
     }
