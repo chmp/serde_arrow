@@ -1,6 +1,42 @@
 use super::macros::*;
 
 test_example!(
+    test_name = benchmark_primitives,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::U8, false))
+        .with_child(GenericField::new("b", GenericDataType::U16, false))
+        .with_child(GenericField::new("c", GenericDataType::U32, false))
+        .with_child(GenericField::new("d", GenericDataType::U64, false))
+        .with_child(GenericField::new("e", GenericDataType::I8, false))
+        .with_child(GenericField::new("f", GenericDataType::I16, false))
+        .with_child(GenericField::new("g", GenericDataType::I32, false))
+        .with_child(GenericField::new("h", GenericDataType::I64, false))
+        .with_child(GenericField::new("i", GenericDataType::F32, false))
+        .with_child(GenericField::new("j", GenericDataType::F64, false))
+        .with_child(GenericField::new("k", GenericDataType::Bool, false)),
+    ty = Item,
+    values = [Item::default(), Item::default()],
+    nulls = [false, false],
+    define = {
+        #[derive(Debug, Default, Serialize)]
+        struct Item {
+            pub a: u8,
+            pub b: u16,
+            pub c: u32,
+            pub d: u64,
+            pub e: i8,
+            pub f: i16,
+            pub g: i32,
+            pub h: i64,
+            pub i: f32,
+            pub j: f64,
+            pub k: bool,
+        }
+    },
+);
+
+test_example!(
     test_name = benchmark_complex,
     test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)

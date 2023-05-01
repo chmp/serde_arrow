@@ -44,7 +44,6 @@ mod bytecode {
             .map(|f| f.try_into())
             .collect::<Result<Vec<GenericField>>>()?;
         let program = compile_serialization(&fields, CompilationOptions::default())?;
-        // println!("{program:?}");
         let mut interpreter = Interpreter::new(program);
 
         serialize_into_sink(&mut interpreter, items)?;
