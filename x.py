@@ -179,16 +179,25 @@ def summarize_progress():
     counts = collections.Counter(
         m.group(1)
         for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
-        for line in p.read_text().splitlines()
+        for line in p.read_text(encoding="utf8").splitlines()
         if (m := re.match(pat, line)) is not None
     )
 
     print(
+        "compilation support:",
         counts["true"],
         "/",
         counts["true"] + counts["false"],
         f"({counts['true'] / (counts['true'] + counts['false']):.0%})",
     )
+
+    print()
+    print("# Todo comments:")
+    for p in self_path.glob("serde_arrow/src/**/*.rs"):
+        for line in p.read_text(encoding="utf8").splitlines():
+            if "todo" in line.lower():
+                print(line.strip())
+
 
 
 def collect(kv_pairs):
