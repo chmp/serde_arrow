@@ -1,4 +1,4 @@
-use crate::internal::error::{error, Result};
+use crate::internal::error::Result;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct BitBuffer {
@@ -124,16 +124,11 @@ impl BoolBuffer {
 #[derive(Debug, Clone)]
 pub struct PrimitiveBuffer<T> {
     pub(crate) buffer: Vec<T>,
-    // TODO: remove
-    pub(crate) validity: BitBuffer,
 }
 
 impl<T> std::default::Default for PrimitiveBuffer<T> {
     fn default() -> Self {
-        Self {
-            buffer: Vec::new(),
-            validity: BitBuffer::new(),
-        }
+        Self { buffer: Vec::new() }
     }
 }
 
@@ -152,7 +147,6 @@ impl<T> PrimitiveBuffer<T> {
 
     pub fn push(&mut self, val: T) -> Result<()> {
         self.buffer.push(val);
-        self.validity.push(true)?;
         Ok(())
     }
 }
@@ -176,12 +170,14 @@ impl Offset for i64 {
 #[derive(Debug, Clone)]
 pub struct OffsetBuilder<O> {
     pub(crate) offsets: Vec<O>,
+    pub(crate) current_items: O,
 }
 
 impl<O: Offset> std::default::Default for OffsetBuilder<O> {
     fn default() -> Self {
         Self {
             offsets: vec![O::default()],
+            current_items: O::default(),
         }
     }
 }
@@ -201,15 +197,18 @@ impl<O: Offset> OffsetBuilder<O> {
     }
 
     pub fn push(&mut self, num_items: usize) -> Result<()> {
-        let last_offset = self
-            .offsets
-            .last()
-            .ok_or_else(|| error!("internal error: no existing offset in string builder"))?
-            .clone();
-        let num_items = O::try_form_usize(num_items)?;
+        self.current_items = self.current_items.clone() + O::try_form_usize(num_items)?;
+        self.offsets.push(self.current_items.clone());
 
-        self.offsets.push(last_offset + num_items);
+        Ok(())
+    }
 
+    pub fn push_current_items(&mut self) {
+        self.offsets.push(self.current_items.clone());
+    }
+
+    pub fn inc_current_items(&mut self) -> Result<()> {
+        self.current_items = self.current_items.clone() + O::try_form_usize(1)?;
         Ok(())
     }
 }

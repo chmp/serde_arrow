@@ -203,6 +203,9 @@ macro_rules! test_compilation_impl {
                 let mut interpreter = Interpreter::new(program);
                 serialize_into_sink(&mut interpreter, items).unwrap();
 
+                println!("{:?}", interpreter.array_mapping);
+                println!("{:?}", interpreter.buffers);
+
                 let arrays = interpreter.build_arrow_arrays().unwrap();
 
                 assert_eq!(

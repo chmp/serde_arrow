@@ -19,6 +19,7 @@ pub struct Interpreter {
     pub buffers: Buffers,
 }
 
+#[derive(Debug, Clone)]
 pub struct Buffers {
     pub bool: Vec<BitBuffer>,
     pub u8: Vec<PrimitiveBuffer<u8>>,
@@ -115,10 +116,18 @@ impl EventSink for Interpreter {
     fn accept_end_sequence(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::LargeListEnd(_) | B::OuterSequenceEnd(_) => {
+            &B::LargeListEnd(_, offsets) => {
+                self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter += 1;
             }
-            &B::LargeListItem(idx) | &B::OuterSequenceItem(idx) => {
+            B::OuterSequenceEnd(_) => {
+                self.program_counter += 1;
+            }
+            &B::LargeListItem(idx, offsets) => {
+                self.buffers.large_offset[offsets].push_current_items();
+                self.program_counter = self.lists[idx].r#return;
+            }
+            &B::OuterSequenceItem(idx) => {
                 self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndSequence in {instr:?}"),
@@ -152,10 +161,18 @@ impl EventSink for Interpreter {
         // TODO: increment the count
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::LargeListItem(_) | B::OuterSequenceItem(_) => {
+            &B::LargeListItem(_, offsets) => {
+                self.buffers.large_offset[offsets].inc_current_items()?;
                 self.program_counter += 1;
             }
-            &B::LargeListEnd(idx) | &B::OuterSequenceEnd(idx) => {
+            &B::LargeListEnd(idx, offsets) => {
+                self.buffers.large_offset[offsets].inc_current_items()?;
+                self.program_counter = self.lists[idx].item;
+            }
+            B::OuterSequenceItem(_) => {
+                self.program_counter += 1;
+            }
+            &B::OuterSequenceEnd(idx) => {
                 self.program_counter = self.lists[idx].item;
             }
             instr => fail!("Cannot accept Item in {instr:?}"),
@@ -178,10 +195,18 @@ impl EventSink for Interpreter {
     fn accept_end_tuple(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::LargeListEnd(_) | B::OuterSequenceEnd(_) => {
+            &B::LargeListEnd(_, offsets) => {
+                self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter += 1;
             }
-            &B::LargeListItem(idx) | &B::OuterSequenceItem(idx) => {
+            &B::LargeListItem(idx, offsets) => {
+                self.buffers.large_offset[offsets].push_current_items();
+                self.program_counter = self.lists[idx].r#return;
+            }
+            B::OuterSequenceEnd(_) => {
+                self.program_counter += 1;
+            }
+            &B::OuterSequenceItem(idx) => {
                 self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndTuple in {instr:?}"),
@@ -311,6 +336,11 @@ impl Interpreter {
         apply_null!(self, validity, utf8);
         apply_null!(self, validity, large_utf8);
         apply_null!(self, validity, validity);
+
+        for &idx in &self.nulls[validity].large_offsets {
+            self.buffers.large_offset[idx].push_current_items();
+        }
+
         Ok(())
     }
 }

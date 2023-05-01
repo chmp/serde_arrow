@@ -59,8 +59,10 @@ pub enum Bytecode {
     OuterRecordField(usize, String),
     OuterRecordEnd(usize),
     LargeListStart(usize),
-    LargeListItem(usize),
-    LargeListEnd(usize),
+    /// `LargeListItem(definition, offsets)`
+    LargeListItem(usize, usize),
+    /// `LargeListItem(definition, offsets)`
+    LargeListEnd(usize, usize),
     StructStart(usize),
     StructField(usize, String),
     StructEnd(usize),
@@ -108,6 +110,7 @@ pub struct NullDefinition {
     pub f64: Vec<usize>,
     pub utf8: Vec<usize>,
     pub large_utf8: Vec<usize>,
+    pub large_offsets: Vec<usize>,
     pub validity: Vec<usize>,
 }
 
@@ -200,9 +203,33 @@ impl NullDefinition {
                 }
                 self.validity.extend(validity.iter().copied());
             }
+            ArrayMapping::LargeList {
+                offsets, validity, ..
+            } => {
+                // NOTE: the item is not included
+                self.large_offsets.push(*offsets);
+                self.validity.extend(validity.iter().copied());
+            }
             m => todo!("cannot update null definition from {m:?}"),
         }
         Ok(())
+    }
+
+    pub fn sort_indices(&mut self) {
+        self.bool.sort();
+        self.u8.sort();
+        self.u16.sort();
+        self.u32.sort();
+        self.u64.sort();
+        self.i8.sort();
+        self.i16.sort();
+        self.i32.sort();
+        self.i64.sort();
+        self.f32.sort();
+        self.f64.sort();
+        self.large_utf8.sort();
+        self.large_offsets.sort();
+        self.validity.sort();
     }
 }
 
@@ -463,12 +490,12 @@ impl Program {
         self.large_lists[idx].offset = offsets;
 
         self.program.push(Bytecode::LargeListStart(idx));
-        self.program.push(Bytecode::LargeListItem(idx));
+        self.program.push(Bytecode::LargeListItem(idx, offsets));
         self.large_lists[idx].item = self.program.len();
 
         let field_mapping = self.compile_field(item)?;
 
-        self.program.push(Bytecode::LargeListEnd(idx));
+        self.program.push(Bytecode::LargeListEnd(idx, offsets));
         self.large_lists[idx].r#return = self.program.len();
 
         Ok(ArrayMapping::LargeList {
@@ -502,6 +529,7 @@ impl Program {
             };
             *if_none = current_program_len;
             self.nulls[*validity].update_from_array_mapping(&array_mapping)?;
+            self.nulls[*validity].sort_indices();
         }
 
         Ok(array_mapping)
@@ -570,15 +598,16 @@ impl Program {
 
     fn validate_lists(&self) -> Result<()> {
         for (idx, list) in self.large_lists.iter().enumerate() {
+            let offset = list.offset;
             let item_instr = self.instruction_before(list.item);
-            if item_instr != Some(&Bytecode::LargeListItem(idx))
+            if item_instr != Some(&Bytecode::LargeListItem(idx, offset))
                 && item_instr != Some(&Bytecode::OuterSequenceItem(idx))
             {
                 fail!("invalid list definition ({idx}): item points to {item_instr:?}");
             }
 
             let before_return_instr = self.instruction_before(list.r#return);
-            if before_return_instr != Some(&Bytecode::LargeListEnd(idx))
+            if before_return_instr != Some(&Bytecode::LargeListEnd(idx, offset))
                 && before_return_instr != Some(&Bytecode::OuterSequenceEnd(idx))
             {
                 fail!("invalid list definition ({idx}): instr before return is {before_return_instr:?}");
@@ -841,60 +870,6 @@ mod test {
                 Bytecode::StructField(1, "y".into()),
                 Bytecode::PushF32(1),
                 Bytecode::StructEnd(1),
-                Bytecode::OuterRecordEnd(0),
-                Bytecode::OuterSequenceEnd(0),
-                Bytecode::ProgramEnd,
-            ],
-        );
-    }
-
-    #[test]
-    fn benchmark_example() {
-        let program = compile_serialization(
-            &[
-                GenericField::new("foo", GenericDataType::LargeUtf8, false),
-                GenericField::new("bar", GenericDataType::LargeList, false).with_child(
-                    GenericField::new("element", GenericDataType::Struct, false)
-                        .with_child(GenericField::new("x", GenericDataType::F32, false))
-                        .with_child(GenericField::new("y", GenericDataType::F32, false)),
-                ),
-                GenericField::new("baz", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("a", GenericDataType::Bool, false))
-                    .with_child(GenericField::new("b", GenericDataType::F64, false))
-                    .with_child(GenericField::new("c", GenericDataType::F32, true)),
-            ],
-            CompilationOptions::default(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            program.program,
-            vec![
-                Bytecode::OuterSequenceStart(0),
-                Bytecode::OuterSequenceItem(0),
-                Bytecode::OuterRecordStart(0),
-                Bytecode::OuterRecordField(0, "foo".into()),
-                Bytecode::PushLargeUTF8(0),
-                Bytecode::OuterRecordField(0, "bar".into()),
-                Bytecode::LargeListStart(1),
-                Bytecode::LargeListItem(1),
-                Bytecode::StructStart(1),
-                Bytecode::StructField(1, "x".into()),
-                Bytecode::PushF32(0),
-                Bytecode::StructField(1, "y".into()),
-                Bytecode::PushF32(1),
-                Bytecode::StructEnd(1),
-                Bytecode::LargeListEnd(1),
-                Bytecode::OuterRecordField(0, "baz".into()),
-                Bytecode::StructStart(2),
-                Bytecode::StructField(2, "a".into()),
-                Bytecode::PushBool(0),
-                Bytecode::StructField(2, "b".into()),
-                Bytecode::PushF64(0),
-                Bytecode::StructField(2, "c".into()),
-                Bytecode::Option(24, 0),
-                Bytecode::PushF32(2),
-                Bytecode::StructEnd(2),
                 Bytecode::OuterRecordEnd(0),
                 Bytecode::OuterSequenceEnd(0),
                 Bytecode::ProgramEnd,

@@ -1,3 +1,4 @@
+// TODO: clean up the bechmarks (split into files, rename ...)
 use std::{sync::Arc, time::Duration};
 
 use arrow_json_38::ReaderBuilder;

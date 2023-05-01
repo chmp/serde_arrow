@@ -1,5 +1,6 @@
 mod chrono;
 mod dictionary;
+mod examples;
 mod list;
 mod macros;
 mod map;

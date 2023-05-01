@@ -193,7 +193,7 @@ def summarize_progress():
 
     print()
     print("# Todo comments:")
-    for p in self_path.glob("serde_arrow/src/**/*.rs"):
+    for p in self_path.glob("serde_arrow/**/*.rs"):
         for line in p.read_text(encoding="utf8").splitlines():
             if "todo" in line.lower():
                 print(line.strip())
