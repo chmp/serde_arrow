@@ -30,8 +30,7 @@ impl BitBuffer {
     pub fn into_arrow_null_buffer(self) -> NullBuffer {
         let buffer = Buffer::from(self.buffer);
         let buffer = BooleanBuffer::new(buffer, 0, self.len);
-        let buffer = NullBuffer::new(buffer);
-        buffer
+        NullBuffer::new(buffer)
     }
 }
 

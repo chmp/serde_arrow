@@ -16,6 +16,10 @@ impl BitBuffer {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn push(&mut self, value: bool) -> Result<()> {
         while self.len >= self.capacity {
             self.buffer.push(0);
