@@ -192,6 +192,14 @@ impl NullDefinition {
                 self.large_utf8.push(buffer);
                 self.validity.extend(validity);
             }
+            ArrayMapping::Struct {
+                fields, validity, ..
+            } => {
+                for field in fields {
+                    self.update_from_array_mapping(field)?;
+                }
+                self.validity.extend(validity.iter().copied());
+            }
             m => todo!("cannot update null definition from {m:?}"),
         }
         Ok(())
@@ -396,8 +404,9 @@ impl Program {
             if validity.is_none() {
                 fail!("inconsistent arguments");
             }
-            // TODO: if supported, check that at least a single field is present
-            fail!("Nullable structs are not supported");
+            if field.children.is_empty() {
+                fail!("Nullable structs without fields are not supported");
+            }
         }
 
         let idx = self.structs.len();

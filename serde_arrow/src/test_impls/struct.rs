@@ -20,6 +20,7 @@ test_example!(
 
 test_example!(
     test_name = struct_nullable_field,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
@@ -46,6 +47,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_struct,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
@@ -63,6 +65,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_struct_nullable_fields,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, true)),
