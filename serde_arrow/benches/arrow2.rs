@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use arrow_json_38::RawReaderBuilder;
+use arrow_json_38::ReaderBuilder;
 use arrow_schema_38::Schema;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use serde_arrow::_impl::arrow2::{
@@ -25,14 +25,15 @@ mod bytecode {
     use serde_arrow::{
         Result,
         _impl::{
-            bytecode::{compile_serialization, Interpreter},
+            arrow::array::ArrayRef,
+            bytecode::{compile_serialization, CompilationOptions, Interpreter},
             GenericField,
         },
         base::serialize_into_sink,
         Error,
     };
 
-    pub fn serialize<F, T>(fields: &[F], items: &T) -> Result<usize>
+    pub fn serialize<F, T>(fields: &[F], items: &T) -> Result<Vec<ArrayRef>>
     where
         GenericField: for<'a> TryFrom<&'a F, Error = Error>,
         T: Serialize + ?Sized,
@@ -41,23 +42,13 @@ mod bytecode {
             .into_iter()
             .map(|f| f.try_into())
             .collect::<Result<Vec<GenericField>>>()?;
-        let program = compile_serialization(&fields)?;
+        let program = compile_serialization(&fields, CompilationOptions::default())?;
         // println!("{program:?}");
         let mut interpreter = Interpreter::new(program);
 
         serialize_into_sink(&mut interpreter, items)?;
 
-        Ok(interpreter.u8.len()
-            + interpreter.u16.len()
-            + interpreter.u32.len()
-            + interpreter.u64.len()
-            + interpreter.i8.len()
-            + interpreter.i16.len()
-            + interpreter.i32.len()
-            + interpreter.i64.len()
-            + interpreter.f32.len()
-            + interpreter.f64.len()
-            + interpreter.bool.len())
+        interpreter.build_arrow_arrays()
     }
 }
 
@@ -446,7 +437,7 @@ fn benchmark_serialize_arrow_complex(c: &mut Criterion) {
     group.bench_function("arrow", |b| {
         b.iter(|| {
             let schema = Schema::new(fields.clone());
-            let mut decoder = RawReaderBuilder::new(Arc::new(schema))
+            let mut decoder = ReaderBuilder::new(Arc::new(schema))
                 .build_decoder()
                 .unwrap();
             decoder.serialize(&items).unwrap();

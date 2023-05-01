@@ -12,6 +12,7 @@ test_example!(
 
 test_example!(
     test_name = bool,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Bool, false),
     ty = bool,
     values = [true, false],
@@ -28,6 +29,7 @@ test_example!(
 
 test_example!(
     test_name = u8,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U8, false),
     ty = u8,
     values = [1, 2, 3, 4],
@@ -44,6 +46,7 @@ test_example!(
 
 test_example!(
     test_name = u16,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U16, false),
     ty = u16,
     values = [1, 2, 3, 4],
@@ -60,6 +63,7 @@ test_example!(
 
 test_example!(
     test_name = u32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U32, false),
     ty = u32,
     values = [1, 2, 3, 4],
@@ -76,6 +80,7 @@ test_example!(
 
 test_example!(
     test_name = u64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U64, false),
     ty = u64,
     values = [1, 2, 3, 4],
@@ -92,6 +97,7 @@ test_example!(
 
 test_example!(
     test_name = i8,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I8, false),
     ty = i8,
     values = [-1, 2, -3, 4],
@@ -108,6 +114,7 @@ test_example!(
 
 test_example!(
     test_name = i16,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I16, false),
     ty = i16,
     values = [1, 2, 3, 4],
@@ -124,6 +131,7 @@ test_example!(
 
 test_example!(
     test_name = i32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I32, false),
     ty = i32,
     values = [-1, 2, -3, 4],
@@ -140,6 +148,7 @@ test_example!(
 
 test_example!(
     test_name = i64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I64, false),
     ty = i64,
     values = [-1, 2, -3, 4],
@@ -156,6 +165,7 @@ test_example!(
 
 test_example!(
     test_name = f32,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::F32, false),
     ty = f32,
     values = [-1.0, 2.0, -3.0, 4.0],
@@ -172,6 +182,7 @@ test_example!(
 
 test_example!(
     test_name = f64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::F64, false),
     ty = f64,
     values = [-1.0, 2.0, -3.0, 4.0],
@@ -188,6 +199,7 @@ test_example!(
 
 test_example!(
     test_name = str,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     ty = &str,
     values = ["a", "b", "c", "d"],
@@ -204,6 +216,7 @@ test_example!(
 
 test_example!(
     test_name = newtype_i64,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I64, false),
     ty = I64,
     values = [I64(-1), I64(2), I64(3), I64(-4)],

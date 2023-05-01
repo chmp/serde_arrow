@@ -2,6 +2,7 @@ use super::macros::*;
 
 test_example!(
     test_name = struct_,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),

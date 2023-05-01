@@ -1,15 +1,19 @@
 use crate::internal::error::{error, Result};
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct BoolBuffer {
+pub struct BitBuffer {
     pub(crate) buffer: Vec<u8>,
     pub(crate) len: usize,
     pub(crate) capacity: usize,
 }
 
-impl BoolBuffer {
+impl BitBuffer {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn push(&mut self, value: bool) -> Result<()> {
@@ -26,9 +30,9 @@ impl BoolBuffer {
     }
 }
 
-impl<const N: usize> From<[bool; N]> for BoolBuffer {
+impl<const N: usize> From<[bool; N]> for BitBuffer {
     fn from(values: [bool; N]) -> Self {
-        let mut res = BoolBuffer::new();
+        let mut res = BitBuffer::new();
         for value in values {
             res.push(value).unwrap();
         }
@@ -38,11 +42,11 @@ impl<const N: usize> From<[bool; N]> for BoolBuffer {
 
 #[cfg(test)]
 mod test_validity_bitmap {
-    use super::BoolBuffer;
+    use super::BitBuffer;
 
     #[test]
     fn empty() {
-        let bitmap = BoolBuffer::from([]);
+        let bitmap = BitBuffer::from([]);
         assert_eq!(bitmap.buffer, Vec::<u8>::new());
         assert_eq!(bitmap.len, 0);
         assert_eq!(bitmap.capacity, 0);
@@ -50,7 +54,7 @@ mod test_validity_bitmap {
 
     #[test]
     fn len2() {
-        let bitmap = BoolBuffer::from([true, false]);
+        let bitmap = BitBuffer::from([true, false]);
         assert_eq!(bitmap.buffer, vec![0b_0000_0001]);
         assert_eq!(bitmap.len, 2);
         assert_eq!(bitmap.capacity, 8);
@@ -58,7 +62,7 @@ mod test_validity_bitmap {
 
     #[test]
     fn len5() {
-        let bitmap = BoolBuffer::from([true, false, false, true, true]);
+        let bitmap = BitBuffer::from([true, false, false, true, true]);
         assert_eq!(bitmap.buffer, vec![0b_0001_1001]);
         assert_eq!(bitmap.len, 5);
         assert_eq!(bitmap.capacity, 8);
@@ -66,7 +70,7 @@ mod test_validity_bitmap {
 
     #[test]
     fn len10() {
-        let bitmap = BoolBuffer::from([
+        let bitmap = BitBuffer::from([
             true, false, false, true, true, true, false, false, true, true,
         ]);
         assert_eq!(bitmap.buffer, vec![0b_0011_1001, 0b_0000_0011]);
@@ -76,7 +80,7 @@ mod test_validity_bitmap {
 
     #[test]
     fn len24() {
-        let bitmap = BoolBuffer::from([
+        let bitmap = BitBuffer::from([
             true, false, false, true, true, true, false, false, true, true, false, false, false,
             false, false, false, true, true, true, true, true, false, true, true,
         ]);
@@ -89,17 +93,41 @@ mod test_validity_bitmap {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct BoolBuffer {
+    pub(crate) data: BitBuffer,
+    pub(crate) validity: BitBuffer,
+}
+
+impl BoolBuffer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, val: bool) -> Result<()> {
+        self.data.push(val)?;
+        self.validity.push(true)?;
+        Ok(())
+    }
+
+    pub fn push_null(&mut self) -> Result<()> {
+        self.data.push(false)?;
+        self.validity.push(false)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PrimitiveBuffer<T> {
     pub(crate) data: Vec<T>,
-    pub(crate) validity: BoolBuffer,
+    pub(crate) validity: BitBuffer,
 }
 
 impl<T> std::default::Default for PrimitiveBuffer<T> {
     fn default() -> Self {
         Self {
             data: Vec::new(),
-            validity: BoolBuffer::new(),
+            validity: BitBuffer::new(),
         }
     }
 }
@@ -176,7 +204,7 @@ impl<O: Offset> OffsetBuilder<O> {
 pub struct StringBuffer<O> {
     pub(crate) data: Vec<u8>,
     pub(crate) offsets: OffsetBuilder<O>,
-    pub(crate) validity: BoolBuffer,
+    pub(crate) validity: BitBuffer,
 }
 
 impl<O: Offset> std::default::Default for StringBuffer<O> {

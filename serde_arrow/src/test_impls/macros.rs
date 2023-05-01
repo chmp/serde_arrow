@@ -31,6 +31,7 @@ pub(crate) use hash_map;
 macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
+        $(test_compilation = $test_compilation:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
@@ -39,13 +40,19 @@ macro_rules! test_example_impl {
         $( nulls = $nulls:expr, )?
         $(define = { $($definitions:item)* } ,)?
     ) => {
+        use std::collections::{BTreeMap, HashMap};
+        use serde::Serialize;
+
         use super::*;
 
-        use crate::internal::schema::{
-            GenericDataType,
-            GenericField,
-            Strategy,
-            TracingOptions,
+        use crate::{
+            internal::schema::{
+                GenericDataType,
+                GenericField,
+                Strategy,
+                TracingOptions,
+            },
+            test_impls::macros::{btree_map, hash_map},
         };
 
         #[test]
@@ -147,6 +154,76 @@ macro_rules! test_example_impl {
 
 pub(crate) use test_example_impl;
 
+macro_rules! test_compilation_impl {
+    (
+        test_name = $test_name:ident,
+        test_compilation = true,
+        $(tracing_options = $tracing_options:expr,)?
+        field = $field:expr,
+        $(overwrite_field = $overwrite_field:expr,)?
+        ty = $ty:ty,
+        values = $values:expr,
+        $( nulls = $nulls:expr, )?
+        $(define = { $($definitions:item)* } ,)?
+    ) => {
+        mod compilation {
+            use std::collections::{BTreeMap, HashMap};
+            use serde::Serialize;
+
+            use super::*;
+
+            use crate::{
+                arrow::bytecode::build_array_data,
+                base::serialize_into_sink,
+                internal::{
+                    bytecode::{compile_serialization, Interpreter, CompilationOptions},
+                    schema::{
+                        GenericDataType,
+                        GenericField,
+                        Strategy,
+                        TracingOptions,
+                    },
+                },
+                _impl::arrow::array::make_array,
+                test_impls::macros::{btree_map, hash_map},
+            };
+
+            #[test]
+            fn serialization() {
+                $($($definitions)*)?
+
+                let items: &[$ty] = &$values;
+                let field = $field;
+                $(let field = $overwrite_field;)?
+
+                let program = compile_serialization(
+                    &[field],
+                    CompilationOptions::default().wrap_with_struct(false),
+                ).unwrap();
+                let mut interpreter = Interpreter::new(program);
+                serialize_into_sink(&mut interpreter, items).unwrap();
+
+                let arrays = interpreter.build_arrow_arrays().unwrap();
+
+                assert_eq!(
+                    arrays[0].len(),
+                    items.len(),
+                    "Unexpected length of array. Expected: {expected}. Actual: {actual}",
+                    expected = items.len(),
+                    actual = arrays[0].len(),
+                );
+            }
+        }
+    };
+
+    (
+        test_name = $test_name:ident,
+        $($tt:tt)*
+    ) => {};
+}
+
+pub(crate) use test_compilation_impl;
+
 macro_rules! test_example {
     (
         test_name = $test_name:ident,
@@ -155,14 +232,9 @@ macro_rules! test_example {
         #[allow(unused)]
         mod $test_name {
             mod arrow {
-                use std::collections::{BTreeMap, HashMap};
-
-                use serde::Serialize;
-
                 use crate::{
                     arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow::datatypes::Field,
-                    test_impls::macros::{btree_map, hash_map},
                 };
 
                 $crate::test_impls::macros::test_example_impl!(
@@ -171,14 +243,9 @@ macro_rules! test_example {
                 );
             }
             mod arrow2 {
-                use std::collections::{BTreeMap, HashMap};
-
-                use serde::Serialize;
-
                 use crate::{
                     arrow2::{serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow2::datatypes::Field,
-                    test_impls::macros::{btree_map, hash_map},
                 };
 
                 $crate::test_impls::macros::test_example_impl!(
@@ -186,6 +253,12 @@ macro_rules! test_example {
                     $($tt)*
                 );
             }
+
+            $crate::test_impls::macros::test_compilation_impl!(
+                test_name = $test_name,
+                $($tt)*
+            );
+
         }
     };
 }

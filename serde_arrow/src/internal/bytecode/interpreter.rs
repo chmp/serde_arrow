@@ -1,6 +1,6 @@
 use super::{
-    buffers::{BoolBuffer, PrimitiveBuffer, StringBuffer},
-    compiler::{Bytecode, ListDefinition, Program, StructDefinition},
+    buffers::{BitBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
+    compiler::{ArrayMapping, Bytecode, ListDefinition, Program, StructDefinition},
 };
 
 use crate::internal::{
@@ -14,6 +14,12 @@ pub struct Interpreter {
     pub program: Vec<Bytecode>,
     pub structs: Vec<StructDefinition>,
     pub lists: Vec<ListDefinition>,
+    pub array_mapping: Vec<ArrayMapping>,
+    pub buffers: Buffers,
+}
+
+pub struct Buffers {
+    pub bool: Vec<BitBuffer>,
     pub u8: Vec<PrimitiveBuffer<u8>>,
     pub u16: Vec<PrimitiveBuffer<u16>>,
     pub u32: Vec<PrimitiveBuffer<u32>>,
@@ -24,9 +30,11 @@ pub struct Interpreter {
     pub i64: Vec<PrimitiveBuffer<i64>>,
     pub f32: Vec<PrimitiveBuffer<f32>>,
     pub f64: Vec<PrimitiveBuffer<f64>>,
-    pub bool: Vec<BoolBuffer>,
     pub utf8: Vec<StringBuffer<i32>>,
     pub large_utf8: Vec<StringBuffer<i64>>,
+    pub validity: Vec<BitBuffer>,
+    pub offset: Vec<OffsetBuilder<i32>>,
+    pub large_offset: Vec<OffsetBuilder<i64>>,
 }
 
 impl Interpreter {
@@ -34,21 +42,27 @@ impl Interpreter {
         Self {
             program: program.program,
             structs: program.structs,
-            lists: program.lists,
+            lists: program.large_lists,
+            array_mapping: program.array_mapping,
             program_counter: 0,
-            u8: vec![Default::default(); program.num_u8],
-            u16: vec![Default::default(); program.num_u16],
-            u32: vec![Default::default(); program.num_u32],
-            u64: vec![Default::default(); program.num_u64],
-            i8: vec![Default::default(); program.num_i8],
-            i16: vec![Default::default(); program.num_i16],
-            i32: vec![Default::default(); program.num_i32],
-            i64: vec![Default::default(); program.num_i64],
-            f32: vec![Default::default(); program.num_f32],
-            f64: vec![Default::default(); program.num_f64],
-            bool: vec![Default::default(); program.num_bool],
-            utf8: vec![Default::default(); program.num_utf8],
-            large_utf8: vec![Default::default(); program.num_large_utf8],
+            buffers: Buffers {
+                u8: vec![Default::default(); program.num_u8],
+                u16: vec![Default::default(); program.num_u16],
+                u32: vec![Default::default(); program.num_u32],
+                u64: vec![Default::default(); program.num_u64],
+                i8: vec![Default::default(); program.num_i8],
+                i16: vec![Default::default(); program.num_i16],
+                i32: vec![Default::default(); program.num_i32],
+                i64: vec![Default::default(); program.num_i64],
+                f32: vec![Default::default(); program.num_f32],
+                f64: vec![Default::default(); program.num_f64],
+                bool: vec![Default::default(); program.num_bool],
+                utf8: vec![Default::default(); program.num_utf8],
+                large_utf8: vec![Default::default(); program.num_large_utf8],
+                validity: vec![Default::default(); program.num_validity],
+                offset: vec![Default::default(); program.num_offsets],
+                large_offset: vec![Default::default(); program.num_large_offsets],
+            },
         }
     }
 }
@@ -58,7 +72,7 @@ macro_rules! accept_primitive {
         fn $func(&mut self, val: $ty) -> crate::Result<()> {
             match &self.program[self.program_counter] {
                 Bytecode::$variant(array_idx) => {
-                    self.$builder[*array_idx].push(val)?;
+                    self.buffers.$builder[*array_idx].push(val)?;
                     self.program_counter += 1;
                     Ok(())
                 }
@@ -85,8 +99,10 @@ impl EventSink for Interpreter {
     accept_primitive!(accept_bool, PushBool, bool, bool);
 
     fn accept_start_sequence(&mut self) -> crate::Result<()> {
+        // TOOD: add new offset
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::ListStart(_list_idx) => {
+            B::LargeListStart(_) | B::OuterSequenceStart(_) => {
                 self.program_counter += 1;
                 Ok(())
             }
@@ -95,75 +111,80 @@ impl EventSink for Interpreter {
     }
 
     fn accept_end_sequence(&mut self) -> crate::Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::ListEnd(_list_idx) => {
+            B::LargeListEnd(_) | B::OuterSequenceEnd(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::ListItem(list_idx) => {
-                self.program_counter = self.lists[list_idx].r#return;
-                Ok(())
+            &B::LargeListItem(idx) | &B::OuterSequenceItem(idx) => {
+                self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndSequence in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_start_struct(&mut self) -> crate::Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::StructStart(_struct_idx) => {
+            B::StructStart(_) | B::OuterRecordStart(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
             instr => fail!("Cannot accept StartStruct in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_end_struct(&mut self) -> crate::Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::StructEnd(_struct_idx) => {
+            B::StructEnd(_) | B::OuterRecordEnd(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
             instr => fail!("Cannot accept EndStruct in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_item(&mut self) -> Result<()> {
+        // TODO: increment the count
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            &Bytecode::ListItem(_list_idx) => {
+            B::LargeListItem(_) | B::OuterSequenceItem(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::ListEnd(list_idx) => {
-                self.program_counter = self.lists[list_idx].item;
-                Ok(())
+            &B::LargeListEnd(idx) | &B::OuterSequenceEnd(idx) => {
+                self.program_counter = self.lists[idx].item;
             }
             instr => fail!("Cannot accept Item in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_start_tuple(&mut self) -> Result<()> {
+        // TOOD: add new offset
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            Bytecode::ListStart(_list_idx) => {
+            B::LargeListStart(_) | B::OuterSequenceStart(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
             instr => fail!("Cannot accept StartTuple in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_end_tuple(&mut self) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            Bytecode::ListEnd(_list_idx) => {
+            B::LargeListEnd(_) | B::OuterSequenceEnd(_) => {
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::ListItem(list_idx) => {
-                self.program_counter = self.lists[list_idx].r#return;
-                Ok(())
+            &B::LargeListItem(idx) | &B::OuterSequenceItem(idx) => {
+                self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndTuple in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_start_map(&mut self) -> Result<()> {
@@ -179,6 +200,7 @@ impl EventSink for Interpreter {
     }
 
     fn accept_some(&mut self) -> Result<()> {
+        // TODO: increment the validity of whatever value
         match &self.program[self.program_counter] {
             Bytecode::Option(_) => {
                 self.program_counter += 1;
@@ -192,7 +214,7 @@ impl EventSink for Interpreter {
         match &self.program[self.program_counter] {
             &Bytecode::Option(if_none) => {
                 // TODO: fix this. How to do this generically?
-                self.large_utf8[0].push_null()?;
+                self.buffers.large_utf8[0].push_null()?;
                 self.program_counter = if_none;
                 Ok(())
             }
@@ -206,43 +228,43 @@ impl EventSink for Interpreter {
     }
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            Bytecode::StructField(_struct_idx, name) if name == val => {
+            // TODO: implement fallback for unordered structs
+            B::StructField(_, name) | B::OuterRecordField(_, name) if name == val => {
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::PushUTF8(array_idx) => {
-                self.utf8[array_idx].push(val)?;
+            &B::PushUTF8(idx) => {
+                self.buffers.utf8[idx].push(val)?;
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::PushLargeUTF8(array_idx) => {
-                self.large_utf8[array_idx].push(val)?;
+            &B::PushLargeUTF8(idx) => {
+                self.buffers.large_utf8[idx].push(val)?;
                 self.program_counter += 1;
-                Ok(())
             }
             instr => fail!("Cannot accept Str in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_owned_str(&mut self, val: String) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
-            Bytecode::StructField(_struct_idx, name) if name == &val => {
+            // TODO: implement fallback for unordered structs
+            B::StructField(_, name) | B::OuterRecordField(_, name) if name == &val => {
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::PushUTF8(array_idx) => {
-                self.utf8[array_idx].push(&val)?;
+            &B::PushUTF8(array_idx) => {
+                self.buffers.utf8[array_idx].push(&val)?;
                 self.program_counter += 1;
-                Ok(())
             }
-            &Bytecode::PushLargeUTF8(array_idx) => {
-                self.large_utf8[array_idx].push(&val)?;
+            &B::PushLargeUTF8(array_idx) => {
+                self.buffers.large_utf8[array_idx].push(&val)?;
                 self.program_counter += 1;
-                Ok(())
             }
             instr => fail!("Cannot accept OwnedStr in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_variant(&mut self, _name: &str, _idx: usize) -> Result<()> {
@@ -259,5 +281,78 @@ impl EventSink for Interpreter {
 
     fn finish(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use serde::Serialize;
+
+    use crate::{
+        _impl::bytecode::{compile_serialization, compiler::CompilationOptions, Interpreter},
+        base::serialize_into_sink,
+        internal::serialize_into_fields,
+    };
+
+    fn serialize_simple<T: Serialize + ?Sized>(items: &T) {
+        let fields = serialize_into_fields(items, Default::default()).unwrap();
+        let program = compile_serialization(&fields, CompilationOptions::default()).unwrap();
+        let mut interpreter = Interpreter::new(program);
+
+        serialize_into_sink(&mut interpreter, items).unwrap();
+    }
+
+    #[test]
+    fn empty() {
+        #[derive(Serialize)]
+        struct Item {}
+
+        serialize_simple(&[Item {}]);
+    }
+
+    #[test]
+    fn primitives() {
+        #[derive(Serialize)]
+        struct Item {
+            a: u64,
+            b: f32,
+        }
+
+        serialize_simple(&[Item { a: 0, b: 21.0 }, Item { a: 10, b: 42.0 }]);
+    }
+
+    #[test]
+    fn nested() {
+        #[derive(Serialize)]
+        struct Item {
+            a: u64,
+            b: f32,
+            c: Child,
+        }
+
+        #[derive(Serialize)]
+        struct Child {
+            first: String,
+            second: bool,
+        }
+
+        serialize_simple(&[
+            Item {
+                a: 0,
+                b: 21.0,
+                c: Child {
+                    first: "foo".into(),
+                    second: true,
+                },
+            },
+            Item {
+                a: 10,
+                b: 42.0,
+                c: Child {
+                    first: "bar".into(),
+                    second: false,
+                },
+            },
+        ]);
     }
 }

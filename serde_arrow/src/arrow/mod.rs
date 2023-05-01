@@ -4,6 +4,7 @@
 //! `arrow` arrays to Rust objects is not yet supported.
 //!
 #![deny(missing_docs)]
+pub(crate) mod bytecode;
 mod schema;
 mod sinks;
 mod type_support;
