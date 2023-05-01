@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = string_dict,
+    test_compilation = false,
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
@@ -13,6 +14,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable,
+    test_compilation = false,
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))

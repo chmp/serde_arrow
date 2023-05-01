@@ -1,8 +1,10 @@
 import argparse
+import collections
 import itertools as it
 import json
 import os
 import pathlib
+import re
 import statistics
 import subprocess
 import sys
@@ -144,7 +146,6 @@ def summarize_bench():
         qq = statistics.quantiles(times, n=20)
         mean_times[k] = statistics.mean(time for time in times if time < qq[-1])
 
-
     for group in sorted({g for g, _ in mean_times}):
         print("# ", group)
         times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
@@ -169,6 +170,25 @@ def summarize_bench():
             print("   ".join(padded_row))
 
         print()
+
+
+@cmd()
+def summarize_progress():
+    pat = r"^\s*test_compilation\s*=\s*(true|false)\s*,\s*$"
+
+    counts = collections.Counter(
+        m.group(1)
+        for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
+        for line in p.read_text().splitlines()
+        if (m := re.match(pat, line)) is not None
+    )
+
+    print(
+        counts["true"],
+        "/",
+        counts["true"] + counts["false"],
+        f"({counts['true'] / (counts['true'] + counts['false']):.0%})",
+    )
 
 
 def collect(kv_pairs):

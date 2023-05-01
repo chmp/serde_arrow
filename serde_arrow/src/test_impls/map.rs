@@ -4,6 +4,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = map_as_struct,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -18,6 +19,7 @@ test_example!(
 
 test_example!(
     test_name = hash_map_as_struct,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -32,6 +34,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_nullable,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -47,6 +50,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_nullable_fields,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -61,6 +65,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
+    test_compilation = false,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -78,6 +83,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_int_keys,
+    test_compilation = false,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(

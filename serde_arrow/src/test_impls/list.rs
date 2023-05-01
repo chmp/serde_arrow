@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = list_u32,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U32, false)),
     ty = Vec<u32>,
@@ -11,6 +12,7 @@ test_example!(
 
 test_example!(
     test_name = list_nullable_u64,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U64, true)),
     ty = Vec<Option<u64>>,
@@ -20,6 +22,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_list_u32,
+    test_compilation = false,
     field = GenericField::new("root", GenericDataType::LargeList, true)
         .with_child(GenericField::new("element", GenericDataType::U32, false)),
     ty = Option<Vec<u32>>,

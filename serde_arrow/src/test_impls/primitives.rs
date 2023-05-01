@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = null,
+    test_compilation = false,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Null, true),
     ty = (),
@@ -39,6 +40,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_u8,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::U8, true),
     ty = Option<u8>,
     values = [Some(1), None, Some(3), Some(4)],
