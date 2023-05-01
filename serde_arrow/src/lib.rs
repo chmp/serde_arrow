@@ -166,9 +166,7 @@ pub mod _impl {
                     pub use $arrow_data::ArrayData;
                 }
                 pub mod buffer {
-                    pub use $arrow_buffer::buffer::{
-                        BooleanBuffer, Buffer, NullBuffer, ScalarBuffer,
-                    };
+                    pub use $arrow_buffer::buffer::{Buffer, ScalarBuffer};
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{

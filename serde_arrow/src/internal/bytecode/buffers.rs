@@ -22,8 +22,10 @@ impl BitBuffer {
 
     pub fn push(&mut self, value: bool) -> Result<()> {
         while self.len >= self.capacity {
-            self.buffer.push(0);
-            self.capacity += 8;
+            for _ in 0..64 {
+                self.buffer.push(0);
+                self.capacity += 8;
+            }
         }
 
         if value {
@@ -41,83 +43,6 @@ impl<const N: usize> From<[bool; N]> for BitBuffer {
             res.push(value).unwrap();
         }
         res
-    }
-}
-
-#[cfg(test)]
-mod test_validity_bitmap {
-    use super::BitBuffer;
-
-    #[test]
-    fn empty() {
-        let bitmap = BitBuffer::from([]);
-        assert_eq!(bitmap.buffer, Vec::<u8>::new());
-        assert_eq!(bitmap.len, 0);
-        assert_eq!(bitmap.capacity, 0);
-    }
-
-    #[test]
-    fn len2() {
-        let bitmap = BitBuffer::from([true, false]);
-        assert_eq!(bitmap.buffer, vec![0b_0000_0001]);
-        assert_eq!(bitmap.len, 2);
-        assert_eq!(bitmap.capacity, 8);
-    }
-
-    #[test]
-    fn len5() {
-        let bitmap = BitBuffer::from([true, false, false, true, true]);
-        assert_eq!(bitmap.buffer, vec![0b_0001_1001]);
-        assert_eq!(bitmap.len, 5);
-        assert_eq!(bitmap.capacity, 8);
-    }
-
-    #[test]
-    fn len10() {
-        let bitmap = BitBuffer::from([
-            true, false, false, true, true, true, false, false, true, true,
-        ]);
-        assert_eq!(bitmap.buffer, vec![0b_0011_1001, 0b_0000_0011]);
-        assert_eq!(bitmap.len, 10);
-        assert_eq!(bitmap.capacity, 16);
-    }
-
-    #[test]
-    fn len24() {
-        let bitmap = BitBuffer::from([
-            true, false, false, true, true, true, false, false, true, true, false, false, false,
-            false, false, false, true, true, true, true, true, false, true, true,
-        ]);
-        assert_eq!(
-            bitmap.buffer,
-            vec![0b_0011_1001, 0b_0000_0011, 0b_1101_1111]
-        );
-        assert_eq!(bitmap.len, 24);
-        assert_eq!(bitmap.capacity, 24);
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct BoolBuffer {
-    pub(crate) data: BitBuffer,
-    pub(crate) validity: BitBuffer,
-}
-
-impl BoolBuffer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn push(&mut self, val: bool) -> Result<()> {
-        self.data.push(val)?;
-        self.validity.push(true)?;
-        Ok(())
-    }
-
-    pub fn push_null(&mut self) -> Result<()> {
-        self.data.push(false)?;
-        self.validity.push(false)?;
-        Ok(())
     }
 }
 

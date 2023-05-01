@@ -1,82 +1,14 @@
 #![allow(missing_docs)]
 use crate::internal::{
-    bytecode::{
-        buffers::{BitBuffer, BoolBuffer},
-        compiler::ArrayMapping,
-        interpreter::Buffers,
-        Interpreter,
-    },
+    bytecode::{compiler::ArrayMapping, interpreter::Buffers, Interpreter},
     error::Result,
 };
 
 use crate::_impl::arrow::{
     array::{make_array, ArrayData, ArrayRef},
-    buffer::{BooleanBuffer, Buffer, NullBuffer, ScalarBuffer},
+    buffer::{Buffer, ScalarBuffer},
     datatypes::{DataType, Field},
 };
-
-pub trait IntoArrowArrayData {
-    fn into_arrow_array_data(self) -> Result<ArrayData>;
-
-    fn take_as_arrow_array_data(&mut self) -> Result<ArrayData>
-    where
-        Self: Default,
-    {
-        std::mem::take(self).into_arrow_array_data()
-    }
-}
-
-impl BitBuffer {
-    pub fn into_arrow_null_buffer(self) -> NullBuffer {
-        let buffer = Buffer::from(self.buffer);
-        let buffer = BooleanBuffer::new(buffer, 0, self.len);
-        NullBuffer::new(buffer)
-    }
-}
-
-impl IntoArrowArrayData for BoolBuffer {
-    fn into_arrow_array_data(self) -> Result<ArrayData> {
-        let len = self.validity.len;
-        let null_buffer = Buffer::from(self.validity.buffer);
-        let data = Buffer::from(self.data.buffer);
-
-        Ok(ArrayData::try_new(
-            DataType::Boolean,
-            len,
-            Some(null_buffer),
-            0,
-            vec![data],
-            vec![],
-        )?)
-    }
-}
-
-#[cfg(test)]
-mod validity_bitmap {
-    use crate::internal::bytecode::buffers::BitBuffer;
-
-    #[test]
-    fn example() {
-        let bitmap = BitBuffer::from([
-            true, false, false, true, true, true, false, false, true, true,
-        ]);
-        let null_buffer = bitmap.into_arrow_null_buffer();
-
-        assert_eq!(null_buffer.len(), 10);
-        assert_eq!(null_buffer.is_null(0), false);
-        assert_eq!(null_buffer.is_null(1), true);
-        assert_eq!(null_buffer.is_null(2), true);
-        assert_eq!(null_buffer.is_null(3), false);
-        assert_eq!(null_buffer.is_null(4), false);
-        assert_eq!(null_buffer.is_null(5), false);
-        assert_eq!(null_buffer.is_null(6), true);
-        assert_eq!(null_buffer.is_null(7), true);
-        assert_eq!(null_buffer.is_null(8), false);
-        assert_eq!(null_buffer.is_null(9), false);
-
-        assert_eq!(null_buffer.null_count(), 4);
-    }
-}
 
 impl Interpreter {
     /// Build the arrow arrays
@@ -215,11 +147,9 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let field: Field = field.try_into()?;
 
             let (validity, len) = if let Some(validity) = validity {
-                let validity =
-                    std::mem::take(&mut buffers.validity[*validity]).into_arrow_null_buffer();
+                let validity = std::mem::take(&mut buffers.validity[*validity]);
                 let len = validity.len();
-                let validity = validity.into_inner().into_inner();
-
+                let validity = Buffer::from(validity.buffer);
                 (Some(validity), len)
             } else {
                 // TODO: avoid the panic here
@@ -242,16 +172,14 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let field: Field = field.try_into()?;
 
             let offset = std::mem::take(&mut buffers.offset[*offsets]);
+            let len = offset.len();
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
-            let (validity, len) = if let Some(validity) = validity {
-                let validity =
-                    std::mem::take(&mut buffers.validity[*validity]).into_arrow_null_buffer();
-                let len = validity.len();
-                let validity = validity.into_inner().into_inner();
-                (Some(validity), len)
+            let validity = if let Some(validity) = validity {
+                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                Some(Buffer::from(validity.buffer))
             } else {
-                (None, offset_buffer.len() - 1)
+                None
             };
 
             let array_data_builder = ArrayData::builder(field.data_type().clone())
@@ -275,10 +203,8 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
             let validity = if let Some(validity) = validity {
-                let validity =
-                    std::mem::take(&mut buffers.validity[*validity]).into_arrow_null_buffer();
-                let validity = validity.into_inner().into_inner();
-                Some(validity)
+                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                Some(Buffer::from(validity.buffer))
             } else {
                 None
             };
