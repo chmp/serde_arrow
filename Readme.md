@@ -111,27 +111,27 @@ details.
 
 ###  serialize_arrow2_complex
 
-| label                | time [ms] | manual | serde_arrow | serde_arrow_byt |
-|----------------------|-----------|--------|-------------|-----------------|
-| manual               |     50.92 |   1.00 |        0.40 |            0.09 |
-| serde_arrow_bytecode |    127.93 |   2.51 |        1.00 |            0.23 |
-| serde_arrow          |    556.96 |  10.94 |        4.35 |            1.00 |
+| label                | time [ms] | manual | serde_arrow_byt | serde_arrow |
+|----------------------|-----------|--------|-----------------|-------------|
+| manual               |     50.92 |   1.00 |            0.40 |        0.09 |
+| serde_arrow_bytecode |    127.93 |   2.51 |            1.00 |        0.23 |
+| serde_arrow          |    556.96 |  10.94 |            4.35 |        1.00 |
 
 ###  serialize_arrow2_primitives
 
-| label                | time [ms] | manual | serde_arrow | serde_arrow_byt |
-|----------------------|-----------|--------|-------------|-----------------|
-| manual               |      7.44 |   1.00 |        0.46 |            0.18 |
-| serde_arrow_bytecode |     16.33 |   2.19 |        1.00 |            0.39 |
-| serde_arrow          |     41.91 |   5.63 |        2.57 |            1.00 |
+| label                | time [ms] | manual | serde_arrow_byt | serde_arrow |
+|----------------------|-----------|--------|-----------------|-------------|
+| manual               |      7.44 |   1.00 |            0.46 |        0.18 |
+| serde_arrow_bytecode |     16.33 |   2.19 |            1.00 |        0.39 |
+| serde_arrow          |     41.91 |   5.63 |            2.57 |        1.00 |
 
 ###  serialize_arrow_complex
 
-| label                | time [ms] | arrow | serde_arrow | serde_arrow_byt |
-|----------------------|-----------|-------|-------------|-----------------|
-| serde_arrow_bytecode |    134.86 |  1.00 |        0.23 |            0.17 |
-| serde_arrow          |    585.77 |  4.34 |        1.00 |            0.72 |
-| arrow                |    808.92 |  6.00 |        1.38 |            1.00 |
+| label                | time [ms] | serde_arrow_byt | serde_arrow | arrow |
+|----------------------|-----------|-----------------|-------------|-------|
+| serde_arrow_bytecode |    134.86 |            1.00 |        0.23 |  0.17 |
+| serde_arrow          |    585.77 |            4.34 |        1.00 |  0.72 |
+| arrow                |    808.92 |            6.00 |        1.38 |  1.00 |
 
 
 <!-- end:benchmarks -->

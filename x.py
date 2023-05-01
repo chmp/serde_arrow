@@ -151,6 +151,7 @@ def summarize_bench(update=False):
     print(format_benchmark(mean_times))
 
     if update:
+        print("Update readme")
         with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
             lines = [line.rstrip() for line in fobj]
 
@@ -175,7 +176,7 @@ def format_benchmark(mean_times):
             times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
             sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
 
-            rows = [["label", "time [ms]", *sorted(k[:15] for k in times_in_group)]]
+            rows = [["label", "time [ms]", *(k[:15] for k, _ in sorted_items)]]
             for label, time in sorted_items:
                 rows.append(
                     [
