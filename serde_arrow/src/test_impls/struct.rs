@@ -19,6 +19,36 @@ test_example!(
 );
 
 test_example!(
+    test_name = struct_nested,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::U32, false))
+        .with_child(GenericField::new("b", GenericDataType::Bool, false))
+        .with_child(
+            GenericField::new("c", GenericDataType::Struct, false)
+                .with_child(GenericField::new("d", GenericDataType::I32, false))
+                .with_child(GenericField::new("e", GenericDataType::U16, false))
+        ),
+    ty = S,
+    values = [S::default(), S::default()],
+    nulls = [false, false],
+    define = {
+        #[derive(Default, Serialize)]
+        struct S {
+            a: u32,
+            b: bool,
+            c: T,
+        }
+
+        #[derive(Default, Serialize)]
+        struct T {
+            d: i32,
+            e: u16,
+        }
+    },
+);
+
+test_example!(
     test_name = struct_nullable_field,
     test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)

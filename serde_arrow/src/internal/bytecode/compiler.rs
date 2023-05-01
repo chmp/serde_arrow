@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     internal::{
@@ -328,6 +328,7 @@ pub struct Program {
     pub(crate) structs: Vec<StructDefinition>,
     pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
+    pub(crate) next_instruction: HashMap<usize, usize>,
     pub(crate) num_bool: usize,
     pub(crate) num_u8: usize,
     pub(crate) num_u16: usize,
@@ -355,6 +356,7 @@ impl Program {
             structs: Vec::new(),
             nulls: Vec::new(),
             array_mapping: Vec::new(),
+            next_instruction: HashMap::new(),
             num_bool: 0,
             num_u8: 0,
             num_u16: 0,
@@ -418,6 +420,8 @@ impl Program {
         self.large_lists[0].r#return = self.program.len();
 
         self.program.push(Bytecode::ProgramEnd);
+        self.next_instruction
+            .insert(self.program.len() - 1, self.program.len() - 1);
 
         Ok(())
     }
@@ -593,6 +597,7 @@ impl Program {
         self.validate_structs()?;
         self.validate_nulls()?;
         self.validate_array_mappings()?;
+        self.validate_next_instruction()?;
         Ok(())
     }
 
@@ -702,6 +707,20 @@ impl Program {
         Ok(())
     }
 
+    fn validate_next_instruction(&self) -> Result<()> {
+        for (&pos, &target) in &self.next_instruction {
+            if target >= self.program.len() {
+                fail!("invalid next instruction for {pos}: {target}");
+            }
+        }
+
+        let last = self.program.len() - 1;
+        if self.next_instruction.get(&last) != Some(&last) {
+            fail!("invalid next instruciton for program end");
+        }
+        Ok(())
+    }
+
     fn instruction_before(&self, idx: usize) -> Option<&Bytecode> {
         if idx != 0 {
             self.program.get(idx - 1)
@@ -745,48 +764,24 @@ macro_rules! validate_array_mapping_primitive {
 }
 
 impl Program {
-    fn validate_array_mapping(&self, path: String, array_mapping: &ArrayMapping) -> Result<()> {
+    fn validate_array_mapping(&self, path: String, mapping: &ArrayMapping) -> Result<()> {
         use ArrayMapping::*;
-        match array_mapping {
-            Bool { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, Bool, num_bool)
+        match mapping {
+            Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_bool),
+            U8 { .. } => validate_array_mapping_primitive!(self, path, mapping, U8, num_u8),
+            U16 { .. } => validate_array_mapping_primitive!(self, path, mapping, U16, num_u16),
+            U32 { .. } => validate_array_mapping_primitive!(self, path, mapping, U32, num_u32),
+            U64 { .. } => validate_array_mapping_primitive!(self, path, mapping, U64, num_u64),
+            I8 { .. } => validate_array_mapping_primitive!(self, path, mapping, I8, num_i8),
+            I16 { .. } => validate_array_mapping_primitive!(self, path, mapping, I16, num_i16),
+            I32 { .. } => validate_array_mapping_primitive!(self, path, mapping, I32, num_i32),
+            I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_i64),
+            F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_f32),
+            F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_f64),
+            Utf8 { .. } => validate_array_mapping_primitive!(self, path, mapping, Utf8, num_utf8),
+            LargeUtf8 { .. } => {
+                validate_array_mapping_primitive!(self, path, mapping, LargeUtf8, num_large_utf8)
             }
-            U8 { .. } => validate_array_mapping_primitive!(self, path, array_mapping, U8, num_u8),
-            U16 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, U16, num_u16)
-            }
-            U32 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, U32, num_u32)
-            }
-            U64 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, U64, num_u64)
-            }
-            I8 { .. } => validate_array_mapping_primitive!(self, path, array_mapping, I8, num_i8),
-            I16 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, I16, num_i16)
-            }
-            I32 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, I32, num_i32)
-            }
-            I64 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, I64, num_i64)
-            }
-            F32 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, F32, num_f32)
-            }
-            F64 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, F64, num_f64)
-            }
-            Utf8 { .. } => {
-                validate_array_mapping_primitive!(self, path, array_mapping, Utf8, num_utf8)
-            }
-            LargeUtf8 { .. } => validate_array_mapping_primitive!(
-                self,
-                path,
-                array_mapping,
-                LargeUtf8,
-                num_large_utf8
-            ),
             _ => {}
         }
         Ok(())

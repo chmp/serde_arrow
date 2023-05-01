@@ -11,7 +11,7 @@ use crate::internal::{
 
 pub struct Interpreter {
     pub program_counter: usize,
-    pub program: Vec<Bytecode>,
+    pub program: Vec<(usize, Bytecode)>,
     pub structs: Vec<StructDefinition>,
     pub lists: Vec<ListDefinition>,
     pub nulls: Vec<NullDefinition>,
@@ -41,8 +41,18 @@ pub struct Buffers {
 
 impl Interpreter {
     pub fn new(program: Program) -> Self {
+        let mut instructions = Vec::with_capacity(program.program.len());
+        for (pos, instr) in program.program.into_iter().enumerate() {
+            let dst = program
+                .next_instruction
+                .get(&pos)
+                .copied()
+                .unwrap_or(pos + 1);
+            instructions.push((dst, instr));
+        }
+
         Self {
-            program: program.program,
+            program: instructions,
             structs: program.structs,
             lists: program.large_lists,
             nulls: program.nulls,
@@ -74,9 +84,9 @@ macro_rules! accept_primitive {
     ($func:ident, $variant:ident, $builder:ident, $ty:ty) => {
         fn $func(&mut self, val: $ty) -> crate::Result<()> {
             match &self.program[self.program_counter] {
-                Bytecode::$variant(array_idx) => {
-                    self.buffers.$builder[*array_idx].push(val)?;
-                    self.program_counter += 1;
+                &(next, Bytecode::$variant(array_idx)) => {
+                    self.buffers.$builder[array_idx].push(val)?;
+                    self.program_counter = next;
                     Ok(())
                 }
                 instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
@@ -105,8 +115,8 @@ impl EventSink for Interpreter {
         // TOOD: add new offset
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::LargeListStart(_) | B::OuterSequenceStart(_) => {
-                self.program_counter += 1;
+            &(next, B::LargeListStart(_) | B::OuterSequenceStart(_)) => {
+                self.program_counter = next;
                 Ok(())
             }
             instr => fail!("Cannot accept StartSequence in {instr:?}"),
@@ -116,18 +126,18 @@ impl EventSink for Interpreter {
     fn accept_end_sequence(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &B::LargeListEnd(_, offsets) => {
+            &(next, B::LargeListEnd(_, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter += 1;
+                self.program_counter = next;
             }
-            B::OuterSequenceEnd(_) => {
-                self.program_counter += 1;
+            &(next, B::OuterSequenceEnd(_)) => {
+                self.program_counter = next;
             }
-            &B::LargeListItem(idx, offsets) => {
+            &(_, B::LargeListItem(idx, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter = self.lists[idx].r#return;
             }
-            &B::OuterSequenceItem(idx) => {
+            &(_, B::OuterSequenceItem(idx)) => {
                 self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndSequence in {instr:?}"),
@@ -138,8 +148,8 @@ impl EventSink for Interpreter {
     fn accept_start_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::StructStart(_) | B::OuterRecordStart(_) => {
-                self.program_counter += 1;
+            &(next, B::StructStart(_) | B::OuterRecordStart(_)) => {
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept StartStruct in {instr:?}"),
         }
@@ -149,8 +159,8 @@ impl EventSink for Interpreter {
     fn accept_end_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::StructEnd(_) | B::OuterRecordEnd(_) => {
-                self.program_counter += 1;
+            &(next, B::StructEnd(_) | B::OuterRecordEnd(_)) => {
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept EndStruct in {instr:?}"),
         }
@@ -161,18 +171,18 @@ impl EventSink for Interpreter {
         // TODO: increment the count
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &B::LargeListItem(_, offsets) => {
+            &(next, B::LargeListItem(_, offsets)) => {
                 self.buffers.large_offset[offsets].inc_current_items()?;
-                self.program_counter += 1;
+                self.program_counter = next;
             }
-            &B::LargeListEnd(idx, offsets) => {
+            &(_, B::LargeListEnd(idx, offsets)) => {
                 self.buffers.large_offset[offsets].inc_current_items()?;
                 self.program_counter = self.lists[idx].item;
             }
-            B::OuterSequenceItem(_) => {
-                self.program_counter += 1;
+            &(next, B::OuterSequenceItem(_)) => {
+                self.program_counter = next;
             }
-            &B::OuterSequenceEnd(idx) => {
+            &(_, B::OuterSequenceEnd(idx)) => {
                 self.program_counter = self.lists[idx].item;
             }
             instr => fail!("Cannot accept Item in {instr:?}"),
@@ -184,8 +194,8 @@ impl EventSink for Interpreter {
         // TOOD: add new offset
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            B::LargeListStart(_) | B::OuterSequenceStart(_) => {
-                self.program_counter += 1;
+            &(next, B::LargeListStart(_) | B::OuterSequenceStart(_)) => {
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept StartTuple in {instr:?}"),
         }
@@ -195,18 +205,18 @@ impl EventSink for Interpreter {
     fn accept_end_tuple(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &B::LargeListEnd(_, offsets) => {
+            &(next, B::LargeListEnd(_, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter += 1;
+                self.program_counter = next;
             }
-            &B::LargeListItem(idx, offsets) => {
+            &(_, B::LargeListItem(idx, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter = self.lists[idx].r#return;
             }
-            B::OuterSequenceEnd(_) => {
-                self.program_counter += 1;
+            &(next, B::OuterSequenceEnd(_)) => {
+                self.program_counter = next;
             }
-            &B::OuterSequenceItem(idx) => {
+            &(_, B::OuterSequenceItem(idx)) => {
                 self.program_counter = self.lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndTuple in {instr:?}"),
@@ -229,9 +239,9 @@ impl EventSink for Interpreter {
     fn accept_some(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &B::Option(_, validity) => {
+            &(next, B::Option(_, validity)) => {
                 self.buffers.validity[validity].push(true)?;
-                self.program_counter += 1;
+                self.program_counter = next;
                 Ok(())
             }
             instr => fail!("Cannot accept Some in {instr:?}"),
@@ -241,7 +251,7 @@ impl EventSink for Interpreter {
     fn accept_null(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &B::Option(if_none, validity) => {
+            &(_, B::Option(if_none, validity)) => {
                 self.apply_null(validity)?;
                 self.program_counter = if_none;
                 Ok(())
@@ -259,16 +269,16 @@ impl EventSink for Interpreter {
         use Bytecode as B;
         match &self.program[self.program_counter] {
             // TODO: implement fallback for unordered structs
-            B::StructField(_, name) | B::OuterRecordField(_, name) if name == val => {
-                self.program_counter += 1;
+            (next, B::StructField(_, name) | B::OuterRecordField(_, name)) if name == val => {
+                self.program_counter = *next;
             }
-            &B::PushUTF8(idx) => {
+            &(next, B::PushUTF8(idx)) => {
                 self.buffers.utf8[idx].push(val)?;
-                self.program_counter += 1;
+                self.program_counter = next;
             }
-            &B::PushLargeUTF8(idx) => {
+            &(next, B::PushLargeUTF8(idx)) => {
                 self.buffers.large_utf8[idx].push(val)?;
-                self.program_counter += 1;
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept Str in {instr:?}"),
         }
@@ -279,16 +289,16 @@ impl EventSink for Interpreter {
         use Bytecode as B;
         match &self.program[self.program_counter] {
             // TODO: implement fallback for unordered structs
-            B::StructField(_, name) | B::OuterRecordField(_, name) if name == &val => {
-                self.program_counter += 1;
+            (next, B::StructField(_, name) | B::OuterRecordField(_, name)) if name == &val => {
+                self.program_counter = *next;
             }
-            &B::PushUTF8(array_idx) => {
+            &(next, B::PushUTF8(array_idx)) => {
                 self.buffers.utf8[array_idx].push(&val)?;
-                self.program_counter += 1;
+                self.program_counter = next;
             }
-            &B::PushLargeUTF8(array_idx) => {
+            &(next, B::PushLargeUTF8(array_idx)) => {
                 self.buffers.large_utf8[array_idx].push(&val)?;
-                self.program_counter += 1;
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept OwnedStr in {instr:?}"),
         }
