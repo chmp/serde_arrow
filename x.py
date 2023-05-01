@@ -199,7 +199,6 @@ def summarize_progress():
                 print(line.strip())
 
 
-
 def collect(kv_pairs):
     res = {}
     for k, v in kv_pairs:
@@ -214,8 +213,15 @@ def flatten(i):
 
 
 @cmd()
-def doc():
-    cargo("doc", "--features", default_features, cwd=self_path / "serde_arrow")
+@arg("--private", action="store_true", default=False)
+def doc(private=False):
+    cargo(
+        "doc",
+        "--features",
+        default_features,
+        *(["--document-private-items"] if private else []),
+        cwd=self_path / "serde_arrow",
+    )
 
 
 def cargo(*args, **kwargs):
