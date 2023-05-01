@@ -29,3 +29,5 @@ test_example!(
     values = [Some(vec![0, 1, 2]), None, Some(vec![3, 4]), Some(vec![])],
     nulls = [false, true, false, false],
 );
+
+// TODO: test nested lists

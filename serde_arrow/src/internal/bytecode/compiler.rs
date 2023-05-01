@@ -81,6 +81,10 @@ pub enum Bytecode {
     PushLargeUTF8(usize),
     /// `Option(if_none, validity)`
     Option(usize, usize),
+    ///  `Variant(union_idx, type)`
+    Variant(usize, usize),
+    /// A pseudo instruction, used to fix jumps to union positions
+    UnionEnd,
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -93,6 +97,11 @@ pub struct ListDefinition {
     pub item: usize,
     pub r#return: usize,
     pub offset: usize,
+}
+
+#[derive(Default, Debug, PartialEq)]
+pub struct UnionDefinition {
+    pub fields: Vec<usize>,
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -318,6 +327,11 @@ pub enum ArrayMapping {
         fields: Vec<ArrayMapping>,
         validity: Option<usize>,
     },
+    Union {
+        field: GenericField,
+        fields: Vec<ArrayMapping>,
+        types: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -326,6 +340,7 @@ pub struct Program {
     pub(crate) program: Vec<Bytecode>,
     pub(crate) large_lists: Vec<ListDefinition>,
     pub(crate) structs: Vec<StructDefinition>,
+    pub(crate) unions: Vec<UnionDefinition>,
     pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
     pub(crate) next_instruction: HashMap<usize, usize>,
@@ -354,6 +369,7 @@ impl Program {
             program: Vec::new(),
             large_lists: Vec::new(),
             structs: Vec::new(),
+            unions: Vec::new(),
             nulls: Vec::new(),
             array_mapping: Vec::new(),
             next_instruction: HashMap::new(),
@@ -380,11 +396,14 @@ impl Program {
 impl Program {
     fn compile(&mut self, fields: &[GenericField]) -> Result<()> {
         self.compile_outer_structure(fields)?;
+        self.fix_union_jumps()?;
         self.validate()?;
 
         Ok(())
     }
+}
 
+impl Program {
     fn compile_outer_structure(&mut self, fields: &[GenericField]) -> Result<()> {
         if !self.options.wrap_with_struct && fields.len() != 1 {
             fail!("only single fields are supported without struct wrapping");
@@ -510,6 +529,48 @@ impl Program {
         })
     }
 
+    fn compile_union(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
+        if validity.is_some() {
+            fail!("cannot compile nullable unions");
+        }
+        if field.children.is_empty() {
+            fail!("cannot compile a union withouth children");
+        }
+
+        let def = self.unions.len();
+        self.unions.push(UnionDefinition::default());
+
+        let types = self.num_i8.next_value();
+
+        let mut fields = Vec::new();
+        let mut child_last_instr = Vec::new();
+
+        self.program.push(Bytecode::Variant(def, types));
+
+        for child in &field.children {
+            self.unions[def].fields.push(self.program.len());
+            fields.push(self.compile_field(child)?);
+            child_last_instr.push(self.program.len() - 1);
+        }
+
+        // each union fields jumps to after the "union"
+        for pos in child_last_instr {
+            self.next_instruction.insert(pos, self.program.len());
+        }
+
+        self.program.push(Bytecode::UnionEnd);
+
+        Ok(ArrayMapping::Union {
+            field: field.clone(),
+            fields,
+            types,
+        })
+    }
+
     fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
         let mut nullable_idx = None;
         let validity = if field.nullable {
@@ -586,8 +647,35 @@ impl Program {
             D::Struct => self.compile_struct(field, validity),
             D::List => self.compile_list(field, validity),
             D::LargeList => self.compile_large_list(field, validity),
+            D::Union => self.compile_union(field, validity),
             dt => fail!("cannot compile {dt}: not implemented"),
         }
+    }
+}
+
+impl Program {
+    fn fix_union_jumps(&mut self) -> Result<()> {
+        fn follow(mut current: usize, program: &Program) -> usize {
+            for _ in 0..program.program.len() {
+                current = program
+                    .next_instruction
+                    .get(&current)
+                    .copied()
+                    .unwrap_or(current + 1);
+                if program.program[current] != Bytecode::UnionEnd {
+                    return current;
+                }
+            }
+            panic!("More jumps than instructions: cycle?")
+        }
+
+        let mut fixed = HashMap::new();
+        for (&pos, &next) in &self.next_instruction {
+            fixed.insert(pos, follow(next, self));
+        }
+        self.next_instruction = fixed;
+
+        Ok(())
     }
 }
 
@@ -711,6 +799,13 @@ impl Program {
         for (&pos, &target) in &self.next_instruction {
             if target >= self.program.len() {
                 fail!("invalid next instruction for {pos}: {target}");
+            }
+        }
+
+        for pos in 0..self.program.len() - 1 {
+            let next = self.next_instruction.get(&pos).copied().unwrap_or(pos + 1);
+            if self.program[next] == Bytecode::UnionEnd {
+                fail!("invalid next instruction for {pos}: points to union end");
             }
         }
 

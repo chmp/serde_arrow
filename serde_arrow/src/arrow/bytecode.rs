@@ -218,5 +218,35 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
 
             Ok(array_data_builder.build()?)
         }
+        M::Union {
+            field,
+            fields,
+            types,
+        } => {
+            let types = std::mem::take(&mut buffers.i8[*types]);
+            let mut current_offset = vec![0; fields.len()];
+            let mut offsets = Vec::new();
+
+            for &t in &types.buffer {
+                offsets.push(current_offset[t as usize]);
+                current_offset[t as usize] += 1;
+            }
+
+            let mut children = Vec::new();
+            for child in fields {
+                children.push(build_array_data(buffers, child)?);
+            }
+
+            let len = types.len();
+
+            let field: Field = field.try_into()?;
+            let array_data_builder = ArrayData::builder(field.data_type().clone())
+                .len(len)
+                .add_buffer(Buffer::from_vec(types.buffer))
+                .add_buffer(Buffer::from_vec(offsets))
+                .child_data(children);
+
+            Ok(array_data_builder.build()?)
+        }
     }
 }

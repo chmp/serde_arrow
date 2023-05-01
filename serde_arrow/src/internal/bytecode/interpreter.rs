@@ -1,6 +1,9 @@
 use super::{
     buffers::{BitBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
-    compiler::{ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition},
+    compiler::{
+        ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition,
+        UnionDefinition,
+    },
 };
 
 use crate::internal::{
@@ -14,6 +17,7 @@ pub struct Interpreter {
     pub program: Vec<(usize, Bytecode)>,
     pub structs: Vec<StructDefinition>,
     pub lists: Vec<ListDefinition>,
+    pub unions: Vec<UnionDefinition>,
     pub nulls: Vec<NullDefinition>,
     pub array_mapping: Vec<ArrayMapping>,
     pub buffers: Buffers,
@@ -55,6 +59,7 @@ impl Interpreter {
             program: instructions,
             structs: program.structs,
             lists: program.large_lists,
+            unions: program.unions,
             nulls: program.nulls,
             array_mapping: program.array_mapping,
             program_counter: 0,
@@ -285,10 +290,17 @@ impl EventSink for Interpreter {
         Ok(())
     }
 
-    fn accept_variant(&mut self, _name: &str, _idx: usize) -> Result<()> {
+    fn accept_variant(&mut self, _name: &str, idx: usize) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
+            &(_, B::Variant(union_idx, types)) => {
+                // TODO: improve error message
+                self.buffers.i8[types].push(idx.try_into()?)?;
+                self.program_counter = self.unions[union_idx].fields[idx];
+            }
             instr => fail!("Cannot accept Variant in {instr:?}"),
         }
+        Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {

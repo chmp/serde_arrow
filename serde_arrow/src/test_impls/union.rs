@@ -2,7 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = union_simple,
-    test_compilation = false,
+    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
@@ -22,7 +22,7 @@ test_example!(
 
 test_example!(
     test_name = union_mixed,
-    test_compilation = false,
+    test_compilation = true,
     field =
         GenericField::new("root", GenericDataType::Union, false)
             .with_child(
@@ -56,3 +56,5 @@ test_example!(
         }
     },
 );
+
+// TODO: test nested unions

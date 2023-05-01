@@ -26,7 +26,6 @@
 //! - [accept_marker] implements
 //!   - [accept_some][super::EventSink::accept_some]
 //!   - [accept_variant][super::EventSink::accept_variant]
-//!   - [accept_owned_variant][super::EventSink::accept_owned_variant]
 //! - [accept_value] implements
 //!   - [accept_default][super::EventSink::accept_default]
 //!   - [accept_null][super::EventSink::accept_null]
@@ -41,7 +40,6 @@
 //!   - [accept_f32][super::EventSink::accept_f32]
 //!   - [accept_f64][super::EventSink::accept_f64]
 //!   - [accept_str][super::EventSink::accept_str]
-//!   - [accept_owned_str][super::EventSink::accept_owned_str]
 //!  
 //! The `accept_*` macros must be called as in:
 //!
