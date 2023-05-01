@@ -258,8 +258,14 @@ fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
     #[derive(Debug, Serialize, Deserialize)]
     struct Item {
         string: String,
-        points: Vec<(f32, f32)>,
+        points: Vec<Point>,
         float: Float,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Point {
+        x: f32,
+        y: f32,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -279,7 +285,10 @@ fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
                     .map(|_| -> char { Standard.sample(rng) })
                     .collect(),
                 points: (0..n_points)
-                    .map(|_| (Standard.sample(rng), Standard.sample(rng)))
+                    .map(|_| Point {
+                        x: Standard.sample(rng),
+                        y: Standard.sample(rng),
+                    })
                     .collect(),
                 float: if is_f32 {
                     Float::F32(Standard.sample(rng))
@@ -296,6 +305,10 @@ fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
         .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
     let fields = arrow2::serialize_into_fields(&items, Default::default()).unwrap();
+
+    group.bench_function("serde_arrow_bytecode", |b| {
+        b.iter(|| black_box(bytecode::serialize(&fields, &items).unwrap()));
+    });
 
     group.bench_function("serde_arrow", |b| {
         b.iter(|| black_box(arrow2::serialize_into_arrays(&fields, &items).unwrap()));
@@ -314,9 +327,9 @@ fn benchmark_serialize_arrow2_complex(c: &mut Criterion) {
 
             for item in &items {
                 string.push(Some(&item.string));
-                for &point in &item.points {
-                    points_0.push(Some(point.0));
-                    points_1.push(Some(point.1));
+                for point in &item.points {
+                    points_0.push(Some(point.x));
+                    points_1.push(Some(point.y));
                 }
                 points_offsets.push(points_0.len() as i64);
 

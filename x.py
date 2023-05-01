@@ -1,5 +1,6 @@
 import argparse
 import collections
+import io
 import itertools as it
 import json
 import os
@@ -115,7 +116,8 @@ def bench():
 
 
 @cmd()
-def summarize_bench():
+@arg("--update", action="store_true", default=False)
+def summarize_bench(update=False):
     root = self_path / "target" / "criterion/"
 
     results = []
@@ -146,30 +148,62 @@ def summarize_bench():
         qq = statistics.quantiles(times, n=20)
         mean_times[k] = statistics.mean(time for time in times if time < qq[-1])
 
-    for group in sorted({g for g, _ in mean_times}):
-        print("# ", group)
-        times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
+    print(format_benchmark(mean_times))
 
-        rows = [["label", "time [ms]", *sorted(k[:15] for k in times_in_group)]]
+    if update:
+        with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
+            lines = [line.rstrip() for line in fobj]
 
-        for label, time in sorted(times_in_group.items()):
-            rows.append(
-                [
-                    label,
-                    f"{1000 * time:7.2f}",
-                    *(f"{time / cmp:.2f}" for _, cmp in sorted(times_in_group.items())),
+        active = False
+        with open(self_path / "Readme.md", "wt", encoding="utf8") as fobj:
+            for line in lines:
+                if not active:
+                    print(line, file=fobj)
+                    if line.strip() == "<!-- start:benchmarks -->":
+                        active = True
+
+                else:
+                    if line.strip() == "<!-- end:benchmarks -->":
+                        print(format_benchmark(mean_times), file=fobj)
+                        print(line, file=fobj)
+                        active = False
+
+
+def format_benchmark(mean_times):
+    with io.StringIO() as fobj:
+        for group in sorted({g for g, _ in mean_times}):
+            times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
+            sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
+
+            rows = [["label", "time [ms]", *sorted(k[:15] for k in times_in_group)]]
+            for label, time in sorted_items:
+                rows.append(
+                    [
+                        label,
+                        f"{1000 * time:7.2f}",
+                        *(f"{time / cmp:.2f}" for _, cmp in sorted_items),
+                    ]
+                )
+
+            widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+
+            print("### ", group, file=fobj)
+            print(file=fobj)
+            for idx, row in enumerate(rows):
+                padded_row = [
+                    (str.ljust if idx == 0 else str.rjust)(item, width)
+                    for idx, item, width in zip(it.count(), row, widths)
                 ]
-            )
 
-        widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
-        for row in rows:
-            padded_row = [
-                (str.ljust if idx == 0 else str.rjust)(item, width)
-                for idx, item, width in zip(it.count(), row, widths)
-            ]
-            print("   ".join(padded_row))
+                if idx == 0:
+                    print("| " + " | ".join(padded_row) + " |", file=fobj)
+                    print("|-" + "-|-".join("-" * w for w in widths) + "-|", file=fobj)
+                else:
+                    print("| " + " | ".join(padded_row) + " |", file=fobj)
 
-        print()
+            print(file=fobj)
+
+        return fobj.getvalue()
 
 
 @cmd()

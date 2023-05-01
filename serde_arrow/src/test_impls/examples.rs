@@ -37,7 +37,64 @@ test_example!(
 );
 
 test_example!(
-    test_name = benchmark_complex,
+    test_name = benchmark_complex_1,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new(
+            "string",
+            GenericDataType::LargeUtf8,
+            false
+        ))
+        .with_child(
+            GenericField::new("points", GenericDataType::LargeList, false).with_child(
+                GenericField::new("element", GenericDataType::Struct, false)
+                    .with_child(GenericField::new("x", GenericDataType::F32, false))
+                    .with_child(GenericField::new("y", GenericDataType::F32, false))
+            )
+        )
+        .with_child(
+            GenericField::new("float", GenericDataType::Union, false)
+                .with_child(GenericField::new("F32", GenericDataType::F32, false))
+                .with_child(GenericField::new("F64", GenericDataType::F64, false))
+        ),
+    ty = Item,
+    values = [
+        Item {
+            string: "foo".into(),
+            points: vec![Point { x: 0.0, y: 0.0 }],
+            float: Float::F32(13.0)
+        },
+        Item {
+            string: "foo".into(),
+            points: vec![],
+            float: Float::F64(21.0)
+        },
+    ],
+    nulls = [false, false],
+    define = {
+        #[derive(Debug, Serialize)]
+        struct Item {
+            string: String,
+            points: Vec<Point>,
+            float: Float,
+        }
+
+        #[derive(Debug, Serialize)]
+        enum Float {
+            F32(f32),
+            F64(f64),
+        }
+
+        #[derive(Debug, Serialize)]
+        struct Point {
+            x: f32,
+            y: f32,
+        }
+    },
+);
+
+test_example!(
+    test_name = benchmark_complex_2,
     test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new(
