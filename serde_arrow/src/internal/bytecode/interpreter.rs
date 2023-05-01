@@ -285,35 +285,9 @@ impl EventSink for Interpreter {
         Ok(())
     }
 
-    fn accept_owned_str(&mut self, val: String) -> Result<()> {
-        use Bytecode as B;
-        match &self.program[self.program_counter] {
-            // TODO: implement fallback for unordered structs
-            (next, B::StructField(_, name) | B::OuterRecordField(_, name)) if name == &val => {
-                self.program_counter = *next;
-            }
-            &(next, B::PushUTF8(array_idx)) => {
-                self.buffers.utf8[array_idx].push(&val)?;
-                self.program_counter = next;
-            }
-            &(next, B::PushLargeUTF8(array_idx)) => {
-                self.buffers.large_utf8[array_idx].push(&val)?;
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept OwnedStr in {instr:?}"),
-        }
-        Ok(())
-    }
-
     fn accept_variant(&mut self, _name: &str, _idx: usize) -> Result<()> {
         match &self.program[self.program_counter] {
             instr => fail!("Cannot accept Variant in {instr:?}"),
-        }
-    }
-
-    fn accept_owned_variant(&mut self, _name: String, _idx: usize) -> Result<()> {
-        match &self.program[self.program_counter] {
-            instr => fail!("Cannot accept OwnedVariant in {instr:?}"),
         }
     }
 

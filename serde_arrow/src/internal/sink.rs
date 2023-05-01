@@ -75,9 +75,7 @@ pub trait EventSink {
     fn accept_null(&mut self) -> Result<()>;
     fn accept_default(&mut self) -> Result<()>;
     fn accept_str(&mut self, val: &str) -> Result<()>;
-    fn accept_owned_str(&mut self, val: String) -> Result<()>;
     fn accept_variant(&mut self, name: &str, idx: usize) -> Result<()>;
-    fn accept_owned_variant(&mut self, name: String, idx: usize) -> Result<()>;
     fn accept_bool(&mut self, val: bool) -> Result<()>;
     fn accept_i8(&mut self, val: i8) -> Result<()>;
     fn accept_i16(&mut self, val: i16) -> Result<()>;

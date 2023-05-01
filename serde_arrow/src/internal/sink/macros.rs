@@ -94,9 +94,9 @@ macro_rules! forward_generic_to_specialized {
                 F32(val) => self.accept_f32(val),
                 F64(val) => self.accept_f64(val),
                 Str(val) => self.accept_str(val),
-                OwnedStr(val) => self.accept_owned_str(val),
+                OwnedStr(val) => self.accept_str(&val),
                 Variant(name, idx) => self.accept_variant(name, idx),
-                OwnedVariant(name, idx) => self.accept_owned_variant(name, idx),
+                OwnedVariant(name, idx) => self.accept_variant(&name, idx),
             }
         }
     };
@@ -160,24 +160,12 @@ macro_rules! forward_specialized_to_generic {
             self.accept($crate::internal::event::Event::Str(val))
         }
 
-        fn accept_owned_str(&mut self, val: String) -> $crate::internal::error::Result<()> {
-            self.accept($crate::internal::event::Event::OwnedStr(val))
-        }
-
         fn accept_variant(
             &mut self,
             name: &str,
             idx: usize,
         ) -> $crate::internal::error::Result<()> {
             self.accept($crate::internal::event::Event::Variant(name, idx))
-        }
-
-        fn accept_owned_variant(
-            &mut self,
-            name: String,
-            idx: usize,
-        ) -> $crate::internal::error::Result<()> {
-            self.accept($crate::internal::event::Event::OwnedVariant(name, idx))
         }
 
         fn accept_bool(&mut self, val: bool) -> $crate::internal::error::Result<()> {
@@ -340,17 +328,6 @@ macro_rules! accept_value {
             let $val = val;
             fn $next<E: EventSink + ?Sized>(next: &mut E, val: &str) -> Result<()> {
                 next.accept_str(val)
-            }
-
-            $block
-        }
-
-        fn accept_owned_str(&mut self, val: String) -> Result<()> {
-            let $this = self;
-            let $val = val;
-            let $ev = Event::Str(&$val);
-            fn $next<E: EventSink + ?Sized>(next: &mut E, val: String) -> Result<()> {
-                next.accept_owned_str(val)
             }
 
             $block
@@ -535,18 +512,6 @@ macro_rules! accept_marker {
             let $val = (name, idx);
             fn $next<E: EventSink + ?Sized>(next: &mut E, val: (&str, usize)) -> Result<()> {
                 next.accept_variant(val.0, val.1)
-            }
-
-            $block
-        }
-
-        fn accept_owned_variant(&mut self, name: String, idx: usize) -> Result<()> {
-            let $this = self;
-            let $val: (String, usize) = (name, idx);
-            let $ev = Event::Variant(&$val.0, $val.1);
-
-            fn $next<E: EventSink + ?Sized>(next: &mut E, val: (String, usize)) -> Result<()> {
-                next.accept_owned_variant(val.0, val.1)
             }
 
             $block

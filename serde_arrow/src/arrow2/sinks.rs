@@ -483,11 +483,6 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
         Ok(())
     }
 
-    fn accept_owned_str(&mut self, val: String) -> Result<()> {
-        self.array.push(Some(val));
-        Ok(())
-    }
-
     fn accept_default(&mut self) -> Result<()> {
         self.array.push::<String>(Some(String::new()));
         Ok(())
@@ -504,7 +499,7 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
             Event::Default => self.accept_default(),
             Event::Null => self.accept_null(),
             Event::Str(val) => self.accept_str(val),
-            Event::OwnedStr(val) => self.accept_owned_str(val),
+            Event::OwnedStr(val) => self.accept_str(&val),
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }
