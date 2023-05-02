@@ -240,4 +240,22 @@ test_example!(
     },
 );
 
-// TODO: test Utf8 with i32 offset
+test_example!(
+    test_name = str_utf8,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::LargeUtf8, false),
+    overwrite_field = GenericField::new("root", GenericDataType::Utf8, false),
+    ty = &str,
+    values = ["a", "b", "c", "d"],
+    nulls = [false, false, false, false],
+);
+
+test_example!(
+    test_name = nullable_str_utf8,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::LargeUtf8, true),
+    overwrite_field = GenericField::new("root", GenericDataType::Utf8, true),
+    ty = Option<&str>,
+    values = [Some("a"), None, None, Some("d")],
+    nulls = [false, true, true, false],
+);
