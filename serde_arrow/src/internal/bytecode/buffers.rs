@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::internal::error::Result;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -185,5 +187,45 @@ impl<O: Offset> StringBuffer<O> {
         self.offsets.push(val.len())?;
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StringDictonary<O> {
+    pub(crate) index: HashMap<String, usize>,
+    pub(crate) values: StringBuffer<O>,
+}
+
+impl<O: Offset> std::default::Default for StringDictonary<O> {
+    fn default() -> Self {
+        Self {
+            index: Default::default(),
+            values: Default::default(),
+        }
+    }
+}
+
+impl<O: Offset> StringDictonary<O> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.index.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
+
+    pub fn push(&mut self, val: &str) -> Result<usize> {
+        if self.index.contains_key(val) {
+            Ok(self.index[val])
+        } else {
+            let res = self.index.len();
+            self.index.insert(val.to_string(), res);
+            self.values.push(val)?;
+            Ok(res)
+        }
     }
 }

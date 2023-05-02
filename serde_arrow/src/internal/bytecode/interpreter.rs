@@ -1,5 +1,7 @@
 use super::{
-    buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
+    buffers::{
+        BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
+    },
     compiler::{
         ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition,
         UnionDefinition,
@@ -42,6 +44,7 @@ pub struct Buffers {
     pub validity: Vec<BitBuffer>,
     pub offset: Vec<OffsetBuilder<i32>>,
     pub large_offset: Vec<OffsetBuilder<i64>>,
+    pub large_dictionaries: Vec<StringDictonary<i64>>,
 }
 
 impl Interpreter {
@@ -82,6 +85,7 @@ impl Interpreter {
                 validity: vec![Default::default(); program.num_validity],
                 offset: vec![Default::default(); program.num_offsets],
                 large_offset: vec![Default::default(); program.num_large_offsets],
+                large_dictionaries: vec![Default::default(); program.num_large_dictionaries],
             },
         }
     }
@@ -301,6 +305,12 @@ impl EventSink for Interpreter {
                 use chrono::{DateTime, Utc};
 
                 self.buffers.i64[idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
+                self.program_counter = next;
+            }
+            &(next, B::PushDictionaryU32LargeUTF8(dictionary, indices)) => {
+                let idx = self.buffers.large_dictionaries[dictionary].push(val)?;
+                self.buffers.u32[indices].push(idx.try_into()?)?;
+
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept Str in {instr:?}"),

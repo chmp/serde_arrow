@@ -50,7 +50,7 @@ impl Counter for usize {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Bytecode {
     ProgramEnd,
     OuterSequenceStart,
@@ -83,9 +83,11 @@ pub enum Bytecode {
     PushF64(usize),
     PushBool(usize),
     PushUTF8(usize),
+    PushLargeUTF8(usize),
     PushDate64FromNaiveStr(usize),
     PushDate64FromUtcStr(usize),
-    PushLargeUTF8(usize),
+    /// `PushDictionaryU32LargeUTF8(dictionary, indices)`
+    PushDictionaryU32LargeUTF8(usize, usize),
     /// `Option(if_none, validity)`
     Option(usize, usize),
     ///  `Variant(union_idx, type)`
@@ -218,6 +220,12 @@ impl NullDefinition {
                 self.large_utf8.push(buffer);
                 self.validity.extend(validity);
             }
+            &ArrayMapping::Date64 {
+                buffer, validity, ..
+            } => {
+                self.i64.push(buffer);
+                self.validity.extend(validity);
+            }
             ArrayMapping::Struct {
                 fields, validity, ..
             } => {
@@ -232,6 +240,12 @@ impl NullDefinition {
                 // NOTE: the item is not included
                 self.large_offsets.push(*offsets);
                 self.validity.extend(validity.iter().copied());
+            }
+            &ArrayMapping::DictionaryU32LargeUtf8 {
+                indices, validity, ..
+            } => {
+                self.u32.push(indices);
+                self.validity.extend(validity);
             }
             m => todo!("cannot update null definition from {m:?}"),
         }
@@ -340,6 +354,12 @@ pub enum ArrayMapping {
         offsets: usize,
         validity: Option<usize>,
     },
+    DictionaryU32LargeUtf8 {
+        field: GenericField,
+        dictionary: usize,
+        indices: usize,
+        validity: Option<usize>,
+    },
     LargeList {
         field: GenericField,
         item: Box<ArrayMapping>,
@@ -385,6 +405,7 @@ pub struct Program {
     pub(crate) num_validity: usize,
     pub(crate) num_offsets: usize,
     pub(crate) num_large_offsets: usize,
+    pub(crate) num_large_dictionaries: usize,
 }
 
 impl Program {
@@ -415,6 +436,7 @@ impl Program {
             num_validity: 0,
             num_offsets: 0,
             num_large_offsets: 0,
+            num_large_dictionaries: 0,
         }
     }
 }
@@ -705,12 +727,47 @@ impl Program {
                 Some(strategy) => fail!("Cannot compile Date64 with strategy {strategy}"),
                 None => fail!("Cannot compile Date64 without strategy"),
             },
+            D::Dictionary => self.compile_dictionary(field, validity),
             D::Struct => self.compile_struct(field, validity),
             D::List => self.compile_list(field, validity),
             D::LargeList => self.compile_large_list(field, validity),
             D::Union => self.compile_union(field, validity),
             dt => fail!("cannot compile {dt}: not implemented"),
         }
+    }
+}
+
+impl Program {
+    fn compile_dictionary(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
+        if field.children.len() != 2 {
+            fail!("Dictionary must have 2 children");
+        }
+
+        match &field.children[0].data_type {
+            GenericDataType::U32 => {}
+            dt => fail!("Cannot compile dictionary with indices of type {dt}"),
+        };
+        match &field.children[1].data_type {
+            GenericDataType::LargeUtf8 => {}
+            dt => fail!("Cannot compile dictionary with indices of type {dt}"),
+        };
+
+        let dictionary = self.num_large_dictionaries.next_value();
+        let indices = self.num_u32.next_value();
+
+        self.program
+            .push(Bytecode::PushDictionaryU32LargeUTF8(dictionary, indices));
+
+        Ok(ArrayMapping::DictionaryU32LargeUtf8 {
+            field: field.clone(),
+            dictionary,
+            indices,
+            validity,
+        })
     }
 }
 
@@ -926,6 +983,7 @@ impl Program {
     fn validate_array_mapping(&self, path: String, mapping: &ArrayMapping) -> Result<()> {
         use ArrayMapping::*;
         match mapping {
+            // TODO: add the remaining array mappings
             Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_bool),
             U8 { .. } => validate_array_mapping_primitive!(self, path, mapping, U8, num_u8),
             U16 { .. } => validate_array_mapping_primitive!(self, path, mapping, U16, num_u16),

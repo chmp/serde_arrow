@@ -253,5 +253,50 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
 
             Ok(array_data_builder.build()?)
         }
+        M::DictionaryU32LargeUtf8 {
+            field,
+            dictionary,
+            indices,
+            validity,
+        } => {
+            let indices = std::mem::take(&mut buffers.u32[*indices]);
+
+            let len = indices.len();
+            let indices = ScalarBuffer::from(indices.buffer).into_inner();
+
+            let validity = if let Some(validity) = validity {
+                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            let indices =
+                ArrayData::try_new(DataType::UInt32, len, validity, 0, vec![indices], vec![])?;
+
+            let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dictionary]);
+            let values_len = dictionary.values.len();
+
+            let offsets = ScalarBuffer::from(dictionary.values.offsets.offsets).into_inner();
+            let data = ScalarBuffer::from(dictionary.values.data).into_inner();
+
+            let values = ArrayData::try_new(
+                DataType::LargeUtf8,
+                values_len,
+                None,
+                0,
+                vec![offsets, data],
+                vec![],
+            )?;
+
+            let field: Field = field.try_into()?;
+            let data_type = field.data_type().clone();
+
+            Ok(indices
+                .into_builder()
+                .data_type(data_type)
+                .child_data(vec![values])
+                .build()?)
+        }
     }
 }
