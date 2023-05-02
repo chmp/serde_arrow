@@ -152,7 +152,7 @@ impl std::fmt::Display for GenericDataType {
             F16 => write!(f, "F16"),
             F32 => write!(f, "F32"),
             F64 => write!(f, "F64"),
-            Date64 => write!(f, "F64"),
+            Date64 => write!(f, "Date64"),
             Struct => write!(f, "Struct"),
             List => write!(f, "List"),
             LargeList => write!(f, "LargeList"),
