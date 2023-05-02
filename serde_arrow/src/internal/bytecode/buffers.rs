@@ -36,13 +36,27 @@ impl BitBuffer {
     }
 }
 
-impl<const N: usize> From<[bool; N]> for BitBuffer {
-    fn from(values: [bool; N]) -> Self {
-        let mut res = BitBuffer::new();
-        for value in values {
-            res.push(value).unwrap();
-        }
-        res
+#[derive(Debug, Default, Clone)]
+pub struct NullBuffer {
+    len: usize,
+}
+
+impl NullBuffer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn push(&mut self, _: ()) -> Result<()> {
+        self.len += 1;
+        Ok(())
     }
 }
 

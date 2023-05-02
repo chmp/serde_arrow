@@ -52,20 +52,21 @@ impl Counter for usize {
 #[derive(Debug, PartialEq)]
 pub enum Bytecode {
     ProgramEnd,
-    OuterSequenceStart(usize),
+    OuterSequenceStart,
     OuterSequenceItem(usize),
     OuterSequenceEnd(usize),
-    OuterRecordStart(usize),
+    OuterRecordStart,
     OuterRecordField(usize, String),
-    OuterRecordEnd(usize),
-    LargeListStart(usize),
+    OuterRecordEnd,
+    LargeListStart,
     /// `LargeListItem(definition, offsets)`
     LargeListItem(usize, usize),
     /// `LargeListItem(definition, offsets)`
     LargeListEnd(usize, usize),
-    StructStart(usize),
+    StructStart,
     StructField(usize, String),
-    StructEnd(usize),
+    StructEnd,
+    PushNull(usize),
     PushU8(usize),
     PushU16(usize),
     PushU32(usize),
@@ -106,6 +107,7 @@ pub struct UnionDefinition {
 
 #[derive(Default, Debug, PartialEq)]
 pub struct NullDefinition {
+    pub null: Vec<usize>,
     pub bool: Vec<usize>,
     pub u8: Vec<usize>,
     pub u16: Vec<usize>,
@@ -126,6 +128,12 @@ pub struct NullDefinition {
 impl NullDefinition {
     pub fn update_from_array_mapping(&mut self, m: &ArrayMapping) -> Result<()> {
         match m {
+            &ArrayMapping::Null {
+                buffer, validity, ..
+            } => {
+                self.null.push(buffer);
+                self.validity.extend(validity);
+            }
             &ArrayMapping::Bool {
                 buffer, validity, ..
             } => {
@@ -245,6 +253,11 @@ impl NullDefinition {
 /// Map the array to the corresponding builders
 #[derive(Debug)]
 pub enum ArrayMapping {
+    Null {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
     Bool {
         field: GenericField,
         buffer: usize,
@@ -344,6 +357,7 @@ pub struct Program {
     pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
     pub(crate) next_instruction: HashMap<usize, usize>,
+    pub(crate) num_null: usize,
     pub(crate) num_bool: usize,
     pub(crate) num_u8: usize,
     pub(crate) num_u16: usize,
@@ -373,6 +387,7 @@ impl Program {
             nulls: Vec::new(),
             array_mapping: Vec::new(),
             next_instruction: HashMap::new(),
+            num_null: 0,
             num_bool: 0,
             num_u8: 0,
             num_u16: 0,
@@ -410,13 +425,13 @@ impl Program {
         }
 
         self.large_lists.push(ListDefinition::default());
-        self.program.push(Bytecode::OuterSequenceStart(0));
+        self.program.push(Bytecode::OuterSequenceStart);
         self.program.push(Bytecode::OuterSequenceItem(0));
         self.large_lists[0].item = self.program.len();
 
         if self.options.wrap_with_struct {
             self.structs.push(StructDefinition::default());
-            self.program.push(Bytecode::OuterRecordStart(0));
+            self.program.push(Bytecode::OuterRecordStart);
         }
 
         for field in fields {
@@ -432,7 +447,7 @@ impl Program {
         }
 
         if self.options.wrap_with_struct {
-            self.program.push(Bytecode::OuterRecordEnd(0));
+            self.program.push(Bytecode::OuterRecordEnd);
         }
 
         self.program.push(Bytecode::OuterSequenceEnd(0));
@@ -462,7 +477,7 @@ impl Program {
         let idx = self.structs.len();
 
         self.structs.push(StructDefinition::default());
-        self.program.push(Bytecode::StructStart(idx));
+        self.program.push(Bytecode::StructStart);
 
         let mut field_mapping = vec![];
 
@@ -475,7 +490,7 @@ impl Program {
             let f = self.compile_field(field)?;
             field_mapping.push(f);
         }
-        self.program.push(Bytecode::StructEnd(idx));
+        self.program.push(Bytecode::StructEnd);
 
         Ok(ArrayMapping::Struct {
             field: field.clone(),
@@ -512,7 +527,7 @@ impl Program {
         self.large_lists.push(ListDefinition::default());
         self.large_lists[idx].offset = offsets;
 
-        self.program.push(Bytecode::LargeListStart(idx));
+        self.program.push(Bytecode::LargeListStart);
         self.program.push(Bytecode::LargeListItem(idx, offsets));
         self.large_lists[idx].item = self.program.len();
 
@@ -624,6 +639,7 @@ impl Program {
         use GenericDataType as D;
 
         match field.data_type {
+            D::Null => compile_primtive!(self, field, validity, num_null, PushNull, Null),
             D::Bool => compile_primtive!(self, field, validity, num_bool, PushBool, Bool),
             D::U8 => compile_primtive!(self, field, validity, num_u8, PushU8, U8),
             D::U16 => compile_primtive!(self, field, validity, num_u16, PushU16, U16),
@@ -738,6 +754,9 @@ impl Program {
 
     fn validate_nulls(&self) -> Result<()> {
         for (idx, null) in self.nulls.iter().enumerate() {
+            if null.null.iter().any(|&idx| idx >= self.num_null) {
+                fail!("invalid null definition {idx}: null out of bounds {null:?}");
+            }
             if null.bool.iter().any(|&idx| idx >= self.num_bool) {
                 fail!("invalid null definition {idx}: bool out of bounds {null:?}");
             }
@@ -880,90 +899,5 @@ impl Program {
             _ => {}
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{compile_serialization, Bytecode};
-    use crate::{
-        _impl::bytecode::compiler::CompilationOptions,
-        internal::schema::{GenericDataType, GenericField},
-    };
-
-    #[test]
-    fn empty() {
-        let program = compile_serialization(&[], CompilationOptions::default()).unwrap();
-
-        assert_eq!(
-            program.program,
-            vec![
-                Bytecode::OuterSequenceStart(0),
-                Bytecode::OuterSequenceItem(0),
-                Bytecode::OuterRecordStart(0),
-                Bytecode::OuterRecordEnd(0),
-                Bytecode::OuterSequenceEnd(0),
-                Bytecode::ProgramEnd,
-            ],
-        );
-    }
-
-    #[test]
-    fn single_field_field() {
-        let program = compile_serialization(
-            &[GenericField::new("foo", GenericDataType::Bool, false)],
-            CompilationOptions::default(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            program.program,
-            vec![
-                Bytecode::OuterSequenceStart(0),
-                Bytecode::OuterSequenceItem(0),
-                Bytecode::OuterRecordStart(0),
-                Bytecode::OuterRecordField(0, "foo".into()),
-                Bytecode::PushBool(0),
-                Bytecode::OuterRecordEnd(0),
-                Bytecode::OuterSequenceEnd(0),
-                Bytecode::ProgramEnd,
-            ],
-        );
-    }
-
-    #[test]
-    fn nested_structs() {
-        let program = compile_serialization(
-            &[
-                GenericField::new("foo", GenericDataType::U8, true),
-                GenericField::new("bar", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("x", GenericDataType::F32, false))
-                    .with_child(GenericField::new("y", GenericDataType::F32, false)),
-            ],
-            CompilationOptions::default(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            program.program,
-            vec![
-                Bytecode::OuterSequenceStart(0),
-                Bytecode::OuterSequenceItem(0),
-                Bytecode::OuterRecordStart(0),
-                Bytecode::OuterRecordField(0, "foo".into()),
-                Bytecode::Option(6, 0),
-                Bytecode::PushU8(0),
-                Bytecode::OuterRecordField(0, "bar".into()),
-                Bytecode::StructStart(1),
-                Bytecode::StructField(1, "x".into()),
-                Bytecode::PushF32(0),
-                Bytecode::StructField(1, "y".into()),
-                Bytecode::PushF32(1),
-                Bytecode::StructEnd(1),
-                Bytecode::OuterRecordEnd(0),
-                Bytecode::OuterSequenceEnd(0),
-                Bytecode::ProgramEnd,
-            ],
-        );
     }
 }

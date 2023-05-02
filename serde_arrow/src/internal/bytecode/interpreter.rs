@@ -1,5 +1,5 @@
 use super::{
-    buffers::{BitBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
+    buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer},
     compiler::{
         ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition,
         UnionDefinition,
@@ -26,6 +26,7 @@ pub struct Interpreter {
 #[derive(Debug, Clone)]
 pub struct Buffers {
     pub bool: Vec<BitBuffer>,
+    pub null: Vec<NullBuffer>,
     pub u8: Vec<PrimitiveBuffer<u8>>,
     pub u16: Vec<PrimitiveBuffer<u16>>,
     pub u32: Vec<PrimitiveBuffer<u32>>,
@@ -64,6 +65,7 @@ impl Interpreter {
             array_mapping: program.array_mapping,
             program_counter: 0,
             buffers: Buffers {
+                null: vec![Default::default(); program.num_null],
                 u8: vec![Default::default(); program.num_u8],
                 u16: vec![Default::default(); program.num_u16],
                 u32: vec![Default::default(); program.num_u32],
@@ -120,7 +122,7 @@ impl EventSink for Interpreter {
         // TOOD: add new offset
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &(next, B::LargeListStart(_) | B::OuterSequenceStart(_)) => {
+            &(next, B::LargeListStart | B::OuterSequenceStart) => {
                 self.program_counter = next;
                 Ok(())
             }
@@ -153,7 +155,7 @@ impl EventSink for Interpreter {
     fn accept_start_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &(next, B::StructStart(_) | B::OuterRecordStart(_)) => {
+            &(next, B::StructStart | B::OuterRecordStart) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept StartStruct in {instr:?}"),
@@ -164,7 +166,7 @@ impl EventSink for Interpreter {
     fn accept_end_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &(next, B::StructEnd(_) | B::OuterRecordEnd(_)) => {
+            &(next, B::StructEnd | B::OuterRecordEnd) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept EndStruct in {instr:?}"),
@@ -199,7 +201,7 @@ impl EventSink for Interpreter {
         // TOOD: add new offset
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &(next, B::LargeListStart(_) | B::OuterSequenceStart(_)) => {
+            &(next, B::LargeListStart | B::OuterSequenceStart) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept StartTuple in {instr:?}"),
@@ -247,10 +249,10 @@ impl EventSink for Interpreter {
             &(next, B::Option(_, validity)) => {
                 self.buffers.validity[validity].push(true)?;
                 self.program_counter = next;
-                Ok(())
             }
             instr => fail!("Cannot accept Some in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_null(&mut self) -> Result<()> {
@@ -259,10 +261,14 @@ impl EventSink for Interpreter {
             &(_, B::Option(if_none, validity)) => {
                 self.apply_null(validity)?;
                 self.program_counter = if_none;
-                Ok(())
+            }
+            &(next, B::PushNull(idx)) => {
+                self.buffers.null[idx].push(())?;
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept Null in {instr:?}"),
         }
+        Ok(())
     }
     fn accept_default(&mut self) -> Result<()> {
         match &self.program[self.program_counter] {
@@ -318,6 +324,7 @@ macro_rules! apply_null {
 
 impl Interpreter {
     fn apply_null(&mut self, validity: usize) -> Result<()> {
+        apply_null!(self, validity, null);
         apply_null!(self, validity, bool);
         apply_null!(self, validity, u8);
         apply_null!(self, validity, u16);

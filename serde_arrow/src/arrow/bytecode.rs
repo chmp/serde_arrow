@@ -1,11 +1,12 @@
 #![allow(missing_docs)]
+
 use crate::internal::{
     bytecode::{compiler::ArrayMapping, interpreter::Buffers, Interpreter},
     error::Result,
 };
 
 use crate::_impl::arrow::{
-    array::{make_array, ArrayData, ArrayRef},
+    array::{make_array, Array, ArrayData, ArrayRef, NullArray},
     buffer::{Buffer, ScalarBuffer},
     datatypes::{DataType, Field},
 };
@@ -51,6 +52,7 @@ macro_rules! build_primitive_array_data {
 pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<ArrayData> {
     use ArrayMapping as M;
     match mapping {
+        &M::Null { buffer, .. } => Ok(NullArray::new(buffers.null[buffer].len()).into_data()),
         &M::Bool {
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Boolean, bool, buffer, validity),
