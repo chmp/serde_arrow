@@ -291,6 +291,18 @@ impl EventSink for Interpreter {
                 self.buffers.large_utf8[idx].push(val)?;
                 self.program_counter = next;
             }
+            &(next, B::PushDate64FromNaiveStr(idx)) => {
+                use chrono::NaiveDateTime;
+
+                self.buffers.i64[idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
+                self.program_counter = next;
+            }
+            &(next, B::PushDate64FromUtcStr(idx)) => {
+                use chrono::{DateTime, Utc};
+
+                self.buffers.i64[idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
+                self.program_counter = next;
+            }
             instr => fail!("Cannot accept Str in {instr:?}"),
         }
         Ok(())

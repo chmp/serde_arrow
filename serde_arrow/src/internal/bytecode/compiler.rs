@@ -83,6 +83,8 @@ pub enum Bytecode {
     PushF64(usize),
     PushBool(usize),
     PushUTF8(usize),
+    PushDate64FromNaiveStr(usize),
+    PushDate64FromUtcStr(usize),
     PushLargeUTF8(usize),
     /// `Option(if_none, validity)`
     Option(usize, usize),
@@ -323,6 +325,11 @@ pub enum ArrayMapping {
         validity: Option<usize>,
     },
     LargeUtf8 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    Date64 {
         field: GenericField,
         buffer: usize,
         validity: Option<usize>,
@@ -683,6 +690,21 @@ impl Program {
                 PushLargeUTF8,
                 LargeUtf8
             ),
+            D::Date64 => match field.strategy.as_ref() {
+                Some(Strategy::NaiveStrAsDate64) => compile_primtive!(
+                    self,
+                    field,
+                    validity,
+                    num_i64,
+                    PushDate64FromNaiveStr,
+                    Date64
+                ),
+                Some(Strategy::UtcStrAsDate64) => {
+                    compile_primtive!(self, field, validity, num_i64, PushDate64FromUtcStr, Date64)
+                }
+                Some(strategy) => fail!("Cannot compile Date64 with strategy {strategy}"),
+                None => fail!("Cannot compile Date64 without strategy"),
+            },
             D::Struct => self.compile_struct(field, validity),
             D::List => self.compile_list(field, validity),
             D::LargeList => self.compile_large_list(field, validity),

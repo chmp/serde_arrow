@@ -86,6 +86,9 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         &M::F64 {
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Float64, f64, buffer, validity),
+        &M::Date64 {
+            buffer, validity, ..
+        } => build_primitive_array_data!(buffers, Date64, i64, buffer, validity),
         &M::Utf8 {
             buffer, validity, ..
         } => {
