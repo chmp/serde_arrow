@@ -3,7 +3,7 @@
 use crate::internal::{
     bytecode::{
         buffers::{BitBuffer, PrimitiveBuffer, StringBuffer},
-        compiler::ArrayMapping,
+        compiler::{ArrayMapping, DictionaryIndices, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
     },
@@ -217,18 +217,61 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
 
             Ok(array_data_builder.build()?)
         }
-        M::DictionaryU32LargeUtf8 {
+        M::Dictionary {
             field,
             dictionary,
             indices,
             validity,
         } => {
-            let indices = std::mem::take(&mut buffers.u32[*indices]);
+            use {DictionaryIndices as I, DictionaryValue as V};
             let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
-            let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dictionary]);
 
-            let indices = build_array_data_primitive(DataType::UInt32, indices, validity)?;
-            let values = build_array_data_large_utf8(dictionary.values, None)?;
+            let indices = match indices {
+                I::U8(indices) => {
+                    let indices = std::mem::take(&mut buffers.u8[*indices]);
+                    build_array_data_primitive(DataType::UInt8, indices, validity)?
+                }
+                I::U16(indices) => {
+                    let indices = std::mem::take(&mut buffers.u16[*indices]);
+                    build_array_data_primitive(DataType::UInt16, indices, validity)?
+                }
+                I::U32(indices) => {
+                    let indices = std::mem::take(&mut buffers.u32[*indices]);
+                    build_array_data_primitive(DataType::UInt32, indices, validity)?
+                }
+                I::U64(indices) => {
+                    let indices = std::mem::take(&mut buffers.u64[*indices]);
+                    build_array_data_primitive(DataType::UInt64, indices, validity)?
+                }
+                I::I8(indices) => {
+                    let indices = std::mem::take(&mut buffers.i8[*indices]);
+                    build_array_data_primitive(DataType::Int8, indices, validity)?
+                }
+                I::I16(indices) => {
+                    let indices = std::mem::take(&mut buffers.i16[*indices]);
+                    build_array_data_primitive(DataType::Int16, indices, validity)?
+                }
+                I::I32(indices) => {
+                    let indices = std::mem::take(&mut buffers.i32[*indices]);
+                    build_array_data_primitive(DataType::Int32, indices, validity)?
+                }
+                I::I64(indices) => {
+                    let indices = std::mem::take(&mut buffers.i64[*indices]);
+                    build_array_data_primitive(DataType::Int64, indices, validity)?
+                }
+            };
+
+            let values = match dictionary {
+                V::Utf8(dict) => {
+                    let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
+                    build_array_data_utf8(dictionary.values, None)?
+                }
+                V::LargeUtf8(dict) => {
+                    let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
+                    build_array_data_large_utf8(dictionary.values, None)?
+                }
+            };
+
             let data_type = Field::try_from(field)?.data_type().clone();
 
             Ok(indices

@@ -50,6 +50,24 @@ impl Counter for usize {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DictionaryIndices {
+    U8(usize),
+    U16(usize),
+    U32(usize),
+    U64(usize),
+    I8(usize),
+    I16(usize),
+    I32(usize),
+    I64(usize),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DictionaryValue {
+    Utf8(usize),
+    LargeUtf8(usize),
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Bytecode {
     ProgramEnd,
@@ -86,8 +104,8 @@ pub enum Bytecode {
     PushLargeUTF8(usize),
     PushDate64FromNaiveStr(usize),
     PushDate64FromUtcStr(usize),
-    /// `PushDictionaryU32LargeUTF8(dictionary, indices)`
-    PushDictionaryU32LargeUTF8(usize, usize),
+    /// `PushDictionaryU8LargeUTF8(dictionary, indices)`
+    PushDictionary(DictionaryValue, DictionaryIndices),
     /// `Option(if_none, validity)`
     Option(usize, usize),
     ///  `Variant(union_idx, type)`
@@ -241,10 +259,19 @@ impl NullDefinition {
                 self.large_offsets.push(*offsets);
                 self.validity.extend(validity.iter().copied());
             }
-            &ArrayMapping::DictionaryU32LargeUtf8 {
+            &ArrayMapping::Dictionary {
                 indices, validity, ..
             } => {
-                self.u32.push(indices);
+                match indices {
+                    DictionaryIndices::U8(idx) => self.u8.push(idx),
+                    DictionaryIndices::U16(idx) => self.u16.push(idx),
+                    DictionaryIndices::U32(idx) => self.u32.push(idx),
+                    DictionaryIndices::U64(idx) => self.u64.push(idx),
+                    DictionaryIndices::I8(idx) => self.i8.push(idx),
+                    DictionaryIndices::I16(idx) => self.i16.push(idx),
+                    DictionaryIndices::I32(idx) => self.i32.push(idx),
+                    DictionaryIndices::I64(idx) => self.i64.push(idx),
+                }
                 self.validity.extend(validity);
             }
             m => todo!("cannot update null definition from {m:?}"),
@@ -354,10 +381,10 @@ pub enum ArrayMapping {
         offsets: usize,
         validity: Option<usize>,
     },
-    DictionaryU32LargeUtf8 {
+    Dictionary {
         field: GenericField,
-        dictionary: usize,
-        indices: usize,
+        dictionary: DictionaryValue,
+        indices: DictionaryIndices,
         validity: Option<usize>,
     },
     LargeList {
@@ -405,6 +432,7 @@ pub struct Program {
     pub(crate) num_validity: usize,
     pub(crate) num_offsets: usize,
     pub(crate) num_large_offsets: usize,
+    pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
 }
 
@@ -436,6 +464,7 @@ impl Program {
             num_validity: 0,
             num_offsets: 0,
             num_large_offsets: 0,
+            num_dictionaries: 0,
             num_large_dictionaries: 0,
         }
     }
@@ -747,22 +776,31 @@ impl Program {
             fail!("Dictionary must have 2 children");
         }
 
-        match &field.children[0].data_type {
-            GenericDataType::U32 => {}
-            dt => fail!("Cannot compile dictionary with indices of type {dt}"),
-        };
-        match &field.children[1].data_type {
-            GenericDataType::LargeUtf8 => {}
-            dt => fail!("Cannot compile dictionary with indices of type {dt}"),
+        use {
+            ArrayMapping as M, Bytecode as B, DictionaryIndices as I, DictionaryValue as V,
+            GenericDataType as D,
         };
 
-        let dictionary = self.num_large_dictionaries.next_value();
-        let indices = self.num_u32.next_value();
+        let indices = match &field.children[0].data_type {
+            D::U8 => I::U8(self.num_u8.next_value()),
+            D::U16 => I::U16(self.num_u16.next_value()),
+            D::U32 => I::U32(self.num_u32.next_value()),
+            D::U64 => I::U64(self.num_u64.next_value()),
+            D::I8 => I::I8(self.num_i8.next_value()),
+            D::I16 => I::I16(self.num_i16.next_value()),
+            D::I32 => I::I32(self.num_i32.next_value()),
+            D::I64 => I::I64(self.num_i64.next_value()),
+            dt => fail!("cannot compile dictionary with indices of type {dt}"),
+        };
 
-        self.program
-            .push(Bytecode::PushDictionaryU32LargeUTF8(dictionary, indices));
+        let dictionary = match &field.children[1].data_type {
+            D::Utf8 => V::Utf8(self.num_dictionaries.next_value()),
+            D::LargeUtf8 => V::LargeUtf8(self.num_large_dictionaries.next_value()),
+            dt => fail!("cannot compile dictionary with values of type {dt}"),
+        };
+        self.program.push(B::PushDictionary(dictionary, indices));
 
-        Ok(ArrayMapping::DictionaryU32LargeUtf8 {
+        Ok(M::Dictionary {
             field: field.clone(),
             dictionary,
             indices,

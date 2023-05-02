@@ -3,8 +3,8 @@ use super::{
         BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
     },
     compiler::{
-        ArrayMapping, Bytecode, ListDefinition, NullDefinition, Program, StructDefinition,
-        UnionDefinition,
+        ArrayMapping, Bytecode, DictionaryIndices, DictionaryValue, ListDefinition, NullDefinition,
+        Program, StructDefinition, UnionDefinition,
     },
 };
 
@@ -44,6 +44,7 @@ pub struct Buffers {
     pub validity: Vec<BitBuffer>,
     pub offset: Vec<OffsetBuilder<i32>>,
     pub large_offset: Vec<OffsetBuilder<i64>>,
+    pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
 }
 
@@ -85,6 +86,7 @@ impl Interpreter {
                 validity: vec![Default::default(); program.num_validity],
                 offset: vec![Default::default(); program.num_offsets],
                 large_offset: vec![Default::default(); program.num_large_offsets],
+                dictionaries: vec![Default::default(); program.num_dictionaries],
                 large_dictionaries: vec![Default::default(); program.num_large_dictionaries],
             },
         }
@@ -307,10 +309,22 @@ impl EventSink for Interpreter {
                 self.buffers.i64[idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
                 self.program_counter = next;
             }
-            &(next, B::PushDictionaryU32LargeUTF8(dictionary, indices)) => {
-                let idx = self.buffers.large_dictionaries[dictionary].push(val)?;
-                self.buffers.u32[indices].push(idx.try_into()?)?;
-
+            &(next, B::PushDictionary(dictionary, indices)) => {
+                use {DictionaryIndices as I, DictionaryValue as V};
+                let idx = match dictionary {
+                    V::Utf8(dict) => self.buffers.dictionaries[dict].push(val)?,
+                    V::LargeUtf8(dict) => self.buffers.large_dictionaries[dict].push(val)?,
+                };
+                match indices {
+                    I::U8(indices) => self.buffers.u8[indices].push(idx.try_into()?)?,
+                    I::U16(indices) => self.buffers.u16[indices].push(idx.try_into()?)?,
+                    I::U32(indices) => self.buffers.u32[indices].push(idx.try_into()?)?,
+                    I::U64(indices) => self.buffers.u64[indices].push(idx.try_into()?)?,
+                    I::I8(indices) => self.buffers.i8[indices].push(idx.try_into()?)?,
+                    I::I16(indices) => self.buffers.i16[indices].push(idx.try_into()?)?,
+                    I::I32(indices) => self.buffers.i32[indices].push(idx.try_into()?)?,
+                    I::I64(indices) => self.buffers.i64[indices].push(idx.try_into()?)?,
+                }
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept Str in {instr:?}"),

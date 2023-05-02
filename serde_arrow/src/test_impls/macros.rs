@@ -200,6 +200,7 @@ macro_rules! test_compilation_impl {
                     &[field],
                     CompilationOptions::default().wrap_with_struct(false),
                 ).unwrap();
+                println!("{:?}", program.program);
                 let mut interpreter = Interpreter::new(program);
                 serialize_into_sink(&mut interpreter, items).unwrap();
 
