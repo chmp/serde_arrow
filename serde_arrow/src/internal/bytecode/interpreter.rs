@@ -186,11 +186,11 @@ impl EventSink for Interpreter {
                 self.buffers.large_offset[offsets].inc_current_items()?;
                 self.program_counter = self.lists[idx].item;
             }
-            &(next, B::OuterSequenceItem(_)) => {
-                self.program_counter = next;
-            }
             &(_, B::OuterSequenceEnd(idx)) => {
                 self.program_counter = self.lists[idx].item;
+            }
+            &(next, B::OuterSequenceItem(_) | B::TupleStructItem) => {
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept Item in {instr:?}"),
         }
@@ -201,7 +201,7 @@ impl EventSink for Interpreter {
         // TOOD: add new offset
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            &(next, B::LargeListStart | B::OuterSequenceStart) => {
+            &(next, B::LargeListStart | B::OuterSequenceStart | B::TupleStructStart) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept StartTuple in {instr:?}"),
@@ -220,11 +220,11 @@ impl EventSink for Interpreter {
                 self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter = self.lists[idx].r#return;
             }
-            &(next, B::OuterSequenceEnd(_)) => {
-                self.program_counter = next;
-            }
             &(_, B::OuterSequenceItem(idx)) => {
                 self.program_counter = self.lists[idx].r#return;
+            }
+            &(next, B::OuterSequenceEnd(_) | B::TupleStructEnd) => {
+                self.program_counter = next;
             }
             instr => fail!("Cannot accept EndTuple in {instr:?}"),
         }

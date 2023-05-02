@@ -5,6 +5,7 @@ use crate::{
         error::{error, fail},
         schema::{GenericDataType, GenericField},
     },
+    schema::Strategy,
     Result,
 };
 
@@ -66,6 +67,9 @@ pub enum Bytecode {
     StructStart,
     StructField(usize, String),
     StructEnd,
+    TupleStructStart,
+    TupleStructItem,
+    TupleStructEnd,
     PushNull(usize),
     PushU8(usize),
     PushU16(usize),
@@ -474,23 +478,42 @@ impl Program {
             }
         }
 
+        let is_tuple = match field.strategy.as_ref() {
+            None => false,
+            Some(Strategy::TupleAsStruct) => true,
+            Some(strategy) => fail!("Cannot compile struct with strategy {strategy}"),
+        };
+
         let idx = self.structs.len();
 
-        self.structs.push(StructDefinition::default());
-        self.program.push(Bytecode::StructStart);
+        if !is_tuple {
+            self.structs.push(StructDefinition::default());
+            self.program.push(Bytecode::StructStart);
+        } else {
+            self.program.push(Bytecode::TupleStructStart);
+        }
 
         let mut field_mapping = vec![];
 
         for field in &field.children {
-            self.structs[idx]
-                .fields
-                .insert(field.name.to_string(), self.program.len());
-            self.program
-                .push(Bytecode::StructField(idx, field.name.to_string()));
+            if !is_tuple {
+                self.structs[idx]
+                    .fields
+                    .insert(field.name.to_string(), self.program.len());
+                self.program
+                    .push(Bytecode::StructField(idx, field.name.to_string()));
+            } else {
+                self.program.push(Bytecode::TupleStructItem);
+            }
             let f = self.compile_field(field)?;
             field_mapping.push(f);
         }
-        self.program.push(Bytecode::StructEnd);
+
+        if !is_tuple {
+            self.program.push(Bytecode::StructEnd);
+        } else {
+            self.program.push(Bytecode::TupleStructEnd);
+        }
 
         Ok(ArrayMapping::Struct {
             field: field.clone(),
