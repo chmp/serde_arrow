@@ -64,4 +64,21 @@ test_example!(
     },
 );
 
-// TODO: test chrono serialized as millis directly using serde attributes
+test_example!(
+    test_name = utc_as_date64_as_millis,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::I64, false),
+    overwrite_field = GenericField::new("root", GenericDataType::Date64, false),
+    ty = T,
+    values = [
+        T(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        T(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap())
+    ],
+    nulls = [false, false],
+    define = {
+        use chrono::{DateTime, TimeZone, Utc};
+
+        #[derive(Debug, Serialize)]
+        struct T(#[serde(with = "chrono::serde::ts_milliseconds")] DateTime<Utc>);
+    },
+);

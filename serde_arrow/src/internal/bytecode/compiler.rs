@@ -753,8 +753,8 @@ impl Program {
                 Some(Strategy::UtcStrAsDate64) => {
                     compile_primtive!(self, field, validity, num_i64, PushDate64FromUtcStr, Date64)
                 }
+                None => compile_primtive!(self, field, validity, num_i64, PushI64, Date64),
                 Some(strategy) => fail!("Cannot compile Date64 with strategy {strategy}"),
-                None => fail!("Cannot compile Date64 without strategy"),
             },
             D::Dictionary => self.compile_dictionary(field, validity),
             D::Struct => self.compile_struct(field, validity),
