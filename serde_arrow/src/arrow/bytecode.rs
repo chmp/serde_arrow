@@ -1,14 +1,19 @@
 #![allow(missing_docs)]
 
 use crate::internal::{
-    bytecode::{compiler::ArrayMapping, interpreter::Buffers, Interpreter},
+    bytecode::{
+        buffers::{BitBuffer, PrimitiveBuffer, StringBuffer},
+        compiler::ArrayMapping,
+        interpreter::Buffers,
+        Interpreter,
+    },
     error::Result,
 };
 
 use crate::_impl::arrow::{
     array::{make_array, Array, ArrayData, ArrayRef, NullArray},
     buffer::{Buffer, ScalarBuffer},
-    datatypes::{DataType, Field},
+    datatypes::{ArrowNativeType, DataType, Field},
 };
 
 impl Interpreter {
@@ -27,16 +32,11 @@ impl Interpreter {
 macro_rules! build_primitive_array_data {
     ($buffers:expr, $dtype:ident, $ty:ident, $buffer:expr, $validity:expr) => {{
         let data = std::mem::take(&mut $buffers.$ty[$buffer]);
+        let validity = $validity.map(|validity| std::mem::take(&mut $buffers.validity[validity]));
 
         let len = data.len();
         let data = ScalarBuffer::from(data.buffer).into_inner();
-
-        let validity = if let Some(validity) = $validity {
-            let validity = std::mem::take(&mut $buffers.validity[validity]);
-            Some(Buffer::from(validity.buffer))
-        } else {
-            None
-        };
+        let validity = validity.map(|b| Buffer::from(b.buffer));
 
         Ok(ArrayData::try_new(
             DataType::$dtype,
@@ -92,52 +92,16 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         &M::Utf8 {
             buffer, validity, ..
         } => {
-            let buffer = std::mem::take(&mut buffers.utf8[buffer]);
-            let len = buffer.len();
-
-            let offsets = ScalarBuffer::from(buffer.offsets.offsets).into_inner();
-            let data = ScalarBuffer::from(buffer.data).into_inner();
-
-            let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[validity]);
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            Ok(ArrayData::try_new(
-                DataType::LargeUtf8,
-                len,
-                validity,
-                0,
-                vec![offsets, data],
-                vec![],
-            )?)
+            let values = std::mem::take(&mut buffers.utf8[buffer]);
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            build_array_data_utf8(values, validity)
         }
         &M::LargeUtf8 {
             buffer, validity, ..
         } => {
-            let buffer = std::mem::take(&mut buffers.large_utf8[buffer]);
-            let len = buffer.len();
-
-            let offsets = ScalarBuffer::from(buffer.offsets.offsets).into_inner();
-            let data = ScalarBuffer::from(buffer.data).into_inner();
-
-            let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[validity]);
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            Ok(ArrayData::try_new(
-                DataType::LargeUtf8,
-                len,
-                validity,
-                0,
-                vec![offsets, data],
-                vec![],
-            )?)
+            let values = std::mem::take(&mut buffers.large_utf8[buffer]);
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            build_array_data_large_utf8(values, validity)
         }
         M::Struct {
             field,
@@ -260,37 +224,12 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             validity,
         } => {
             let indices = std::mem::take(&mut buffers.u32[*indices]);
-
-            let len = indices.len();
-            let indices = ScalarBuffer::from(indices.buffer).into_inner();
-
-            let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[*validity]);
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            let indices =
-                ArrayData::try_new(DataType::UInt32, len, validity, 0, vec![indices], vec![])?;
-
+            let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
             let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dictionary]);
-            let values_len = dictionary.values.len();
 
-            let offsets = ScalarBuffer::from(dictionary.values.offsets.offsets).into_inner();
-            let data = ScalarBuffer::from(dictionary.values.data).into_inner();
-
-            let values = ArrayData::try_new(
-                DataType::LargeUtf8,
-                values_len,
-                None,
-                0,
-                vec![offsets, data],
-                vec![],
-            )?;
-
-            let field: Field = field.try_into()?;
-            let data_type = field.data_type().clone();
+            let indices = build_array_data_primitive(DataType::UInt32, indices, validity)?;
+            let values = build_array_data_large_utf8(dictionary.values, None)?;
+            let data_type = Field::try_from(field)?.data_type().clone();
 
             Ok(indices
                 .into_builder()
@@ -299,4 +238,63 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
                 .build()?)
         }
     }
+}
+
+fn build_array_data_utf8(
+    values: StringBuffer<i32>,
+    validity: Option<BitBuffer>,
+) -> Result<ArrayData> {
+    let values_len = values.len();
+
+    let offsets = ScalarBuffer::from(values.offsets.offsets).into_inner();
+    let data = ScalarBuffer::from(values.data).into_inner();
+    let validity = validity.map(|b| Buffer::from(b.buffer));
+
+    Ok(ArrayData::try_new(
+        DataType::Utf8,
+        values_len,
+        validity,
+        0,
+        vec![offsets, data],
+        vec![],
+    )?)
+}
+
+fn build_array_data_large_utf8(
+    values: StringBuffer<i64>,
+    validity: Option<BitBuffer>,
+) -> Result<ArrayData> {
+    let values_len = values.len();
+
+    let offsets = ScalarBuffer::from(values.offsets.offsets).into_inner();
+    let data = ScalarBuffer::from(values.data).into_inner();
+    let validity = validity.map(|b| Buffer::from(b.buffer));
+
+    Ok(ArrayData::try_new(
+        DataType::LargeUtf8,
+        values_len,
+        validity,
+        0,
+        vec![offsets, data],
+        vec![],
+    )?)
+}
+
+fn build_array_data_primitive<T: ArrowNativeType>(
+    data_type: DataType,
+    data: PrimitiveBuffer<T>,
+    validity: Option<BitBuffer>,
+) -> Result<ArrayData> {
+    let len = data.len();
+    let data = ScalarBuffer::from(data.buffer).into_inner();
+    let validity = validity.map(|b| Buffer::from(b.buffer));
+
+    Ok(ArrayData::try_new(
+        data_type,
+        len,
+        validity,
+        0,
+        vec![data],
+        vec![],
+    )?)
 }
