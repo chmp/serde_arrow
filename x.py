@@ -58,6 +58,7 @@ def check():
 @cmd()
 def lint():
     check_cargo_toml()
+    check_rust_cfg()
     cargo("clippy", "--features", default_features)
 
 
@@ -110,6 +111,11 @@ def check_cargo_toml():
 
 
 @cmd()
+def check_rust_cfg():
+    pass
+
+
+@cmd()
 def bench():
     cargo("bench", "--features", default_features)
     summarize_bench()
@@ -151,23 +157,27 @@ def summarize_bench(update=False):
     print(format_benchmark(mean_times))
 
     if update:
-        print("Update readme")
-        with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
-            lines = [line.rstrip() for line in fobj]
+        update_readme(mean_times)
 
-        active = False
-        with open(self_path / "Readme.md", "wt", encoding="utf8") as fobj:
-            for line in lines:
-                if not active:
+
+def update_readme(mean_times):
+    print("Update readme")
+    with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
+        lines = [line.rstrip() for line in fobj]
+
+    active = False
+    with open(self_path / "Readme.md", "wt", encoding="utf8") as fobj:
+        for line in lines:
+            if not active:
+                print(line, file=fobj)
+                if line.strip() == "<!-- start:benchmarks -->":
+                    active = True
+
+            else:
+                if line.strip() == "<!-- end:benchmarks -->":
+                    print(format_benchmark(mean_times), file=fobj)
                     print(line, file=fobj)
-                    if line.strip() == "<!-- start:benchmarks -->":
-                        active = True
-
-                else:
-                    if line.strip() == "<!-- end:benchmarks -->":
-                        print(format_benchmark(mean_times), file=fobj)
-                        print(line, file=fobj)
-                        active = False
+                    active = False
 
 
 def format_benchmark(mean_times):
@@ -208,7 +218,7 @@ def format_benchmark(mean_times):
 
 
 @cmd()
-def summarize_progress():
+def summarize_status():
     pat = r"^\s*test_compilation\s*=\s*(true|false)\s*,\s*$"
 
     counts = collections.Counter(
