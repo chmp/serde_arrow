@@ -57,4 +57,28 @@ test_example!(
     },
 );
 
-// TODO: test nested unions
+test_example!(
+    test_name = union_nested,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("U32", GenericDataType::U32, false))
+        .with_child(GenericField::new("O", GenericDataType::Union, false)
+            .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
+            .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false))),
+    ty = U,
+    values = [U::U32(32), U::O(O::Bool(true)), U::O(O::Str("hello world")), U::U32(16)],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize)]
+        enum U {
+            U32(u32),
+            O(O),
+        }
+
+        #[derive(Serialize)]
+        enum O {
+            Bool(bool),
+            Str(&'static str),
+        }
+    },
+);
