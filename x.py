@@ -236,6 +236,14 @@ def summarize_status():
         f"({counts['true'] / (counts['true'] + counts['false']):.0%})",
     )
 
+    num_îgnored_tests = sum(
+        1
+        for p in self_path.glob("serde_arrow/**/*.rs")
+        for line in p.read_text(encoding="utf8").splitlines()
+        if line.strip() == "#[ignore]"
+    )
+    print("ignore tests: ", num_îgnored_tests)
+
     print()
     print("# Todo comments:")
     for p in self_path.glob("serde_arrow/**/*.rs"):

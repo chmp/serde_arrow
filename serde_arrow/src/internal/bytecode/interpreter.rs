@@ -94,14 +94,16 @@ impl Interpreter {
 }
 
 macro_rules! accept_primitive {
-    ($func:ident, $variant:ident, $builder:ident, $ty:ty) => {
+    ($func:ident, $ty:ty, $(($builder:ident, $variant:ident),)*) => {
         fn $func(&mut self, val: $ty) -> crate::Result<()> {
             match &self.program[self.program_counter] {
-                &(next, Bytecode::$variant(array_idx)) => {
-                    self.buffers.$builder[array_idx].push(val)?;
-                    self.program_counter = next;
-                    Ok(())
-                }
+                $(
+                    &(next, Bytecode::$variant(array_idx)) => {
+                        self.buffers.$builder[array_idx].push(val.try_into()?)?;
+                        self.program_counter = next;
+                        Ok(())
+                    }
+                )*
                 instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
             }
         }
@@ -112,17 +114,105 @@ macro_rules! accept_primitive {
 impl EventSink for Interpreter {
     macros::forward_generic_to_specialized!();
 
-    accept_primitive!(accept_u8, PushU8, u8, u8);
-    accept_primitive!(accept_u16, PushU16, u16, u16);
-    accept_primitive!(accept_u32, PushU32, u32, u32);
-    accept_primitive!(accept_u64, PushU64, u64, u64);
-    accept_primitive!(accept_i8, PushI8, i8, i8);
-    accept_primitive!(accept_i16, PushI16, i16, i16);
-    accept_primitive!(accept_i32, PushI32, i32, i32);
-    accept_primitive!(accept_i64, PushI64, i64, i64);
-    accept_primitive!(accept_f32, PushF32, f32, f32);
-    accept_primitive!(accept_f64, PushF64, f64, f64);
-    accept_primitive!(accept_bool, PushBool, bool, bool);
+    accept_primitive!(
+        accept_u8,
+        u8,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_u16,
+        u16,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_u32,
+        u32,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_u64,
+        u64,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_i8,
+        i8,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_i16,
+        i16,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_i32,
+        i32,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(
+        accept_i64,
+        i64,
+        (u8, PushU8),
+        (u16, PushU16),
+        (u32, PushU32),
+        (u64, PushU64),
+        (i8, PushI8),
+        (i16, PushI16),
+        (i32, PushI32),
+        (i64, PushI64),
+    );
+    accept_primitive!(accept_f32, f32, (f32, PushF32),);
+    accept_primitive!(accept_f64, f64, (f64, PushF64),);
+    accept_primitive!(accept_bool, bool, (bool, PushBool),);
 
     fn accept_start_sequence(&mut self) -> crate::Result<()> {
         // TOOD: add new offset

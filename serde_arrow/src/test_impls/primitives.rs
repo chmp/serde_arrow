@@ -259,3 +259,16 @@ test_example!(
     values = [Some("a"), None, None, Some("d")],
     nulls = [false, true, true, false],
 );
+
+// TODO: test that primitives can be converted into each other
+test_example!(
+    test_name = u8_to_u16,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::U8, false),
+    overwrite_field = GenericField::new("root", GenericDataType::U16, false),
+    ty = u8,
+    values = [1, 2, 3, 4],
+    nulls = [false, false, false, false],
+);
+
+// TODO: test chars

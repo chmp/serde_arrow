@@ -86,6 +86,37 @@ macro_rules! test_example_impl {
         }
 
         #[test]
+        fn compatible_fields() {
+            $($($definitions)*)?
+
+            let items: &[$ty] = &$values;
+            let field = $field;
+            $(let field = $overwrite_field;)?
+
+            #[allow(unused)]
+            let options = TracingOptions::default();
+            $(let options = $tracing_options;)?
+
+            println!("{options:?}");
+
+            let traced = serialize_into_field(&items, "root", options).unwrap();
+            let traced: GenericField = (&traced).try_into().unwrap();
+
+            assert!(
+                traced.is_compatible(&field),
+                concat!(
+                    "\n\n",
+                    "[{test_name}] Incompatible fields.\n",
+                    "Traced:  {traced:?}\n",
+                    "Defined: {defined:?}\n",
+                ),
+                test_name = stringify!($test_name),
+                traced = traced,
+                defined = field,
+            );
+        }
+
+        #[test]
         fn serialization() {
             $($($definitions)*)?
 

@@ -12,6 +12,64 @@ use crate::internal::{
 
 use super::sink::macros;
 
+/// Test that two fields are compatible with each other
+///
+fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
+    // TODO: add more tests
+    if !left.is_valid() || !right.is_valid() {
+        return false;
+    }
+    if left == right {
+        return true;
+    }
+
+    let (left, right) = if left.data_type > right.data_type {
+        (right, left)
+    } else {
+        (left, right)
+    };
+
+    use GenericDataType as D;
+
+    match &left.data_type {
+        D::I8 => matches!(
+            &right.data_type,
+            D::I16 | D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
+        ),
+        D::I16 => matches!(
+            &right.data_type,
+            D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
+        ),
+        D::I32 => matches!(&right.data_type, D::I64 | D::U8 | D::U16 | D::U32 | D::U64),
+        D::I64 => matches!(
+            &right.data_type,
+            D::U8 | D::U16 | D::U32 | D::U64 | D::Date64
+        ),
+        D::U8 => matches!(&right.data_type, D::U16 | D::U32 | D::U64),
+        D::U16 => matches!(&right.data_type, D::U32 | D::U64),
+        D::U32 => matches!(&right.data_type, D::U64),
+        D::Utf8 => match &right.data_type {
+            D::LargeUtf8 => true,
+            D::Dictionary => true,
+            D::Date64 => matches!(
+                &right.strategy,
+                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
+            ),
+            _ => false,
+        },
+        D::LargeUtf8 => match &right.data_type {
+            D::Dictionary => true,
+            D::Date64 => matches!(
+                &right.strategy,
+                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
+            ),
+            _ => false,
+        },
+        D::Dictionary => right.data_type == D::Dictionary,
+        _ => false,
+    }
+}
+
 /// The metadata key under which to store the strategy
 ///
 /// See the [module][crate::schema] for details.
@@ -107,7 +165,7 @@ impl From<Strategy> for HashMap<String, String> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GenericDataType {
     Null,
     Bool,
@@ -183,6 +241,31 @@ impl GenericField {
         }
     }
 
+    // TODO: implement checks for the different data types
+    pub fn is_valid(&self) -> bool {
+        match self.data_type {
+            GenericDataType::Null => self.is_valid_primitive(),
+            GenericDataType::Bool => self.is_valid_primitive(),
+            GenericDataType::U8 => self.is_valid_primitive(),
+            GenericDataType::U16 => self.is_valid_primitive(),
+            GenericDataType::U32 => self.is_valid_primitive(),
+            GenericDataType::U64 => self.is_valid_primitive(),
+            GenericDataType::I8 => self.is_valid_primitive(),
+            GenericDataType::I16 => self.is_valid_primitive(),
+            GenericDataType::I32 => self.is_valid_primitive(),
+            GenericDataType::I64 => self.is_valid_primitive(),
+            GenericDataType::F32 => self.is_valid_primitive(),
+            GenericDataType::F64 => self.is_valid_primitive(),
+            _ => true,
+        }
+    }
+
+    /// Test that the fields is compatible wiht the current one
+    ///
+    pub fn is_compatible(&self, other: &GenericField) -> bool {
+        field_is_compatible(self, other)
+    }
+
     pub fn with_child(mut self, child: GenericField) -> Self {
         self.children.push(child);
         self
@@ -191,6 +274,12 @@ impl GenericField {
     pub fn with_strategy(mut self, strategy: Strategy) -> Self {
         self.strategy = Some(strategy);
         self
+    }
+}
+
+impl GenericField {
+    fn is_valid_primitive(&self) -> bool {
+        self.strategy.is_none() && self.children.is_empty()
     }
 }
 

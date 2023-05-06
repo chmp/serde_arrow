@@ -249,9 +249,11 @@ pub use crate::internal::error::{Error, Result};
 /// This module collects helpers to convert objects to events and back.
 ///
 pub mod base {
-    pub use crate::internal::event::Event;
-    pub use crate::internal::sink::{serialize_into_sink, EventSink};
-    pub use crate::internal::source::{deserialize_from_source, EventSource};
+    pub use crate::internal::{
+        event::Event,
+        sink::{serialize_into_sink, EventSink},
+        source::{deserialize_from_source, EventSource},
+    };
 }
 
 /// Helpers to configure how Arrow and Rust types are translated into one
