@@ -64,6 +64,21 @@ test_example!(
 );
 
 test_example!(
+    test_name = map_as_struct_nullable_fields,
+    test_compilation = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::U32, true))
+        .with_child(GenericField::new("b", GenericDataType::U32, true)),
+    ty = BTreeMap<String, Option<u32>>,
+    values = [
+        btree_map!{ "a" => Some(1_u32), "b" => Some(4_u32) },
+        btree_map!{ "a" => Some(3_u32), "b" => None },
+    ],
+    nulls = [false, false],
+);
+
+test_example!(
     test_name = map_as_map,
     test_compilation = false,
     tracing_options = TracingOptions::default().map_as_struct(false),
