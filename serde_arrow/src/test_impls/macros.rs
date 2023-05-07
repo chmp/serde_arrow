@@ -231,11 +231,11 @@ macro_rules! test_compilation_impl {
                     &[field],
                     CompilationOptions::default().wrap_with_struct(false),
                 ).unwrap();
-                println!("{:?}", program.program);
+                println!("{:?}", program.structure.program);
                 let mut interpreter = Interpreter::new(program);
                 serialize_into_sink(&mut interpreter, items).unwrap();
 
-                println!("{:?}", interpreter.array_mapping);
+                println!("{:?}", interpreter.structure.array_mapping);
                 println!("{:?}", interpreter.buffers);
 
                 let arrays = interpreter.build_arrow_arrays().unwrap();
@@ -342,11 +342,11 @@ macro_rules! test_events {
                 $(let fields = &$overwrite_fields;)?
 
                 let program = compile_serialization(fields, CompilationOptions::default()).unwrap();
-                println!("{:?}", program.program);
+                println!("{:?}", program.structure.program);
                 let mut interpreter = Interpreter::new(program);
                 accept_events(&mut interpreter, events.iter().cloned()).unwrap();
 
-                println!("{:?}", interpreter.array_mapping);
+                println!("{:?}", interpreter.structure.array_mapping);
                 println!("{:?}", interpreter.buffers);
 
                 interpreter.build_arrow_arrays().unwrap();

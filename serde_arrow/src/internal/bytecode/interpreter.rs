@@ -2,10 +2,7 @@ use super::{
     buffers::{
         BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
     },
-    compiler::{
-        ArrayMapping, Bytecode, DictionaryIndices, DictionaryValue, ListDefinition, NullDefinition,
-        Program, StructDefinition, UnionDefinition, BufferCounts,
-    },
+    compiler::{BufferCounts, Bytecode, DictionaryIndices, DictionaryValue, Program, Structure},
 };
 
 use crate::internal::{
@@ -17,12 +14,7 @@ use crate::internal::{
 
 pub struct Interpreter {
     pub program_counter: usize,
-    pub program: Vec<(usize, Bytecode)>,
-    pub structs: Vec<StructDefinition>,
-    pub lists: Vec<ListDefinition>,
-    pub unions: Vec<UnionDefinition>,
-    pub nulls: Vec<NullDefinition>,
-    pub array_mapping: Vec<ArrayMapping>,
+    pub structure: Structure,
     pub buffers: Buffers,
 }
 
@@ -78,13 +70,8 @@ impl Buffers {
 impl Interpreter {
     pub fn new(program: Program) -> Self {
         Self {
-            program: program.program,
-            structs: program.structs,
-            lists: program.large_lists,
-            unions: program.unions,
-            nulls: program.nulls,
-            array_mapping: program.array_mapping,
             program_counter: 0,
+            structure: program.structure,
             buffers: Buffers::from_counts(&program.buffers),
         }
     }
@@ -93,7 +80,7 @@ impl Interpreter {
 macro_rules! accept_primitive {
     ($func:ident, $ty:ty, $(($builder:ident, $variant:ident),)*) => {
         fn $func(&mut self, val: $ty) -> crate::Result<()> {
-            match &self.program[self.program_counter] {
+            match &self.structure.program[self.program_counter] {
                 $(
                     &(next, Bytecode::$variant(array_idx)) => {
                         self.buffers.$builder[array_idx].push(val.try_into()?)?;
@@ -214,7 +201,7 @@ impl EventSink for Interpreter {
     fn accept_start_sequence(&mut self) -> crate::Result<()> {
         // TOOD: add new offset
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::LargeListStart | B::OuterSequenceStart) => {
                 self.program_counter = next;
                 Ok(())
@@ -225,7 +212,7 @@ impl EventSink for Interpreter {
 
     fn accept_end_sequence(&mut self) -> crate::Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::LargeListEnd(_, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter = next;
@@ -235,10 +222,10 @@ impl EventSink for Interpreter {
             }
             &(_, B::LargeListItem(idx, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = self.lists[idx].r#return;
+                self.program_counter = self.structure.large_lists[idx].r#return;
             }
             &(_, B::OuterSequenceItem(idx)) => {
-                self.program_counter = self.lists[idx].r#return;
+                self.program_counter = self.structure.large_lists[idx].r#return;
             }
             instr => fail!("Cannot accept EndSequence in {instr:?}"),
         }
@@ -247,7 +234,7 @@ impl EventSink for Interpreter {
 
     fn accept_start_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::StructStart | B::OuterRecordStart) => {
                 self.program_counter = next;
             }
@@ -258,12 +245,12 @@ impl EventSink for Interpreter {
 
     fn accept_end_struct(&mut self) -> crate::Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::StructEnd | B::OuterRecordEnd) => {
                 self.program_counter = next;
             }
             &(_, B::StructField(struct_idx, _)) => {
-                self.program_counter = self.structs[struct_idx].r#return;
+                self.program_counter = self.structure.structs[struct_idx].r#return;
             }
             instr => fail!("Cannot accept EndStruct in {instr:?}"),
         }
@@ -273,17 +260,17 @@ impl EventSink for Interpreter {
     fn accept_item(&mut self) -> Result<()> {
         // TODO: increment the count
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::LargeListItem(_, offsets)) => {
                 self.buffers.large_offset[offsets].inc_current_items()?;
                 self.program_counter = next;
             }
             &(_, B::LargeListEnd(idx, offsets)) => {
                 self.buffers.large_offset[offsets].inc_current_items()?;
-                self.program_counter = self.lists[idx].item;
+                self.program_counter = self.structure.large_lists[idx].item;
             }
             &(_, B::OuterSequenceEnd(idx)) => {
-                self.program_counter = self.lists[idx].item;
+                self.program_counter = self.structure.large_lists[idx].item;
             }
             &(next, B::OuterSequenceItem(_) | B::TupleStructItem) => {
                 self.program_counter = next;
@@ -296,7 +283,7 @@ impl EventSink for Interpreter {
     fn accept_start_tuple(&mut self) -> Result<()> {
         // TOOD: add new offset
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::LargeListStart | B::OuterSequenceStart | B::TupleStructStart) => {
                 self.program_counter = next;
             }
@@ -307,17 +294,17 @@ impl EventSink for Interpreter {
 
     fn accept_end_tuple(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::LargeListEnd(_, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
                 self.program_counter = next;
             }
             &(_, B::LargeListItem(idx, offsets)) => {
                 self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = self.lists[idx].r#return;
+                self.program_counter = self.structure.large_lists[idx].r#return;
             }
             &(_, B::OuterSequenceItem(idx)) => {
-                self.program_counter = self.lists[idx].r#return;
+                self.program_counter = self.structure.large_lists[idx].r#return;
             }
             &(next, B::OuterSequenceEnd(_) | B::TupleStructEnd) => {
                 self.program_counter = next;
@@ -329,7 +316,7 @@ impl EventSink for Interpreter {
 
     fn accept_start_map(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::StructStart | B::OuterRecordStart) => {
                 self.program_counter = next;
             }
@@ -340,12 +327,12 @@ impl EventSink for Interpreter {
 
     fn accept_end_map(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::StructEnd | B::OuterRecordEnd) => {
                 self.program_counter = next;
             }
             &(_, B::StructField(struct_idx, _)) => {
-                self.program_counter = self.structs[struct_idx].r#return;
+                self.program_counter = self.structure.structs[struct_idx].r#return;
             }
             instr => fail!("Cannot accept EndMap in {instr:?}"),
         }
@@ -354,7 +341,7 @@ impl EventSink for Interpreter {
 
     fn accept_some(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(next, B::Option(_, validity)) => {
                 self.buffers.validity[validity].push(true)?;
                 self.program_counter = next;
@@ -366,7 +353,7 @@ impl EventSink for Interpreter {
 
     fn accept_null(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(_, B::Option(if_none, validity)) => {
                 self.apply_null(validity)?;
                 self.program_counter = if_none;
@@ -380,19 +367,19 @@ impl EventSink for Interpreter {
         Ok(())
     }
     fn accept_default(&mut self) -> Result<()> {
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             instr => fail!("Cannot accept Default in {instr:?}"),
         }
     }
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             (next, B::StructField(idx, name) | B::OuterRecordField(idx, name)) => {
                 if name == val {
                     self.program_counter = *next;
                 } else {
-                    let Some(next) = self.structs[*idx].fields.get(name) else {
+                    let Some(next) = self.structure.structs[*idx].fields.get(name) else {
                     fail!("Cannot find field {name} in struct {idx}");
                 };
                     self.program_counter = *next;
@@ -443,11 +430,11 @@ impl EventSink for Interpreter {
 
     fn accept_variant(&mut self, _name: &str, idx: usize) -> Result<()> {
         use Bytecode as B;
-        match &self.program[self.program_counter] {
+        match &self.structure.program[self.program_counter] {
             &(_, B::Variant(union_idx, types)) => {
                 // TODO: improve error message
                 self.buffers.i8[types].push(idx.try_into()?)?;
-                self.program_counter = self.unions[union_idx].fields[idx];
+                self.program_counter = self.structure.unions[union_idx].fields[idx];
             }
             instr => fail!("Cannot accept Variant in {instr:?}"),
         }
@@ -461,7 +448,7 @@ impl EventSink for Interpreter {
 
 macro_rules! apply_null {
     ($this:expr, $validity:expr, $name:ident) => {
-        for &idx in &$this.nulls[$validity].$name {
+        for &idx in &$this.structure.nulls[$validity].$name {
             $this.buffers.$name[idx].push(Default::default())?;
         }
     };
@@ -485,7 +472,7 @@ impl Interpreter {
         apply_null!(self, validity, large_utf8);
         apply_null!(self, validity, validity);
 
-        for &idx in &self.nulls[validity].large_offsets {
+        for &idx in &self.structure.nulls[validity].large_offsets {
             self.buffers.large_offset[idx].push_current_items();
         }
 

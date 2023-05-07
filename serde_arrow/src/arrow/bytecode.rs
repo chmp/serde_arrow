@@ -20,7 +20,7 @@ impl Interpreter {
     /// Build the arrow arrays
     pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
         let mut res = Vec::new();
-        for mapping in &self.array_mapping {
+        for mapping in &self.structure.array_mapping {
             let data = build_array_data(&mut self.buffers, mapping)?;
             let array = make_array(data);
             res.push(array);
