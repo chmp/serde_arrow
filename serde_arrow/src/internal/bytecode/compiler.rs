@@ -72,31 +72,30 @@ pub enum DictionaryValue {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Bytecode {
-    ProgramEnd,
-    OuterSequenceStart,
-    OuterSequenceItem(usize),
-    OuterSequenceEnd(usize),
-    OuterRecordStart,
-    OuterRecordField(usize, String),
-    OuterRecordEnd,
-    LargeListStart,
-    /// `LargeListItem(list_idx, offsets)`
-    LargeListItem(usize, usize),
-    /// `LargeListItem(list_idx, offsets)`
-    LargeListEnd(usize, usize),
-    StructStart,
-    /// `StructField(struct_idx, field_name)`
-    StructField(usize, String),
-    StructEnd,
-    MapStart,
-    /// `MapEnd(map_idx, offsets)`
-    MapEnd(usize, usize),
-    /// `MapItem(map_idx, offsets)`
-    MapItem(usize, usize),
-    StructItem(usize),
-    TupleStructStart,
-    TupleStructItem,
-    TupleStructEnd,
+    ProgramEnd(ProgramEnd),
+    OuterSequenceStart(OuterSequenceStart),
+    OuterSequenceItem(OuterSequenceItem),
+    OuterSequenceEnd(OuterSequenceEnd),
+    OuterRecordStart(OuterRecordStart),
+    OuterRecordField(OuterRecordField),
+    OuterRecordEnd(OuterRecordEnd),
+    LargeListStart(LargeListStart),
+    LargeListItem(LargeListItem),
+    LargeListEnd(LargeListEnd),
+    StructStart(StructStart),
+    StructField(StructField),
+    StructEnd(StructEnd),
+    MapStart(MapStart),
+    MapEnd(MapEnd),
+    MapItem(MapItem),
+    StructItem(StructItem),
+    TupleStructStart(TupleStructStart),
+    TupleStructItem(TupleStructItem),
+    TupleStructEnd(TupleStructEnd),
+    Option(OptionMarker),
+    Variant(Variant),
+    /// A pseudo instruction, used to fix jumps to union positions
+    UnionEnd(UnionEnd),
     PushNull(usize),
     PushU8(usize),
     PushU16(usize),
@@ -115,17 +114,191 @@ pub enum Bytecode {
     PushDate64FromUtcStr(usize),
     /// `PushDictionaryU8LargeUTF8(dictionary, indices)`
     PushDictionary(DictionaryValue, DictionaryIndices),
-    /// `Option(if_none, validity)`
-    Option(usize, usize),
-    ///  `Variant(union_idx, type)`
-    Variant(usize, usize),
-    /// A pseudo instruction, used to fix jumps to union positions
-    UnionEnd,
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ProgramEnd {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterSequenceStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterSequenceItem {
+    pub next: usize,
+    pub list_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterSequenceEnd {
+    pub next: usize,
+    pub list_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterRecordStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterRecordField {
+    pub next: usize,
+    pub struct_idx: usize,
+    pub field_name: String,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OuterRecordEnd {
+    pub next: usize,
+    pub struct_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LargeListStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LargeListItem {
+    pub next: usize,
+    pub list_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LargeListEnd {
+    pub next: usize,
+    pub list_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructItem {
+    pub next: usize,
+    pub struct_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructField {
+    pub next: usize,
+    pub struct_idx: usize,
+    pub field_name: String,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructEnd {
+    pub next: usize,
+    pub struct_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct MapStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct MapItem {
+    pub next: usize,
+    pub map_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct MapEnd {
+    pub next: usize,
+    pub map_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TupleStructStart {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TupleStructItem {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TupleStructEnd {
+    pub next: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OptionMarker {
+    pub next: usize,
+    pub if_none: usize,
+    pub validity: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Variant {
+    pub next: usize,
+    pub union_idx: usize,
+    pub type_idx: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnionEnd {
+    pub next: usize,
+}
+
+macro_rules! dispatch_bytecode {
+    (
+        $obj:expr,
+        $instr:ident => $block:expr,
+        $else_instr:ident => $else_block:expr,
+    ) => {
+        match $obj {
+            Bytecode::LargeListEnd($instr) => $block,
+            Bytecode::LargeListItem($instr) => $block,
+            Bytecode::LargeListStart($instr) => $block,
+            Bytecode::MapEnd($instr) => $block,
+            Bytecode::MapItem($instr) => $block,
+            Bytecode::MapStart($instr) => $block,
+            Bytecode::Option($instr) => $block,
+            Bytecode::OuterRecordEnd($instr) => $block,
+            Bytecode::OuterRecordField($instr) => $block,
+            Bytecode::OuterRecordStart($instr) => $block,
+            Bytecode::OuterSequenceEnd($instr) => $block,
+            Bytecode::OuterSequenceItem($instr) => $block,
+            Bytecode::OuterSequenceStart($instr) => $block,
+            Bytecode::ProgramEnd($instr) => $block,
+            Bytecode::StructEnd($instr) => $block,
+            Bytecode::StructField($instr) => $block,
+            Bytecode::StructItem($instr) => $block,
+            Bytecode::StructStart($instr) => $block,
+            Bytecode::TupleStructEnd($instr) => $block,
+            Bytecode::TupleStructItem($instr) => $block,
+            Bytecode::TupleStructStart($instr) => $block,
+            Bytecode::Variant($instr) => $block,
+            $else_instr => $else_block,
+        }
+    };
+}
+
+pub(crate) use dispatch_bytecode;
 
 impl Bytecode {
     fn is_allowed_jump_target(&self) -> bool {
-        !matches!(self, Bytecode::UnionEnd)
+        !matches!(self, Bytecode::UnionEnd(_))
+    }
+
+    fn set_next(&mut self, val: usize) {
+        dispatch_bytecode!(
+            self,
+            instr => { instr.next = val; },
+            _instr => {},
+        );
     }
 }
 
@@ -525,18 +698,29 @@ impl Program {
         }
 
         self.structure.large_lists.push(ListDefinition::default());
-        self.push_instr(Bytecode::OuterSequenceStart);
-        self.push_instr(Bytecode::OuterSequenceItem(0));
+        self.push_instr(Bytecode::OuterSequenceStart(OuterSequenceStart {
+            next: UNSET_INSTR,
+        }));
+        self.push_instr(Bytecode::OuterSequenceItem(OuterSequenceItem {
+            next: UNSET_INSTR,
+            list_idx: 0,
+        }));
         self.structure.large_lists[0].item = self.structure.program.len();
 
         if self.options.wrap_with_struct {
             self.structure.structs.push(StructDefinition::default());
-            self.push_instr(Bytecode::OuterRecordStart);
+            self.push_instr(Bytecode::OuterRecordStart(OuterRecordStart {
+                next: UNSET_INSTR,
+            }));
         }
 
         for field in fields {
             if self.options.wrap_with_struct {
-                self.push_instr(Bytecode::OuterRecordField(0, field.name.to_string()));
+                self.push_instr(Bytecode::OuterRecordField(OuterRecordField {
+                    next: UNSET_INSTR,
+                    struct_idx: 0,
+                    field_name: field.name.to_string(),
+                }));
                 self.structure.structs[0]
                     .fields
                     .insert(field.name.to_string(), self.structure.program.len());
@@ -546,14 +730,23 @@ impl Program {
         }
 
         if self.options.wrap_with_struct {
-            self.push_instr(Bytecode::OuterRecordEnd);
+            self.push_instr(Bytecode::OuterRecordEnd(OuterRecordEnd {
+                next: UNSET_INSTR,
+                struct_idx: 0,
+            }));
             self.structure.structs[0].r#return = self.structure.program.len();
         }
 
-        self.push_instr(Bytecode::OuterSequenceEnd(0));
+        self.push_instr(Bytecode::OuterSequenceEnd(OuterSequenceEnd {
+            next: UNSET_INSTR,
+            list_idx: 0,
+        }));
         self.structure.large_lists[0].r#return = self.structure.program.len();
 
-        self.push_jump_instr(self.structure.program.len(), Bytecode::ProgramEnd);
+        self.push_jump_instr(
+            self.structure.program.len(),
+            Bytecode::ProgramEnd(ProgramEnd { next: UNSET_INSTR }),
+        );
 
         Ok(())
     }
@@ -579,13 +772,15 @@ impl Program {
             Some(strategy) => fail!("Cannot compile struct with strategy {strategy}"),
         };
 
-        let idx = self.structure.structs.len();
+        let struct_idx = self.structure.structs.len();
 
         if !is_tuple {
             self.structure.structs.push(StructDefinition::default());
-            self.push_instr(Bytecode::StructStart);
+            self.push_instr(Bytecode::StructStart(StructStart { next: UNSET_INSTR }));
         } else {
-            self.push_instr(Bytecode::TupleStructStart);
+            self.push_instr(Bytecode::TupleStructStart(TupleStructStart {
+                next: UNSET_INSTR,
+            }));
         }
 
         let mut field_mapping = vec![];
@@ -593,24 +788,38 @@ impl Program {
         for field in &field.children {
             if !is_tuple {
                 if is_map {
-                    self.push_instr(Bytecode::StructItem(idx));
+                    self.push_instr(Bytecode::StructItem(StructItem {
+                        next: UNSET_INSTR,
+                        struct_idx,
+                    }));
                 }
-                self.push_instr(Bytecode::StructField(idx, field.name.to_string()));
-                self.structure.structs[idx]
+                self.push_instr(Bytecode::StructField(StructField {
+                    next: UNSET_INSTR,
+                    struct_idx,
+                    field_name: field.name.to_string(),
+                }));
+                self.structure.structs[struct_idx]
                     .fields
                     .insert(field.name.to_string(), self.structure.program.len());
             } else {
-                self.push_instr(Bytecode::TupleStructItem);
+                self.push_instr(Bytecode::TupleStructItem(TupleStructItem {
+                    next: UNSET_INSTR,
+                }));
             }
             let f = self.compile_field(field)?;
             field_mapping.push(f);
         }
 
         if !is_tuple {
-            self.push_instr(Bytecode::StructEnd);
-            self.structure.structs[idx].r#return = self.structure.program.len();
+            self.push_instr(Bytecode::StructEnd(StructEnd {
+                next: UNSET_INSTR,
+                struct_idx,
+            }));
+            self.structure.structs[struct_idx].r#return = self.structure.program.len();
         } else {
-            self.push_instr(Bytecode::TupleStructEnd);
+            self.push_instr(Bytecode::TupleStructEnd(TupleStructEnd {
+                next: UNSET_INSTR,
+            }));
         }
 
         Ok(ArrayMapping::Struct {
@@ -642,20 +851,30 @@ impl Program {
             .get(0)
             .ok_or_else(|| error!("invalid list: no child"))?;
 
-        let idx = self.structure.large_lists.len();
+        let list_idx = self.structure.large_lists.len();
         let offsets = self.buffers.num_large_offsets.next_value();
 
         self.structure.large_lists.push(ListDefinition::default());
-        self.structure.large_lists[idx].offset = offsets;
+        self.structure.large_lists[list_idx].offset = offsets;
 
-        self.push_instr(Bytecode::LargeListStart);
-        self.push_instr(Bytecode::LargeListItem(idx, offsets));
-        self.structure.large_lists[idx].item = self.structure.program.len();
+        self.push_instr(Bytecode::LargeListStart(LargeListStart {
+            next: UNSET_INSTR,
+        }));
+        self.push_instr(Bytecode::LargeListItem(LargeListItem {
+            next: UNSET_INSTR,
+            list_idx,
+            offsets,
+        }));
+        self.structure.large_lists[list_idx].item = self.structure.program.len();
 
         let field_mapping = self.compile_field(item)?;
 
-        self.push_instr(Bytecode::LargeListEnd(idx, offsets));
-        self.structure.large_lists[idx].r#return = self.structure.program.len();
+        self.push_instr(Bytecode::LargeListEnd(LargeListEnd {
+            next: UNSET_INSTR,
+            list_idx,
+            offsets,
+        }));
+        self.structure.large_lists[list_idx].r#return = self.structure.program.len();
 
         Ok(ArrayMapping::LargeList {
             field: field.clone(),
@@ -677,18 +896,22 @@ impl Program {
             fail!("cannot compile a union withouth children");
         }
 
-        let def = self.structure.unions.len();
+        let union_idx = self.structure.unions.len();
         self.structure.unions.push(UnionDefinition::default());
 
-        let types = self.buffers.num_i8.next_value();
+        let type_idx = self.buffers.num_i8.next_value();
 
         let mut fields = Vec::new();
         let mut child_last_instr = Vec::new();
 
-        self.push_instr(Bytecode::Variant(def, types));
+        self.push_instr(Bytecode::Variant(Variant {
+            next: UNSET_INSTR,
+            union_idx,
+            type_idx,
+        }));
 
         for child in &field.children {
-            self.structure.unions[def]
+            self.structure.unions[union_idx]
                 .fields
                 .push(self.structure.program.len());
             fields.push(self.compile_field(child)?);
@@ -700,12 +923,12 @@ impl Program {
             self.structure.program[pos].0 = self.structure.program.len();
         }
 
-        self.push_instr(Bytecode::UnionEnd);
+        self.push_instr(Bytecode::UnionEnd(UnionEnd { next: UNSET_INSTR }));
 
         Ok(ArrayMapping::Union {
             field: field.clone(),
             fields,
-            types,
+            types: type_idx,
         })
     }
 
@@ -716,7 +939,11 @@ impl Program {
             self.structure.nulls.push(NullDefinition::default());
 
             nullable_idx = Some(self.structure.program.len());
-            self.push_instr(Bytecode::Option(0, validity));
+            self.push_instr(Bytecode::Option(OptionMarker {
+                next: UNSET_INSTR,
+                if_none: 0,
+                validity,
+            }));
 
             Some(validity)
         } else {
@@ -727,12 +954,12 @@ impl Program {
 
         if let Some(nullable_idx) = nullable_idx {
             let current_program_len = self.structure.program.len();
-            let (_, Bytecode::Option(if_none, validity)) = &mut self.structure.program[nullable_idx] else {
+            let (_, Bytecode::Option(instr)) = &mut self.structure.program[nullable_idx] else {
                 fail!("Internal error during compilation");
             };
-            *if_none = current_program_len;
-            self.structure.nulls[*validity].update_from_array_mapping(&array_mapping)?;
-            self.structure.nulls[*validity].sort_indices();
+            instr.if_none = current_program_len;
+            self.structure.nulls[instr.validity].update_from_array_mapping(&array_mapping)?;
+            self.structure.nulls[instr.validity].sort_indices();
         }
 
         Ok(array_mapping)
@@ -874,20 +1101,28 @@ impl Program {
             fail!("entries without values field");
         };
 
-        let idx = self.structure.maps.len();
+        let map_idx = self.structure.maps.len();
         let offsets = self.buffers.num_offsets.next_value();
 
         self.structure.maps.push(MapDefinition::default());
 
-        self.push_instr(Bytecode::MapStart);
-        self.push_instr(Bytecode::MapItem(idx, offsets));
-        self.structure.maps[idx].key = self.structure.program.len();
+        self.push_instr(Bytecode::MapStart(MapStart { next: UNSET_INSTR }));
+        self.push_instr(Bytecode::MapItem(MapItem {
+            next: UNSET_INSTR,
+            map_idx,
+            offsets,
+        }));
+        self.structure.maps[map_idx].key = self.structure.program.len();
 
         let keys_mapping = self.compile_field(keys)?;
         let values_mapping = self.compile_field(values)?;
 
-        self.push_instr(Bytecode::MapEnd(idx, offsets));
-        self.structure.maps[idx].r#return = self.structure.program.len();
+        self.push_instr(Bytecode::MapEnd(MapEnd {
+            next: UNSET_INSTR,
+            map_idx,
+            offsets,
+        }));
+        self.structure.maps[map_idx].r#return = self.structure.program.len();
 
         let entries_mapping = ArrayMapping::Struct {
             field: entries.clone(),
@@ -915,7 +1150,7 @@ impl Program {
         fn follow(mut pos: usize, program: &[(usize, Bytecode)]) -> usize {
             // NOTE: limit the number of jumps followed
             for _ in 0..program.len() {
-                if program[pos].1 != Bytecode::UnionEnd {
+                if !matches!(program[pos].1, Bytecode::UnionEnd(_)) {
                     return pos;
                 }
                 pos = program[pos].0;
@@ -924,8 +1159,9 @@ impl Program {
         }
 
         for pos in 0..self.structure.program.len() {
-            self.structure.program[pos].0 =
-                follow(self.structure.program[pos].0, &self.structure.program);
+            let next = follow(self.structure.program[pos].0, &self.structure.program);
+            self.structure.program[pos].0 = next;
+            self.structure.program[pos].1.set_next(next);
         }
 
         for s in &mut self.structure.structs {
@@ -954,64 +1190,62 @@ impl Program {
     }
 
     fn validate_lists(&self) -> Result<()> {
-        for (idx, list) in self.structure.large_lists.iter().enumerate() {
-            let offset = list.offset;
+        for (list_idx, list) in self.structure.large_lists.iter().enumerate() {
             let item_instr = self.instruction_before(list.item);
-            if item_instr != Some(&Bytecode::LargeListItem(idx, offset))
-                && item_instr != Some(&Bytecode::OuterSequenceItem(idx))
-            {
-                fail!("invalid list definition ({idx}): item points to {item_instr:?}");
+            if !matches!(
+                item_instr,
+                Some(Bytecode::LargeListItem(_)) | Some(&Bytecode::OuterSequenceItem(_))
+            ) {
+                fail!("invalid list definition ({list_idx}): item points to {item_instr:?}");
             }
 
             let before_return_instr = self.instruction_before(list.r#return);
-            if before_return_instr != Some(&Bytecode::LargeListEnd(idx, offset))
-                && before_return_instr != Some(&Bytecode::OuterSequenceEnd(idx))
-            {
-                fail!("invalid list definition ({idx}): instr before return is {before_return_instr:?}");
+            if !matches!(
+                before_return_instr,
+                Some(Bytecode::OuterSequenceEnd(_)) | Some(Bytecode::LargeListEnd(_))
+            ) {
+                fail!("invalid list definition ({list_idx}): instr before return is {before_return_instr:?}");
             }
         }
         Ok(())
     }
 
     fn validate_structs(&self) -> Result<()> {
-        for (idx, r#struct) in self.structure.structs.iter().enumerate() {
+        for (struct_idx, r#struct) in self.structure.structs.iter().enumerate() {
             for (name, address) in &r#struct.fields {
                 let field_instr = self.instruction_before(*address);
-                let is_valid =
-                    if let Some(Bytecode::StructField(actual_idx, actual_name)) = field_instr {
-                        *actual_idx == idx && actual_name == name
-                    } else if let Some(Bytecode::OuterRecordField(actual_idx, actual_name)) =
-                        field_instr
-                    {
-                        *actual_idx == idx && actual_name == name
-                    } else {
-                        false
-                    };
+                let is_valid = if let Some(Bytecode::StructField(instr)) = field_instr {
+                    instr.struct_idx == struct_idx && instr.field_name == *name
+                } else if let Some(Bytecode::OuterRecordField(instr)) = field_instr {
+                    instr.struct_idx == struct_idx && instr.field_name == *name
+                } else {
+                    false
+                };
                 if !is_valid {
-                    fail!("invalid struct definition ({idx}): instr for field {name} is {field_instr:?}");
+                    fail!("invalid struct definition ({struct_idx}): instr for field {name} is {field_instr:?}");
                 }
             }
 
             let before_return_instr = self.instruction_before(r#struct.r#return);
             if !matches!(
                 before_return_instr,
-                Some(&Bytecode::StructEnd)
-                    | Some(&Bytecode::OuterRecordEnd)
-                    | Some(&Bytecode::UnionEnd)
+                Some(&Bytecode::StructEnd(_))
+                    | Some(&Bytecode::OuterRecordEnd(_))
+                    | Some(&Bytecode::UnionEnd(_))
             ) {
-                fail!("invalid struct definition ({idx}): instr before return is {before_return_instr:?}");
+                fail!("invalid struct definition ({struct_idx}): instr before return is {before_return_instr:?}");
             }
 
             if !self.structure.program[r#struct.r#return]
                 .1
                 .is_allowed_jump_target()
             {
-                fail!("invalid struct definition ({idx}): return jumps to invalid target");
+                fail!("invalid struct definition ({struct_idx}): return jumps to invalid target");
             }
 
             for (name, address) in &r#struct.fields {
                 if !self.structure.program[*address].1.is_allowed_jump_target() {
-                    fail!("invalid struct definition ({idx}): field jump {name} to invalid target");
+                    fail!("invalid struct definition ({struct_idx}): field jump {name} to invalid target");
                 }
             }
         }
@@ -1097,7 +1331,7 @@ impl Program {
         }
 
         for (pos, (next, _)) in self.structure.program.iter().enumerate() {
-            if self.structure.program[*next].1 == Bytecode::UnionEnd {
+            if matches!(self.structure.program[*next].1, Bytecode::UnionEnd(_)) {
                 fail!("invalid next instruction for {pos}: points to union end");
             }
         }

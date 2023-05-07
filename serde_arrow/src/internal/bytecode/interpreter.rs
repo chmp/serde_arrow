@@ -2,14 +2,23 @@ use super::{
     buffers::{
         BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
     },
-    compiler::{BufferCounts, Bytecode, DictionaryIndices, DictionaryValue, Program, Structure},
+    compiler::{
+        BufferCounts, Bytecode, DictionaryIndices, DictionaryValue, LargeListEnd, LargeListItem,
+        LargeListStart, MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField,
+        OuterRecordStart, OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program,
+        ProgramEnd, StructEnd, StructField, StructItem, StructStart, Structure, TupleStructEnd,
+        TupleStructItem, TupleStructStart, Variant,
+    },
 };
 
-use crate::internal::{
-    error::{fail, Result},
-    event::Event,
-    sink::macros,
-    sink::EventSink,
+use crate::{
+    _impl::bytecode::compiler::{dispatch_bytecode, MapEnd},
+    internal::{
+        error::{fail, Result},
+        event::Event,
+        sink::macros,
+        sink::EventSink,
+    },
 };
 
 pub struct Interpreter {
@@ -75,6 +84,325 @@ impl Interpreter {
             buffers: Buffers::from_counts(&program.buffers),
         }
     }
+}
+
+#[allow(unused_variables)]
+trait Instruction: std::fmt::Debug {
+    fn accept_start_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept StartSequence");
+    }
+
+    fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept EndSequence");
+    }
+
+    fn accept_start_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept StartTuple");
+    }
+
+    fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept EndTuple");
+    }
+
+    fn accept_start_struct(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept StartStructure");
+    }
+
+    fn accept_end_struct(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept EndStructure");
+    }
+
+    fn accept_start_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept StartMap");
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept EndMap");
+    }
+
+    fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept Item");
+    }
+
+    fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
+        fail!("{self:?} cannot accept Str({val:?})")
+    }
+}
+
+impl Instruction for MapEnd {
+    fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].inc_current_items()?;
+        Ok(structure.maps[self.map_idx].key)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
+        Ok(structure.maps[self.map_idx].r#return)
+    }
+}
+
+impl Instruction for LargeListStart {
+    fn accept_start_sequence(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut Buffers,
+    ) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for OuterSequenceStart {
+    fn accept_start_sequence(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut Buffers,
+    ) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for ProgramEnd {}
+
+impl Instruction for OuterSequenceItem {
+    fn accept_end_sequence(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.large_lists[self.list_idx].r#return)
+    }
+
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_end_tuple(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.large_lists[self.list_idx].r#return)
+    }
+}
+impl Instruction for OuterSequenceEnd {
+    fn accept_end_sequence(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_item(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.large_lists[self.list_idx].item)
+    }
+
+    fn accept_end_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for OuterRecordStart {
+    fn accept_start_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_start_struct(structure, buffers)
+    }
+}
+impl Instruction for OuterRecordField {
+    fn accept_end_struct(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.structs[self.struct_idx].r#return)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_end_struct(structure, buffers)
+    }
+
+    fn accept_str(
+        &self,
+        structure: &Structure,
+        _buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        if self.field_name == val {
+            Ok(self.next)
+        } else {
+            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+                fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
+            };
+            Ok(next)
+        }
+    }
+}
+
+impl Instruction for OuterRecordEnd {
+    fn accept_end_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_end_struct(structure, buffers)
+    }
+
+    fn accept_str(
+        &self,
+        structure: &Structure,
+        _buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
+        };
+        Ok(next)
+    }
+}
+
+impl Instruction for LargeListItem {
+    fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].push_current_items();
+        Ok(structure.large_lists[self.list_idx].r#return)
+    }
+
+    fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].inc_current_items()?;
+        Ok(self.next)
+    }
+
+    fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].push_current_items();
+        Ok(structure.large_lists[self.list_idx].r#return)
+    }
+}
+
+impl Instruction for LargeListEnd {
+    fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+
+    fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].inc_current_items()?;
+        Ok(structure.large_lists[self.list_idx].item)
+    }
+
+    fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.large_offset[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+}
+
+impl Instruction for StructStart {
+    fn accept_start_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_start_struct(structure, buffers)
+    }
+}
+
+impl Instruction for StructField {
+    fn accept_end_struct(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.structs[self.struct_idx].r#return)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_end_struct(structure, buffers)
+    }
+
+    fn accept_str(
+        &self,
+        structure: &Structure,
+        _buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        if self.field_name == val {
+            Ok(self.next)
+        } else {
+            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+                fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
+            };
+            Ok(next)
+        }
+    }
+}
+
+impl Instruction for StructEnd {
+    fn accept_end_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        self.accept_end_struct(structure, buffers)
+    }
+
+    fn accept_str(
+        &self,
+        structure: &Structure,
+        _buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
+        };
+        Ok(next)
+    }
+}
+
+impl Instruction for MapStart {
+    fn accept_start_map(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for MapItem {
+    fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].inc_current_items()?;
+        Ok(self.next)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
+        Ok(structure.maps[self.map_idx].r#return)
+    }
+}
+
+impl Instruction for StructItem {
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for TupleStructStart {
+    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for TupleStructItem {
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for TupleStructEnd {
+    fn accept_end_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+impl Instruction for OptionMarker {}
+
+impl Instruction for Variant {}
+
+macro_rules! dispatch_instruction {
+    ($this:expr, $method:ident) => {
+        {
+            $this.program_counter = dispatch_bytecode!(
+                &$this.structure.program[$this.program_counter].1,
+                instr => instr.$method(&$this.structure, &mut $this.buffers)?,
+                instr => fail!("Cannot accept EndSequence in {instr:?}"),
+            );
+            Ok(())
+        }
+    };
 }
 
 macro_rules! accept_primitive {
@@ -199,185 +527,68 @@ impl EventSink for Interpreter {
     accept_primitive!(accept_bool, bool, (bool, PushBool),);
 
     fn accept_start_sequence(&mut self) -> crate::Result<()> {
-        // TOOD: add new offset
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::LargeListStart | B::OuterSequenceStart) => {
-                self.program_counter = next;
-                Ok(())
-            }
-            instr => fail!("Cannot accept StartSequence in {instr:?}"),
-        }
+        dispatch_instruction!(self, accept_start_sequence)
     }
 
     fn accept_end_sequence(&mut self) -> crate::Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::LargeListEnd(_, offsets)) => {
-                self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = next;
-            }
-            &(next, B::OuterSequenceEnd(_)) => {
-                self.program_counter = next;
-            }
-            &(_, B::LargeListItem(idx, offsets)) => {
-                self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = self.structure.large_lists[idx].r#return;
-            }
-            &(_, B::OuterSequenceItem(idx)) => {
-                self.program_counter = self.structure.large_lists[idx].r#return;
-            }
-            instr => fail!("Cannot accept EndSequence in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_end_sequence)
     }
 
     fn accept_start_struct(&mut self) -> crate::Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::StructStart | B::OuterRecordStart) => {
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept StartStruct in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_start_struct)
     }
 
     fn accept_end_struct(&mut self) -> crate::Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::StructEnd | B::OuterRecordEnd) => {
-                self.program_counter = next;
-            }
-            &(_, B::StructField(struct_idx, _)) => {
-                self.program_counter = self.structure.structs[struct_idx].r#return;
-            }
-            instr => fail!("Cannot accept EndStruct in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_end_struct)
     }
 
     fn accept_item(&mut self) -> Result<()> {
-        // TODO: increment the count
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::LargeListItem(_, offsets)) => {
-                self.buffers.large_offset[offsets].inc_current_items()?;
-                self.program_counter = next;
-            }
-            &(_, B::LargeListEnd(idx, offsets)) => {
-                self.buffers.large_offset[offsets].inc_current_items()?;
-                self.program_counter = self.structure.large_lists[idx].item;
-            }
-            &(next, B::MapItem(_, offsets)) => {
-                self.buffers.offset[offsets].inc_current_items()?;
-                self.program_counter = next;
-            }
-            &(_, B::MapEnd(map_idx, offsets)) => {
-                self.buffers.offset[offsets].inc_current_items()?;
-                self.program_counter = self.structure.maps[map_idx].key;
-            }
-            &(_, B::OuterSequenceEnd(idx)) => {
-                self.program_counter = self.structure.large_lists[idx].item;
-            }
-            &(next, B::OuterSequenceItem(_) | B::TupleStructItem | B::StructItem(_)) => {
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept Item in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_item)
     }
 
     fn accept_start_tuple(&mut self) -> Result<()> {
-        // TOOD: add new offset
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::LargeListStart | B::OuterSequenceStart | B::TupleStructStart) => {
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept StartTuple in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_start_tuple)
     }
 
     fn accept_end_tuple(&mut self) -> Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::LargeListEnd(_, offsets)) => {
-                self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = next;
-            }
-            &(_, B::LargeListItem(idx, offsets)) => {
-                self.buffers.large_offset[offsets].push_current_items();
-                self.program_counter = self.structure.large_lists[idx].r#return;
-            }
-            &(_, B::OuterSequenceItem(idx)) => {
-                self.program_counter = self.structure.large_lists[idx].r#return;
-            }
-            &(next, B::OuterSequenceEnd(_) | B::TupleStructEnd) => {
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept EndTuple in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_end_tuple)
     }
 
     fn accept_start_map(&mut self) -> Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::StructStart | B::OuterRecordStart | B::MapStart) => {
-                self.program_counter = next;
-            }
-            instr => fail!("Cannot accept StartMap in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_start_map)
     }
 
     fn accept_end_map(&mut self) -> Result<()> {
-        use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::StructEnd | B::OuterRecordEnd) => {
-                self.program_counter = next;
-            }
-            &(_, B::MapItem(map_idx, offsets) | B::MapEnd(map_idx, offsets)) => {
-                self.buffers.offset[offsets].push_current_items();
-                self.program_counter = self.structure.maps[map_idx].r#return;
-            }
-            &(_, B::StructField(struct_idx, _)) => {
-                self.program_counter = self.structure.structs[struct_idx].r#return;
-            }
-            instr => fail!("Cannot accept EndMap in {instr:?}"),
-        }
-        Ok(())
+        dispatch_instruction!(self, accept_end_map)
     }
 
     fn accept_some(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(next, B::Option(_, validity)) => {
-                self.buffers.validity[validity].push(true)?;
-                self.program_counter = next;
+        self.program_counter = match &self.structure.program[self.program_counter] {
+            (_, B::Option(instr)) => {
+                self.buffers.validity[instr.validity].push(true)?;
+                instr.next
             }
             // Todo: handle EndMap
             instr => fail!("Cannot accept Some in {instr:?}"),
-        }
+        };
         Ok(())
     }
 
     fn accept_null(&mut self) -> Result<()> {
         use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(_, B::Option(if_none, validity)) => {
-                self.apply_null(validity)?;
-                self.program_counter = if_none;
+        self.program_counter = match &self.structure.program[self.program_counter] {
+            (_, B::Option(instr)) => {
+                apply_null(&self.structure, &mut self.buffers, instr.validity)?;
+                instr.if_none
             }
             &(next, B::PushNull(idx)) => {
                 self.buffers.null[idx].push(())?;
-                self.program_counter = next;
+                next
             }
             // Todo: handle EndMap
             instr => fail!("Cannot accept Null in {instr:?}"),
-        }
+        };
         Ok(())
     }
     fn accept_default(&mut self) -> Result<()> {
@@ -388,36 +599,38 @@ impl EventSink for Interpreter {
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
         use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            (next, B::StructField(idx, name) | B::OuterRecordField(idx, name)) => {
-                if name == val {
-                    self.program_counter = *next;
-                } else {
-                    let Some(next) = self.structure.structs[*idx].fields.get(name) else {
-                    fail!("Cannot find field {name} in struct {idx}");
-                };
-                    self.program_counter = *next;
-                }
+        self.program_counter = match &self.structure.program[self.program_counter] {
+            (_, B::OuterRecordEnd(instr)) => {
+                instr.accept_str(&self.structure, &mut self.buffers, val)?
+            }
+            (_, B::StructEnd(instr)) => {
+                instr.accept_str(&self.structure, &mut self.buffers, val)?
+            }
+            (_, B::StructField(instr)) => {
+                instr.accept_str(&self.structure, &mut self.buffers, val)?
+            }
+            (_, B::OuterRecordField(instr)) => {
+                instr.accept_str(&self.structure, &mut self.buffers, val)?
             }
             &(next, B::PushUTF8(idx)) => {
                 self.buffers.utf8[idx].push(val)?;
-                self.program_counter = next;
+                next
             }
             &(next, B::PushLargeUTF8(idx)) => {
                 self.buffers.large_utf8[idx].push(val)?;
-                self.program_counter = next;
+                next
             }
             &(next, B::PushDate64FromNaiveStr(idx)) => {
                 use chrono::NaiveDateTime;
 
                 self.buffers.i64[idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
-                self.program_counter = next;
+                next
             }
             &(next, B::PushDate64FromUtcStr(idx)) => {
                 use chrono::{DateTime, Utc};
 
                 self.buffers.i64[idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
-                self.program_counter = next;
+                next
             }
             &(next, B::PushDictionary(dictionary, indices)) => {
                 use {DictionaryIndices as I, DictionaryValue as V};
@@ -435,24 +648,23 @@ impl EventSink for Interpreter {
                     I::I32(indices) => self.buffers.i32[indices].push(idx.try_into()?)?,
                     I::I64(indices) => self.buffers.i64[indices].push(idx.try_into()?)?,
                 }
-                self.program_counter = next;
+                next
             }
             instr => fail!("Cannot accept {ev} in {instr:?}", ev = Event::Str(val)),
-        }
+        };
         Ok(())
     }
 
     fn accept_variant(&mut self, _name: &str, idx: usize) -> Result<()> {
         use Bytecode as B;
-        match &self.structure.program[self.program_counter] {
-            &(_, B::Variant(union_idx, types)) => {
-                // TODO: improve error message
-                self.buffers.i8[types].push(idx.try_into()?)?;
-                self.program_counter = self.structure.unions[union_idx].fields[idx];
+        self.program_counter = match &self.structure.program[self.program_counter] {
+            (_, B::Variant(instr)) => {
+                self.buffers.i8[instr.type_idx].push(idx.try_into()?)?;
+                self.structure.unions[instr.union_idx].fields[idx]
             }
-            // Todo: handle EndMap
+            // TODO: improve error message
             instr => fail!("Cannot accept Variant in {instr:?}"),
-        }
+        };
         Ok(())
     }
 
@@ -462,37 +674,35 @@ impl EventSink for Interpreter {
 }
 
 macro_rules! apply_null {
-    ($this:expr, $validity:expr, $name:ident) => {
-        for &idx in &$this.structure.nulls[$validity].$name {
-            $this.buffers.$name[idx].push(Default::default())?;
+    ($structure:expr, $buffers:expr, $validity:expr, $name:ident) => {
+        for &idx in &$structure.nulls[$validity].$name {
+            $buffers.$name[idx].push(Default::default())?;
         }
     };
 }
 
-impl Interpreter {
-    fn apply_null(&mut self, validity: usize) -> Result<()> {
-        apply_null!(self, validity, null);
-        apply_null!(self, validity, bool);
-        apply_null!(self, validity, u8);
-        apply_null!(self, validity, u16);
-        apply_null!(self, validity, u32);
-        apply_null!(self, validity, u64);
-        apply_null!(self, validity, i8);
-        apply_null!(self, validity, i16);
-        apply_null!(self, validity, i32);
-        apply_null!(self, validity, i64);
-        apply_null!(self, validity, f32);
-        apply_null!(self, validity, f64);
-        apply_null!(self, validity, utf8);
-        apply_null!(self, validity, large_utf8);
-        apply_null!(self, validity, validity);
+fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> Result<()> {
+    apply_null!(structure, buffers, validity, null);
+    apply_null!(structure, buffers, validity, bool);
+    apply_null!(structure, buffers, validity, u8);
+    apply_null!(structure, buffers, validity, u16);
+    apply_null!(structure, buffers, validity, u32);
+    apply_null!(structure, buffers, validity, u64);
+    apply_null!(structure, buffers, validity, i8);
+    apply_null!(structure, buffers, validity, i16);
+    apply_null!(structure, buffers, validity, i32);
+    apply_null!(structure, buffers, validity, i64);
+    apply_null!(structure, buffers, validity, f32);
+    apply_null!(structure, buffers, validity, f64);
+    apply_null!(structure, buffers, validity, utf8);
+    apply_null!(structure, buffers, validity, large_utf8);
+    apply_null!(structure, buffers, validity, validity);
 
-        for &idx in &self.structure.nulls[validity].large_offsets {
-            self.buffers.large_offset[idx].push_current_items();
-        }
-
-        Ok(())
+    for &idx in &structure.nulls[validity].large_offsets {
+        buffers.large_offset[idx].push_current_items();
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
