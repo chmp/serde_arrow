@@ -96,35 +96,80 @@ pub enum Bytecode {
     Variant(Variant),
     /// A pseudo instruction, used to fix jumps to union positions
     UnionEnd(UnionEnd),
-    PushNull(usize),
-    PushU8(usize),
-    PushU16(usize),
-    PushU32(usize),
-    PushU64(usize),
-    PushI8(usize),
-    PushI16(usize),
-    PushI32(usize),
-    PushI64(usize),
-    PushF32(usize),
-    PushF64(usize),
-    PushBool(usize),
-    PushUTF8(usize),
-    PushLargeUTF8(usize),
-    PushDate64FromNaiveStr(usize),
-    PushDate64FromUtcStr(usize),
+    PushNull(PushNull),
+    PushU8(PushU8),
+    PushU16(PushU16),
+    PushU32(PushU32),
+    PushU64(PushU64),
+    PushI8(PushI8),
+    PushI16(PushI16),
+    PushI32(PushI32),
+    PushI64(PushI64),
+    PushF32(PushF32),
+    PushF64(PushF64),
+    PushBool(PushBool),
+    PushUtf8(PushUtf8),
+    PushLargeUtf8(PushLargeUtf8),
+    PushDate64FromNaiveStr(PushDate64FromNaiveStr),
+    PushDate64FromUtcStr(PushDate64FromUtcStr),
     /// `PushDictionaryU8LargeUTF8(dictionary, indices)`
-    PushDictionary(DictionaryValue, DictionaryIndices),
+    PushDictionary(PushDictionary),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct ProgramEnd {
-    pub next: usize,
+macro_rules! define_check_instructions {
+    ($($name:ident,)*) => {
+        $(
+            #[derive(Debug, PartialEq, Clone)]
+            pub struct $name {
+                pub next: usize,
+            }
+        )*
+    };
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterSequenceStart {
-    pub next: usize,
+define_check_instructions!(
+    ProgramEnd,
+    OuterSequenceStart,
+    OuterRecordStart,
+    LargeListStart,
+    StructStart,
+    MapStart,
+    TupleStructStart,
+    TupleStructItem,
+    TupleStructEnd,
+    UnionEnd,
+);
+
+macro_rules! define_primitive_instructions {
+    ($($name:ident,)*) => {
+        $(
+            #[derive(Debug, PartialEq, Clone)]
+            pub struct $name {
+                pub next: usize,
+                pub idx: usize,
+            }
+        )*
+    };
 }
+
+define_primitive_instructions!(
+    PushNull,
+    PushU8,
+    PushU16,
+    PushU32,
+    PushU64,
+    PushI8,
+    PushI16,
+    PushI32,
+    PushI64,
+    PushF32,
+    PushF64,
+    PushBool,
+    PushUtf8,
+    PushLargeUtf8,
+    PushDate64FromNaiveStr,
+    PushDate64FromUtcStr,
+);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct OuterSequenceItem {
@@ -136,11 +181,6 @@ pub struct OuterSequenceItem {
 pub struct OuterSequenceEnd {
     pub next: usize,
     pub list_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterRecordStart {
-    pub next: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -157,11 +197,6 @@ pub struct OuterRecordEnd {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct LargeListStart {
-    pub next: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct LargeListItem {
     pub next: usize,
     pub list_idx: usize,
@@ -173,11 +208,6 @@ pub struct LargeListEnd {
     pub next: usize,
     pub list_idx: usize,
     pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructStart {
-    pub next: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -200,11 +230,6 @@ pub struct StructEnd {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct MapStart {
-    pub next: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct MapItem {
     pub next: usize,
     pub map_idx: usize,
@@ -216,21 +241,6 @@ pub struct MapEnd {
     pub next: usize,
     pub map_idx: usize,
     pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct TupleStructStart {
-    pub next: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct TupleStructItem {
-    pub next: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct TupleStructEnd {
-    pub next: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -248,15 +258,16 @@ pub struct Variant {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct UnionEnd {
+pub struct PushDictionary {
     pub next: usize,
+    pub values: DictionaryValue,
+    pub indices: DictionaryIndices,
 }
 
 macro_rules! dispatch_bytecode {
     (
         $obj:expr,
-        $instr:ident => $block:expr,
-        $else_instr:ident => $else_block:expr,
+        $instr:ident => $block:expr
     ) => {
         match $obj {
             Bytecode::LargeListEnd($instr) => $block,
@@ -281,7 +292,24 @@ macro_rules! dispatch_bytecode {
             Bytecode::TupleStructItem($instr) => $block,
             Bytecode::TupleStructStart($instr) => $block,
             Bytecode::Variant($instr) => $block,
-            $else_instr => $else_block,
+            Bytecode::UnionEnd($instr) => $block,
+            Bytecode::PushNull($instr) => $block,
+            Bytecode::PushU8($instr) => $block,
+            Bytecode::PushU16($instr) => $block,
+            Bytecode::PushU32($instr) => $block,
+            Bytecode::PushU64($instr) => $block,
+            Bytecode::PushI8($instr) => $block,
+            Bytecode::PushI16($instr) => $block,
+            Bytecode::PushI32($instr) => $block,
+            Bytecode::PushI64($instr) => $block,
+            Bytecode::PushF32($instr) => $block,
+            Bytecode::PushF64($instr) => $block,
+            Bytecode::PushBool($instr) => $block,
+            Bytecode::PushUtf8($instr) => $block,
+            Bytecode::PushLargeUtf8($instr) => $block,
+            Bytecode::PushDate64FromNaiveStr($instr) => $block,
+            Bytecode::PushDate64FromUtcStr($instr) => $block,
+            Bytecode::PushDictionary($instr) => $block,
         }
     };
 }
@@ -293,12 +321,12 @@ impl Bytecode {
         !matches!(self, Bytecode::UnionEnd(_))
     }
 
+    fn get_next(&self) -> usize {
+        dispatch_bytecode!(self, instr => instr.next)
+    }
+
     fn set_next(&mut self, val: usize) {
-        dispatch_bytecode!(
-            self,
-            instr => { instr.next = val; },
-            _instr => {},
-        );
+        dispatch_bytecode!(self, instr => { instr.next = val; });
     }
 }
 
@@ -306,6 +334,8 @@ impl Bytecode {
 pub struct StructDefinition {
     /// The jump target for the individual fields
     pub fields: BTreeMap<String, usize>,
+    /// The jump target for an item
+    pub item: usize,
     /// The jump target if a struct is closed
     pub r#return: usize,
 }
@@ -629,7 +659,7 @@ pub struct Program {
 #[derive(Debug, Default, Clone)]
 pub struct Structure {
     // NOTE: the value UNSET_INSTR is used to mark an unknown jump target
-    pub program: Vec<(usize, Bytecode)>,
+    pub program: Vec<Bytecode>,
     pub large_lists: Vec<ListDefinition>,
     pub maps: Vec<MapDefinition>,
     pub structs: Vec<StructDefinition>,
@@ -683,11 +713,7 @@ impl Program {
 
 impl Program {
     fn push_instr(&mut self, instr: Bytecode) {
-        self.structure.program.push((UNSET_INSTR, instr));
-    }
-
-    fn push_jump_instr(&mut self, jump: usize, instr: Bytecode) {
-        self.structure.program.push((jump, instr));
+        self.structure.program.push(instr);
     }
 }
 
@@ -743,10 +769,8 @@ impl Program {
         }));
         self.structure.large_lists[0].r#return = self.structure.program.len();
 
-        self.push_jump_instr(
-            self.structure.program.len(),
-            Bytecode::ProgramEnd(ProgramEnd { next: UNSET_INSTR }),
-        );
+        let next_instr = self.structure.program.len();
+        self.push_instr(Bytecode::ProgramEnd(ProgramEnd { next: next_instr }));
 
         Ok(())
     }
@@ -777,6 +801,7 @@ impl Program {
         if !is_tuple {
             self.structure.structs.push(StructDefinition::default());
             self.push_instr(Bytecode::StructStart(StructStart { next: UNSET_INSTR }));
+            self.structure.structs[struct_idx].item = UNSET_INSTR;
         } else {
             self.push_instr(Bytecode::TupleStructStart(TupleStructStart {
                 next: UNSET_INSTR,
@@ -792,6 +817,9 @@ impl Program {
                         next: UNSET_INSTR,
                         struct_idx,
                     }));
+                    if self.structure.structs[struct_idx].item == UNSET_INSTR {     
+                        self.structure.structs[struct_idx].item = self.structure.program.len();
+                    }
                 }
                 self.push_instr(Bytecode::StructField(StructField {
                     next: UNSET_INSTR,
@@ -920,7 +948,8 @@ impl Program {
 
         // each union fields jumps to after the "union"
         for pos in child_last_instr {
-            self.structure.program[pos].0 = self.structure.program.len();
+            let next_instr = self.structure.program.len();
+            self.structure.program[pos].set_next(next_instr);
         }
 
         self.push_instr(Bytecode::UnionEnd(UnionEnd { next: UNSET_INSTR }));
@@ -954,7 +983,7 @@ impl Program {
 
         if let Some(nullable_idx) = nullable_idx {
             let current_program_len = self.structure.program.len();
-            let (_, Bytecode::Option(instr)) = &mut self.structure.program[nullable_idx] else {
+            let Bytecode::Option(instr) = &mut self.structure.program[nullable_idx] else {
                 fail!("Internal error during compilation");
             };
             instr.if_none = current_program_len;
@@ -968,7 +997,10 @@ impl Program {
 
 macro_rules! compile_primtive {
     ($this:expr, $field:expr, $validity:expr, $num:ident, $instr:ident, $mapping:ident) => {{
-        $this.push_instr(Bytecode::$instr($this.buffers.$num));
+        $this.push_instr(Bytecode::$instr($instr {
+            next: UNSET_INSTR,
+            idx: $this.buffers.$num,
+        }));
         let res = ArrayMapping::$mapping {
             field: $field.clone(),
             buffer: $this.buffers.$num,
@@ -1001,13 +1033,13 @@ impl Program {
             D::I64 => compile_primtive!(self, field, validity, num_i64, PushI64, I64),
             D::F32 => compile_primtive!(self, field, validity, num_f32, PushF32, F32),
             D::F64 => compile_primtive!(self, field, validity, num_f64, PushF64, F64),
-            D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUTF8, Utf8),
+            D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUtf8, Utf8),
             D::LargeUtf8 => compile_primtive!(
                 self,
                 field,
                 validity,
                 num_large_utf8,
-                PushLargeUTF8,
+                PushLargeUtf8,
                 LargeUtf8
             ),
             D::Date64 => match field.strategy.as_ref() {
@@ -1063,16 +1095,20 @@ impl Program {
             dt => fail!("cannot compile dictionary with indices of type {dt}"),
         };
 
-        let dictionary = match &field.children[1].data_type {
+        let values = match &field.children[1].data_type {
             D::Utf8 => V::Utf8(self.buffers.num_dictionaries.next_value()),
             D::LargeUtf8 => V::LargeUtf8(self.buffers.num_large_dictionaries.next_value()),
             dt => fail!("cannot compile dictionary with values of type {dt}"),
         };
-        self.push_instr(B::PushDictionary(dictionary, indices));
+        self.push_instr(B::PushDictionary(PushDictionary {
+            next: UNSET_INSTR,
+            values,
+            indices,
+        }));
 
         Ok(M::Dictionary {
             field: field.clone(),
-            dictionary,
+            dictionary: values,
             indices,
             validity,
         })
@@ -1141,27 +1177,29 @@ impl Program {
 
 impl Program {
     fn update_jumps(&mut self) -> Result<()> {
-        for (pos, (next, _)) in self.structure.program.iter_mut().enumerate() {
-            if *next == UNSET_INSTR {
-                *next = pos + 1;
+        for (pos, instr) in self.structure.program.iter_mut().enumerate() {
+            if instr.get_next() == UNSET_INSTR {
+                instr.set_next(pos + 1);
             }
         }
 
-        fn follow(mut pos: usize, program: &[(usize, Bytecode)]) -> usize {
+        fn follow(mut pos: usize, program: &[Bytecode]) -> usize {
             // NOTE: limit the number of jumps followed
             for _ in 0..program.len() {
-                if !matches!(program[pos].1, Bytecode::UnionEnd(_)) {
+                if !matches!(program[pos], Bytecode::UnionEnd(_)) {
                     return pos;
                 }
-                pos = program[pos].0;
+                pos = program[pos].get_next();
             }
             panic!("More jumps than instructions: cycle?")
         }
 
         for pos in 0..self.structure.program.len() {
-            let next = follow(self.structure.program[pos].0, &self.structure.program);
-            self.structure.program[pos].0 = next;
-            self.structure.program[pos].1.set_next(next);
+            let next = follow(
+                self.structure.program[pos].get_next(),
+                &self.structure.program,
+            );
+            self.structure.program[pos].set_next(next);
         }
 
         for s in &mut self.structure.structs {
@@ -1236,15 +1274,12 @@ impl Program {
                 fail!("invalid struct definition ({struct_idx}): instr before return is {before_return_instr:?}");
             }
 
-            if !self.structure.program[r#struct.r#return]
-                .1
-                .is_allowed_jump_target()
-            {
+            if !self.structure.program[r#struct.r#return].is_allowed_jump_target() {
                 fail!("invalid struct definition ({struct_idx}): return jumps to invalid target");
             }
 
             for (name, address) in &r#struct.fields {
-                if !self.structure.program[*address].1.is_allowed_jump_target() {
+                if !self.structure.program[*address].is_allowed_jump_target() {
                     fail!("invalid struct definition ({struct_idx}): field jump {name} to invalid target");
                 }
             }
@@ -1324,20 +1359,26 @@ impl Program {
     }
 
     fn validate_next_instruction(&self) -> Result<()> {
-        for (pos, (target, _)) in self.structure.program.iter().enumerate() {
-            if *target >= self.structure.program.len() {
-                fail!("invalid next instruction for {pos}: {target}");
+        for (pos, instr) in self.structure.program.iter().enumerate() {
+            if instr.get_next() >= self.structure.program.len() {
+                fail!(
+                    "invalid next instruction for {pos}: {target}",
+                    target = instr.get_next()
+                );
             }
         }
 
-        for (pos, (next, _)) in self.structure.program.iter().enumerate() {
-            if matches!(self.structure.program[*next].1, Bytecode::UnionEnd(_)) {
+        for (pos, instr) in self.structure.program.iter().enumerate() {
+            if matches!(
+                self.structure.program[instr.get_next()],
+                Bytecode::UnionEnd(_)
+            ) {
                 fail!("invalid next instruction for {pos}: points to union end");
             }
         }
 
         let last = self.structure.program.len() - 1;
-        if self.structure.program[last].0 != last {
+        if self.structure.program[last].get_next() != last {
             fail!("invalid next instruciton for program end");
         }
 
@@ -1346,7 +1387,7 @@ impl Program {
 
     fn instruction_before(&self, idx: usize) -> Option<&Bytecode> {
         if idx != 0 {
-            self.structure.program.get(idx - 1).map(|instr| &instr.1)
+            self.structure.program.get(idx - 1)
         } else {
             None
         }

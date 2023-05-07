@@ -6,8 +6,10 @@ use super::{
         BufferCounts, Bytecode, DictionaryIndices, DictionaryValue, LargeListEnd, LargeListItem,
         LargeListStart, MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField,
         OuterRecordStart, OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program,
-        ProgramEnd, StructEnd, StructField, StructItem, StructStart, Structure, TupleStructEnd,
-        TupleStructItem, TupleStructStart, Variant,
+        ProgramEnd, PushBool, PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary,
+        PushF32, PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16,
+        PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem, StructStart,
+        Structure, TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
     },
 };
 
@@ -15,7 +17,6 @@ use crate::{
     _impl::bytecode::compiler::{dispatch_bytecode, MapEnd},
     internal::{
         error::{fail, Result},
-        event::Event,
         sink::macros,
         sink::EventSink,
     },
@@ -345,6 +346,11 @@ impl Instruction for StructEnd {
         };
         Ok(next)
     }
+
+    // can happen for maps that are serialized as structs
+    fn accept_item(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.structs[self.struct_idx].item)
+    }
 }
 
 impl Instruction for MapStart {
@@ -369,6 +375,10 @@ impl Instruction for StructItem {
     fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
         Ok(self.next)
     }
+
+    fn accept_end_map(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(structure.structs[self.struct_idx].r#return)
+    }
 }
 
 impl Instruction for TupleStructStart {
@@ -388,17 +398,130 @@ impl Instruction for TupleStructEnd {
         Ok(self.next)
     }
 }
+
 impl Instruction for OptionMarker {}
 
 impl Instruction for Variant {}
+
+impl Instruction for PushUtf8 {
+    fn accept_str(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        buffers.utf8[self.idx].push(val)?;
+        Ok(self.next)
+    }
+}
+
+impl Instruction for PushLargeUtf8 {
+    fn accept_str(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        buffers.large_utf8[self.idx].push(val)?;
+        Ok(self.next)
+    }
+}
+
+impl Instruction for PushDate64FromNaiveStr {
+    fn accept_str(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        use chrono::NaiveDateTime;
+
+        buffers.i64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
+        Ok(self.next)
+    }
+}
+
+impl Instruction for PushDate64FromUtcStr {
+    fn accept_str(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        use chrono::{DateTime, Utc};
+
+        buffers.i64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
+        Ok(self.next)
+    }
+}
+
+impl Instruction for PushDictionary {
+    fn accept_str(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: &str,
+    ) -> Result<usize> {
+        use {DictionaryIndices as I, DictionaryValue as V};
+        let idx = match self.values {
+            V::Utf8(dict) => buffers.dictionaries[dict].push(val)?,
+            V::LargeUtf8(dict) => buffers.large_dictionaries[dict].push(val)?,
+        };
+        match self.indices {
+            I::U8(indices) => buffers.u8[indices].push(idx.try_into()?)?,
+            I::U16(indices) => buffers.u16[indices].push(idx.try_into()?)?,
+            I::U32(indices) => buffers.u32[indices].push(idx.try_into()?)?,
+            I::U64(indices) => buffers.u64[indices].push(idx.try_into()?)?,
+            I::I8(indices) => buffers.i8[indices].push(idx.try_into()?)?,
+            I::I16(indices) => buffers.i16[indices].push(idx.try_into()?)?,
+            I::I32(indices) => buffers.i32[indices].push(idx.try_into()?)?,
+            I::I64(indices) => buffers.i64[indices].push(idx.try_into()?)?,
+        }
+        Ok(self.next)
+    }
+}
+
+impl Instruction for UnionEnd {}
+
+impl Instruction for PushNull {}
+
+impl Instruction for PushU8 {}
+
+impl Instruction for PushU16 {}
+
+impl Instruction for PushU32 {}
+
+impl Instruction for PushU64 {}
+
+impl Instruction for PushI8 {}
+
+impl Instruction for PushI16 {}
+
+impl Instruction for PushI32 {}
+
+impl Instruction for PushI64 {}
+
+impl Instruction for PushF32 {}
+
+impl Instruction for PushF64 {}
+
+impl Instruction for PushBool {}
 
 macro_rules! dispatch_instruction {
     ($this:expr, $method:ident) => {
         {
             $this.program_counter = dispatch_bytecode!(
-                &$this.structure.program[$this.program_counter].1,
-                instr => instr.$method(&$this.structure, &mut $this.buffers)?,
-                instr => fail!("Cannot accept EndSequence in {instr:?}"),
+                &$this.structure.program[$this.program_counter],
+                instr => instr.$method(&$this.structure, &mut $this.buffers)?
+            );
+            Ok(())
+        }
+    };
+    ($this:expr, $method:ident, $val:expr) => {
+        {
+            $this.program_counter = dispatch_bytecode!(
+                &$this.structure.program[$this.program_counter],
+                instr => instr.$method(&$this.structure, &mut $this.buffers, $val)?
             );
             Ok(())
         }
@@ -410,9 +533,9 @@ macro_rules! accept_primitive {
         fn $func(&mut self, val: $ty) -> crate::Result<()> {
             match &self.structure.program[self.program_counter] {
                 $(
-                    &(next, Bytecode::$variant(array_idx)) => {
-                        self.buffers.$builder[array_idx].push(val.try_into()?)?;
-                        self.program_counter = next;
+                    Bytecode::$variant(instr) => {
+                        self.buffers.$builder[instr.idx].push(val.try_into()?)?;
+                        self.program_counter = instr.next;
                     }
                 )*
                 instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
@@ -565,7 +688,7 @@ impl EventSink for Interpreter {
     fn accept_some(&mut self) -> Result<()> {
         use Bytecode as B;
         self.program_counter = match &self.structure.program[self.program_counter] {
-            (_, B::Option(instr)) => {
+            B::Option(instr) => {
                 self.buffers.validity[instr.validity].push(true)?;
                 instr.next
             }
@@ -578,13 +701,13 @@ impl EventSink for Interpreter {
     fn accept_null(&mut self) -> Result<()> {
         use Bytecode as B;
         self.program_counter = match &self.structure.program[self.program_counter] {
-            (_, B::Option(instr)) => {
+            B::Option(instr) => {
                 apply_null(&self.structure, &mut self.buffers, instr.validity)?;
                 instr.if_none
             }
-            &(next, B::PushNull(idx)) => {
-                self.buffers.null[idx].push(())?;
-                next
+            B::PushNull(instr) => {
+                self.buffers.null[instr.idx].push(())?;
+                instr.next
             }
             // Todo: handle EndMap
             instr => fail!("Cannot accept Null in {instr:?}"),
@@ -598,67 +721,13 @@ impl EventSink for Interpreter {
     }
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
-        use Bytecode as B;
-        self.program_counter = match &self.structure.program[self.program_counter] {
-            (_, B::OuterRecordEnd(instr)) => {
-                instr.accept_str(&self.structure, &mut self.buffers, val)?
-            }
-            (_, B::StructEnd(instr)) => {
-                instr.accept_str(&self.structure, &mut self.buffers, val)?
-            }
-            (_, B::StructField(instr)) => {
-                instr.accept_str(&self.structure, &mut self.buffers, val)?
-            }
-            (_, B::OuterRecordField(instr)) => {
-                instr.accept_str(&self.structure, &mut self.buffers, val)?
-            }
-            &(next, B::PushUTF8(idx)) => {
-                self.buffers.utf8[idx].push(val)?;
-                next
-            }
-            &(next, B::PushLargeUTF8(idx)) => {
-                self.buffers.large_utf8[idx].push(val)?;
-                next
-            }
-            &(next, B::PushDate64FromNaiveStr(idx)) => {
-                use chrono::NaiveDateTime;
-
-                self.buffers.i64[idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
-                next
-            }
-            &(next, B::PushDate64FromUtcStr(idx)) => {
-                use chrono::{DateTime, Utc};
-
-                self.buffers.i64[idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
-                next
-            }
-            &(next, B::PushDictionary(dictionary, indices)) => {
-                use {DictionaryIndices as I, DictionaryValue as V};
-                let idx = match dictionary {
-                    V::Utf8(dict) => self.buffers.dictionaries[dict].push(val)?,
-                    V::LargeUtf8(dict) => self.buffers.large_dictionaries[dict].push(val)?,
-                };
-                match indices {
-                    I::U8(indices) => self.buffers.u8[indices].push(idx.try_into()?)?,
-                    I::U16(indices) => self.buffers.u16[indices].push(idx.try_into()?)?,
-                    I::U32(indices) => self.buffers.u32[indices].push(idx.try_into()?)?,
-                    I::U64(indices) => self.buffers.u64[indices].push(idx.try_into()?)?,
-                    I::I8(indices) => self.buffers.i8[indices].push(idx.try_into()?)?,
-                    I::I16(indices) => self.buffers.i16[indices].push(idx.try_into()?)?,
-                    I::I32(indices) => self.buffers.i32[indices].push(idx.try_into()?)?,
-                    I::I64(indices) => self.buffers.i64[indices].push(idx.try_into()?)?,
-                }
-                next
-            }
-            instr => fail!("Cannot accept {ev} in {instr:?}", ev = Event::Str(val)),
-        };
-        Ok(())
+        dispatch_instruction!(self, accept_str, val)
     }
 
     fn accept_variant(&mut self, _name: &str, idx: usize) -> Result<()> {
         use Bytecode as B;
         self.program_counter = match &self.structure.program[self.program_counter] {
-            (_, B::Variant(instr)) => {
+            B::Variant(instr) => {
                 self.buffers.i8[instr.type_idx].push(idx.try_into()?)?;
                 self.structure.unions[instr.union_idx].fields[idx]
             }
