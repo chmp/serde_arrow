@@ -80,7 +80,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
-    test_compilation = true,
+    test_compilation = false,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -94,6 +94,25 @@ test_example!(
         btree_map!{ "a" => 3_u32, "b" => 4_u32 },
     ],
     nulls = [false, false],
+);
+
+test_example!(
+    test_name = map_as_map_empty,
+    test_compilation = false,
+    tracing_options = TracingOptions::default().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(
+            GenericField::new("entries", GenericDataType::Struct, false)
+                .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
+                .with_child(GenericField::new("value", GenericDataType::U32, false))
+        ),
+    ty = BTreeMap<String, u32>,
+    values = [
+        btree_map!{ },
+        btree_map!{ "a" => 3_u32 },
+        btree_map!{ "b" => 3_u32, "c" => 3_u32 },
+    ],
+    nulls = [false, false, false],
 );
 
 test_example!(

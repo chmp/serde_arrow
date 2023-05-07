@@ -85,11 +85,15 @@ macro_rules! accept_primitive {
                     &(next, Bytecode::$variant(array_idx)) => {
                         self.buffers.$builder[array_idx].push(val.try_into()?)?;
                         self.program_counter = next;
-                        Ok(())
                     }
                 )*
+                &(_, Bytecode::MapEnd(map_idx)) => {
+                    self.program_counter = self.structure.maps[map_idx].key;
+                    return self.$func(val);
+                }
                 instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
             }
+            Ok(())
         }
     };
 }
@@ -272,7 +276,7 @@ impl EventSink for Interpreter {
             &(_, B::OuterSequenceEnd(idx)) => {
                 self.program_counter = self.structure.large_lists[idx].item;
             }
-            &(next, B::OuterSequenceItem(_) | B::TupleStructItem) => {
+            &(next, B::OuterSequenceItem(_) | B::TupleStructItem | B::StructItem(_)) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept Item in {instr:?}"),
@@ -317,7 +321,7 @@ impl EventSink for Interpreter {
     fn accept_start_map(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.structure.program[self.program_counter] {
-            &(next, B::StructStart | B::OuterRecordStart) => {
+            &(next, B::StructStart | B::OuterRecordStart | B::MapStart) => {
                 self.program_counter = next;
             }
             instr => fail!("Cannot accept StartMap in {instr:?}"),
@@ -328,7 +332,7 @@ impl EventSink for Interpreter {
     fn accept_end_map(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.structure.program[self.program_counter] {
-            &(next, B::StructEnd | B::OuterRecordEnd) => {
+            &(next, B::StructEnd | B::OuterRecordEnd | B::MapEnd(_)) => {
                 self.program_counter = next;
             }
             &(_, B::StructField(struct_idx, _)) => {
@@ -346,6 +350,7 @@ impl EventSink for Interpreter {
                 self.buffers.validity[validity].push(true)?;
                 self.program_counter = next;
             }
+            // Todo: handle EndMap
             instr => fail!("Cannot accept Some in {instr:?}"),
         }
         Ok(())
@@ -362,6 +367,7 @@ impl EventSink for Interpreter {
                 self.buffers.null[idx].push(())?;
                 self.program_counter = next;
             }
+            // Todo: handle EndMap
             instr => fail!("Cannot accept Null in {instr:?}"),
         }
         Ok(())
@@ -423,6 +429,10 @@ impl EventSink for Interpreter {
                 }
                 self.program_counter = next;
             }
+            &(_, B::MapEnd(map_idx)) => {
+                self.program_counter = self.structure.maps[map_idx].key;
+                return self.accept_str(val);
+            }
             instr => fail!("Cannot accept {ev} in {instr:?}", ev = Event::Str(val)),
         }
         Ok(())
@@ -436,6 +446,7 @@ impl EventSink for Interpreter {
                 self.buffers.i8[types].push(idx.try_into()?)?;
                 self.program_counter = self.structure.unions[union_idx].fields[idx];
             }
+            // Todo: handle EndMap
             instr => fail!("Cannot accept Variant in {instr:?}"),
         }
         Ok(())

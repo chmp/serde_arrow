@@ -32,7 +32,7 @@ pub enum Event<'a> {
     StartMap,
     /// End a map, corresponds to `}` in JSON
     EndMap,
-    /// Indicate that the next event encodes an item in a sequence
+    /// Indicate that the next event encodes an item in a sequence (or a map)
     Item,
     /// Indicate that the next event encodes a present value
     Some,

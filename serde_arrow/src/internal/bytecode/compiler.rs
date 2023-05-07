@@ -89,7 +89,9 @@ pub enum Bytecode {
     StructField(usize, String),
     StructEnd,
     MapStart,
-    MapEnd,
+    MapEnd(usize),
+    MapItem(usize),
+    StructItem(usize),
     TupleStructStart,
     TupleStructItem,
     TupleStructEnd,
@@ -117,6 +119,12 @@ pub enum Bytecode {
     Variant(usize, usize),
     /// A pseudo instruction, used to fix jumps to union positions
     UnionEnd,
+}
+
+impl Bytecode {
+    fn is_allowed_jump_target(&self) -> bool {
+        !matches!(self, Bytecode::UnionEnd)
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -431,8 +439,8 @@ pub enum ArrayMapping {
     Map {
         field: GenericField,
         offsets: usize,
-        entries: Box<ArrayMapping>,
         validity: Option<usize>,
+        entries: Box<ArrayMapping>,
     },
 }
 
@@ -562,9 +570,10 @@ impl Program {
             }
         }
 
-        let is_tuple = match field.strategy.as_ref() {
-            None | Some(Strategy::MapAsStruct) => false,
-            Some(Strategy::TupleAsStruct) => true,
+        let (is_tuple, is_map) = match field.strategy.as_ref() {
+            None => (false, false),
+            Some(Strategy::MapAsStruct) => (false, true),
+            Some(Strategy::TupleAsStruct) => (true, false),
             Some(strategy) => fail!("Cannot compile struct with strategy {strategy}"),
         };
 
@@ -581,6 +590,9 @@ impl Program {
 
         for field in &field.children {
             if !is_tuple {
+                if is_map {
+                    self.push_instr(Bytecode::StructItem(idx));
+                }
                 self.push_instr(Bytecode::StructField(idx, field.name.to_string()));
                 self.structure.structs[idx]
                     .fields
@@ -871,7 +883,7 @@ impl Program {
         let keys_mapping = self.compile_field(keys)?;
         let values_mapping = self.compile_field(values)?;
 
-        self.push_instr(Bytecode::MapEnd);
+        self.push_instr(Bytecode::MapEnd(idx));
         self.structure.maps[idx].r#return = self.structure.program.len();
 
         let entries_mapping = ArrayMapping::Struct {
@@ -900,17 +912,28 @@ impl Program {
         fn follow(mut pos: usize, program: &[(usize, Bytecode)]) -> usize {
             // NOTE: limit the number of jumps followed
             for _ in 0..program.len() {
-                pos = program[pos].0;
                 if program[pos].1 != Bytecode::UnionEnd {
                     return pos;
                 }
+                pos = program[pos].0;
             }
             panic!("More jumps than instructions: cycle?")
         }
 
         for pos in 0..self.structure.program.len() {
-            self.structure.program[pos].0 = follow(pos, &self.structure.program);
+            self.structure.program[pos].0 =
+                follow(self.structure.program[pos].0, &self.structure.program);
         }
+
+        for s in &mut self.structure.structs {
+            s.r#return = follow(s.r#return, &self.structure.program);
+        }
+
+        for l in &mut self.structure.large_lists {
+            l.r#return = follow(l.r#return, &self.structure.program);
+        }
+
+        // TODO: handle unions, ...
 
         Ok(())
     }
@@ -967,10 +990,26 @@ impl Program {
             }
 
             let before_return_instr = self.instruction_before(r#struct.r#return);
-            if before_return_instr != Some(&Bytecode::StructEnd)
-                && before_return_instr != Some(&Bytecode::OuterRecordEnd)
-            {
+            if !matches!(
+                before_return_instr,
+                Some(&Bytecode::StructEnd)
+                    | Some(&Bytecode::OuterRecordEnd)
+                    | Some(&Bytecode::UnionEnd)
+            ) {
                 fail!("invalid struct definition ({idx}): instr before return is {before_return_instr:?}");
+            }
+
+            if !self.structure.program[r#struct.r#return]
+                .1
+                .is_allowed_jump_target()
+            {
+                fail!("invalid struct definition ({idx}): return jumps to invalid target");
+            }
+
+            for (name, address) in &r#struct.fields {
+                if !self.structure.program[*address].1.is_allowed_jump_target() {
+                    fail!("invalid struct definition ({idx}): field jump {name} to invalid target");
+                }
             }
         }
         Ok(())
@@ -1064,6 +1103,7 @@ impl Program {
         if self.structure.program[last].0 != last {
             fail!("invalid next instruciton for program end");
         }
+
         Ok(())
     }
 

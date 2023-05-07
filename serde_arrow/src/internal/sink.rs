@@ -629,6 +629,7 @@ impl<'a, S: EventSink> SerializeMap for EventSerializer<'a, S> {
     type Error = Error;
 
     fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<(), Self::Error> {
+        self.0.accept_item()?;
         key.serialize(EventSerializer(&mut *self.0))?;
         Ok(())
     }

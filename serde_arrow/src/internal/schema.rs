@@ -656,6 +656,9 @@ impl EventSink for StructTracer {
                 Start
             }
             (Start, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
+            // TODO: fix include item markers properly
+            // ignore prefix-item markers
+            (Key, E::Item) => Key,
             (Key, E::Str(key)) => {
                 if let Some(&field) = self.index.get(key) {
                     self.mark_seen(field);
@@ -1133,6 +1136,9 @@ impl EventSink for MapTracer {
                 ev => fail!("Unexpected event {ev} in state Start of MapTracer"),
             },
             S::Key(depth) => match event {
+                // TODO: properly include item markers in the state machine
+                // ignore prefix-item marker
+                Event::Item if depth == 0 => S::Key(depth),
                 ev if ev.is_end() => match depth {
                     0 => {
                         if !matches!(ev, E::EndMap) {
