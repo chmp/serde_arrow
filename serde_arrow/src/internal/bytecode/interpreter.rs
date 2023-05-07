@@ -77,18 +77,8 @@ impl Buffers {
 
 impl Interpreter {
     pub fn new(program: Program) -> Self {
-        let mut instructions = Vec::with_capacity(program.program.len());
-        for (pos, (_, instr)) in program.program.into_iter().enumerate() {
-            let dst = program
-                .next_instruction
-                .get(&pos)
-                .copied()
-                .unwrap_or(pos + 1);
-            instructions.push((dst, instr));
-        }
-
         Self {
-            program: instructions,
+            program: program.program,
             structs: program.structs,
             lists: program.large_lists,
             unions: program.unions,

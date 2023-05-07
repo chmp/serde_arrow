@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::{
     internal::{
@@ -439,6 +439,7 @@ pub enum ArrayMapping {
 #[derive(Debug)]
 pub struct Program {
     pub(crate) options: CompilationOptions,
+    // NOTE: the value UNSET_INSTR is used to mark an unknown jump target
     pub(crate) program: Vec<(usize, Bytecode)>,
     pub(crate) large_lists: Vec<ListDefinition>,
     pub(crate) maps: Vec<MapDefinition>,
@@ -446,7 +447,6 @@ pub struct Program {
     pub(crate) unions: Vec<UnionDefinition>,
     pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
-    pub(crate) next_instruction: HashMap<usize, usize>,
     pub(crate) buffers: BufferCounts,
 }
 
@@ -489,7 +489,6 @@ impl Program {
             unions: Vec::new(),
             nulls: Vec::new(),
             array_mapping: Vec::new(),
-            next_instruction: HashMap::new(),
             buffers: BufferCounts::default(),
         }
     }
@@ -508,6 +507,10 @@ impl Program {
 impl Program {
     fn push_instr(&mut self, instr: Bytecode) {
         self.program.push((UNSET_INSTR, instr));
+    }
+
+    fn push_jump_instr(&mut self, jump: usize, instr: Bytecode) {
+        self.program.push((jump, instr));
     }
 }
 
@@ -546,9 +549,7 @@ impl Program {
         self.push_instr(Bytecode::OuterSequenceEnd(0));
         self.large_lists[0].r#return = self.program.len();
 
-        self.push_instr(Bytecode::ProgramEnd);
-        self.next_instruction
-            .insert(self.program.len() - 1, self.program.len() - 1);
+        self.push_jump_instr(self.program.len(), Bytecode::ProgramEnd);
 
         Ok(())
     }
@@ -686,7 +687,7 @@ impl Program {
 
         // each union fields jumps to after the "union"
         for pos in child_last_instr {
-            self.next_instruction.insert(pos, self.program.len());
+            self.program[pos].0 = self.program.len();
         }
 
         self.push_instr(Bytecode::UnionEnd);
@@ -894,25 +895,26 @@ impl Program {
 
 impl Program {
     fn update_jumps(&mut self) -> Result<()> {
-        fn follow(mut current: usize, program: &Program) -> usize {
-            for _ in 0..program.program.len() {
-                current = program
-                    .next_instruction
-                    .get(&current)
-                    .copied()
-                    .unwrap_or(current + 1);
-                if program.program[current].1 != Bytecode::UnionEnd {
-                    return current;
+        for (pos, (next, _)) in self.program.iter_mut().enumerate() {
+            if *next == UNSET_INSTR {
+                *next = pos + 1;
+            }
+        }
+
+        fn follow(mut pos: usize, program: &[(usize, Bytecode)]) -> usize {
+            // NOTE: limit the number of jumps followed
+            for _ in 0..program.len() {
+                pos = program[pos].0;
+                if program[pos].1 != Bytecode::UnionEnd {
+                    return pos;
                 }
             }
             panic!("More jumps than instructions: cycle?")
         }
 
-        let mut fixed = HashMap::new();
-        for (&pos, &next) in &self.next_instruction {
-            fixed.insert(pos, follow(next, self));
+        for pos in 0..self.program.len() {
+            self.program[pos].0 = follow(pos, &self.program);
         }
-        self.next_instruction = fixed;
 
         Ok(())
     }
@@ -1046,21 +1048,20 @@ impl Program {
     }
 
     fn validate_next_instruction(&self) -> Result<()> {
-        for (&pos, &target) in &self.next_instruction {
-            if target >= self.program.len() {
+        for (pos, (target, _)) in self.program.iter().enumerate() {
+            if *target >= self.program.len() {
                 fail!("invalid next instruction for {pos}: {target}");
             }
         }
 
-        for pos in 0..self.program.len() - 1 {
-            let next = self.next_instruction.get(&pos).copied().unwrap_or(pos + 1);
-            if self.program[next].1 == Bytecode::UnionEnd {
+        for (pos, (next, _)) in self.program.iter().enumerate() {
+            if self.program[*next].1 == Bytecode::UnionEnd {
                 fail!("invalid next instruction for {pos}: points to union end");
             }
         }
 
         let last = self.program.len() - 1;
-        if self.next_instruction.get(&last) != Some(&last) {
+        if self.program[last].0 != last {
             fail!("invalid next instruciton for program end");
         }
         Ok(())
