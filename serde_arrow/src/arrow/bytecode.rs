@@ -131,6 +131,34 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
                 .child_data(data)
                 .build()?)
         }
+        M::Map {
+            field,
+            entries,
+            offsets,
+            validity,
+        } => {
+            let entries = build_array_data(buffers, entries)?;
+            let field: Field = field.try_into()?;
+
+            let offset = std::mem::take(&mut buffers.offset[*offsets]);
+            let len = offset.len();
+            let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
+
+            let validity = if let Some(validity) = validity {
+                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            let array_data_builder = ArrayData::builder(field.data_type().clone())
+                .len(len)
+                .add_buffer(offset_buffer)
+                .add_child_data(entries)
+                .null_bit_buffer(validity);
+
+            Ok(array_data_builder.build()?)
+        }
         M::List {
             field,
             item,

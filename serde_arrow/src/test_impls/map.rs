@@ -80,7 +80,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
-    test_compilation = false,
+    test_compilation = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(

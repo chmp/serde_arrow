@@ -9,6 +9,8 @@ use crate::{
     Result,
 };
 
+const UNSET_INSTR: usize = usize::MAX;
+
 pub fn compile_serialization(
     fields: &[GenericField],
     options: CompilationOptions,
@@ -86,6 +88,8 @@ pub enum Bytecode {
     /// `StructField(struct_idx, field_name)`
     StructField(usize, String),
     StructEnd,
+    MapStart,
+    MapEnd,
     TupleStructStart,
     TupleStructItem,
     TupleStructEnd,
@@ -130,6 +134,14 @@ pub struct ListDefinition {
     /// The jump target if a list is closed
     pub r#return: usize,
     pub offset: usize,
+}
+
+#[derive(Default, Debug, PartialEq)]
+pub struct MapDefinition {
+    /// The jump target if another item is encountered
+    pub key: usize,
+    /// The jump target if a map is closed
+    pub r#return: usize,
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -258,12 +270,19 @@ impl NullDefinition {
                 }
                 self.validity.extend(validity.iter().copied());
             }
-            ArrayMapping::LargeList {
+            &ArrayMapping::Map {
+                offsets, validity, ..
+            } => {
+                // NOTE: the entries is not included
+                self.large_offsets.push(offsets);
+                self.validity.extend(validity);
+            }
+            &ArrayMapping::LargeList {
                 offsets, validity, ..
             } => {
                 // NOTE: the item is not included
-                self.large_offsets.push(*offsets);
-                self.validity.extend(validity.iter().copied());
+                self.large_offsets.push(offsets);
+                self.validity.extend(validity);
             }
             &ArrayMapping::Dictionary {
                 indices, validity, ..
@@ -409,18 +428,35 @@ pub enum ArrayMapping {
         fields: Vec<ArrayMapping>,
         types: usize,
     },
+    Map {
+        field: GenericField,
+        offsets: usize,
+        entries: Box<ArrayMapping>,
+        validity: Option<usize>,
+    },
 }
 
 #[derive(Debug)]
 pub struct Program {
     pub(crate) options: CompilationOptions,
-    pub(crate) program: Vec<Bytecode>,
+    pub(crate) program: Vec<(usize, Bytecode)>,
     pub(crate) large_lists: Vec<ListDefinition>,
+    pub(crate) maps: Vec<MapDefinition>,
     pub(crate) structs: Vec<StructDefinition>,
     pub(crate) unions: Vec<UnionDefinition>,
     pub(crate) nulls: Vec<NullDefinition>,
     pub(crate) array_mapping: Vec<ArrayMapping>,
     pub(crate) next_instruction: HashMap<usize, usize>,
+    pub(crate) buffers: BufferCounts,
+}
+
+#[derive(Debug, Clone)]
+pub struct Structure {
+    
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct BufferCounts {
     pub(crate) num_null: usize,
     pub(crate) num_bool: usize,
     pub(crate) num_u8: usize,
@@ -448,30 +484,13 @@ impl Program {
             options,
             program: Vec::new(),
             large_lists: Vec::new(),
+            maps: Vec::new(),
             structs: Vec::new(),
             unions: Vec::new(),
             nulls: Vec::new(),
             array_mapping: Vec::new(),
             next_instruction: HashMap::new(),
-            num_null: 0,
-            num_bool: 0,
-            num_u8: 0,
-            num_u16: 0,
-            num_u32: 0,
-            num_u64: 0,
-            num_i8: 0,
-            num_i16: 0,
-            num_i32: 0,
-            num_i64: 0,
-            num_f32: 0,
-            num_f64: 0,
-            num_utf8: 0,
-            num_large_utf8: 0,
-            num_validity: 0,
-            num_offsets: 0,
-            num_large_offsets: 0,
-            num_dictionaries: 0,
-            num_large_dictionaries: 0,
+            buffers: BufferCounts::default(),
         }
     }
 }
@@ -479,10 +498,16 @@ impl Program {
 impl Program {
     fn compile(&mut self, fields: &[GenericField]) -> Result<()> {
         self.compile_outer_structure(fields)?;
-        self.fix_union_jumps()?;
+        self.update_jumps()?;
         self.validate()?;
 
         Ok(())
+    }
+}
+
+impl Program {
+    fn push_instr(&mut self, instr: Bytecode) {
+        self.program.push((UNSET_INSTR, instr));
     }
 }
 
@@ -493,19 +518,18 @@ impl Program {
         }
 
         self.large_lists.push(ListDefinition::default());
-        self.program.push(Bytecode::OuterSequenceStart);
-        self.program.push(Bytecode::OuterSequenceItem(0));
+        self.push_instr(Bytecode::OuterSequenceStart);
+        self.push_instr(Bytecode::OuterSequenceItem(0));
         self.large_lists[0].item = self.program.len();
 
         if self.options.wrap_with_struct {
             self.structs.push(StructDefinition::default());
-            self.program.push(Bytecode::OuterRecordStart);
+            self.push_instr(Bytecode::OuterRecordStart);
         }
 
         for field in fields {
             if self.options.wrap_with_struct {
-                self.program
-                    .push(Bytecode::OuterRecordField(0, field.name.to_string()));
+                self.push_instr(Bytecode::OuterRecordField(0, field.name.to_string()));
                 self.structs[0]
                     .fields
                     .insert(field.name.to_string(), self.program.len());
@@ -515,14 +539,14 @@ impl Program {
         }
 
         if self.options.wrap_with_struct {
-            self.program.push(Bytecode::OuterRecordEnd);
+            self.push_instr(Bytecode::OuterRecordEnd);
             self.structs[0].r#return = self.program.len();
         }
 
-        self.program.push(Bytecode::OuterSequenceEnd(0));
+        self.push_instr(Bytecode::OuterSequenceEnd(0));
         self.large_lists[0].r#return = self.program.len();
 
-        self.program.push(Bytecode::ProgramEnd);
+        self.push_instr(Bytecode::ProgramEnd);
         self.next_instruction
             .insert(self.program.len() - 1, self.program.len() - 1);
 
@@ -553,32 +577,31 @@ impl Program {
 
         if !is_tuple {
             self.structs.push(StructDefinition::default());
-            self.program.push(Bytecode::StructStart);
+            self.push_instr(Bytecode::StructStart);
         } else {
-            self.program.push(Bytecode::TupleStructStart);
+            self.push_instr(Bytecode::TupleStructStart);
         }
 
         let mut field_mapping = vec![];
 
         for field in &field.children {
             if !is_tuple {
-                self.program
-                    .push(Bytecode::StructField(idx, field.name.to_string()));
+                self.push_instr(Bytecode::StructField(idx, field.name.to_string()));
                 self.structs[idx]
                     .fields
                     .insert(field.name.to_string(), self.program.len());
             } else {
-                self.program.push(Bytecode::TupleStructItem);
+                self.push_instr(Bytecode::TupleStructItem);
             }
             let f = self.compile_field(field)?;
             field_mapping.push(f);
         }
 
         if !is_tuple {
-            self.program.push(Bytecode::StructEnd);
+            self.push_instr(Bytecode::StructEnd);
             self.structs[idx].r#return = self.program.len();
         } else {
-            self.program.push(Bytecode::TupleStructEnd);
+            self.push_instr(Bytecode::TupleStructEnd);
         }
 
         Ok(ArrayMapping::Struct {
@@ -611,18 +634,18 @@ impl Program {
             .ok_or_else(|| error!("invalid list: no child"))?;
 
         let idx = self.large_lists.len();
-        let offsets = self.num_large_offsets.next_value();
+        let offsets = self.buffers.num_large_offsets.next_value();
 
         self.large_lists.push(ListDefinition::default());
         self.large_lists[idx].offset = offsets;
 
-        self.program.push(Bytecode::LargeListStart);
-        self.program.push(Bytecode::LargeListItem(idx, offsets));
+        self.push_instr(Bytecode::LargeListStart);
+        self.push_instr(Bytecode::LargeListItem(idx, offsets));
         self.large_lists[idx].item = self.program.len();
 
         let field_mapping = self.compile_field(item)?;
 
-        self.program.push(Bytecode::LargeListEnd(idx, offsets));
+        self.push_instr(Bytecode::LargeListEnd(idx, offsets));
         self.large_lists[idx].r#return = self.program.len();
 
         Ok(ArrayMapping::LargeList {
@@ -648,12 +671,12 @@ impl Program {
         let def = self.unions.len();
         self.unions.push(UnionDefinition::default());
 
-        let types = self.num_i8.next_value();
+        let types = self.buffers.num_i8.next_value();
 
         let mut fields = Vec::new();
         let mut child_last_instr = Vec::new();
 
-        self.program.push(Bytecode::Variant(def, types));
+        self.push_instr(Bytecode::Variant(def, types));
 
         for child in &field.children {
             self.unions[def].fields.push(self.program.len());
@@ -666,7 +689,7 @@ impl Program {
             self.next_instruction.insert(pos, self.program.len());
         }
 
-        self.program.push(Bytecode::UnionEnd);
+        self.push_instr(Bytecode::UnionEnd);
 
         Ok(ArrayMapping::Union {
             field: field.clone(),
@@ -678,11 +701,11 @@ impl Program {
     fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
         let mut nullable_idx = None;
         let validity = if field.nullable {
-            let validity = self.num_validity.next_value();
+            let validity = self.buffers.num_validity.next_value();
             self.nulls.push(NullDefinition::default());
 
             nullable_idx = Some(self.program.len());
-            self.program.push(Bytecode::Option(0, validity));
+            self.push_instr(Bytecode::Option(0, validity));
 
             Some(validity)
         } else {
@@ -693,7 +716,7 @@ impl Program {
 
         if let Some(nullable_idx) = nullable_idx {
             let current_program_len = self.program.len();
-            let Bytecode::Option(if_none, validity) = &mut self.program[nullable_idx] else {
+            let (_, Bytecode::Option(if_none, validity)) = &mut self.program[nullable_idx] else {
                 fail!("Internal error during compilation");
             };
             *if_none = current_program_len;
@@ -707,14 +730,14 @@ impl Program {
 
 macro_rules! compile_primtive {
     ($this:expr, $field:expr, $validity:expr, $num:ident, $instr:ident, $mapping:ident) => {{
-        $this.program.push(Bytecode::$instr($this.$num));
+        $this.push_instr(Bytecode::$instr($this.buffers.$num));
         let res = ArrayMapping::$mapping {
             field: $field.clone(),
-            buffer: $this.$num,
+            buffer: $this.buffers.$num,
             validity: $validity,
         };
 
-        $this.$num += 1;
+        $this.buffers.$num += 1;
         Ok(res)
     }};
 }
@@ -769,6 +792,7 @@ impl Program {
             D::List => self.compile_list(field, validity),
             D::LargeList => self.compile_large_list(field, validity),
             D::Union => self.compile_union(field, validity),
+            D::Map => self.compile_map(field, validity),
             dt => fail!("cannot compile {dt}: not implemented"),
         }
     }
@@ -790,23 +814,23 @@ impl Program {
         };
 
         let indices = match &field.children[0].data_type {
-            D::U8 => I::U8(self.num_u8.next_value()),
-            D::U16 => I::U16(self.num_u16.next_value()),
-            D::U32 => I::U32(self.num_u32.next_value()),
-            D::U64 => I::U64(self.num_u64.next_value()),
-            D::I8 => I::I8(self.num_i8.next_value()),
-            D::I16 => I::I16(self.num_i16.next_value()),
-            D::I32 => I::I32(self.num_i32.next_value()),
-            D::I64 => I::I64(self.num_i64.next_value()),
+            D::U8 => I::U8(self.buffers.num_u8.next_value()),
+            D::U16 => I::U16(self.buffers.num_u16.next_value()),
+            D::U32 => I::U32(self.buffers.num_u32.next_value()),
+            D::U64 => I::U64(self.buffers.num_u64.next_value()),
+            D::I8 => I::I8(self.buffers.num_i8.next_value()),
+            D::I16 => I::I16(self.buffers.num_i16.next_value()),
+            D::I32 => I::I32(self.buffers.num_i32.next_value()),
+            D::I64 => I::I64(self.buffers.num_i64.next_value()),
             dt => fail!("cannot compile dictionary with indices of type {dt}"),
         };
 
         let dictionary = match &field.children[1].data_type {
-            D::Utf8 => V::Utf8(self.num_dictionaries.next_value()),
-            D::LargeUtf8 => V::LargeUtf8(self.num_large_dictionaries.next_value()),
+            D::Utf8 => V::Utf8(self.buffers.num_dictionaries.next_value()),
+            D::LargeUtf8 => V::LargeUtf8(self.buffers.num_large_dictionaries.next_value()),
             dt => fail!("cannot compile dictionary with values of type {dt}"),
         };
-        self.program.push(B::PushDictionary(dictionary, indices));
+        self.push_instr(B::PushDictionary(dictionary, indices));
 
         Ok(M::Dictionary {
             field: field.clone(),
@@ -818,7 +842,58 @@ impl Program {
 }
 
 impl Program {
-    fn fix_union_jumps(&mut self) -> Result<()> {
+    fn compile_map(
+        &mut self,
+        field: &GenericField,
+        validity: Option<usize>,
+    ) -> Result<ArrayMapping> {
+        if field.nullable != validity.is_some() {
+            fail!("inconsistent arguments");
+        }
+        if !field.is_valid_map() {
+            fail!("cannot compile invalid map field: {field:?}");
+        }
+        let Some(entries) = field.children.get(0) else {
+            fail!("invalid list: no child");
+        };
+        let Some(keys) = entries.children.get(0) else {
+            fail!("entries without key field");
+        };
+        let Some(values) = entries.children.get(1) else {
+            fail!("entries without values field");
+        };
+
+        let idx = self.maps.len();
+        let offsets = self.buffers.num_offsets.next_value();
+
+        self.maps.push(MapDefinition::default());
+
+        self.push_instr(Bytecode::MapStart);
+        self.maps[idx].key = self.program.len();
+
+        let keys_mapping = self.compile_field(keys)?;
+        let values_mapping = self.compile_field(values)?;
+
+        self.push_instr(Bytecode::MapEnd);
+        self.maps[idx].r#return = self.program.len();
+
+        let entries_mapping = ArrayMapping::Struct {
+            field: entries.clone(),
+            fields: vec![keys_mapping, values_mapping],
+            validity: None,
+        };
+
+        Ok(ArrayMapping::Map {
+            field: field.clone(),
+            offsets,
+            entries: Box::new(entries_mapping),
+            validity,
+        })
+    }
+}
+
+impl Program {
+    fn update_jumps(&mut self) -> Result<()> {
         fn follow(mut current: usize, program: &Program) -> usize {
             for _ in 0..program.program.len() {
                 current = program
@@ -826,7 +901,7 @@ impl Program {
                     .get(&current)
                     .copied()
                     .unwrap_or(current + 1);
-                if program.program[current] != Bytecode::UnionEnd {
+                if program.program[current].1 != Bytecode::UnionEnd {
                     return current;
                 }
             }
@@ -846,6 +921,7 @@ impl Program {
 impl Program {
     fn validate(&self) -> Result<()> {
         self.validate_lists()?;
+        self.validate_maps()?;
         self.validate_structs()?;
         self.validate_nulls()?;
         self.validate_array_mappings()?;
@@ -902,55 +978,60 @@ impl Program {
         Ok(())
     }
 
+    fn validate_maps(&self) -> Result<()> {
+        // TODO: implement
+        Ok(())
+    }
+
     fn validate_nulls(&self) -> Result<()> {
         for (idx, null) in self.nulls.iter().enumerate() {
-            if null.null.iter().any(|&idx| idx >= self.num_null) {
+            if null.null.iter().any(|&idx| idx >= self.buffers.num_null) {
                 fail!("invalid null definition {idx}: null out of bounds {null:?}");
             }
-            if null.bool.iter().any(|&idx| idx >= self.num_bool) {
+            if null.bool.iter().any(|&idx| idx >= self.buffers.num_bool) {
                 fail!("invalid null definition {idx}: bool out of bounds {null:?}");
             }
-            if null.u8.iter().any(|&idx| idx >= self.num_u8) {
+            if null.u8.iter().any(|&idx| idx >= self.buffers.num_u8) {
                 fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
             }
-            if null.u16.iter().any(|&idx| idx >= self.num_u16) {
+            if null.u16.iter().any(|&idx| idx >= self.buffers.num_u16) {
                 fail!("invalid null definition {idx}: u16 out of bounds {null:?}");
             }
-            if null.u32.iter().any(|&idx| idx >= self.num_u32) {
+            if null.u32.iter().any(|&idx| idx >= self.buffers.num_u32) {
                 fail!("invalid null definition {idx}: u32 out of bounds {null:?}");
             }
-            if null.u64.iter().any(|&idx| idx >= self.num_u64) {
+            if null.u64.iter().any(|&idx| idx >= self.buffers.num_u64) {
                 fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
             }
-            if null.i8.iter().any(|&idx| idx >= self.num_i8) {
+            if null.i8.iter().any(|&idx| idx >= self.buffers.num_i8) {
                 fail!("invalid null definition {idx}: i8 out of bounds {null:?}");
             }
-            if null.i16.iter().any(|&idx| idx >= self.num_i16) {
+            if null.i16.iter().any(|&idx| idx >= self.buffers.num_i16) {
                 fail!("invalid null definition {idx}: i16 out of bounds {null:?}");
             }
-            if null.i32.iter().any(|&idx| idx >= self.num_i32) {
+            if null.i32.iter().any(|&idx| idx >= self.buffers.num_i32) {
                 fail!("invalid null definition {idx}: i32 out of bounds {null:?}");
             }
-            if null.i64.iter().any(|&idx| idx >= self.num_i64) {
+            if null.i64.iter().any(|&idx| idx >= self.buffers.num_i64) {
                 fail!("invalid null definition {idx}: i64 out of bounds {null:?}");
             }
-            if null.f32.iter().any(|&idx| idx >= self.num_f32) {
+            if null.f32.iter().any(|&idx| idx >= self.buffers.num_f32) {
                 fail!("invalid null definition {idx}: f32 out of bounds {null:?}");
             }
-            if null.f64.iter().any(|&idx| idx >= self.num_f64) {
+            if null.f64.iter().any(|&idx| idx >= self.buffers.num_f64) {
                 fail!("invalid null definition {idx}: f64 out of bounds {null:?}");
             }
-            if null.utf8.iter().any(|&idx| idx >= self.num_utf8) {
+            if null.utf8.iter().any(|&idx| idx >= self.buffers.num_utf8) {
                 fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
             }
             if null
                 .large_utf8
                 .iter()
-                .any(|&idx| idx >= self.num_large_utf8)
+                .any(|&idx| idx >= self.buffers.num_large_utf8)
             {
                 fail!("invalid null definition {idx}: large_u8 out of bounds {null:?}");
             }
-            if null.validity.iter().any(|&idx| idx >= self.num_validity) {
+            if null.validity.iter().any(|&idx| idx >= self.buffers.num_validity) {
                 fail!("invalid null definition {idx}: validity out of bounds {null:?}");
             }
         }
@@ -973,7 +1054,7 @@ impl Program {
 
         for pos in 0..self.program.len() - 1 {
             let next = self.next_instruction.get(&pos).copied().unwrap_or(pos + 1);
-            if self.program[next] == Bytecode::UnionEnd {
+            if self.program[next].1 == Bytecode::UnionEnd {
                 fail!("invalid next instruction for {pos}: points to union end");
             }
         }
@@ -987,7 +1068,7 @@ impl Program {
 
     fn instruction_before(&self, idx: usize) -> Option<&Bytecode> {
         if idx != 0 {
-            self.program.get(idx - 1)
+            self.program.get(idx - 1).map(|instr| &instr.1)
         } else {
             None
         }
@@ -998,12 +1079,12 @@ macro_rules! validate_array_mapping_primitive {
     ($this:expr, $path:expr, $array_mapping:expr, $variant:ident, $counter:ident) => {
         {
             let ArrayMapping::$variant { field, buffer, validity } = $array_mapping else { unreachable!() };
-            if *buffer >= $this.$counter {
+            if *buffer >= $this.buffers.$counter {
                 fail!(
                     "invalid array mapping {path}: buffer index ({buffer}) out of bounds ({counter}) ({array_mapping:?})",
                     path=$path,
                     buffer=*buffer,
-                    counter=$this.$counter,
+                    counter=$this.buffers.$counter,
                     array_mapping=$array_mapping,
                 );
             }
@@ -1015,7 +1096,7 @@ macro_rules! validate_array_mapping_primitive {
                 );
             }
             if let &Some(validity) = validity {
-                if validity >= $this.num_validity {
+                if validity >= $this.buffers.num_validity {
                     fail!(
                         "invalid array mapping {path}: validity out of bounds ({array_mapping:?})",
                         path=$path,

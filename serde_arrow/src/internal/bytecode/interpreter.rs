@@ -4,7 +4,7 @@ use super::{
     },
     compiler::{
         ArrayMapping, Bytecode, DictionaryIndices, DictionaryValue, ListDefinition, NullDefinition,
-        Program, StructDefinition, UnionDefinition,
+        Program, StructDefinition, UnionDefinition, BufferCounts,
     },
 };
 
@@ -49,10 +49,36 @@ pub struct Buffers {
     pub large_dictionaries: Vec<StringDictonary<i64>>,
 }
 
+impl Buffers {
+    pub fn from_counts(counts: &BufferCounts) -> Self {
+        Self {
+            null: vec![Default::default(); counts.num_null],
+            u8: vec![Default::default(); counts.num_u8],
+            u16: vec![Default::default(); counts.num_u16],
+            u32: vec![Default::default(); counts.num_u32],
+            u64: vec![Default::default(); counts.num_u64],
+            i8: vec![Default::default(); counts.num_i8],
+            i16: vec![Default::default(); counts.num_i16],
+            i32: vec![Default::default(); counts.num_i32],
+            i64: vec![Default::default(); counts.num_i64],
+            f32: vec![Default::default(); counts.num_f32],
+            f64: vec![Default::default(); counts.num_f64],
+            bool: vec![Default::default(); counts.num_bool],
+            utf8: vec![Default::default(); counts.num_utf8],
+            large_utf8: vec![Default::default(); counts.num_large_utf8],
+            validity: vec![Default::default(); counts.num_validity],
+            offset: vec![Default::default(); counts.num_offsets],
+            large_offset: vec![Default::default(); counts.num_large_offsets],
+            dictionaries: vec![Default::default(); counts.num_dictionaries],
+            large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
+        }
+    }
+}
+
 impl Interpreter {
     pub fn new(program: Program) -> Self {
         let mut instructions = Vec::with_capacity(program.program.len());
-        for (pos, instr) in program.program.into_iter().enumerate() {
+        for (pos, (_, instr)) in program.program.into_iter().enumerate() {
             let dst = program
                 .next_instruction
                 .get(&pos)
@@ -69,27 +95,7 @@ impl Interpreter {
             nulls: program.nulls,
             array_mapping: program.array_mapping,
             program_counter: 0,
-            buffers: Buffers {
-                null: vec![Default::default(); program.num_null],
-                u8: vec![Default::default(); program.num_u8],
-                u16: vec![Default::default(); program.num_u16],
-                u32: vec![Default::default(); program.num_u32],
-                u64: vec![Default::default(); program.num_u64],
-                i8: vec![Default::default(); program.num_i8],
-                i16: vec![Default::default(); program.num_i16],
-                i32: vec![Default::default(); program.num_i32],
-                i64: vec![Default::default(); program.num_i64],
-                f32: vec![Default::default(); program.num_f32],
-                f64: vec![Default::default(); program.num_f64],
-                bool: vec![Default::default(); program.num_bool],
-                utf8: vec![Default::default(); program.num_utf8],
-                large_utf8: vec![Default::default(); program.num_large_utf8],
-                validity: vec![Default::default(); program.num_validity],
-                offset: vec![Default::default(); program.num_offsets],
-                large_offset: vec![Default::default(); program.num_large_offsets],
-                dictionaries: vec![Default::default(); program.num_dictionaries],
-                large_dictionaries: vec![Default::default(); program.num_large_dictionaries],
-            },
+            buffers: Buffers::from_counts(&program.buffers),
         }
     }
 }
