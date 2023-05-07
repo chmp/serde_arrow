@@ -89,8 +89,10 @@ pub enum Bytecode {
     StructField(usize, String),
     StructEnd,
     MapStart,
-    MapEnd(usize),
-    MapItem(usize),
+    /// `MapEnd(map_idx, offsets)`
+    MapEnd(usize, usize),
+    /// `MapItem(map_idx, offsets)`
+    MapItem(usize, usize),
     StructItem(usize),
     TupleStructStart,
     TupleStructItem,
@@ -878,12 +880,13 @@ impl Program {
         self.structure.maps.push(MapDefinition::default());
 
         self.push_instr(Bytecode::MapStart);
+        self.push_instr(Bytecode::MapItem(idx, offsets));
         self.structure.maps[idx].key = self.structure.program.len();
 
         let keys_mapping = self.compile_field(keys)?;
         let values_mapping = self.compile_field(values)?;
 
-        self.push_instr(Bytecode::MapEnd(idx));
+        self.push_instr(Bytecode::MapEnd(idx, offsets));
         self.structure.maps[idx].r#return = self.structure.program.len();
 
         let entries_mapping = ArrayMapping::Struct {

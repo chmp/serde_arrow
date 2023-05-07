@@ -87,10 +87,6 @@ macro_rules! accept_primitive {
                         self.program_counter = next;
                     }
                 )*
-                &(_, Bytecode::MapEnd(map_idx)) => {
-                    self.program_counter = self.structure.maps[map_idx].key;
-                    return self.$func(val);
-                }
                 instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
             }
             Ok(())
@@ -273,6 +269,14 @@ impl EventSink for Interpreter {
                 self.buffers.large_offset[offsets].inc_current_items()?;
                 self.program_counter = self.structure.large_lists[idx].item;
             }
+            &(next, B::MapItem(_, offsets)) => {
+                self.buffers.offset[offsets].inc_current_items()?;
+                self.program_counter = next;
+            }
+            &(_, B::MapEnd(map_idx, offsets)) => {
+                self.buffers.offset[offsets].inc_current_items()?;
+                self.program_counter = self.structure.maps[map_idx].key;
+            }
             &(_, B::OuterSequenceEnd(idx)) => {
                 self.program_counter = self.structure.large_lists[idx].item;
             }
@@ -332,8 +336,12 @@ impl EventSink for Interpreter {
     fn accept_end_map(&mut self) -> Result<()> {
         use Bytecode as B;
         match &self.structure.program[self.program_counter] {
-            &(next, B::StructEnd | B::OuterRecordEnd | B::MapEnd(_)) => {
+            &(next, B::StructEnd | B::OuterRecordEnd) => {
                 self.program_counter = next;
+            }
+            &(_, B::MapItem(map_idx, offsets) | B::MapEnd(map_idx, offsets)) => {
+                self.buffers.offset[offsets].push_current_items();
+                self.program_counter = self.structure.maps[map_idx].r#return;
             }
             &(_, B::StructField(struct_idx, _)) => {
                 self.program_counter = self.structure.structs[struct_idx].r#return;
@@ -428,10 +436,6 @@ impl EventSink for Interpreter {
                     I::I64(indices) => self.buffers.i64[indices].push(idx.try_into()?)?,
                 }
                 self.program_counter = next;
-            }
-            &(_, B::MapEnd(map_idx)) => {
-                self.program_counter = self.structure.maps[map_idx].key;
-                return self.accept_str(val);
             }
             instr => fail!("Cannot accept {ev} in {instr:?}", ev = Event::Str(val)),
         }

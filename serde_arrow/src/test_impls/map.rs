@@ -1,4 +1,4 @@
-use super::macros::test_example;
+use super::macros::{test_events, test_example};
 
 // NOTE: Use BTreeMap to guarantee the order of fields
 
@@ -80,7 +80,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
-    test_compilation = false,
+    test_compilation = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -98,7 +98,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_empty,
-    test_compilation = false,
+    test_compilation = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -117,7 +117,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_int_keys,
-    test_compilation = false,
+    test_compilation = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -131,4 +131,31 @@ test_example!(
         btree_map!{ -2_i32 => 3_u32, -4_i32 => 4_u32 },
     ],
     nulls = [false, false],
+);
+
+test_events!(
+    test_name = out_of_order_fields,
+    fields = [
+        // NOTE: map fields are always sorted
+        GenericField::new("bar", GenericDataType::U32, false),
+        GenericField::new("foo", GenericDataType::U32, false),
+    ],
+    events = [
+        Event::StartSequence,
+        Event::Item,
+        Event::StartMap,
+        Event::Str("foo"),
+        Event::U32(0),
+        Event::Str("bar"),
+        Event::U32(1),
+        Event::EndMap,
+        Event::Item,
+        Event::StartMap,
+        Event::Str("bar"),
+        Event::U32(2),
+        Event::Str("foo"),
+        Event::U32(3),
+        Event::EndMap,
+        Event::EndSequence,
+    ],
 );

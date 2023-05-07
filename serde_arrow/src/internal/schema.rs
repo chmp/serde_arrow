@@ -621,7 +621,6 @@ impl StructTracer {
         if !self.finished {
             fail!("Cannot build field {name} from unfinished tracer");
         }
-
         let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
         for (tracer, name) in iter::zip(&self.field_tracers, &self.field_names) {
             field.children.push(tracer.to_field(name)?);
