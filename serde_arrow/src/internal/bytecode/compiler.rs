@@ -498,11 +498,11 @@ impl Program {
 
         for field in fields {
             if self.options.wrap_with_struct {
+                self.program
+                    .push(Bytecode::OuterRecordField(0, field.name.to_string()));
                 self.structs[0]
                     .fields
                     .insert(field.name.to_string(), self.program.len());
-                self.program
-                    .push(Bytecode::OuterRecordField(0, field.name.to_string()));
             }
             let f = self.compile_field(field)?;
             self.array_mapping.push(f);
@@ -555,11 +555,11 @@ impl Program {
 
         for field in &field.children {
             if !is_tuple {
+                self.program
+                    .push(Bytecode::StructField(idx, field.name.to_string()));
                 self.structs[idx]
                     .fields
                     .insert(field.name.to_string(), self.program.len());
-                self.program
-                    .push(Bytecode::StructField(idx, field.name.to_string()));
             } else {
                 self.program.push(Bytecode::TupleStructItem);
             }
@@ -868,7 +868,7 @@ impl Program {
     fn validate_structs(&self) -> Result<()> {
         for (idx, r#struct) in self.structs.iter().enumerate() {
             for (name, address) in &r#struct.fields {
-                let field_instr = self.program.get(*address);
+                let field_instr = self.instruction_before(*address);
                 let is_valid =
                     if let Some(Bytecode::StructField(actual_idx, actual_name)) = field_instr {
                         *actual_idx == idx && actual_name == name

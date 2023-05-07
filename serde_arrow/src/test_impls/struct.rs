@@ -129,3 +129,29 @@ test_example!(
 //         struct S {}
 //     },
 // );
+
+test_events!(
+    test_name = out_of_order_events,
+    fields = [
+        GenericField::new("foo", GenericDataType::U32, false),
+        GenericField::new("bar", GenericDataType::U8, false),
+    ],
+    events = [
+        Event::StartSequence,
+        Event::Item,
+        Event::StartStruct,
+        Event::Str("foo"),
+        Event::U32(0),
+        Event::Str("bar"),
+        Event::U8(1),
+        Event::EndStruct,
+        Event::Item,
+        Event::StartStruct,
+        Event::Str("bar"),
+        Event::U8(2),
+        Event::Str("foo"),
+        Event::U32(3),
+        Event::EndStruct,
+        Event::EndSequence,
+    ],
+);

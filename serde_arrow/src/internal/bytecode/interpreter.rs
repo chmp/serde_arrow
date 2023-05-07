@@ -10,6 +10,7 @@ use super::{
 
 use crate::internal::{
     error::{fail, Result},
+    event::Event,
     sink::macros,
     sink::EventSink,
 };
@@ -375,9 +376,15 @@ impl EventSink for Interpreter {
     fn accept_str(&mut self, val: &str) -> Result<()> {
         use Bytecode as B;
         match &self.program[self.program_counter] {
-            // TODO: implement fallback for unordered structs
-            (next, B::StructField(_, name) | B::OuterRecordField(_, name)) if name == val => {
-                self.program_counter = *next;
+            (next, B::StructField(idx, name) | B::OuterRecordField(idx, name)) => {
+                if name == val {
+                    self.program_counter = *next;
+                } else {
+                    let Some(next) = self.structs[*idx].fields.get(name) else {
+                    fail!("Cannot find field {name} in struct {idx}");
+                };
+                    self.program_counter = *next;
+                }
             }
             &(next, B::PushUTF8(idx)) => {
                 self.buffers.utf8[idx].push(val)?;
@@ -417,7 +424,7 @@ impl EventSink for Interpreter {
                 }
                 self.program_counter = next;
             }
-            instr => fail!("Cannot accept Str in {instr:?}"),
+            instr => fail!("Cannot accept {ev} in {instr:?}", ev = Event::Str(val)),
         }
         Ok(())
     }

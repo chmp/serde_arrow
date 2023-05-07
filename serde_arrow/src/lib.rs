@@ -251,7 +251,7 @@ pub use crate::internal::error::{Error, Result};
 pub mod base {
     pub use crate::internal::{
         event::Event,
-        sink::{serialize_into_sink, EventSink},
+        sink::{accept_events, serialize_into_sink, EventSink},
         source::{deserialize_from_source, EventSource},
     };
 }

@@ -299,3 +299,60 @@ macro_rules! test_example {
 }
 
 pub(crate) use test_example;
+
+macro_rules! test_events {
+    (
+        test_name = $test_name:ident,
+        $(tracing_options = $tracing_options:expr,)?
+        fields = $fields:expr,
+        $(overwrite_fields = $overwrite_fields:expr,)?
+        events = $events:expr,
+    ) => {
+        mod $test_name {
+            use crate::internal::{
+                bytecode::{compile_serialization, CompilationOptions, Interpreter},
+                event::Event,
+                schema::{GenericDataType, GenericField, Tracer, TracingOptions},
+                sink::{accept_events, StripOuterSequenceSink},
+            };
+
+            #[test]
+            fn tracing() {
+                let events = &$events;
+                let fields = &$fields;
+
+                #[allow(unused)]
+                let options = TracingOptions::default();
+                $(let options = $tracing_options;)?
+
+                let tracer = Tracer::new(String::from("$"), options);
+                let mut tracer = StripOuterSequenceSink::new(tracer);
+                accept_events(&mut tracer, events.iter().cloned()).unwrap();
+                let root = tracer.into_inner().to_field("root").unwrap();
+
+                assert_eq!(root.children, fields);
+            }
+
+            #[test]
+            fn serialize() {
+                let events = &$events;
+
+                #[allow(unused)]
+                let fields = &$fields;
+                $(let fields = &$overwrite_fields;)?
+
+                let program = compile_serialization(fields, CompilationOptions::default()).unwrap();
+                println!("{:?}", program.program);
+                let mut interpreter = Interpreter::new(program);
+                accept_events(&mut interpreter, events.iter().cloned()).unwrap();
+
+                println!("{:?}", interpreter.array_mapping);
+                println!("{:?}", interpreter.buffers);
+
+                interpreter.build_arrow_arrays().unwrap();
+            }
+        }
+    };
+}
+
+pub(crate) use test_events;

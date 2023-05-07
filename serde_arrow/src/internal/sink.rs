@@ -23,6 +23,20 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     Ok(())
 }
 
+/// Helper method to push a series events into the given sink
+///
+pub fn accept_events<'a, S, I>(sink: &mut S, events: I) -> Result<()>
+where
+    S: EventSink,
+    I: IntoIterator<Item = Event<'a>>,
+{
+    for ev in events {
+        sink.accept(ev)?;
+    }
+    sink.finish()?;
+    Ok(())
+}
+
 /// Processes [Events][Event] emitted during serialization of a type
 ///
 /// Note: both the generic `accept` and the specific `accept_*` methods may be
