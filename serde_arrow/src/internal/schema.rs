@@ -256,6 +256,7 @@ impl GenericField {
             GenericDataType::I64 => self.is_valid_primitive(),
             GenericDataType::F32 => self.is_valid_primitive(),
             GenericDataType::F64 => self.is_valid_primitive(),
+            GenericDataType::Struct => self.is_valid_struct(),
             _ => true,
         }
     }
@@ -280,6 +281,14 @@ impl GenericField {
 impl GenericField {
     fn is_valid_primitive(&self) -> bool {
         self.strategy.is_none() && self.children.is_empty()
+    }
+
+    fn is_valid_struct(&self) -> bool {
+        // NOTE: do not chekc number of children: arrow-rs can 0 children, arrow2 not
+        matches!(
+            self.strategy,
+            None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct)
+        )
     }
 }
 

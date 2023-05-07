@@ -78,11 +78,12 @@ pub enum Bytecode {
     OuterRecordField(usize, String),
     OuterRecordEnd,
     LargeListStart,
-    /// `LargeListItem(definition, offsets)`
+    /// `LargeListItem(list_idx, offsets)`
     LargeListItem(usize, usize),
-    /// `LargeListItem(definition, offsets)`
+    /// `LargeListItem(list_idx, offsets)`
     LargeListEnd(usize, usize),
     StructStart,
+    /// `StructField(struct_idx, field_name)`
     StructField(usize, String),
     StructEnd,
     TupleStructStart,
@@ -116,12 +117,17 @@ pub enum Bytecode {
 
 #[derive(Default, Debug, PartialEq)]
 pub struct StructDefinition {
+    /// The jump target for the individual fields
     pub fields: BTreeMap<String, usize>,
+    /// The jump target if a struct is closed
+    pub r#return: usize,
 }
 
 #[derive(Default, Debug, PartialEq)]
 pub struct ListDefinition {
+    /// The jump target if another item is encountered
     pub item: usize,
+    /// The jump target if a list is closed
     pub r#return: usize,
     pub offset: usize,
 }
@@ -510,6 +516,7 @@ impl Program {
 
         if self.options.wrap_with_struct {
             self.program.push(Bytecode::OuterRecordEnd);
+            self.structs[0].r#return = self.program.len();
         }
 
         self.program.push(Bytecode::OuterSequenceEnd(0));
@@ -537,7 +544,7 @@ impl Program {
         }
 
         let is_tuple = match field.strategy.as_ref() {
-            None => false,
+            None | Some(Strategy::MapAsStruct) => false,
             Some(Strategy::TupleAsStruct) => true,
             Some(strategy) => fail!("Cannot compile struct with strategy {strategy}"),
         };
@@ -569,6 +576,7 @@ impl Program {
 
         if !is_tuple {
             self.program.push(Bytecode::StructEnd);
+            self.structs[idx].r#return = self.program.len();
         } else {
             self.program.push(Bytecode::TupleStructEnd);
         }
@@ -884,10 +892,12 @@ impl Program {
                 }
             }
 
-            /*let before_return_instr = self.instruction_before(r#struct.r#return);
-            if before_return_instr != Some(&Bytecode::StructEnd(idx)) {
+            let before_return_instr = self.instruction_before(r#struct.r#return);
+            if before_return_instr != Some(&Bytecode::StructEnd)
+                && before_return_instr != Some(&Bytecode::OuterRecordEnd)
+            {
                 fail!("invalid struct definition ({idx}): instr before return is {before_return_instr:?}");
-            }*/
+            }
         }
         Ok(())
     }

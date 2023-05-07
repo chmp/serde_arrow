@@ -266,6 +266,9 @@ impl EventSink for Interpreter {
             &(next, B::StructEnd | B::OuterRecordEnd) => {
                 self.program_counter = next;
             }
+            &(_, B::StructField(struct_idx, _)) => {
+                self.program_counter = self.structs[struct_idx].r#return;
+            }
             instr => fail!("Cannot accept EndStruct in {instr:?}"),
         }
         Ok(())
@@ -329,15 +332,28 @@ impl EventSink for Interpreter {
     }
 
     fn accept_start_map(&mut self) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
+            &(next, B::StructStart | B::OuterRecordStart) => {
+                self.program_counter = next;
+            }
             instr => fail!("Cannot accept StartMap in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_end_map(&mut self) -> Result<()> {
+        use Bytecode as B;
         match &self.program[self.program_counter] {
+            &(next, B::StructEnd | B::OuterRecordEnd) => {
+                self.program_counter = next;
+            }
+            &(_, B::StructField(struct_idx, _)) => {
+                self.program_counter = self.structs[struct_idx].r#return;
+            }
             instr => fail!("Cannot accept EndMap in {instr:?}"),
         }
+        Ok(())
     }
 
     fn accept_some(&mut self) -> Result<()> {

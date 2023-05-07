@@ -155,28 +155,3 @@ test_events!(
         Event::EndSequence,
     ],
 );
-
-// TODO: implement this feature (broken for tracing and for bytecode)
-/*
-test_events!(
-    test_name = optional_fields,
-    fields = [
-        GenericField::new("foo", GenericDataType::U32, true),
-        GenericField::new("bar", GenericDataType::U8, true),
-    ],
-    events = [
-        Event::StartSequence,
-        Event::Item,
-        Event::StartStruct,
-        Event::Str("foo"),
-        Event::U32(0),
-        Event::EndStruct,
-        Event::Item,
-        Event::StartStruct,
-        Event::Str("bar"),
-        Event::U8(2),
-        Event::EndStruct,
-        Event::EndSequence,
-    ],
-);
-*/
