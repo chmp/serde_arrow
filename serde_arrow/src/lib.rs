@@ -176,6 +176,9 @@ pub mod _impl {
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
                 }
+                pub mod ffi {
+                    pub use $arrow_data::ffi::FFI_ArrowArray;
+                }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
                 }

@@ -32,6 +32,7 @@ macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
         test_compilation = $test_compilation:expr,
+        $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
@@ -41,7 +42,7 @@ macro_rules! test_example_impl {
         $(define = { $($definitions:item)* } ,)?
     ) => {
         use std::collections::{BTreeMap, HashMap};
-        use serde::Serialize;
+        use serde::{Serialize, Deserialize};
 
         use super::*;
 
@@ -189,6 +190,7 @@ macro_rules! test_compilation_impl {
     (
         test_name = $test_name:ident,
         test_compilation = true,
+        $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
@@ -199,7 +201,7 @@ macro_rules! test_compilation_impl {
     ) => {
         mod compilation {
             use std::collections::{BTreeMap, HashMap};
-            use serde::Serialize;
+            use serde::{Serialize, Deserialize};
 
             use super::*;
 
@@ -216,8 +218,11 @@ macro_rules! test_compilation_impl {
                     },
                     sink::accept_events,
                 },
-                _impl::arrow::array::make_array,
-                test_impls::macros::{btree_map, hash_map},
+                test_impls::{
+                    macros::{btree_map, hash_map},
+                    utils::deserialize_from_arrow_array,
+                },
+                _impl::arrow::datatypes::{Field as ArrowField},
             };
 
             #[test]
@@ -229,7 +234,7 @@ macro_rules! test_compilation_impl {
                 $(let field = $overwrite_field;)?
 
                 let program = compile_serialization(
-                    &[field],
+                    &[field.clone()],
                     CompilationOptions::default().wrap_with_struct(false),
                 ).unwrap();
                 println!("structure: {:?}", program.structure);
@@ -246,6 +251,7 @@ macro_rules! test_compilation_impl {
 
                 let arrays = interpreter.build_arrow_arrays().unwrap();
 
+                assert_eq!(arrays.len(), 1);
                 assert_eq!(
                     arrays[0].len(),
                     items.len(),
@@ -253,6 +259,17 @@ macro_rules! test_compilation_impl {
                     expected = items.len(),
                     actual = arrays[0].len(),
                 );
+
+                let test_deserialization = true;
+                $(let test_deserialization = $test_deserialization;)?
+
+                // NOTE: dictionary sources are not yet supported
+                if test_deserialization {
+                    let arrow_field: ArrowField = (&field).try_into().unwrap();
+                    let items_round_trip: Vec<$ty> = deserialize_from_arrow_array(&arrow_field, &arrays[0]).unwrap();
+
+                    assert_eq!(items, items_round_trip);
+                }
             }
         }
     };

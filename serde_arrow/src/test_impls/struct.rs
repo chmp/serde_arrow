@@ -10,7 +10,7 @@ test_example!(
     values = [S { a: 1, b: true }, S { a: 2, b: false }],
     nulls = [false, false],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
             a: u32,
             b: bool,
@@ -33,14 +33,14 @@ test_example!(
     values = [S::default(), S::default()],
     nulls = [false, false],
     define = {
-        #[derive(Default, Serialize)]
+        #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
         struct S {
             a: u32,
             b: bool,
             c: T,
         }
 
-        #[derive(Default, Serialize)]
+        #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
         struct T {
             d: i32,
             e: u16,
@@ -67,7 +67,7 @@ test_example!(
     ],
     nulls = [false, false],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
             a: Option<u32>,
             b: bool,
@@ -85,7 +85,7 @@ test_example!(
     values = [Some(S { a: 1, b: true }), None],
     nulls = [false, true],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
             a: u32,
             b: bool,
@@ -109,7 +109,7 @@ test_example!(
     ],
     nulls = [false, false, false, false, true],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
             a: Option<u32>,
             b: Option<bool>,

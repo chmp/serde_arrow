@@ -29,18 +29,18 @@ arrow-36 = ["dep:arrow-array-36", "dep:arrow-schema-36", "dep:arrow-data-36", "d
 [dependencies]
 arrow-array-38 = { package = "arrow-array", version = "38", optional = true }
 arrow-buffer-38 = { package = "arrow-buffer", version = "38", optional = true }
-arrow-data-38 = { package = "arrow-data", version="38", optional = true }
-arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true }
+arrow-data-38 = { package = "arrow-data", version="38", optional = true, features = ["ffi"] }
+arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true, features = ["ffi"] }
 
 arrow-array-37 = { package = "arrow-array", version = "37", optional = true }
 arrow-buffer-37 = { package = "arrow-buffer", version = "37", optional = true }
-arrow-data-37 = { package = "arrow-data", version="37", optional = true }
-arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true }
+arrow-data-37 = { package = "arrow-data", version="37", optional = true, features = ["ffi"]  }
+arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true, features = ["ffi"] }
 
 arrow-array-36 = { package = "arrow-array", version = "36", optional = true }
 arrow-buffer-36 = { package = "arrow-buffer", version = "36", optional = true }
-arrow-data-36 = { package = "arrow-data", version="36", optional = true }
-arrow-schema-36 = { package = "arrow-schema", version = "36", optional = true }
+arrow-data-36 = { package = "arrow-data", version="36", optional = true, features = ["ffi"]  }
+arrow-schema-36 = { package = "arrow-schema", version = "36", optional = true, features = ["ffi"] }
 
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
 arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true }

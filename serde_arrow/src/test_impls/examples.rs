@@ -19,7 +19,7 @@ test_example!(
     values = [Item::default(), Item::default()],
     nulls = [false, false],
     define = {
-        #[derive(Debug, Default, Serialize)]
+        #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
         struct Item {
             pub a: u8,
             pub b: u16,
@@ -72,20 +72,20 @@ test_example!(
     ],
     nulls = [false, false],
     define = {
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct Item {
             string: String,
             points: Vec<Point>,
             float: Float,
         }
 
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         enum Float {
             F32(f32),
             F64(f64),
         }
 
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct Point {
             x: f32,
             y: f32,
@@ -138,20 +138,20 @@ test_example!(
     ],
     nulls = [false, false],
     define = {
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct Item {
             string: String,
             points: Vec<Point>,
             child: SubItem,
         }
 
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct Point {
             x: f32,
             y: f32,
         }
 
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct SubItem {
             a: bool,
             b: f64,

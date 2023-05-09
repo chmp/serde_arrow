@@ -78,7 +78,7 @@ test_example!(
     define = {
         use chrono::{DateTime, TimeZone, Utc};
 
-        #[derive(Debug, Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct T(#[serde(with = "chrono::serde::ts_milliseconds")] DateTime<Utc>);
     },
 );

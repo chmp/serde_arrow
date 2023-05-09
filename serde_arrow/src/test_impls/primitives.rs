@@ -213,8 +213,13 @@ test_example!(
     test_name = str,
     test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
-    ty = &str,
-    values = ["a", "b", "c", "d"],
+    ty = String,
+    values = [
+        String::from("a"),
+        String::from("b"),
+        String::from("c"),
+        String::from("d")
+    ],
     nulls = [false, false, false, false],
 );
 
@@ -222,8 +227,8 @@ test_example!(
     test_name = nullable_str,
     test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, true),
-    ty = Option<&str>,
-    values = [Some("a"), None, None, Some("d")],
+    ty = Option<String>,
+    values = [Some(String::from("a")), None, None, Some(String::from("d"))],
     nulls = [false, true, true, false],
 );
 
@@ -235,29 +240,9 @@ test_example!(
     values = [I64(-1), I64(2), I64(3), I64(-4)],
     nulls = [false, false, false, false],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct I64(i64);
     },
-);
-
-test_example!(
-    test_name = str_utf8,
-    test_compilation = true,
-    field = GenericField::new("root", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new("root", GenericDataType::Utf8, false),
-    ty = &str,
-    values = ["a", "b", "c", "d"],
-    nulls = [false, false, false, false],
-);
-
-test_example!(
-    test_name = nullable_str_utf8,
-    test_compilation = true,
-    field = GenericField::new("root", GenericDataType::LargeUtf8, true),
-    overwrite_field = GenericField::new("root", GenericDataType::Utf8, true),
-    ty = Option<&str>,
-    values = [Some("a"), None, None, Some("d")],
-    nulls = [false, true, true, false],
 );
 
 // TODO: test that primitives can be converted into each other
