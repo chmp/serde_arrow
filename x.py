@@ -219,30 +219,34 @@ def format_benchmark(mean_times):
 
 @cmd()
 def summarize_status():
-    pat = r"^\s*test_compilation\s*=\s*(true|false)\s*,\s*$"
+    def _count_pattern(pat):
+        return sum(
+            1
+            for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
+            for line in p.read_text(encoding="utf8").splitlines()
+            if re.match(pat, line) is not None
+        )
 
-    counts = collections.Counter(
-        m.group(1)
-        for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
-        for line in p.read_text(encoding="utf8").splitlines()
-        if (m := re.match(pat, line)) is not None
+    num_tests = _count_pattern(r"^\s*test_example!\(\s*$")
+    num_ignored_tests = _count_pattern(r"^\s*[ignore]\s*$")
+    num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*false\s*,\s*$")
+    num_no_deserialization = _count_pattern(
+        r"^\s*test_deserialization\s*=\s*false\s*,\s*$"
     )
 
-    print(
-        "compilation support:",
-        counts["true"],
-        "/",
-        counts["true"] + counts["false"],
-        f"({counts['true'] / (counts['true'] + counts['false']):.0%})",
-    )
-
-    num_îgnored_tests = sum(
-        1
-        for p in self_path.glob("serde_arrow/**/*.rs")
-        for line in p.read_text(encoding="utf8").splitlines()
-        if line.strip() == "#[ignore]"
-    )
-    print("ignore tests: ", num_îgnored_tests)
+    print("tests:                  ", num_tests)
+    print("ignored tests:          ", num_ignored_tests)
+    for (label, num_false) in [
+        ("compilation support:    ", num_no_compilation),
+        ("deserialization support:", num_no_deserialization),
+    ]:
+        print(
+            label,
+            num_tests - num_false,
+            "/",
+            num_tests,
+            f"({(num_tests - num_false) / num_tests:.0%})",
+        )
 
     print()
     print("# Todo comments:")
