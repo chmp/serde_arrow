@@ -152,6 +152,16 @@ macro_rules! test_example_impl {
                     expected = expected_nulls,
                 );
             }
+
+            let test_deserialization = true;
+            $(let test_deserialization = $test_deserialization;)?
+
+            // NOTE: dictionary sources are not yet supported
+            if test_deserialization {
+                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+
+                assert_eq!(items, items_round_trip);
+            }
         }
 
         #[test]
@@ -222,7 +232,7 @@ macro_rules! test_compilation_impl {
                     macros::{btree_map, hash_map},
                     utils::deserialize_from_arrow_array,
                 },
-                _impl::arrow::datatypes::{Field as ArrowField},
+                _impl::arrow::datatypes::Field,
             };
 
             #[test]
@@ -265,7 +275,7 @@ macro_rules! test_compilation_impl {
 
                 // NOTE: dictionary sources are not yet supported
                 if test_deserialization {
-                    let arrow_field: ArrowField = (&field).try_into().unwrap();
+                    let arrow_field: Field = (&field).try_into().unwrap();
                     let items_round_trip: Vec<$ty> = deserialize_from_arrow_array(&arrow_field, &arrays[0]).unwrap();
 
                     assert_eq!(items, items_round_trip);
@@ -293,6 +303,7 @@ macro_rules! test_example {
                 use crate::{
                     arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow::datatypes::Field,
+                    test_impls::utils::deserialize_from_arrow_array as deserialize_from_array,
                 };
 
                 $crate::test_impls::macros::test_example_impl!(
@@ -302,7 +313,7 @@ macro_rules! test_example {
             }
             mod arrow2 {
                 use crate::{
-                    arrow2::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    arrow2::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow2::datatypes::Field,
                 };
 

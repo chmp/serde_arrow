@@ -51,6 +51,7 @@ test_example!(
 test_example!(
     test_name = map_as_struct_missing_fields,
     test_compilation = false,
+    test_deserialization = false,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
