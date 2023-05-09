@@ -125,6 +125,77 @@ trait Instruction: std::fmt::Debug {
         fail!("{self:?} cannot accept Item");
     }
 
+    fn accept_some(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept Some")
+    }
+
+    fn accept_default(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept Default")
+    }
+
+    fn accept_variant(
+        &self,
+        structure: &Structure,
+        buffers: &mut Buffers,
+        name: &str,
+        idx: usize,
+    ) -> Result<usize> {
+        fail!("{self:?} cannot accept Variant({name:?}, {idx}")
+    }
+
+    fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        fail!("{self:?} cannot accept Null")
+    }
+
+    fn accept_bool(
+        &self,
+        structure: &Structure,
+        buffers: &mut Buffers,
+        val: bool,
+    ) -> Result<usize> {
+        fail!("{self:?} cannot accept Bool({val})");
+    }
+
+    fn accept_u8(&self, structure: &Structure, buffers: &mut Buffers, val: u8) -> Result<usize> {
+        fail!("{self:?} cannot accept U8({val})");
+    }
+
+    fn accept_u16(&self, structure: &Structure, buffers: &mut Buffers, val: u16) -> Result<usize> {
+        fail!("{self:?} cannot accept U16({val})");
+    }
+
+    fn accept_u32(&self, structure: &Structure, buffers: &mut Buffers, val: u32) -> Result<usize> {
+        fail!("{self:?} cannot accept U32({val})");
+    }
+
+    fn accept_u64(&self, structure: &Structure, buffers: &mut Buffers, val: u64) -> Result<usize> {
+        fail!("{self:?} cannot accept U64({val})");
+    }
+
+    fn accept_i8(&self, structure: &Structure, buffers: &mut Buffers, val: i8) -> Result<usize> {
+        fail!("{self:?} cannot accept I8({val})");
+    }
+
+    fn accept_i16(&self, structure: &Structure, buffers: &mut Buffers, val: i16) -> Result<usize> {
+        fail!("{self:?} cannot accept I16({val})");
+    }
+
+    fn accept_i32(&self, structure: &Structure, buffers: &mut Buffers, val: i32) -> Result<usize> {
+        fail!("{self:?} cannot accept I32({val})");
+    }
+
+    fn accept_i64(&self, structure: &Structure, buffers: &mut Buffers, val: i64) -> Result<usize> {
+        fail!("{self:?} cannot accept I64({val})");
+    }
+
+    fn accept_f32(&self, structure: &Structure, buffers: &mut Buffers, val: f32) -> Result<usize> {
+        fail!("{self:?} cannot accept F32({val})");
+    }
+
+    fn accept_f64(&self, structure: &Structure, buffers: &mut Buffers, val: f64) -> Result<usize> {
+        fail!("{self:?} cannot accept F64({val})");
+    }
+
     fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
         fail!("{self:?} cannot accept Str({val:?})")
     }
@@ -399,9 +470,30 @@ impl Instruction for TupleStructEnd {
     }
 }
 
-impl Instruction for OptionMarker {}
+impl Instruction for OptionMarker {
+    fn accept_some(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.validity[self.validity].push(true)?;
+        Ok(self.next)
+    }
 
-impl Instruction for Variant {}
+    fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        apply_null(structure, buffers, self.validity)?;
+        Ok(self.if_none)
+    }
+}
+
+impl Instruction for Variant {
+    fn accept_variant(
+        &self,
+        structure: &Structure,
+        buffers: &mut Buffers,
+        _name: &str,
+        idx: usize,
+    ) -> Result<usize> {
+        buffers.i8[self.type_idx].push(idx.try_into()?)?;
+        Ok(structure.unions[self.union_idx].fields[idx])
+    }
+}
 
 impl Instruction for PushUtf8 {
     fn accept_str(
@@ -483,29 +575,125 @@ impl Instruction for PushDictionary {
 
 impl Instruction for UnionEnd {}
 
-impl Instruction for PushNull {}
+impl Instruction for PushNull {
+    fn accept_null(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.null[self.idx].push(())?;
+        Ok(self.next)
+    }
+}
 
-impl Instruction for PushU8 {}
+macro_rules! impl_primitive_instruction {
+    ($name:ident($builder:ident) { $($func:ident($ty:ty),)* }) => {
+        impl Instruction for $name {
+            $(
+                fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
+                    buffers.$builder[self.idx].push(val.try_into()?)?;
+                    Ok(self.next)
+                }
+            )*
+        }
+    };
+}
 
-impl Instruction for PushU16 {}
+impl_primitive_instruction!(PushU8(u8) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushU32 {}
+impl_primitive_instruction!(PushU16(u16) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushU64 {}
+impl_primitive_instruction!(PushU32(u32) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushI8 {}
+impl_primitive_instruction!(PushU64(u64) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushI16 {}
+impl_primitive_instruction!(PushI8(i8) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushI32 {}
+impl_primitive_instruction!(PushI16(i16) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushI64 {}
+impl_primitive_instruction!(PushI32(i32) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushF32 {}
+impl_primitive_instruction!(PushI64(i64) {
+    accept_u8(u8),
+    accept_u16(u16),
+    accept_u32(u32),
+    accept_u64(u64),
+    accept_i8(i8),
+    accept_i16(i16),
+    accept_i32(i32),
+    accept_i64(i64),
+});
 
-impl Instruction for PushF64 {}
+impl_primitive_instruction!(PushF32(f32) {
+    accept_f32(f32),
+});
 
-impl Instruction for PushBool {}
+impl_primitive_instruction!(PushF64(f64) {
+    accept_f64(f64),
+});
+
+impl_primitive_instruction!(PushBool(bool) {
+    accept_bool(bool),
+});
 
 macro_rules! dispatch_instruction {
     ($this:expr, $method:ident) => {
@@ -517,29 +705,12 @@ macro_rules! dispatch_instruction {
             Ok(())
         }
     };
-    ($this:expr, $method:ident, $val:expr) => {
+    ($this:expr, $method:ident, $($val:expr),*) => {
         {
             $this.program_counter = dispatch_bytecode!(
                 &$this.structure.program[$this.program_counter],
-                instr => instr.$method(&$this.structure, &mut $this.buffers, $val)?
+                instr => instr.$method(&$this.structure, &mut $this.buffers, $($val),*)?
             );
-            Ok(())
-        }
-    };
-}
-
-macro_rules! accept_primitive {
-    ($func:ident, $ty:ty, $(($builder:ident, $variant:ident),)*) => {
-        fn $func(&mut self, val: $ty) -> crate::Result<()> {
-            match &self.structure.program[self.program_counter] {
-                $(
-                    Bytecode::$variant(instr) => {
-                        self.buffers.$builder[instr.idx].push(val.try_into()?)?;
-                        self.program_counter = instr.next;
-                    }
-                )*
-                instr => fail!("Cannot accept {} in {instr:?}", stringify!($ty)),
-            }
             Ok(())
         }
     };
@@ -549,105 +720,49 @@ macro_rules! accept_primitive {
 impl EventSink for Interpreter {
     macros::forward_generic_to_specialized!();
 
-    accept_primitive!(
-        accept_u8,
-        u8,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_u16,
-        u16,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_u32,
-        u32,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_u64,
-        u64,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_i8,
-        i8,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_i16,
-        i16,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_i32,
-        i32,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(
-        accept_i64,
-        i64,
-        (u8, PushU8),
-        (u16, PushU16),
-        (u32, PushU32),
-        (u64, PushU64),
-        (i8, PushI8),
-        (i16, PushI16),
-        (i32, PushI32),
-        (i64, PushI64),
-    );
-    accept_primitive!(accept_f32, f32, (f32, PushF32),);
-    accept_primitive!(accept_f64, f64, (f64, PushF64),);
-    accept_primitive!(accept_bool, bool, (bool, PushBool),);
+    fn accept_bool(&mut self, val: bool) -> Result<()> {
+        dispatch_instruction!(self, accept_bool, val)
+    }
+
+    fn accept_u8(&mut self, val: u8) -> Result<()> {
+        dispatch_instruction!(self, accept_u8, val)
+    }
+
+    fn accept_u16(&mut self, val: u16) -> Result<()> {
+        dispatch_instruction!(self, accept_u16, val)
+    }
+
+    fn accept_u32(&mut self, val: u32) -> Result<()> {
+        dispatch_instruction!(self, accept_u32, val)
+    }
+
+    fn accept_u64(&mut self, val: u64) -> Result<()> {
+        dispatch_instruction!(self, accept_u64, val)
+    }
+
+    fn accept_i8(&mut self, val: i8) -> Result<()> {
+        dispatch_instruction!(self, accept_i8, val)
+    }
+
+    fn accept_i16(&mut self, val: i16) -> Result<()> {
+        dispatch_instruction!(self, accept_i16, val)
+    }
+
+    fn accept_i32(&mut self, val: i32) -> Result<()> {
+        dispatch_instruction!(self, accept_i32, val)
+    }
+
+    fn accept_i64(&mut self, val: i64) -> Result<()> {
+        dispatch_instruction!(self, accept_i64, val)
+    }
+
+    fn accept_f32(&mut self, val: f32) -> Result<()> {
+        dispatch_instruction!(self, accept_f32, val)
+    }
+
+    fn accept_f64(&mut self, val: f64) -> Result<()> {
+        dispatch_instruction!(self, accept_f64, val)
+    }
 
     fn accept_start_sequence(&mut self) -> crate::Result<()> {
         dispatch_instruction!(self, accept_start_sequence)
@@ -686,55 +801,22 @@ impl EventSink for Interpreter {
     }
 
     fn accept_some(&mut self) -> Result<()> {
-        use Bytecode as B;
-        self.program_counter = match &self.structure.program[self.program_counter] {
-            B::Option(instr) => {
-                self.buffers.validity[instr.validity].push(true)?;
-                instr.next
-            }
-            // Todo: handle EndMap
-            instr => fail!("Cannot accept Some in {instr:?}"),
-        };
-        Ok(())
+        dispatch_instruction!(self, accept_some)
     }
 
     fn accept_null(&mut self) -> Result<()> {
-        use Bytecode as B;
-        self.program_counter = match &self.structure.program[self.program_counter] {
-            B::Option(instr) => {
-                apply_null(&self.structure, &mut self.buffers, instr.validity)?;
-                instr.if_none
-            }
-            B::PushNull(instr) => {
-                self.buffers.null[instr.idx].push(())?;
-                instr.next
-            }
-            // Todo: handle EndMap
-            instr => fail!("Cannot accept Null in {instr:?}"),
-        };
-        Ok(())
+        dispatch_instruction!(self, accept_null)
     }
     fn accept_default(&mut self) -> Result<()> {
-        match &self.structure.program[self.program_counter] {
-            instr => fail!("Cannot accept Default in {instr:?}"),
-        }
+        dispatch_instruction!(self, accept_default)
     }
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
         dispatch_instruction!(self, accept_str, val)
     }
 
-    fn accept_variant(&mut self, _name: &str, idx: usize) -> Result<()> {
-        use Bytecode as B;
-        self.program_counter = match &self.structure.program[self.program_counter] {
-            B::Variant(instr) => {
-                self.buffers.i8[instr.type_idx].push(idx.try_into()?)?;
-                self.structure.unions[instr.union_idx].fields[idx]
-            }
-            // TODO: improve error message
-            instr => fail!("Cannot accept Variant in {instr:?}"),
-        };
-        Ok(())
+    fn accept_variant(&mut self, name: &str, idx: usize) -> Result<()> {
+        dispatch_instruction!(self, accept_variant, name, idx)
     }
 
     fn finish(&mut self) -> Result<()> {
@@ -772,77 +854,4 @@ fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> 
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use serde::Serialize;
-
-    use crate::{
-        _impl::bytecode::{compile_serialization, compiler::CompilationOptions, Interpreter},
-        base::serialize_into_sink,
-        internal::serialize_into_fields,
-    };
-
-    fn serialize_simple<T: Serialize + ?Sized>(items: &T) {
-        let fields = serialize_into_fields(items, Default::default()).unwrap();
-        let program = compile_serialization(&fields, CompilationOptions::default()).unwrap();
-        let mut interpreter = Interpreter::new(program);
-
-        serialize_into_sink(&mut interpreter, items).unwrap();
-    }
-
-    #[test]
-    fn empty() {
-        #[derive(Serialize)]
-        struct Item {}
-
-        serialize_simple(&[Item {}]);
-    }
-
-    #[test]
-    fn primitives() {
-        #[derive(Serialize)]
-        struct Item {
-            a: u64,
-            b: f32,
-        }
-
-        serialize_simple(&[Item { a: 0, b: 21.0 }, Item { a: 10, b: 42.0 }]);
-    }
-
-    #[test]
-    fn nested() {
-        #[derive(Serialize)]
-        struct Item {
-            a: u64,
-            b: f32,
-            c: Child,
-        }
-
-        #[derive(Serialize)]
-        struct Child {
-            first: String,
-            second: bool,
-        }
-
-        serialize_simple(&[
-            Item {
-                a: 0,
-                b: 21.0,
-                c: Child {
-                    first: "foo".into(),
-                    second: true,
-                },
-            },
-            Item {
-                a: 10,
-                b: 42.0,
-                c: Child {
-                    first: "bar".into(),
-                    second: false,
-                },
-            },
-        ]);
-    }
 }

@@ -817,7 +817,7 @@ impl Program {
                         next: UNSET_INSTR,
                         struct_idx,
                     }));
-                    if self.structure.structs[struct_idx].item == UNSET_INSTR {     
+                    if self.structure.structs[struct_idx].item == UNSET_INSTR {
                         self.structure.structs[struct_idx].item = self.structure.program.len();
                     }
                 }
