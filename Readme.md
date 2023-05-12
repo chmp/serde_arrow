@@ -4,8 +4,7 @@
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Changes](Changes.md)
 | [Example](#example)
-| [Related packages](#related-packages)
-| [Performance](#performance)
+| [Related packages & performance](#related-packages--performance)
 | [How does it work?](serde_arrow/Implementation.md)
 | [Status](serde_arrow/Status.md)
 | [Development](#development)
@@ -89,7 +88,7 @@ pd.read_parquet("example.pq")
 
 [arrow2-guide]: https://jorgecarleitao.github.io/arrow2
 
-## Related packages
+## Related packages & Performance
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports
    serializing objects that support serialize via the [RawDecoder][raw-decoder]
@@ -97,25 +96,27 @@ pd.read_parquet("example.pq")
 - [`arrow2-convert`][arrow2-convert]: adds derive macros to convert objects from
   and to arrow2 arrays. It supports primitive types, structs, lists, and
   chrono's date time types. Enum support is experimental according to the
-  Readme
-
-See also the [performance section](#performance).
+  Readme. If performance is the main objective, `arrow2-convert` is a good
+  choice as it has no or minimal overhead over building the arrays manually.
 
 [raw-decoder]: https://docs.rs/arrow-json/37.0.0/arrow_json/struct.RawDecoder.html#method.serialize
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
 
-## Performance
-
-See the [implementation notes](serde_arrow/Implementation.md) for details on how
-it is implemented and [status summary](serde_arrow/Status.md) for a list of
-supported Rust and Arrow constructs.
-
-This package is optimized for ease of use, not performance. Depending on the
-complexity of the types, a performance penality of 4x - 7x compared to manually
-building the arrays can be expected. See theß
-[benches](serde_arrow/benches/arrow2.rs) for details.
+The different implementation have the following performance differences, when
+compared to arrow2-convert:
 
 ![Time ](timings.png)
+
+Here, `serde_arrow_bytecode` uses the experimental bytecode serializer, that can
+be activated with
+
+```rust
+serde_arrow::experimental::configure(|c| {
+    c.serialize_with_bytecode = true;
+})
+```
+
+The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
 ###  complex_common_serialize(100000)
