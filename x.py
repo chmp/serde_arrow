@@ -132,7 +132,7 @@ def summarize_bench(update=False):
         update_readme(mean_times)
         plot_times(mean_times)
 
- 
+
 def load_times():
     root = self_path / "target" / "criterion/"
 
@@ -166,6 +166,7 @@ def load_times():
 
     return mean_times
 
+
 def update_readme(mean_times):
     print("Update readme")
     with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
@@ -192,18 +193,26 @@ def plot_times(mean_times):
     import matplotlib.pyplot as plt
     import polars as pl
 
-    df = pl.from_dicts([
-        {"group": group, "impl": impl, "time": time}
-        for (group, impl), time in mean_times.items()
-    ])
+    df = pl.from_dicts(
+        [
+            {"group": group, "impl": impl, "time": time}
+            for (group, impl), time in mean_times.items()
+        ]
+    )
     agg_df = (
-        df.select([
-            pl.col("impl"), 
-            (
-                pl.col("time")
-                / pl.col("time").where(pl.col("impl") == "arrow2_convert").mean().over("group").alias("ref")
-            )
-        ])
+        df.select(
+            [
+                pl.col("impl"),
+                (
+                    pl.col("time")
+                    / pl.col("time")
+                    .where(pl.col("impl") == "arrow2_convert")
+                    .mean()
+                    .over("group")
+                    .alias("ref")
+                ),
+            ]
+        )
         .groupby("impl")
         .agg(pl.col("time").mean())
         .sort("time")
@@ -211,13 +220,13 @@ def plot_times(mean_times):
 
     plt.figure(figsize=(7, 3.5), dpi=150)
     b = plt.barh(
-        [d["impl"] for d in agg_df.to_dicts()], 
+        [d["impl"] for d in agg_df.to_dicts()],
         [d["time"] for d in agg_df.to_dicts()],
     )
     plt.bar_label(
-        b, 
+        b,
         ["{:.1f} x".format(d["time"]) for d in agg_df.to_dicts()],
-        bbox=dict(boxstyle='square,pad=0.0', fc='white', ec='none'),
+        bbox=dict(boxstyle="square,pad=0.0", fc="white", ec="none"),
         padding=2.5,
     )
     plt.grid(axis="x")
