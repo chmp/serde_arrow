@@ -1,8 +1,8 @@
 use crate::{
     _impl::arrow::{
         array::{
-            self, Array, ArrayData, ArrowPrimitiveType, BooleanBufferBuilder, BooleanBuilder,
-            GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder, StructArray,
+            Array, ArrayData, ArrowPrimitiveType, BooleanBuilder, GenericStringBuilder, NullArray,
+            OffsetSizeTrait, PrimitiveBuilder,
         },
         buffer::Buffer,
         datatypes::{
@@ -11,6 +11,7 @@ use crate::{
         },
     },
     internal::{
+        bytecode::buffers,
         error::{fail, Result},
         event::Event,
         generic_sinks::{
@@ -436,16 +437,20 @@ impl<O: OffsetSizeTrait> ArrayBuilder<ArrayData> for Utf8ArrayBuilder<O> {
 }
 
 fn build_struct_array<B>(
+    len: usize,
     field: &GenericField,
     builders: &mut [B],
-    validity: &mut Vec<bool>,
+    validity: Option<&mut Vec<bool>>,
 ) -> Result<ArrayData>
 where
     B: ArrayBuilder<ArrayData>,
 {
-    let validity = std::mem::take(validity);
-    let len = validity.len();
-    let validity = build_null_bit_buffer(validity);
+    let validity = if let Some(validity) = validity {
+        let validity = std::mem::take(validity);
+        Some(build_null_bit_buffer(validity)?)
+    } else {
+        None
+    };
 
     let mut data = Vec::new();
     for builder in builders {
@@ -454,7 +459,7 @@ where
 
     Ok(ArrayData::builder(field_to_datatype(field)?)
         .len(len)
-        .null_bit_buffer(Some(validity))
+        .null_bit_buffer(validity)
         .child_data(data)
         .build()?)
 }
@@ -465,7 +470,13 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
-        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
+        let len = self.validity.len();
+        build_struct_array(
+            len,
+            &self.field,
+            &mut self.builders,
+            Some(&mut self.validity),
+        )
     }
 }
 
@@ -475,7 +486,13 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
-        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
+        let len = self.validity.len();
+        build_struct_array(
+            len,
+            &self.field,
+            &mut self.builders,
+            Some(&mut self.validity),
+        )
     }
 }
 
@@ -507,12 +524,12 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
     }
 }
 
-fn build_null_bit_buffer(validity: Vec<bool>) -> Buffer {
-    let mut null_bit_buffer_builder = BooleanBufferBuilder::new(validity.len());
+fn build_null_bit_buffer(validity: Vec<bool>) -> Result<Buffer> {
+    let mut buffer = buffers::BitBuffer::default();
     for flag in validity {
-        null_bit_buffer_builder.append(flag);
+        buffer.push(flag)?;
     }
-    null_bit_buffer_builder.finish()
+    Ok(Buffer::from(buffer.buffer))
 }
 
 fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
@@ -524,7 +541,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
     let offsets = std::mem::take(&mut this.offsets);
 
     let len = validity.len();
-    let null_bit_buffer = build_null_bit_buffer(validity);
+    let null_bit_buffer = build_null_bit_buffer(validity)?;
     let offset_buffer = Buffer::from_vec(offsets);
 
     let array_data_builder = ArrayData::builder(field_to_datatype(&this.field)?)
@@ -560,21 +577,15 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
             fail!("Cannot build array from unfinished MapArrayBuilder");
         }
 
-        // TODO: add a reset method and call it in builders
-
         let keys = self.key_builder.build_array()?;
         let values = self.val_builder.build_array()?;
-
-        let len = self.validity.len();
 
         let offsets = std::mem::take(&mut self.offsets);
         let offsets = Buffer::from_vec(offsets);
 
         let validity = std::mem::take(&mut self.validity);
-        let validity = build_null_bit_buffer(validity);
-
-        let keys = array::make_array(keys);
-        let values = array::make_array(values);
+        let len = validity.len();
+        let validity = build_null_bit_buffer(validity)?;
 
         let dtype = field_to_datatype(&self.field)?;
 
@@ -583,25 +594,15 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
             _ => fail!("Invalid datatype during map construction"),
         };
 
-        let (key_field, val_field) = match inner_field.data_type() {
-            DataType::Struct(entries) => {
-                if entries.len() != 2 {
-                    fail!("Invalid number of fields in map dtype")
-                }
-                (
-                    entries[0].as_field_ref().clone(),
-                    entries[1].as_field_ref().clone(),
-                )
-            }
-            _ => fail!("Invalid datatype during map construction"),
-        };
-
-        let inner = StructArray::from(vec![(key_field, keys), (val_field, values)]);
+        let inner = ArrayData::builder(inner_field.data_type().clone())
+            .len(keys.len())
+            .child_data(vec![keys, values])
+            .build()?;
 
         let res = ArrayData::builder(dtype)
             .len(len)
             .add_buffer(offsets)
-            .add_child_data(inner.into_data())
+            .add_child_data(inner)
             .null_bit_buffer(Some(validity))
             .build()?;
         Ok(res)

@@ -1,25 +1,22 @@
-use super::{
-    buffers::{
-        BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
+use crate::internal::{
+    bytecode::{
+        buffers::{
+            BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
+        },
+        compiler::{
+            dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndices, DictionaryValue,
+            LargeListEnd, LargeListItem, LargeListStart, MapEnd, MapItem, MapStart, OptionMarker,
+            OuterRecordEnd, OuterRecordField, OuterRecordStart, OuterSequenceEnd,
+            OuterSequenceItem, OuterSequenceStart, Program, ProgramEnd, PushBool,
+            PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary, PushF32, PushF64,
+            PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64,
+            PushU8, PushUtf8, StructEnd, StructField, StructItem, StructStart, Structure,
+            TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
+        },
     },
-    compiler::{
-        BufferCounts, Bytecode, DictionaryIndices, DictionaryValue, LargeListEnd, LargeListItem,
-        LargeListStart, MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField,
-        OuterRecordStart, OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program,
-        ProgramEnd, PushBool, PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary,
-        PushF32, PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16,
-        PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem, StructStart,
-        Structure, TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
-    },
-};
-
-use crate::{
-    _impl::bytecode::compiler::{dispatch_bytecode, MapEnd},
-    internal::{
-        error::{fail, Result},
-        sink::macros,
-        sink::EventSink,
-    },
+    error::{fail, Result},
+    sink::macros,
+    sink::EventSink,
 };
 
 pub struct Interpreter {

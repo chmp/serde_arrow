@@ -21,8 +21,11 @@ use crate::{
     },
     internal::{
         self,
-        error::Result,
+        bytecode::{compile_serialization, CompilationOptions, Interpreter},
+        error::{fail, Result},
         schema::{GenericField, TracingOptions},
+        sink::serialize_into_sink,
+        CONFIGURATION,
     },
 };
 
@@ -137,8 +140,16 @@ where
         .iter()
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
-    let arrays = internal::serialize_into_arrays::<T, ArrowPrimitiveBuilders>(&fields, items)?;
-    Ok(arrays.into_iter().map(array::make_array).collect())
+
+    if !CONFIGURATION.read().unwrap().serialize_with_bytecode {
+        let arrays = internal::serialize_into_arrays::<T, ArrowPrimitiveBuilders>(&fields, items)?;
+        Ok(arrays.into_iter().map(array::make_array).collect())
+    } else {
+        let program = compile_serialization(&fields, CompilationOptions::default())?;
+        let mut interpreter = Interpreter::new(program);
+        serialize_into_sink(&mut interpreter, items)?;
+        interpreter.build_arrow_arrays()
+    }
 }
 
 /// Serialize an object that represents a single array into an array
@@ -163,8 +174,23 @@ where
     T: Serialize + ?Sized,
 {
     let field: GenericField = field.try_into()?;
-    let data = internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)?;
-    Ok(array::make_array(data))
+
+    if !CONFIGURATION.read().unwrap().serialize_with_bytecode {
+        let data = internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)?;
+        Ok(array::make_array(data))
+    } else {
+        let program = compile_serialization(
+            std::slice::from_ref(&field),
+            CompilationOptions::default().wrap_with_struct(false),
+        )?;
+        let mut interpreter = Interpreter::new(program);
+        serialize_into_sink(&mut interpreter, items)?;
+        let arrays = interpreter.build_arrow_arrays()?;
+        if arrays.len() != 1 {
+            fail!("Invalid number of result arrays: {}", arrays.len());
+        }
+        Ok(arrays.into_iter().next().unwrap())
+    }
 }
 
 /// Build a single array item by item

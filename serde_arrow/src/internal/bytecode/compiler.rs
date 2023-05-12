@@ -613,6 +613,7 @@ pub enum ArrayMapping {
         buffer: usize,
         validity: Option<usize>,
     },
+    #[allow(unused)]
     List {
         field: GenericField,
         item: Box<ArrayMapping>,

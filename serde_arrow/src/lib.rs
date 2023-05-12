@@ -130,9 +130,6 @@ mod internal;
 /// to allow usage in doc tests or benchmarks.
 ///
 pub mod _impl {
-    pub use crate::internal::bytecode;
-    pub use crate::internal::schema::GenericField;
-
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
         ($arrow2:ident) => {
@@ -156,13 +153,12 @@ pub mod _impl {
                 pub mod array {
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, GenericListArray,
-                        NullArray, OffsetSizeTrait, StructArray,
+                        NullArray, OffsetSizeTrait,
                     };
                     pub use $arrow_array::builder::{
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
                         PrimitiveBuilder,
                     };
-                    pub use $arrow_array::cast::AsArray;
                     pub use $arrow_data::ArrayData;
                 }
                 pub mod buffer {
@@ -186,7 +182,15 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow-38")]
+    #[cfg(feature = "arrow-39")]
+    build_arrow_crate!(
+        arrow_array_39,
+        arrow_buffer_39,
+        arrow_data_39,
+        arrow_schema_39
+    );
+
+    #[cfg(all(feature = "arrow-38", not(feature = "arrow-39")))]
     build_arrow_crate!(
         arrow_array_38,
         arrow_buffer_38,
@@ -194,7 +198,11 @@ pub mod _impl {
         arrow_schema_38
     );
 
-    #[cfg(all(feature = "arrow-37", not(feature = "arrow-38")))]
+    #[cfg(all(
+        feature = "arrow-37",
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
+    ))]
     build_arrow_crate!(
         arrow_array_37,
         arrow_buffer_37,
@@ -205,13 +213,28 @@ pub mod _impl {
     #[cfg(all(
         feature = "arrow-36",
         not(feature = "arrow-37"),
-        not(feature = "arrow-38")
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
     ))]
     build_arrow_crate!(
         arrow_array_36,
         arrow_buffer_36,
         arrow_data_36,
         arrow_schema_36
+    );
+
+    #[cfg(all(
+        feature = "arrow-35",
+        not(feature = "arrow-36"),
+        not(feature = "arrow-37"),
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
+    ))]
+    build_arrow_crate!(
+        arrow_array_35,
+        arrow_buffer_35,
+        arrow_data_35,
+        arrow_schema_35
     );
 
     pub mod docs {
@@ -232,12 +255,24 @@ pub mod _impl {
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
-#[cfg(any(feature = "arrow-36", feature = "arrow-37", feature = "arrow-38"))]
+#[cfg(any(
+    feature = "arrow-35",
+    feature = "arrow-36",
+    feature = "arrow-37",
+    feature = "arrow-38",
+    feature = "arrow-39",
+))]
 pub mod arrow;
 
 #[cfg(all(
     test,
-    any(feature = "arrow-36", feature = "arrow-37", feature = "arrow-38"),
+    any(
+        feature = "arrow-35",
+        feature = "arrow-36",
+        feature = "arrow-37",
+        feature = "arrow-38",
+        feature = "arrow-39",
+    ),
     any(feature = "arrow2-0-17", feature = "arrow2-0-16")
 ))]
 mod test_impls;
@@ -300,4 +335,10 @@ pub mod base {
 ///
 pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
+}
+
+/// Experimental functionality that is not bound by semver compatibility
+///
+pub mod experimental {
+    pub use crate::internal::{configure, Configuration};
 }

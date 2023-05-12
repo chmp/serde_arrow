@@ -1,5 +1,18 @@
 # Change log
 
+## 0.6.2
+
+- Add support for `arrow=38` and `arrow=39` with the  `arrow-38` and `arrow-39`
+  features
+- Add support for an experimental bytecode serializer that shows speeds of up to
+  4x. To enable it use:
+
+    ```rust
+    serde_arrow::experimental::configure(|config| {
+        config.serialize_with_bytecode = true;
+    });
+    ```
+
 ## 0.6.1
 
 - Add support for `arrow=37` with the `arrow-37` feature

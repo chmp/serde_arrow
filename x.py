@@ -19,7 +19,7 @@ cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
 arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
 
 
-all_arrow_features = ["arrow-36", "arrow-37", "arrow-38"]
+all_arrow_features = ["arrow-35", "arrow-36", "arrow-37", "arrow-38", "arrow-39"]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
@@ -124,6 +124,16 @@ def bench():
 @cmd()
 @arg("--update", action="store_true", default=False)
 def summarize_bench(update=False):
+    mean_times = load_times()
+
+    print(format_benchmark(mean_times))
+
+    if update:
+        update_readme(mean_times)
+        plot_times(mean_times)
+
+ 
+def load_times():
     root = self_path / "target" / "criterion/"
 
     results = []
@@ -154,11 +164,7 @@ def summarize_bench(update=False):
         qq = statistics.quantiles(times, n=20)
         mean_times[k] = statistics.mean(time for time in times if time < qq[-1])
 
-    print(format_benchmark(mean_times))
-
-    if update:
-        update_readme(mean_times)
-
+    return mean_times
 
 def update_readme(mean_times):
     print("Update readme")
@@ -178,6 +184,47 @@ def update_readme(mean_times):
                     print(format_benchmark(mean_times), file=fobj)
                     print(line, file=fobj)
                     active = False
+
+
+def plot_times(mean_times):
+    print("Plot times")
+
+    import matplotlib.pyplot as plt
+    import polars as pl
+
+    df = pl.from_dicts([
+        {"group": group, "impl": impl, "time": time}
+        for (group, impl), time in mean_times.items()
+    ])
+    agg_df = (
+        df.select([
+            pl.col("impl"), 
+            (
+                pl.col("time")
+                / pl.col("time").where(pl.col("impl") == "arrow2_convert").mean().over("group").alias("ref")
+            )
+        ])
+        .groupby("impl")
+        .agg(pl.col("time").mean())
+        .sort("time")
+    )
+
+    plt.figure(figsize=(7, 3.5), dpi=150)
+    b = plt.barh(
+        [d["impl"] for d in agg_df.to_dicts()], 
+        [d["time"] for d in agg_df.to_dicts()],
+    )
+    plt.bar_label(
+        b, 
+        ["{:.1f} x".format(d["time"]) for d in agg_df.to_dicts()],
+        bbox=dict(boxstyle='square,pad=0.0', fc='white', ec='none'),
+        padding=2.5,
+    )
+    plt.grid(axis="x")
+    plt.xlim(0, 1.15 * agg_df["time"].max())
+    plt.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.15)
+    plt.xlabel("Mean runtime compared to arrow2_convert")
+    plt.savefig(self_path / "timings.png")
 
 
 def format_benchmark(mean_times):

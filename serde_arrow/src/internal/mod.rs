@@ -7,6 +7,8 @@ pub(crate) mod schema;
 pub(crate) mod sink;
 pub(crate) mod source;
 
+use std::sync::RwLock;
+
 use serde::Serialize;
 
 use self::{
@@ -22,6 +24,24 @@ use self::{
         StripOuterSequenceSink,
     },
 };
+
+pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
+    serialize_with_bytecode: false,
+});
+
+/// The crate settings can be configured by calling [configure]
+pub struct Configuration {
+    /// If `true`, use the exerperimental bytecode serializer
+    ///
+    pub serialize_with_bytecode: bool,
+}
+
+/// Change global configuration options
+///
+pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
+    let mut guard = CONFIGURATION.write().unwrap();
+    f(&mut guard)
+}
 
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<GenericField>>
 where

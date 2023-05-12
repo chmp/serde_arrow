@@ -10,16 +10,9 @@ pub struct BitBuffer {
 }
 
 impl BitBuffer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     pub fn push(&mut self, value: bool) -> Result<()> {
@@ -44,16 +37,9 @@ pub struct NullBuffer {
 }
 
 impl NullBuffer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     pub fn push(&mut self, _: ()) -> Result<()> {
@@ -74,16 +60,9 @@ impl<T> std::default::Default for PrimitiveBuffer<T> {
 }
 
 impl<T> PrimitiveBuffer<T> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.buffer.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
     }
 
     pub fn push(&mut self, val: T) -> Result<()> {
@@ -124,17 +103,10 @@ impl<O: Offset> std::default::Default for OffsetBuilder<O> {
 }
 
 impl<O: Offset> OffsetBuilder<O> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// The number of items pushed (one less than the number of offsets)
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.offsets.len() - 1
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.offsets.len() <= 1
     }
 
     pub fn push(&mut self, num_items: usize) -> Result<()> {
@@ -170,18 +142,6 @@ impl<O: Offset> std::default::Default for StringBuffer<O> {
 }
 
 impl<O: Offset> StringBuffer<O> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn len(&self) -> usize {
-        self.offsets.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.offsets.is_empty()
-    }
-
     pub fn push(&mut self, val: &str) -> Result<()> {
         self.data.extend(val.as_bytes().iter().copied());
         self.offsets.push(val.len())?;
@@ -206,18 +166,6 @@ impl<O: Offset> std::default::Default for StringDictonary<O> {
 }
 
 impl<O: Offset> StringDictonary<O> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn len(&self) -> usize {
-        self.index.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.index.is_empty()
-    }
-
     pub fn push(&mut self, val: &str) -> Result<usize> {
         if self.index.contains_key(val) {
             Ok(self.index[val])

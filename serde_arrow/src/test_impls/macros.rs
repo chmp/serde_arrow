@@ -127,8 +127,8 @@ macro_rules! test_example_impl {
             let field: Field = (&field).try_into().unwrap();
 
             let array = serialize_into_array(&field, &items).unwrap();
-            assert_eq!(array.data_type(), field.data_type());
-            assert_eq!(array.len(), items.len());
+            assert_eq!(array.data_type(), field.data_type(), "Unexpected data type");
+            assert_eq!(array.len(), items.len(), "Unexpected number of items");
 
             let test_null = false;
             let expected_nulls: Vec<bool> = vec![];

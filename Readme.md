@@ -89,53 +89,6 @@ pd.read_parquet("example.pq")
 
 [arrow2-guide]: https://jorgecarleitao.github.io/arrow2
 
-## Performance
-
-See the [implementation notes](serde_arrow/Implementation.md) for details on how
-it is implemented and [status summary](serde_arrow/Status.md) for a list of
-supported Rust and Arrow constructs.
-
-This package is optimized for ease of use, not performance. Depending on the
-complexity of the types, a performance penality of 4x - 7x compared to manually
-building the arrays can be expected. More complex types incur a smaller
-performance penalty. See the [benches](serde_arrow/benches/arrow2.rs) for
-details.
-
-<!-- start:benchmarks -->
-###  deserialize_arrow2_primitives
-
-| label       | time [ms] | manual | serde_arrow |
-|-------------|-----------|--------|-------------|
-| manual      |      9.97 |   1.00 |        0.04 |
-| serde_arrow |    238.59 |  23.93 |        1.00 |
-
-###  serialize_arrow2_complex
-
-| label                | time [ms] | manual | serde_arrow_byt | serde_arrow |
-|----------------------|-----------|--------|-----------------|-------------|
-| manual               |     50.97 |   1.00 |            0.35 |        0.09 |
-| serde_arrow_bytecode |    146.81 |   2.88 |            1.00 |        0.26 |
-| serde_arrow          |    558.76 |  10.96 |            3.81 |        1.00 |
-
-###  serialize_arrow2_primitives
-
-| label                | time [ms] | manual | serde_arrow_byt | serde_arrow |
-|----------------------|-----------|--------|-----------------|-------------|
-| manual               |      8.47 |   1.00 |            0.42 |        0.20 |
-| serde_arrow_bytecode |     20.14 |   2.38 |            1.00 |        0.48 |
-| serde_arrow          |     42.10 |   4.97 |            2.09 |        1.00 |
-
-###  serialize_arrow_complex
-
-| label                | time [ms] | serde_arrow_byt | serde_arrow | arrow |
-|----------------------|-----------|-----------------|-------------|-------|
-| serde_arrow_bytecode |    148.41 |            1.00 |        0.25 |  0.18 |
-| serde_arrow          |    591.72 |            3.99 |        1.00 |  0.72 |
-| arrow                |    820.69 |            5.53 |        1.39 |  1.00 |
-
-
-<!-- end:benchmarks -->
-
 ## Related packages
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports
@@ -146,8 +99,63 @@ details.
   chrono's date time types. Enum support is experimental according to the
   Readme
 
+See also the [performance section](#performance).
+
 [raw-decoder]: https://docs.rs/arrow-json/37.0.0/arrow_json/struct.RawDecoder.html#method.serialize
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
+
+## Performance
+
+See the [implementation notes](serde_arrow/Implementation.md) for details on how
+it is implemented and [status summary](serde_arrow/Status.md) for a list of
+supported Rust and Arrow constructs.
+
+This package is optimized for ease of use, not performance. Depending on the
+complexity of the types, a performance penality of 4x - 7x compared to manually
+building the arrays can be expected. See theß
+[benches](serde_arrow/benches/arrow2.rs) for details.
+
+![Time ](timings.png)
+
+<!-- start:benchmarks -->
+###  complex_common_serialize(100000)
+
+| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
+|----------------------|-----------|----------------|-----------------|-------------|-------|
+| arrow2_convert       |     48.16 |           1.00 |            0.33 |        0.08 |  0.06 |
+| serde_arrow_bytecode |    147.66 |           3.07 |            1.00 |        0.25 |  0.18 |
+| serde_arrow          |    592.16 |          12.30 |            4.01 |        1.00 |  0.73 |
+| arrow                |    815.95 |          16.94 |            5.53 |        1.38 |  1.00 |
+
+###  complex_common_serialize(1000000)
+
+| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
+|----------------------|-----------|----------------|-----------------|-------------|-------|
+| arrow2_convert       |    464.95 |           1.00 |            0.32 |        0.08 |  0.06 |
+| serde_arrow_bytecode |   1450.16 |           3.12 |            1.00 |        0.25 |  0.18 |
+| serde_arrow          |   5784.91 |          12.44 |            3.99 |        1.00 |  0.71 |
+| arrow                |   8144.66 |          17.52 |            5.62 |        1.41 |  1.00 |
+
+###  primitives_serialize(100000)
+
+| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
+|----------------------|-----------|----------------|-----------------|-------------|-------|
+| arrow2_convert       |     14.26 |           1.00 |            0.32 |        0.26 |  0.07 |
+| serde_arrow_bytecode |     45.04 |           3.16 |            1.00 |        0.81 |  0.24 |
+| serde_arrow          |     55.86 |           3.92 |            1.24 |        1.00 |  0.29 |
+| arrow                |    191.31 |          13.42 |            4.25 |        3.42 |  1.00 |
+
+###  primitives_serialize(1000000)
+
+| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
+|----------------------|-----------|----------------|-----------------|-------------|-------|
+| arrow2_convert       |    149.41 |           1.00 |            0.33 |        0.27 |  0.08 |
+| serde_arrow_bytecode |    451.34 |           3.02 |            1.00 |        0.82 |  0.23 |
+| serde_arrow          |    549.38 |           3.68 |            1.22 |        1.00 |  0.28 |
+| arrow                |   1957.01 |          13.10 |            4.34 |        3.56 |  1.00 |
+
+
+<!-- end:benchmarks -->
 
 ## Development
 
