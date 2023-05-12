@@ -222,6 +222,7 @@ def plot_times(mean_times):
     b = plt.barh(
         [d["impl"] for d in agg_df.to_dicts()],
         [d["time"] for d in agg_df.to_dicts()],
+        zorder=10,
     )
     plt.bar_label(
         b,
@@ -229,7 +230,7 @@ def plot_times(mean_times):
         bbox=dict(boxstyle="square,pad=0.0", fc="white", ec="none"),
         padding=2.5,
     )
-    plt.grid(axis="x")
+    plt.grid(axis="x", zorder=0)
     plt.xlim(0, 1.15 * agg_df["time"].max())
     plt.subplots_adjust(left=0.25, right=0.95, top=0.95, bottom=0.15)
     plt.xlabel("Mean runtime compared to arrow2_convert")
