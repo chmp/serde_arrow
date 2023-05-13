@@ -3,7 +3,7 @@
 use crate::internal::{
     bytecode::{
         buffers::{BitBuffer, StringBuffer},
-        compiler::{ArrayMapping, DictionaryIndices, DictionaryValue},
+        compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
     },
@@ -239,7 +239,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             indices,
             validity,
         } => {
-            use {DictionaryIndices as I, DictionaryValue as V};
+            use {DictionaryIndex as I, DictionaryValue as V};
             let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
 
             let indices = match indices {

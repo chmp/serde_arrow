@@ -4,7 +4,7 @@ use crate::internal::{
             BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
         },
         compiler::{
-            dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndices, DictionaryValue,
+            dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
             LargeListEnd, LargeListItem, LargeListStart, MapEnd, MapItem, MapStart, OptionMarker,
             OuterRecordEnd, OuterRecordField, OuterRecordStart, OuterSequenceEnd,
             OuterSequenceItem, OuterSequenceStart, Program, ProgramEnd, PushBool,
@@ -551,7 +551,7 @@ impl Instruction for PushDictionary {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        use {DictionaryIndices as I, DictionaryValue as V};
+        use {DictionaryIndex as I, DictionaryValue as V};
         let idx = match self.values {
             V::Utf8(dict) => buffers.dictionaries[dict].push(val)?,
             V::LargeUtf8(dict) => buffers.large_dictionaries[dict].push(val)?,
