@@ -1,20 +1,23 @@
 //! Helpers to convert between arrow and arrow2 arrays
 //!
-use crate::_impl::{
-    arrow::{
-        array::Array as ArrowArray, datatypes::Field as ArrowField,
-        ffi::FFI_ArrowArray as ArrowFFI_ArrowArray,
+use crate::{
+    _impl::{
+        arrow::{
+            array::Array as ArrowArray, datatypes::Field as ArrowField,
+            ffi::FFI_ArrowArray as ArrowFFI_ArrowArray,
+        },
+        arrow2::{
+            array::Array as Arrow2Array,
+            datatypes::Field as Arrow2Field,
+            ffi::{self as arrow2_ffi, ArrowArray as Arrow2ArrowArray},
+        },
     },
-    arrow2::{
-        array::Array as Arrow2Array,
-        datatypes::Field as Arrow2Field,
-        ffi::{self as arrow2_ffi, ArrowArray as Arrow2ArrowArray},
-    },
+    experimental::Configuration,
 };
 
 use crate::internal::{error::Result, schema::GenericField};
 
-pub fn deserialize_from_arrow_array<T, A>(field: &ArrowField, array: &A) -> Result<T>
+pub fn deserialize_from_array<T, A>(field: &ArrowField, array: &A) -> Result<T>
 where
     A: AsRef<dyn ArrowArray>,
     T: serde::de::DeserializeOwned,
@@ -42,4 +45,30 @@ pub fn arrow_to_arrow2(
         unsafe { arrow2_ffi::import_array_from_c(ffi_array, arrow2_field.data_type.clone()) }?;
 
     Ok((arrow2_field, arrow2_array))
+}
+
+pub struct ScopedConfiguration {
+    prev_config: Configuration,
+}
+
+impl ScopedConfiguration {
+    pub fn configure<F: FnOnce(&mut Configuration)>(effect: F) -> Self {
+        let mut prev_config = Configuration::default();
+        {
+            let prev_config = &mut prev_config;
+            crate::experimental::configure(move |c| {
+                *prev_config = c.clone();
+                effect(c);
+            });
+        }
+        Self { prev_config }
+    }
+}
+
+impl std::ops::Drop for ScopedConfiguration {
+    fn drop(&mut self) {
+        crate::experimental::configure(|c| {
+            *c = self.prev_config.clone();
+        })
+    }
 }

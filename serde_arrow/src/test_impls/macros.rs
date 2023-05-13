@@ -31,7 +31,7 @@ pub(crate) use hash_map;
 macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
-        test_compilation = $test_compilation:expr,
+        $(test_compilation = $test_compilation:expr,)?
         $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
@@ -53,7 +53,10 @@ macro_rules! test_example_impl {
                 Strategy,
                 TracingOptions,
             },
-            test_impls::macros::{btree_map, hash_map},
+            test_impls::{
+                macros::{btree_map, hash_map},
+                utils::ScopedConfiguration,
+            },
         };
 
         #[test]
@@ -84,25 +87,8 @@ macro_rules! test_example_impl {
                 actual = actual,
                 expected = expected,
             );
-        }
 
-        #[test]
-        fn compatible_fields() {
-            $($($definitions)*)?
-
-            let items: &[$ty] = &$values;
-            let field = $field;
-            $(let field = $overwrite_field;)?
-
-            #[allow(unused)]
-            let options = TracingOptions::default();
-            $(let options = $tracing_options;)?
-
-            println!("{options:?}");
-
-            let traced = serialize_into_field(&items, "root", options).unwrap();
-            let traced: GenericField = (&traced).try_into().unwrap();
-
+            let traced: GenericField = (&actual).try_into().unwrap();
             assert!(
                 traced.is_compatible(&field),
                 concat!(
@@ -119,6 +105,10 @@ macro_rules! test_example_impl {
 
         #[test]
         fn serialization() {
+            let _guard = ScopedConfiguration::configure(|c| {
+                c.serialize_with_bytecode = false;
+            });
+
             $($($definitions)*)?
 
             let items: &[$ty] = &$values;
@@ -153,11 +143,67 @@ macro_rules! test_example_impl {
                 );
             }
 
-            let test_deserialization = true;
-            $(let test_deserialization = $test_deserialization;)?
+            let test_deserialization: &[&str] = &["arrow", "arrow2"];
+            $(let test_deserialization: &[&str] = &$test_deserialization;)?
 
-            // NOTE: dictionary sources are not yet supported
-            if test_deserialization {
+            if test_deserialization.contains(&IMPL) {
+                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+
+                assert_eq!(items, items_round_trip);
+            }
+        }
+
+        #[test]
+        fn serialization_bytecode() {
+            let test_compilation: &[&str] = &["arrow", "arrow2"];
+            $(let test_compilation: &[&str] = &$test_compilation;)?
+
+            if !test_compilation.contains(&IMPL) {
+                return;
+            }
+
+            let _guard = ScopedConfiguration::configure(|c| {
+                c.serialize_with_bytecode = true;
+            });
+
+            $($($definitions)*)?
+
+            let items: &[$ty] = &$values;
+            let field = $field;
+            $(let field = $overwrite_field;)?
+            let field: Field = (&field).try_into().unwrap();
+
+            let array = serialize_into_array(&field, &items).unwrap();
+            assert_eq!(array.data_type(), field.data_type(), "Unexpected data type");
+            assert_eq!(array.len(), items.len(), "Unexpected number of items");
+
+            let test_null = false;
+            let expected_nulls: Vec<bool> = vec![];
+            $(
+                let test_null = true;
+                let expected_nulls: Vec<bool> = $nulls.to_vec();
+            )?
+            if test_null {
+                let actual_nulls: Vec<bool> = (0..array.len()).map(|idx| array.is_null(idx)).collect();
+                assert_eq!(
+                    actual_nulls,
+                    expected_nulls,
+                    concat!(
+                        "\n\n",
+                        "[{test_name}] Null bitmaps do no agree.\n",
+                        "Actual:   {actual:?}\n",
+                        "Expected: {expected:?}\n",
+                    ),
+                    test_name = stringify!($test_name),
+                    actual = actual_nulls,
+                    expected = expected_nulls,
+                );
+            }
+
+            let test_deserialization: &[&str] = &["arrow", "arrow2"];
+            $(let test_deserialization: &[&str] = &$test_deserialization;)?
+
+            if test_deserialization.contains(&IMPL) {
                 let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
 
                 assert_eq!(items, items_round_trip);
@@ -196,102 +242,6 @@ macro_rules! test_example_impl {
 
 pub(crate) use test_example_impl;
 
-macro_rules! test_compilation_impl {
-    (
-        test_name = $test_name:ident,
-        test_compilation = true,
-        $(test_deserialization = $test_deserialization:expr,)?
-        $(tracing_options = $tracing_options:expr,)?
-        field = $field:expr,
-        $(overwrite_field = $overwrite_field:expr,)?
-        ty = $ty:ty,
-        values = $values:expr,
-        $( nulls = $nulls:expr, )?
-        $(define = { $($definitions:item)* } ,)?
-    ) => {
-        mod compilation {
-            use std::collections::{BTreeMap, HashMap};
-            use serde::{Serialize, Deserialize};
-
-            use super::*;
-
-            use crate::{
-                arrow::bytecode::build_array_data,
-                base::serialize_into_sink,
-                internal::{
-                    bytecode::{compile_serialization, Interpreter, CompilationOptions},
-                    schema::{
-                        GenericDataType,
-                        GenericField,
-                        Strategy,
-                        TracingOptions,
-                    },
-                    sink::accept_events,
-                },
-                test_impls::{
-                    macros::{btree_map, hash_map},
-                    utils::deserialize_from_arrow_array,
-                },
-                _impl::arrow::datatypes::Field,
-            };
-
-            #[test]
-            fn serialization() {
-                $($($definitions)*)?
-
-                let items: &[$ty] = &$values;
-                let field = $field;
-                $(let field = $overwrite_field;)?
-
-                let program = compile_serialization(
-                    &[field.clone()],
-                    CompilationOptions::default().wrap_with_struct(false),
-                ).unwrap();
-                println!("structure: {:?}", program.structure);
-
-                let mut events = Vec::new();
-                serialize_into_sink(&mut events, items).unwrap();
-
-                println!("events: {events:?}");
-
-                let mut interpreter = Interpreter::new(program);
-                accept_events(&mut interpreter, events).unwrap();
-
-                println!("buffers: {:?}", interpreter.buffers);
-
-                let arrays = interpreter.build_arrow_arrays().unwrap();
-
-                assert_eq!(arrays.len(), 1);
-                assert_eq!(
-                    arrays[0].len(),
-                    items.len(),
-                    "Unexpected length of array. Expected: {expected}. Actual: {actual}",
-                    expected = items.len(),
-                    actual = arrays[0].len(),
-                );
-
-                let test_deserialization = true;
-                $(let test_deserialization = $test_deserialization;)?
-
-                // NOTE: dictionary sources are not yet supported
-                if test_deserialization {
-                    let arrow_field: Field = (&field).try_into().unwrap();
-                    let items_round_trip: Vec<$ty> = deserialize_from_arrow_array(&arrow_field, &arrays[0]).unwrap();
-
-                    assert_eq!(items, items_round_trip);
-                }
-            }
-        }
-    };
-
-    (
-        test_name = $test_name:ident,
-        $($tt:tt)*
-    ) => {};
-}
-
-pub(crate) use test_compilation_impl;
-
 macro_rules! test_example {
     (
         test_name = $test_name:ident,
@@ -303,8 +253,9 @@ macro_rules! test_example {
                 use crate::{
                     arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow::datatypes::Field,
-                    test_impls::utils::deserialize_from_arrow_array as deserialize_from_array,
+                    test_impls::utils::deserialize_from_array,
                 };
+                const IMPL: &'static str = "arrow";
 
                 $crate::test_impls::macros::test_example_impl!(
                     test_name = $test_name,
@@ -316,18 +267,13 @@ macro_rules! test_example {
                     arrow2::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow2::datatypes::Field,
                 };
+                const IMPL: &'static str = "arrow2";
 
                 $crate::test_impls::macros::test_example_impl!(
                     test_name = $test_name,
                     $($tt)*
                 );
             }
-
-            $crate::test_impls::macros::test_compilation_impl!(
-                test_name = $test_name,
-                $($tt)*
-            );
-
         }
     };
 }

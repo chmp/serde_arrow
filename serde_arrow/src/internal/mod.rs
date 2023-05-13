@@ -30,6 +30,7 @@ pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
 });
 
 /// The crate settings can be configured by calling [configure]
+#[derive(Default, Clone)]
 pub struct Configuration {
     /// If `true`, use the exerperimental bytecode serializer
     ///

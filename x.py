@@ -69,14 +69,29 @@ def example():
 
 @cmd()
 @arg("--backtrace", action="store_true", default=False)
-def test(backtrace=False):
-    # TODO: include other feature flag combinations?
-    cargo(
-        "test",
-        "--features",
-        default_features,
-        env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
-    )
+@arg("--full", action="store_true", default=False)
+def test(backtrace=False, full=False):
+    if not full:
+        flag_combinations = [["--features", default_features]]
+
+    else:
+        flag_combinations = []
+        for arrow_feature in [[], *([feat] for feat in all_arrow_features)]:
+            for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]:
+                if not arrow_feature and not arrow2_feature:
+                    flag_combinations.append([])
+
+                else:
+                    flag_combinations.append(
+                        ["--features", ",".join(arrow_feature + arrow2_feature)]
+                    )
+
+    for flags in flag_combinations:
+        cargo(
+            "test",
+            *flags,
+            env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
+        )
 
 
 @cmd()
@@ -209,7 +224,6 @@ def plot_times(mean_times):
                     .where(pl.col("impl") == "arrow2_convert")
                     .mean()
                     .over("group")
-                    .alias("ref")
                 ),
             ]
         )
@@ -276,17 +290,20 @@ def format_benchmark(mean_times):
 
 @cmd()
 def summarize_status():
-    def _count_pattern(pat):
-        return sum(
-            1
+    def _extract(pat):
+        return list(
+            m.groups()
             for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
             for line in p.read_text(encoding="utf8").splitlines()
-            if re.match(pat, line) is not None
+            if (m := re.match(pat, line)) is not None
         )
+
+    def _count_pattern(pat):
+        return len(_extract(pat))
 
     num_tests = _count_pattern(r"^\s*test_example!\(\s*$")
     num_ignored_tests = _count_pattern(r"^\s*[ignore]\s*$")
-    num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*false\s*,\s*$")
+    num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*\[\s*\]\s*,\s*$")
     num_no_deserialization = _count_pattern(
         r"^\s*test_deserialization\s*=\s*false\s*,\s*$"
     )

@@ -2,7 +2,6 @@ use super::macros::test_example;
 
 test_example!(
     test_name = utc_as_str,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     ty = DateTime<Utc>,
     values = [
@@ -17,7 +16,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_str,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     ty = NaiveDateTime,
     values = [
@@ -32,7 +30,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new("root", GenericDataType::Date64, false)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -49,7 +46,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new("root", GenericDataType::Date64, false)
         .with_strategy(Strategy::NaiveStrAsDate64),
@@ -66,7 +62,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_as_millis,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::I64, false),
     overwrite_field = GenericField::new("root", GenericDataType::Date64, false),
     ty = T,

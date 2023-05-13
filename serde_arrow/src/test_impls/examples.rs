@@ -2,7 +2,6 @@ use super::macros::*;
 
 test_example!(
     test_name = benchmark_primitives,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, false))
@@ -38,7 +37,6 @@ test_example!(
 
 test_example!(
     test_name = benchmark_complex_1,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
@@ -95,7 +93,6 @@ test_example!(
 
 test_example!(
     test_name = benchmark_complex_2,
-    test_compilation = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
@@ -159,3 +156,5 @@ test_example!(
         }
     },
 );
+
+// TODO: test nested nulls (like Option<Option<...>>)
