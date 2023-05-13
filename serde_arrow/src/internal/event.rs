@@ -328,9 +328,7 @@ macro_rules! event_implement_try_from_from_event {
             fn try_from(val: Event<'_>) -> Result<$ty> {
                 match val {
                     $(Event::$variant(val) => Ok(val.try_into()?),)*
-
-                    // TODO: improve error message
-                    event => fail!("Invalid conversion from {} to {}", event, stringify!($ty)),
+                    event => fail!("invalid conversion from {} to {}", event, stringify!($ty)),
                 }
             }
         }

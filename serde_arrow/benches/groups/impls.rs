@@ -161,7 +161,6 @@ pub mod arrow2_convert {
         let array: Box<dyn Array> = items
             .try_into_arrow()
             .map_err(|err| Error::custom(err.to_string()))?;
-        // TODO: unwrap the struct array to have the same API
 
         Ok(array)
     }

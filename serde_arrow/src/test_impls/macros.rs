@@ -89,18 +89,10 @@ macro_rules! test_example_impl {
             );
 
             let traced: GenericField = (&actual).try_into().unwrap();
-            assert!(
-                traced.is_compatible(&field),
-                concat!(
-                    "\n\n",
-                    "[{test_name}] Incompatible fields.\n",
-                    "Traced:  {traced:?}\n",
-                    "Defined: {defined:?}\n",
-                ),
-                test_name = stringify!($test_name),
-                traced = traced,
-                defined = field,
-            );
+            println!("traced: {:?}\n", traced);
+            println!("defined: {:?}\n", field);
+
+            traced.validate_compatibility(&field).unwrap();
         }
 
         #[test]

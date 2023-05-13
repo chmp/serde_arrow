@@ -115,8 +115,6 @@ impl<B: EventSink> EventSink for MapArrayBuilder<B> {
                     fail!("Unexpected event {ev} in state Start of MapArrayBuilder")
                 }
             }
-            // TODO: properly include item markers in state machine
-            // ignore prefix item markers
             S::Key(0) if matches!(ev, E::Item) => S::Key(0),
             S::Key(depth) => {
                 next(&mut this.key_builder, val)?;

@@ -342,7 +342,6 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             fail!("Expected start of tuple");
         }
 
-        // TODO: use a custom SeqAccess impl that strips out the field names
         let res = visitor.visit_seq(&mut *self)?;
 
         if !matches!(self.source.next()?, Some(Event::EndTuple)) {

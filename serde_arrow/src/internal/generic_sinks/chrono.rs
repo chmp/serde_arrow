@@ -10,8 +10,6 @@ use crate::internal::{
 pub struct NaiveDateTimeStrBuilder<B>(pub B);
 
 impl<B: EventSink> EventSink for NaiveDateTimeStrBuilder<B> {
-    // TODO: rewrite in terms of specialized impl
-    // TODO: what about default or null values?
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
@@ -36,8 +34,6 @@ impl<A, B: ArrayBuilder<A>> ArrayBuilder<A> for NaiveDateTimeStrBuilder<B> {
 pub struct UtcDateTimeStrBuilder<B>(pub B);
 
 impl<B: EventSink> EventSink for UtcDateTimeStrBuilder<B> {
-    // TODO: rewrite in terms of specialized impl
-    // TODO: what about default or null values?
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {

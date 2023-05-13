@@ -1164,9 +1164,8 @@ impl Program {
         if field.nullable != validity.is_some() {
             fail!("inconsistent arguments");
         }
-        if !field.is_valid_map() {
-            fail!("cannot compile invalid map field: {field:?}");
-        }
+        field.validate_map()?;
+
         let Some(entries) = field.children.get(0) else {
             fail!("invalid list: no child");
         };

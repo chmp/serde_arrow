@@ -15,10 +15,6 @@ use super::sink::macros;
 /// Test that two fields are compatible with each other
 ///
 fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
-    // TODO: add more tests
-    if !left.is_valid() || !right.is_valid() {
-        return false;
-    }
     if left == right {
         return true;
     }
@@ -241,31 +237,54 @@ impl GenericField {
         }
     }
 
-    // TODO: implement checks for the different data types
     pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    pub fn validate(&self) -> Result<()> {
         match self.data_type {
-            GenericDataType::Null => self.is_valid_primitive(),
-            GenericDataType::Bool => self.is_valid_primitive(),
-            GenericDataType::U8 => self.is_valid_primitive(),
-            GenericDataType::U16 => self.is_valid_primitive(),
-            GenericDataType::U32 => self.is_valid_primitive(),
-            GenericDataType::U64 => self.is_valid_primitive(),
-            GenericDataType::I8 => self.is_valid_primitive(),
-            GenericDataType::I16 => self.is_valid_primitive(),
-            GenericDataType::I32 => self.is_valid_primitive(),
-            GenericDataType::I64 => self.is_valid_primitive(),
-            GenericDataType::F32 => self.is_valid_primitive(),
-            GenericDataType::F64 => self.is_valid_primitive(),
-            GenericDataType::Struct => self.is_valid_struct(),
-            GenericDataType::Map => self.is_valid_map(),
-            _ => true,
+            GenericDataType::Null => self.validate_null(),
+            GenericDataType::Bool => self.validate_primitive(),
+            GenericDataType::U8 => self.validate_primitive(),
+            GenericDataType::U16 => self.validate_primitive(),
+            GenericDataType::U32 => self.validate_primitive(),
+            GenericDataType::U64 => self.validate_primitive(),
+            GenericDataType::I8 => self.validate_primitive(),
+            GenericDataType::I16 => self.validate_primitive(),
+            GenericDataType::I32 => self.validate_primitive(),
+            GenericDataType::I64 => self.validate_primitive(),
+            GenericDataType::F16 => self.validate_primitive(),
+            GenericDataType::F32 => self.validate_primitive(),
+            GenericDataType::F64 => self.validate_primitive(),
+            GenericDataType::Utf8 => self.validate_primitive(),
+            GenericDataType::LargeUtf8 => self.validate_primitive(),
+            GenericDataType::Date64 => self.validate_date64(),
+            GenericDataType::Struct => self.validate_struct(),
+            GenericDataType::Map => self.validate_map(),
+            GenericDataType::List => self.validate_list(),
+            GenericDataType::LargeList => self.validate_list(),
+            GenericDataType::Union => self.validate_union(),
+            GenericDataType::Dictionary => self.validate_dictionary(),
         }
     }
 
     /// Test that the fields is compatible wiht the current one
     ///
     pub fn is_compatible(&self, other: &GenericField) -> bool {
-        field_is_compatible(self, other)
+        self.validate_compatibility(other).is_ok()
+    }
+
+    pub fn validate_compatibility(&self, other: &GenericField) -> Result<()> {
+        self.validate()?;
+        other
+            .validate()
+            .map_err(|err| Error::custom_from(format!("invalid other field: {err}"), err))?;
+
+        if !field_is_compatible(self, other) {
+            fail!("incompatible fields: {self:?}, {other:?}");
+        }
+
+        Ok(())
     }
 
     pub fn with_child(mut self, child: GenericField) -> Self {
@@ -280,21 +299,172 @@ impl GenericField {
 }
 
 impl GenericField {
-    pub(crate) fn is_valid_primitive(&self) -> bool {
-        self.strategy.is_none() && self.children.is_empty()
+    pub(crate) fn validate_null(&self) -> Result<()> {
+        if !matches!(self.strategy, None | Some(Strategy::InconsistentTypes)) {
+            fail!(
+                "invalid strategy for Null field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("Null field must not have children");
+        }
+        Ok(())
     }
 
-    pub(crate) fn is_valid_struct(&self) -> bool {
-        // NOTE: do not chekc number of children: arrow-rs can 0 children, arrow2 not
-        matches!(
+    pub(crate) fn validate_primitive(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for {}: {}",
+                self.data_type,
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_date64(&self) -> Result<()> {
+        if !matches!(
+            self.strategy,
+            None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64)
+        ) {
+            fail!(
+                "invalid strategy for Date64 field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn validate_struct(&self) -> Result<()> {
+        // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
+        if !matches!(
             self.strategy,
             None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct)
-        )
+        ) {
+            fail!(
+                "invalid strategy for Struct field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+
+        for child in &self.children {
+            child.validate()?;
+        }
+
+        Ok(())
     }
 
-    pub(crate) fn is_valid_map(&self) -> bool {
-        // TODO: validate that the entries field is of type struct and has two children
-        true
+    pub(crate) fn validate_map(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for Map field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if self.children.len() != 1 {
+            fail!(
+                "invalid number of children for Map field: {}",
+                self.children.len()
+            );
+        }
+        if self.children[0].data_type != GenericDataType::Struct {
+            fail!(
+                "invalid child for Map field, expected Struct, found: {}",
+                self.children[0].data_type
+            );
+        }
+        if self.children[0].children.len() != 2 {
+            fail!("invalid child for Map field, expected Struct with two fields, found Struct wiht {} fields", self.children[0].children.len());
+        }
+
+        for child in &self.children {
+            child.validate()?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn validate_list(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for List field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if self.children.len() != 1 {
+            fail!(
+                "invalid number of children for List field. Expected 1, found: {}",
+                self.children.len()
+            );
+        }
+        self.children[0].validate()?;
+
+        Ok(())
+    }
+
+    pub(crate) fn validate_union(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for Union field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if self.children.is_empty() {
+            fail!("Union field without children");
+        }
+        for child in &self.children {
+            child.validate()?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_dictionary(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for Dictionary field: {}",
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if self.children.len() != 2 {
+            fail!(
+                "invalid number of children for Dictionary field. Expected 2, found: {}",
+                self.children.len()
+            );
+        }
+        if !matches!(
+            self.children[0].data_type,
+            GenericDataType::U8
+                | GenericDataType::U16
+                | GenericDataType::U32
+                | GenericDataType::U64
+                | GenericDataType::I8
+                | GenericDataType::I16
+                | GenericDataType::I32
+                | GenericDataType::I64
+        ) {
+            fail!(
+                "invalid child for Dictionary. Expected integer keys, found: {}",
+                self.children[0].data_type
+            );
+        }
+        if !matches!(
+            self.children[1].data_type,
+            GenericDataType::Utf8 | GenericDataType::LargeUtf8
+        ) {
+            fail!(
+                "invalid child for Dictionary. Expected string values, found: {}",
+                self.children[1].data_type
+            );
+        }
+        for child in &self.children {
+            child.validate()?;
+        }
+        Ok(())
     }
 }
 
@@ -655,8 +825,6 @@ impl EventSink for StructTracer {
                 Start
             }
             (Start, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
-            // TODO: fix include item markers properly
-            // ignore prefix-item markers
             (Key, E::Item) => Key,
             (Key, E::Str(key)) => {
                 if let Some(&field) = self.index.get(key) {
@@ -1066,7 +1234,6 @@ impl EventSink for UnionTracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        // TODO: add checks here?
         for tracer in self.tracers.values_mut() {
             tracer.finish()?;
         }
@@ -1135,8 +1302,6 @@ impl EventSink for MapTracer {
                 ev => fail!("Unexpected event {ev} in state Start of MapTracer"),
             },
             S::Key(depth) => match event {
-                // TODO: properly include item markers in the state machine
-                // ignore prefix-item marker
                 Event::Item if depth == 0 => S::Key(depth),
                 ev if ev.is_end() => match depth {
                     0 => {
@@ -1207,7 +1372,6 @@ impl EventSink for MapTracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        // TODO: add checks
         self.key.finish()?;
         self.value.finish()?;
         self.finished = true;

@@ -7,7 +7,7 @@ use crate::internal::{
         interpreter::Buffers,
         Interpreter,
     },
-    error::Result,
+    error::{fail, Result},
 };
 
 use crate::_impl::arrow::{
@@ -109,7 +109,9 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
                 let validity = Buffer::from(validity.buffer);
                 (Some(validity), len)
             } else {
-                // TODO: avoid the panic here
+                if data.is_empty() {
+                    fail!("cannot built non-nullable structs without fields");
+                }
                 (None, data[0].len())
             };
 
