@@ -108,7 +108,7 @@ compared to arrow2-convert:
 ![Time ](timings.png)
 
 Here, `serde_arrow_bytecode` uses the experimental bytecode serializer, that can
-be activated with
+be enabled with
 
 ```rust
 serde_arrow::experimental::configure(|c| {
