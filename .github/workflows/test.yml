@@ -1,40 +1,25 @@
-name: Test
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-    types: [ready_for_review]
-
-env:
-  CARGO_TERM_COLOR: always
-
-jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: rustc
-      run: rustc --version
-    - name: cargo version
-      run: cargo --version
-    # TODO: auto-generate
-    - name: check
-      run: |
-        cargo check --verbose
-        cargo check --verbose --features arrow2-0-16
-        cargo check --verbose --features arrow2-0-17
-        cargo check --verbose --features arrow-35
-        cargo check --verbose --features arrow-36
-        cargo check --verbose --features arrow-37
-        cargo check --verbose --features arrow-38
-        cargo check --verbose --features arrow-39
-    # TODO: auto-generate
-    - name: Build
-      run: cargo build --verbose --features arrow2-0-17,arrow-39
-    - name: Run tests
-      run: cargo test --verbose --features arrow2-0-17,arrow-39
+{
+  "name": "Test",
+  "on": {
+    "workflow_dispatch": {},
+    "push": {},
+    "pull_request": {
+      "branches": [ "main" ],
+      "types": [ready_for_review]      
+    }
+  },
+  "env": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "jobs": {
+    "build": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {"uses: "actions/checkout@v3"},
+        {"name": "rustc", "run": "rustc --version"},
+        {"name": "cargo", "run": "cargo --version"},
+        {"name": "check", "run": "cargo check --verbose"}
+      ]
+    }
+  }
+}
