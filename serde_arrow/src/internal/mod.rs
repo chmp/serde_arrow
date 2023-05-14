@@ -53,7 +53,10 @@ pub struct Configuration {
 /// ```
 /// serde_arrow::experimental::configure(|c| {
 ///     c.serialize_with_bytecode = true;
-/// })
+/// });
+/// # serde_arrow::experimental::configure(|c| {
+/// #     c.serialize_with_bytecode = false;
+/// # });
 /// ```
 pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
     let mut guard = CONFIGURATION.write().unwrap();
