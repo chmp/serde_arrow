@@ -27,9 +27,12 @@ jobs:
         cargo check --verbose --features arrow2-0-17
         cargo check --verbose --features arrow-35
         cargo check --verbose --features arrow-36
+        cargo check --verbose --features arrow-37
+        cargo check --verbose --features arrow-38
+        cargo check --verbose --features arrow-39
     # TODO: autogenerate
     - name: Run tests
-      run: cargo test --verbose --features arrow2-0-17,arrow-36
+      run: cargo test --verbose --features arrow2-0-17,arrow-39
     - name: Publish to crates.io
       working-directory: serde_arrow
       run: cargo publish
