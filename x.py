@@ -23,6 +23,8 @@ all_arrow_features = ["arrow-35", "arrow-36", "arrow-37", "arrow-38", "arrow-39"
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
+CHECKS_PLACEHOLDER = "<<< checks >>>"
+
 workflow_test_template = {
     "name": "Test",
     "on": {
@@ -38,6 +40,7 @@ workflow_test_template = {
                 {"uses": "actions/checkout@v3"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
+                CHECKS_PLACEHOLDER,
             ],
         }
     },
@@ -59,6 +62,12 @@ workflow_release_template = {
                 {"uses": "actions/checkout@v3"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
+                CHECKS_PLACEHOLDER,
+                {
+                    "name": "Publish to crates.io",
+                    "working-directory": "serde_arrow",
+                    "run": "cargo publish",
+                }
             ],
         }
     },
@@ -72,7 +81,7 @@ def precommit(backtrace=False):
         sys.executable,
         self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py",
     )
-    generate_workflows()
+    update_workflows()
 
     fmt()
     check()
@@ -81,47 +90,49 @@ def precommit(backtrace=False):
     example()
 
 
-def generate_workflows():
-    workflow_test = copy.deepcopy(workflow_release_template)
-    _add_workflow_check_steps(workflow_test["jobs"]["build"]["steps"])
-
-    path = self_path / ".github" / "workflows" / "test.yml"
-    print(f":: update {path}")
-    with open(path, "wt", encoding="utf8") as fobj:
-        json.dump(workflow_test, fobj, indent=2)
-
-    workflow_release = copy.deepcopy(workflow_release_template)
-    _add_workflow_check_steps(workflow_release["jobs"]["build"]["steps"])
-    workflow_release["jobs"]["build"]["steps"].append(
-        {
-            "name": "Publish to crates.io",
-            "working-directory": "serde_arrow",
-            "run": "cargo publish",
-        }
+@cmd()
+def update_workflows():
+    _update_workflow(
+        self_path / ".github" / "workflows" / "test.yml",
+        workflow_test_template,
     )
+    
+    _update_workflow(
+        self_path / ".github" / "workflows" / "release.yml",
+        workflow_release_template,
+    )
+    
 
-    path = self_path / ".github" / "workflows" / "release.yml"
+def _update_workflow(path, template):
+    workflow = copy.deepcopy(template)
+    
+    for job in workflow["jobs"].values():
+        steps = []
+        for step in job["steps"]:
+            if step == CHECKS_PLACEHOLDER:
+               steps.extend(_generate_workflow_check_steps())
+
+            else:
+                assert isinstance(step, dict)
+                steps.append(step)
+
+        job["steps"] = steps 
+
     print(f":: update {path}")
     with open(path, "wt", encoding="utf8") as fobj:
-        json.dump(workflow_release, fobj, indent=2)
+        json.dump(workflow, fobj, indent=2)
 
 
-def _add_workflow_check_steps(steps):
-    steps.append({"name": "Check", "run": "cargo check --verbose"})
+def _generate_workflow_check_steps():
+    yield {"name": "Check", "run": "cargo check --verbose"}
     for feature in (*all_arrow2_features, *all_arrow_features):
-        steps.append(
-            {
-                "name": f"Check {feature}",
-                "run": f"cargo check --verbose --features {feature}",
-            }
-        )
+        yield {
+            "name": f"Check {feature}",
+            "run": f"cargo check --verbose --features {feature}",
+        }
 
-    steps.append(
-        {"name": "Build", "run": f"cargo build --verbose --features {default_features}"}
-    )
-    steps.append(
-        {"name": "Build", "run": f"cargo test --verbose --features {default_features}"}
-    )
+    yield {"name": "Build", "run": f"cargo build --verbose --features {default_features}"}
+    yield {"name": "Build", "run": f"cargo test --verbose --features {default_features}"}
 
 
 @cmd()

@@ -1,9 +1,14 @@
 {
-  "name": "Release",
+  "name": "Test",
   "on": {
-    "release": {
+    "workflow_dispatch": {},
+    "push": {},
+    "pull_request": {
+      "branches": [
+        "main"
+      ],
       "types": [
-        "published"
+        "ready_for_review"
       ]
     }
   },
@@ -13,9 +18,6 @@
   "jobs": {
     "build": {
       "runs-on": "ubuntu-latest",
-      "env": {
-        "CARGO_REGISTRY_TOKEN": "${{ secrets.CARGO_REGISTRY_TOKEN }}"
-      },
       "steps": [
         {
           "uses": "actions/checkout@v3"
