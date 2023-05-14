@@ -16,6 +16,11 @@
   This setting is global and used for all calls to `serialize_to_array` and
   `serialize_to_arrays`.
 
+  At the moment the following features are not supported by the bytecode serializer:
+  
+  - nested options (`Option<Option<T>>`)
+  - creating `float16` arrays
+
 ## 0.6.1
 
 - Add support for `arrow=37` with the `arrow-37` feature
