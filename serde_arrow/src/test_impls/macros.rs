@@ -210,6 +210,10 @@ macro_rules! test_example_impl {
 
         #[test]
         fn builder() {
+            let _guard = ScopedConfiguration::configure(|c| {
+                c.serialize_with_bytecode = false;
+            });
+
             $($($definitions)*)?
 
             let items: &[$ty] = &$values;
