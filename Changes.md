@@ -1,7 +1,9 @@
 # Change log
 
-## 0.6.2
+## 0.7
 
+- **Breaking change**: add new `Item` event emitted before list items, tuple
+  items, or map entries
 - Add support for `arrow=38` and `arrow=39` with the  `arrow-38` and `arrow-39`
   features
 - Add support for an experimental bytecode serializer that shows speeds of up to
