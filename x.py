@@ -126,20 +126,20 @@ def _update_workflow(path, template):
 
 
 def _generate_workflow_check_steps():
-    yield {"name": "Check", "run": "cargo check --verbose"}
+    yield {"name": "Check", "run": "cargo check"}
     for feature in (*all_arrow2_features, *all_arrow_features):
         yield {
             "name": f"Check {feature}",
-            "run": f"cargo check --verbose --features {feature}",
+            "run": f"cargo check --features {feature}",
         }
 
     yield {
         "name": "Build",
-        "run": f"cargo build --verbose --features {default_features}",
+        "run": f"cargo build --features {default_features}",
     }
     yield {
-        "name": "Build",
-        "run": f"cargo test --verbose --features {default_features}",
+        "name": "Test",
+        "run": f"cargo test --features {default_features}",
     }
 
 

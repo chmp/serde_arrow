@@ -32,43 +32,43 @@
         },
         {
           "name": "Check",
-          "run": "cargo check --verbose"
+          "run": "cargo check"
         },
         {
           "name": "Check arrow2-0-16",
-          "run": "cargo check --verbose --features arrow2-0-16"
+          "run": "cargo check --features arrow2-0-16"
         },
         {
           "name": "Check arrow2-0-17",
-          "run": "cargo check --verbose --features arrow2-0-17"
+          "run": "cargo check --features arrow2-0-17"
         },
         {
           "name": "Check arrow-35",
-          "run": "cargo check --verbose --features arrow-35"
+          "run": "cargo check --features arrow-35"
         },
         {
           "name": "Check arrow-36",
-          "run": "cargo check --verbose --features arrow-36"
+          "run": "cargo check --features arrow-36"
         },
         {
           "name": "Check arrow-37",
-          "run": "cargo check --verbose --features arrow-37"
+          "run": "cargo check --features arrow-37"
         },
         {
           "name": "Check arrow-38",
-          "run": "cargo check --verbose --features arrow-38"
+          "run": "cargo check --features arrow-38"
         },
         {
           "name": "Check arrow-39",
-          "run": "cargo check --verbose --features arrow-39"
+          "run": "cargo check --features arrow-39"
         },
         {
           "name": "Build",
-          "run": "cargo build --verbose --features arrow2-0-17,arrow-39"
+          "run": "cargo build --features arrow2-0-17,arrow-39"
         },
         {
-          "name": "Build",
-          "run": "cargo test --verbose --features arrow2-0-17,arrow-39"
+          "name": "Test",
+          "run": "cargo test --features arrow2-0-17,arrow-39"
         }
       ]
     }
