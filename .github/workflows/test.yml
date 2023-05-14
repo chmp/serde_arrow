@@ -5,7 +5,7 @@
     "push": {},
     "pull_request": {
       "branches": [ "main" ],
-      "types": [ready_for_review]      
+      "types": ["ready_for_review"]      
     }
   },
   "env": {
@@ -15,7 +15,7 @@
     "build": {
       "runs-on": "ubuntu-latest",
       "steps": [
-        {"uses: "actions/checkout@v3"},
+        {"uses": "actions/checkout@v3"},
         {"name": "rustc", "run": "rustc --version"},
         {"name": "cargo", "run": "cargo --version"},
         {"name": "check", "run": "cargo check --verbose"}
