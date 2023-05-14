@@ -5,9 +5,9 @@ use crate::internal::{
         },
         compiler::{
             dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
-            LargeListEnd, LargeListItem, LargeListStart, MapEnd, MapItem, MapStart, OptionMarker,
-            OuterRecordEnd, OuterRecordField, OuterRecordStart, OuterSequenceEnd,
-            OuterSequenceItem, OuterSequenceStart, Program, ProgramEnd, PushBool,
+            LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
+            MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField, OuterRecordStart,
+            OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program, ProgramEnd, PushBool,
             PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary, PushF32, PushF64,
             PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64,
             PushU8, PushUtf8, StructEnd, StructField, StructItem, StructStart, Structure,
@@ -210,20 +210,6 @@ impl Instruction for MapEnd {
     }
 }
 
-impl Instruction for LargeListStart {
-    fn accept_start_sequence(
-        &self,
-        _structure: &Structure,
-        _buffers: &mut Buffers,
-    ) -> Result<usize> {
-        Ok(self.next)
-    }
-
-    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
-        Ok(self.next)
-    }
-}
-
 impl Instruction for OuterSequenceStart {
     fn accept_start_sequence(
         &self,
@@ -324,6 +310,20 @@ impl Instruction for OuterRecordEnd {
     }
 }
 
+impl Instruction for LargeListStart {
+    fn accept_start_sequence(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut Buffers,
+    ) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
 impl Instruction for LargeListItem {
     fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
         buffers.large_offset[self.offsets].push_current_items();
@@ -354,6 +354,54 @@ impl Instruction for LargeListEnd {
 
     fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
         buffers.large_offset[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+}
+
+impl Instruction for ListStart {
+    fn accept_start_sequence(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut Buffers,
+    ) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for ListItem {
+    fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
+        Ok(structure.lists[self.list_idx].r#return)
+    }
+
+    fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].inc_current_items()?;
+        Ok(self.next)
+    }
+
+    fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
+        Ok(structure.lists[self.list_idx].r#return)
+    }
+}
+
+impl Instruction for ListEnd {
+    fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+
+    fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].inc_current_items()?;
+        Ok(structure.lists[self.list_idx].item)
+    }
+
+    fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.offset[self.offsets].push_current_items();
         Ok(self.next)
     }
 }

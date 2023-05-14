@@ -157,4 +157,57 @@ test_example!(
     },
 );
 
-// TODO: test nested nulls (like Option<Option<...>>)
+test_example!(
+    test_name = nested_options,
+    test_compilation = [],
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::U8, false))
+        .with_child(GenericField::new("b", GenericDataType::U16, true))
+        .with_child(GenericField::new("c", GenericDataType::U32, true)),
+    ty = Item,
+    values = [
+        Item {
+            a: 0,
+            b: Some(1),
+            c: Some(Some(2)),
+        },
+        Item {
+            a: 0,
+            b: None,
+            c: Some(None),
+        },
+        Item {
+            a: 0,
+            b: None,
+            c: None,
+        },
+    ],
+    expected_values = [
+        Item {
+            a: 0,
+            b: Some(1),
+            c: Some(Some(2)),
+        },
+        Item {
+            a: 0,
+            b: None,
+            // NOTE: the arrow format only has a single level of "nullness"
+            // therefore `None` and `Some(None)` cannot be distinguished
+            c: None,
+        },
+        Item {
+            a: 0,
+            b: None,
+            c: None,
+        },
+    ],
+    nulls = [false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct Item {
+            a: u8,
+            b: Option<u16>,
+            c: Option<Option<u32>>,
+        }
+    },
+);

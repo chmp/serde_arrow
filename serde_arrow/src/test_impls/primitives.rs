@@ -219,7 +219,6 @@ test_example!(
     },
 );
 
-// TODO: test that primitives can be converted into each other
 test_example!(
     test_name = u8_to_u16,
     field = GenericField::new("root", GenericDataType::U8, false),
@@ -229,4 +228,19 @@ test_example!(
     nulls = [false, false, false, false],
 );
 
-// TODO: test chars
+test_example!(
+    test_name = u32_to_i64,
+    field = GenericField::new("root", GenericDataType::U32, false),
+    overwrite_field = GenericField::new("root", GenericDataType::I64, false),
+    ty = u32,
+    values = [1, 2, 3, 4],
+    nulls = [false, false, false, false],
+);
+
+test_example!(
+    test_name = chars,
+    field = GenericField::new("root", GenericDataType::U32, false),
+    ty = char,
+    values = ['a', 'b', 'c'],
+    nulls = [false, false, false],
+);

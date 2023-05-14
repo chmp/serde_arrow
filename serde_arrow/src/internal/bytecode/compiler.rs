@@ -82,6 +82,9 @@ pub enum Bytecode {
     LargeListStart(LargeListStart),
     LargeListItem(LargeListItem),
     LargeListEnd(LargeListEnd),
+    ListStart(ListStart),
+    ListItem(ListItem),
+    ListEnd(ListEnd),
     StructStart(StructStart),
     StructField(StructField),
     StructEnd(StructEnd),
@@ -131,6 +134,7 @@ define_check_instructions!(
     OuterSequenceStart,
     OuterRecordStart,
     LargeListStart,
+    ListStart,
     StructStart,
     MapStart,
     TupleStructStart,
@@ -210,6 +214,20 @@ pub struct LargeListEnd {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct ListItem {
+    pub next: usize,
+    pub list_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ListEnd {
+    pub next: usize,
+    pub list_idx: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct StructItem {
     pub next: usize,
     pub struct_idx: usize,
@@ -269,9 +287,12 @@ macro_rules! dispatch_bytecode {
         $instr:ident => $block:expr
     ) => {
         match $obj {
-            Bytecode::LargeListEnd($instr) => $block,
-            Bytecode::LargeListItem($instr) => $block,
             Bytecode::LargeListStart($instr) => $block,
+            Bytecode::LargeListItem($instr) => $block,
+            Bytecode::LargeListEnd($instr) => $block,
+            Bytecode::ListStart($instr) => $block,
+            Bytecode::ListItem($instr) => $block,
+            Bytecode::ListEnd($instr) => $block,
             Bytecode::MapEnd($instr) => $block,
             Bytecode::MapItem($instr) => $block,
             Bytecode::MapStart($instr) => $block,
@@ -328,9 +349,12 @@ macro_rules! implement_into_bytecode {
 }
 
 implement_into_bytecode!(
-    LargeListEnd,
-    LargeListItem,
     LargeListStart,
+    LargeListItem,
+    LargeListEnd,
+    ListStart,
+    ListItem,
+    ListEnd,
     MapEnd,
     MapItem,
     MapStart,
@@ -715,6 +739,7 @@ pub struct Program {
 pub struct Structure {
     // NOTE: the value UNSET_INSTR is used to mark an unknown jump target
     pub program: Vec<Bytecode>,
+    pub lists: Vec<ListDefinition>,
     pub large_lists: Vec<ListDefinition>,
     pub maps: Vec<MapDefinition>,
     pub structs: Vec<StructDefinition>,
@@ -904,10 +929,47 @@ impl Program {
 
     fn compile_list(
         &mut self,
-        _field: &GenericField,
-        _validity: Option<usize>,
+        field: &GenericField,
+        validity: Option<usize>,
     ) -> Result<ArrayMapping> {
-        fail!("Cannot compile lists: Not implemented")
+        if field.nullable != validity.is_some() {
+            fail!("inconsistent arguments");
+        }
+
+        let item = field
+            .children
+            .get(0)
+            .ok_or_else(|| error!("invalid list: no child"))?;
+
+        let list_idx = self.structure.lists.len();
+        let offsets = self.buffers.num_offsets.next_value();
+
+        self.structure.lists.push(ListDefinition::default());
+        self.structure.lists[list_idx].offset = offsets;
+
+        self.push_instr(ListStart { next: UNSET_INSTR });
+        self.push_instr(ListItem {
+            next: UNSET_INSTR,
+            list_idx,
+            offsets,
+        });
+        self.structure.lists[list_idx].item = self.structure.program.len();
+
+        let field_mapping = self.compile_field(item)?;
+
+        self.push_instr(ListEnd {
+            next: UNSET_INSTR,
+            list_idx,
+            offsets,
+        });
+        self.structure.lists[list_idx].r#return = self.structure.program.len();
+
+        Ok(ArrayMapping::List {
+            field: field.clone(),
+            item: Box::new(field_mapping),
+            offsets,
+            validity,
+        })
     }
 
     fn compile_large_list(
@@ -1257,7 +1319,8 @@ impl Program {
 
 impl Program {
     fn validate(&self) -> Result<()> {
-        self.validate_lists()?;
+        self.validate_lists("list", &self.structure.lists)?;
+        self.validate_lists("large list", &self.structure.large_lists)?;
         self.validate_maps()?;
         self.validate_structs()?;
         self.validate_nulls()?;
@@ -1266,22 +1329,26 @@ impl Program {
         Ok(())
     }
 
-    fn validate_lists(&self) -> Result<()> {
-        for (list_idx, list) in self.structure.large_lists.iter().enumerate() {
+    fn validate_lists(&self, label: &str, definitions: &[ListDefinition]) -> Result<()> {
+        for (list_idx, list) in definitions.iter().enumerate() {
             let item_instr = self.instruction_before(list.item);
             if !matches!(
                 item_instr,
-                Some(Bytecode::LargeListItem(_)) | Some(&Bytecode::OuterSequenceItem(_))
+                Some(Bytecode::ListItem(_))
+                    | Some(Bytecode::LargeListItem(_))
+                    | Some(&Bytecode::OuterSequenceItem(_))
             ) {
-                fail!("invalid list definition ({list_idx}): item points to {item_instr:?}");
+                fail!("invalid {label} definition ({list_idx}): item points to {item_instr:?}");
             }
 
             let before_return_instr = self.instruction_before(list.r#return);
             if !matches!(
                 before_return_instr,
-                Some(Bytecode::OuterSequenceEnd(_)) | Some(Bytecode::LargeListEnd(_))
+                Some(Bytecode::ListEnd(_))
+                    | Some(Bytecode::LargeListEnd(_))
+                    | Some(Bytecode::OuterSequenceEnd(_))
             ) {
-                fail!("invalid list definition ({list_idx}): instr before return is {before_return_instr:?}");
+                fail!("invalid {label} definition ({list_idx}): instr before return is {before_return_instr:?}");
             }
         }
         Ok(())

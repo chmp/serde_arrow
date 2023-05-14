@@ -120,10 +120,14 @@ where
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
 
-    if !CONFIGURATION.read().unwrap().serialize_with_bytecode {
+    let current_config = CONFIGURATION.read().unwrap().clone();
+    if !current_config.serialize_with_bytecode {
         internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
     } else {
         let program = compile_serialization(&fields, CompilationOptions::default())?;
+        if current_config.debug_print_program {
+            println!("Program: {program:?}");
+        }
         let mut interpreter = Interpreter::new(program);
         serialize_into_sink(&mut interpreter, items)?;
 
@@ -221,13 +225,17 @@ where
 {
     let field: GenericField = field.try_into()?;
 
-    if !CONFIGURATION.read().unwrap().serialize_with_bytecode {
+    let current_conig = CONFIGURATION.read().unwrap().clone();
+    if !current_conig.serialize_with_bytecode {
         internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
     } else {
         let program = compile_serialization(
             std::slice::from_ref(&field),
             CompilationOptions::default().wrap_with_struct(false),
         )?;
+        if current_conig.debug_print_program {
+            println!("Program: {program:?}");
+        }
         let mut interpreter = Interpreter::new(program);
         serialize_into_sink(&mut interpreter, items)?;
 

@@ -38,6 +38,7 @@ macro_rules! test_example_impl {
         $(overwrite_field = $overwrite_field:expr,)?
         ty = $ty:ty,
         values = $values:expr,
+        $(expected_values = $expected_values:expr,)?
         $( nulls = $nulls:expr, )?
         $(define = { $($definitions:item)* } ,)?
     ) => {
@@ -139,9 +140,11 @@ macro_rules! test_example_impl {
             $(let test_deserialization: &[&str] = &$test_deserialization;)?
 
             if test_deserialization.contains(&IMPL) {
-                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                let expected_items = items;
+                $(let expected_items: &[$ty] = &$expected_values;)?
 
-                assert_eq!(items, items_round_trip);
+                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                assert_eq!(expected_items, items_round_trip);
             }
         }
 
@@ -156,6 +159,7 @@ macro_rules! test_example_impl {
 
             let _guard = ScopedConfiguration::configure(|c| {
                 c.serialize_with_bytecode = true;
+                c.debug_print_program = true;
             });
 
             $($($definitions)*)?
@@ -196,9 +200,11 @@ macro_rules! test_example_impl {
             $(let test_deserialization: &[&str] = &$test_deserialization;)?
 
             if test_deserialization.contains(&IMPL) {
-                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                let expected_items = items;
+                $(let expected_items: &[$ty] = &$expected_values;)?
 
-                assert_eq!(items, items_round_trip);
+                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                assert_eq!(expected_items, items_round_trip);
             }
         }
 
@@ -228,6 +234,8 @@ macro_rules! test_example_impl {
 
             let array = builder.build_array().unwrap();
             assert_eq!(array.as_ref(), array_reference.as_ref());
+
+            // TODO: test deserialization
         }
     };
 }

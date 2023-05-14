@@ -109,7 +109,6 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 match depth {
                     // the last closing event for the current value
                     1 => Field(active + 1),
-                    // TODO: check is this event possible?
                     0 => fail!("Unbalanced opening / close events in StructArrayBuilder"),
                     _ => Value(active, depth - 1),
                 }

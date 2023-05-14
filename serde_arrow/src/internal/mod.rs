@@ -27,6 +27,8 @@ use self::{
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
     serialize_with_bytecode: false,
+    debug_print_program: false,
+    _prevent_construction: (),
 });
 
 /// The crate settings can be configured by calling [configure]
@@ -35,6 +37,10 @@ pub struct Configuration {
     /// If `true`, use the exerperimental bytecode serializer
     ///
     pub serialize_with_bytecode: bool,
+    pub(crate) debug_print_program: bool,
+    /// A non public member to allow extending the member list as non-breaking
+    /// changes
+    _prevent_construction: (),
 }
 
 /// Change global configuration options
