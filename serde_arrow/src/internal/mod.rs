@@ -45,6 +45,16 @@ pub struct Configuration {
 
 /// Change global configuration options
 ///
+/// Note the configuration will be shared by all threads in the current program.
+/// Thread-local configurations are not supported at the moment.
+///
+/// Usage:
+///
+/// ```
+/// serde_arrow::experimental::configure(|c| {
+///     c.serialize_with_bytecode = true;
+/// })
+/// ```
 pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
     let mut guard = CONFIGURATION.write().unwrap();
     f(&mut guard)

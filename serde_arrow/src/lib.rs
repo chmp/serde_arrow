@@ -115,6 +115,8 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-39`    | `arrow=39`    |
+//! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
 //! | `arrow-36`    | `arrow=36`    |
 //! | `arrow-35`    | `arrow=35`    |
