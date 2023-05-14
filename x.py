@@ -29,7 +29,6 @@ workflow_test_template = {
     "name": "Test",
     "on": {
         "workflow_dispatch": {},
-        "push": {},
         "pull_request": {"branches": ["main"], "types": ["ready_for_review"]},
     },
     "env": {"CARGO_TERM_COLOR": "always"},
@@ -67,7 +66,7 @@ workflow_release_template = {
                     "name": "Publish to crates.io",
                     "working-directory": "serde_arrow",
                     "run": "cargo publish",
-                }
+                },
             ],
         }
     },
@@ -96,27 +95,27 @@ def update_workflows():
         self_path / ".github" / "workflows" / "test.yml",
         workflow_test_template,
     )
-    
+
     _update_workflow(
         self_path / ".github" / "workflows" / "release.yml",
         workflow_release_template,
     )
-    
+
 
 def _update_workflow(path, template):
     workflow = copy.deepcopy(template)
-    
+
     for job in workflow["jobs"].values():
         steps = []
         for step in job["steps"]:
             if step == CHECKS_PLACEHOLDER:
-               steps.extend(_generate_workflow_check_steps())
+                steps.extend(_generate_workflow_check_steps())
 
             else:
                 assert isinstance(step, dict)
                 steps.append(step)
 
-        job["steps"] = steps 
+        job["steps"] = steps
 
     print(f":: update {path}")
     with open(path, "wt", encoding="utf8") as fobj:
@@ -131,8 +130,14 @@ def _generate_workflow_check_steps():
             "run": f"cargo check --verbose --features {feature}",
         }
 
-    yield {"name": "Build", "run": f"cargo build --verbose --features {default_features}"}
-    yield {"name": "Build", "run": f"cargo test --verbose --features {default_features}"}
+    yield {
+        "name": "Build",
+        "run": f"cargo build --verbose --features {default_features}",
+    }
+    yield {
+        "name": "Build",
+        "run": f"cargo test --verbose --features {default_features}",
+    }
 
 
 @cmd()
