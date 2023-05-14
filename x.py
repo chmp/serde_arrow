@@ -166,6 +166,7 @@ def lint():
 @cmd()
 def example():
     cargo("run", "-p", "example")
+    run(sys.executable, "-c", 'import polars as pl; print(pl.read_ipc("example.ipc"))')
 
 
 @cmd()
