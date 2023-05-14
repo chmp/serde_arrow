@@ -3,6 +3,7 @@
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
+pub(crate) mod bytecode;
 pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod sinks;
@@ -18,9 +19,12 @@ use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
         self,
-        error::Result,
+        bytecode::{compile_serialization, CompilationOptions, Interpreter},
+        error::{fail, Result},
         schema::{GenericField, TracingOptions},
+        sink::serialize_into_sink,
         source::{deserialize_from_source, AddOuterSequenceSource},
+        CONFIGURATION,
     },
 };
 
@@ -115,7 +119,20 @@ where
         .iter()
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
-    internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
+
+    let current_config = CONFIGURATION.read().unwrap().clone();
+    if !current_config.serialize_with_bytecode {
+        internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
+    } else {
+        let program = compile_serialization(&fields, CompilationOptions::default())?;
+        if current_config.debug_print_program {
+            println!("Program: {program:?}");
+        }
+        let mut interpreter = Interpreter::new(program);
+        serialize_into_sink(&mut interpreter, items)?;
+
+        interpreter.build_arrow2_arrays()
+    }
 }
 
 /// Deserialize a type from the given arrays
@@ -207,7 +224,27 @@ where
     T: Serialize + ?Sized,
 {
     let field: GenericField = field.try_into()?;
-    internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
+
+    let current_conig = CONFIGURATION.read().unwrap().clone();
+    if !current_conig.serialize_with_bytecode {
+        internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
+    } else {
+        let program = compile_serialization(
+            std::slice::from_ref(&field),
+            CompilationOptions::default().wrap_with_struct(false),
+        )?;
+        if current_conig.debug_print_program {
+            println!("Program: {program:?}");
+        }
+        let mut interpreter = Interpreter::new(program);
+        serialize_into_sink(&mut interpreter, items)?;
+
+        let arrays = interpreter.build_arrow2_arrays()?;
+        if arrays.len() != 1 {
+            fail!("Invalid number of result arrays: {}", arrays.len());
+        }
+        Ok(arrays.into_iter().next().unwrap())
+    }
 }
 
 /// Deserialize a sequence of objects from a single array

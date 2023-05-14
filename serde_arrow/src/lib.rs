@@ -115,6 +115,8 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-39`    | `arrow=39`    |
+//! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
 //! | `arrow-36`    | `arrow=36`    |
 //! | `arrow-35`    | `arrow=35`    |
@@ -153,7 +155,7 @@ pub mod _impl {
                 pub mod array {
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, GenericListArray,
-                        NullArray, OffsetSizeTrait, StructArray,
+                        NullArray, OffsetSizeTrait,
                     };
                     pub use $arrow_array::builder::{
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
@@ -162,14 +164,18 @@ pub mod _impl {
                     pub use $arrow_data::ArrayData;
                 }
                 pub mod buffer {
-                    pub use $arrow_buffer::Buffer;
+                    pub use $arrow_buffer::buffer::{Buffer, ScalarBuffer};
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
                         Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
                         Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
                     };
+                    pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
+                }
+                pub mod ffi {
+                    pub use $arrow_data::ffi::FFI_ArrowArray;
                 }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
@@ -178,7 +184,27 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow-37")]
+    #[cfg(feature = "arrow-39")]
+    build_arrow_crate!(
+        arrow_array_39,
+        arrow_buffer_39,
+        arrow_data_39,
+        arrow_schema_39
+    );
+
+    #[cfg(all(feature = "arrow-38", not(feature = "arrow-39")))]
+    build_arrow_crate!(
+        arrow_array_38,
+        arrow_buffer_38,
+        arrow_data_38,
+        arrow_schema_38
+    );
+
+    #[cfg(all(
+        feature = "arrow-37",
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
+    ))]
     build_arrow_crate!(
         arrow_array_37,
         arrow_buffer_37,
@@ -186,7 +212,12 @@ pub mod _impl {
         arrow_schema_37
     );
 
-    #[cfg(all(feature = "arrow-36", not(feature = "arrow-37")))]
+    #[cfg(all(
+        feature = "arrow-36",
+        not(feature = "arrow-37"),
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
+    ))]
     build_arrow_crate!(
         arrow_array_36,
         arrow_buffer_36,
@@ -197,7 +228,9 @@ pub mod _impl {
     #[cfg(all(
         feature = "arrow-35",
         not(feature = "arrow-36"),
-        not(feature = "arrow-37")
+        not(feature = "arrow-37"),
+        not(feature = "arrow-38"),
+        not(feature = "arrow-39"),
     ))]
     build_arrow_crate!(
         arrow_array_35,
@@ -224,12 +257,24 @@ pub mod _impl {
 #[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
 pub mod arrow2;
 
-#[cfg(any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"))]
+#[cfg(any(
+    feature = "arrow-35",
+    feature = "arrow-36",
+    feature = "arrow-37",
+    feature = "arrow-38",
+    feature = "arrow-39",
+))]
 pub mod arrow;
 
 #[cfg(all(
     test,
-    any(feature = "arrow-36", feature = "arrow-35", feature = "arrow-37"),
+    any(
+        feature = "arrow-35",
+        feature = "arrow-36",
+        feature = "arrow-37",
+        feature = "arrow-38",
+        feature = "arrow-39",
+    ),
     any(feature = "arrow2-0-17", feature = "arrow2-0-16")
 ))]
 mod test_impls;
@@ -244,9 +289,11 @@ pub use crate::internal::error::{Error, Result};
 /// This module collects helpers to convert objects to events and back.
 ///
 pub mod base {
-    pub use crate::internal::event::Event;
-    pub use crate::internal::sink::{serialize_into_sink, EventSink};
-    pub use crate::internal::source::{deserialize_from_source, EventSource};
+    pub use crate::internal::{
+        event::Event,
+        sink::{accept_events, serialize_into_sink, EventSink},
+        source::{deserialize_from_source, EventSource},
+    };
 }
 
 /// Helpers to configure how Arrow and Rust types are translated into one
@@ -290,4 +337,10 @@ pub mod base {
 ///
 pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
+}
+
+/// Experimental functionality that is not bound by semver compatibility
+///
+pub mod experimental {
+    pub use crate::internal::{configure, Configuration};
 }

@@ -32,6 +32,8 @@ pub enum Event<'a> {
     StartMap,
     /// End a map, corresponds to `}` in JSON
     EndMap,
+    /// Indicate that the next event encodes an item in a sequence (or a map)
+    Item,
     /// Indicate that the next event encodes a present value
     Some,
     /// A missing value
@@ -70,6 +72,7 @@ impl<'a> std::fmt::Display for Event<'a> {
             Event::EndStruct => write!(f, "EndStruct"),
             Event::StartMap => write!(f, "StartMap"),
             Event::EndMap => write!(f, "EndMap"),
+            Event::Item => write!(f, "Item"),
             Event::Some => write!(f, "Some"),
             Event::Null => write!(f, "Null"),
             Event::Default => write!(f, "Default"),
@@ -104,6 +107,7 @@ impl<'this, 'other> std::cmp::PartialEq<Event<'other>> for Event<'this> {
             EndTuple => matches!(other, EndTuple),
             StartMap => matches!(other, StartMap),
             EndMap => matches!(other, EndMap),
+            Item => matches!(other, Item),
             Default => matches!(other, Default),
             Null => matches!(other, Null),
             Variant(n, i) => match other {
@@ -165,6 +169,7 @@ impl<'a> Event<'a> {
             Event::EndTuple => Event::EndTuple,
             Event::StartMap => Event::StartMap,
             Event::EndMap => Event::EndMap,
+            Event::Item => Event::Item,
             Event::Some => Event::Some,
             Event::Default => Event::Default,
             &Event::Bool(b) => Event::Bool(b),
@@ -198,6 +203,7 @@ impl<'a> Event<'a> {
             Event::EndTuple => Event::EndTuple,
             Event::StartMap => Event::StartMap,
             Event::EndMap => Event::EndMap,
+            Event::Item => Event::Item,
             Event::Some => Event::Some,
             Event::Default => Event::Default,
             &Event::Bool(b) => Event::Bool(b),
@@ -282,7 +288,7 @@ impl<'a> Event<'a> {
     /// events.
     ///
     pub fn is_marker(&self) -> bool {
-        matches!(self, Event::Some | Event::Variant(_, _))
+        matches!(self, Event::Item | Event::Some | Event::Variant(_, _))
     }
 }
 
@@ -322,9 +328,7 @@ macro_rules! event_implement_try_from_from_event {
             fn try_from(val: Event<'_>) -> Result<$ty> {
                 match val {
                     $(Event::$variant(val) => Ok(val.try_into()?),)*
-
-                    // TODO: improve error message
-                    event => fail!("Invalid conversion from {} to {}", event, stringify!($ty)),
+                    event => fail!("invalid conversion from {} to {}", event, stringify!($ty)),
                 }
             }
         }

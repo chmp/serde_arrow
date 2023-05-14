@@ -1,4 +1,4 @@
-use super::macros::test_example;
+use super::macros::{test_events, test_example};
 
 // NOTE: Use BTreeMap to guarantee the order of fields
 
@@ -46,7 +46,9 @@ test_example!(
 );
 
 test_example!(
-    test_name = map_as_struct_nullable_fields,
+    test_name = map_as_struct_missing_fields,
+    test_compilation = [],
+    test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -55,6 +57,20 @@ test_example!(
     values = [
         btree_map!{ "a" => 1_u32 },
         btree_map!{ "a" => 3_u32, "b" => 4_u32 },
+    ],
+    nulls = [false, false],
+);
+
+test_example!(
+    test_name = map_as_struct_nullable_fields,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::U32, true))
+        .with_child(GenericField::new("b", GenericDataType::U32, true)),
+    ty = BTreeMap<String, Option<u32>>,
+    values = [
+        btree_map!{ "a" => Some(1_u32), "b" => Some(4_u32) },
+        btree_map!{ "a" => Some(3_u32), "b" => None },
     ],
     nulls = [false, false],
 );
@@ -77,6 +93,24 @@ test_example!(
 );
 
 test_example!(
+    test_name = map_as_map_empty,
+    tracing_options = TracingOptions::default().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(
+            GenericField::new("entries", GenericDataType::Struct, false)
+                .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
+                .with_child(GenericField::new("value", GenericDataType::U32, false))
+        ),
+    ty = BTreeMap<String, u32>,
+    values = [
+        btree_map!{ },
+        btree_map!{ "a" => 3_u32 },
+        btree_map!{ "b" => 3_u32, "c" => 3_u32 },
+    ],
+    nulls = [false, false, false],
+);
+
+test_example!(
     test_name = map_as_map_int_keys,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
@@ -91,4 +125,31 @@ test_example!(
         btree_map!{ -2_i32 => 3_u32, -4_i32 => 4_u32 },
     ],
     nulls = [false, false],
+);
+
+test_events!(
+    test_name = out_of_order_fields,
+    fields = [
+        // NOTE: map fields are always sorted
+        GenericField::new("bar", GenericDataType::U32, false),
+        GenericField::new("foo", GenericDataType::U32, false),
+    ],
+    events = [
+        Event::StartSequence,
+        Event::Item,
+        Event::StartMap,
+        Event::Str("foo"),
+        Event::U32(0),
+        Event::Str("bar"),
+        Event::U32(1),
+        Event::EndMap,
+        Event::Item,
+        Event::StartMap,
+        Event::Str("bar"),
+        Event::U32(2),
+        Event::Str("foo"),
+        Event::U32(3),
+        Event::EndMap,
+        Event::EndSequence,
+    ],
 );

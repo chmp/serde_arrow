@@ -29,69 +29,92 @@ pub struct Arrow2PrimitiveBuilders;
 impl PrimitiveBuilders for Arrow2PrimitiveBuilders {
     type Output = Box<dyn Array>;
 
-    fn null() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(NullArrayBuilder::new())
+    fn null(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(NullArrayBuilder::new(path))
     }
 
-    fn bool() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutableBooleanArray>::default())
+    fn bool(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutableBooleanArray>::new(path))
     }
 
-    fn i8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i8>>::default())
+    fn i8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i8>>::new(
+            path,
+        ))
     }
 
-    fn i16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i16>>::default())
+    fn i16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i16>>::new(
+            path,
+        ))
     }
 
-    fn i32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i32>>::default())
+    fn i32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i32>>::new(
+            path,
+        ))
     }
 
-    fn i64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default())
+    fn i64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::new(
+            path,
+        ))
     }
 
-    fn u8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u8>>::default())
+    fn u8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u8>>::new(
+            path,
+        ))
     }
 
-    fn u16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u16>>::default())
+    fn u16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u16>>::new(
+            path,
+        ))
     }
 
-    fn u32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u32>>::default())
+    fn u32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u32>>::new(
+            path,
+        ))
     }
 
-    fn u64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u64>>::default())
+    fn u64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<u64>>::new(
+            path,
+        ))
     }
 
-    fn f16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f16>>::default())
+    fn f16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f16>>::new(
+            path,
+        ))
     }
 
-    fn f32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f32>>::default())
+    fn f32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f32>>::new(
+            path,
+        ))
     }
 
-    fn f64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f64>>::default())
+    fn f64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<MutablePrimitiveArray<f64>>::new(
+            path,
+        ))
     }
 
-    fn utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::default())
+    fn utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new(path))
     }
 
-    fn large_utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::default())
+    fn large_utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::new(path))
     }
 
-    fn date64() -> DynamicArrayBuilder<Self::Output> {
-        let builder = PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::default();
+    fn date64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        let builder = PrimitiveArrayBuilder::<MutablePrimitiveArray<i64>>::new(path);
         let builder = PrimitiveArrayBuilder {
+            path: builder.path,
             array: builder.array.to(DataType::Date64),
             finished: builder.finished,
         };
@@ -227,7 +250,7 @@ impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
             fail!("Cannot build array from unfinished NullArrayBuilder");
         }
         let res = Box::new(NullArray::new(DataType::Null, self.length));
-        *self = Self::new();
+        *self = Self::new(self.path.clone());
 
         Ok(res)
     }
@@ -235,34 +258,48 @@ impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
 
 #[derive(Debug, Default)]
 pub struct PrimitiveArrayBuilder<B> {
+    path: String,
     array: B,
     finished: bool,
+}
+
+impl<B: Default> PrimitiveArrayBuilder<B> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: B::default(),
+            finished: false,
+        }
+    }
 }
 
 macro_rules! impl_primitive_array_builder {
     ($ty:ty, $array:ty, $($variant:ident),*) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
             macros::forward_generic_to_specialized!();
-            macros::accept_start!((_this, ev, _val, _next) {
+            macros::accept_start!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_end!((_this, ev, _val, _next) {
+            macros::accept_end!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_marker!((_this, ev, _val, _next) {
+            macros::accept_marker!((this, ev, _val, _next) {
                 if !matches!(ev, Event::Some) {
                     fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     );
                 }
                 Ok(())
@@ -273,9 +310,10 @@ macro_rules! impl_primitive_array_builder {
                     Event::Null => this.array.push(None),
                     Event::Default => this.array.push(Some(Default::default())),
                     ev => fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     ),
                 }
                 Ok(())
@@ -409,32 +447,38 @@ impl_primitive_array_builder!(MutableBooleanArray, BooleanArray, Bool);
 
 #[derive(Debug, Default)]
 pub struct Utf8ArrayBuilder<O: Offset> {
+    path: String,
     array: MutableUtf8Array<O>,
     finished: bool,
 }
 
+impl<O: Offset> Utf8ArrayBuilder<O> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: MutableUtf8Array::<O>::default(),
+            finished: true,
+        }
+    }
+}
+
 impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
-    macros::accept_start!((_this, ev, _val, _next) {
-        fail!("Utf8ArrayBuilder cannot accept {ev}")
+    macros::accept_start!((this, ev, _val, _next) {
+        fail!("Utf8ArrayBuilder cannot accept {ev} [{path}]", path=this.path)
     });
-    macros::accept_end!((_this, ev, _val, _next) {
-        fail!("Utf8ArrayBuilder cannot accept {ev}")
+    macros::accept_end!((this, ev, _val, _next) {
+        fail!("Utf8ArrayBuilder cannot accept {ev} [{path}]", path=this.path)
     });
-    macros::accept_marker!((_this, ev, _val, _next) {
+    macros::accept_marker!((this, ev, _val, _next) {
         match ev {
             Event::Some => Ok(()),
-            _ => fail!("Utf8ArrayBuilder cannot accept {ev}"),
+            _ => fail!("Utf8ArrayBuilder cannot accept {ev} [{path}]", path=this.path),
         }
     });
 
     macros::fail_on_non_string_primitive!("Utf8ArrayBuilder");
 
     fn accept_str(&mut self, val: &str) -> Result<()> {
-        self.array.push(Some(val));
-        Ok(())
-    }
-
-    fn accept_owned_str(&mut self, val: String) -> Result<()> {
         self.array.push(Some(val));
         Ok(())
     }
@@ -455,7 +499,7 @@ impl<O: Offset> EventSink for Utf8ArrayBuilder<O> {
             Event::Default => self.accept_default(),
             Event::Null => self.accept_null(),
             Event::Str(val) => self.accept_str(val),
-            Event::OwnedStr(val) => self.accept_owned_str(val),
+            Event::OwnedStr(val) => self.accept_str(&val),
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }

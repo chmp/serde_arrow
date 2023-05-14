@@ -7,48 +7,6 @@ use crate::{
     },
 };
 
-/// Make sure the field is configured correctly if a strategy is used
-///
-/// TODO: make this a generic method
-pub fn check_strategy(field: &Field) -> Result<()> {
-    let strategy_str = match field.metadata.get(STRATEGY_KEY) {
-        Some(strategy_str) => strategy_str,
-        None => return Ok(()),
-    };
-
-    match strategy_str.parse::<Strategy>()? {
-        Strategy::InconsistentTypes => {
-            if !matches!(field.data_type, DataType::Null) {
-                fail!(
-                    "Invalid strategy for field {name}: {strategy_str} expects the data type Null, found: {dt}",
-                    name = display::Str(&field.name),
-                    dt = display::DataType(&field.data_type),
-                );
-            }
-        }
-        Strategy::UtcStrAsDate64 | Strategy::NaiveStrAsDate64 => {
-            if !matches!(field.data_type, DataType::Date64) {
-                fail!(
-                    "Invalid strategy for field {name}: {strategy_str} expects the data type Date64, found: {dt}",
-                    name = display::Str(&field.name),
-                    dt = display::DataType(&field.data_type),
-                );
-            }
-        }
-        Strategy::TupleAsStruct | Strategy::MapAsStruct => {
-            if !matches!(field.data_type, DataType::Struct(_)) {
-                fail!(
-                    "Invalid strategy for field {name}: {strategy_str} expects the data type Struct, found: {dt}",
-                    name = display::Str(&field.name),
-                    dt = display::DataType(&field.data_type),
-                );
-            }
-        }
-    }
-
-    Ok(())
-}
-
 /// Lookup a nested field among a set of top-level fields
 ///
 /// The `path` argument should be a dotted path to the target field, e.g.,

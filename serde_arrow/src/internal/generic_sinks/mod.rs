@@ -27,25 +27,26 @@ pub use tuple::TupleStructBuilder;
 pub trait PrimitiveBuilders {
     type Output: 'static;
 
-    fn null() -> DynamicArrayBuilder<Self::Output>;
-    fn bool() -> DynamicArrayBuilder<Self::Output>;
-    fn i8() -> DynamicArrayBuilder<Self::Output>;
-    fn i16() -> DynamicArrayBuilder<Self::Output>;
-    fn i32() -> DynamicArrayBuilder<Self::Output>;
-    fn i64() -> DynamicArrayBuilder<Self::Output>;
-    fn u8() -> DynamicArrayBuilder<Self::Output>;
-    fn u16() -> DynamicArrayBuilder<Self::Output>;
-    fn u32() -> DynamicArrayBuilder<Self::Output>;
-    fn u64() -> DynamicArrayBuilder<Self::Output>;
-    fn f16() -> DynamicArrayBuilder<Self::Output>;
-    fn f32() -> DynamicArrayBuilder<Self::Output>;
-    fn f64() -> DynamicArrayBuilder<Self::Output>;
-    fn utf8() -> DynamicArrayBuilder<Self::Output>;
-    fn large_utf8() -> DynamicArrayBuilder<Self::Output>;
-    fn date64() -> DynamicArrayBuilder<Self::Output>;
+    fn null(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn bool(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn i8(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn i16(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn i32(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn i64(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn u8(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn u16(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn u32(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn u64(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn f16(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn f32(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn f64(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn utf8(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn large_utf8(path: String) -> DynamicArrayBuilder<Self::Output>;
+    fn date64(path: String) -> DynamicArrayBuilder<Self::Output>;
 }
 
 pub fn build_struct_array_builder<Arrow>(
+    path: String,
     fields: &[GenericField],
 ) -> Result<StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>>
 where
@@ -62,7 +63,10 @@ where
 {
     let mut builders = Vec::new();
     for field in fields {
-        builders.push(build_array_builder::<Arrow>(field)?);
+        builders.push(build_array_builder::<Arrow>(
+            format!("{path}.{}", field.name),
+            field,
+        )?);
     }
 
     let mut field = GenericField::new("dummy", GenericDataType::Struct, true);
@@ -72,6 +76,7 @@ where
 }
 
 pub fn build_array_builder<Arrow>(
+    path: String,
     field: &GenericField,
 ) -> Result<DynamicArrayBuilder<Arrow::Output>>
 where
@@ -88,29 +93,29 @@ where
 {
     use GenericDataType::*;
     match field.data_type {
-        Null => Ok(Arrow::null()),
-        Bool => Ok(Arrow::bool()),
-        I8 => Ok(Arrow::i8()),
-        I16 => Ok(Arrow::i16()),
-        I32 => Ok(Arrow::i32()),
-        I64 => Ok(Arrow::i64()),
-        U8 => Ok(Arrow::u8()),
-        U16 => Ok(Arrow::u16()),
-        U32 => Ok(Arrow::u32()),
-        U64 => Ok(Arrow::u64()),
-        F16 => Ok(Arrow::f16()),
-        F32 => Ok(Arrow::f32()),
-        F64 => Ok(Arrow::f64()),
-        Utf8 => Ok(Arrow::utf8()),
-        LargeUtf8 => Ok(Arrow::large_utf8()),
+        Null => Ok(Arrow::null(path)),
+        Bool => Ok(Arrow::bool(path)),
+        I8 => Ok(Arrow::i8(path)),
+        I16 => Ok(Arrow::i16(path)),
+        I32 => Ok(Arrow::i32(path)),
+        I64 => Ok(Arrow::i64(path)),
+        U8 => Ok(Arrow::u8(path)),
+        U16 => Ok(Arrow::u16(path)),
+        U32 => Ok(Arrow::u32(path)),
+        U64 => Ok(Arrow::u64(path)),
+        F16 => Ok(Arrow::f16(path)),
+        F32 => Ok(Arrow::f32(path)),
+        F64 => Ok(Arrow::f64(path)),
+        Utf8 => Ok(Arrow::utf8(path)),
+        LargeUtf8 => Ok(Arrow::large_utf8(path)),
         Date64 => match field.strategy.as_ref() {
             Some(Strategy::NaiveStrAsDate64) => Ok(DynamicArrayBuilder::new(
-                NaiveDateTimeStrBuilder(Arrow::date64()),
+                NaiveDateTimeStrBuilder(Arrow::date64(path)),
             )),
             Some(Strategy::UtcStrAsDate64) => Ok(DynamicArrayBuilder::new(UtcDateTimeStrBuilder(
-                Arrow::date64(),
+                Arrow::date64(path),
             ))),
-            None => Ok(Arrow::date64()),
+            None => Ok(Arrow::date64(path)),
             Some(strategy) => fail!("Invalid strategy {strategy} for type Date64"),
         },
         Struct => match field.strategy.as_ref() {
@@ -118,17 +123,17 @@ where
                 let builders = field
                     .children
                     .iter()
-                    .map(build_array_builder::<Arrow>)
+                    .map(|f| build_array_builder::<Arrow>(format!("{path}.{}", f.name), f))
                     .collect::<Result<Vec<_>>>()?;
 
-                let builder = TupleStructBuilder::new(field.clone(), builders);
+                let builder = TupleStructBuilder::new(path, field.clone(), builders);
                 Ok(DynamicArrayBuilder::new(builder))
             }
             None | Some(Strategy::MapAsStruct) => {
                 let builders = field
                     .children
                     .iter()
-                    .map(build_array_builder::<Arrow>)
+                    .map(|f| build_array_builder::<Arrow>(format!("{path}.{}", f.name), f))
                     .collect::<Result<Vec<_>>>()?;
 
                 let builder = StructArrayBuilder::new(field.clone(), builders);
@@ -140,7 +145,7 @@ where
             let builders = field
                 .children
                 .iter()
-                .map(build_array_builder::<Arrow>)
+                .map(|f| build_array_builder::<Arrow>(format!("{path}.{}", f.name), f))
                 .collect::<Result<Vec<_>>>()?;
 
             let builder = UnionArrayBuilder::new(field.clone(), builders);
@@ -151,16 +156,16 @@ where
                 .children
                 .get(0)
                 .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let key = build_array_builder::<Arrow>(key)?;
+            let key = build_array_builder::<Arrow>(format!("{path}.key"), key)?;
 
             let value = field
                 .children
                 .get(1)
                 .ok_or_else(|| error!("Dictionary must have key/value children"))?;
-            let value = build_array_builder::<Arrow>(value)?;
+            let value = build_array_builder::<Arrow>(format!("{path}.value"), value)?;
 
             Ok(DynamicArrayBuilder::new(DictionaryUtf8ArrayBuilder::new(
-                key, value,
+                path, key, value,
             )))
         }
         Map => {
@@ -183,8 +188,8 @@ where
 
             let builder = MapArrayBuilder::new(
                 field.clone(),
-                build_array_builder::<Arrow>(key)?,
-                build_array_builder::<Arrow>(value)?,
+                build_array_builder::<Arrow>(format!("{path}.key"), key)?,
+                build_array_builder::<Arrow>(format!("{path}.value"), value)?,
             );
             Ok(DynamicArrayBuilder::new(builder))
         }
@@ -193,15 +198,17 @@ where
                 .children
                 .first()
                 .ok_or_else(|| error!("List must have a single child"))?;
-            let values = build_array_builder::<Arrow>(child)?;
+            let values = build_array_builder::<Arrow>(format!("{path}.item"), child)?;
 
             if let List = ty {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i32>::new(
+                    path,
                     field.clone(),
                     values,
                 )))
             } else {
                 Ok(DynamicArrayBuilder::new(ListArrayBuilder::<_, i64>::new(
+                    path,
                     field.clone(),
                     values,
                 )))

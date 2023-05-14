@@ -109,7 +109,6 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
                 match depth {
                     // the last closing event for the current value
                     1 => Field(active + 1),
-                    // TODO: check is this event possible?
                     0 => fail!("Unbalanced opening / close events in StructArrayBuilder"),
                     _ => Value(active, depth - 1),
                 }
@@ -123,6 +122,8 @@ impl<B: EventSink> EventSink for StructArrayBuilder<B> {
 
         this.state = match this.state {
             Start => Start,
+            // ignore prefix item markers
+            Field(idx) if matches!(ev, Event::Item) => Field(idx),
             Field(_) => fail!("Unexpected event while waiting for field: {ev}"),
             Value(active, depth) => {
                 next(&mut this.builders[active], val)?;

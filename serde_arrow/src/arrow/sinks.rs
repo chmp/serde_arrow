@@ -1,8 +1,8 @@
 use crate::{
     _impl::arrow::{
         array::{
-            self, Array, ArrayData, ArrowPrimitiveType, BooleanBufferBuilder, BooleanBuilder,
-            GenericStringBuilder, NullArray, OffsetSizeTrait, PrimitiveBuilder, StructArray,
+            Array, ArrayData, ArrowPrimitiveType, BooleanBuilder, GenericStringBuilder, NullArray,
+            OffsetSizeTrait, PrimitiveBuilder,
         },
         buffer::Buffer,
         datatypes::{
@@ -11,6 +11,7 @@ use crate::{
         },
     },
     internal::{
+        bytecode::buffers,
         error::{fail, Result},
         event::Event,
         generic_sinks::{
@@ -29,68 +30,92 @@ pub struct ArrowPrimitiveBuilders;
 impl PrimitiveBuilders for ArrowPrimitiveBuilders {
     type Output = ArrayData;
 
-    fn null() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(NullArrayBuilder::new())
+    fn null(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(NullArrayBuilder::new(path))
     }
 
-    fn bool() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<BooleanBuilder>::default())
+    fn bool(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<BooleanBuilder>::new(path))
     }
 
-    fn u8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::default())
+    fn u8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt8Type>>::new(
+            path,
+        ))
     }
 
-    fn u16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::default())
+    fn u16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt16Type>>::new(
+            path,
+        ))
     }
 
-    fn u32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::default())
+    fn u32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt32Type>>::new(
+            path,
+        ))
     }
 
-    fn u64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::default())
+    fn u64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<UInt64Type>>::new(
+            path,
+        ))
     }
 
-    fn i8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::default())
+    fn i8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int8Type>>::new(
+            path,
+        ))
     }
 
-    fn i16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::default())
+    fn i16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int16Type>>::new(
+            path,
+        ))
     }
 
-    fn i32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::default())
+    fn i32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int32Type>>::new(
+            path,
+        ))
     }
 
-    fn i64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::default())
+    fn i64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Int64Type>>::new(
+            path,
+        ))
     }
 
-    fn f16() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::default())
+    fn f16(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float16Type>>::new(
+            path,
+        ))
     }
 
-    fn f32() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::default())
+    fn f32(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float32Type>>::new(
+            path,
+        ))
     }
 
-    fn f64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::default())
+    fn f64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Float64Type>>::new(
+            path,
+        ))
     }
 
-    fn date64() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::default())
+    fn date64(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(PrimitiveArrayBuilder::<PrimitiveBuilder<Date64Type>>::new(
+            path,
+        ))
     }
 
-    fn utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::default())
+    fn utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i32>::new(path))
     }
 
-    fn large_utf8() -> DynamicArrayBuilder<Self::Output> {
-        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::default())
+    fn large_utf8(path: String) -> DynamicArrayBuilder<Self::Output> {
+        DynamicArrayBuilder::new(Utf8ArrayBuilder::<i64>::new(path))
     }
 }
 
@@ -105,34 +130,48 @@ impl ArrayBuilder<ArrayData> for NullArrayBuilder {
 
 #[derive(Debug, Default)]
 pub struct PrimitiveArrayBuilder<B> {
+    path: String,
     array: B,
     finished: bool,
+}
+
+impl<B: Default> PrimitiveArrayBuilder<B> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: B::default(),
+            finished: false,
+        }
+    }
 }
 
 macro_rules! impl_primitive_array_builder {
     ($ty:ty, $($variant:ident),*) => {
         impl EventSink for PrimitiveArrayBuilder<$ty> {
             macros::forward_generic_to_specialized!();
-            macros::accept_start!((_this, ev, _val, _next) {
+            macros::accept_start!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_end!((_this, ev, _val, _next) {
+            macros::accept_end!((this, ev, _val, _next) {
                 fail!(
-                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                    "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                     ev=ev,
                     ty=stringify!($ty),
+                    path=this.path,
                 );
             });
-            macros::accept_marker!((_this, ev, _val, _next) {
+            macros::accept_marker!((this, ev, _val, _next) {
                 if !matches!(ev, Event::Some) {
                     fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     );
                 }
                 Ok(())
@@ -143,9 +182,10 @@ macro_rules! impl_primitive_array_builder {
                     Event::Null => this.array.append_null(),
                     Event::Default => this.array.append_value(Default::default()),
                     ev => fail!(
-                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}>",
+                        "Cannot handle event {ev} in PrimitiveArrayBuilder<{ty}> [{path}]",
                         ev=ev,
                         ty=stringify!($ty),
+                        path=this.path,
                     ),
                 }
                 Ok(())
@@ -324,8 +364,19 @@ impl ArrayBuilder<ArrayData> for PrimitiveArrayBuilder<PrimitiveBuilder<Float16T
 
 #[derive(Debug, Default)]
 pub struct Utf8ArrayBuilder<O: OffsetSizeTrait> {
+    path: String,
     array: GenericStringBuilder<O>,
     finished: bool,
+}
+
+impl<O: OffsetSizeTrait> Utf8ArrayBuilder<O> {
+    pub fn new(path: String) -> Self {
+        Self {
+            path,
+            array: Default::default(),
+            finished: false,
+        }
+    }
 }
 
 impl<O: OffsetSizeTrait> EventSink for Utf8ArrayBuilder<O> {
@@ -349,11 +400,6 @@ impl<O: OffsetSizeTrait> EventSink for Utf8ArrayBuilder<O> {
         Ok(())
     }
 
-    fn accept_owned_str(&mut self, val: String) -> Result<()> {
-        self.array.append_value(val);
-        Ok(())
-    }
-
     fn accept_default(&mut self) -> Result<()> {
         self.array.append_value("");
         Ok(())
@@ -370,7 +416,7 @@ impl<O: OffsetSizeTrait> EventSink for Utf8ArrayBuilder<O> {
             Event::Default => self.accept_default(),
             Event::Null => self.accept_null(),
             Event::Str(val) => self.accept_str(val),
-            Event::OwnedStr(val) => self.accept_owned_str(val),
+            Event::OwnedStr(val) => self.accept_str(&val),
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }
@@ -391,16 +437,20 @@ impl<O: OffsetSizeTrait> ArrayBuilder<ArrayData> for Utf8ArrayBuilder<O> {
 }
 
 fn build_struct_array<B>(
+    len: usize,
     field: &GenericField,
     builders: &mut [B],
-    validity: &mut Vec<bool>,
+    validity: Option<&mut Vec<bool>>,
 ) -> Result<ArrayData>
 where
     B: ArrayBuilder<ArrayData>,
 {
-    let validity = std::mem::take(validity);
-    let len = validity.len();
-    let validity = build_null_bit_buffer(validity);
+    let validity = if let Some(validity) = validity {
+        let validity = std::mem::take(validity);
+        Some(build_null_bit_buffer(validity)?)
+    } else {
+        None
+    };
 
     let mut data = Vec::new();
     for builder in builders {
@@ -409,7 +459,7 @@ where
 
     Ok(ArrayData::builder(field_to_datatype(field)?)
         .len(len)
-        .null_bit_buffer(Some(validity))
+        .null_bit_buffer(validity)
         .child_data(data)
         .build()?)
 }
@@ -420,7 +470,13 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for StructArrayBuilder<
             fail!("Cannot build array from unfinished StructArrayBuilder");
         }
 
-        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
+        let len = self.validity.len();
+        build_struct_array(
+            len,
+            &self.field,
+            &mut self.builders,
+            Some(&mut self.validity),
+        )
     }
 }
 
@@ -430,7 +486,13 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for TupleStructBuilder<
             fail!("Cannot build array from unfinished TupleStructBuilder");
         }
 
-        build_struct_array(&self.field, &mut self.builders, &mut self.validity)
+        let len = self.validity.len();
+        build_struct_array(
+            len,
+            &self.field,
+            &mut self.builders,
+            Some(&mut self.validity),
+        )
     }
 }
 
@@ -462,12 +524,12 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for UnionArrayBuilder<B
     }
 }
 
-fn build_null_bit_buffer(validity: Vec<bool>) -> Buffer {
-    let mut null_bit_buffer_builder = BooleanBufferBuilder::new(validity.len());
+fn build_null_bit_buffer(validity: Vec<bool>) -> Result<Buffer> {
+    let mut buffer = buffers::BitBuffer::default();
     for flag in validity {
-        null_bit_buffer_builder.append(flag);
+        buffer.push(flag)?;
     }
-    null_bit_buffer_builder.finish()
+    Ok(Buffer::from(buffer.buffer))
 }
 
 fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
@@ -479,7 +541,7 @@ fn build_list_array<B: ArrayBuilder<ArrayData>, O: OffsetSizeTrait>(
     let offsets = std::mem::take(&mut this.offsets);
 
     let len = validity.len();
-    let null_bit_buffer = build_null_bit_buffer(validity);
+    let null_bit_buffer = build_null_bit_buffer(validity)?;
     let offset_buffer = Buffer::from_vec(offsets);
 
     let array_data_builder = ArrayData::builder(field_to_datatype(&this.field)?)
@@ -515,21 +577,15 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
             fail!("Cannot build array from unfinished MapArrayBuilder");
         }
 
-        // TODO: add a reset method and call it in builders
-
         let keys = self.key_builder.build_array()?;
         let values = self.val_builder.build_array()?;
-
-        let len = self.validity.len();
 
         let offsets = std::mem::take(&mut self.offsets);
         let offsets = Buffer::from_vec(offsets);
 
         let validity = std::mem::take(&mut self.validity);
-        let validity = build_null_bit_buffer(validity);
-
-        let keys = array::make_array(keys);
-        let values = array::make_array(values);
+        let len = validity.len();
+        let validity = build_null_bit_buffer(validity)?;
 
         let dtype = field_to_datatype(&self.field)?;
 
@@ -538,25 +594,15 @@ impl<B: ArrayBuilder<ArrayData>> ArrayBuilder<ArrayData> for MapArrayBuilder<B> 
             _ => fail!("Invalid datatype during map construction"),
         };
 
-        let (key_field, val_field) = match inner_field.data_type() {
-            DataType::Struct(entries) => {
-                if entries.len() != 2 {
-                    fail!("Invalid number of fields in map dtype")
-                }
-                (
-                    entries[0].as_field_ref().clone(),
-                    entries[1].as_field_ref().clone(),
-                )
-            }
-            _ => fail!("Invalid datatype during map construction"),
-        };
-
-        let inner = StructArray::from(vec![(key_field, keys), (val_field, values)]);
+        let inner = ArrayData::builder(inner_field.data_type().clone())
+            .len(keys.len())
+            .child_data(vec![keys, values])
+            .build()?;
 
         let res = ArrayData::builder(dtype)
             .len(len)
             .add_buffer(offsets)
-            .add_child_data(inner.into_data())
+            .add_child_data(inner)
             .null_bit_buffer(Some(validity))
             .build()?;
         Ok(res)

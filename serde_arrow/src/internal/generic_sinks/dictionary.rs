@@ -8,14 +8,16 @@ use crate::internal::{
 
 #[derive(Debug, Default)]
 pub struct DictionaryUtf8ArrayBuilder<B> {
+    pub path: String,
     pub index: HashMap<String, u64>,
     pub keys: B,
     pub values: B,
 }
 
 impl<B> DictionaryUtf8ArrayBuilder<B> {
-    pub fn new(keys: B, values: B) -> Self {
+    pub fn new(path: String, keys: B, values: B) -> Self {
         Self {
+            path,
             index: Default::default(),
             keys,
             values,
@@ -57,11 +59,6 @@ impl<B: EventSink> EventSink for DictionaryUtf8ArrayBuilder<B> {
         self.keys.accept_u64(key)
     }
 
-    fn accept_owned_str(&mut self, val: String) -> Result<()> {
-        let key = self.get_key(val)?;
-        self.keys.accept_u64(key)
-    }
-
     fn accept_default(&mut self) -> Result<()> {
         let key = self.get_key("")?;
         self.keys.accept_u64(key)
@@ -77,7 +74,7 @@ impl<B: EventSink> EventSink for DictionaryUtf8ArrayBuilder<B> {
             Event::Default => self.accept_default(),
             Event::Null => self.accept_null(),
             Event::Str(val) => self.accept_str(val),
-            Event::OwnedStr(val) => self.accept_owned_str(val),
+            Event::OwnedStr(val) => self.accept_str(&val),
             ev => fail!("Cannot handle event {ev} in BooleanArrayBuilder"),
         }
     }

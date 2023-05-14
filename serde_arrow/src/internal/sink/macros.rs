@@ -26,7 +26,6 @@
 //! - [accept_marker] implements
 //!   - [accept_some][super::EventSink::accept_some]
 //!   - [accept_variant][super::EventSink::accept_variant]
-//!   - [accept_owned_variant][super::EventSink::accept_owned_variant]
 //! - [accept_value] implements
 //!   - [accept_default][super::EventSink::accept_default]
 //!   - [accept_null][super::EventSink::accept_null]
@@ -41,7 +40,6 @@
 //!   - [accept_f32][super::EventSink::accept_f32]
 //!   - [accept_f64][super::EventSink::accept_f64]
 //!   - [accept_str][super::EventSink::accept_str]
-//!   - [accept_owned_str][super::EventSink::accept_owned_str]
 //!  
 //! The `accept_*` macros must be called as in:
 //!
@@ -78,6 +76,7 @@ macro_rules! forward_generic_to_specialized {
                 EndTuple => self.accept_end_tuple(),
                 EndMap => self.accept_end_map(),
                 EndStruct => self.accept_end_struct(),
+                Item => self.accept_item(),
                 Null => self.accept_null(),
                 Some => self.accept_some(),
                 Default => self.accept_default(),
@@ -93,9 +92,9 @@ macro_rules! forward_generic_to_specialized {
                 F32(val) => self.accept_f32(val),
                 F64(val) => self.accept_f64(val),
                 Str(val) => self.accept_str(val),
-                OwnedStr(val) => self.accept_owned_str(val),
+                OwnedStr(val) => self.accept_str(&val),
                 Variant(name, idx) => self.accept_variant(name, idx),
-                OwnedVariant(name, idx) => self.accept_owned_variant(name, idx),
+                OwnedVariant(name, idx) => self.accept_variant(&name, idx),
             }
         }
     };
@@ -139,6 +138,10 @@ macro_rules! forward_specialized_to_generic {
             self.accept($crate::internal::event::Event::EndMap)
         }
 
+        fn accept_item(&mut self) -> $crate::internal::error::Result<()> {
+            self.accept($crate::internal::event::Event::Item)
+        }
+
         fn accept_some(&mut self) -> $crate::internal::error::Result<()> {
             self.accept($crate::internal::event::Event::Some)
         }
@@ -155,24 +158,12 @@ macro_rules! forward_specialized_to_generic {
             self.accept($crate::internal::event::Event::Str(val))
         }
 
-        fn accept_owned_str(&mut self, val: String) -> $crate::internal::error::Result<()> {
-            self.accept($crate::internal::event::Event::OwnedStr(val))
-        }
-
         fn accept_variant(
             &mut self,
             name: &str,
             idx: usize,
         ) -> $crate::internal::error::Result<()> {
             self.accept($crate::internal::event::Event::Variant(name, idx))
-        }
-
-        fn accept_owned_variant(
-            &mut self,
-            name: String,
-            idx: usize,
-        ) -> $crate::internal::error::Result<()> {
-            self.accept($crate::internal::event::Event::OwnedVariant(name, idx))
         }
 
         fn accept_bool(&mut self, val: bool) -> $crate::internal::error::Result<()> {
@@ -340,17 +331,6 @@ macro_rules! accept_value {
             $block
         }
 
-        fn accept_owned_str(&mut self, val: String) -> Result<()> {
-            let $this = self;
-            let $val = val;
-            let $ev = Event::Str(&$val);
-            fn $next<E: EventSink + ?Sized>(next: &mut E, val: String) -> Result<()> {
-                next.accept_owned_str(val)
-            }
-
-            $block
-        }
-
         fn accept_bool(&mut self, val: bool) -> Result<()> {
             let $this = self;
             let $ev = Event::Bool(val);
@@ -502,6 +482,17 @@ pub(crate) use accept_value;
 #[allow(unused)]
 macro_rules! accept_marker {
     (($this:ident, $ev:ident, $val:ident, $next:ident) $block:block) => {
+        fn accept_item(&mut self) -> Result<()> {
+            let $this = self;
+            let $ev = Event::Item;
+            let $val = ();
+            fn $next<E: EventSink + ?Sized>(next: &mut E, _val: ()) -> Result<()> {
+                next.accept_item()
+            }
+
+            $block
+        }
+
         fn accept_some(&mut self) -> Result<()> {
             let $this = self;
             let $ev = Event::Some;
@@ -523,18 +514,6 @@ macro_rules! accept_marker {
 
             $block
         }
-
-        fn accept_owned_variant(&mut self, name: String, idx: usize) -> Result<()> {
-            let $this = self;
-            let $val: (String, usize) = (name, idx);
-            let $ev = Event::Variant(&$val.0, $val.1);
-
-            fn $next<E: EventSink + ?Sized>(next: &mut E, val: (String, usize)) -> Result<()> {
-                next.accept_owned_variant(val.0, val.1)
-            }
-
-            $block
-        }
     };
 }
 
@@ -545,37 +524,81 @@ pub(crate) use accept_marker;
 macro_rules! fail_on_non_string_primitive {
     ($context:literal) => {
         fn accept_bool(&mut self, _val: bool) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::Bool [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i8(&mut self, _val: i8) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::I8 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i16(&mut self, _val: i16) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::I16 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i32(&mut self, _val: i32) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::I32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_i64(&mut self, _val: i64) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::I64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u8(&mut self, _val: u8) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::U8 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u16(&mut self, _val: u16) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::U16 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u32(&mut self, _val: u32) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::U32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_u64(&mut self, _val: u64) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::U64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_f32(&mut self, _val: f32) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::F32 [{path}]",
+                $context,
+                path = self.path
+            )
         }
         fn accept_f64(&mut self, _val: f64) -> Result<()> {
-            fail!("{} cannot accept Event::Bool", $context)
+            fail!(
+                "{} cannot accept Event::F64 [{path}]",
+                $context,
+                path = self.path
+            )
         }
     };
 }

@@ -7,14 +7,18 @@ test_example!(
         .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
         .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false)),
     ty = U,
-    values = [U::U32(32), U::Bool(true), U::Str("hello world")],
+    values = [
+        U::U32(32),
+        U::Bool(true),
+        U::Str(String::from("hello world"))
+    ],
     nulls = [false, false, false],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         enum U {
             U32(u32),
             Bool(bool),
-            Str(&'static str),
+            Str(String),
         }
     },
 );
@@ -37,20 +41,54 @@ test_example!(
     values = [
         U::V1 { a: 32, b: 13 },
         U::Bool(true),
-        U::S(S { s: "hello world" })
+        U::S(S {
+            s: String::from("hello world")
+        })
     ],
     nulls = [false, false, false],
     define = {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         enum U {
             V1 { a: u32, b: u64 },
             Bool(bool),
             S(S),
         }
 
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
-            s: &'static str,
+            s: String,
+        }
+    },
+);
+
+test_example!(
+    test_name = union_nested,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("U32", GenericDataType::U32, false))
+        .with_child(
+            GenericField::new("O", GenericDataType::Union, false)
+                .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
+                .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false))
+        ),
+    ty = U,
+    values = [
+        U::U32(32),
+        U::O(O::Bool(true)),
+        U::O(O::Str(String::from("hello world"))),
+        U::U32(16)
+    ],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            U32(u32),
+            O(O),
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum O {
+            Bool(bool),
+            Str(String),
         }
     },
 );

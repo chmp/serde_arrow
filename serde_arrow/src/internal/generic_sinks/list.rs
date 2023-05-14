@@ -6,6 +6,7 @@ use crate::internal::{
 };
 
 pub struct ListArrayBuilder<B, O> {
+    pub path: String,
     pub field: GenericField,
     pub builder: B,
     next: ListBuilderState,
@@ -15,11 +16,12 @@ pub struct ListArrayBuilder<B, O> {
 }
 
 impl<B, O: Default> ListArrayBuilder<B, O> {
-    pub fn new(field: GenericField, builder: B) -> Self {
+    pub fn new(path: String, field: GenericField, builder: B) -> Self {
         Self {
+            path,
             field,
             builder,
-            next: ListBuilderState::Start { offset: 0 },
+            next: ListBuilderState::WaitForStart { offset: 0 },
             offsets: vec![Default::default()],
             validity: Vec::new(),
             finished: false,
@@ -28,9 +30,9 @@ impl<B, O: Default> ListArrayBuilder<B, O> {
 }
 
 impl<B, O> ListArrayBuilder<B, O> {
-    fn finalize_item(&mut self, end_offset: O, nullable: bool) {
+    fn finalize_item(&mut self, end_offset: O, null: bool) {
         self.offsets.push(end_offset);
-        self.validity.push(!nullable);
+        self.validity.push(!null);
     }
 }
 
@@ -42,7 +44,8 @@ impl<B, O> ListArrayBuilder<B, O> {
 ///
 #[derive(Debug, Clone, Copy)]
 enum ListBuilderState {
-    Start { offset: i64 },
+    WaitForStart { offset: i64 },
+    WaitForItem { offset: i64 },
     Value { offset: i64, depth: usize },
 }
 
@@ -52,78 +55,73 @@ where
 {
     macros::forward_generic_to_specialized!();
     macros::accept_start!((this, ev, val, next) {
-        use ListBuilderState::*;
-        this.next = match this.next {
-            Start { offset } => {
-                if matches!(ev, Event::StartSequence) {
-                    Value { offset, depth: 0 }
-                } else {
-                    fail!("Invalid event {ev} in state Start")
-                }
+        use {ListBuilderState as S, Event as E};
+        this.next = match (this.next, ev) {
+            (S::WaitForStart { offset }, E::StartSequence)  => {
+                S::WaitForItem { offset }
             }
-            Value { offset, depth } => {
+            (S::Value { offset, depth }, _) => {
                 next(&mut this.builder, val)?;
-                Value {
+                S::Value {
                     offset,
                     depth: depth + 1,
                 }
             }
+            (state, ev) => fail!("ListBuilder: Cannot handle event {ev} in state {state:?} [{path}]", path=this.path),
         };
 
         Ok(())
     });
     macros::accept_end!((this, ev, val, next) {
-        use ListBuilderState::*;
-        this.next = match this.next {
-            Start { .. } => fail!("Invalid event {ev} in state Start"),
-            Value { offset, depth } => {
-                if depth != 0 {
-                    next(&mut this.builder, val)?;
-                    Value {
-                        offset: if depth == 1 { offset + 1 } else { offset },
-                        depth: depth - 1,
-                    }
-                } else if matches!(ev, Event::EndSequence) {
-                    this.finalize_item(offset.try_into()?, false);
-                    Start { offset }
-                } else {
-                    fail!("Invalid {ev} in list array")
-                }
+        use {ListBuilderState as S, Event as E};
+        this.next = match (this.next, ev) {
+            (S::WaitForItem { offset }, E::EndSequence) => {
+                this.finalize_item(offset.try_into()?, false);
+                S::WaitForStart { offset }
             }
+            (S::Value { offset, depth: 1 }, _) => {
+                next(&mut this.builder, val)?;
+                S::WaitForItem { offset: offset + 1 }
+            }
+            (S::Value { offset, depth }, _) => {
+                next(&mut this.builder, val)?;
+                S::Value { offset, depth: depth - 1 }
+            }
+            (state, ev) => fail!("ListBuilder: Cannot handle event {ev} in state {state:?} [{path}]", path=this.path),
         };
 
         Ok(())
     });
-    macros::accept_marker!((this, _ev, val, next) {
-        use ListBuilderState::*;
-        this.next = match this.next {
-            Start { offset } => Start { offset },
-            Value { offset, depth } => {
+    macros::accept_marker!((this, ev, val, next) {
+        use {ListBuilderState as S, Event as E};
+        this.next = match (this.next, ev) {
+            (S::WaitForStart { offset }, E::Some) => S::WaitForStart { offset },
+            (S::WaitForItem { offset }, E::Item) => S::Value { offset, depth: 0 },
+            (S::Value { offset, depth }, _) => {
                 next(&mut this.builder, val)?;
-                Value { offset, depth }
+                S::Value { offset, depth }
             }
+            (state, ev) => fail!("ListBuilder: Cannot handle event {ev} in state {state:?} [{path}]", path=this.path),
         };
 
         Ok(())
     });
     macros::accept_value!((this, ev, val, next) {
-        use ListBuilderState::*;
-        this.next = match this.next {
-            Start { offset } => {
-                if matches!(ev, Event::Null) {
-                    this.finalize_item(offset.try_into()?, true);
-                    Start { offset }
-                } else {
-                    fail!("Invalid event {ev} in state Start")
-                }
+        use {ListBuilderState as S, Event as E};
+        this.next = match (this.next, ev) {
+            (S::WaitForStart { offset }, E::Null) => {
+                this.finalize_item(offset.try_into()?, true);
+                S::WaitForStart { offset }
             }
-            Value { offset, depth } => {
+            (S::Value { offset, depth: 0}, _) => {
                 next(&mut this.builder, val)?;
-                Value {
-                    offset: if depth == 0 { offset + 1 } else { offset },
-                    depth,
-                }
+                S::WaitForItem { offset: offset + 1 }
             }
+            (S::Value { offset, depth }, _) => {
+                next(&mut this.builder, val)?;
+                S::Value { offset, depth }
+            }
+            (state, ev) => fail!("ListBuilder: Cannot handle event {ev} in state {state:?} [{path}]", path=this.path),
         };
         Ok(())
     });

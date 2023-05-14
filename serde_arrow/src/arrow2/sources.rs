@@ -16,12 +16,12 @@ use crate::{
             ListSource, MapSource, NaiveDateTimeStrSource, StructSource, TupleSource, UnionSource,
             UtcDateTimeStrSource,
         },
-        schema::{Strategy, STRATEGY_KEY},
+        schema::{GenericField, Strategy, STRATEGY_KEY},
         source::{AddOuterSequenceSource, DynamicSource, EventSource},
     },
 };
 
-use super::{display, schema::check_strategy};
+use super::display;
 
 pub(crate) fn build_record_source<'de, A>(
     fields: &'de [Field],
@@ -51,7 +51,7 @@ pub fn build_dynamic_source<'a>(
     field: &'a Field,
     array: &'a dyn Array,
 ) -> Result<DynamicSource<'a>> {
-    check_strategy(field)?;
+    GenericField::try_from(field)?.validate()?;
 
     let source = match field.data_type() {
         DataType::Null => DynamicSource::new(NullArraySource::new(array.len())),
