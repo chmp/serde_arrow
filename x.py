@@ -29,7 +29,10 @@ workflow_test_template = {
     "name": "Test",
     "on": {
         "workflow_dispatch": {},
-        "pull_request": {"branches": ["main"], "types": ["ready_for_review"]},
+        "pull_request": {
+            "branches": ["main"],
+            "types": ["ready_for_review", "synchronize"],
+        },
     },
     "env": {"CARGO_TERM_COLOR": "always"},
     "jobs": {
