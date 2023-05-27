@@ -1,6 +1,28 @@
 use super::macros::test_example;
 
 test_example!(
+    test_name = fieldless_unions,
+    // NOTE: bytecode support requires more robust option handling
+    test_compilation = [],
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true))
+        .with_child(GenericField::new("C", GenericDataType::Null, true)),
+    ty = U,
+    values = [U::A, U::B, U::C, U::A,],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
+
+test_example!(
     test_name = union_simple,
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
@@ -10,7 +32,7 @@ test_example!(
     values = [
         U::U32(32),
         U::Bool(true),
-        U::Str(String::from("hello world"))
+        U::Str(String::from("hello world")),
     ],
     nulls = [false, false, false],
     define = {

@@ -211,3 +211,58 @@ test_example!(
         }
     },
 );
+
+test_example!(
+    test_name = fieldless_unions_in_a_struct,
+    // NOTE: bytecode support requires more robust option handling
+    test_compilation = [],
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("foo", GenericDataType::U32, false))
+        .with_child(
+            GenericField::new("bar", GenericDataType::Union, false)
+                .with_child(GenericField::new("A", GenericDataType::Null, true))
+                .with_child(GenericField::new("B", GenericDataType::Null, true))
+                .with_child(GenericField::new("C", GenericDataType::Null, true))
+        )
+        .with_child(GenericField::new("baz", GenericDataType::F32, false)),
+    ty = S,
+    values = [
+        S {
+            foo: 0,
+            bar: U::A,
+            baz: 1.0,
+        },
+        S {
+            foo: 2,
+            bar: U::B,
+            baz: 3.0,
+        },
+        S {
+            foo: 4,
+            bar: U::C,
+            baz: 5.0,
+        },
+        S {
+            foo: 6,
+            bar: U::A,
+            baz: 7.0,
+        },
+    ],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S {
+            foo: u32,
+            bar: U,
+            baz: f32,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
