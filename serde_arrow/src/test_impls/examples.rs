@@ -214,8 +214,6 @@ test_example!(
 
 test_example!(
     test_name = fieldless_unions_in_a_struct,
-    // NOTE: bytecode support requires more robust option handling
-    test_compilation = [],
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("foo", GenericDataType::U32, false))

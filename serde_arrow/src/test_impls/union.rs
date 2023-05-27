@@ -2,8 +2,6 @@ use super::macros::test_example;
 
 test_example!(
     test_name = fieldless_unions,
-    // NOTE: bytecode support requires more robust option handling
-    test_compilation = [],
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))

@@ -1068,7 +1068,7 @@ impl Program {
 
     fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
         let mut nullable_idx = None;
-        let validity = if field.nullable {
+        let validity = if self.requires_null_check(field) {
             let validity = self.buffers.num_validity.next_value();
             self.structure.nulls.push(NullDefinition::default());
 
@@ -1097,6 +1097,12 @@ impl Program {
         }
 
         Ok(array_mapping)
+    }
+
+    fn requires_null_check(&self, field: &GenericField) -> bool {
+        // NOTE: Null fields are handled via the PushNull primitive and do
+        // not require additional null checks
+        field.nullable && !matches!(field.data_type, GenericDataType::Null)
     }
 }
 
