@@ -1140,13 +1140,22 @@ impl UnionTracer {
         }
 
         let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
-        for (idx, (name, (_, tracer))) in std::iter::zip(&self.variants, &self.tracers).enumerate()
-        {
-            field.children.push(if let Some(name) = name {
-                tracer.to_field(name)?
-            } else {
-                tracer.to_field(&format!("unknown_variant_{idx}"))?
-            });
+        for (idx, variant_name) in self.variants.iter().enumerate() {
+            let Some(variant_name) = variant_name else {
+                fail!(concat!(
+                    "Cannot build the field {name}: Variant {idx} was never seen during tracing. ",
+                    "Please make sure that all possible variants of an enum are encountered during tracing.",
+                ), idx=idx, name=name);
+            };
+
+            let Some(tracer) = self.tracers.get(&idx) else {
+                panic!(concat!(
+                    "invalid state: tracer for variant {idx} with name {variant_name:?} not initialized. ",
+                    "This should not happen, please open an issue at https://github.com/chmp/serde_arrow",
+                ), idx=idx, variant_name=variant_name);
+            };
+
+            field.children.push(tracer.to_field(variant_name)?);
         }
 
         Ok(field)

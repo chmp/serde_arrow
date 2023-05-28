@@ -264,3 +264,81 @@ test_example!(
         }
     },
 );
+
+// TODO: remove second value once implemented
+test_example!(
+    // see https://github.com/chmp/serde_arrow/issues/57
+    test_name = issue_57,
+    test_compilation = [],
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new(
+            "filename",
+            GenericDataType::LargeUtf8,
+            false
+        ))
+        .with_child(
+            GenericField::new("game_type", GenericDataType::Union, false)
+                .with_child(GenericField::new(
+                    "SpringTraining",
+                    GenericDataType::Null,
+                    true
+                ))
+                .with_child(GenericField::new(
+                    "RegularSeason",
+                    GenericDataType::Null,
+                    true
+                ))
+        )
+        .with_child(
+            GenericField::new("account_type", GenericDataType::Union, false)
+                .with_child(GenericField::new("PlayByPlay", GenericDataType::Null, true))
+                .with_child(GenericField::new("Deduced", GenericDataType::Null, true))
+        )
+        .with_child(GenericField::new("file_index", GenericDataType::U64, false)),
+    ty = FileInfo,
+    values = [
+        FileInfo {
+            filename: String::from("test"),
+            game_type: GameType::RegularSeason,
+            account_type: AccountType::Deduced,
+            file_index: 0
+        },
+        FileInfo {
+            filename: String::from("test"),
+            game_type: GameType::SpringTraining,
+            account_type: AccountType::PlayByPlay,
+            file_index: 0
+        }
+    ],
+    nulls = [false, false],
+    define = {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub enum AccountType {
+            PlayByPlay,
+            Deduced,
+            BoxScore,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub enum GameType {
+            SpringTraining,
+            RegularSeason,
+            AllStarGame,
+            WildCardSeries,
+            DivisionSeries,
+            LeagueChampionshipSeries,
+            WorldSeries,
+            NegroLeagues,
+            Other,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub struct FileInfo {
+            pub filename: String,
+            pub game_type: GameType,
+            pub account_type: AccountType,
+            pub file_index: usize,
+        }
+    },
+);

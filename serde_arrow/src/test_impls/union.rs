@@ -21,6 +21,26 @@ test_example!(
 );
 
 test_example!(
+    test_name = fieldless_union_out_of_order,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true))
+        .with_child(GenericField::new("C", GenericDataType::Null, true)),
+    ty = U,
+    values = [U::B, U::A, U::C],
+    nulls = [false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
+
+test_example!(
     test_name = union_simple,
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
