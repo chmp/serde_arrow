@@ -1,5 +1,14 @@
 # Change log
 
+## 0.7.1
+
+- Fix a bug for unions with unknown variants reported [here][issue-57]. Now
+  `serde_arrow` correctly handles unions during serialization, for which not all
+  variants were encountered during tracing. Serializing unknown variants will
+  result in an error. All variants that are seen during tracing are save to use.
+
+[issue-57]: https://github.com/chmp/serde_arrow/issues/57
+
 ## 0.7
 
 - **Breaking change**: add new `Item` event emitted before list items, tuple

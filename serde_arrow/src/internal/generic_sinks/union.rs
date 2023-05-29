@@ -82,6 +82,13 @@ impl<B: EventSink> EventSink for UnionArrayBuilder<B> {
         this.next = match this.next {
             S::Inactive => match ev {
                 E::Variant(_, idx) | E::OwnedVariant(_, idx) => {
+                    if idx >= this.current_field_offsets.len() {
+                        fail!(
+                            "encountered unknown variant with index {idx} in serialization with {len} known variants",
+                            len=this.current_field_offsets.len(),
+                        );
+                    }
+
                     this.field_offsets.push(this.current_field_offsets[idx]);
                     this.current_field_offsets[idx] += 1;
                     this.field_types.push(i8::try_from(idx)?);
@@ -125,6 +132,27 @@ impl<B: EventSink> EventSink for UnionArrayBuilder<B> {
             builder.finish()?;
         }
         self.finished = true;
+        Ok(())
+    }
+}
+
+pub struct UnknownVariantBuilder(pub String);
+
+impl EventSink for UnknownVariantBuilder {
+    macros::forward_specialized_to_generic!();
+
+    fn accept(&mut self, _event: Event<'_>) -> Result<()> {
+        fail!(
+            concat!(
+                "Serialization failed: an unknown variant for field {path} was ",
+                "encountered. To fix this error, sure all variants are seen during ",
+                "schema tracing or add the relevant variants manually to the traced fields.",
+            ),
+            path = self.0
+        )
+    }
+
+    fn finish(&mut self) -> Result<()> {
         Ok(())
     }
 }

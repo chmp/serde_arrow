@@ -211,3 +211,126 @@ test_example!(
         }
     },
 );
+
+test_example!(
+    test_name = fieldless_unions_in_a_struct,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("foo", GenericDataType::U32, false))
+        .with_child(
+            GenericField::new("bar", GenericDataType::Union, false)
+                .with_child(GenericField::new("A", GenericDataType::Null, true))
+                .with_child(GenericField::new("B", GenericDataType::Null, true))
+                .with_child(GenericField::new("C", GenericDataType::Null, true))
+        )
+        .with_child(GenericField::new("baz", GenericDataType::F32, false)),
+    ty = S,
+    values = [
+        S {
+            foo: 0,
+            bar: U::A,
+            baz: 1.0,
+        },
+        S {
+            foo: 2,
+            bar: U::B,
+            baz: 3.0,
+        },
+        S {
+            foo: 4,
+            bar: U::C,
+            baz: 5.0,
+        },
+        S {
+            foo: 6,
+            bar: U::A,
+            baz: 7.0,
+        },
+    ],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S {
+            foo: u32,
+            bar: U,
+            baz: f32,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
+
+test_example!(
+    // see https://github.com/chmp/serde_arrow/issues/57
+    test_name = issue_57,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new(
+            "filename",
+            GenericDataType::LargeUtf8,
+            false
+        ))
+        .with_child(
+            GenericField::new("game_type", GenericDataType::Union, false)
+                .with_child(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant)
+                )
+                .with_child(GenericField::new(
+                    "RegularSeason",
+                    GenericDataType::Null,
+                    true
+                ))
+        )
+        .with_child(
+            GenericField::new("account_type", GenericDataType::Union, false)
+                .with_child(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant)
+                )
+                .with_child(GenericField::new("Deduced", GenericDataType::Null, true))
+        )
+        .with_child(GenericField::new("file_index", GenericDataType::U64, false)),
+    ty = FileInfo,
+    values = [FileInfo {
+        filename: String::from("test"),
+        game_type: GameType::RegularSeason,
+        account_type: AccountType::Deduced,
+        file_index: 0
+    },],
+    nulls = [false],
+    define = {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub enum AccountType {
+            PlayByPlay,
+            Deduced,
+            BoxScore,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub enum GameType {
+            SpringTraining,
+            RegularSeason,
+            AllStarGame,
+            WildCardSeries,
+            DivisionSeries,
+            LeagueChampionshipSeries,
+            WorldSeries,
+            NegroLeagues,
+            Other,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        pub struct FileInfo {
+            pub filename: String,
+            pub game_type: GameType,
+            pub account_type: AccountType,
+            pub file_index: usize,
+        }
+    },
+);

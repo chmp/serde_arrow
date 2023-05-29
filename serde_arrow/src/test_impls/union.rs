@@ -1,4 +1,44 @@
-use super::macros::test_example;
+use super::macros::{test_error, test_example};
+
+test_example!(
+    test_name = fieldless_unions,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true))
+        .with_child(GenericField::new("C", GenericDataType::Null, true)),
+    ty = U,
+    values = [U::A, U::B, U::C, U::A,],
+    nulls = [false, false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
+
+test_example!(
+    test_name = fieldless_union_out_of_order,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true))
+        .with_child(GenericField::new("C", GenericDataType::Null, true)),
+    ty = U,
+    values = [U::B, U::A, U::C],
+    nulls = [false, false, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+    },
+);
 
 test_example!(
     test_name = union_simple,
@@ -10,7 +50,7 @@ test_example!(
     values = [
         U::U32(32),
         U::Bool(true),
-        U::Str(String::from("hello world"))
+        U::Str(String::from("hello world")),
     ],
     nulls = [false, false, false],
     define = {
@@ -90,5 +130,59 @@ test_example!(
             Bool(bool),
             Str(String),
         }
+    },
+);
+
+test_error!(
+    test_name = missing_union_variants,
+    expected_error = "Serialization failed: an unknown variant",
+    block = {
+        use crate::schema::TracingOptions;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+
+        let tracing_options = TracingOptions::default().allow_null_fields(true);
+        let field = serialize_into_field(&[U::A, U::C], "root", tracing_options).unwrap();
+
+        // NOTE: variant B was never encountered during tracing
+        serialize_into_array(&field, &[U::A, U::B, U::C])?;
+
+        Ok(())
+    },
+);
+
+test_error!(
+    test_name = missing_union_variant_compilation,
+    expected_error = "Serialization failed: an unknown variant",
+    block = {
+        use crate::schema::TracingOptions;
+        use crate::test_impls::utils::ScopedConfiguration;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        enum U {
+            A,
+            B,
+            C,
+        }
+
+        let _guard = ScopedConfiguration::configure(|c| {
+            c.serialize_with_bytecode = true;
+            c.debug_print_program = true;
+        });
+
+        let tracing_options = TracingOptions::default().allow_null_fields(true);
+        let field = serialize_into_field(&[U::A, U::C], "root", tracing_options).unwrap();
+
+        // NOTE: variant B was never encountered during tracing
+        serialize_into_array(&field, &[U::A, U::B, U::C])?;
+
+        Ok(())
     },
 );

@@ -16,7 +16,7 @@ use self::{
     generic_sinks::{
         DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NaiveDateTimeStrBuilder,
         PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
-        UtcDateTimeStrBuilder,
+        UnknownVariantBuilder, UtcDateTimeStrBuilder,
     },
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
     sink::{
@@ -114,6 +114,7 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     let builder = generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), fields)?;
     let mut builder = StripOuterSequenceSink::new(builder);
@@ -135,12 +136,13 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     let builder = generic_sinks::build_array_builder::<Arrow>(String::from("$"), field)?;
     let builder = StripOuterSequenceSink::new(builder);
     let mut builder = builder;
 
-    serialize_into_sink(&mut builder, items).unwrap();
+    serialize_into_sink(&mut builder, items)?;
     builder.into_inner().build_array()
 }
 
@@ -161,6 +163,7 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     pub fn new(field: GenericField) -> Result<Self> {
         Ok(Self {
@@ -207,6 +210,7 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     pub fn new(fields: Vec<GenericField>) -> Result<Self> {
         Ok(Self {

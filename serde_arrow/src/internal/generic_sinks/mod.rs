@@ -22,6 +22,7 @@ pub use map::MapArrayBuilder;
 pub use null::NullArrayBuilder;
 pub use r#struct::StructArrayBuilder;
 pub use r#union::UnionArrayBuilder;
+pub use r#union::UnknownVariantBuilder;
 pub use tuple::TupleStructBuilder;
 
 pub trait PrimitiveBuilders {
@@ -60,6 +61,7 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     let mut builders = Vec::new();
     for field in fields {
@@ -90,6 +92,7 @@ where
     MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
     ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
+    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
 {
     use GenericDataType::*;
     match field.data_type {
@@ -142,11 +145,19 @@ where
             Some(strategy) => fail!("Invalid strategy {strategy} for type Struct"),
         },
         Union => {
-            let builders = field
-                .children
-                .iter()
-                .map(|f| build_array_builder::<Arrow>(format!("{path}.{}", f.name), f))
-                .collect::<Result<Vec<_>>>()?;
+            let mut builders = Vec::new();
+
+            for child in &field.children {
+                if matches!(child.strategy, Some(Strategy::UnknownVariant)) {
+                    builders.push(DynamicArrayBuilder::new(UnknownVariantBuilder(
+                        path.clone(),
+                    )));
+                } else {
+                    let child_path = format!("{path}.{}", child.name);
+                    let builder = build_array_builder::<Arrow>(child_path, child)?;
+                    builders.push(builder);
+                }
+            }
 
             let builder = UnionArrayBuilder::new(field.clone(), builders);
             Ok(DynamicArrayBuilder::new(builder))
