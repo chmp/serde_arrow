@@ -4,7 +4,8 @@
 
 1. [Working with date time objects](#working-with-date-time-objects)
 2. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
-3. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
+3. [Working with enums](#working-with-enums)
+4. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
 
 ## Working with date time objects
 
@@ -89,6 +90,35 @@ let fields = serialize_into_fields(
 )?;
 ```
 
+## Working with enums
+
+Rust enums correspond to arrow's enum types and are supported by `serde_arrow`.
+Both enums with fields and without are supported. Variants without fields are
+mapped to null arrays. Only variants that are included in the union field can be
+serialized or deserialized and the variants must have the correct index. When
+using `serialize_to_fields` these requirements will automatically be met.
+
+For example:
+
+```rust
+enum MyEnum {
+    VariantWithoutData,
+    Pair(u32, u32),
+    NewType(Inner),
+}
+
+struct Inner {
+    a: f32,
+    b: f32,
+}
+```
+
+will be mapped to the following arrow union:
+
+- `type = 0`: `Null`
+- `type = 1`: `Struct { 0: u32, 1: u32 }`
+- `type = 2`: `Struct { a: f32, b: f32 }`
+
 ## Convert from arrow2 to arrow arrays
 
 Both `arrow` and `arrow2` use the Arrow memory format. Thanks to this fact, it
@@ -99,7 +129,8 @@ their respective FFI interfaces:
 - [arrow2::ffi_export_array_to_ce](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
 - [arrow::ffi::ArrowArray::new](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
 
-A fully worked example can be found in the [arrow2-to-arrow][] example of the
-`serde_arrow` repository.
+The arrow2 crate includes [a helper trait][arrow2-arrow2arrow] to perform this
+conversion when used with the `arrow` feature.
 
 [arrow2-to-arrow]: https://github.com/chmp/serde_arrow/tree/main/arrow2-to-arrow
+[arrow2-arrow2arrow]: https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html
