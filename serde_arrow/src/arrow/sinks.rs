@@ -17,6 +17,7 @@ use crate::{
         generic_sinks::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NullArrayBuilder,
             PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
+            UnknownVariantBuilder,
         },
         schema::GenericField,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
@@ -125,6 +126,12 @@ impl ArrayBuilder<ArrayData> for NullArrayBuilder {
             fail!("Cannot build unfinished null array");
         }
         Ok(NullArray::new(self.length).into_data())
+    }
+}
+
+impl ArrayBuilder<ArrayData> for UnknownVariantBuilder {
+    fn build_array(&mut self) -> Result<ArrayData> {
+        Ok(NullArray::new(0).into_data())
     }
 }
 

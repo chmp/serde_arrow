@@ -116,6 +116,12 @@ pub enum Strategy {
     ///   polars does not support them)
     ///
     MapAsStruct,
+    /// Mark a variant as unknown
+    ///
+    /// This startegy applies only to fields with DataType Null. If
+    /// serialization or deseralization of such a field is attempted, it will
+    /// result in an error.
+    UnknownVariant,
 }
 
 impl std::fmt::Display for Strategy {
@@ -126,6 +132,7 @@ impl std::fmt::Display for Strategy {
             Self::NaiveStrAsDate64 => write!(f, "NaiveStrAsDate64"),
             Self::TupleAsStruct => write!(f, "TupleAsStruct"),
             Self::MapAsStruct => write!(f, "MapAsStruct"),
+            Self::UnknownVariant => write!(f, "UnknownVariant"),
         }
     }
 }
@@ -140,6 +147,7 @@ impl FromStr for Strategy {
             "NaiveStrAsDate64" => Ok(Self::NaiveStrAsDate64),
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
             "MapAsStruct" => Ok(Self::MapAsStruct),
+            "UnknownVariant" => Ok(Self::UnknownVariant),
             _ => fail!("Unknown strategy {s}"),
         }
     }
@@ -300,7 +308,10 @@ impl GenericField {
 
 impl GenericField {
     pub(crate) fn validate_null(&self) -> Result<()> {
-        if !matches!(self.strategy, None | Some(Strategy::InconsistentTypes)) {
+        if !matches!(
+            self.strategy,
+            None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant)
+        ) {
             fail!(
                 "invalid strategy for Null field: {}",
                 self.strategy.as_ref().unwrap()
@@ -1141,21 +1152,21 @@ impl UnionTracer {
 
         let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
         for (idx, variant_name) in self.variants.iter().enumerate() {
-            let Some(variant_name) = variant_name else {
-                fail!(concat!(
-                    "Cannot build the field {name}: Variant {idx} was never seen during tracing. ",
-                    "Please make sure that all possible variants of an enum are encountered during tracing.",
-                ), idx=idx, name=name);
-            };
+            if let Some(variant_name) = variant_name {
+                let Some(tracer) = self.tracers.get(&idx) else {
+                    panic!(concat!(
+                        "invalid state: tracer for variant {idx} with name {variant_name:?} not initialized. ",
+                        "This should not happen, please open an issue at https://github.com/chmp/serde_arrow",
+                    ), idx=idx, variant_name=variant_name);
+                };
 
-            let Some(tracer) = self.tracers.get(&idx) else {
-                panic!(concat!(
-                    "invalid state: tracer for variant {idx} with name {variant_name:?} not initialized. ",
-                    "This should not happen, please open an issue at https://github.com/chmp/serde_arrow",
-                ), idx=idx, variant_name=variant_name);
-            };
-
-            field.children.push(tracer.to_field(variant_name)?);
+                field.children.push(tracer.to_field(variant_name)?);
+            } else {
+                field.children.push(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant),
+                );
+            }
         }
 
         Ok(field)

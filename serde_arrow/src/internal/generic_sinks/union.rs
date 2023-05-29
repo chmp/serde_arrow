@@ -135,3 +135,24 @@ impl<B: EventSink> EventSink for UnionArrayBuilder<B> {
         Ok(())
     }
 }
+
+pub struct UnknownVariantBuilder(pub String);
+
+impl EventSink for UnknownVariantBuilder {
+    macros::forward_specialized_to_generic!();
+
+    fn accept(&mut self, _event: Event<'_>) -> Result<()> {
+        fail!(
+            concat!(
+                "Serialization failed: an unknown variant for field {path} was ",
+                "encountered. To fix this error, sure all variants are seen during ",
+                "schema tracing or add the relevant variants manually to the traced fields.",
+            ),
+            path = self.0
+        )
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        Ok(())
+    }
+}

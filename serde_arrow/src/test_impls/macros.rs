@@ -340,3 +340,73 @@ macro_rules! test_events {
 }
 
 pub(crate) use test_events;
+
+macro_rules! test_error_impl {
+    (
+        test_name = $test_name:ident,
+        expected_error = $expected_error:expr,
+        block = $block:expr,
+    ) => {
+        use super::*;
+
+        use $crate::internal::error::Result;
+
+        #[test]
+        fn test() {
+            fn block() -> Result<()> {
+                $block
+            };
+
+            let actual = block();
+            let expected = $expected_error;
+
+            let Err(actual) = actual else { panic!("expected an error, but no error was raised"); };
+
+            let actual = actual.to_string();
+
+            if !actual.contains(expected) {
+                panic!("Error did not contain {expected:?}. Full error: {actual}");
+            }
+        }
+    };
+}
+
+pub(crate) use test_error_impl;
+
+macro_rules! test_error {
+    (
+        test_name = $test_name:ident,
+        $($tt:tt)*
+    ) => {
+        #[allow(unused)]
+        mod $test_name {
+            mod arrow {
+                use crate::{
+                    arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow::datatypes::Field,
+                    test_impls::utils::deserialize_from_array,
+                };
+                const IMPL: &'static str = "arrow";
+
+                $crate::test_impls::macros::test_error_impl!(
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+            mod arrow2 {
+                use crate::{
+                    arrow2::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
+                    _impl::arrow2::datatypes::Field,
+                };
+                const IMPL: &'static str = "arrow2";
+
+                $crate::test_impls::macros::test_error_impl!(
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+        }
+    };
+}
+
+pub(crate) use test_error;

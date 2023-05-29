@@ -19,6 +19,8 @@ use crate::internal::{
     sink::EventSink,
 };
 
+use super::compiler::Panic;
+
 pub struct Interpreter {
     pub program_counter: usize,
     pub structure: Structure,
@@ -84,6 +86,7 @@ impl Interpreter {
     }
 }
 
+// TODO: use custom trait to improve error message
 #[allow(unused_variables)]
 trait Instruction: std::fmt::Debug {
     fn accept_start_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
@@ -197,6 +200,8 @@ trait Instruction: std::fmt::Debug {
         fail!("{self:?} cannot accept Str({val:?})")
     }
 }
+
+impl Instruction for Panic {}
 
 impl Instruction for MapEnd {
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
@@ -535,8 +540,19 @@ impl Instruction for Variant {
         _name: &str,
         idx: usize,
     ) -> Result<usize> {
-        buffers.i8[self.type_idx].push(idx.try_into()?)?;
-        Ok(structure.unions[self.union_idx].fields[idx])
+        if idx < structure.unions[self.union_idx].fields.len() {
+            buffers.i8[self.type_idx].push(idx.try_into()?)?;
+            Ok(structure.unions[self.union_idx].fields[idx])
+        } else {
+            fail!(
+                concat!(
+                    "Serialization failed: an unknown variant with index {child_idx} for field was ",
+                    "encountered. To fix this error, sure all variants are seen during ",
+                    "schema tracing or add the relevant variants manually to the traced fields.",
+                ),
+                child_idx = idx,
+            )
+        }
     }
 }
 

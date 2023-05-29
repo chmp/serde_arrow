@@ -18,7 +18,7 @@ use crate::{
             DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, StructArrayBuilder,
             TupleStructBuilder, UnionArrayBuilder,
         },
-        generic_sinks::{NullArrayBuilder, PrimitiveBuilders},
+        generic_sinks::{NullArrayBuilder, PrimitiveBuilders, UnknownVariantBuilder},
         schema::GenericField,
         sink::{macros, ArrayBuilder, DynamicArrayBuilder, EventSink},
     },
@@ -253,6 +253,12 @@ impl ArrayBuilder<Box<dyn Array>> for NullArrayBuilder {
         *self = Self::new(self.path.clone());
 
         Ok(res)
+    }
+}
+
+impl ArrayBuilder<Box<dyn Array>> for UnknownVariantBuilder {
+    fn build_array(&mut self) -> Result<Box<dyn Array>> {
+        Ok(Box::new(NullArray::new(DataType::Null, 0)))
     }
 }
 

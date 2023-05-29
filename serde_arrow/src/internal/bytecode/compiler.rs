@@ -72,6 +72,7 @@ pub enum DictionaryValue {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Bytecode {
+    Panic(Panic),
     ProgramEnd(ProgramEnd),
     OuterSequenceStart(OuterSequenceStart),
     OuterSequenceItem(OuterSequenceItem),
@@ -173,6 +174,12 @@ define_primitive_instructions!(
     PushDate64FromNaiveStr,
     PushDate64FromUtcStr,
 );
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Panic {
+    next: usize,
+    message: String,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct OuterSequenceItem {
@@ -287,6 +294,7 @@ macro_rules! dispatch_bytecode {
         $instr:ident => $block:expr
     ) => {
         match $obj {
+            Bytecode::Panic($instr) => $block,
             Bytecode::LargeListStart($instr) => $block,
             Bytecode::LargeListItem($instr) => $block,
             Bytecode::LargeListEnd($instr) => $block,
@@ -349,6 +357,7 @@ macro_rules! implement_into_bytecode {
 }
 
 implement_into_bytecode!(
+    Panic,
     LargeListStart,
     LargeListItem,
     LargeListEnd,
@@ -1043,11 +1052,24 @@ impl Program {
             type_idx,
         });
 
-        for child in &field.children {
+        for (child_idx, child) in field.children.iter().enumerate() {
             self.structure.unions[union_idx]
                 .fields
                 .push(self.structure.program.len());
-            fields.push(self.compile_field(child)?);
+
+            if matches!(child.strategy, Some(Strategy::UnknownVariant)) {
+                let message = format!(
+                    concat!(
+                        "Serialization failed: an unknown variant with index {child_idx} for field was ",
+                        "encountered. To fix this error, sure all variants are seen during ",
+                        "schema tracing or add the relevant variants manually to the traced fields.",
+                    ),
+                    child_idx = child_idx,
+                );
+                fields.push(self.compile_panic(message)?);
+            } else {
+                fields.push(self.compile_field(child)?);
+            }
             child_last_instr.push(self.structure.program.len() - 1);
         }
 
@@ -1064,6 +1086,22 @@ impl Program {
             fields,
             types: type_idx,
         })
+    }
+
+    fn compile_panic(&mut self, message: String) -> Result<ArrayMapping> {
+        self.push_instr(Panic {
+            next: UNSET_INSTR,
+            message,
+        });
+
+        let res = ArrayMapping::Null {
+            field: GenericField::new("", GenericDataType::Null, true),
+            buffer: self.buffers.num_null,
+            validity: None,
+        };
+
+        self.buffers.num_null += 1;
+        Ok(res)
     }
 
     fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {

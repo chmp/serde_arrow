@@ -265,11 +265,9 @@ test_example!(
     },
 );
 
-// TODO: remove second value once implemented
 test_example!(
     // see https://github.com/chmp/serde_arrow/issues/57
     test_name = issue_57,
-    test_compilation = [],
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new(
@@ -279,11 +277,10 @@ test_example!(
         ))
         .with_child(
             GenericField::new("game_type", GenericDataType::Union, false)
-                .with_child(GenericField::new(
-                    "SpringTraining",
-                    GenericDataType::Null,
-                    true
-                ))
+                .with_child(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant)
+                )
                 .with_child(GenericField::new(
                     "RegularSeason",
                     GenericDataType::Null,
@@ -292,26 +289,21 @@ test_example!(
         )
         .with_child(
             GenericField::new("account_type", GenericDataType::Union, false)
-                .with_child(GenericField::new("PlayByPlay", GenericDataType::Null, true))
+                .with_child(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant)
+                )
                 .with_child(GenericField::new("Deduced", GenericDataType::Null, true))
         )
         .with_child(GenericField::new("file_index", GenericDataType::U64, false)),
     ty = FileInfo,
-    values = [
-        FileInfo {
-            filename: String::from("test"),
-            game_type: GameType::RegularSeason,
-            account_type: AccountType::Deduced,
-            file_index: 0
-        },
-        FileInfo {
-            filename: String::from("test"),
-            game_type: GameType::SpringTraining,
-            account_type: AccountType::PlayByPlay,
-            file_index: 0
-        }
-    ],
-    nulls = [false, false],
+    values = [FileInfo {
+        filename: String::from("test"),
+        game_type: GameType::RegularSeason,
+        account_type: AccountType::Deduced,
+        file_index: 0
+    },],
+    nulls = [false],
     define = {
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         pub enum AccountType {
