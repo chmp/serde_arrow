@@ -1,23 +1,8 @@
-import argparse
-import copy
-import io
-import itertools as it
-import json
-import os
-import pathlib
-import re
-import statistics
-import subprocess
-import sys
+self_path = __import__("pathlib").Path(__file__).parent.resolve()
 
-self_path = pathlib.Path(__file__).parent.resolve()
-
-_md = lambda effect: lambda f: [f, effect(f)][0]
-_ps = lambda o: vars(o).setdefault("__chmp__", {})
-_as = lambda o: _ps(o).setdefault("__args__", [])
-cmd = lambda **kw: _md(lambda f: _ps(f).update(kw))
-arg = lambda *a, **k: _md(lambda f: _as(f).insert(0, (a, k)))
-
+__effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
+cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
+arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
 all_arrow_features = ["arrow-35", "arrow-36", "arrow-37", "arrow-38", "arrow-39"]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
@@ -76,23 +61,19 @@ workflow_release_template = {
 }
 
 
-@cmd()
+@cmd(help="Run all common development tasks before a commit")
 @arg("--backtrace", action="store_true", default=False)
 def precommit(backtrace=False):
-    run(
-        sys.executable,
-        self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py",
-    )
+    python(self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py")
     update_workflows()
 
     fmt()
-    check()
     lint()
     test(backtrace=backtrace)
     example()
 
 
-@cmd()
+@cmd(help="Update the github workflows")
 def update_workflows():
     _update_workflow(
         self_path / ".github" / "workflows" / "test.yml",
@@ -106,6 +87,8 @@ def update_workflows():
 
 
 def _update_workflow(path, template):
+    import copy, json
+
     workflow = copy.deepcopy(template)
 
     for job in workflow["jobs"].values():
@@ -143,13 +126,15 @@ def _generate_workflow_check_steps():
     }
 
 
-@cmd()
+@cmd(help="Format the code")
 def fmt():
+    python("-m", "black", __file__)
     cargo("fmt")
 
 
-@cmd()
-def check():
+@cmd(help="Run the linting")
+def lint():
+    check_cargo_toml()
     cargo("check")
     for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
         cargo(
@@ -157,25 +142,21 @@ def check():
             "--features",
             arrow2_feature,
         )
-
-
-@cmd()
-def lint():
-    check_cargo_toml()
-    check_rust_cfg()
     cargo("clippy", "--features", default_features)
 
 
-@cmd()
+@cmd(help="Run the example")
 def example():
     cargo("run", "-p", "example")
-    run(sys.executable, "-c", 'import polars as pl; print(pl.read_ipc("example.ipc"))')
+    python("-c", 'import polars as pl; print(pl.read_ipc("example.ipc"))')
 
 
-@cmd()
+@cmd(help="Run the tests")
 @arg("--backtrace", action="store_true", default=False)
 @arg("--full", action="store_true", default=False)
 def test(backtrace=False, full=False):
+    import os
+
     if not full:
         flag_combinations = [["--features", default_features]]
 
@@ -201,10 +182,10 @@ def test(backtrace=False, full=False):
 
 @cmd()
 def check_cargo_toml():
-    import toml
+    import tomli
 
-    with open(self_path / "serde_arrow" / "Cargo.toml", "rt") as fobj:
-        config = toml.load(fobj)
+    with open(self_path / "serde_arrow" / "Cargo.toml", "rb") as fobj:
+        config = tomli.load(fobj)
 
     for label, features in [
         (
@@ -230,18 +211,13 @@ def check_cargo_toml():
             )
 
 
-@cmd()
-def check_rust_cfg():
-    pass
-
-
-@cmd()
+@cmd(help="Run the benchmarks")
 def bench():
     cargo("bench", "--features", default_features)
     summarize_bench()
 
 
-@cmd()
+@cmd(help="Summarize the benchmarks")
 @arg("--update", action="store_true", default=False)
 def summarize_bench(update=False):
     mean_times = load_times()
@@ -254,6 +230,8 @@ def summarize_bench(update=False):
 
 
 def load_times():
+    import json, statistics
+
     root = self_path / "target" / "criterion/"
 
     results = []
@@ -357,7 +335,7 @@ def plot_times(mean_times):
 
 
 def format_benchmark(mean_times):
-    with io.StringIO() as fobj:
+    def _parts():
         for group in sorted({g for g, _ in mean_times}):
             times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
             sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
@@ -374,27 +352,29 @@ def format_benchmark(mean_times):
 
             widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
-            print("### ", group, file=fobj)
-            print(file=fobj)
+            yield f"### {group}"
+            yield ""
             for idx, row in enumerate(rows):
                 padded_row = [
                     (str.ljust if idx == 0 else str.rjust)(item, width)
-                    for idx, item, width in zip(it.count(), row, widths)
+                    for idx, (item, width) in enumerate(zip(row, widths))
                 ]
 
                 if idx == 0:
-                    print("| " + " | ".join(padded_row) + " |", file=fobj)
-                    print("|-" + "-|-".join("-" * w for w in widths) + "-|", file=fobj)
+                    yield "| " + " | ".join(padded_row) + " |"
+                    yield "|-" + "-|-".join("-" * w for w in widths) + "-|"
                 else:
-                    print("| " + " | ".join(padded_row) + " |", file=fobj)
+                    yield "| " + " | ".join(padded_row) + " |"
 
-            print(file=fobj)
+            yield ""
 
-        return fobj.getvalue()
+    return "\n".join(_parts())
 
 
-@cmd()
+@cmd(help="Summarize to-do items and unimplemented tests")
 def summarize_status():
+    import re
+
     def _extract(pat):
         return list(
             m.groups()
@@ -415,7 +395,7 @@ def summarize_status():
 
     print("tests:                  ", num_tests)
     print("ignored tests:          ", num_ignored_tests)
-    for (label, num_false) in [
+    for label, num_false in [
         ("compilation support:    ", num_no_compilation),
         ("deserialization support:", num_no_deserialization),
     ]:
@@ -460,39 +440,18 @@ def doc(private=False):
     )
 
 
-def cargo(*args, **kwargs):
-    return run("cargo", *args, **kwargs)
-
-
-def run(*args, **kwargs):
-    kwargs.setdefault("check", True)
-
-    args = [str(arg) for arg in args]
-    print("::", " ".join(args))
-    return subprocess.run(args, **kwargs)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
-
-    for func in globals().values():
-        if not hasattr(func, "__chmp__"):
-            continue
-
-        desc = dict(func.__chmp__)
-        name = desc.pop("name", func.__name__.replace("_", "-"))
-        args = desc.pop("__args__", [])
-
-        subparser = subparsers.add_parser(name, **desc)
-        subparser.set_defaults(__main__=func)
-
-        for arg_args, arg_kwargs in args:
-            subparser.add_argument(*arg_args, **arg_kwargs)
-
-    args = vars(parser.parse_args())
-    return args.pop("__main__")(**args) if "__main__" in args else parser.print_help()
-
+cargo = lambda *a, **kw: run("cargo", *a, **kw)
+python = lambda *a, **kw: run(__import__("sys").executable, *a, **kw)
+run = lambda *a, **kw: __import__("subprocess").run(
+    [str(aa) for aa in a],
+    executable=print("::", *a),
+    **{"check": True, "cwd": self_path, "encoding": "utf-8", **kw},
+)
 
 if __name__ == "__main__":
-    main()
+    _sps = (_p := __import__("argparse").ArgumentParser()).add_subparsers()
+    for _f in (f for f in list(globals().values()) if hasattr(f, "@cmd")):
+        _kw = {"name": _f.__name__.replace("_", "-"), **getattr(_f, "@cmd")}
+        (_sp := _sps.add_parser(**_kw)).set_defaults(_=_f)
+        [_sp.add_argument(*a, **kw) for a, kw in reversed(getattr(_f, "@arg", []))]
+    (_a := vars(_p.parse_args())).pop("_", _p.print_help)(**_a)
