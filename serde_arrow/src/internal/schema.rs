@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     iter,
     str::FromStr,
 };
@@ -769,7 +769,9 @@ pub struct StructTracer {
     pub field_names: Vec<String>,
     pub index: HashMap<String, usize>,
     pub next: StructTracerState,
-    pub counts: BTreeMap<usize, usize>,
+    pub item_index: usize,
+    pub seen_this_item: BTreeSet<usize>,
+    pub seen_previous_items: BTreeSet<usize>,
     pub finished: bool,
     pub path: String,
     pub options: TracingOptions,
@@ -793,7 +795,9 @@ impl StructTracer {
             index: HashMap::new(),
             nullable,
             next: StructTracerState::Start,
-            counts: BTreeMap::new(),
+            item_index: 0,
+            seen_this_item: BTreeSet::new(),
+            seen_previous_items: BTreeSet::new(),
             finished: false,
         }
     }
@@ -815,10 +819,7 @@ impl StructTracer {
     }
 
     pub fn mark_seen(&mut self, field: usize) {
-        self.counts.insert(
-            field,
-            self.counts.get(&field).copied().unwrap_or_default() + 1,
-        );
+        self.seen_this_item.insert(field);
     }
 }
 
@@ -853,7 +854,26 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 }
             }
-            (Key, E::EndStruct | E::EndMap) => Start,
+            (Key, E::EndStruct | E::EndMap) => {
+                if self.item_index == 0 {
+                    self.seen_previous_items = self.seen_this_item.clone();
+                }
+
+                for (field, tracer) in self.field_tracers.iter_mut().enumerate() {
+                    if !self.seen_this_item.contains(&field)
+                        || !self.seen_previous_items.contains(&field)
+                    {
+                        tracer.mark_nullable();
+                    }
+                }
+                for seen in &self.seen_this_item {
+                    self.seen_previous_items.insert(*seen);
+                }
+                self.seen_this_item.clear();
+                self.item_index += 1;
+
+                Start
+            }
             (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
             (Value(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
@@ -887,13 +907,6 @@ impl EventSink for StructTracer {
     fn finish(&mut self) -> Result<()> {
         if !matches!(self.next, StructTracerState::Start) {
             fail!("Incomplete struct in schema tracing");
-        }
-
-        let max_count = self.counts.values().copied().max().unwrap_or_default();
-        for (&field, &count) in self.counts.iter() {
-            if count != max_count {
-                self.field_tracers[field].mark_nullable();
-            }
         }
 
         for tracer in &mut self.field_tracers {
