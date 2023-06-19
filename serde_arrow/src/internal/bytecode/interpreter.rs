@@ -422,7 +422,6 @@ fn struct_end(
     struct_idx: usize,
     seen: usize,
 ) -> Result<()> {
-    println!("seen: {:?}", buffers.seen[seen]);
     for (name, validity) in &structure.structs[struct_idx].validities {
         if !buffers.seen[seen].contains(name) {
             let validity = validity
