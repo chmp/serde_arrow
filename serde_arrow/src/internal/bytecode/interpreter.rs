@@ -520,16 +520,55 @@ impl Instruction for TupleStructEnd {
     }
 }
 
+macro_rules! option_marker_handle {
+    ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
+        fn $name(&self, structure: &Structure, buffers: &mut Buffers $(, $($val: $ty),*)?) -> Result<usize> {
+            buffers.validity[self.validity].push(true)?;
+            dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
+        }
+    };
+}
+
+/// Handle optionality markers (null / some)
+///
+/// The basic strategy is to keep this instruction active until any event but
+/// `Some` is encountered. If a `Null `event is encountered store a missing
+/// value and continue with the next field / item. If any other value is
+/// encountered, call the next instruction inline.
+///
 impl Instruction for OptionMarker {
-    fn accept_some(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.validity[self.validity].push(true)?;
-        Ok(self.next)
+    fn accept_some(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.self_pos)
     }
 
     fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
         apply_null(structure, buffers, self.validity)?;
         Ok(self.if_none)
     }
+
+    option_marker_handle!(accept_start_sequence);
+    option_marker_handle!(accept_end_sequence);
+    option_marker_handle!(accept_start_tuple);
+    option_marker_handle!(accept_end_tuple);
+    option_marker_handle!(accept_start_struct);
+    option_marker_handle!(accept_end_struct);
+    option_marker_handle!(accept_start_map);
+    option_marker_handle!(accept_end_map);
+    option_marker_handle!(accept_item);
+    option_marker_handle!(accept_default);
+    option_marker_handle!(accept_variant, name: &str, idx: usize);
+    option_marker_handle!(accept_bool, val: bool);
+    option_marker_handle!(accept_u8, val: u8);
+    option_marker_handle!(accept_u16, val: u16);
+    option_marker_handle!(accept_u32, val: u32);
+    option_marker_handle!(accept_u64, val: u64);
+    option_marker_handle!(accept_i8, val: i8);
+    option_marker_handle!(accept_i16, val: i16);
+    option_marker_handle!(accept_i32, val: i32);
+    option_marker_handle!(accept_i64, val: i64);
+    option_marker_handle!(accept_f32, val: f32);
+    option_marker_handle!(accept_f64, val: f64);
+    option_marker_handle!(accept_str, val: &str);
 }
 
 impl Instruction for Variant {

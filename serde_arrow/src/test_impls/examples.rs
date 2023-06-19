@@ -159,7 +159,6 @@ test_example!(
 
 test_example!(
     test_name = nested_options,
-    test_compilation = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, true))

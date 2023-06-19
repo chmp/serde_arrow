@@ -269,6 +269,7 @@ pub struct MapEnd {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionMarker {
+    pub self_pos: usize,
     pub next: usize,
     pub if_none: usize,
     pub validity: usize,
@@ -1110,8 +1111,10 @@ impl Program {
             let validity = self.buffers.num_validity.next_value();
             self.structure.nulls.push(NullDefinition::default());
 
-            nullable_idx = Some(self.structure.program.len());
+            let self_pos = self.structure.program.len();
+            nullable_idx = Some(self_pos);
             self.push_instr(OptionMarker {
+                self_pos,
                 next: UNSET_INSTR,
                 if_none: 0,
                 validity,
