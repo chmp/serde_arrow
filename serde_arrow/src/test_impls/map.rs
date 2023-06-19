@@ -47,7 +47,6 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields,
-    test_compilation = [],
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -59,6 +58,40 @@ test_example!(
         btree_map!{ "a" => 3_u32, "b" => 4_u32 },
     ],
     nulls = [false, false],
+);
+
+test_example!(
+    test_name = map_as_struct_missing_fields_2,
+    test_deserialization = [],
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::U32, true))
+        .with_child(GenericField::new("b", GenericDataType::U32, true)),
+    ty = BTreeMap<String, u32>,
+    values = [
+        btree_map!{ "a" => 1_u32, "b" => 2_u32 },
+        btree_map!{ "a" => 3_u32 },
+        btree_map!{ "b" => 6_u32 },
+        btree_map!{ },
+    ],
+    nulls = [false, false, false, false],
+);
+
+test_example!(
+    test_name = map_as_struct_missing_fields_3,
+    test_deserialization = [],
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::U32, true))
+        .with_child(GenericField::new("b", GenericDataType::U32, true)),
+    ty = BTreeMap<String, u32>,
+    values = [
+        btree_map!{ },
+        btree_map!{ "a" => 3_u32 },
+        btree_map!{ "b" => 6_u32 },
+        btree_map!{ "a" => 1_u32, "b" => 2_u32 },
+    ],
+    nulls = [false, false, false, false],
 );
 
 test_example!(

@@ -1,5 +1,11 @@
 # Change log
 
+## development
+
+- Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
+- Fix missing fields in structs, e.g., missing keys with maps serialized as
+  structs
+
 ## 0.7.1
 
 - Fix a bug for unions with unknown variants reported [here][issue-57]. Now

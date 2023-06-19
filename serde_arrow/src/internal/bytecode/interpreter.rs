@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::internal::{
     bytecode::{
         buffers::{
@@ -14,7 +16,7 @@ use crate::internal::{
             TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
         },
     },
-    error::{fail, Result},
+    error::{self, fail, Result},
     sink::macros,
     sink::EventSink,
 };
@@ -48,6 +50,8 @@ pub struct Buffers {
     pub large_offset: Vec<OffsetBuilder<i64>>,
     pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
+    /// markers for which struct fields have been seen
+    pub seen: Vec<HashSet<String>>,
 }
 
 impl Buffers {
@@ -72,6 +76,7 @@ impl Buffers {
             large_offset: vec![Default::default(); counts.num_large_offsets],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
+            seen: vec![Default::default(); counts.num_seen],
         }
     }
 }
@@ -411,8 +416,28 @@ impl Instruction for ListEnd {
     }
 }
 
+fn struct_end(
+    structure: &Structure,
+    buffers: &mut Buffers,
+    struct_idx: usize,
+    seen: usize,
+) -> Result<()> {
+    println!("seen: {:?}", buffers.seen[seen]);
+    for (name, validity) in &structure.structs[struct_idx].validities {
+        if !buffers.seen[seen].contains(name) {
+            let validity = validity
+                .ok_or_else(|| error::error!("missing non-nullable field {name} in struct"))?;
+            apply_null(structure, buffers, validity)?;
+        }
+    }
+    buffers.seen[seen].clear();
+
+    Ok(())
+}
+
 impl Instruction for StructStart {
-    fn accept_start_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+    fn accept_start_struct(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        buffers.seen[self.seen].clear();
         Ok(self.next)
     }
 
@@ -422,7 +447,8 @@ impl Instruction for StructStart {
 }
 
 impl Instruction for StructField {
-    fn accept_end_struct(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+    fn accept_end_struct(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        struct_end(structure, buffers, self.struct_idx, self.seen)?;
         Ok(structure.structs[self.struct_idx].r#return)
     }
 
@@ -430,25 +456,23 @@ impl Instruction for StructField {
         self.accept_end_struct(structure, buffers)
     }
 
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        _buffers: &mut Buffers,
-        val: &str,
-    ) -> Result<usize> {
+    fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
         if self.field_name == val {
+            buffers.seen[self.seen].insert(val.to_owned());
             Ok(self.next)
         } else {
             let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
+            buffers.seen[self.seen].insert(val.to_owned());
             Ok(next)
         }
     }
 }
 
 impl Instruction for StructEnd {
-    fn accept_end_struct(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+    fn accept_end_struct(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        struct_end(structure, buffers, self.struct_idx, self.seen)?;
         Ok(self.next)
     }
 
@@ -456,21 +480,28 @@ impl Instruction for StructEnd {
         self.accept_end_struct(structure, buffers)
     }
 
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        _buffers: &mut Buffers,
-        val: &str,
-    ) -> Result<usize> {
+    fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
         let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
+        buffers.seen[self.seen].insert(val.to_owned());
         Ok(next)
     }
 
-    // can happen for maps that are serialized as structs
+    // relevant for maps serialized as structs
     fn accept_item(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
         Ok(structure.structs[self.struct_idx].item)
+    }
+}
+
+impl Instruction for StructItem {
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.next)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
+        struct_end(structure, buffers, self.struct_idx, self.seen)?;
+        Ok(structure.structs[self.struct_idx].r#return)
     }
 }
 
@@ -492,16 +523,6 @@ impl Instruction for MapItem {
     }
 }
 
-impl Instruction for StructItem {
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
-        Ok(self.next)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
-        Ok(structure.structs[self.struct_idx].r#return)
-    }
-}
-
 impl Instruction for TupleStructStart {
     fn accept_start_tuple(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
         Ok(self.next)
@@ -520,16 +541,55 @@ impl Instruction for TupleStructEnd {
     }
 }
 
+macro_rules! option_marker_handle {
+    ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
+        fn $name(&self, structure: &Structure, buffers: &mut Buffers $(, $($val: $ty),*)?) -> Result<usize> {
+            buffers.validity[self.validity].push(true)?;
+            dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
+        }
+    };
+}
+
+/// Handle optionality markers (null / some)
+///
+/// The basic strategy is to keep this instruction active until any event but
+/// `Some` is encountered. If a `Null `event is encountered store a missing
+/// value and continue with the next field / item. If any other value is
+/// encountered, call the next instruction inline.
+///
 impl Instruction for OptionMarker {
-    fn accept_some(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.validity[self.validity].push(true)?;
-        Ok(self.next)
+    fn accept_some(&self, _structure: &Structure, _buffers: &mut Buffers) -> Result<usize> {
+        Ok(self.self_pos)
     }
 
     fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
         apply_null(structure, buffers, self.validity)?;
         Ok(self.if_none)
     }
+
+    option_marker_handle!(accept_start_sequence);
+    option_marker_handle!(accept_end_sequence);
+    option_marker_handle!(accept_start_tuple);
+    option_marker_handle!(accept_end_tuple);
+    option_marker_handle!(accept_start_struct);
+    option_marker_handle!(accept_end_struct);
+    option_marker_handle!(accept_start_map);
+    option_marker_handle!(accept_end_map);
+    option_marker_handle!(accept_item);
+    option_marker_handle!(accept_default);
+    option_marker_handle!(accept_variant, name: &str, idx: usize);
+    option_marker_handle!(accept_bool, val: bool);
+    option_marker_handle!(accept_u8, val: u8);
+    option_marker_handle!(accept_u16, val: u16);
+    option_marker_handle!(accept_u32, val: u32);
+    option_marker_handle!(accept_u64, val: u64);
+    option_marker_handle!(accept_i8, val: i8);
+    option_marker_handle!(accept_i16, val: i16);
+    option_marker_handle!(accept_i32, val: i32);
+    option_marker_handle!(accept_i64, val: i64);
+    option_marker_handle!(accept_f32, val: f32);
+    option_marker_handle!(accept_f64, val: f64);
+    option_marker_handle!(accept_str, val: &str);
 }
 
 impl Instruction for Variant {

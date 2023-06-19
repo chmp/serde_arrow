@@ -136,7 +136,6 @@ define_check_instructions!(
     OuterRecordStart,
     LargeListStart,
     ListStart,
-    StructStart,
     MapStart,
     TupleStructStart,
     TupleStructItem,
@@ -238,6 +237,13 @@ pub struct ListEnd {
 pub struct StructItem {
     pub next: usize,
     pub struct_idx: usize,
+    pub seen: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StructStart {
+    pub next: usize,
+    pub seen: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -245,12 +251,14 @@ pub struct StructField {
     pub next: usize,
     pub struct_idx: usize,
     pub field_name: String,
+    pub seen: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructEnd {
     pub next: usize,
     pub struct_idx: usize,
+    pub seen: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -269,6 +277,7 @@ pub struct MapEnd {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionMarker {
+    pub self_pos: usize,
     pub next: usize,
     pub if_none: usize,
     pub validity: usize,
@@ -421,6 +430,8 @@ impl Bytecode {
 pub struct StructDefinition {
     /// The jump target for the individual fields
     pub fields: BTreeMap<String, usize>,
+    /// The validities of individual fields to fill missing fields with nulls
+    pub validities: BTreeMap<String, Option<usize>>,
     /// The jump target for an item
     pub item: usize,
     /// The jump target if a struct is closed
@@ -737,6 +748,34 @@ pub enum ArrayMapping {
     },
 }
 
+impl ArrayMapping {
+    pub fn get_validity(&self) -> Option<usize> {
+        match self {
+            &Self::Null { validity, .. } => validity,
+            &Self::Bool { validity, .. } => validity,
+            &Self::U8 { validity, .. } => validity,
+            &Self::U16 { validity, .. } => validity,
+            &Self::U32 { validity, .. } => validity,
+            &Self::U64 { validity, .. } => validity,
+            &Self::I8 { validity, .. } => validity,
+            &Self::I16 { validity, .. } => validity,
+            &Self::I32 { validity, .. } => validity,
+            &Self::I64 { validity, .. } => validity,
+            &Self::F32 { validity, .. } => validity,
+            &Self::F64 { validity, .. } => validity,
+            &Self::Utf8 { validity, .. } => validity,
+            &Self::LargeUtf8 { validity, .. } => validity,
+            &Self::Date64 { validity, .. } => validity,
+            &Self::List { validity, .. } => validity,
+            &Self::Dictionary { validity, .. } => validity,
+            &Self::LargeList { validity, .. } => validity,
+            &Self::Struct { validity, .. } => validity,
+            &Self::Map { validity, .. } => validity,
+            Self::Union { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Program {
     pub(crate) options: CompilationOptions,
@@ -757,6 +796,7 @@ pub struct Structure {
     pub array_mapping: Vec<ArrayMapping>,
 }
 
+/// See [Buffers][super::interpreter::Buffers] for details
 #[derive(Debug, Default, Clone)]
 pub struct BufferCounts {
     pub(crate) num_null: usize,
@@ -778,6 +818,7 @@ pub struct BufferCounts {
     pub(crate) num_large_offsets: usize,
     pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
+    pub(crate) num_seen: usize,
 }
 
 impl Program {
@@ -882,12 +923,18 @@ impl Program {
         };
 
         let struct_idx = self.structure.structs.len();
+        let seen: usize;
 
         if !is_tuple {
+            seen = self.buffers.num_seen.next_value();
             self.structure.structs.push(StructDefinition::default());
-            self.push_instr(StructStart { next: UNSET_INSTR });
+            self.push_instr(StructStart {
+                next: UNSET_INSTR,
+                seen,
+            });
             self.structure.structs[struct_idx].item = UNSET_INSTR;
         } else {
+            seen = usize::MAX;
             self.push_instr(TupleStructStart { next: UNSET_INSTR });
         }
 
@@ -898,6 +945,7 @@ impl Program {
                 if is_map {
                     self.push_instr(StructItem {
                         next: UNSET_INSTR,
+                        seen,
                         struct_idx,
                     });
                     if self.structure.structs[struct_idx].item == UNSET_INSTR {
@@ -908,6 +956,7 @@ impl Program {
                     next: UNSET_INSTR,
                     struct_idx,
                     field_name: field.name.to_string(),
+                    seen,
                 });
                 self.structure.structs[struct_idx]
                     .fields
@@ -916,6 +965,13 @@ impl Program {
                 self.push_instr(TupleStructItem { next: UNSET_INSTR });
             }
             let f = self.compile_field(field)?;
+
+            if !is_tuple {
+                self.structure.structs[struct_idx]
+                    .validities
+                    .insert(field.name.to_string(), f.get_validity());
+            }
+
             field_mapping.push(f);
         }
 
@@ -923,6 +979,7 @@ impl Program {
             self.push_instr(StructEnd {
                 next: UNSET_INSTR,
                 struct_idx,
+                seen,
             });
             self.structure.structs[struct_idx].r#return = self.structure.program.len();
         } else {
@@ -1110,8 +1167,10 @@ impl Program {
             let validity = self.buffers.num_validity.next_value();
             self.structure.nulls.push(NullDefinition::default());
 
-            nullable_idx = Some(self.structure.program.len());
+            let self_pos = self.structure.program.len();
+            nullable_idx = Some(self_pos);
             self.push_instr(OptionMarker {
+                self_pos,
                 next: UNSET_INSTR,
                 if_none: 0,
                 validity,
