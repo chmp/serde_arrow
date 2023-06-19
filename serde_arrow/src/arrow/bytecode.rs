@@ -7,6 +7,7 @@ use crate::internal::{
         interpreter::Buffers,
         Interpreter,
     },
+    conversions::ToBytes,
     error::{fail, Result},
 };
 
@@ -30,10 +31,11 @@ impl Interpreter {
 }
 
 macro_rules! build_primitive_array_data {
-    ($buffers:expr, $dtype:ident, $ty:ident, $buffer:expr, $validity:expr) => {{
-        let data = std::mem::take(&mut $buffers.$ty[$buffer]);
+    ($buffers:expr, $dtype:ident, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
+        let data = std::mem::take(&mut $buffers.$bytes_ty[$buffer]);
+        let data: Vec<$ty> = ToBytes::from_bytes_vec(data.buffer);
         let validity = $validity.map(|validity| std::mem::take(&mut $buffers.validity[validity]));
-        build_array_data_primitive(DataType::$dtype, data.len(), data.buffer, validity)
+        build_array_data_primitive(DataType::$dtype, data.len(), data, validity)
     }};
 }
 
@@ -43,40 +45,44 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         &M::Null { buffer, .. } => Ok(NullArray::new(buffers.null[buffer].len()).into_data()),
         &M::Bool {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Boolean, bool, buffer, validity),
+        } => {
+            let data = std::mem::take(&mut buffers.bool[buffer]);
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            build_array_data_primitive(DataType::Boolean, data.len(), data.buffer, validity)
+        }
         &M::U8 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt8, u8, buffer, validity),
+        } => build_primitive_array_data!(buffers, UInt8, u8, u8, buffer, validity),
         &M::U16 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt16, u16, buffer, validity),
+        } => build_primitive_array_data!(buffers, UInt16, u16, u16, buffer, validity),
         &M::U32 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt32, u32, buffer, validity),
+        } => build_primitive_array_data!(buffers, UInt32, u32, u32, buffer, validity),
         &M::U64 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt64, u64, buffer, validity),
+        } => build_primitive_array_data!(buffers, UInt64, u64, u64, buffer, validity),
         &M::I8 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int8, i8, buffer, validity),
+        } => build_primitive_array_data!(buffers, Int8, i8, u8, buffer, validity),
         &M::I16 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int16, i16, buffer, validity),
+        } => build_primitive_array_data!(buffers, Int16, i16, u16, buffer, validity),
         &M::I32 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int32, i32, buffer, validity),
+        } => build_primitive_array_data!(buffers, Int32, i32, u32, buffer, validity),
         &M::I64 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int64, i64, buffer, validity),
+        } => build_primitive_array_data!(buffers, Int64, i64, u64, buffer, validity),
         &M::F32 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Float32, f32, buffer, validity),
+        } => build_primitive_array_data!(buffers, Float32, f32, u32, buffer, validity),
         &M::F64 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Float64, f64, buffer, validity),
+        } => build_primitive_array_data!(buffers, Float64, f64, u64, buffer, validity),
         &M::Date64 {
             buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Date64, i64, buffer, validity),
+        } => build_primitive_array_data!(buffers, Date64, i64, u64, buffer, validity),
         &M::Utf8 {
             buffer, validity, ..
         } => {
@@ -210,11 +216,12 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             fields,
             types,
         } => {
-            let types = std::mem::take(&mut buffers.i8[*types]);
+            let types = std::mem::take(&mut buffers.u8[*types]);
+            let types: Vec<i8> = ToBytes::from_bytes_vec(types.buffer);
             let mut current_offset = vec![0; fields.len()];
             let mut offsets = Vec::new();
 
-            for &t in &types.buffer {
+            for &t in &types {
                 offsets.push(current_offset[t as usize]);
                 current_offset[t as usize] += 1;
             }
@@ -229,7 +236,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let field: Field = field.try_into()?;
             let array_data_builder = ArrayData::builder(field.data_type().clone())
                 .len(len)
-                .add_buffer(Buffer::from_vec(types.buffer))
+                .add_buffer(Buffer::from_vec(types))
                 .add_buffer(Buffer::from_vec(offsets))
                 .child_data(children);
 
@@ -282,40 +289,24 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
                     )?
                 }
                 I::I8(indices) => {
-                    let indices = std::mem::take(&mut buffers.i8[*indices]);
-                    build_array_data_primitive(
-                        DataType::Int8,
-                        indices.len(),
-                        indices.buffer,
-                        validity,
-                    )?
+                    let indices = std::mem::take(&mut buffers.u8[*indices]);
+                    let indices: Vec<i8> = ToBytes::from_bytes_vec(indices.buffer);
+                    build_array_data_primitive(DataType::Int8, indices.len(), indices, validity)?
                 }
                 I::I16(indices) => {
-                    let indices = std::mem::take(&mut buffers.i16[*indices]);
-                    build_array_data_primitive(
-                        DataType::Int16,
-                        indices.len(),
-                        indices.buffer,
-                        validity,
-                    )?
+                    let indices = std::mem::take(&mut buffers.u16[*indices]);
+                    let indices: Vec<i16> = ToBytes::from_bytes_vec(indices.buffer);
+                    build_array_data_primitive(DataType::Int16, indices.len(), indices, validity)?
                 }
                 I::I32(indices) => {
-                    let indices = std::mem::take(&mut buffers.i32[*indices]);
-                    build_array_data_primitive(
-                        DataType::Int32,
-                        indices.len(),
-                        indices.buffer,
-                        validity,
-                    )?
+                    let indices = std::mem::take(&mut buffers.u32[*indices]);
+                    let indices: Vec<i32> = ToBytes::from_bytes_vec(indices.buffer);
+                    build_array_data_primitive(DataType::Int32, indices.len(), indices, validity)?
                 }
                 I::I64(indices) => {
-                    let indices = std::mem::take(&mut buffers.i64[*indices]);
-                    build_array_data_primitive(
-                        DataType::Int64,
-                        indices.len(),
-                        indices.buffer,
-                        validity,
-                    )?
+                    let indices = std::mem::take(&mut buffers.u64[*indices]);
+                    let indices: Vec<i64> = ToBytes::from_bytes_vec(indices.buffer);
+                    build_array_data_primitive(DataType::Int64, indices.len(), indices, validity)?
                 }
             };
 

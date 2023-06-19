@@ -468,12 +468,6 @@ pub struct NullDefinition {
     pub u16: Vec<usize>,
     pub u32: Vec<usize>,
     pub u64: Vec<usize>,
-    pub i8: Vec<usize>,
-    pub i16: Vec<usize>,
-    pub i32: Vec<usize>,
-    pub i64: Vec<usize>,
-    pub f32: Vec<usize>,
-    pub f64: Vec<usize>,
     pub utf8: Vec<usize>,
     pub large_utf8: Vec<usize>,
     pub large_offsets: Vec<usize>,
@@ -522,37 +516,37 @@ impl NullDefinition {
             &ArrayMapping::I8 {
                 buffer, validity, ..
             } => {
-                self.i8.push(buffer);
+                self.u8.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::I16 {
                 buffer, validity, ..
             } => {
-                self.i16.push(buffer);
+                self.u16.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::I32 {
                 buffer, validity, ..
             } => {
-                self.i32.push(buffer);
+                self.u32.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::I64 {
                 buffer, validity, ..
             } => {
-                self.i64.push(buffer);
+                self.u64.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::F32 {
                 buffer, validity, ..
             } => {
-                self.f32.push(buffer);
+                self.u32.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::F64 {
                 buffer, validity, ..
             } => {
-                self.f64.push(buffer);
+                self.u64.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::Utf8 {
@@ -570,7 +564,7 @@ impl NullDefinition {
             &ArrayMapping::Date64 {
                 buffer, validity, ..
             } => {
-                self.i64.push(buffer);
+                self.u64.push(buffer);
                 self.validity.extend(validity);
             }
             ArrayMapping::Struct {
@@ -603,10 +597,10 @@ impl NullDefinition {
                     DictionaryIndex::U16(idx) => self.u16.push(idx),
                     DictionaryIndex::U32(idx) => self.u32.push(idx),
                     DictionaryIndex::U64(idx) => self.u64.push(idx),
-                    DictionaryIndex::I8(idx) => self.i8.push(idx),
-                    DictionaryIndex::I16(idx) => self.i16.push(idx),
-                    DictionaryIndex::I32(idx) => self.i32.push(idx),
-                    DictionaryIndex::I64(idx) => self.i64.push(idx),
+                    DictionaryIndex::I8(idx) => self.u8.push(idx),
+                    DictionaryIndex::I16(idx) => self.u16.push(idx),
+                    DictionaryIndex::I32(idx) => self.u32.push(idx),
+                    DictionaryIndex::I64(idx) => self.u64.push(idx),
                 }
                 self.validity.extend(validity);
             }
@@ -621,12 +615,6 @@ impl NullDefinition {
         self.u16.sort();
         self.u32.sort();
         self.u64.sort();
-        self.i8.sort();
-        self.i16.sort();
-        self.i32.sort();
-        self.i64.sort();
-        self.f32.sort();
-        self.f64.sort();
         self.large_utf8.sort();
         self.large_offsets.sort();
         self.validity.sort();
@@ -805,12 +793,6 @@ pub struct BufferCounts {
     pub(crate) num_u16: usize,
     pub(crate) num_u32: usize,
     pub(crate) num_u64: usize,
-    pub(crate) num_i8: usize,
-    pub(crate) num_i16: usize,
-    pub(crate) num_i32: usize,
-    pub(crate) num_i64: usize,
-    pub(crate) num_f32: usize,
-    pub(crate) num_f64: usize,
     pub(crate) num_utf8: usize,
     pub(crate) num_large_utf8: usize,
     pub(crate) num_validity: usize,
@@ -1098,7 +1080,7 @@ impl Program {
         let union_idx = self.structure.unions.len();
         self.structure.unions.push(UnionDefinition::default());
 
-        let type_idx = self.buffers.num_i8.next_value();
+        let type_idx = self.buffers.num_u8.next_value();
 
         let mut fields = Vec::new();
         let mut child_last_instr = Vec::new();
@@ -1235,12 +1217,12 @@ impl Program {
             D::U16 => compile_primtive!(self, field, validity, num_u16, PushU16, U16),
             D::U32 => compile_primtive!(self, field, validity, num_u32, PushU32, U32),
             D::U64 => compile_primtive!(self, field, validity, num_u64, PushU64, U64),
-            D::I8 => compile_primtive!(self, field, validity, num_i8, PushI8, I8),
-            D::I16 => compile_primtive!(self, field, validity, num_i16, PushI16, I16),
-            D::I32 => compile_primtive!(self, field, validity, num_i32, PushI32, I32),
-            D::I64 => compile_primtive!(self, field, validity, num_i64, PushI64, I64),
-            D::F32 => compile_primtive!(self, field, validity, num_f32, PushF32, F32),
-            D::F64 => compile_primtive!(self, field, validity, num_f64, PushF64, F64),
+            D::I8 => compile_primtive!(self, field, validity, num_u8, PushI8, I8),
+            D::I16 => compile_primtive!(self, field, validity, num_u16, PushI16, I16),
+            D::I32 => compile_primtive!(self, field, validity, num_u32, PushI32, I32),
+            D::I64 => compile_primtive!(self, field, validity, num_u64, PushI64, I64),
+            D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
+            D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
             D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUtf8, Utf8),
             D::LargeUtf8 => compile_primtive!(
                 self,
@@ -1255,14 +1237,14 @@ impl Program {
                     self,
                     field,
                     validity,
-                    num_i64,
+                    num_u64,
                     PushDate64FromNaiveStr,
                     Date64
                 ),
                 Some(Strategy::UtcStrAsDate64) => {
-                    compile_primtive!(self, field, validity, num_i64, PushDate64FromUtcStr, Date64)
+                    compile_primtive!(self, field, validity, num_u64, PushDate64FromUtcStr, Date64)
                 }
-                None => compile_primtive!(self, field, validity, num_i64, PushI64, Date64),
+                None => compile_primtive!(self, field, validity, num_u64, PushI64, Date64),
                 Some(strategy) => fail!("Cannot compile Date64 with strategy {strategy}"),
             },
             D::Dictionary => self.compile_dictionary(field, validity),
@@ -1293,10 +1275,10 @@ impl Program {
             D::U16 => I::U16(self.buffers.num_u16.next_value()),
             D::U32 => I::U32(self.buffers.num_u32.next_value()),
             D::U64 => I::U64(self.buffers.num_u64.next_value()),
-            D::I8 => I::I8(self.buffers.num_i8.next_value()),
-            D::I16 => I::I16(self.buffers.num_i16.next_value()),
-            D::I32 => I::I32(self.buffers.num_i32.next_value()),
-            D::I64 => I::I64(self.buffers.num_i64.next_value()),
+            D::I8 => I::I8(self.buffers.num_u8.next_value()),
+            D::I16 => I::I16(self.buffers.num_u16.next_value()),
+            D::I32 => I::I32(self.buffers.num_u32.next_value()),
+            D::I64 => I::I64(self.buffers.num_u64.next_value()),
             dt => fail!("cannot compile dictionary with indices of type {dt}"),
         };
 
@@ -1521,24 +1503,6 @@ impl Program {
             if null.u64.iter().any(|&idx| idx >= self.buffers.num_u64) {
                 fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
             }
-            if null.i8.iter().any(|&idx| idx >= self.buffers.num_i8) {
-                fail!("invalid null definition {idx}: i8 out of bounds {null:?}");
-            }
-            if null.i16.iter().any(|&idx| idx >= self.buffers.num_i16) {
-                fail!("invalid null definition {idx}: i16 out of bounds {null:?}");
-            }
-            if null.i32.iter().any(|&idx| idx >= self.buffers.num_i32) {
-                fail!("invalid null definition {idx}: i32 out of bounds {null:?}");
-            }
-            if null.i64.iter().any(|&idx| idx >= self.buffers.num_i64) {
-                fail!("invalid null definition {idx}: i64 out of bounds {null:?}");
-            }
-            if null.f32.iter().any(|&idx| idx >= self.buffers.num_f32) {
-                fail!("invalid null definition {idx}: f32 out of bounds {null:?}");
-            }
-            if null.f64.iter().any(|&idx| idx >= self.buffers.num_f64) {
-                fail!("invalid null definition {idx}: f64 out of bounds {null:?}");
-            }
             if null.utf8.iter().any(|&idx| idx >= self.buffers.num_utf8) {
                 fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
             }
@@ -1646,12 +1610,12 @@ impl Program {
             U16 { .. } => validate_array_mapping_primitive!(self, path, mapping, U16, num_u16),
             U32 { .. } => validate_array_mapping_primitive!(self, path, mapping, U32, num_u32),
             U64 { .. } => validate_array_mapping_primitive!(self, path, mapping, U64, num_u64),
-            I8 { .. } => validate_array_mapping_primitive!(self, path, mapping, I8, num_i8),
-            I16 { .. } => validate_array_mapping_primitive!(self, path, mapping, I16, num_i16),
-            I32 { .. } => validate_array_mapping_primitive!(self, path, mapping, I32, num_i32),
-            I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_i64),
-            F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_f32),
-            F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_f64),
+            I8 { .. } => validate_array_mapping_primitive!(self, path, mapping, I8, num_u8),
+            I16 { .. } => validate_array_mapping_primitive!(self, path, mapping, I16, num_u16),
+            I32 { .. } => validate_array_mapping_primitive!(self, path, mapping, I32, num_u32),
+            I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_u64),
+            F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_u32),
+            F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_u64),
             Utf8 { .. } => validate_array_mapping_primitive!(self, path, mapping, Utf8, num_utf8),
             LargeUtf8 { .. } => {
                 validate_array_mapping_primitive!(self, path, mapping, LargeUtf8, num_large_utf8)

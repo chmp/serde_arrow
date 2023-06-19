@@ -16,6 +16,7 @@ use crate::internal::{
             TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
         },
     },
+    conversions::ToBytes,
     error::{self, fail, Result},
     sink::macros,
     sink::EventSink,
@@ -37,12 +38,6 @@ pub struct Buffers {
     pub u16: Vec<PrimitiveBuffer<u16>>,
     pub u32: Vec<PrimitiveBuffer<u32>>,
     pub u64: Vec<PrimitiveBuffer<u64>>,
-    pub i8: Vec<PrimitiveBuffer<i8>>,
-    pub i16: Vec<PrimitiveBuffer<i16>>,
-    pub i32: Vec<PrimitiveBuffer<i32>>,
-    pub i64: Vec<PrimitiveBuffer<i64>>,
-    pub f32: Vec<PrimitiveBuffer<f32>>,
-    pub f64: Vec<PrimitiveBuffer<f64>>,
     pub utf8: Vec<StringBuffer<i32>>,
     pub large_utf8: Vec<StringBuffer<i64>>,
     pub validity: Vec<BitBuffer>,
@@ -62,12 +57,6 @@ impl Buffers {
             u16: vec![Default::default(); counts.num_u16],
             u32: vec![Default::default(); counts.num_u32],
             u64: vec![Default::default(); counts.num_u64],
-            i8: vec![Default::default(); counts.num_i8],
-            i16: vec![Default::default(); counts.num_i16],
-            i32: vec![Default::default(); counts.num_i32],
-            i64: vec![Default::default(); counts.num_i64],
-            f32: vec![Default::default(); counts.num_f32],
-            f64: vec![Default::default(); counts.num_f64],
             bool: vec![Default::default(); counts.num_bool],
             utf8: vec![Default::default(); counts.num_utf8],
             large_utf8: vec![Default::default(); counts.num_large_utf8],
@@ -600,7 +589,7 @@ impl Instruction for Variant {
         idx: usize,
     ) -> Result<usize> {
         if idx < structure.unions[self.union_idx].fields.len() {
-            buffers.i8[self.type_idx].push(idx.try_into()?)?;
+            buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes())?;
             Ok(structure.unions[self.union_idx].fields[idx])
         } else {
             fail!(
@@ -648,7 +637,7 @@ impl Instruction for PushDate64FromNaiveStr {
     ) -> Result<usize> {
         use chrono::NaiveDateTime;
 
-        buffers.i64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
+        buffers.u64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes())?;
         Ok(self.next)
     }
 }
@@ -662,7 +651,7 @@ impl Instruction for PushDate64FromUtcStr {
     ) -> Result<usize> {
         use chrono::{DateTime, Utc};
 
-        buffers.i64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
+        buffers.u64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes())?;
         Ok(self.next)
     }
 }
@@ -684,10 +673,10 @@ impl Instruction for PushDictionary {
             I::U16(indices) => buffers.u16[indices].push(idx.try_into()?)?,
             I::U32(indices) => buffers.u32[indices].push(idx.try_into()?)?,
             I::U64(indices) => buffers.u64[indices].push(idx.try_into()?)?,
-            I::I8(indices) => buffers.i8[indices].push(idx.try_into()?)?,
-            I::I16(indices) => buffers.i16[indices].push(idx.try_into()?)?,
-            I::I32(indices) => buffers.i32[indices].push(idx.try_into()?)?,
-            I::I64(indices) => buffers.i64[indices].push(idx.try_into()?)?,
+            I::I8(indices) => buffers.u8[indices].push(i8::try_from(idx)?.to_bytes())?,
+            I::I16(indices) => buffers.u16[indices].push(u16::try_from(idx)?.to_bytes())?,
+            I::I32(indices) => buffers.u32[indices].push(u32::try_from(idx)?.to_bytes())?,
+            I::I64(indices) => buffers.u64[indices].push(u64::try_from(idx)?.to_bytes())?,
         }
         Ok(self.next)
     }
@@ -703,11 +692,16 @@ impl Instruction for PushNull {
 }
 
 macro_rules! impl_primitive_instruction {
-    ($name:ident($builder:ident) { $($func:ident($ty:ty),)* }) => {
+    (
+        $name:ident($val_type:ty, $builder:ident) {
+            $($func:ident($ty:ty),)*
+        }
+    ) => {
         impl Instruction for $name {
             $(
                 fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
-                    buffers.$builder[self.idx].push(val.try_into()?)?;
+                    let val = <$val_type>::try_from(val)?;
+                    buffers.$builder[self.idx].push(ToBytes::to_bytes(val))?;
                     Ok(self.next)
                 }
             )*
@@ -715,7 +709,7 @@ macro_rules! impl_primitive_instruction {
     };
 }
 
-impl_primitive_instruction!(PushU8(u8) {
+impl_primitive_instruction!(PushU8(u8, u8) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -726,7 +720,7 @@ impl_primitive_instruction!(PushU8(u8) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU16(u16) {
+impl_primitive_instruction!(PushU16(u16, u16) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -737,7 +731,7 @@ impl_primitive_instruction!(PushU16(u16) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU32(u32) {
+impl_primitive_instruction!(PushU32(u32, u32) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -748,7 +742,7 @@ impl_primitive_instruction!(PushU32(u32) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU64(u64) {
+impl_primitive_instruction!(PushU64(u64, u64) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -759,7 +753,7 @@ impl_primitive_instruction!(PushU64(u64) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI8(i8) {
+impl_primitive_instruction!(PushI8(i8, u8) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -770,7 +764,7 @@ impl_primitive_instruction!(PushI8(i8) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI16(i16) {
+impl_primitive_instruction!(PushI16(i16, u16) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -781,7 +775,7 @@ impl_primitive_instruction!(PushI16(i16) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI32(i32) {
+impl_primitive_instruction!(PushI32(i32, u32) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -792,7 +786,7 @@ impl_primitive_instruction!(PushI32(i32) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI64(i64) {
+impl_primitive_instruction!(PushI64(i64, u64) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -803,17 +797,25 @@ impl_primitive_instruction!(PushI64(i64) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushF32(f32) {
+impl_primitive_instruction!(PushF32(f32, u32) {
     accept_f32(f32),
 });
 
-impl_primitive_instruction!(PushF64(f64) {
+impl_primitive_instruction!(PushF64(f64, u64) {
     accept_f64(f64),
 });
 
-impl_primitive_instruction!(PushBool(bool) {
-    accept_bool(bool),
-});
+impl Instruction for PushBool {
+    fn accept_bool(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: bool,
+    ) -> Result<usize> {
+        buffers.bool[self.idx].push(val)?;
+        Ok(self.next)
+    }
+}
 
 macro_rules! dispatch_instruction {
     ($this:expr, $method:ident) => {
@@ -959,12 +961,6 @@ fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> 
     apply_null!(structure, buffers, validity, u16);
     apply_null!(structure, buffers, validity, u32);
     apply_null!(structure, buffers, validity, u64);
-    apply_null!(structure, buffers, validity, i8);
-    apply_null!(structure, buffers, validity, i16);
-    apply_null!(structure, buffers, validity, i32);
-    apply_null!(structure, buffers, validity, i64);
-    apply_null!(structure, buffers, validity, f32);
-    apply_null!(structure, buffers, validity, f64);
     apply_null!(structure, buffers, validity, utf8);
     apply_null!(structure, buffers, validity, large_utf8);
     apply_null!(structure, buffers, validity, validity);

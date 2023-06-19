@@ -29,6 +29,11 @@ arrow-36 = ["dep:arrow-array-36", "dep:arrow-schema-36", "dep:arrow-data-36", "d
 arrow-35 = ["dep:arrow-array-35", "dep:arrow-schema-35", "dep:arrow-data-35", "dep:arrow-buffer-35"]
 
 [dependencies]
+# TODO: make optional, only required for str -> date conversions
+chrono = "0.4"
+half = "2"
+serde = "1.0"
+
 arrow-array-39 = { package = "arrow-array", version = "39", optional = true }
 arrow-buffer-39 = { package = "arrow-buffer", version = "39", optional = true }
 arrow-data-39 = { package = "arrow-data", version="39", optional = true, features = ["ffi"] }
@@ -56,11 +61,6 @@ arrow-schema-35 = { package = "arrow-schema", version = "35", optional = true }
 
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
 arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true }
-
-serde = "1.0"
-
-# TODO: make optional, only required for str -> date conversions
-chrono = "0.4"
 
 [dev-dependencies]
 anyhow = "1"

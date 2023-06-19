@@ -1336,6 +1336,7 @@ dependencies = [
  "arrow2_convert",
  "chrono",
  "criterion",
+ "half 2.2.1",
  "rand",
  "serde",
  "serde_json",
