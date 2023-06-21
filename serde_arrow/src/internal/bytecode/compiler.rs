@@ -9,6 +9,8 @@ use crate::{
     Result,
 };
 
+use super::bit_set::BitSet;
+
 const UNSET_INSTR: usize = usize::MAX;
 
 pub fn compile_serialization(
@@ -263,6 +265,7 @@ pub struct StructField {
     pub next: usize,
     pub struct_idx: usize,
     pub field_name: String,
+    pub field_idx: usize,
     pub seen: usize,
 }
 
@@ -440,14 +443,23 @@ impl Bytecode {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct StructDefinition {
-    /// The jump target for the individual fields
-    pub fields: BTreeMap<String, usize>,
-    /// The validities of individual fields to fill missing fields with nulls
-    pub validities: BTreeMap<String, Option<usize>>,
+    /// The fields of this struct
+    pub fields: BTreeMap<String, FieldDefinition>,
     /// The jump target for an item
     pub item: usize,
     /// The jump target if a struct is closed
     pub r#return: usize,
+}
+
+/// Definition of a field inside a struct
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct FieldDefinition {
+    /// The index of this field in the overall struct
+    pub index: usize,
+    /// The jump target for the individual fields
+    pub jump: usize,
+    /// The null definition for this field
+    pub null_definition: Option<usize>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -869,16 +881,21 @@ impl Program {
             self.push_instr(OuterRecordStart { next: UNSET_INSTR });
         }
 
-        for field in fields {
+        for (field_idx, field) in fields.iter().enumerate() {
             if self.options.wrap_with_struct {
                 self.push_instr(OuterRecordField {
                     next: UNSET_INSTR,
                     struct_idx: 0,
                     field_name: field.name.to_string(),
                 });
-                self.structure.structs[0]
-                    .fields
-                    .insert(field.name.to_string(), self.structure.program.len());
+                self.structure.structs[0].fields.insert(
+                    field.name.to_string(),
+                    FieldDefinition {
+                        index: field_idx,
+                        jump: self.structure.program.len(),
+                        null_definition: None,
+                    },
+                );
             }
             let f = self.compile_field(field)?;
             self.structure.array_mapping.push(f);
@@ -943,8 +960,11 @@ impl Program {
 
         let mut field_mapping = vec![];
 
-        for field in &field.children {
+        for (field_idx, field) in field.children.iter().enumerate() {
             if !is_tuple {
+                if field_idx >= (BitSet::MAX as usize) {
+                    fail!("Structs can contain at most {} fields", BitSet::MAX);
+                }
                 if is_map {
                     self.push_instr(StructItem {
                         next: UNSET_INSTR,
@@ -959,20 +979,28 @@ impl Program {
                     next: UNSET_INSTR,
                     struct_idx,
                     field_name: field.name.to_string(),
+                    field_idx,
                     seen,
                 });
-                self.structure.structs[struct_idx]
-                    .fields
-                    .insert(field.name.to_string(), self.structure.program.len());
+                self.structure.structs[struct_idx].fields.insert(
+                    field.name.to_string(),
+                    FieldDefinition {
+                        index: field_idx,
+                        jump: self.structure.program.len(),
+                        null_definition: None,
+                    },
+                );
             } else {
                 self.push_instr(TupleStructItem { next: UNSET_INSTR });
             }
             let f = self.compile_field(field)?;
 
             if !is_tuple {
-                self.structure.structs[struct_idx]
-                    .validities
-                    .insert(field.name.to_string(), f.get_validity());
+                let field_def = self.structure.structs[struct_idx]
+                    .fields
+                    .get_mut(&field.name)
+                    .ok_or_else(|| error!("compile error: could not read struct field"))?;
+                field_def.null_definition = f.get_validity();
             }
 
             field_mapping.push(f);
@@ -1485,8 +1513,8 @@ impl Program {
 
     fn validate_structs(&self) -> Result<()> {
         for (struct_idx, r#struct) in self.structure.structs.iter().enumerate() {
-            for (name, address) in &r#struct.fields {
-                let field_instr = self.instruction_before(*address);
+            for (name, field_def) in &r#struct.fields {
+                let field_instr = self.instruction_before(field_def.jump);
                 let is_valid = if let Some(Bytecode::StructField(instr)) = field_instr {
                     instr.struct_idx == struct_idx && instr.field_name == *name
                 } else if let Some(Bytecode::OuterRecordField(instr)) = field_instr {
@@ -1513,8 +1541,8 @@ impl Program {
                 fail!("invalid struct definition ({struct_idx}): return jumps to invalid target");
             }
 
-            for (name, address) in &r#struct.fields {
-                if !self.structure.program[*address].is_allowed_jump_target() {
+            for (name, field_def) in &r#struct.fields {
+                if !self.structure.program[field_def.jump].is_allowed_jump_target() {
                     fail!("invalid struct definition ({struct_idx}): field jump {name} to invalid target");
                 }
             }

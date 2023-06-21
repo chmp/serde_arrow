@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::internal::{
     bytecode::{
         buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringDictonary},
@@ -20,6 +18,7 @@ use crate::internal::{
     sink::EventSink,
 };
 
+use super::bit_set::BitSet;
 use super::compiler::Panic;
 
 pub struct Interpreter {
@@ -48,7 +47,7 @@ pub struct Buffers {
     pub u64_offsets: Vec<OffsetBuilder<i64>>,
     /// markers for which struct fields have been seen
     // TODO: replace with a u128 bit vector
-    pub seen: Vec<HashSet<String>>,
+    pub seen: Vec<BitSet>,
 
     pub validity: Vec<BitBuffer>,
     pub dictionaries: Vec<StringDictonary<i32>>,
@@ -283,10 +282,10 @@ impl Instruction for OuterRecordField {
         if self.field_name == val {
             Ok(self.next)
         } else {
-            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
-            Ok(next)
+            Ok(field_def.jump)
         }
     }
 }
@@ -306,10 +305,10 @@ impl Instruction for OuterRecordEnd {
         _buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
-        Ok(next)
+        Ok(field_def.jump)
     }
 }
 
@@ -415,11 +414,12 @@ fn struct_end(
     struct_idx: usize,
     seen: usize,
 ) -> Result<()> {
-    for (name, validity) in &structure.structs[struct_idx].validities {
-        if !buffers.seen[seen].contains(name) {
-            let validity = validity
+    for (name, field_def) in &structure.structs[struct_idx].fields {
+        if !buffers.seen[seen].contains(field_def.index) {
+            let null_definition = field_def
+                .null_definition
                 .ok_or_else(|| error::error!("missing non-nullable field {name} in struct"))?;
-            apply_null(structure, buffers, validity)?;
+            apply_null(structure, buffers, null_definition)?;
         }
     }
     buffers.seen[seen].clear();
@@ -450,14 +450,14 @@ impl Instruction for StructField {
 
     fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
         if self.field_name == val {
-            buffers.seen[self.seen].insert(val.to_owned());
+            buffers.seen[self.seen].insert(self.field_idx);
             Ok(self.next)
         } else {
-            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
-            buffers.seen[self.seen].insert(val.to_owned());
-            Ok(next)
+            buffers.seen[self.seen].insert(field_def.index);
+            Ok(field_def.jump)
         }
     }
 }
@@ -473,11 +473,11 @@ impl Instruction for StructEnd {
     }
 
     fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
-        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
-        buffers.seen[self.seen].insert(val.to_owned());
-        Ok(next)
+        buffers.seen[self.seen].insert(field_def.index);
+        Ok(field_def.jump)
     }
 
     // relevant for maps serialized as structs
@@ -957,27 +957,26 @@ impl EventSink for Interpreter {
 }
 
 macro_rules! apply_null {
-    ($structure:expr, $buffers:expr, $validity:expr, $name:ident) => {
-        for &idx in &$structure.nulls[$validity].$name {
+    ($structure:expr, $buffers:expr, $null_definition:expr, $name:ident) => {
+        for &idx in &$structure.nulls[$null_definition].$name {
             $buffers.$name[idx].push(Default::default())?;
         }
     };
 }
 
-fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> Result<()> {
-    apply_null!(structure, buffers, validity, u0);
-    apply_null!(structure, buffers, validity, u1);
-    apply_null!(structure, buffers, validity, u8);
-    apply_null!(structure, buffers, validity, u16);
-    apply_null!(structure, buffers, validity, u32);
-    apply_null!(structure, buffers, validity, u64);
-    apply_null!(structure, buffers, validity, validity);
+fn apply_null(structure: &Structure, buffers: &mut Buffers, null_definition: usize) -> Result<()> {
+    apply_null!(structure, buffers, null_definition, u0);
+    apply_null!(structure, buffers, null_definition, u1);
+    apply_null!(structure, buffers, null_definition, u8);
+    apply_null!(structure, buffers, null_definition, u16);
+    apply_null!(structure, buffers, null_definition, u32);
+    apply_null!(structure, buffers, null_definition, u64);
+    apply_null!(structure, buffers, null_definition, validity);
 
-    for &idx in &structure.nulls[validity].u32_offsets {
+    for &idx in &structure.nulls[null_definition].u32_offsets {
         buffers.u32_offsets[idx].push_current_items();
     }
-
-    for &idx in &structure.nulls[validity].u64_offsets {
+    for &idx in &structure.nulls[null_definition].u64_offsets {
         buffers.u64_offsets[idx].push_current_items();
     }
 

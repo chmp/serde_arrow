@@ -1,3 +1,4 @@
+pub mod bit_set;
 pub mod buffers;
 pub mod compiler;
 pub mod interpreter;
