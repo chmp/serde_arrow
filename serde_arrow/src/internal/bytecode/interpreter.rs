@@ -46,10 +46,7 @@ pub struct Buffers {
     /// 64 bit offsets
     pub u64_offsets: Vec<OffsetBuilder<i64>>,
     /// markers for which struct fields have been seen
-    // TODO: replace with a u128 bit vector
     pub seen: Vec<BitSet>,
-
-    pub validity: Vec<BitBuffer>,
     pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
 }
@@ -66,7 +63,6 @@ impl Buffers {
             u32_offsets: vec![Default::default(); counts.num_u32_offsets],
             u64_offsets: vec![Default::default(); counts.num_u64_offsets],
             seen: vec![Default::default(); counts.num_seen],
-            validity: vec![Default::default(); counts.num_validity],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
         }
@@ -536,7 +532,7 @@ impl Instruction for TupleStructEnd {
 macro_rules! option_marker_handle {
     ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
         fn $name(&self, structure: &Structure, buffers: &mut Buffers $(, $($val: $ty),*)?) -> Result<usize> {
-            buffers.validity[self.validity].push(true)?;
+            buffers.u1[self.validity].push(true)?;
             dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
         }
     };
@@ -971,7 +967,6 @@ fn apply_null(structure: &Structure, buffers: &mut Buffers, null_definition: usi
     apply_null!(structure, buffers, null_definition, u16);
     apply_null!(structure, buffers, null_definition, u32);
     apply_null!(structure, buffers, null_definition, u64);
-    apply_null!(structure, buffers, null_definition, validity);
 
     for &idx in &structure.nulls[null_definition].u32_offsets {
         buffers.u32_offsets[idx].push_current_items();

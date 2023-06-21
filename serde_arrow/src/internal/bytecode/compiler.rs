@@ -497,7 +497,6 @@ pub struct NullDefinition {
     pub u64: Vec<usize>,
     pub u32_offsets: Vec<usize>,
     pub u64_offsets: Vec<usize>,
-    pub validity: Vec<usize>,
 }
 
 impl NullDefinition {
@@ -507,93 +506,93 @@ impl NullDefinition {
                 buffer, validity, ..
             } => {
                 self.u0.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Bool {
                 buffer, validity, ..
             } => {
                 self.u1.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U8 {
                 buffer, validity, ..
             } => {
                 self.u8.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U16 {
                 buffer, validity, ..
             } => {
                 self.u16.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U32 {
                 buffer, validity, ..
             } => {
                 self.u32.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U64 {
                 buffer, validity, ..
             } => {
                 self.u64.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I8 {
                 buffer, validity, ..
             } => {
                 self.u8.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I16 {
                 buffer, validity, ..
             } => {
                 self.u16.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I32 {
                 buffer, validity, ..
             } => {
                 self.u32.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I64 {
                 buffer, validity, ..
             } => {
                 self.u64.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::F32 {
                 buffer, validity, ..
             } => {
                 self.u32.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::F64 {
                 buffer, validity, ..
             } => {
                 self.u64.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Utf8 {
                 offsets, validity, ..
             } => {
                 // NOTE: an empty string contains no data
                 self.u32_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::LargeUtf8 {
                 offsets, validity, ..
             } => {
                 // NOTE: an empty string contains no data
                 self.u64_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Date64 {
                 buffer, validity, ..
             } => {
                 self.u64.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             ArrayMapping::Struct {
                 fields, validity, ..
@@ -601,21 +600,21 @@ impl NullDefinition {
                 for field in fields {
                     self.update_from_array_mapping(field)?;
                 }
-                self.validity.extend(validity.iter().copied());
+                self.u1.extend(validity.iter().copied());
             }
             &ArrayMapping::Map {
                 offsets, validity, ..
             } => {
                 // NOTE: the entries is not included
                 self.u64_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::LargeList {
                 offsets, validity, ..
             } => {
                 // NOTE: the item is not included
                 self.u64_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Dictionary {
                 indices, validity, ..
@@ -630,7 +629,7 @@ impl NullDefinition {
                     DictionaryIndex::I32(idx) => self.u32.push(idx),
                     DictionaryIndex::I64(idx) => self.u64.push(idx),
                 }
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             m => todo!("cannot update null definition from {m:?}"),
         }
@@ -645,7 +644,6 @@ impl NullDefinition {
         self.u64.sort();
         self.u32_offsets.sort();
         self.u64_offsets.sort();
-        self.validity.sort();
     }
 }
 
@@ -801,13 +799,13 @@ pub struct BufferCounts {
     pub(crate) num_u32: usize,
     /// number of 64-bit buffers (u64, i64, f64)
     pub(crate) num_u64: usize,
-    /// offsets encoded with 32 bits
+    /// number of offsets encoded with 32 bits
     pub(crate) num_u32_offsets: usize,
-    /// offsets encoded with 64 bits
+    /// number of offsets encoded with 64 bits
     pub(crate) num_u64_offsets: usize,
-    pub(crate) num_validity: usize,
     pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
+    /// number of bit-sets to record seen / unseen fields
     pub(crate) num_seen: usize,
 }
 
@@ -872,7 +870,7 @@ impl Program {
                     },
                 );
             }
-            let (f, _)  = self.compile_field(field)?;
+            let (f, _) = self.compile_field(field)?;
 
             self.structure.array_mapping.push(f);
         }
@@ -1175,7 +1173,7 @@ impl Program {
     fn compile_field(&mut self, field: &GenericField) -> Result<(ArrayMapping, Option<usize>)> {
         let mut option_marker_pos = None;
         let validity = if self.requires_null_check(field) {
-            let validity = self.buffers.num_validity.next_value();
+            let validity = self.buffers.num_u1.next_value();
 
             let null_definition = self.structure.nulls.len();
             self.structure.nulls.push(NullDefinition::default());
@@ -1203,7 +1201,8 @@ impl Program {
                 fail!("Internal error during compilation");
             };
             instr.if_none = current_program_len;
-            self.structure.nulls[instr.null_definition].update_from_array_mapping(&array_mapping)?;
+            self.structure.nulls[instr.null_definition]
+                .update_from_array_mapping(&array_mapping)?;
             self.structure.nulls[instr.null_definition].sort_indices();
 
             Ok((array_mapping, Some(instr.null_definition)))
@@ -1560,13 +1559,6 @@ impl Program {
             if null.u64.iter().any(|&idx| idx >= self.buffers.num_u64) {
                 fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
             }
-            if null
-                .validity
-                .iter()
-                .any(|&idx| idx >= self.buffers.num_validity)
-            {
-                fail!("invalid null definition {idx}: validity out of bounds {null:?}");
-            }
         }
         Ok(())
     }
@@ -1635,7 +1627,7 @@ macro_rules! validate_array_mapping_primitive {
                 );
             }
             if let &Some(validity) = validity {
-                if validity >= $this.buffers.num_validity {
+                if validity >= $this.buffers.num_u1 {
                     fail!(
                         "invalid array mapping {path}: validity out of bounds ({array_mapping:?})",
                         path=$path,

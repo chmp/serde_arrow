@@ -34,7 +34,7 @@ macro_rules! build_primitive_array_data {
     ($buffers:expr, $dtype:ident, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
         let data = std::mem::take(&mut $buffers.$bytes_ty[$buffer]);
         let data: Vec<$ty> = ToBytes::from_bytes_vec(data.buffer);
-        let validity = $validity.map(|validity| std::mem::take(&mut $buffers.validity[validity]));
+        let validity = $validity.map(|validity| std::mem::take(&mut $buffers.u1[validity]));
         build_array_data_primitive(DataType::$dtype, data.len(), data, validity)
     }};
 }
@@ -47,7 +47,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             buffer, validity, ..
         } => {
             let data = std::mem::take(&mut buffers.u1[buffer]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_primitive(DataType::Boolean, data.len(), data.buffer, validity)
         }
         &M::U8 {
@@ -91,7 +91,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         } => {
             let data = std::mem::take(&mut buffers.u8[buffer]);
             let offsets = std::mem::take(&mut buffers.u32_offsets[offsets]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_utf8(data.buffer, offsets.offsets, validity)
         }
         &M::LargeUtf8 {
@@ -102,7 +102,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         } => {
             let values = std::mem::take(&mut buffers.u8[buffer]);
             let offsets = std::mem::take(&mut buffers.u64_offsets[offsets]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_large_utf8(values.buffer, offsets.offsets, validity)
         }
         M::Struct {
@@ -118,7 +118,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let field: Field = field.try_into()?;
 
             let (validity, len) = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                let validity = std::mem::take(&mut buffers.u1[*validity]);
                 let len = validity.len();
                 let validity = Buffer::from(validity.buffer);
                 (Some(validity), len)
@@ -149,7 +149,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
             let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                let validity = std::mem::take(&mut buffers.u1[*validity]);
                 Some(Buffer::from(validity.buffer))
             } else {
                 None
@@ -177,7 +177,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
             let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                let validity = std::mem::take(&mut buffers.u1[*validity]);
                 Some(Buffer::from(validity.buffer))
             } else {
                 None
@@ -204,7 +204,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
             let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.validity[*validity]);
+                let validity = std::mem::take(&mut buffers.u1[*validity]);
                 Some(Buffer::from(validity.buffer))
             } else {
                 None
@@ -257,7 +257,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             validity,
         } => {
             use {DictionaryIndex as I, DictionaryValue as V};
-            let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
+            let validity = validity.map(|val| std::mem::take(&mut buffers.u1[val]));
 
             let indices = match indices {
                 I::U8(indices) => {

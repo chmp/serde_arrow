@@ -67,7 +67,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
         } => {
             let buffer = std::mem::take(&mut buffers.u1[*buffer]);
             let buffer = Bitmap::from_u8_vec(buffer.buffer, buffer.len);
-            let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
+            let validity = validity.map(|val| std::mem::take(&mut buffers.u1[val]));
             let validity = validity.map(|val| Bitmap::from_u8_vec(val.buffer, val.len));
             let array = BooleanArray::try_new(DataType::Boolean, buffer, validity)?;
             Ok(Box::new(array))
@@ -313,6 +313,6 @@ fn build_array_large_utf8(
 }
 
 fn build_validity(buffers: &mut Buffers, validity_idx: Option<usize>) -> Option<Bitmap> {
-    let val = std::mem::take(&mut buffers.validity[validity_idx?]);
+    let val = std::mem::take(&mut buffers.u1[validity_idx?]);
     Some(Bitmap::from_u8_vec(val.buffer, val.len))
 }
