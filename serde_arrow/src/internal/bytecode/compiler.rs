@@ -462,15 +462,15 @@ pub struct UnionDefinition {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct NullDefinition {
-    pub null: Vec<usize>,
-    pub bool: Vec<usize>,
+    pub u0: Vec<usize>,
+    pub u1: Vec<usize>,
     pub u8: Vec<usize>,
     pub u16: Vec<usize>,
     pub u32: Vec<usize>,
     pub u64: Vec<usize>,
     pub utf8: Vec<usize>,
     pub large_utf8: Vec<usize>,
-    pub large_offsets: Vec<usize>,
+    pub u64_offsets: Vec<usize>,
     pub validity: Vec<usize>,
 }
 
@@ -480,13 +480,13 @@ impl NullDefinition {
             &ArrayMapping::Null {
                 buffer, validity, ..
             } => {
-                self.null.push(buffer);
+                self.u0.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::Bool {
                 buffer, validity, ..
             } => {
-                self.bool.push(buffer);
+                self.u1.push(buffer);
                 self.validity.extend(validity);
             }
             &ArrayMapping::U8 {
@@ -579,14 +579,14 @@ impl NullDefinition {
                 offsets, validity, ..
             } => {
                 // NOTE: the entries is not included
-                self.large_offsets.push(offsets);
+                self.u64_offsets.push(offsets);
                 self.validity.extend(validity);
             }
             &ArrayMapping::LargeList {
                 offsets, validity, ..
             } => {
                 // NOTE: the item is not included
-                self.large_offsets.push(offsets);
+                self.u64_offsets.push(offsets);
                 self.validity.extend(validity);
             }
             &ArrayMapping::Dictionary {
@@ -610,13 +610,13 @@ impl NullDefinition {
     }
 
     pub fn sort_indices(&mut self) {
-        self.bool.sort();
+        self.u1.sort();
         self.u8.sort();
         self.u16.sort();
         self.u32.sort();
         self.u64.sort();
         self.large_utf8.sort();
-        self.large_offsets.sort();
+        self.u64_offsets.sort();
         self.validity.sort();
     }
 }
@@ -787,17 +787,25 @@ pub struct Structure {
 /// See [Buffers][super::interpreter::Buffers] for details
 #[derive(Debug, Default, Clone)]
 pub struct BufferCounts {
-    pub(crate) num_null: usize,
-    pub(crate) num_bool: usize,
+    /// number of 0-bit buffers (counts)
+    pub(crate) num_u0: usize,
+    /// number of 1-bit buffers (bools)
+    pub(crate) num_u1: usize,
+    /// number of 8-bit buffers (u8, i8)
     pub(crate) num_u8: usize,
+    /// number of 16-bit buffers (u16, i16, f16)
     pub(crate) num_u16: usize,
+    /// number of 32-bit buffers (u32, i32, f32)
     pub(crate) num_u32: usize,
+    /// number of 64-bit buffers (u64, i64, f64)
     pub(crate) num_u64: usize,
+    /// offsets encoded with 32 bits
+    pub(crate) num_u32_offsets: usize,
+    /// offsets encoded with 64 bits
+    pub(crate) num_u64_offsets: usize,
     pub(crate) num_utf8: usize,
     pub(crate) num_large_utf8: usize,
     pub(crate) num_validity: usize,
-    pub(crate) num_offsets: usize,
-    pub(crate) num_large_offsets: usize,
     pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
     pub(crate) num_seen: usize,
@@ -990,7 +998,7 @@ impl Program {
             .ok_or_else(|| error!("invalid list: no child"))?;
 
         let list_idx = self.structure.lists.len();
-        let offsets = self.buffers.num_offsets.next_value();
+        let offsets = self.buffers.num_u32_offsets.next_value();
 
         self.structure.lists.push(ListDefinition::default());
         self.structure.lists[list_idx].offset = offsets;
@@ -1035,7 +1043,7 @@ impl Program {
             .ok_or_else(|| error!("invalid list: no child"))?;
 
         let list_idx = self.structure.large_lists.len();
-        let offsets = self.buffers.num_large_offsets.next_value();
+        let offsets = self.buffers.num_u64_offsets.next_value();
 
         self.structure.large_lists.push(ListDefinition::default());
         self.structure.large_lists[list_idx].offset = offsets;
@@ -1135,11 +1143,11 @@ impl Program {
 
         let res = ArrayMapping::Null {
             field: GenericField::new("", GenericDataType::Null, true),
-            buffer: self.buffers.num_null,
+            buffer: self.buffers.num_u0,
             validity: None,
         };
 
-        self.buffers.num_null += 1;
+        self.buffers.num_u0 += 1;
         Ok(res)
     }
 
@@ -1211,8 +1219,8 @@ impl Program {
         use GenericDataType as D;
 
         match field.data_type {
-            D::Null => compile_primtive!(self, field, validity, num_null, PushNull, Null),
-            D::Bool => compile_primtive!(self, field, validity, num_bool, PushBool, Bool),
+            D::Null => compile_primtive!(self, field, validity, num_u0, PushNull, Null),
+            D::Bool => compile_primtive!(self, field, validity, num_u1, PushBool, Bool),
             D::U8 => compile_primtive!(self, field, validity, num_u8, PushU8, U8),
             D::U16 => compile_primtive!(self, field, validity, num_u16, PushU16, U16),
             D::U32 => compile_primtive!(self, field, validity, num_u32, PushU32, U32),
@@ -1324,7 +1332,7 @@ impl Program {
         };
 
         let map_idx = self.structure.maps.len();
-        let offsets = self.buffers.num_offsets.next_value();
+        let offsets = self.buffers.num_u32_offsets.next_value();
 
         self.structure.maps.push(MapDefinition::default());
 
@@ -1485,10 +1493,10 @@ impl Program {
 
     fn validate_nulls(&self) -> Result<()> {
         for (idx, null) in self.structure.nulls.iter().enumerate() {
-            if null.null.iter().any(|&idx| idx >= self.buffers.num_null) {
+            if null.u0.iter().any(|&idx| idx >= self.buffers.num_u0) {
                 fail!("invalid null definition {idx}: null out of bounds {null:?}");
             }
-            if null.bool.iter().any(|&idx| idx >= self.buffers.num_bool) {
+            if null.u1.iter().any(|&idx| idx >= self.buffers.num_u1) {
                 fail!("invalid null definition {idx}: bool out of bounds {null:?}");
             }
             if null.u8.iter().any(|&idx| idx >= self.buffers.num_u8) {
@@ -1605,7 +1613,7 @@ impl Program {
         use ArrayMapping::*;
         match mapping {
             // TODO: add the remaining array mappings
-            Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_bool),
+            Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_u1),
             U8 { .. } => validate_array_mapping_primitive!(self, path, mapping, U8, num_u8),
             U16 { .. } => validate_array_mapping_primitive!(self, path, mapping, U16, num_u16),
             U32 { .. } => validate_array_mapping_primitive!(self, path, mapping, U32, num_u32),

@@ -42,11 +42,11 @@ macro_rules! build_primitive_array_data {
 pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<ArrayData> {
     use ArrayMapping as M;
     match mapping {
-        &M::Null { buffer, .. } => Ok(NullArray::new(buffers.null[buffer].len()).into_data()),
+        &M::Null { buffer, .. } => Ok(NullArray::new(buffers.u0[buffer].len()).into_data()),
         &M::Bool {
             buffer, validity, ..
         } => {
-            let data = std::mem::take(&mut buffers.bool[buffer]);
+            let data = std::mem::take(&mut buffers.u1[buffer]);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
             build_array_data_primitive(DataType::Boolean, data.len(), data.buffer, validity)
         }
@@ -136,7 +136,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let entries = build_array_data(buffers, entries)?;
             let field: Field = field.try_into()?;
 
-            let offset = std::mem::take(&mut buffers.offset[*offsets]);
+            let offset = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let len = offset.len();
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
@@ -164,7 +164,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let values = build_array_data(buffers, item)?;
             let field: Field = field.try_into()?;
 
-            let offset = std::mem::take(&mut buffers.offset[*offsets]);
+            let offset = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let len = offset.len();
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 
@@ -191,7 +191,7 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         } => {
             let values = build_array_data(buffers, item)?;
 
-            let offset = std::mem::take(&mut buffers.large_offset[*offsets]);
+            let offset = std::mem::take(&mut buffers.u64_offsets[*offsets]);
             let len = offset.len();
             let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
 

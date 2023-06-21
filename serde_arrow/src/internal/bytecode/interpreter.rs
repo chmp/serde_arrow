@@ -32,40 +32,50 @@ pub struct Interpreter {
 
 #[derive(Debug, Clone)]
 pub struct Buffers {
-    pub bool: Vec<BitBuffer>,
-    pub null: Vec<NullBuffer>,
+    /// 0 bit buffers
+    pub u0: Vec<NullBuffer>,
+    /// 1 bit buffers
+    pub u1: Vec<BitBuffer>,
+    /// 8 bit buffers
     pub u8: Vec<PrimitiveBuffer<u8>>,
+    /// 16 bit buffers
     pub u16: Vec<PrimitiveBuffer<u16>>,
+    /// 32 bit buffers
     pub u32: Vec<PrimitiveBuffer<u32>>,
+    /// 64 bit buffers
     pub u64: Vec<PrimitiveBuffer<u64>>,
+    /// 32 bit offsets
+    pub u32_offsets: Vec<OffsetBuilder<i32>>,
+    /// 64 bit offsets
+    pub u64_offsets: Vec<OffsetBuilder<i64>>,
+    /// markers for which struct fields have been seen
+    // TODO: replace with a u128 bit vector
+    pub seen: Vec<HashSet<String>>,
+
     pub utf8: Vec<StringBuffer<i32>>,
     pub large_utf8: Vec<StringBuffer<i64>>,
     pub validity: Vec<BitBuffer>,
-    pub offset: Vec<OffsetBuilder<i32>>,
-    pub large_offset: Vec<OffsetBuilder<i64>>,
     pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
-    /// markers for which struct fields have been seen
-    pub seen: Vec<HashSet<String>>,
 }
 
 impl Buffers {
     pub fn from_counts(counts: &BufferCounts) -> Self {
         Self {
-            null: vec![Default::default(); counts.num_null],
+            u0: vec![Default::default(); counts.num_u0],
+            u1: vec![Default::default(); counts.num_u1],
             u8: vec![Default::default(); counts.num_u8],
             u16: vec![Default::default(); counts.num_u16],
             u32: vec![Default::default(); counts.num_u32],
             u64: vec![Default::default(); counts.num_u64],
-            bool: vec![Default::default(); counts.num_bool],
+            u32_offsets: vec![Default::default(); counts.num_u32_offsets],
+            u64_offsets: vec![Default::default(); counts.num_u64_offsets],
             utf8: vec![Default::default(); counts.num_utf8],
+            seen: vec![Default::default(); counts.num_seen],
             large_utf8: vec![Default::default(); counts.num_large_utf8],
             validity: vec![Default::default(); counts.num_validity],
-            offset: vec![Default::default(); counts.num_offsets],
-            large_offset: vec![Default::default(); counts.num_large_offsets],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
-            seen: vec![Default::default(); counts.num_seen],
         }
     }
 }
@@ -199,12 +209,12 @@ impl Instruction for Panic {}
 
 impl Instruction for MapEnd {
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.maps[self.map_idx].key)
     }
 
     fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.maps[self.map_idx].r#return)
     }
 }
@@ -325,34 +335,34 @@ impl Instruction for LargeListStart {
 
 impl Instruction for LargeListItem {
     fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].inc_current_items()?;
+        buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 }
 
 impl Instruction for LargeListEnd {
     fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].inc_current_items()?;
+        buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(structure.large_lists[self.list_idx].item)
     }
 
     fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 }
@@ -373,34 +383,34 @@ impl Instruction for ListStart {
 
 impl Instruction for ListItem {
     fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 }
 
 impl Instruction for ListEnd {
     fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.lists[self.list_idx].item)
     }
 
     fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 }
@@ -501,12 +511,12 @@ impl Instruction for MapStart {
 
 impl Instruction for MapItem {
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.maps[self.map_idx].r#return)
     }
 }
@@ -686,7 +696,7 @@ impl Instruction for UnionEnd {}
 
 impl Instruction for PushNull {
     fn accept_null(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.null[self.idx].push(())?;
+        buffers.u0[self.idx].push(())?;
         Ok(self.next)
     }
 }
@@ -812,7 +822,7 @@ impl Instruction for PushBool {
         buffers: &mut Buffers,
         val: bool,
     ) -> Result<usize> {
-        buffers.bool[self.idx].push(val)?;
+        buffers.u1[self.idx].push(val)?;
         Ok(self.next)
     }
 }
@@ -955,8 +965,8 @@ macro_rules! apply_null {
 }
 
 fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> Result<()> {
-    apply_null!(structure, buffers, validity, null);
-    apply_null!(structure, buffers, validity, bool);
+    apply_null!(structure, buffers, validity, u0);
+    apply_null!(structure, buffers, validity, u1);
     apply_null!(structure, buffers, validity, u8);
     apply_null!(structure, buffers, validity, u16);
     apply_null!(structure, buffers, validity, u32);
@@ -965,8 +975,8 @@ fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> 
     apply_null!(structure, buffers, validity, large_utf8);
     apply_null!(structure, buffers, validity, validity);
 
-    for &idx in &structure.nulls[validity].large_offsets {
-        buffers.large_offset[idx].push_current_items();
+    for &idx in &structure.nulls[validity].u64_offsets {
+        buffers.u64_offsets[idx].push_current_items();
     }
 
     Ok(())

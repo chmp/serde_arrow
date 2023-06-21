@@ -59,13 +59,13 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
     use ArrayMapping as M;
     match mapping {
         M::Null { buffer, .. } => {
-            let buffer = std::mem::take(&mut buffers.null[*buffer]);
+            let buffer = std::mem::take(&mut buffers.u0[*buffer]);
             Ok(Box::new(NullArray::new(DataType::Null, buffer.len())))
         }
         M::Bool {
             buffer, validity, ..
         } => {
-            let buffer = std::mem::take(&mut buffers.bool[*buffer]);
+            let buffer = std::mem::take(&mut buffers.u1[*buffer]);
             let buffer = Bitmap::from_u8_vec(buffer.buffer, buffer.len);
             let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
             let validity = validity.map(|val| Bitmap::from_u8_vec(val.buffer, val.len));
@@ -193,7 +193,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let values = build_array(buffers, item)?;
             let validity = build_validity(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             Ok(Box::new(ListArray::try_new(
@@ -209,7 +209,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let values = build_array(buffers, item)?;
             let validity = build_validity(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.large_offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             Ok(Box::new(ListArray::try_new(
@@ -258,7 +258,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let entries = build_array(buffers, entries)?;
             let data_type = Field::try_from(field)?.data_type;
 
-            let offsets = std::mem::take(&mut buffers.offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             let validity = build_validity(buffers, *validity);
