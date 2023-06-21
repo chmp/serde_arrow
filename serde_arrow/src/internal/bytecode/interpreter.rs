@@ -555,7 +555,7 @@ impl Instruction for OptionMarker {
     }
 
     fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        apply_null(structure, buffers, self.validity)?;
+        apply_null(structure, buffers, self.null_definition)?;
         Ok(self.if_none)
     }
 

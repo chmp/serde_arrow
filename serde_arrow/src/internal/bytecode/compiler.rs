@@ -295,7 +295,10 @@ pub struct OptionMarker {
     pub self_pos: usize,
     pub next: usize,
     pub if_none: usize,
+    /// The index of the relevant bit buffer on the buffers
     pub validity: usize,
+    /// The index of the relevant null definition of the structure
+    pub null_definition: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -763,34 +766,6 @@ pub enum ArrayMapping {
     },
 }
 
-impl ArrayMapping {
-    pub fn get_validity(&self) -> Option<usize> {
-        match self {
-            &Self::Null { validity, .. } => validity,
-            &Self::Bool { validity, .. } => validity,
-            &Self::U8 { validity, .. } => validity,
-            &Self::U16 { validity, .. } => validity,
-            &Self::U32 { validity, .. } => validity,
-            &Self::U64 { validity, .. } => validity,
-            &Self::I8 { validity, .. } => validity,
-            &Self::I16 { validity, .. } => validity,
-            &Self::I32 { validity, .. } => validity,
-            &Self::I64 { validity, .. } => validity,
-            &Self::F32 { validity, .. } => validity,
-            &Self::F64 { validity, .. } => validity,
-            &Self::Utf8 { validity, .. } => validity,
-            &Self::LargeUtf8 { validity, .. } => validity,
-            &Self::Date64 { validity, .. } => validity,
-            &Self::List { validity, .. } => validity,
-            &Self::Dictionary { validity, .. } => validity,
-            &Self::LargeList { validity, .. } => validity,
-            &Self::Struct { validity, .. } => validity,
-            &Self::Map { validity, .. } => validity,
-            Self::Union { .. } => None,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Program {
     pub(crate) options: CompilationOptions,
@@ -897,7 +872,8 @@ impl Program {
                     },
                 );
             }
-            let f = self.compile_field(field)?;
+            let (f, _)  = self.compile_field(field)?;
+
             self.structure.array_mapping.push(f);
         }
 
@@ -993,14 +969,14 @@ impl Program {
             } else {
                 self.push_instr(TupleStructItem { next: UNSET_INSTR });
             }
-            let f = self.compile_field(field)?;
+            let (f, null_definition) = self.compile_field(field)?;
 
             if !is_tuple {
                 let field_def = self.structure.structs[struct_idx]
                     .fields
                     .get_mut(&field.name)
                     .ok_or_else(|| error!("compile error: could not read struct field"))?;
-                field_def.null_definition = f.get_validity();
+                field_def.null_definition = null_definition;
             }
 
             field_mapping.push(f);
@@ -1052,7 +1028,7 @@ impl Program {
         });
         self.structure.lists[list_idx].item = self.structure.program.len();
 
-        let field_mapping = self.compile_field(item)?;
+        let (field_mapping, _) = self.compile_field(item)?;
 
         self.push_instr(ListEnd {
             next: UNSET_INSTR,
@@ -1097,7 +1073,7 @@ impl Program {
         });
         self.structure.large_lists[list_idx].item = self.structure.program.len();
 
-        let field_mapping = self.compile_field(item)?;
+        let (field_mapping, _) = self.compile_field(item)?;
 
         self.push_instr(LargeListEnd {
             next: UNSET_INSTR,
@@ -1156,7 +1132,8 @@ impl Program {
                 );
                 fields.push(self.compile_panic(message)?);
             } else {
-                fields.push(self.compile_field(child)?);
+                let (array_mapping, _) = self.compile_field(child)?;
+                fields.push(array_mapping);
             }
             child_last_instr.push(self.structure.program.len() - 1);
         }
@@ -1192,19 +1169,25 @@ impl Program {
         Ok(res)
     }
 
-    fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
-        let mut nullable_idx = None;
+    /// compile a single field and return the array mapping and optional null
+    /// definition index
+    ///
+    fn compile_field(&mut self, field: &GenericField) -> Result<(ArrayMapping, Option<usize>)> {
+        let mut option_marker_pos = None;
         let validity = if self.requires_null_check(field) {
             let validity = self.buffers.num_validity.next_value();
+
+            let null_definition = self.structure.nulls.len();
             self.structure.nulls.push(NullDefinition::default());
 
             let self_pos = self.structure.program.len();
-            nullable_idx = Some(self_pos);
+            option_marker_pos = Some(self_pos);
             self.push_instr(OptionMarker {
                 self_pos,
                 next: UNSET_INSTR,
                 if_none: 0,
                 validity,
+                null_definition,
             });
 
             Some(validity)
@@ -1214,17 +1197,19 @@ impl Program {
 
         let array_mapping = self.compile_field_inner(field, validity)?;
 
-        if let Some(nullable_idx) = nullable_idx {
+        if let Some(option_marker_pos) = option_marker_pos {
             let current_program_len = self.structure.program.len();
-            let Bytecode::OptionMarker(instr) = &mut self.structure.program[nullable_idx] else {
+            let Bytecode::OptionMarker(instr) = &mut self.structure.program[option_marker_pos] else {
                 fail!("Internal error during compilation");
             };
             instr.if_none = current_program_len;
-            self.structure.nulls[instr.validity].update_from_array_mapping(&array_mapping)?;
-            self.structure.nulls[instr.validity].sort_indices();
-        }
+            self.structure.nulls[instr.null_definition].update_from_array_mapping(&array_mapping)?;
+            self.structure.nulls[instr.null_definition].sort_indices();
 
-        Ok(array_mapping)
+            Ok((array_mapping, Some(instr.null_definition)))
+        } else {
+            Ok((array_mapping, None))
+        }
     }
 
     fn requires_null_check(&self, field: &GenericField) -> bool {
@@ -1408,8 +1393,8 @@ impl Program {
         });
         self.structure.maps[map_idx].key = self.structure.program.len();
 
-        let keys_mapping = self.compile_field(keys)?;
-        let values_mapping = self.compile_field(values)?;
+        let (keys_mapping, _) = self.compile_field(keys)?;
+        let (values_mapping, _) = self.compile_field(values)?;
 
         self.push_instr(MapEnd {
             next: UNSET_INSTR,
