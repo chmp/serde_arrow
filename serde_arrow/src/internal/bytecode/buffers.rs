@@ -48,6 +48,7 @@ impl NullBuffer {
     }
 }
 
+// TODO: is this needed?
 #[derive(Debug, Clone)]
 pub struct PrimitiveBuffer<T> {
     pub(crate) buffer: Vec<T>,
@@ -109,8 +110,9 @@ impl<O: Offset> OffsetBuilder<O> {
         self.offsets.len() - 1
     }
 
-    pub fn push(&mut self, num_items: usize) -> Result<()> {
-        self.current_items = self.current_items.clone() + O::try_form_usize(num_items)?;
+    // push a new item with the given number of children
+    pub fn push(&mut self, num_children: usize) -> Result<()> {
+        self.current_items = self.current_items.clone() + O::try_form_usize(num_children)?;
         self.offsets.push(self.current_items.clone());
 
         Ok(())

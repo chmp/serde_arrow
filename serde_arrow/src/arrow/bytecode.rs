@@ -2,7 +2,7 @@
 
 use crate::internal::{
     bytecode::{
-        buffers::{BitBuffer, StringBuffer},
+        buffers::BitBuffer,
         compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
@@ -84,18 +84,26 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Date64, i64, u64, buffer, validity),
         &M::Utf8 {
-            buffer, validity, ..
+            buffer,
+            offsets,
+            validity,
+            ..
         } => {
-            let values = std::mem::take(&mut buffers.utf8[buffer]);
+            let data = std::mem::take(&mut buffers.u8[buffer]);
+            let offsets = std::mem::take(&mut buffers.u32_offsets[offsets]);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
-            build_array_data_utf8(values, validity)
+            build_array_data_utf8(data.buffer, offsets.offsets, validity)
         }
         &M::LargeUtf8 {
-            buffer, validity, ..
+            buffer,
+            offsets,
+            validity,
+            ..
         } => {
-            let values = std::mem::take(&mut buffers.large_utf8[buffer]);
+            let values = std::mem::take(&mut buffers.u8[buffer]);
+            let offsets = std::mem::take(&mut buffers.u64_offsets[offsets]);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.validity[validity]));
-            build_array_data_large_utf8(values, validity)
+            build_array_data_large_utf8(values.buffer, offsets.offsets, validity)
         }
         M::Struct {
             field,
@@ -313,11 +321,19 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let values = match dictionary {
                 V::Utf8(dict) => {
                     let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
-                    build_array_data_utf8(dictionary.values, None)?
+                    build_array_data_utf8(
+                        dictionary.values.data,
+                        dictionary.values.offsets.offsets,
+                        None,
+                    )?
                 }
                 V::LargeUtf8(dict) => {
                     let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
-                    build_array_data_large_utf8(dictionary.values, None)?
+                    build_array_data_large_utf8(
+                        dictionary.values.data,
+                        dictionary.values.offsets.offsets,
+                        None,
+                    )?
                 }
             };
 
@@ -333,27 +349,19 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
 }
 
 fn build_array_data_utf8(
-    values: StringBuffer<i32>,
+    data: Vec<u8>,
+    offsets: Vec<i32>,
     validity: Option<BitBuffer>,
 ) -> Result<ArrayData> {
-    build_array_data_utf8_impl(
-        DataType::Utf8,
-        values.data,
-        values.offsets.offsets,
-        validity,
-    )
+    build_array_data_utf8_impl(DataType::Utf8, data, offsets, validity)
 }
 
 fn build_array_data_large_utf8(
-    values: StringBuffer<i64>,
+    data: Vec<u8>,
+    offsets: Vec<i64>,
     validity: Option<BitBuffer>,
 ) -> Result<ArrayData> {
-    build_array_data_utf8_impl(
-        DataType::LargeUtf8,
-        values.data,
-        values.offsets.offsets,
-        validity,
-    )
+    build_array_data_utf8_impl(DataType::LargeUtf8, data, offsets, validity)
 }
 
 fn build_array_data_utf8_impl<O: ArrowNativeType>(

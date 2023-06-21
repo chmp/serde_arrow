@@ -106,11 +106,17 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             buffer, validity, ..
         } => build_array_primitive!(buffers, i64, u64, Date64, *buffer, *validity),
         M::Utf8 {
-            buffer, validity, ..
-        } => build_array_utf8(buffers, *buffer, *validity),
+            buffer,
+            offsets,
+            validity,
+            ..
+        } => build_array_utf8(buffers, *buffer, *offsets, *validity),
         M::LargeUtf8 {
-            buffer, validity, ..
-        } => build_array_large_utf8(buffers, *buffer, *validity),
+            buffer,
+            offsets,
+            validity,
+            ..
+        } => build_array_large_utf8(buffers, *buffer, *offsets, *validity),
         M::Dictionary {
             field,
             dictionary,
@@ -273,15 +279,17 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
 fn build_array_utf8(
     buffers: &mut Buffers,
     buffer_idx: usize,
+    offsets_idx: usize,
     validity_idx: Option<usize>,
 ) -> Result<Box<dyn Array>> {
-    let buffer = std::mem::take(&mut buffers.utf8[buffer_idx]);
+    let data = std::mem::take(&mut buffers.u8[buffer_idx]);
+    let offsets = std::mem::take(&mut buffers.u32_offsets[offsets_idx]);
     let validity = build_validity(buffers, validity_idx);
 
     Ok(Box::new(Utf8Array::new(
         DataType::Utf8,
-        OffsetsBuffer::try_from(buffer.offsets.offsets)?,
-        Buffer::from(buffer.data),
+        OffsetsBuffer::try_from(offsets.offsets)?,
+        Buffer::from(data.buffer),
         validity,
     )))
 }
@@ -289,15 +297,17 @@ fn build_array_utf8(
 fn build_array_large_utf8(
     buffers: &mut Buffers,
     buffer_idx: usize,
+    offsets_idx: usize,
     validity_idx: Option<usize>,
 ) -> Result<Box<dyn Array>> {
-    let buffer = std::mem::take(&mut buffers.large_utf8[buffer_idx]);
+    let data = std::mem::take(&mut buffers.u8[buffer_idx]);
+    let offsets = std::mem::take(&mut buffers.u64_offsets[offsets_idx]);
     let validity = build_validity(buffers, validity_idx);
 
     Ok(Box::new(Utf8Array::new(
         DataType::LargeUtf8,
-        OffsetsBuffer::try_from(buffer.offsets.offsets)?,
-        Buffer::from(buffer.data),
+        OffsetsBuffer::try_from(offsets.offsets)?,
+        Buffer::from(data.buffer),
         validity,
     )))
 }

@@ -168,11 +168,23 @@ define_primitive_instructions!(
     PushF32,
     PushF64,
     PushBool,
-    PushUtf8,
-    PushLargeUtf8,
     PushDate64FromNaiveStr,
     PushDate64FromUtcStr,
 );
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PushUtf8 {
+    pub next: usize,
+    pub buffer: usize,
+    pub offsets: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PushLargeUtf8 {
+    pub next: usize,
+    pub buffer: usize,
+    pub offsets: usize,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Panic {
@@ -468,8 +480,7 @@ pub struct NullDefinition {
     pub u16: Vec<usize>,
     pub u32: Vec<usize>,
     pub u64: Vec<usize>,
-    pub utf8: Vec<usize>,
-    pub large_utf8: Vec<usize>,
+    pub u32_offsets: Vec<usize>,
     pub u64_offsets: Vec<usize>,
     pub validity: Vec<usize>,
 }
@@ -550,15 +561,17 @@ impl NullDefinition {
                 self.validity.extend(validity);
             }
             &ArrayMapping::Utf8 {
-                buffer, validity, ..
+                offsets, validity, ..
             } => {
-                self.utf8.push(buffer);
+                // NOTE: an empty string contains no data
+                self.u32_offsets.push(offsets);
                 self.validity.extend(validity);
             }
             &ArrayMapping::LargeUtf8 {
-                buffer, validity, ..
+                offsets, validity, ..
             } => {
-                self.large_utf8.push(buffer);
+                // NOTE: an empty string contains no data
+                self.u64_offsets.push(offsets);
                 self.validity.extend(validity);
             }
             &ArrayMapping::Date64 {
@@ -615,7 +628,7 @@ impl NullDefinition {
         self.u16.sort();
         self.u32.sort();
         self.u64.sort();
-        self.large_utf8.sort();
+        self.u32_offsets.sort();
         self.u64_offsets.sort();
         self.validity.sort();
     }
@@ -687,11 +700,13 @@ pub enum ArrayMapping {
     Utf8 {
         field: GenericField,
         buffer: usize,
+        offsets: usize,
         validity: Option<usize>,
     },
     LargeUtf8 {
         field: GenericField,
         buffer: usize,
+        offsets: usize,
         validity: Option<usize>,
     },
     Date64 {
@@ -803,8 +818,6 @@ pub struct BufferCounts {
     pub(crate) num_u32_offsets: usize,
     /// offsets encoded with 64 bits
     pub(crate) num_u64_offsets: usize,
-    pub(crate) num_utf8: usize,
-    pub(crate) num_large_utf8: usize,
     pub(crate) num_validity: usize,
     pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
@@ -1231,15 +1244,38 @@ impl Program {
             D::I64 => compile_primtive!(self, field, validity, num_u64, PushI64, I64),
             D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
             D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
-            D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUtf8, Utf8),
-            D::LargeUtf8 => compile_primtive!(
-                self,
-                field,
-                validity,
-                num_large_utf8,
-                PushLargeUtf8,
-                LargeUtf8
-            ),
+            D::Utf8 => {
+                let buffer = self.buffers.num_u8.next_value();
+                let offsets = self.buffers.num_u32_offsets.next_value();
+
+                self.push_instr(PushUtf8 {
+                    next: UNSET_INSTR,
+                    buffer,
+                    offsets,
+                });
+                Ok(ArrayMapping::Utf8 {
+                    field: field.clone(),
+                    buffer,
+                    offsets,
+                    validity,
+                })
+            }
+            D::LargeUtf8 => {
+                let buffer = self.buffers.num_u8.next_value();
+                let offsets = self.buffers.num_u64_offsets.next_value();
+
+                self.push_instr(PushLargeUtf8 {
+                    next: UNSET_INSTR,
+                    buffer,
+                    offsets,
+                });
+                Ok(ArrayMapping::LargeUtf8 {
+                    field: field.clone(),
+                    buffer,
+                    offsets,
+                    validity,
+                })
+            }
             D::Date64 => match field.strategy.as_ref() {
                 Some(Strategy::NaiveStrAsDate64) => compile_primtive!(
                     self,
@@ -1511,16 +1547,6 @@ impl Program {
             if null.u64.iter().any(|&idx| idx >= self.buffers.num_u64) {
                 fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
             }
-            if null.utf8.iter().any(|&idx| idx >= self.buffers.num_utf8) {
-                fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
-            }
-            if null
-                .large_utf8
-                .iter()
-                .any(|&idx| idx >= self.buffers.num_large_utf8)
-            {
-                fail!("invalid null definition {idx}: large_u8 out of bounds {null:?}");
-            }
             if null
                 .validity
                 .iter()
@@ -1624,10 +1650,6 @@ impl Program {
             I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_u64),
             F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_u32),
             F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_u64),
-            Utf8 { .. } => validate_array_mapping_primitive!(self, path, mapping, Utf8, num_utf8),
-            LargeUtf8 { .. } => {
-                validate_array_mapping_primitive!(self, path, mapping, LargeUtf8, num_large_utf8)
-            }
             _ => {}
         }
         Ok(())

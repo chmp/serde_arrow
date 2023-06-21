@@ -2,9 +2,7 @@ use std::collections::HashSet;
 
 use crate::internal::{
     bytecode::{
-        buffers::{
-            BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
-        },
+        buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringDictonary},
         compiler::{
             dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
             LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
@@ -52,8 +50,6 @@ pub struct Buffers {
     // TODO: replace with a u128 bit vector
     pub seen: Vec<HashSet<String>>,
 
-    pub utf8: Vec<StringBuffer<i32>>,
-    pub large_utf8: Vec<StringBuffer<i64>>,
     pub validity: Vec<BitBuffer>,
     pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
@@ -70,9 +66,7 @@ impl Buffers {
             u64: vec![Default::default(); counts.num_u64],
             u32_offsets: vec![Default::default(); counts.num_u32_offsets],
             u64_offsets: vec![Default::default(); counts.num_u64_offsets],
-            utf8: vec![Default::default(); counts.num_utf8],
             seen: vec![Default::default(); counts.num_seen],
-            large_utf8: vec![Default::default(); counts.num_large_utf8],
             validity: vec![Default::default(); counts.num_validity],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
@@ -621,7 +615,10 @@ impl Instruction for PushUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.utf8[self.idx].push(val)?;
+        buffers.u8[self.buffer]
+            .buffer
+            .extend(val.as_bytes().iter().copied());
+        buffers.u32_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -633,7 +630,10 @@ impl Instruction for PushLargeUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.large_utf8[self.idx].push(val)?;
+        buffers.u8[self.buffer]
+            .buffer
+            .extend(val.as_bytes().iter().copied());
+        buffers.u64_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -971,9 +971,11 @@ fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> 
     apply_null!(structure, buffers, validity, u16);
     apply_null!(structure, buffers, validity, u32);
     apply_null!(structure, buffers, validity, u64);
-    apply_null!(structure, buffers, validity, utf8);
-    apply_null!(structure, buffers, validity, large_utf8);
     apply_null!(structure, buffers, validity, validity);
+
+    for &idx in &structure.nulls[validity].u32_offsets {
+        buffers.u32_offsets[idx].push_current_items();
+    }
 
     for &idx in &structure.nulls[validity].u64_offsets {
         buffers.u64_offsets[idx].push_current_items();
