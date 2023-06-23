@@ -2,7 +2,6 @@ pub mod bytecode;
 pub(crate) mod conversions;
 pub(crate) mod error;
 pub(crate) mod event;
-pub(crate) mod generic_sinks;
 pub(crate) mod generic_sources;
 pub(crate) mod schema;
 pub(crate) mod sink;
@@ -15,16 +14,8 @@ use serde::Serialize;
 use self::{
     bytecode::{compile_serialization, CompilationOptions, Interpreter},
     error::{fail, Result},
-    generic_sinks::{
-        DictionaryUtf8ArrayBuilder, ListArrayBuilder, MapArrayBuilder, NaiveDateTimeStrBuilder,
-        PrimitiveBuilders, StructArrayBuilder, TupleStructBuilder, UnionArrayBuilder,
-        UnknownVariantBuilder, UtcDateTimeStrBuilder,
-    },
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
-    sink::{
-        serialize_into_sink, ArrayBuilder, DynamicArrayBuilder, EventSerializer, EventSink,
-        StripOuterSequenceSink,
-    },
+    sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
@@ -93,81 +84,35 @@ where
     Ok(field)
 }
 
-pub struct GenericArrayBuilder {
-    pub interpreter: Interpreter,
-    pub field: GenericField,
-}
+pub struct GenericBuilder(pub Interpreter);
 
-impl GenericArrayBuilder {
-    pub fn new(field: GenericField) -> Result<Self> {
+impl GenericBuilder {
+    pub fn new_for_array(field: GenericField) -> Result<Self> {
         let program = compile_serialization(
             std::slice::from_ref(&field),
             CompilationOptions::default().wrap_with_struct(false),
         )?;
         let interpreter = Interpreter::new(program);
 
-        Ok(Self { interpreter, field })
+        Ok(Self(interpreter))
+    }
+
+    pub fn new_for_arrays(fields: &[GenericField]) -> Result<Self> {
+        let program = compile_serialization(fields, CompilationOptions::default())?;
+        let interpreter = Interpreter::new(program);
+
+        Ok(Self(interpreter))
     }
 
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.interpreter.accept_start_sequence()?;
-        self.interpreter.accept_item()?;
-        item.serialize(EventSerializer(&mut self.interpreter))?;
-        self.interpreter.accept_end_sequence()?;
-        self.interpreter.finish()
+        self.0.accept_start_sequence()?;
+        self.0.accept_item()?;
+        item.serialize(EventSerializer(&mut self.0))?;
+        self.0.accept_end_sequence()?;
+        self.0.finish()
     }
 
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        serialize_into_sink(&mut self.interpreter, items)
-    }
-}
-
-pub struct GenericArraysBuilder<Arrow: PrimitiveBuilders> {
-    fields: Vec<GenericField>,
-    builder: StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>,
-}
-
-impl<Arrow> GenericArraysBuilder<Arrow>
-where
-    Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
-    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
-{
-    pub fn new(fields: Vec<GenericField>) -> Result<Self> {
-        Ok(Self {
-            builder: generic_sinks::build_struct_array_builder::<Arrow>(
-                String::from("$"),
-                &fields,
-            )?,
-            fields,
-        })
-    }
-
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        item.serialize(EventSerializer(&mut self.builder))?;
-        Ok(())
-    }
-
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        let mut builder = StripOuterSequenceSink::new(&mut self.builder);
-        items.serialize(EventSerializer(&mut builder))?;
-        Ok(())
-    }
-
-    pub fn build_arrays(&mut self) -> Result<Vec<Arrow::Output>> {
-        let mut builder =
-            generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), &self.fields)?;
-        std::mem::swap(&mut builder, &mut self.builder);
-
-        builder.finish()?;
-        builder.build_arrays()
+        serialize_into_sink(&mut self.0, items)
     }
 }

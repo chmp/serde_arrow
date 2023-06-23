@@ -274,18 +274,6 @@ impl<A, T: ArrayBuilder<A>> ArrayBuilder<A> for Box<T> {
     }
 }
 
-pub struct DynamicArrayBuilder<A> {
-    builder: Box<dyn ArrayBuilder<A>>,
-}
-
-impl<A> DynamicArrayBuilder<A> {
-    pub fn new<B: ArrayBuilder<A> + 'static>(builder: B) -> Self {
-        Self {
-            builder: Box::new(builder),
-        }
-    }
-}
-
 impl<E: EventSink> EventSink for &mut E {
     macros::accept_start!((this, _ev, val, next) {
         next(*this, val)
@@ -306,41 +294,6 @@ impl<E: EventSink> EventSink for &mut E {
 
     fn finish(&mut self) -> Result<()> {
         (*self).finish()
-    }
-}
-
-impl<A> EventSink for DynamicArrayBuilder<A> {
-    macros::accept_start!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_end!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_marker!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_value!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.builder.accept(event)
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        self.builder.finish()
-    }
-}
-
-impl<A> ArrayBuilder<A> for DynamicArrayBuilder<A> {
-    fn build_array(&mut self) -> Result<A> {
-        self.builder.build_array()
-    }
-}
-
-impl<A> From<Box<dyn ArrayBuilder<A>>> for DynamicArrayBuilder<A> {
-    fn from(builder: Box<dyn ArrayBuilder<A>>) -> Self {
-        Self { builder }
     }
 }
 

@@ -6,7 +6,6 @@
 #![deny(missing_docs)]
 pub(crate) mod bytecode;
 mod schema;
-mod sinks;
 mod type_support;
 
 #[cfg(test)]
@@ -15,10 +14,7 @@ mod test;
 use serde::Serialize;
 
 use crate::{
-    _impl::arrow::{
-        array::{self, ArrayRef},
-        datatypes::Field,
-    },
+    _impl::arrow::{array::ArrayRef, datatypes::Field},
     internal::{
         self,
         bytecode::{compile_serialization, CompilationOptions, Interpreter},
@@ -27,8 +23,6 @@ use crate::{
         sink::serialize_into_sink,
     },
 };
-
-use self::sinks::ArrowPrimitiveBuilders;
 
 /// Determine the schema (as a list of fields) for the given items
 ///
@@ -199,7 +193,7 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
-pub struct ArrayBuilder(internal::GenericArrayBuilder);
+pub struct ArrayBuilder(internal::GenericBuilder);
 
 impl ArrayBuilder {
     /// Construct a new build for the given field
@@ -207,7 +201,7 @@ impl ArrayBuilder {
     /// This method may fail for an unsupported data type of the given field.
     ///
     pub fn new(field: &Field) -> Result<Self> {
-        Ok(Self(internal::GenericArrayBuilder::new(
+        Ok(Self(internal::GenericBuilder::new_for_array(
             GenericField::try_from(field)?,
         )?))
     }
@@ -229,7 +223,7 @@ impl ArrayBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_array(&mut self) -> Result<ArrayRef> {
-        self.0.interpreter.build_arrow_array()
+        self.0 .0.build_arrow_array()
     }
 }
 
@@ -270,9 +264,7 @@ impl ArrayBuilder {
 /// assert_eq!(arrays.len(), 2);
 /// assert_eq!(arrays[0].len(), 6);
 /// ```
-pub struct ArraysBuilder {
-    inner: internal::GenericArraysBuilder<ArrowPrimitiveBuilders>,
-}
+pub struct ArraysBuilder(internal::GenericBuilder);
 
 impl std::fmt::Debug for ArraysBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -291,21 +283,19 @@ impl ArraysBuilder {
             .iter()
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self {
-            inner: internal::GenericArraysBuilder::new(fields)?,
-        })
+        Ok(Self(internal::GenericBuilder::new_for_arrays(&fields)?))
     }
 
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.inner.push(item)
+        self.0.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.inner.extend(items)
+        self.0.extend(items)
     }
 
     /// Build the arrays from the rows pushed to far.
@@ -313,7 +303,6 @@ impl ArraysBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
-        let data = self.inner.build_arrays()?;
-        Ok(data.into_iter().map(array::make_array).collect())
+        self.0 .0.build_arrow_arrays()
     }
 }
