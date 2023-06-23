@@ -6,6 +6,7 @@
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
 - Implement bytecode serialization of f16
+- Make bytecode the only serialization implementation for a 2.6x speed up
 
 ## 0.7.1
 
