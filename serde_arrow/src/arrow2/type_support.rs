@@ -1,6 +1,7 @@
 use crate::{
     _impl::arrow2::types::f16,
     internal::{
+        conversions::ToBytes,
         error::{fail, Error, Result},
         event::Event,
     },
@@ -26,5 +27,17 @@ impl<'a> From<f16> for Event<'a> {
 impl From<crate::_impl::arrow2::error::Error> for Error {
     fn from(err: crate::_impl::arrow2::error::Error) -> Error {
         Self::custom_from(format!("arrow2::Error: {err}"), err)
+    }
+}
+
+impl ToBytes for f16 {
+    type Bytes = u16;
+
+    fn to_bytes(self) -> Self::Bytes {
+        self.to_bits()
+    }
+
+    fn from_bytes(val: Self::Bytes) -> Self {
+        Self::from_bits(val)
     }
 }

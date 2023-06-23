@@ -162,6 +162,18 @@ test_example!(
     nulls = [false, false, false, false],
 );
 
+// TODO: include test, once bytecode-only
+/*
+test_example!(
+    test_name = f32_from_f64,
+    field = GenericField::new("root", GenericDataType::F64, false),
+    overwrite_field = GenericField::new("root", GenericDataType::F32, false),
+    ty = f64,
+    values = [-1.0, 2.0, -3.0, 4.0],
+    nulls = [false, false, false, false],
+);
+ */
+
 test_example!(
     test_name = nullable_f32,
     field = GenericField::new("root", GenericDataType::F32, true),
@@ -185,6 +197,39 @@ test_example!(
     values = [Some(-1.0), None, Some(3.0), Some(-4.0)],
     nulls = [false, true, false, false],
 );
+
+// TODO: include test, once bytecode-only
+/*
+test_example!(
+    test_name = f64_from_f32,
+    field = GenericField::new("root", GenericDataType::F32, false),
+    overwrite_field = GenericField::new("root", GenericDataType::F64, false),
+    ty = f32,
+    values = [-1.0, 2.0, -3.0, 4.0],
+    nulls = [false, false, false, false],
+);
+*/
+
+test_example!(
+    test_name = f16_from_f32,
+    field = GenericField::new("root", GenericDataType::F32, false),
+    overwrite_field = GenericField::new("root", GenericDataType::F16, false),
+    ty = f32,
+    values = [-1.0, 2.0, -3.0, 4.0],
+    nulls = [false, false, false, false],
+);
+
+// TODO: include test, once bytecode-only
+/*
+test_example!(
+    test_name = f16_from_f64,
+    field = GenericField::new("root", GenericDataType::F64, false),
+    overwrite_field = GenericField::new("root", GenericDataType::F16, false),
+    ty = f64,
+    values = [-1.0, 2.0, -3.0, 4.0],
+    nulls = [false, false, false, false],
+);
+*/
 
 test_example!(
     test_name = str,

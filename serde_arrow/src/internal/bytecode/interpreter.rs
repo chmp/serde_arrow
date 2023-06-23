@@ -1,10 +1,6 @@
-use std::collections::HashSet;
-
 use crate::internal::{
     bytecode::{
-        buffers::{
-            BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringBuffer, StringDictonary,
-        },
+        buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringDictonary},
         compiler::{
             dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
             LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
@@ -16,12 +12,14 @@ use crate::internal::{
             TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
         },
     },
+    conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
     error::{self, fail, Result},
     sink::macros,
     sink::EventSink,
 };
 
 use super::compiler::Panic;
+use super::{bit_set::BitSet, compiler::PushF16};
 
 pub struct Interpreter {
     pub program_counter: usize,
@@ -31,52 +29,42 @@ pub struct Interpreter {
 
 #[derive(Debug, Clone)]
 pub struct Buffers {
-    pub bool: Vec<BitBuffer>,
-    pub null: Vec<NullBuffer>,
+    /// 0 bit buffers
+    pub u0: Vec<NullBuffer>,
+    /// 1 bit buffers
+    pub u1: Vec<BitBuffer>,
+    /// 8 bit buffers
     pub u8: Vec<PrimitiveBuffer<u8>>,
+    /// 16 bit buffers
     pub u16: Vec<PrimitiveBuffer<u16>>,
+    /// 32 bit buffers
     pub u32: Vec<PrimitiveBuffer<u32>>,
+    /// 64 bit buffers
     pub u64: Vec<PrimitiveBuffer<u64>>,
-    pub i8: Vec<PrimitiveBuffer<i8>>,
-    pub i16: Vec<PrimitiveBuffer<i16>>,
-    pub i32: Vec<PrimitiveBuffer<i32>>,
-    pub i64: Vec<PrimitiveBuffer<i64>>,
-    pub f32: Vec<PrimitiveBuffer<f32>>,
-    pub f64: Vec<PrimitiveBuffer<f64>>,
-    pub utf8: Vec<StringBuffer<i32>>,
-    pub large_utf8: Vec<StringBuffer<i64>>,
-    pub validity: Vec<BitBuffer>,
-    pub offset: Vec<OffsetBuilder<i32>>,
-    pub large_offset: Vec<OffsetBuilder<i64>>,
+    /// 32 bit offsets
+    pub u32_offsets: Vec<OffsetBuilder<i32>>,
+    /// 64 bit offsets
+    pub u64_offsets: Vec<OffsetBuilder<i64>>,
+    /// markers for which struct fields have been seen
+    pub seen: Vec<BitSet>,
     pub dictionaries: Vec<StringDictonary<i32>>,
     pub large_dictionaries: Vec<StringDictonary<i64>>,
-    /// markers for which struct fields have been seen
-    pub seen: Vec<HashSet<String>>,
 }
 
 impl Buffers {
     pub fn from_counts(counts: &BufferCounts) -> Self {
         Self {
-            null: vec![Default::default(); counts.num_null],
+            u0: vec![Default::default(); counts.num_u0],
+            u1: vec![Default::default(); counts.num_u1],
             u8: vec![Default::default(); counts.num_u8],
             u16: vec![Default::default(); counts.num_u16],
             u32: vec![Default::default(); counts.num_u32],
             u64: vec![Default::default(); counts.num_u64],
-            i8: vec![Default::default(); counts.num_i8],
-            i16: vec![Default::default(); counts.num_i16],
-            i32: vec![Default::default(); counts.num_i32],
-            i64: vec![Default::default(); counts.num_i64],
-            f32: vec![Default::default(); counts.num_f32],
-            f64: vec![Default::default(); counts.num_f64],
-            bool: vec![Default::default(); counts.num_bool],
-            utf8: vec![Default::default(); counts.num_utf8],
-            large_utf8: vec![Default::default(); counts.num_large_utf8],
-            validity: vec![Default::default(); counts.num_validity],
-            offset: vec![Default::default(); counts.num_offsets],
-            large_offset: vec![Default::default(); counts.num_large_offsets],
+            u32_offsets: vec![Default::default(); counts.num_u32_offsets],
+            u64_offsets: vec![Default::default(); counts.num_u64_offsets],
+            seen: vec![Default::default(); counts.num_seen],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
-            seen: vec![Default::default(); counts.num_seen],
         }
     }
 }
@@ -210,12 +198,12 @@ impl Instruction for Panic {}
 
 impl Instruction for MapEnd {
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.maps[self.map_idx].key)
     }
 
     fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.maps[self.map_idx].r#return)
     }
 }
@@ -290,10 +278,10 @@ impl Instruction for OuterRecordField {
         if self.field_name == val {
             Ok(self.next)
         } else {
-            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
-            Ok(next)
+            Ok(field_def.jump)
         }
     }
 }
@@ -313,10 +301,10 @@ impl Instruction for OuterRecordEnd {
         _buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
-        Ok(next)
+        Ok(field_def.jump)
     }
 }
 
@@ -336,34 +324,34 @@ impl Instruction for LargeListStart {
 
 impl Instruction for LargeListItem {
     fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].inc_current_items()?;
+        buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 }
 
 impl Instruction for LargeListEnd {
     fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].inc_current_items()?;
+        buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(structure.large_lists[self.list_idx].item)
     }
 
     fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.large_offset[self.offsets].push_current_items();
+        buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 }
@@ -384,34 +372,34 @@ impl Instruction for ListStart {
 
 impl Instruction for ListItem {
     fn accept_end_sequence(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_tuple(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 }
 
 impl Instruction for ListEnd {
     fn accept_end_sequence(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_item(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.lists[self.list_idx].item)
     }
 
     fn accept_end_tuple(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 }
@@ -422,12 +410,12 @@ fn struct_end(
     struct_idx: usize,
     seen: usize,
 ) -> Result<()> {
-    println!("seen: {:?}", buffers.seen[seen]);
-    for (name, validity) in &structure.structs[struct_idx].validities {
-        if !buffers.seen[seen].contains(name) {
-            let validity = validity
+    for (name, field_def) in &structure.structs[struct_idx].fields {
+        if !buffers.seen[seen].contains(field_def.index) {
+            let null_definition = field_def
+                .null_definition
                 .ok_or_else(|| error::error!("missing non-nullable field {name} in struct"))?;
-            apply_null(structure, buffers, validity)?;
+            apply_null(structure, buffers, null_definition)?;
         }
     }
     buffers.seen[seen].clear();
@@ -458,14 +446,14 @@ impl Instruction for StructField {
 
     fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
         if self.field_name == val {
-            buffers.seen[self.seen].insert(val.to_owned());
+            buffers.seen[self.seen].insert(self.field_idx);
             Ok(self.next)
         } else {
-            let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
-            buffers.seen[self.seen].insert(val.to_owned());
-            Ok(next)
+            buffers.seen[self.seen].insert(field_def.index);
+            Ok(field_def.jump)
         }
     }
 }
@@ -481,11 +469,11 @@ impl Instruction for StructEnd {
     }
 
     fn accept_str(&self, structure: &Structure, buffers: &mut Buffers, val: &str) -> Result<usize> {
-        let Some(&next) = structure.structs[self.struct_idx].fields.get(val) else {
+        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
-        buffers.seen[self.seen].insert(val.to_owned());
-        Ok(next)
+        buffers.seen[self.seen].insert(field_def.index);
+        Ok(field_def.jump)
     }
 
     // relevant for maps serialized as structs
@@ -513,12 +501,12 @@ impl Instruction for MapStart {
 
 impl Instruction for MapItem {
     fn accept_item(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].inc_current_items()?;
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 
     fn accept_end_map(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.offset[self.offsets].push_current_items();
+        buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.maps[self.map_idx].r#return)
     }
 }
@@ -544,7 +532,7 @@ impl Instruction for TupleStructEnd {
 macro_rules! option_marker_handle {
     ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
         fn $name(&self, structure: &Structure, buffers: &mut Buffers $(, $($val: $ty),*)?) -> Result<usize> {
-            buffers.validity[self.validity].push(true)?;
+            buffers.u1[self.validity].push(true)?;
             dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
         }
     };
@@ -563,7 +551,7 @@ impl Instruction for OptionMarker {
     }
 
     fn accept_null(&self, structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        apply_null(structure, buffers, self.validity)?;
+        apply_null(structure, buffers, self.null_definition)?;
         Ok(self.if_none)
     }
 
@@ -601,7 +589,7 @@ impl Instruction for Variant {
         idx: usize,
     ) -> Result<usize> {
         if idx < structure.unions[self.union_idx].fields.len() {
-            buffers.i8[self.type_idx].push(idx.try_into()?)?;
+            buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes())?;
             Ok(structure.unions[self.union_idx].fields[idx])
         } else {
             fail!(
@@ -623,7 +611,10 @@ impl Instruction for PushUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.utf8[self.idx].push(val)?;
+        buffers.u8[self.buffer]
+            .buffer
+            .extend(val.as_bytes().iter().copied());
+        buffers.u32_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -635,7 +626,10 @@ impl Instruction for PushLargeUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.large_utf8[self.idx].push(val)?;
+        buffers.u8[self.buffer]
+            .buffer
+            .extend(val.as_bytes().iter().copied());
+        buffers.u64_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -649,7 +643,7 @@ impl Instruction for PushDate64FromNaiveStr {
     ) -> Result<usize> {
         use chrono::NaiveDateTime;
 
-        buffers.i64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis())?;
+        buffers.u64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes())?;
         Ok(self.next)
     }
 }
@@ -663,7 +657,7 @@ impl Instruction for PushDate64FromUtcStr {
     ) -> Result<usize> {
         use chrono::{DateTime, Utc};
 
-        buffers.i64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis())?;
+        buffers.u64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes())?;
         Ok(self.next)
     }
 }
@@ -685,10 +679,10 @@ impl Instruction for PushDictionary {
             I::U16(indices) => buffers.u16[indices].push(idx.try_into()?)?,
             I::U32(indices) => buffers.u32[indices].push(idx.try_into()?)?,
             I::U64(indices) => buffers.u64[indices].push(idx.try_into()?)?,
-            I::I8(indices) => buffers.i8[indices].push(idx.try_into()?)?,
-            I::I16(indices) => buffers.i16[indices].push(idx.try_into()?)?,
-            I::I32(indices) => buffers.i32[indices].push(idx.try_into()?)?,
-            I::I64(indices) => buffers.i64[indices].push(idx.try_into()?)?,
+            I::I8(indices) => buffers.u8[indices].push(i8::try_from(idx)?.to_bytes())?,
+            I::I16(indices) => buffers.u16[indices].push(u16::try_from(idx)?.to_bytes())?,
+            I::I32(indices) => buffers.u32[indices].push(u32::try_from(idx)?.to_bytes())?,
+            I::I64(indices) => buffers.u64[indices].push(u64::try_from(idx)?.to_bytes())?,
         }
         Ok(self.next)
     }
@@ -698,17 +692,22 @@ impl Instruction for UnionEnd {}
 
 impl Instruction for PushNull {
     fn accept_null(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.null[self.idx].push(())?;
+        buffers.u0[self.idx].push(())?;
         Ok(self.next)
     }
 }
 
 macro_rules! impl_primitive_instruction {
-    ($name:ident($builder:ident) { $($func:ident($ty:ty),)* }) => {
+    (
+        $name:ident($val_type:ty, $builder:ident) {
+            $($func:ident($ty:ty),)*
+        }
+    ) => {
         impl Instruction for $name {
             $(
                 fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
-                    buffers.$builder[self.idx].push(val.try_into()?)?;
+                    let val = <$val_type>::try_from(val)?;
+                    buffers.$builder[self.idx].push(ToBytes::to_bytes(val))?;
                     Ok(self.next)
                 }
             )*
@@ -716,7 +715,7 @@ macro_rules! impl_primitive_instruction {
     };
 }
 
-impl_primitive_instruction!(PushU8(u8) {
+impl_primitive_instruction!(PushU8(u8, u8) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -727,7 +726,7 @@ impl_primitive_instruction!(PushU8(u8) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU16(u16) {
+impl_primitive_instruction!(PushU16(u16, u16) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -738,7 +737,7 @@ impl_primitive_instruction!(PushU16(u16) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU32(u32) {
+impl_primitive_instruction!(PushU32(u32, u32) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -749,7 +748,7 @@ impl_primitive_instruction!(PushU32(u32) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushU64(u64) {
+impl_primitive_instruction!(PushU64(u64, u64) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -760,7 +759,7 @@ impl_primitive_instruction!(PushU64(u64) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI8(i8) {
+impl_primitive_instruction!(PushI8(i8, u8) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -771,7 +770,7 @@ impl_primitive_instruction!(PushI8(i8) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI16(i16) {
+impl_primitive_instruction!(PushI16(i16, u16) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -782,7 +781,7 @@ impl_primitive_instruction!(PushI16(i16) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI32(i32) {
+impl_primitive_instruction!(PushI32(i32, u32) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -793,7 +792,7 @@ impl_primitive_instruction!(PushI32(i32) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushI64(i64) {
+impl_primitive_instruction!(PushI64(i64, u64) {
     accept_u8(u8),
     accept_u16(u16),
     accept_u32(u32),
@@ -804,17 +803,32 @@ impl_primitive_instruction!(PushI64(i64) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushF32(f32) {
+impl_primitive_instruction!(PushF16(WrappedF16, u16) {
     accept_f32(f32),
-});
-
-impl_primitive_instruction!(PushF64(f64) {
     accept_f64(f64),
 });
 
-impl_primitive_instruction!(PushBool(bool) {
-    accept_bool(bool),
+impl_primitive_instruction!(PushF32(WrappedF32, u32) {
+    accept_f32(f32),
+    accept_f64(f64),
 });
+
+impl_primitive_instruction!(PushF64(WrappedF64, u64) {
+    accept_f32(f32),
+    accept_f64(f64),
+});
+
+impl Instruction for PushBool {
+    fn accept_bool(
+        &self,
+        _structure: &Structure,
+        buffers: &mut Buffers,
+        val: bool,
+    ) -> Result<usize> {
+        buffers.u1[self.idx].push(val)?;
+        Ok(self.next)
+    }
+}
 
 macro_rules! dispatch_instruction {
     ($this:expr, $method:ident) => {
@@ -946,32 +960,26 @@ impl EventSink for Interpreter {
 }
 
 macro_rules! apply_null {
-    ($structure:expr, $buffers:expr, $validity:expr, $name:ident) => {
-        for &idx in &$structure.nulls[$validity].$name {
+    ($structure:expr, $buffers:expr, $null_definition:expr, $name:ident) => {
+        for &idx in &$structure.nulls[$null_definition].$name {
             $buffers.$name[idx].push(Default::default())?;
         }
     };
 }
 
-fn apply_null(structure: &Structure, buffers: &mut Buffers, validity: usize) -> Result<()> {
-    apply_null!(structure, buffers, validity, null);
-    apply_null!(structure, buffers, validity, bool);
-    apply_null!(structure, buffers, validity, u8);
-    apply_null!(structure, buffers, validity, u16);
-    apply_null!(structure, buffers, validity, u32);
-    apply_null!(structure, buffers, validity, u64);
-    apply_null!(structure, buffers, validity, i8);
-    apply_null!(structure, buffers, validity, i16);
-    apply_null!(structure, buffers, validity, i32);
-    apply_null!(structure, buffers, validity, i64);
-    apply_null!(structure, buffers, validity, f32);
-    apply_null!(structure, buffers, validity, f64);
-    apply_null!(structure, buffers, validity, utf8);
-    apply_null!(structure, buffers, validity, large_utf8);
-    apply_null!(structure, buffers, validity, validity);
+fn apply_null(structure: &Structure, buffers: &mut Buffers, null_definition: usize) -> Result<()> {
+    apply_null!(structure, buffers, null_definition, u0);
+    apply_null!(structure, buffers, null_definition, u1);
+    apply_null!(structure, buffers, null_definition, u8);
+    apply_null!(structure, buffers, null_definition, u16);
+    apply_null!(structure, buffers, null_definition, u32);
+    apply_null!(structure, buffers, null_definition, u64);
 
-    for &idx in &structure.nulls[validity].large_offsets {
-        buffers.large_offset[idx].push_current_items();
+    for &idx in &structure.nulls[null_definition].u32_offsets {
+        buffers.u32_offsets[idx].push_current_items();
+    }
+    for &idx in &structure.nulls[null_definition].u64_offsets {
+        buffers.u64_offsets[idx].push_current_items();
     }
 
     Ok(())

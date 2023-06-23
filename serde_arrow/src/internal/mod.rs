@@ -1,4 +1,5 @@
 pub mod bytecode;
+pub(crate) mod conversions;
 pub(crate) mod error;
 pub(crate) mod event;
 pub(crate) mod generic_sinks;

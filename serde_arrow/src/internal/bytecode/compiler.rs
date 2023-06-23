@@ -9,6 +9,8 @@ use crate::{
     Result,
 };
 
+use super::bit_set::BitSet;
+
 const UNSET_INSTR: usize = usize::MAX;
 
 pub fn compile_serialization(
@@ -70,291 +72,33 @@ pub enum DictionaryValue {
     LargeUtf8(usize),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Bytecode {
-    Panic(Panic),
-    ProgramEnd(ProgramEnd),
-    OuterSequenceStart(OuterSequenceStart),
-    OuterSequenceItem(OuterSequenceItem),
-    OuterSequenceEnd(OuterSequenceEnd),
-    OuterRecordStart(OuterRecordStart),
-    OuterRecordField(OuterRecordField),
-    OuterRecordEnd(OuterRecordEnd),
-    LargeListStart(LargeListStart),
-    LargeListItem(LargeListItem),
-    LargeListEnd(LargeListEnd),
-    ListStart(ListStart),
-    ListItem(ListItem),
-    ListEnd(ListEnd),
-    StructStart(StructStart),
-    StructField(StructField),
-    StructEnd(StructEnd),
-    MapStart(MapStart),
-    MapEnd(MapEnd),
-    MapItem(MapItem),
-    StructItem(StructItem),
-    TupleStructStart(TupleStructStart),
-    TupleStructItem(TupleStructItem),
-    TupleStructEnd(TupleStructEnd),
-    OptionMarker(OptionMarker),
-    Variant(Variant),
-    /// A pseudo instruction, used to fix jumps to union positions
-    UnionEnd(UnionEnd),
-    PushNull(PushNull),
-    PushU8(PushU8),
-    PushU16(PushU16),
-    PushU32(PushU32),
-    PushU64(PushU64),
-    PushI8(PushI8),
-    PushI16(PushI16),
-    PushI32(PushI32),
-    PushI64(PushI64),
-    PushF32(PushF32),
-    PushF64(PushF64),
-    PushBool(PushBool),
-    PushUtf8(PushUtf8),
-    PushLargeUtf8(PushLargeUtf8),
-    PushDate64FromNaiveStr(PushDate64FromNaiveStr),
-    PushDate64FromUtcStr(PushDate64FromUtcStr),
-    PushDictionary(PushDictionary),
-}
-
-macro_rules! define_check_instructions {
-    ($($name:ident,)*) => {
-        $(
-            #[derive(Debug, PartialEq, Clone)]
-            pub struct $name {
-                pub next: usize,
-            }
-        )*
-    };
-}
-
-define_check_instructions!(
-    ProgramEnd,
-    OuterSequenceStart,
-    OuterRecordStart,
-    LargeListStart,
-    ListStart,
-    MapStart,
-    TupleStructStart,
-    TupleStructItem,
-    TupleStructEnd,
-    UnionEnd,
-);
-
-macro_rules! define_primitive_instructions {
-    ($($name:ident,)*) => {
-        $(
-            #[derive(Debug, PartialEq, Clone)]
-            pub struct $name {
-                pub next: usize,
-                pub idx: usize,
-            }
-        )*
-    };
-}
-
-define_primitive_instructions!(
-    PushNull,
-    PushU8,
-    PushU16,
-    PushU32,
-    PushU64,
-    PushI8,
-    PushI16,
-    PushI32,
-    PushI64,
-    PushF32,
-    PushF64,
-    PushBool,
-    PushUtf8,
-    PushLargeUtf8,
-    PushDate64FromNaiveStr,
-    PushDate64FromUtcStr,
-);
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Panic {
-    next: usize,
-    message: String,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterSequenceItem {
-    pub next: usize,
-    pub list_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterSequenceEnd {
-    pub next: usize,
-    pub list_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterRecordField {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub field_name: String,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterRecordEnd {
-    pub next: usize,
-    pub struct_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct LargeListItem {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct LargeListEnd {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ListItem {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ListEnd {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructItem {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructStart {
-    pub next: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructField {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub field_name: String,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructEnd {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct MapItem {
-    pub next: usize,
-    pub map_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct MapEnd {
-    pub next: usize,
-    pub map_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OptionMarker {
-    pub self_pos: usize,
-    pub next: usize,
-    pub if_none: usize,
-    pub validity: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Variant {
-    pub next: usize,
-    pub union_idx: usize,
-    pub type_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct PushDictionary {
-    pub next: usize,
-    pub values: DictionaryValue,
-    pub indices: DictionaryIndex,
-}
-
-macro_rules! dispatch_bytecode {
+macro_rules! define_bytecode {
     (
-        $obj:expr,
-        $instr:ident => $block:expr
+        $(
+            $variant:ident {
+                $(
+                    $(#[doc = $doc:literal])?
+                    $field:ident: $ty:ty,
+                )*
+            },
+        )*
     ) => {
-        match $obj {
-            Bytecode::Panic($instr) => $block,
-            Bytecode::LargeListStart($instr) => $block,
-            Bytecode::LargeListItem($instr) => $block,
-            Bytecode::LargeListEnd($instr) => $block,
-            Bytecode::ListStart($instr) => $block,
-            Bytecode::ListItem($instr) => $block,
-            Bytecode::ListEnd($instr) => $block,
-            Bytecode::MapEnd($instr) => $block,
-            Bytecode::MapItem($instr) => $block,
-            Bytecode::MapStart($instr) => $block,
-            Bytecode::OptionMarker($instr) => $block,
-            Bytecode::OuterRecordEnd($instr) => $block,
-            Bytecode::OuterRecordField($instr) => $block,
-            Bytecode::OuterRecordStart($instr) => $block,
-            Bytecode::OuterSequenceEnd($instr) => $block,
-            Bytecode::OuterSequenceItem($instr) => $block,
-            Bytecode::OuterSequenceStart($instr) => $block,
-            Bytecode::ProgramEnd($instr) => $block,
-            Bytecode::StructEnd($instr) => $block,
-            Bytecode::StructField($instr) => $block,
-            Bytecode::StructItem($instr) => $block,
-            Bytecode::StructStart($instr) => $block,
-            Bytecode::TupleStructEnd($instr) => $block,
-            Bytecode::TupleStructItem($instr) => $block,
-            Bytecode::TupleStructStart($instr) => $block,
-            Bytecode::Variant($instr) => $block,
-            Bytecode::UnionEnd($instr) => $block,
-            Bytecode::PushNull($instr) => $block,
-            Bytecode::PushU8($instr) => $block,
-            Bytecode::PushU16($instr) => $block,
-            Bytecode::PushU32($instr) => $block,
-            Bytecode::PushU64($instr) => $block,
-            Bytecode::PushI8($instr) => $block,
-            Bytecode::PushI16($instr) => $block,
-            Bytecode::PushI32($instr) => $block,
-            Bytecode::PushI64($instr) => $block,
-            Bytecode::PushF32($instr) => $block,
-            Bytecode::PushF64($instr) => $block,
-            Bytecode::PushBool($instr) => $block,
-            Bytecode::PushUtf8($instr) => $block,
-            Bytecode::PushLargeUtf8($instr) => $block,
-            Bytecode::PushDate64FromNaiveStr($instr) => $block,
-            Bytecode::PushDate64FromUtcStr($instr) => $block,
-            Bytecode::PushDictionary($instr) => $block,
+        #[derive(Debug, PartialEq, Clone)]
+        pub enum Bytecode {
+            $($variant($variant),)*
         }
-    };
-}
 
-pub(crate) use dispatch_bytecode;
+        $(
+            #[derive(Debug, PartialEq, Clone)]
+            pub struct $variant {
+                pub next: usize,
+                $(
+                    $(#[doc = $doc])?
+                    pub $field: $ty,
+                )*
+            }
+        )*
 
-macro_rules! implement_into_bytecode {
-    ($($variant:ident,)*) => {
         $(
             impl From<$variant> for Bytecode {
                 fn from(val: $variant) -> Bytecode {
@@ -362,54 +106,157 @@ macro_rules! implement_into_bytecode {
                 }
             }
         )*
-    };
+
+        macro_rules! dispatch_bytecode {
+            ($obj:expr, $instr:ident => $block:expr) => {
+                match $obj {
+                    $(Bytecode::$variant($instr) => $block,)*
+                }
+            };
+        }
+
+        pub(crate) use dispatch_bytecode;
+    }
 }
 
-implement_into_bytecode!(
-    Panic,
-    LargeListStart,
-    LargeListItem,
-    LargeListEnd,
-    ListStart,
-    ListItem,
-    ListEnd,
-    MapEnd,
-    MapItem,
-    MapStart,
-    OptionMarker,
-    OuterRecordEnd,
-    OuterRecordField,
-    OuterRecordStart,
-    OuterSequenceEnd,
-    OuterSequenceItem,
-    OuterSequenceStart,
-    ProgramEnd,
-    StructEnd,
-    StructField,
-    StructItem,
-    StructStart,
-    TupleStructEnd,
-    TupleStructItem,
-    TupleStructStart,
-    Variant,
-    UnionEnd,
-    PushNull,
-    PushU8,
-    PushU16,
-    PushU32,
-    PushU64,
-    PushI8,
-    PushI16,
-    PushI32,
-    PushI64,
-    PushF32,
-    PushF64,
-    PushBool,
-    PushUtf8,
-    PushLargeUtf8,
-    PushDate64FromNaiveStr,
-    PushDate64FromUtcStr,
-    PushDictionary,
+#[rustfmt::skip]
+define_bytecode!(
+    Panic {
+        message: String,
+    },
+    ProgramEnd {},
+    OuterSequenceStart {},
+    OuterRecordStart {},
+    LargeListStart {},
+    ListStart {},
+    MapStart {},
+    TupleStructStart {},
+    TupleStructItem {},
+    TupleStructEnd {},
+    UnionEnd {},
+    PushNull {
+        idx: usize,
+    },
+    PushU8 {
+        idx: usize,
+    },
+    PushU16 {
+        idx: usize,
+    },
+    PushU32 {
+        idx: usize,
+    },
+    PushU64 {
+        idx: usize,
+    },
+    PushI8 {
+        idx: usize,
+    },
+    PushI16 {
+        idx: usize,
+    },
+    PushI32 {
+        idx: usize,
+    },
+    PushI64 {
+        idx: usize,
+    },
+    PushF16 {
+        idx: usize,
+    },
+    PushF32 {
+        idx: usize,
+    },
+    PushF64 {
+        idx: usize,
+    },
+    PushBool {
+        idx: usize,
+    },
+    PushDate64FromNaiveStr {
+        idx: usize,
+    },
+    PushDate64FromUtcStr {
+        idx: usize,
+    },
+    PushUtf8 {
+        buffer: usize,
+        offsets: usize,
+    },
+    PushLargeUtf8 {
+        buffer: usize,
+        offsets: usize,
+    },
+    OuterSequenceItem {
+        list_idx: usize,
+    },
+    OuterSequenceEnd {
+        list_idx: usize,
+    },
+    OuterRecordField {
+        struct_idx: usize,
+        field_name: String,
+    },
+    OuterRecordEnd {
+        struct_idx: usize,
+    },
+    LargeListItem {
+        list_idx: usize,
+        offsets: usize,
+    },
+    LargeListEnd {
+        list_idx: usize,
+        offsets: usize,
+    },
+    ListItem {
+        list_idx: usize,
+        offsets: usize,
+    },
+    ListEnd {
+        list_idx: usize,
+        offsets: usize,
+    },
+    StructItem {
+        struct_idx: usize,
+        seen: usize,
+    },
+    StructStart {
+        seen: usize,
+    },
+    StructField {
+        struct_idx: usize,
+        field_name: String,
+        field_idx: usize,
+        seen: usize,
+    },
+    StructEnd {
+        struct_idx: usize,
+        seen: usize,
+    },
+    MapItem {
+        map_idx: usize,
+        offsets: usize,
+    },
+    MapEnd {
+        map_idx: usize,
+        offsets: usize,
+    },
+    OptionMarker {
+        self_pos: usize,
+        if_none: usize,
+        /// The index of the relevant bit buffer on the buffers
+        validity: usize,
+        /// The index of the relevant null definition of the structure
+        null_definition: usize,
+    },
+    Variant {
+        union_idx: usize,
+        type_idx: usize,
+    },
+    PushDictionary {
+        values: DictionaryValue,
+        indices: DictionaryIndex,
+    },
 );
 
 impl Bytecode {
@@ -428,14 +275,23 @@ impl Bytecode {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct StructDefinition {
-    /// The jump target for the individual fields
-    pub fields: BTreeMap<String, usize>,
-    /// The validities of individual fields to fill missing fields with nulls
-    pub validities: BTreeMap<String, Option<usize>>,
+    /// The fields of this struct
+    pub fields: BTreeMap<String, FieldDefinition>,
     /// The jump target for an item
     pub item: usize,
     /// The jump target if a struct is closed
     pub r#return: usize,
+}
+
+/// Definition of a field inside a struct
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct FieldDefinition {
+    /// The index of this field in the overall struct
+    pub index: usize,
+    /// The jump target for the individual fields
+    pub jump: usize,
+    /// The null definition for this field
+    pub null_definition: Option<usize>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -462,22 +318,14 @@ pub struct UnionDefinition {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct NullDefinition {
-    pub null: Vec<usize>,
-    pub bool: Vec<usize>,
+    pub u0: Vec<usize>,
+    pub u1: Vec<usize>,
     pub u8: Vec<usize>,
     pub u16: Vec<usize>,
     pub u32: Vec<usize>,
     pub u64: Vec<usize>,
-    pub i8: Vec<usize>,
-    pub i16: Vec<usize>,
-    pub i32: Vec<usize>,
-    pub i64: Vec<usize>,
-    pub f32: Vec<usize>,
-    pub f64: Vec<usize>,
-    pub utf8: Vec<usize>,
-    pub large_utf8: Vec<usize>,
-    pub large_offsets: Vec<usize>,
-    pub validity: Vec<usize>,
+    pub u32_offsets: Vec<usize>,
+    pub u64_offsets: Vec<usize>,
 }
 
 impl NullDefinition {
@@ -486,92 +334,100 @@ impl NullDefinition {
             &ArrayMapping::Null {
                 buffer, validity, ..
             } => {
-                self.null.push(buffer);
-                self.validity.extend(validity);
+                self.u0.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Bool {
                 buffer, validity, ..
             } => {
-                self.bool.push(buffer);
-                self.validity.extend(validity);
+                self.u1.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U8 {
                 buffer, validity, ..
             } => {
                 self.u8.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U16 {
                 buffer, validity, ..
             } => {
                 self.u16.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U32 {
                 buffer, validity, ..
             } => {
                 self.u32.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::U64 {
                 buffer, validity, ..
             } => {
                 self.u64.push(buffer);
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I8 {
                 buffer, validity, ..
             } => {
-                self.i8.push(buffer);
-                self.validity.extend(validity);
+                self.u8.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I16 {
                 buffer, validity, ..
             } => {
-                self.i16.push(buffer);
-                self.validity.extend(validity);
+                self.u16.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I32 {
                 buffer, validity, ..
             } => {
-                self.i32.push(buffer);
-                self.validity.extend(validity);
+                self.u32.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::I64 {
                 buffer, validity, ..
             } => {
-                self.i64.push(buffer);
-                self.validity.extend(validity);
+                self.u64.push(buffer);
+                self.u1.extend(validity);
+            }
+            &ArrayMapping::F16 {
+                buffer, validity, ..
+            } => {
+                self.u16.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::F32 {
                 buffer, validity, ..
             } => {
-                self.f32.push(buffer);
-                self.validity.extend(validity);
+                self.u32.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::F64 {
                 buffer, validity, ..
             } => {
-                self.f64.push(buffer);
-                self.validity.extend(validity);
+                self.u64.push(buffer);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Utf8 {
-                buffer, validity, ..
+                offsets, validity, ..
             } => {
-                self.utf8.push(buffer);
-                self.validity.extend(validity);
+                // NOTE: an empty string contains no data
+                self.u32_offsets.push(offsets);
+                self.u1.extend(validity);
             }
             &ArrayMapping::LargeUtf8 {
-                buffer, validity, ..
+                offsets, validity, ..
             } => {
-                self.large_utf8.push(buffer);
-                self.validity.extend(validity);
+                // NOTE: an empty string contains no data
+                self.u64_offsets.push(offsets);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Date64 {
                 buffer, validity, ..
             } => {
-                self.i64.push(buffer);
-                self.validity.extend(validity);
+                self.u64.push(buffer);
+                self.u1.extend(validity);
             }
             ArrayMapping::Struct {
                 fields, validity, ..
@@ -579,21 +435,21 @@ impl NullDefinition {
                 for field in fields {
                     self.update_from_array_mapping(field)?;
                 }
-                self.validity.extend(validity.iter().copied());
+                self.u1.extend(validity.iter().copied());
             }
             &ArrayMapping::Map {
                 offsets, validity, ..
             } => {
                 // NOTE: the entries is not included
-                self.large_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u64_offsets.push(offsets);
+                self.u1.extend(validity);
             }
             &ArrayMapping::LargeList {
                 offsets, validity, ..
             } => {
                 // NOTE: the item is not included
-                self.large_offsets.push(offsets);
-                self.validity.extend(validity);
+                self.u64_offsets.push(offsets);
+                self.u1.extend(validity);
             }
             &ArrayMapping::Dictionary {
                 indices, validity, ..
@@ -603,12 +459,12 @@ impl NullDefinition {
                     DictionaryIndex::U16(idx) => self.u16.push(idx),
                     DictionaryIndex::U32(idx) => self.u32.push(idx),
                     DictionaryIndex::U64(idx) => self.u64.push(idx),
-                    DictionaryIndex::I8(idx) => self.i8.push(idx),
-                    DictionaryIndex::I16(idx) => self.i16.push(idx),
-                    DictionaryIndex::I32(idx) => self.i32.push(idx),
-                    DictionaryIndex::I64(idx) => self.i64.push(idx),
+                    DictionaryIndex::I8(idx) => self.u8.push(idx),
+                    DictionaryIndex::I16(idx) => self.u16.push(idx),
+                    DictionaryIndex::I32(idx) => self.u32.push(idx),
+                    DictionaryIndex::I64(idx) => self.u64.push(idx),
                 }
-                self.validity.extend(validity);
+                self.u1.extend(validity);
             }
             m => todo!("cannot update null definition from {m:?}"),
         }
@@ -616,20 +472,13 @@ impl NullDefinition {
     }
 
     pub fn sort_indices(&mut self) {
-        self.bool.sort();
+        self.u1.sort();
         self.u8.sort();
         self.u16.sort();
         self.u32.sort();
         self.u64.sort();
-        self.i8.sort();
-        self.i16.sort();
-        self.i32.sort();
-        self.i64.sort();
-        self.f32.sort();
-        self.f64.sort();
-        self.large_utf8.sort();
-        self.large_offsets.sort();
-        self.validity.sort();
+        self.u32_offsets.sort();
+        self.u64_offsets.sort();
     }
 }
 
@@ -686,6 +535,11 @@ pub enum ArrayMapping {
         buffer: usize,
         validity: Option<usize>,
     },
+    F16 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
     F32 {
         field: GenericField,
         buffer: usize,
@@ -699,11 +553,13 @@ pub enum ArrayMapping {
     Utf8 {
         field: GenericField,
         buffer: usize,
+        offsets: usize,
         validity: Option<usize>,
     },
     LargeUtf8 {
         field: GenericField,
         buffer: usize,
+        offsets: usize,
         validity: Option<usize>,
     },
     Date64 {
@@ -748,34 +604,6 @@ pub enum ArrayMapping {
     },
 }
 
-impl ArrayMapping {
-    pub fn get_validity(&self) -> Option<usize> {
-        match self {
-            &Self::Null { validity, .. } => validity,
-            &Self::Bool { validity, .. } => validity,
-            &Self::U8 { validity, .. } => validity,
-            &Self::U16 { validity, .. } => validity,
-            &Self::U32 { validity, .. } => validity,
-            &Self::U64 { validity, .. } => validity,
-            &Self::I8 { validity, .. } => validity,
-            &Self::I16 { validity, .. } => validity,
-            &Self::I32 { validity, .. } => validity,
-            &Self::I64 { validity, .. } => validity,
-            &Self::F32 { validity, .. } => validity,
-            &Self::F64 { validity, .. } => validity,
-            &Self::Utf8 { validity, .. } => validity,
-            &Self::LargeUtf8 { validity, .. } => validity,
-            &Self::Date64 { validity, .. } => validity,
-            &Self::List { validity, .. } => validity,
-            &Self::Dictionary { validity, .. } => validity,
-            &Self::LargeList { validity, .. } => validity,
-            &Self::Struct { validity, .. } => validity,
-            &Self::Map { validity, .. } => validity,
-            Self::Union { .. } => None,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Program {
     pub(crate) options: CompilationOptions,
@@ -799,25 +627,25 @@ pub struct Structure {
 /// See [Buffers][super::interpreter::Buffers] for details
 #[derive(Debug, Default, Clone)]
 pub struct BufferCounts {
-    pub(crate) num_null: usize,
-    pub(crate) num_bool: usize,
+    /// number of 0-bit buffers (counts)
+    pub(crate) num_u0: usize,
+    /// number of 1-bit buffers (bools)
+    pub(crate) num_u1: usize,
+    /// number of 8-bit buffers (u8, i8)
     pub(crate) num_u8: usize,
+    /// number of 16-bit buffers (u16, i16, f16)
     pub(crate) num_u16: usize,
+    /// number of 32-bit buffers (u32, i32, f32)
     pub(crate) num_u32: usize,
+    /// number of 64-bit buffers (u64, i64, f64)
     pub(crate) num_u64: usize,
-    pub(crate) num_i8: usize,
-    pub(crate) num_i16: usize,
-    pub(crate) num_i32: usize,
-    pub(crate) num_i64: usize,
-    pub(crate) num_f32: usize,
-    pub(crate) num_f64: usize,
-    pub(crate) num_utf8: usize,
-    pub(crate) num_large_utf8: usize,
-    pub(crate) num_validity: usize,
-    pub(crate) num_offsets: usize,
-    pub(crate) num_large_offsets: usize,
+    /// number of offsets encoded with 32 bits
+    pub(crate) num_u32_offsets: usize,
+    /// number of offsets encoded with 64 bits
+    pub(crate) num_u64_offsets: usize,
     pub(crate) num_dictionaries: usize,
     pub(crate) num_large_dictionaries: usize,
+    /// number of bit-sets to record seen / unseen fields
     pub(crate) num_seen: usize,
 }
 
@@ -866,18 +694,24 @@ impl Program {
             self.push_instr(OuterRecordStart { next: UNSET_INSTR });
         }
 
-        for field in fields {
+        for (field_idx, field) in fields.iter().enumerate() {
             if self.options.wrap_with_struct {
                 self.push_instr(OuterRecordField {
                     next: UNSET_INSTR,
                     struct_idx: 0,
                     field_name: field.name.to_string(),
                 });
-                self.structure.structs[0]
-                    .fields
-                    .insert(field.name.to_string(), self.structure.program.len());
+                self.structure.structs[0].fields.insert(
+                    field.name.to_string(),
+                    FieldDefinition {
+                        index: field_idx,
+                        jump: self.structure.program.len(),
+                        null_definition: None,
+                    },
+                );
             }
-            let f = self.compile_field(field)?;
+            let (f, _) = self.compile_field(field)?;
+
             self.structure.array_mapping.push(f);
         }
 
@@ -940,8 +774,11 @@ impl Program {
 
         let mut field_mapping = vec![];
 
-        for field in &field.children {
+        for (field_idx, field) in field.children.iter().enumerate() {
             if !is_tuple {
+                if field_idx >= BitSet::MAX {
+                    fail!("Structs can contain at most {} fields", BitSet::MAX);
+                }
                 if is_map {
                     self.push_instr(StructItem {
                         next: UNSET_INSTR,
@@ -956,20 +793,28 @@ impl Program {
                     next: UNSET_INSTR,
                     struct_idx,
                     field_name: field.name.to_string(),
+                    field_idx,
                     seen,
                 });
-                self.structure.structs[struct_idx]
-                    .fields
-                    .insert(field.name.to_string(), self.structure.program.len());
+                self.structure.structs[struct_idx].fields.insert(
+                    field.name.to_string(),
+                    FieldDefinition {
+                        index: field_idx,
+                        jump: self.structure.program.len(),
+                        null_definition: None,
+                    },
+                );
             } else {
                 self.push_instr(TupleStructItem { next: UNSET_INSTR });
             }
-            let f = self.compile_field(field)?;
+            let (f, null_definition) = self.compile_field(field)?;
 
             if !is_tuple {
-                self.structure.structs[struct_idx]
-                    .validities
-                    .insert(field.name.to_string(), f.get_validity());
+                let field_def = self.structure.structs[struct_idx]
+                    .fields
+                    .get_mut(&field.name)
+                    .ok_or_else(|| error!("compile error: could not read struct field"))?;
+                field_def.null_definition = null_definition;
             }
 
             field_mapping.push(f);
@@ -1008,7 +853,7 @@ impl Program {
             .ok_or_else(|| error!("invalid list: no child"))?;
 
         let list_idx = self.structure.lists.len();
-        let offsets = self.buffers.num_offsets.next_value();
+        let offsets = self.buffers.num_u32_offsets.next_value();
 
         self.structure.lists.push(ListDefinition::default());
         self.structure.lists[list_idx].offset = offsets;
@@ -1021,7 +866,7 @@ impl Program {
         });
         self.structure.lists[list_idx].item = self.structure.program.len();
 
-        let field_mapping = self.compile_field(item)?;
+        let (field_mapping, _) = self.compile_field(item)?;
 
         self.push_instr(ListEnd {
             next: UNSET_INSTR,
@@ -1053,7 +898,7 @@ impl Program {
             .ok_or_else(|| error!("invalid list: no child"))?;
 
         let list_idx = self.structure.large_lists.len();
-        let offsets = self.buffers.num_large_offsets.next_value();
+        let offsets = self.buffers.num_u64_offsets.next_value();
 
         self.structure.large_lists.push(ListDefinition::default());
         self.structure.large_lists[list_idx].offset = offsets;
@@ -1066,7 +911,7 @@ impl Program {
         });
         self.structure.large_lists[list_idx].item = self.structure.program.len();
 
-        let field_mapping = self.compile_field(item)?;
+        let (field_mapping, _) = self.compile_field(item)?;
 
         self.push_instr(LargeListEnd {
             next: UNSET_INSTR,
@@ -1098,7 +943,7 @@ impl Program {
         let union_idx = self.structure.unions.len();
         self.structure.unions.push(UnionDefinition::default());
 
-        let type_idx = self.buffers.num_i8.next_value();
+        let type_idx = self.buffers.num_u8.next_value();
 
         let mut fields = Vec::new();
         let mut child_last_instr = Vec::new();
@@ -1125,7 +970,8 @@ impl Program {
                 );
                 fields.push(self.compile_panic(message)?);
             } else {
-                fields.push(self.compile_field(child)?);
+                let (array_mapping, _) = self.compile_field(child)?;
+                fields.push(array_mapping);
             }
             child_last_instr.push(self.structure.program.len() - 1);
         }
@@ -1153,27 +999,33 @@ impl Program {
 
         let res = ArrayMapping::Null {
             field: GenericField::new("", GenericDataType::Null, true),
-            buffer: self.buffers.num_null,
+            buffer: self.buffers.num_u0,
             validity: None,
         };
 
-        self.buffers.num_null += 1;
+        self.buffers.num_u0 += 1;
         Ok(res)
     }
 
-    fn compile_field(&mut self, field: &GenericField) -> Result<ArrayMapping> {
-        let mut nullable_idx = None;
+    /// compile a single field and return the array mapping and optional null
+    /// definition index
+    ///
+    fn compile_field(&mut self, field: &GenericField) -> Result<(ArrayMapping, Option<usize>)> {
+        let mut option_marker_pos = None;
         let validity = if self.requires_null_check(field) {
-            let validity = self.buffers.num_validity.next_value();
+            let validity = self.buffers.num_u1.next_value();
+
+            let null_definition = self.structure.nulls.len();
             self.structure.nulls.push(NullDefinition::default());
 
             let self_pos = self.structure.program.len();
-            nullable_idx = Some(self_pos);
+            option_marker_pos = Some(self_pos);
             self.push_instr(OptionMarker {
                 self_pos,
                 next: UNSET_INSTR,
                 if_none: 0,
                 validity,
+                null_definition,
             });
 
             Some(validity)
@@ -1183,17 +1035,20 @@ impl Program {
 
         let array_mapping = self.compile_field_inner(field, validity)?;
 
-        if let Some(nullable_idx) = nullable_idx {
+        if let Some(option_marker_pos) = option_marker_pos {
             let current_program_len = self.structure.program.len();
-            let Bytecode::OptionMarker(instr) = &mut self.structure.program[nullable_idx] else {
+            let Bytecode::OptionMarker(instr) = &mut self.structure.program[option_marker_pos] else {
                 fail!("Internal error during compilation");
             };
             instr.if_none = current_program_len;
-            self.structure.nulls[instr.validity].update_from_array_mapping(&array_mapping)?;
-            self.structure.nulls[instr.validity].sort_indices();
-        }
+            self.structure.nulls[instr.null_definition]
+                .update_from_array_mapping(&array_mapping)?;
+            self.structure.nulls[instr.null_definition].sort_indices();
 
-        Ok(array_mapping)
+            Ok((array_mapping, Some(instr.null_definition)))
+        } else {
+            Ok((array_mapping, None))
+        }
     }
 
     fn requires_null_check(&self, field: &GenericField) -> bool {
@@ -1229,40 +1084,64 @@ impl Program {
         use GenericDataType as D;
 
         match field.data_type {
-            D::Null => compile_primtive!(self, field, validity, num_null, PushNull, Null),
-            D::Bool => compile_primtive!(self, field, validity, num_bool, PushBool, Bool),
+            D::Null => compile_primtive!(self, field, validity, num_u0, PushNull, Null),
+            D::Bool => compile_primtive!(self, field, validity, num_u1, PushBool, Bool),
             D::U8 => compile_primtive!(self, field, validity, num_u8, PushU8, U8),
             D::U16 => compile_primtive!(self, field, validity, num_u16, PushU16, U16),
             D::U32 => compile_primtive!(self, field, validity, num_u32, PushU32, U32),
             D::U64 => compile_primtive!(self, field, validity, num_u64, PushU64, U64),
-            D::I8 => compile_primtive!(self, field, validity, num_i8, PushI8, I8),
-            D::I16 => compile_primtive!(self, field, validity, num_i16, PushI16, I16),
-            D::I32 => compile_primtive!(self, field, validity, num_i32, PushI32, I32),
-            D::I64 => compile_primtive!(self, field, validity, num_i64, PushI64, I64),
-            D::F32 => compile_primtive!(self, field, validity, num_f32, PushF32, F32),
-            D::F64 => compile_primtive!(self, field, validity, num_f64, PushF64, F64),
-            D::Utf8 => compile_primtive!(self, field, validity, num_utf8, PushUtf8, Utf8),
-            D::LargeUtf8 => compile_primtive!(
-                self,
-                field,
-                validity,
-                num_large_utf8,
-                PushLargeUtf8,
-                LargeUtf8
-            ),
+            D::I8 => compile_primtive!(self, field, validity, num_u8, PushI8, I8),
+            D::I16 => compile_primtive!(self, field, validity, num_u16, PushI16, I16),
+            D::I32 => compile_primtive!(self, field, validity, num_u32, PushI32, I32),
+            D::I64 => compile_primtive!(self, field, validity, num_u64, PushI64, I64),
+            D::F16 => compile_primtive!(self, field, validity, num_u16, PushF16, F16),
+            D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
+            D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
+            D::Utf8 => {
+                let buffer = self.buffers.num_u8.next_value();
+                let offsets = self.buffers.num_u32_offsets.next_value();
+
+                self.push_instr(PushUtf8 {
+                    next: UNSET_INSTR,
+                    buffer,
+                    offsets,
+                });
+                Ok(ArrayMapping::Utf8 {
+                    field: field.clone(),
+                    buffer,
+                    offsets,
+                    validity,
+                })
+            }
+            D::LargeUtf8 => {
+                let buffer = self.buffers.num_u8.next_value();
+                let offsets = self.buffers.num_u64_offsets.next_value();
+
+                self.push_instr(PushLargeUtf8 {
+                    next: UNSET_INSTR,
+                    buffer,
+                    offsets,
+                });
+                Ok(ArrayMapping::LargeUtf8 {
+                    field: field.clone(),
+                    buffer,
+                    offsets,
+                    validity,
+                })
+            }
             D::Date64 => match field.strategy.as_ref() {
                 Some(Strategy::NaiveStrAsDate64) => compile_primtive!(
                     self,
                     field,
                     validity,
-                    num_i64,
+                    num_u64,
                     PushDate64FromNaiveStr,
                     Date64
                 ),
                 Some(Strategy::UtcStrAsDate64) => {
-                    compile_primtive!(self, field, validity, num_i64, PushDate64FromUtcStr, Date64)
+                    compile_primtive!(self, field, validity, num_u64, PushDate64FromUtcStr, Date64)
                 }
-                None => compile_primtive!(self, field, validity, num_i64, PushI64, Date64),
+                None => compile_primtive!(self, field, validity, num_u64, PushI64, Date64),
                 Some(strategy) => fail!("Cannot compile Date64 with strategy {strategy}"),
             },
             D::Dictionary => self.compile_dictionary(field, validity),
@@ -1271,7 +1150,6 @@ impl Program {
             D::LargeList => self.compile_large_list(field, validity),
             D::Union => self.compile_union(field, validity),
             D::Map => self.compile_map(field, validity),
-            dt => fail!("cannot compile {dt}: not implemented"),
         }
     }
 }
@@ -1293,10 +1171,10 @@ impl Program {
             D::U16 => I::U16(self.buffers.num_u16.next_value()),
             D::U32 => I::U32(self.buffers.num_u32.next_value()),
             D::U64 => I::U64(self.buffers.num_u64.next_value()),
-            D::I8 => I::I8(self.buffers.num_i8.next_value()),
-            D::I16 => I::I16(self.buffers.num_i16.next_value()),
-            D::I32 => I::I32(self.buffers.num_i32.next_value()),
-            D::I64 => I::I64(self.buffers.num_i64.next_value()),
+            D::I8 => I::I8(self.buffers.num_u8.next_value()),
+            D::I16 => I::I16(self.buffers.num_u16.next_value()),
+            D::I32 => I::I32(self.buffers.num_u32.next_value()),
+            D::I64 => I::I64(self.buffers.num_u64.next_value()),
             dt => fail!("cannot compile dictionary with indices of type {dt}"),
         };
 
@@ -1342,7 +1220,7 @@ impl Program {
         };
 
         let map_idx = self.structure.maps.len();
-        let offsets = self.buffers.num_offsets.next_value();
+        let offsets = self.buffers.num_u32_offsets.next_value();
 
         self.structure.maps.push(MapDefinition::default());
 
@@ -1354,8 +1232,8 @@ impl Program {
         });
         self.structure.maps[map_idx].key = self.structure.program.len();
 
-        let keys_mapping = self.compile_field(keys)?;
-        let values_mapping = self.compile_field(values)?;
+        let (keys_mapping, _) = self.compile_field(keys)?;
+        let (values_mapping, _) = self.compile_field(values)?;
 
         self.push_instr(MapEnd {
             next: UNSET_INSTR,
@@ -1459,8 +1337,8 @@ impl Program {
 
     fn validate_structs(&self) -> Result<()> {
         for (struct_idx, r#struct) in self.structure.structs.iter().enumerate() {
-            for (name, address) in &r#struct.fields {
-                let field_instr = self.instruction_before(*address);
+            for (name, field_def) in &r#struct.fields {
+                let field_instr = self.instruction_before(field_def.jump);
                 let is_valid = if let Some(Bytecode::StructField(instr)) = field_instr {
                     instr.struct_idx == struct_idx && instr.field_name == *name
                 } else if let Some(Bytecode::OuterRecordField(instr)) = field_instr {
@@ -1487,8 +1365,8 @@ impl Program {
                 fail!("invalid struct definition ({struct_idx}): return jumps to invalid target");
             }
 
-            for (name, address) in &r#struct.fields {
-                if !self.structure.program[*address].is_allowed_jump_target() {
+            for (name, field_def) in &r#struct.fields {
+                if !self.structure.program[field_def.jump].is_allowed_jump_target() {
                     fail!("invalid struct definition ({struct_idx}): field jump {name} to invalid target");
                 }
             }
@@ -1503,10 +1381,10 @@ impl Program {
 
     fn validate_nulls(&self) -> Result<()> {
         for (idx, null) in self.structure.nulls.iter().enumerate() {
-            if null.null.iter().any(|&idx| idx >= self.buffers.num_null) {
+            if null.u0.iter().any(|&idx| idx >= self.buffers.num_u0) {
                 fail!("invalid null definition {idx}: null out of bounds {null:?}");
             }
-            if null.bool.iter().any(|&idx| idx >= self.buffers.num_bool) {
+            if null.u1.iter().any(|&idx| idx >= self.buffers.num_u1) {
                 fail!("invalid null definition {idx}: bool out of bounds {null:?}");
             }
             if null.u8.iter().any(|&idx| idx >= self.buffers.num_u8) {
@@ -1520,41 +1398,6 @@ impl Program {
             }
             if null.u64.iter().any(|&idx| idx >= self.buffers.num_u64) {
                 fail!("invalid null definition {idx}: u64 out of bounds {null:?}");
-            }
-            if null.i8.iter().any(|&idx| idx >= self.buffers.num_i8) {
-                fail!("invalid null definition {idx}: i8 out of bounds {null:?}");
-            }
-            if null.i16.iter().any(|&idx| idx >= self.buffers.num_i16) {
-                fail!("invalid null definition {idx}: i16 out of bounds {null:?}");
-            }
-            if null.i32.iter().any(|&idx| idx >= self.buffers.num_i32) {
-                fail!("invalid null definition {idx}: i32 out of bounds {null:?}");
-            }
-            if null.i64.iter().any(|&idx| idx >= self.buffers.num_i64) {
-                fail!("invalid null definition {idx}: i64 out of bounds {null:?}");
-            }
-            if null.f32.iter().any(|&idx| idx >= self.buffers.num_f32) {
-                fail!("invalid null definition {idx}: f32 out of bounds {null:?}");
-            }
-            if null.f64.iter().any(|&idx| idx >= self.buffers.num_f64) {
-                fail!("invalid null definition {idx}: f64 out of bounds {null:?}");
-            }
-            if null.utf8.iter().any(|&idx| idx >= self.buffers.num_utf8) {
-                fail!("invalid null definition {idx}: u8 out of bounds {null:?}");
-            }
-            if null
-                .large_utf8
-                .iter()
-                .any(|&idx| idx >= self.buffers.num_large_utf8)
-            {
-                fail!("invalid null definition {idx}: large_u8 out of bounds {null:?}");
-            }
-            if null
-                .validity
-                .iter()
-                .any(|&idx| idx >= self.buffers.num_validity)
-            {
-                fail!("invalid null definition {idx}: validity out of bounds {null:?}");
             }
         }
         Ok(())
@@ -1624,7 +1467,7 @@ macro_rules! validate_array_mapping_primitive {
                 );
             }
             if let &Some(validity) = validity {
-                if validity >= $this.buffers.num_validity {
+                if validity >= $this.buffers.num_u1 {
                     fail!(
                         "invalid array mapping {path}: validity out of bounds ({array_mapping:?})",
                         path=$path,
@@ -1641,21 +1484,17 @@ impl Program {
         use ArrayMapping::*;
         match mapping {
             // TODO: add the remaining array mappings
-            Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_bool),
+            Bool { .. } => validate_array_mapping_primitive!(self, path, mapping, Bool, num_u1),
             U8 { .. } => validate_array_mapping_primitive!(self, path, mapping, U8, num_u8),
             U16 { .. } => validate_array_mapping_primitive!(self, path, mapping, U16, num_u16),
             U32 { .. } => validate_array_mapping_primitive!(self, path, mapping, U32, num_u32),
             U64 { .. } => validate_array_mapping_primitive!(self, path, mapping, U64, num_u64),
-            I8 { .. } => validate_array_mapping_primitive!(self, path, mapping, I8, num_i8),
-            I16 { .. } => validate_array_mapping_primitive!(self, path, mapping, I16, num_i16),
-            I32 { .. } => validate_array_mapping_primitive!(self, path, mapping, I32, num_i32),
-            I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_i64),
-            F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_f32),
-            F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_f64),
-            Utf8 { .. } => validate_array_mapping_primitive!(self, path, mapping, Utf8, num_utf8),
-            LargeUtf8 { .. } => {
-                validate_array_mapping_primitive!(self, path, mapping, LargeUtf8, num_large_utf8)
-            }
+            I8 { .. } => validate_array_mapping_primitive!(self, path, mapping, I8, num_u8),
+            I16 { .. } => validate_array_mapping_primitive!(self, path, mapping, I16, num_u16),
+            I32 { .. } => validate_array_mapping_primitive!(self, path, mapping, I32, num_u32),
+            I64 { .. } => validate_array_mapping_primitive!(self, path, mapping, I64, num_u64),
+            F32 { .. } => validate_array_mapping_primitive!(self, path, mapping, F32, num_u32),
+            F64 { .. } => validate_array_mapping_primitive!(self, path, mapping, F64, num_u64),
             _ => {}
         }
         Ok(())

@@ -173,6 +173,11 @@ pub mod _impl {
                     };
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
+
+                    #[cfg(not(feature = "arrow-35"))]
+                    pub use $arrow_array::types::ArrowPrimitiveType;
+                    #[cfg(feature = "arrow-35")]
+                    pub use $arrow_array::ArrowPrimitiveType;
                 }
                 pub mod ffi {
                     pub use $arrow_data::ffi::FFI_ArrowArray;

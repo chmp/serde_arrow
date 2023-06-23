@@ -9,6 +9,7 @@ use crate::_impl::arrow2::{
     buffer::Buffer,
     datatypes::{DataType, Field},
     offset::OffsetsBuffer,
+    types::f16,
 };
 
 use crate::internal::{
@@ -17,6 +18,7 @@ use crate::internal::{
         interpreter::Buffers,
         Interpreter,
     },
+    conversions::ToBytes,
     error::Result,
 };
 
@@ -33,20 +35,20 @@ impl Interpreter {
 }
 
 macro_rules! build_array_primitive {
-    ($buffers:expr, $array:ident, $variant:ident, $buffer:expr, $validity:expr) => {{
+    ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
         let validity = build_validity($buffers, $validity);
-        let array =
-            PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer.buffer), validity)?;
+        let array = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), validity)?;
         Ok(Box::new(array))
     }};
 }
 
 macro_rules! build_dictionary_from_indices {
-    ($buffers:expr, $array:ident, $variant:ident, $buffer:expr, $data_type:expr, $values:expr, $validity:expr) => {{
+    ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $data_type:expr, $values:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
-        let indices =
-            PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer.buffer), $validity)?;
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
+        let indices = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), $validity)?;
 
         Ok(Box::new(DictionaryArray::try_new(
             $data_type, indices, $values,
@@ -58,58 +60,73 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
     use ArrayMapping as M;
     match mapping {
         M::Null { buffer, .. } => {
-            let buffer = std::mem::take(&mut buffers.null[*buffer]);
+            let buffer = std::mem::take(&mut buffers.u0[*buffer]);
             Ok(Box::new(NullArray::new(DataType::Null, buffer.len())))
         }
         M::Bool {
             buffer, validity, ..
         } => {
-            let buffer = std::mem::take(&mut buffers.bool[*buffer]);
+            let buffer = std::mem::take(&mut buffers.u1[*buffer]);
             let buffer = Bitmap::from_u8_vec(buffer.buffer, buffer.len);
-            let validity = validity.map(|val| std::mem::take(&mut buffers.validity[val]));
+            let validity = validity.map(|val| std::mem::take(&mut buffers.u1[val]));
             let validity = validity.map(|val| Bitmap::from_u8_vec(val.buffer, val.len));
             let array = BooleanArray::try_new(DataType::Boolean, buffer, validity)?;
             Ok(Box::new(array))
         }
         M::U8 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, u8, UInt8, *buffer, *validity),
+        } => build_array_primitive!(buffers, u8, u8, UInt8, *buffer, *validity),
         M::U16 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, u16, UInt16, *buffer, *validity),
+        } => build_array_primitive!(buffers, u16, u16, UInt16, *buffer, *validity),
         M::U32 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, u32, UInt32, *buffer, *validity),
+        } => build_array_primitive!(buffers, u32, u32, UInt32, *buffer, *validity),
         M::U64 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, u64, UInt64, *buffer, *validity),
+        } => build_array_primitive!(buffers, u64, u64, UInt64, *buffer, *validity),
         M::I8 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, i8, Int8, *buffer, *validity),
+        } => build_array_primitive!(buffers, i8, u8, Int8, *buffer, *validity),
         M::I16 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, i16, Int16, *buffer, *validity),
+        } => build_array_primitive!(buffers, i16, u16, Int16, *buffer, *validity),
         M::I32 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, i32, Int32, *buffer, *validity),
+        } => build_array_primitive!(buffers, i32, u32, Int32, *buffer, *validity),
         M::I64 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, i64, Int64, *buffer, *validity),
+        } => build_array_primitive!(buffers, i64, u64, Int64, *buffer, *validity),
         M::F32 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, f32, Float32, *buffer, *validity),
+        } => build_array_primitive!(buffers, f32, u32, Float32, *buffer, *validity),
+        M::F16 {
+            buffer, validity, ..
+        } => {
+            let buffer = std::mem::take(&mut buffers.u16[*buffer]);
+            let buffer: Vec<f16> = buffer.buffer.into_iter().map(f16::from_bits).collect();
+            let validity = build_validity(buffers, *validity);
+            let array = PrimitiveArray::try_new(DataType::Float16, Buffer::from(buffer), validity)?;
+            Ok(Box::new(array))
+        }
         M::F64 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, f64, Float64, *buffer, *validity),
+        } => build_array_primitive!(buffers, f64, u64, Float64, *buffer, *validity),
         M::Date64 {
             buffer, validity, ..
-        } => build_array_primitive!(buffers, i64, Date64, *buffer, *validity),
+        } => build_array_primitive!(buffers, i64, u64, Date64, *buffer, *validity),
         M::Utf8 {
-            buffer, validity, ..
-        } => build_array_utf8(buffers, *buffer, *validity),
+            buffer,
+            offsets,
+            validity,
+            ..
+        } => build_array_utf8(buffers, *buffer, *offsets, *validity),
         M::LargeUtf8 {
-            buffer, validity, ..
-        } => build_array_large_utf8(buffers, *buffer, *validity),
+            buffer,
+            offsets,
+            validity,
+            ..
+        } => build_array_large_utf8(buffers, *buffer, *offsets, *validity),
         M::Dictionary {
             field,
             dictionary,
@@ -143,28 +160,28 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
 
             match indices {
                 I::U8(indices) => build_dictionary_from_indices!(
-                    buffers, u8, UInt8, *indices, data_type, values, validity
+                    buffers, u8, u8, UInt8, *indices, data_type, values, validity
                 ),
                 I::U16(indices) => build_dictionary_from_indices!(
-                    buffers, u16, UInt16, *indices, data_type, values, validity
+                    buffers, u16, u16, UInt16, *indices, data_type, values, validity
                 ),
                 I::U32(indices) => build_dictionary_from_indices!(
-                    buffers, u32, UInt32, *indices, data_type, values, validity
+                    buffers, u32, u32, UInt32, *indices, data_type, values, validity
                 ),
                 I::U64(indices) => build_dictionary_from_indices!(
-                    buffers, u64, UInt64, *indices, data_type, values, validity
+                    buffers, u64, u64, UInt64, *indices, data_type, values, validity
                 ),
                 I::I8(indices) => build_dictionary_from_indices!(
-                    buffers, i8, Int8, *indices, data_type, values, validity
+                    buffers, i8, u8, Int8, *indices, data_type, values, validity
                 ),
                 I::I16(indices) => build_dictionary_from_indices!(
-                    buffers, i16, Int16, *indices, data_type, values, validity
+                    buffers, i16, u16, Int16, *indices, data_type, values, validity
                 ),
                 I::I32(indices) => build_dictionary_from_indices!(
-                    buffers, i32, Int32, *indices, data_type, values, validity
+                    buffers, i32, u32, Int32, *indices, data_type, values, validity
                 ),
                 I::I64(indices) => build_dictionary_from_indices!(
-                    buffers, i64, Int64, *indices, data_type, values, validity
+                    buffers, i64, u64, Int64, *indices, data_type, values, validity
                 ),
             }
         }
@@ -192,7 +209,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let values = build_array(buffers, item)?;
             let validity = build_validity(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             Ok(Box::new(ListArray::try_new(
@@ -208,7 +225,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let values = build_array(buffers, item)?;
             let validity = build_validity(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.large_offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             Ok(Box::new(ListArray::try_new(
@@ -220,14 +237,15 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             fields,
             types,
         } => {
-            let types = std::mem::take(&mut buffers.i8[*types]);
+            let types = std::mem::take(&mut buffers.u8[*types]);
+            let types: Vec<i8> = ToBytes::from_bytes_vec(types.buffer);
 
             let mut current_offset = vec![0; fields.len()];
             let mut offsets = Vec::new();
 
             let data_type = Field::try_from(field)?.data_type;
 
-            for &t in &types.buffer {
+            for &t in &types {
                 offsets.push(current_offset[t as usize]);
                 current_offset[t as usize] += 1;
             }
@@ -237,7 +255,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
                 children.push(build_array(buffers, child)?);
             }
 
-            let types = Buffer::from(types.buffer);
+            let types = Buffer::from(types);
             let offsets = Buffer::from(offsets);
 
             Ok(Box::new(UnionArray::try_new(
@@ -256,7 +274,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let entries = build_array(buffers, entries)?;
             let data_type = Field::try_from(field)?.data_type;
 
-            let offsets = std::mem::take(&mut buffers.offset[*offsets]);
+            let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
             let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
 
             let validity = build_validity(buffers, *validity);
@@ -271,15 +289,17 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
 fn build_array_utf8(
     buffers: &mut Buffers,
     buffer_idx: usize,
+    offsets_idx: usize,
     validity_idx: Option<usize>,
 ) -> Result<Box<dyn Array>> {
-    let buffer = std::mem::take(&mut buffers.utf8[buffer_idx]);
+    let data = std::mem::take(&mut buffers.u8[buffer_idx]);
+    let offsets = std::mem::take(&mut buffers.u32_offsets[offsets_idx]);
     let validity = build_validity(buffers, validity_idx);
 
     Ok(Box::new(Utf8Array::new(
         DataType::Utf8,
-        OffsetsBuffer::try_from(buffer.offsets.offsets)?,
-        Buffer::from(buffer.data),
+        OffsetsBuffer::try_from(offsets.offsets)?,
+        Buffer::from(data.buffer),
         validity,
     )))
 }
@@ -287,20 +307,22 @@ fn build_array_utf8(
 fn build_array_large_utf8(
     buffers: &mut Buffers,
     buffer_idx: usize,
+    offsets_idx: usize,
     validity_idx: Option<usize>,
 ) -> Result<Box<dyn Array>> {
-    let buffer = std::mem::take(&mut buffers.large_utf8[buffer_idx]);
+    let data = std::mem::take(&mut buffers.u8[buffer_idx]);
+    let offsets = std::mem::take(&mut buffers.u64_offsets[offsets_idx]);
     let validity = build_validity(buffers, validity_idx);
 
     Ok(Box::new(Utf8Array::new(
         DataType::LargeUtf8,
-        OffsetsBuffer::try_from(buffer.offsets.offsets)?,
-        Buffer::from(buffer.data),
+        OffsetsBuffer::try_from(offsets.offsets)?,
+        Buffer::from(data.buffer),
         validity,
     )))
 }
 
 fn build_validity(buffers: &mut Buffers, validity_idx: Option<usize>) -> Option<Bitmap> {
-    let val = std::mem::take(&mut buffers.validity[validity_idx?]);
+    let val = std::mem::take(&mut buffers.u1[validity_idx?]);
     Some(Bitmap::from_u8_vec(val.buffer, val.len))
 }
