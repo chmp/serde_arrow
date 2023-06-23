@@ -1,3 +1,7 @@
+use half::f16;
+
+use crate::Error;
+
 pub trait ToBytes: Sized {
     type Bytes;
 
@@ -130,5 +134,90 @@ impl ToBytes for f64 {
 
     fn from_bytes(val: Self::Bytes) -> Self {
         Self::from_ne_bytes(val.to_ne_bytes())
+    }
+}
+
+pub struct WrappedF32(f32);
+
+impl From<f32> for WrappedF32 {
+    fn from(value: f32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<f64> for WrappedF32 {
+    fn from(value: f64) -> Self {
+        // TODO: handle failures
+        Self(value as f32)
+    }
+}
+
+impl ToBytes for WrappedF32 {
+    type Bytes = u32;
+
+    fn from_bytes(val: Self::Bytes) -> Self {
+        Self(f32::from_ne_bytes(val.to_ne_bytes()))
+    }
+
+    fn to_bytes(self) -> Self::Bytes {
+        Self::Bytes::from_ne_bytes(self.0.to_ne_bytes())
+    }
+}
+
+pub struct WrappedF64(f64);
+
+impl From<f32> for WrappedF64 {
+    fn from(value: f32) -> Self {
+        Self(value as f64)
+    }
+}
+
+impl From<f64> for WrappedF64 {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl ToBytes for WrappedF64 {
+    type Bytes = u64;
+
+    fn from_bytes(val: Self::Bytes) -> Self {
+        Self(f64::from_ne_bytes(val.to_ne_bytes()))
+    }
+
+    fn to_bytes(self) -> Self::Bytes {
+        Self::Bytes::from_ne_bytes(self.0.to_ne_bytes())
+    }
+}
+
+pub struct WrappedF16(f16);
+
+impl TryFrom<f32> for WrappedF16 {
+    type Error = Error;
+
+    fn try_from(value: f32) -> Result<Self, Self::Error> {
+        // TODO: handle failures: f16 silently falls back to +/- inf
+        Ok(WrappedF16(f16::from_f32(value)))
+    }
+}
+
+impl TryFrom<f64> for WrappedF16 {
+    type Error = Error;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        // TODO: handle failures: f16 silently falls back to +/- inf
+        Ok(WrappedF16(f16::from_f64(value)))
+    }
+}
+
+impl ToBytes for WrappedF16 {
+    type Bytes = u16;
+
+    fn from_bytes(val: Self::Bytes) -> Self {
+        WrappedF16(f16::from_bits(val))
+    }
+
+    fn to_bytes(self) -> Self::Bytes {
+        self.0.to_bits()
     }
 }

@@ -12,14 +12,14 @@ use crate::internal::{
             TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
         },
     },
-    conversions::ToBytes,
+    conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
     error::{self, fail, Result},
     sink::macros,
     sink::EventSink,
 };
 
-use super::bit_set::BitSet;
 use super::compiler::Panic;
+use super::{bit_set::BitSet, compiler::PushF16};
 
 pub struct Interpreter {
     pub program_counter: usize,
@@ -803,11 +803,18 @@ impl_primitive_instruction!(PushI64(i64, u64) {
     accept_i64(i64),
 });
 
-impl_primitive_instruction!(PushF32(f32, u32) {
+impl_primitive_instruction!(PushF16(WrappedF16, u16) {
     accept_f32(f32),
+    accept_f64(f64),
 });
 
-impl_primitive_instruction!(PushF64(f64, u64) {
+impl_primitive_instruction!(PushF32(WrappedF32, u32) {
+    accept_f32(f32),
+    accept_f64(f64),
+});
+
+impl_primitive_instruction!(PushF64(WrappedF64, u64) {
+    accept_f32(f32),
     accept_f64(f64),
 });
 

@@ -13,7 +13,7 @@ impl BitSet {
             panic!("Attempt to insert an index beyond the maximum");
         }
         let flag = 1 << field_idx;
-        self.0 = self.0 | flag;
+        self.0 |= flag;
     }
 
     pub fn contains(&self, field_idx: usize) -> bool {

@@ -9,6 +9,7 @@ use crate::_impl::arrow2::{
     buffer::Buffer,
     datatypes::{DataType, Field},
     offset::OffsetsBuffer,
+    types::f16,
 };
 
 use crate::internal::{
@@ -99,6 +100,15 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
         M::F32 {
             buffer, validity, ..
         } => build_array_primitive!(buffers, f32, u32, Float32, *buffer, *validity),
+        M::F16 {
+            buffer, validity, ..
+        } => {
+            let buffer = std::mem::take(&mut buffers.u16[*buffer]);
+            let buffer: Vec<f16> = buffer.buffer.into_iter().map(f16::from_bits).collect();
+            let validity = build_validity(buffers, *validity);
+            let array = PrimitiveArray::try_new(DataType::Float16, Buffer::from(buffer), validity)?;
+            Ok(Box::new(array))
+        }
         M::F64 {
             buffer, validity, ..
         } => build_array_primitive!(buffers, f64, u64, Float64, *buffer, *validity),

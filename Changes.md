@@ -3,8 +3,9 @@
 ## development
 
 - Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
-- Fix missing fields in structs, e.g., missing keys with maps serialized as
-  structs
+- Fix bytecode serialization of structs with missing fields, e.g., missing keys
+  with maps serialized as structs
+- Implement bytecode serialization of f16
 
 ## 0.7.1
 

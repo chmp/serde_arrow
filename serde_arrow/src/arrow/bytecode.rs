@@ -14,7 +14,7 @@ use crate::internal::{
 use crate::_impl::arrow::{
     array::{make_array, Array, ArrayData, ArrayRef, NullArray},
     buffer::{Buffer, ScalarBuffer},
-    datatypes::{ArrowNativeType, DataType, Field},
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type},
 };
 
 impl Interpreter {
@@ -74,6 +74,18 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
         &M::I64 {
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Int64, i64, u64, buffer, validity),
+        &M::F16 {
+            buffer, validity, ..
+        } => {
+            let data = std::mem::take(&mut buffers.u16[buffer]);
+            let data = data
+                .buffer
+                .into_iter()
+                .map(<Float16Type as ArrowPrimitiveType>::Native::from_bits)
+                .collect::<Vec<_>>();
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
+            build_array_data_primitive(DataType::Float16, data.len(), data, validity)
+        }
         &M::F32 {
             buffer, validity, ..
         } => build_primitive_array_data!(buffers, Float32, f32, u32, buffer, validity),

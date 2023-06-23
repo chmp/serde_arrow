@@ -111,6 +111,7 @@ pub enum Bytecode {
     PushI16(PushI16),
     PushI32(PushI32),
     PushI64(PushI64),
+    PushF16(PushF16),
     PushF32(PushF32),
     PushF64(PushF64),
     PushBool(PushBool),
@@ -167,6 +168,7 @@ define_primitive_instructions!(
     PushI16,
     PushI32,
     PushI64,
+    PushF16,
     PushF32,
     PushF64,
     PushBool,
@@ -357,6 +359,7 @@ macro_rules! dispatch_bytecode {
             Bytecode::PushI16($instr) => $block,
             Bytecode::PushI32($instr) => $block,
             Bytecode::PushI64($instr) => $block,
+            Bytecode::PushF16($instr) => $block,
             Bytecode::PushF32($instr) => $block,
             Bytecode::PushF64($instr) => $block,
             Bytecode::PushBool($instr) => $block,
@@ -421,6 +424,7 @@ implement_into_bytecode!(
     PushI32,
     PushI64,
     PushF32,
+    PushF16,
     PushF64,
     PushBool,
     PushUtf8,
@@ -562,6 +566,12 @@ impl NullDefinition {
                 self.u64.push(buffer);
                 self.u1.extend(validity);
             }
+            &ArrayMapping::F16 {
+                buffer, validity, ..
+            } => {
+                self.u16.push(buffer);
+                self.u1.extend(validity);
+            }
             &ArrayMapping::F32 {
                 buffer, validity, ..
             } => {
@@ -696,6 +706,11 @@ pub enum ArrayMapping {
         validity: Option<usize>,
     },
     I64 {
+        field: GenericField,
+        buffer: usize,
+        validity: Option<usize>,
+    },
+    F16 {
         field: GenericField,
         buffer: usize,
         validity: Option<usize>,
@@ -936,7 +951,7 @@ impl Program {
 
         for (field_idx, field) in field.children.iter().enumerate() {
             if !is_tuple {
-                if field_idx >= (BitSet::MAX as usize) {
+                if field_idx >= BitSet::MAX {
                     fail!("Structs can contain at most {} fields", BitSet::MAX);
                 }
                 if is_map {
@@ -1254,6 +1269,7 @@ impl Program {
             D::I16 => compile_primtive!(self, field, validity, num_u16, PushI16, I16),
             D::I32 => compile_primtive!(self, field, validity, num_u32, PushI32, I32),
             D::I64 => compile_primtive!(self, field, validity, num_u64, PushI64, I64),
+            D::F16 => compile_primtive!(self, field, validity, num_u16, PushF16, F16),
             D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
             D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
             D::Utf8 => {
@@ -1309,7 +1325,6 @@ impl Program {
             D::LargeList => self.compile_large_list(field, validity),
             D::Union => self.compile_union(field, validity),
             D::Map => self.compile_map(field, validity),
-            dt => fail!("cannot compile {dt}: not implemented"),
         }
     }
 }
