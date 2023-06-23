@@ -27,7 +27,6 @@ use self::{
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
-    serialize_with_bytecode: false,
     debug_print_program: false,
     _prevent_construction: (),
 });
@@ -35,9 +34,6 @@ pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
 /// The crate settings can be configured by calling [configure]
 #[derive(Default, Clone)]
 pub struct Configuration {
-    /// If `true`, use the exerperimental bytecode serializer
-    ///
-    pub serialize_with_bytecode: bool,
     pub(crate) debug_print_program: bool,
     /// A non public member to allow extending the member list as non-breaking
     /// changes
@@ -53,11 +49,8 @@ pub struct Configuration {
 ///
 /// ```
 /// serde_arrow::experimental::configure(|c| {
-///     c.serialize_with_bytecode = true;
+///     // set attributes on c
 /// });
-/// # serde_arrow::experimental::configure(|c| {
-/// #     c.serialize_with_bytecode = false;
-/// # });
 /// ```
 pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
     let mut guard = CONFIGURATION.write().unwrap();
@@ -97,54 +90,6 @@ where
 
     let field = tracer.into_inner().to_field(name)?;
     Ok(field)
-}
-
-pub fn serialize_into_arrays<T, Arrow>(
-    fields: &[GenericField],
-    items: &T,
-) -> Result<Vec<Arrow::Output>>
-where
-    T: Serialize + ?Sized,
-    Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
-    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
-{
-    let builder = generic_sinks::build_struct_array_builder::<Arrow>(String::from("$"), fields)?;
-    let mut builder = StripOuterSequenceSink::new(builder);
-
-    serialize_into_sink(&mut builder, items)?;
-    builder.into_inner().build_arrays()
-}
-
-pub fn serialize_into_array<T, Arrow>(field: &GenericField, items: &T) -> Result<Arrow::Output>
-where
-    T: Serialize + ?Sized,
-    Arrow: PrimitiveBuilders,
-    NaiveDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UtcDateTimeStrBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    TupleStructBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    StructArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    UnionArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    DictionaryUtf8ArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    MapArrayBuilder<DynamicArrayBuilder<Arrow::Output>>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i32>: ArrayBuilder<Arrow::Output>,
-    ListArrayBuilder<DynamicArrayBuilder<Arrow::Output>, i64>: ArrayBuilder<Arrow::Output>,
-    UnknownVariantBuilder: ArrayBuilder<Arrow::Output>,
-{
-    let builder = generic_sinks::build_array_builder::<Arrow>(String::from("$"), field)?;
-    let builder = StripOuterSequenceSink::new(builder);
-    let mut builder = builder;
-
-    serialize_into_sink(&mut builder, items)?;
-    builder.into_inner().build_array()
 }
 
 pub struct GenericArrayBuilder<Arrow: PrimitiveBuilders> {

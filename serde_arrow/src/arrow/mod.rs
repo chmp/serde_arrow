@@ -25,7 +25,6 @@ use crate::{
         error::{fail, Result},
         schema::{GenericField, TracingOptions},
         sink::serialize_into_sink,
-        CONFIGURATION,
     },
 };
 
@@ -141,21 +140,10 @@ where
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
 
-    let current_config = CONFIGURATION.read().unwrap().clone();
-
-    if !current_config.serialize_with_bytecode {
-        let arrays = internal::serialize_into_arrays::<T, ArrowPrimitiveBuilders>(&fields, items)?;
-        Ok(arrays.into_iter().map(array::make_array).collect())
-    } else {
-        let program = compile_serialization(&fields, CompilationOptions::default())?;
-        if current_config.debug_print_program {
-            println!("Program: {program:?}");
-        }
-
-        let mut interpreter = Interpreter::new(program);
-        serialize_into_sink(&mut interpreter, items)?;
-        interpreter.build_arrow_arrays()
-    }
+    let program = compile_serialization(&fields, CompilationOptions::default())?;
+    let mut interpreter = Interpreter::new(program);
+    serialize_into_sink(&mut interpreter, items)?;
+    interpreter.build_arrow_arrays()
 }
 
 /// Serialize an object that represents a single array into an array
@@ -181,28 +169,17 @@ where
 {
     let field: GenericField = field.try_into()?;
 
-    let current_config = CONFIGURATION.read().unwrap().clone();
-
-    if !current_config.serialize_with_bytecode {
-        let data = internal::serialize_into_array::<T, ArrowPrimitiveBuilders>(&field, items)?;
-        Ok(array::make_array(data))
-    } else {
-        let program = compile_serialization(
-            std::slice::from_ref(&field),
-            CompilationOptions::default().wrap_with_struct(false),
-        )?;
-        if current_config.debug_print_program {
-            println!("Program: {program:?}");
-        }
-
-        let mut interpreter = Interpreter::new(program);
-        serialize_into_sink(&mut interpreter, items)?;
-        let arrays = interpreter.build_arrow_arrays()?;
-        if arrays.len() != 1 {
-            fail!("Invalid number of result arrays: {}", arrays.len());
-        }
-        Ok(arrays.into_iter().next().unwrap())
+    let program = compile_serialization(
+        std::slice::from_ref(&field),
+        CompilationOptions::default().wrap_with_struct(false),
+    )?;
+    let mut interpreter = Interpreter::new(program);
+    serialize_into_sink(&mut interpreter, items)?;
+    let arrays = interpreter.build_arrow_arrays()?;
+    if arrays.len() != 1 {
+        fail!("Invalid number of result arrays: {}", arrays.len());
     }
+    Ok(arrays.into_iter().next().unwrap())
 }
 
 /// Build a single array item by item

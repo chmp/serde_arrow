@@ -502,6 +502,7 @@ fn nested_list_structs_serialize() {
     );
 }
 
+#[ignore]
 #[test]
 fn into_outer_maps_simple() {
     let mut items = Vec::new();

@@ -173,7 +173,6 @@ test_error!(
         }
 
         let _guard = ScopedConfiguration::configure(|c| {
-            c.serialize_with_bytecode = true;
             c.debug_print_program = true;
         });
 

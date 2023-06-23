@@ -83,10 +83,6 @@ fn main() -> Result<(), PanicOnError> {
         experimental::find_field_mut, serialize_into_arrays, serialize_into_fields,
     };
 
-    serde_arrow::experimental::configure(|c| {
-        c.serialize_with_bytecode = true;
-    });
-
     let mut fields = serialize_into_fields(&examples, Default::default())?;
     *find_field_mut(&mut fields, "date64")? = Field::new("date64", DataType::Date64, false)
         .with_metadata(Strategy::NaiveStrAsDate64.into());

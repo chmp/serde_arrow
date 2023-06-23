@@ -4,6 +4,7 @@ use crate::{
     internal::{
         error::{error, fail},
         schema::{GenericDataType, GenericField},
+        CONFIGURATION,
     },
     schema::Strategy,
     Result,
@@ -19,6 +20,14 @@ pub fn compile_serialization(
 ) -> Result<Program> {
     let mut program = Program::new(options);
     program.compile(fields)?;
+
+    {
+        let current_config = CONFIGURATION.read().unwrap().clone();
+        if current_config.debug_print_program {
+            println!("Program: {program:?}");
+        }
+    }
+
     Ok(program)
 }
 

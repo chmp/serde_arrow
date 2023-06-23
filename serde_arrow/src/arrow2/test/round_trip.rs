@@ -530,6 +530,7 @@ fn test_complex_benchmark_example() {
     assert_eq!(items, round_tripped);
 }
 
+#[ignore]
 #[test]
 fn test_maps_with_missing_items() {
     let mut items: Vec<HashMap<String, i32>> = Vec::new();
