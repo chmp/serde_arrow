@@ -72,310 +72,33 @@ pub enum DictionaryValue {
     LargeUtf8(usize),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Bytecode {
-    Panic(Panic),
-    ProgramEnd(ProgramEnd),
-    OuterSequenceStart(OuterSequenceStart),
-    OuterSequenceItem(OuterSequenceItem),
-    OuterSequenceEnd(OuterSequenceEnd),
-    OuterRecordStart(OuterRecordStart),
-    OuterRecordField(OuterRecordField),
-    OuterRecordEnd(OuterRecordEnd),
-    LargeListStart(LargeListStart),
-    LargeListItem(LargeListItem),
-    LargeListEnd(LargeListEnd),
-    ListStart(ListStart),
-    ListItem(ListItem),
-    ListEnd(ListEnd),
-    StructStart(StructStart),
-    StructField(StructField),
-    StructEnd(StructEnd),
-    MapStart(MapStart),
-    MapEnd(MapEnd),
-    MapItem(MapItem),
-    StructItem(StructItem),
-    TupleStructStart(TupleStructStart),
-    TupleStructItem(TupleStructItem),
-    TupleStructEnd(TupleStructEnd),
-    OptionMarker(OptionMarker),
-    Variant(Variant),
-    /// A pseudo instruction, used to fix jumps to union positions
-    UnionEnd(UnionEnd),
-    PushNull(PushNull),
-    PushU8(PushU8),
-    PushU16(PushU16),
-    PushU32(PushU32),
-    PushU64(PushU64),
-    PushI8(PushI8),
-    PushI16(PushI16),
-    PushI32(PushI32),
-    PushI64(PushI64),
-    PushF16(PushF16),
-    PushF32(PushF32),
-    PushF64(PushF64),
-    PushBool(PushBool),
-    PushUtf8(PushUtf8),
-    PushLargeUtf8(PushLargeUtf8),
-    PushDate64FromNaiveStr(PushDate64FromNaiveStr),
-    PushDate64FromUtcStr(PushDate64FromUtcStr),
-    PushDictionary(PushDictionary),
-}
-
-macro_rules! define_check_instructions {
-    ($($name:ident,)*) => {
-        $(
-            #[derive(Debug, PartialEq, Clone)]
-            pub struct $name {
-                pub next: usize,
-            }
-        )*
-    };
-}
-
-define_check_instructions!(
-    ProgramEnd,
-    OuterSequenceStart,
-    OuterRecordStart,
-    LargeListStart,
-    ListStart,
-    MapStart,
-    TupleStructStart,
-    TupleStructItem,
-    TupleStructEnd,
-    UnionEnd,
-);
-
-macro_rules! define_primitive_instructions {
-    ($($name:ident,)*) => {
-        $(
-            #[derive(Debug, PartialEq, Clone)]
-            pub struct $name {
-                pub next: usize,
-                pub idx: usize,
-            }
-        )*
-    };
-}
-
-define_primitive_instructions!(
-    PushNull,
-    PushU8,
-    PushU16,
-    PushU32,
-    PushU64,
-    PushI8,
-    PushI16,
-    PushI32,
-    PushI64,
-    PushF16,
-    PushF32,
-    PushF64,
-    PushBool,
-    PushDate64FromNaiveStr,
-    PushDate64FromUtcStr,
-);
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct PushUtf8 {
-    pub next: usize,
-    pub buffer: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct PushLargeUtf8 {
-    pub next: usize,
-    pub buffer: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Panic {
-    next: usize,
-    message: String,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterSequenceItem {
-    pub next: usize,
-    pub list_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterSequenceEnd {
-    pub next: usize,
-    pub list_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterRecordField {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub field_name: String,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OuterRecordEnd {
-    pub next: usize,
-    pub struct_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct LargeListItem {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct LargeListEnd {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ListItem {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ListEnd {
-    pub next: usize,
-    pub list_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructItem {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructStart {
-    pub next: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructField {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub field_name: String,
-    pub field_idx: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructEnd {
-    pub next: usize,
-    pub struct_idx: usize,
-    pub seen: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct MapItem {
-    pub next: usize,
-    pub map_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct MapEnd {
-    pub next: usize,
-    pub map_idx: usize,
-    pub offsets: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct OptionMarker {
-    pub self_pos: usize,
-    pub next: usize,
-    pub if_none: usize,
-    /// The index of the relevant bit buffer on the buffers
-    pub validity: usize,
-    /// The index of the relevant null definition of the structure
-    pub null_definition: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Variant {
-    pub next: usize,
-    pub union_idx: usize,
-    pub type_idx: usize,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct PushDictionary {
-    pub next: usize,
-    pub values: DictionaryValue,
-    pub indices: DictionaryIndex,
-}
-
-macro_rules! dispatch_bytecode {
+macro_rules! define_bytecode {
     (
-        $obj:expr,
-        $instr:ident => $block:expr
+        $(
+            $variant:ident {
+                $(
+                    $(#[doc = $doc:literal])?
+                    $field:ident: $ty:ty,
+                )*
+            },
+        )*
     ) => {
-        match $obj {
-            Bytecode::Panic($instr) => $block,
-            Bytecode::LargeListStart($instr) => $block,
-            Bytecode::LargeListItem($instr) => $block,
-            Bytecode::LargeListEnd($instr) => $block,
-            Bytecode::ListStart($instr) => $block,
-            Bytecode::ListItem($instr) => $block,
-            Bytecode::ListEnd($instr) => $block,
-            Bytecode::MapEnd($instr) => $block,
-            Bytecode::MapItem($instr) => $block,
-            Bytecode::MapStart($instr) => $block,
-            Bytecode::OptionMarker($instr) => $block,
-            Bytecode::OuterRecordEnd($instr) => $block,
-            Bytecode::OuterRecordField($instr) => $block,
-            Bytecode::OuterRecordStart($instr) => $block,
-            Bytecode::OuterSequenceEnd($instr) => $block,
-            Bytecode::OuterSequenceItem($instr) => $block,
-            Bytecode::OuterSequenceStart($instr) => $block,
-            Bytecode::ProgramEnd($instr) => $block,
-            Bytecode::StructEnd($instr) => $block,
-            Bytecode::StructField($instr) => $block,
-            Bytecode::StructItem($instr) => $block,
-            Bytecode::StructStart($instr) => $block,
-            Bytecode::TupleStructEnd($instr) => $block,
-            Bytecode::TupleStructItem($instr) => $block,
-            Bytecode::TupleStructStart($instr) => $block,
-            Bytecode::Variant($instr) => $block,
-            Bytecode::UnionEnd($instr) => $block,
-            Bytecode::PushNull($instr) => $block,
-            Bytecode::PushU8($instr) => $block,
-            Bytecode::PushU16($instr) => $block,
-            Bytecode::PushU32($instr) => $block,
-            Bytecode::PushU64($instr) => $block,
-            Bytecode::PushI8($instr) => $block,
-            Bytecode::PushI16($instr) => $block,
-            Bytecode::PushI32($instr) => $block,
-            Bytecode::PushI64($instr) => $block,
-            Bytecode::PushF16($instr) => $block,
-            Bytecode::PushF32($instr) => $block,
-            Bytecode::PushF64($instr) => $block,
-            Bytecode::PushBool($instr) => $block,
-            Bytecode::PushUtf8($instr) => $block,
-            Bytecode::PushLargeUtf8($instr) => $block,
-            Bytecode::PushDate64FromNaiveStr($instr) => $block,
-            Bytecode::PushDate64FromUtcStr($instr) => $block,
-            Bytecode::PushDictionary($instr) => $block,
+        #[derive(Debug, PartialEq, Clone)]
+        pub enum Bytecode {
+            $($variant($variant),)*
         }
-    };
-}
 
-pub(crate) use dispatch_bytecode;
+        $(
+            #[derive(Debug, PartialEq, Clone)]
+            pub struct $variant {
+                pub next: usize,
+                $(
+                    $(#[doc = $doc])?
+                    pub $field: $ty,
+                )*
+            }
+        )*
 
-macro_rules! implement_into_bytecode {
-    ($($variant:ident,)*) => {
         $(
             impl From<$variant> for Bytecode {
                 fn from(val: $variant) -> Bytecode {
@@ -383,55 +106,157 @@ macro_rules! implement_into_bytecode {
                 }
             }
         )*
-    };
+
+        macro_rules! dispatch_bytecode {
+            ($obj:expr, $instr:ident => $block:expr) => {
+                match $obj {
+                    $(Bytecode::$variant($instr) => $block,)*
+                }
+            };
+        }
+
+        pub(crate) use dispatch_bytecode;
+    }
 }
 
-implement_into_bytecode!(
-    Panic,
-    LargeListStart,
-    LargeListItem,
-    LargeListEnd,
-    ListStart,
-    ListItem,
-    ListEnd,
-    MapEnd,
-    MapItem,
-    MapStart,
-    OptionMarker,
-    OuterRecordEnd,
-    OuterRecordField,
-    OuterRecordStart,
-    OuterSequenceEnd,
-    OuterSequenceItem,
-    OuterSequenceStart,
-    ProgramEnd,
-    StructEnd,
-    StructField,
-    StructItem,
-    StructStart,
-    TupleStructEnd,
-    TupleStructItem,
-    TupleStructStart,
-    Variant,
-    UnionEnd,
-    PushNull,
-    PushU8,
-    PushU16,
-    PushU32,
-    PushU64,
-    PushI8,
-    PushI16,
-    PushI32,
-    PushI64,
-    PushF32,
-    PushF16,
-    PushF64,
-    PushBool,
-    PushUtf8,
-    PushLargeUtf8,
-    PushDate64FromNaiveStr,
-    PushDate64FromUtcStr,
-    PushDictionary,
+#[rustfmt::skip]
+define_bytecode!(
+    Panic {
+        message: String,
+    },
+    ProgramEnd {},
+    OuterSequenceStart {},
+    OuterRecordStart {},
+    LargeListStart {},
+    ListStart {},
+    MapStart {},
+    TupleStructStart {},
+    TupleStructItem {},
+    TupleStructEnd {},
+    UnionEnd {},
+    PushNull {
+        idx: usize,
+    },
+    PushU8 {
+        idx: usize,
+    },
+    PushU16 {
+        idx: usize,
+    },
+    PushU32 {
+        idx: usize,
+    },
+    PushU64 {
+        idx: usize,
+    },
+    PushI8 {
+        idx: usize,
+    },
+    PushI16 {
+        idx: usize,
+    },
+    PushI32 {
+        idx: usize,
+    },
+    PushI64 {
+        idx: usize,
+    },
+    PushF16 {
+        idx: usize,
+    },
+    PushF32 {
+        idx: usize,
+    },
+    PushF64 {
+        idx: usize,
+    },
+    PushBool {
+        idx: usize,
+    },
+    PushDate64FromNaiveStr {
+        idx: usize,
+    },
+    PushDate64FromUtcStr {
+        idx: usize,
+    },
+    PushUtf8 {
+        buffer: usize,
+        offsets: usize,
+    },
+    PushLargeUtf8 {
+        buffer: usize,
+        offsets: usize,
+    },
+    OuterSequenceItem {
+        list_idx: usize,
+    },
+    OuterSequenceEnd {
+        list_idx: usize,
+    },
+    OuterRecordField {
+        struct_idx: usize,
+        field_name: String,
+    },
+    OuterRecordEnd {
+        struct_idx: usize,
+    },
+    LargeListItem {
+        list_idx: usize,
+        offsets: usize,
+    },
+    LargeListEnd {
+        list_idx: usize,
+        offsets: usize,
+    },
+    ListItem {
+        list_idx: usize,
+        offsets: usize,
+    },
+    ListEnd {
+        list_idx: usize,
+        offsets: usize,
+    },
+    StructItem {
+        struct_idx: usize,
+        seen: usize,
+    },
+    StructStart {
+        seen: usize,
+    },
+    StructField {
+        struct_idx: usize,
+        field_name: String,
+        field_idx: usize,
+        seen: usize,
+    },
+    StructEnd {
+        struct_idx: usize,
+        seen: usize,
+    },
+    MapItem {
+        map_idx: usize,
+        offsets: usize,
+    },
+    MapEnd {
+        map_idx: usize,
+        offsets: usize,
+    },
+    OptionMarker {
+        self_pos: usize,
+        if_none: usize,
+        /// The index of the relevant bit buffer on the buffers
+        validity: usize,
+        /// The index of the relevant null definition of the structure
+        null_definition: usize,
+    },
+    Variant {
+        union_idx: usize,
+        type_idx: usize,
+    },
+    PushDictionary {
+        values: DictionaryValue,
+        indices: DictionaryIndex,
+    },
 );
 
 impl Bytecode {
