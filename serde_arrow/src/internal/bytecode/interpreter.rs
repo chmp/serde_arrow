@@ -699,124 +699,120 @@ impl Instruction for PushNull {
 
 macro_rules! impl_primitive_instruction {
     (
-        $name:ident($val_type:ty, $builder:ident) {
-            $($func:ident($ty:ty),)*
-        }
+        $(
+            $name:ident($val_type:ty, $builder:ident) {
+                $($func:ident($ty:ty),)*
+            },
+        )*
     ) => {
-        impl Instruction for $name {
-            $(
-                fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
-                    let val = <$val_type>::try_from(val)?;
-                    buffers.$builder[self.idx].push(ToBytes::to_bytes(val))?;
-                    Ok(self.next)
-                }
-            )*
-        }
+        $(
+            impl Instruction for $name {
+                $(
+                    fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
+                        let val = <$val_type>::try_from(val)?;
+                        buffers.$builder[self.idx].push(ToBytes::to_bytes(val))?;
+                        Ok(self.next)
+                    }
+                )*
+            }
+        )*
     };
 }
 
-impl_primitive_instruction!(PushU8(u8, u8) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushU16(u16, u16) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushU32(u32, u32) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushU64(u64, u64) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushI8(i8, u8) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushI16(i16, u16) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushI32(i32, u32) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushI64(i64, u64) {
-    accept_u8(u8),
-    accept_u16(u16),
-    accept_u32(u32),
-    accept_u64(u64),
-    accept_i8(i8),
-    accept_i16(i16),
-    accept_i32(i32),
-    accept_i64(i64),
-});
-
-impl_primitive_instruction!(PushF16(WrappedF16, u16) {
-    accept_f32(f32),
-    accept_f64(f64),
-});
-
-impl_primitive_instruction!(PushF32(WrappedF32, u32) {
-    accept_f32(f32),
-    accept_f64(f64),
-});
-
-impl_primitive_instruction!(PushF64(WrappedF64, u64) {
-    accept_f32(f32),
-    accept_f64(f64),
-});
+impl_primitive_instruction!(
+    PushU8(u8, u8) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushU16(u16, u16) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushU32(u32, u32) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushU64(u64, u64) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushI8(i8, u8) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushI16(i16, u16) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushI32(i32, u32) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushI64(i64, u64) {
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
+    },
+    PushF16(WrappedF16, u16) {
+        accept_f32(f32),
+        accept_f64(f64),
+    },
+    PushF32(WrappedF32, u32) {
+        accept_f32(f32),
+        accept_f64(f64),
+    },
+    PushF64(WrappedF64, u64) {
+        accept_f32(f32),
+        accept_f64(f64),
+    },
+);
 
 impl Instruction for PushBool {
     fn accept_bool(
@@ -955,6 +951,17 @@ impl EventSink for Interpreter {
     }
 
     fn finish(&mut self) -> Result<()> {
+        if !matches!(
+            self.structure.program[self.program_counter],
+            Bytecode::ProgramEnd(_)
+        ) {
+            fail!(
+                "finished interpreting before program end, current instruction: {instr:?}",
+                instr = self.structure.program[self.program_counter],
+            )
+        }
+        self.program_counter = 0;
+
         Ok(())
     }
 }
