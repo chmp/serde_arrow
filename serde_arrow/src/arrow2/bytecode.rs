@@ -49,7 +49,7 @@ impl Interpreter {
 macro_rules! build_array_primitive {
     ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
-        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer);
         let validity = build_validity($buffers, $validity);
         let array = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), validity)?;
         Ok(Box::new(array))
@@ -59,7 +59,7 @@ macro_rules! build_array_primitive {
 macro_rules! build_dictionary_from_indices {
     ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $data_type:expr, $values:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
-        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer);
         let indices = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), $validity)?;
 
         Ok(Box::new(DictionaryArray::try_new(
@@ -116,7 +116,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             buffer, validity, ..
         } => {
             let buffer = std::mem::take(&mut buffers.u16[*buffer]);
-            let buffer: Vec<f16> = buffer.buffer.into_iter().map(f16::from_bits).collect();
+            let buffer: Vec<f16> = buffer.into_iter().map(f16::from_bits).collect();
             let validity = build_validity(buffers, *validity);
             let array = PrimitiveArray::try_new(DataType::Float16, Buffer::from(buffer), validity)?;
             Ok(Box::new(array))
@@ -250,7 +250,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             types,
         } => {
             let types = std::mem::take(&mut buffers.u8[*types]);
-            let types: Vec<i8> = ToBytes::from_bytes_vec(types.buffer);
+            let types: Vec<i8> = ToBytes::from_bytes_vec(types);
 
             let mut current_offset = vec![0; fields.len()];
             let mut offsets = Vec::new();
@@ -311,7 +311,7 @@ fn build_array_utf8(
     Ok(Box::new(Utf8Array::new(
         DataType::Utf8,
         OffsetsBuffer::try_from(offsets.offsets)?,
-        Buffer::from(data.buffer),
+        Buffer::from(data),
         validity,
     )))
 }
@@ -329,7 +329,7 @@ fn build_array_large_utf8(
     Ok(Box::new(Utf8Array::new(
         DataType::LargeUtf8,
         OffsetsBuffer::try_from(offsets.offsets)?,
-        Buffer::from(data.buffer),
+        Buffer::from(data),
         validity,
     )))
 }

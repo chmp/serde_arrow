@@ -15,7 +15,7 @@ impl BitBuffer {
         self.len
     }
 
-    pub fn push(&mut self, value: bool) -> Result<()> {
+    pub fn push(&mut self, value: bool) {
         while self.len >= self.capacity {
             for _ in 0..64 {
                 self.buffer.push(0);
@@ -27,7 +27,6 @@ impl BitBuffer {
             self.buffer[self.len / 8] |= 1 << (self.len % 8);
         }
         self.len += 1;
-        Ok(())
     }
 
     pub fn clear(&mut self) {
@@ -46,37 +45,8 @@ impl NullBuffer {
         self.len
     }
 
-    pub fn push(&mut self, _: ()) -> Result<()> {
+    pub fn push(&mut self, _: ()) {
         self.len += 1;
-        Ok(())
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-// TODO: is this needed?
-#[derive(Debug, Clone)]
-pub struct PrimitiveBuffer<T> {
-    pub(crate) buffer: Vec<T>,
-}
-
-impl<T> std::default::Default for PrimitiveBuffer<T> {
-    fn default() -> Self {
-        Self { buffer: Vec::new() }
-    }
-}
-
-impl<T> PrimitiveBuffer<T> {
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.buffer.len()
-    }
-
-    pub fn push(&mut self, val: T) -> Result<()> {
-        self.buffer.push(val);
-        Ok(())
     }
 
     pub fn clear(&mut self) {

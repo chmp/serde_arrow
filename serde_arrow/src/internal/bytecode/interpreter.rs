@@ -1,21 +1,24 @@
-use crate::internal::{
-    bytecode::{
-        buffers::{BitBuffer, NullBuffer, OffsetBuilder, PrimitiveBuffer, StringDictonary},
-        compiler::{
-            dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
-            LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
-            MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField, OuterRecordStart,
-            OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program, ProgramEnd, PushBool,
-            PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary, PushF32, PushF64,
-            PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64,
-            PushU8, PushUtf8, StructEnd, StructField, StructItem, StructStart, Structure,
-            TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
+use crate::{
+    base::Event,
+    internal::{
+        bytecode::{
+            buffers::{BitBuffer, NullBuffer, OffsetBuilder, StringDictonary},
+            compiler::{
+                dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
+                LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
+                MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField,
+                OuterRecordStart, OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Program,
+                ProgramEnd, PushBool, PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary,
+                PushF32, PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull,
+                PushU16, PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem,
+                StructStart, Structure, TupleStructEnd, TupleStructItem, TupleStructStart,
+                UnionEnd, Variant,
+            },
         },
+        conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
+        error::{self, fail, Result},
+        sink::EventSink,
     },
-    conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
-    error::{self, fail, Result},
-    sink::macros,
-    sink::EventSink,
 };
 
 use super::compiler::Panic;
@@ -34,13 +37,13 @@ pub struct Buffers {
     /// 1 bit buffers
     pub u1: Vec<BitBuffer>,
     /// 8 bit buffers
-    pub u8: Vec<PrimitiveBuffer<u8>>,
+    pub u8: Vec<Vec<u8>>,
     /// 16 bit buffers
-    pub u16: Vec<PrimitiveBuffer<u16>>,
+    pub u16: Vec<Vec<u16>>,
     /// 32 bit buffers
-    pub u32: Vec<PrimitiveBuffer<u32>>,
+    pub u32: Vec<Vec<u32>>,
     /// 64 bit buffers
-    pub u64: Vec<PrimitiveBuffer<u64>>,
+    pub u64: Vec<Vec<u64>>,
     /// 32 bit offsets
     pub u32_offsets: Vec<OffsetBuilder<i32>>,
     /// 64 bit offsets
@@ -546,7 +549,7 @@ impl Instruction for TupleStructEnd {
 macro_rules! option_marker_handle {
     ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
         fn $name(&self, structure: &Structure, buffers: &mut Buffers $(, $($val: $ty),*)?) -> Result<usize> {
-            buffers.u1[self.validity].push(true)?;
+            buffers.u1[self.validity].push(true);
             dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
         }
     };
@@ -603,7 +606,7 @@ impl Instruction for Variant {
         idx: usize,
     ) -> Result<usize> {
         if idx < structure.unions[self.union_idx].fields.len() {
-            buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes())?;
+            buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes());
             Ok(structure.unions[self.union_idx].fields[idx])
         } else {
             fail!(
@@ -625,9 +628,7 @@ impl Instruction for PushUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.u8[self.buffer]
-            .buffer
-            .extend(val.as_bytes().iter().copied());
+        buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
         buffers.u32_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
@@ -640,9 +641,7 @@ impl Instruction for PushLargeUtf8 {
         buffers: &mut Buffers,
         val: &str,
     ) -> Result<usize> {
-        buffers.u8[self.buffer]
-            .buffer
-            .extend(val.as_bytes().iter().copied());
+        buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
         buffers.u64_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
@@ -657,7 +656,7 @@ impl Instruction for PushDate64FromNaiveStr {
     ) -> Result<usize> {
         use chrono::NaiveDateTime;
 
-        buffers.u64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes())?;
+        buffers.u64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes());
         Ok(self.next)
     }
 }
@@ -671,7 +670,7 @@ impl Instruction for PushDate64FromUtcStr {
     ) -> Result<usize> {
         use chrono::{DateTime, Utc};
 
-        buffers.u64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes())?;
+        buffers.u64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes());
         Ok(self.next)
     }
 }
@@ -689,14 +688,14 @@ impl Instruction for PushDictionary {
             V::LargeUtf8(dict) => buffers.large_dictionaries[dict].push(val)?,
         };
         match self.indices {
-            I::U8(indices) => buffers.u8[indices].push(idx.try_into()?)?,
-            I::U16(indices) => buffers.u16[indices].push(idx.try_into()?)?,
-            I::U32(indices) => buffers.u32[indices].push(idx.try_into()?)?,
-            I::U64(indices) => buffers.u64[indices].push(idx.try_into()?)?,
-            I::I8(indices) => buffers.u8[indices].push(i8::try_from(idx)?.to_bytes())?,
-            I::I16(indices) => buffers.u16[indices].push(u16::try_from(idx)?.to_bytes())?,
-            I::I32(indices) => buffers.u32[indices].push(u32::try_from(idx)?.to_bytes())?,
-            I::I64(indices) => buffers.u64[indices].push(u64::try_from(idx)?.to_bytes())?,
+            I::U8(indices) => buffers.u8[indices].push(idx.try_into()?),
+            I::U16(indices) => buffers.u16[indices].push(idx.try_into()?),
+            I::U32(indices) => buffers.u32[indices].push(idx.try_into()?),
+            I::U64(indices) => buffers.u64[indices].push(idx.try_into()?),
+            I::I8(indices) => buffers.u8[indices].push(i8::try_from(idx)?.to_bytes()),
+            I::I16(indices) => buffers.u16[indices].push(u16::try_from(idx)?.to_bytes()),
+            I::I32(indices) => buffers.u32[indices].push(u32::try_from(idx)?.to_bytes()),
+            I::I64(indices) => buffers.u64[indices].push(u64::try_from(idx)?.to_bytes()),
         }
         Ok(self.next)
     }
@@ -706,7 +705,7 @@ impl Instruction for UnionEnd {}
 
 impl Instruction for PushNull {
     fn accept_null(&self, _structure: &Structure, buffers: &mut Buffers) -> Result<usize> {
-        buffers.u0[self.idx].push(())?;
+        buffers.u0[self.idx].push(());
         Ok(self.next)
     }
 }
@@ -724,7 +723,7 @@ macro_rules! impl_primitive_instruction {
                 $(
                     fn $func(&self, _structure: &Structure, buffers: &mut Buffers, val: $ty) -> Result<usize> {
                         let val = <$val_type>::try_from(val)?;
-                        buffers.$builder[self.idx].push(ToBytes::to_bytes(val))?;
+                        buffers.$builder[self.idx].push(ToBytes::to_bytes(val));
                         Ok(self.next)
                     }
                 )*
@@ -835,7 +834,7 @@ impl Instruction for PushBool {
         buffers: &mut Buffers,
         val: bool,
     ) -> Result<usize> {
-        buffers.u1[self.idx].push(val)?;
+        buffers.u1[self.idx].push(val);
         Ok(self.next)
     }
 }
@@ -863,7 +862,38 @@ macro_rules! dispatch_instruction {
 
 #[allow(clippy::match_single_binding)]
 impl EventSink for Interpreter {
-    macros::forward_generic_to_specialized!();
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        use Event::*;
+        match event {
+            StartSequence => self.accept_start_sequence(),
+            StartTuple => self.accept_start_tuple(),
+            StartMap => self.accept_start_map(),
+            StartStruct => self.accept_start_struct(),
+            EndSequence => self.accept_end_sequence(),
+            EndTuple => self.accept_end_tuple(),
+            EndMap => self.accept_end_map(),
+            EndStruct => self.accept_end_struct(),
+            Item => self.accept_item(),
+            Null => self.accept_null(),
+            Some => self.accept_some(),
+            Default => self.accept_default(),
+            Bool(val) => self.accept_bool(val),
+            I8(val) => self.accept_i8(val),
+            I16(val) => self.accept_i16(val),
+            I32(val) => self.accept_i32(val),
+            I64(val) => self.accept_i64(val),
+            U8(val) => self.accept_u8(val),
+            U16(val) => self.accept_u16(val),
+            U32(val) => self.accept_u32(val),
+            U64(val) => self.accept_u64(val),
+            F32(val) => self.accept_f32(val),
+            F64(val) => self.accept_f64(val),
+            Str(val) => self.accept_str(val),
+            OwnedStr(val) => self.accept_str(&val),
+            Variant(name, idx) => self.accept_variant(name, idx),
+            OwnedVariant(name, idx) => self.accept_variant(&name, idx),
+        }
+    }
 
     fn accept_bool(&mut self, val: bool) -> Result<()> {
         dispatch_instruction!(self, accept_bool, val)
@@ -983,7 +1013,7 @@ impl EventSink for Interpreter {
 macro_rules! apply_null {
     ($structure:expr, $buffers:expr, $null_definition:expr, $name:ident) => {
         for &idx in &$structure.nulls[$null_definition].$name {
-            $buffers.$name[idx].push(Default::default())?;
+            $buffers.$name[idx].push(Default::default());
         }
     };
 }
