@@ -22,7 +22,7 @@ use crate::{
     internal::{
         self,
         bytecode::{compile_serialization, CompilationOptions, Interpreter},
-        error::{fail, Result},
+        error::Result,
         schema::{GenericField, TracingOptions},
         sink::serialize_into_sink,
     },
@@ -175,11 +175,7 @@ where
     )?;
     let mut interpreter = Interpreter::new(program);
     serialize_into_sink(&mut interpreter, items)?;
-    let arrays = interpreter.build_arrow_arrays()?;
-    if arrays.len() != 1 {
-        fail!("Invalid number of result arrays: {}", arrays.len());
-    }
-    Ok(arrays.into_iter().next().unwrap())
+    interpreter.build_arrow_array()
 }
 
 /// Build a single array item by item
@@ -203,9 +199,7 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
-pub struct ArrayBuilder {
-    inner: internal::GenericArrayBuilder<ArrowPrimitiveBuilders>,
-}
+pub struct ArrayBuilder(internal::GenericArrayBuilder);
 
 impl ArrayBuilder {
     /// Construct a new build for the given field
@@ -213,21 +207,21 @@ impl ArrayBuilder {
     /// This method may fail for an unsupported data type of the given field.
     ///
     pub fn new(field: &Field) -> Result<Self> {
-        Ok(Self {
-            inner: internal::GenericArrayBuilder::new(GenericField::try_from(field)?)?,
-        })
+        Ok(Self(internal::GenericArrayBuilder::new(
+            GenericField::try_from(field)?,
+        )?))
     }
 
     /// Add a single item to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.inner.push(item)
+        self.0.push(item)
     }
 
-    /// Add multiple item to the arrays
+    /// Add multiple items to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.inner.extend(items)
+        self.0.extend(items)
     }
 
     /// Build the array from the rows pushed to far.
@@ -235,8 +229,7 @@ impl ArrayBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_array(&mut self) -> Result<ArrayRef> {
-        let data = self.inner.build_array()?;
-        Ok(array::make_array(data))
+        self.0.interpreter.build_arrow_array()
     }
 }
 

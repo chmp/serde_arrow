@@ -34,14 +34,12 @@ pub fn compile_serialization(
 #[derive(Debug, Clone)]
 pub struct CompilationOptions {
     pub wrap_with_struct: bool,
-    pub wrap_with_sequence: bool,
 }
 
 impl std::default::Default for CompilationOptions {
     fn default() -> Self {
         Self {
             wrap_with_struct: true,
-            wrap_with_sequence: true,
         }
     }
 }
@@ -49,11 +47,6 @@ impl std::default::Default for CompilationOptions {
 impl CompilationOptions {
     pub fn wrap_with_struct(mut self, value: bool) -> Self {
         self.wrap_with_struct = value;
-        self
-    }
-
-    pub fn wrap_with_sequence(mut self, value: bool) -> Self {
-        self.wrap_with_sequence = value;
         self
     }
 }
@@ -697,15 +690,13 @@ impl Program {
             fail!("only single fields are supported without struct wrapping");
         }
 
-        if self.options.wrap_with_sequence {
-            self.structure.large_lists.push(ListDefinition::default());
-            self.push_instr(OuterSequenceStart { next: UNSET_INSTR });
-            self.push_instr(OuterSequenceItem {
-                next: UNSET_INSTR,
-                list_idx: 0,
-            });
-            self.structure.large_lists[0].item = self.structure.program.len();
-        }
+        self.structure.large_lists.push(ListDefinition::default());
+        self.push_instr(OuterSequenceStart { next: UNSET_INSTR });
+        self.push_instr(OuterSequenceItem {
+            next: UNSET_INSTR,
+            list_idx: 0,
+        });
+        self.structure.large_lists[0].item = self.structure.program.len();
 
         if self.options.wrap_with_struct {
             self.structure.structs.push(StructDefinition::default());
@@ -741,13 +732,11 @@ impl Program {
             self.structure.structs[0].r#return = self.structure.program.len();
         }
 
-        if self.options.wrap_with_sequence {
-            self.push_instr(OuterSequenceEnd {
-                next: UNSET_INSTR,
-                list_idx: 0,
-            });
-            self.structure.large_lists[0].r#return = self.structure.program.len();
-        }
+        self.push_instr(OuterSequenceEnd {
+            next: UNSET_INSTR,
+            list_idx: 0,
+        });
+        self.structure.large_lists[0].r#return = self.structure.program.len();
 
         let next_instr = self.structure.program.len();
         self.push_instr(ProgramEnd { next: next_instr });

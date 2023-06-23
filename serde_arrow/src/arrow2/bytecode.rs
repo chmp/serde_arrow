@@ -1,15 +1,18 @@
 //! Build arrow2 arrays from individual buffers
 //!
-use crate::_impl::arrow2::{
-    array::{
-        Array, BooleanArray, DictionaryArray, ListArray, MapArray, NullArray, PrimitiveArray,
-        StructArray, UnionArray, Utf8Array,
+use crate::{
+    _impl::arrow2::{
+        array::{
+            Array, BooleanArray, DictionaryArray, ListArray, MapArray, NullArray, PrimitiveArray,
+            StructArray, UnionArray, Utf8Array,
+        },
+        bitmap::Bitmap,
+        buffer::Buffer,
+        datatypes::{DataType, Field},
+        offset::OffsetsBuffer,
+        types::f16,
     },
-    bitmap::Bitmap,
-    buffer::Buffer,
-    datatypes::{DataType, Field},
-    offset::OffsetsBuffer,
-    types::f16,
+    internal::error::fail,
 };
 
 use crate::internal::{
@@ -30,7 +33,16 @@ impl Interpreter {
             let array = build_array(&mut self.buffers, mapping)?;
             res.push(array);
         }
+        self.buffers.clear();
         Ok(res)
+    }
+
+    pub fn build_arrow2_array(&mut self) -> Result<Box<dyn Array>> {
+        let arrays = self.build_arrow2_arrays()?;
+        if arrays.len() != 1 {
+            fail!("Invalid number of result arrays: {}", arrays.len());
+        }
+        Ok(arrays.into_iter().next().unwrap())
     }
 }
 
@@ -142,8 +154,8 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
                     let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
                     Box::new(Utf8Array::new(
                         DataType::Utf8,
-                        OffsetsBuffer::try_from(dictionary.values.offsets.offsets)?,
-                        Buffer::from(dictionary.values.data),
+                        OffsetsBuffer::try_from(dictionary.offsets.offsets)?,
+                        Buffer::from(dictionary.data),
                         None,
                     ))
                 }
@@ -151,8 +163,8 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
                     let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
                     Box::new(Utf8Array::new(
                         DataType::LargeUtf8,
-                        OffsetsBuffer::try_from(dictionary.values.offsets.offsets)?,
-                        Buffer::from(dictionary.values.data),
+                        OffsetsBuffer::try_from(dictionary.offsets.offsets)?,
+                        Buffer::from(dictionary.data),
                         None,
                     ))
                 }

@@ -29,6 +29,10 @@ impl BitBuffer {
         self.len += 1;
         Ok(())
     }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -45,6 +49,10 @@ impl NullBuffer {
     pub fn push(&mut self, _: ()) -> Result<()> {
         self.len += 1;
         Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -69,6 +77,10 @@ impl<T> PrimitiveBuffer<T> {
     pub fn push(&mut self, val: T) -> Result<()> {
         self.buffer.push(val);
         Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -126,45 +138,17 @@ impl<O: Offset> OffsetBuilder<O> {
         self.current_items = self.current_items.clone() + O::try_form_usize(1)?;
         Ok(())
     }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct StringBuffer<O> {
+#[derive(Default, Debug, Clone)]
+pub struct StringDictonary<O: Offset> {
+    pub(crate) index: HashMap<String, usize>,
     pub(crate) data: Vec<u8>,
     pub(crate) offsets: OffsetBuilder<O>,
-}
-
-impl<O: Offset> std::default::Default for StringBuffer<O> {
-    fn default() -> Self {
-        Self {
-            offsets: Default::default(),
-            data: Default::default(),
-        }
-    }
-}
-
-impl<O: Offset> StringBuffer<O> {
-    pub fn push(&mut self, val: &str) -> Result<()> {
-        self.data.extend(val.as_bytes().iter().copied());
-        self.offsets.push(val.len())?;
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct StringDictonary<O> {
-    pub(crate) index: HashMap<String, usize>,
-    pub(crate) values: StringBuffer<O>,
-}
-
-impl<O: Offset> std::default::Default for StringDictonary<O> {
-    fn default() -> Self {
-        Self {
-            index: Default::default(),
-            values: Default::default(),
-        }
-    }
 }
 
 impl<O: Offset> StringDictonary<O> {
@@ -174,8 +158,15 @@ impl<O: Offset> StringDictonary<O> {
         } else {
             let res = self.index.len();
             self.index.insert(val.to_string(), res);
-            self.values.push(val)?;
+
+            self.data.extend(val.as_bytes().iter().copied());
+            self.offsets.push(val.len())?;
+
             Ok(res)
         }
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }

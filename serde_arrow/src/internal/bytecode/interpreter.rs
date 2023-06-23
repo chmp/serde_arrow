@@ -67,6 +67,20 @@ impl Buffers {
             large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
         }
     }
+
+    pub fn clear(&mut self) {
+        self.u0.iter_mut().for_each(|b| b.clear());
+        self.u1.iter_mut().for_each(|b| b.clear());
+        self.u8.iter_mut().for_each(|b| b.clear());
+        self.u16.iter_mut().for_each(|b| b.clear());
+        self.u32.iter_mut().for_each(|b| b.clear());
+        self.u64.iter_mut().for_each(|b| b.clear());
+        self.u32_offsets.iter_mut().for_each(|b| b.clear());
+        self.u64_offsets.iter_mut().for_each(|b| b.clear());
+        self.seen.iter_mut().for_each(|b| b.clear());
+        self.dictionaries.iter_mut().for_each(|b| b.clear());
+        self.large_dictionaries.iter_mut().for_each(|b| b.clear());
+    }
 }
 
 impl Interpreter {

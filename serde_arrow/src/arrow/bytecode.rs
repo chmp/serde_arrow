@@ -26,7 +26,16 @@ impl Interpreter {
             let array = make_array(data);
             res.push(array);
         }
+        self.buffers.clear();
         Ok(res)
+    }
+
+    pub fn build_arrow_array(&mut self) -> Result<ArrayRef> {
+        let arrays = self.build_arrow_arrays()?;
+        if arrays.len() != 1 {
+            fail!("Invalid number of result arrays: {}", arrays.len());
+        }
+        Ok(arrays.into_iter().next().unwrap())
     }
 }
 
@@ -333,19 +342,11 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             let values = match dictionary {
                 V::Utf8(dict) => {
                     let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
-                    build_array_data_utf8(
-                        dictionary.values.data,
-                        dictionary.values.offsets.offsets,
-                        None,
-                    )?
+                    build_array_data_utf8(dictionary.data, dictionary.offsets.offsets, None)?
                 }
                 V::LargeUtf8(dict) => {
                     let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
-                    build_array_data_large_utf8(
-                        dictionary.values.data,
-                        dictionary.values.offsets.offsets,
-                        None,
-                    )?
+                    build_array_data_large_utf8(dictionary.data, dictionary.offsets.offsets, None)?
                 }
             };
 
