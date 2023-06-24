@@ -3,10 +3,9 @@
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
-pub(crate) mod bytecode;
 pub(crate) mod display;
 pub(crate) mod schema;
-pub(crate) mod sinks;
+pub(crate) mod serialization;
 pub(crate) mod sources;
 mod type_support;
 
@@ -19,19 +18,15 @@ use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
         self,
-        bytecode::{compile_serialization, CompilationOptions, Interpreter},
-        error::{fail, Result},
+        error::Result,
         schema::{GenericField, TracingOptions},
+        serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
         source::{deserialize_from_source, AddOuterSequenceSource},
-        CONFIGURATION,
     },
 };
 
-use self::{
-    sinks::Arrow2PrimitiveBuilders,
-    sources::{build_dynamic_source, build_record_source},
-};
+use self::sources::{build_dynamic_source, build_record_source};
 
 /// Determine the schema (as a list of fields) for the given items
 ///
@@ -120,19 +115,11 @@ where
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
 
-    let current_config = CONFIGURATION.read().unwrap().clone();
-    if !current_config.serialize_with_bytecode {
-        internal::serialize_into_arrays::<T, Arrow2PrimitiveBuilders>(&fields, items)
-    } else {
-        let program = compile_serialization(&fields, CompilationOptions::default())?;
-        if current_config.debug_print_program {
-            println!("Program: {program:?}");
-        }
-        let mut interpreter = Interpreter::new(program);
-        serialize_into_sink(&mut interpreter, items)?;
+    let program = compile_serialization(&fields, CompilationOptions::default())?;
+    let mut interpreter = Interpreter::new(program);
+    serialize_into_sink(&mut interpreter, items)?;
 
-        interpreter.build_arrow2_arrays()
-    }
+    interpreter.build_arrow2_arrays()
 }
 
 /// Deserialize a type from the given arrays
@@ -225,26 +212,13 @@ where
 {
     let field: GenericField = field.try_into()?;
 
-    let current_conig = CONFIGURATION.read().unwrap().clone();
-    if !current_conig.serialize_with_bytecode {
-        internal::serialize_into_array::<T, Arrow2PrimitiveBuilders>(&field, items)
-    } else {
-        let program = compile_serialization(
-            std::slice::from_ref(&field),
-            CompilationOptions::default().wrap_with_struct(false),
-        )?;
-        if current_conig.debug_print_program {
-            println!("Program: {program:?}");
-        }
-        let mut interpreter = Interpreter::new(program);
-        serialize_into_sink(&mut interpreter, items)?;
-
-        let arrays = interpreter.build_arrow2_arrays()?;
-        if arrays.len() != 1 {
-            fail!("Invalid number of result arrays: {}", arrays.len());
-        }
-        Ok(arrays.into_iter().next().unwrap())
-    }
+    let program = compile_serialization(
+        std::slice::from_ref(&field),
+        CompilationOptions::default().wrap_with_struct(false),
+    )?;
+    let mut interpreter = Interpreter::new(program);
+    serialize_into_sink(&mut interpreter, items)?;
+    interpreter.build_arrow2_array()
 }
 
 /// Deserialize a sequence of objects from a single array
@@ -297,9 +271,7 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
-pub struct ArrayBuilder {
-    inner: internal::GenericArrayBuilder<Arrow2PrimitiveBuilders>,
-}
+pub struct ArrayBuilder(internal::GenericBuilder);
 
 impl ArrayBuilder {
     /// Construct a new build for the given field
@@ -307,21 +279,21 @@ impl ArrayBuilder {
     /// This method may fail for an unsupported data type of the given field.
     ///
     pub fn new(field: &Field) -> Result<Self> {
-        Ok(Self {
-            inner: internal::GenericArrayBuilder::new(GenericField::try_from(field)?)?,
-        })
+        Ok(Self(internal::GenericBuilder::new_for_array(
+            GenericField::try_from(field)?,
+        )?))
     }
 
     /// Add a single item to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.inner.push(item)
+        self.0.push(item)
     }
 
     /// Add multiple items to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.inner.extend(items)
+        self.0.extend(items)
     }
 
     /// Build the array from the rows pushed to far.
@@ -329,7 +301,7 @@ impl ArrayBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_array(&mut self) -> Result<Box<dyn Array>> {
-        self.inner.build_array()
+        self.0 .0.build_arrow2_array()
     }
 }
 
@@ -370,9 +342,7 @@ impl ArrayBuilder {
 /// assert_eq!(arrays.len(), 2);
 /// assert_eq!(arrays[0].len(), 6);
 /// ```
-pub struct ArraysBuilder {
-    inner: internal::GenericArraysBuilder<Arrow2PrimitiveBuilders>,
-}
+pub struct ArraysBuilder(internal::GenericBuilder);
 
 impl std::fmt::Debug for ArraysBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -391,21 +361,19 @@ impl ArraysBuilder {
             .iter()
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self {
-            inner: internal::GenericArraysBuilder::new(fields)?,
-        })
+        Ok(Self(internal::GenericBuilder::new_for_arrays(&fields)?))
     }
 
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.inner.push(item)
+        self.0.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.inner.extend(items)
+        self.0.extend(items)
     }
 
     /// Build the arrays from the rows pushed to far.
@@ -413,7 +381,7 @@ impl ArraysBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.inner.build_arrays()
+        self.0 .0.build_arrow2_arrays()
     }
 }
 

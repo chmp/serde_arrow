@@ -105,36 +105,6 @@ pub trait EventSink {
     fn finish(&mut self) -> Result<()>;
 }
 
-#[allow(unused)]
-pub(crate) struct DebugSink<E> {
-    wrapped: E,
-}
-
-impl<E> DebugSink<E> {
-    #[allow(unused)]
-    pub fn new(wrapped: E) -> Self {
-        Self { wrapped }
-    }
-
-    #[allow(unused)]
-    pub fn into_inner(self) -> E {
-        self.wrapped
-    }
-}
-
-impl<E: EventSink> EventSink for DebugSink<E> {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        println!("{event}");
-        self.wrapped.accept(event)
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        self.wrapped.finish()
-    }
-}
-
 pub(crate) struct StripOuterSequenceSink<E> {
     wrapped: E,
     state: StripOuterSequenceState,
@@ -161,7 +131,39 @@ impl<E> StripOuterSequenceSink<E> {
 }
 
 impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
-    macros::forward_generic_to_specialized!();
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        use Event::*;
+        match event {
+            StartSequence => self.accept_start_sequence(),
+            StartTuple => self.accept_start_tuple(),
+            StartMap => self.accept_start_map(),
+            StartStruct => self.accept_start_struct(),
+            EndSequence => self.accept_end_sequence(),
+            EndTuple => self.accept_end_tuple(),
+            EndMap => self.accept_end_map(),
+            EndStruct => self.accept_end_struct(),
+            Item => self.accept_item(),
+            Null => self.accept_null(),
+            Some => self.accept_some(),
+            Default => self.accept_default(),
+            Bool(val) => self.accept_bool(val),
+            I8(val) => self.accept_i8(val),
+            I16(val) => self.accept_i16(val),
+            I32(val) => self.accept_i32(val),
+            I64(val) => self.accept_i64(val),
+            U8(val) => self.accept_u8(val),
+            U16(val) => self.accept_u16(val),
+            U32(val) => self.accept_u32(val),
+            U64(val) => self.accept_u64(val),
+            F32(val) => self.accept_f32(val),
+            F64(val) => self.accept_f64(val),
+            Str(val) => self.accept_str(val),
+            OwnedStr(val) => self.accept_str(&val),
+            Variant(name, idx) => self.accept_variant(name, idx),
+            OwnedVariant(name, idx) => self.accept_variant(&name, idx),
+        }
+    }
+
     macros::accept_start!((this, ev, val, next) {
         use StripOuterSequenceState::*;
         this.state = match this.state {
@@ -233,114 +235,6 @@ impl EventSink for Vec<Event<'static>> {
 
     fn finish(&mut self) -> Result<()> {
         Ok(())
-    }
-}
-
-impl<T: EventSink> EventSink for Box<T> {
-    macros::accept_start!((this, _ev, val, next) {
-        next(this.as_mut(), val)
-    });
-    macros::accept_end!((this, _ev, val, next) {
-        next(this.as_mut(), val)
-    });
-    macros::accept_marker!((this, _ev, val, next) {
-        next(this.as_mut(), val)
-    });
-    macros::accept_value!((this, _ev, val, next) {
-        next(this.as_mut(), val)
-    });
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.as_mut().accept(event)
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        self.as_mut().finish()
-    }
-}
-
-pub trait ArrayBuilder<A>: EventSink {
-    /// Build the arrays and clear any internal buffers
-    ///
-    /// Note: some builder may retain internal state, e.g., dictionary builds
-    /// keep the previous key mapping. This behavior allows to write separate
-    /// chunks of dictionary arrays.
-    fn build_array(&mut self) -> Result<A>;
-}
-
-impl<A, T: ArrayBuilder<A>> ArrayBuilder<A> for Box<T> {
-    fn build_array(&mut self) -> Result<A> {
-        self.as_mut().build_array()
-    }
-}
-
-pub struct DynamicArrayBuilder<A> {
-    builder: Box<dyn ArrayBuilder<A>>,
-}
-
-impl<A> DynamicArrayBuilder<A> {
-    pub fn new<B: ArrayBuilder<A> + 'static>(builder: B) -> Self {
-        Self {
-            builder: Box::new(builder),
-        }
-    }
-}
-
-impl<E: EventSink> EventSink for &mut E {
-    macros::accept_start!((this, _ev, val, next) {
-        next(*this, val)
-    });
-    macros::accept_end!((this, _ev, val, next) {
-        next(*this, val)
-    });
-    macros::accept_marker!((this, _ev, val, next) {
-        next(*this, val)
-    });
-    macros::accept_value!((this, _ev, val, next) {
-        next(*this, val)
-    });
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        (*self).accept(event)
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        (*self).finish()
-    }
-}
-
-impl<A> EventSink for DynamicArrayBuilder<A> {
-    macros::accept_start!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_end!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_marker!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-    macros::accept_value!((this, _ev, val, next) {
-        next(this.builder.as_mut(), val)
-    });
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        self.builder.accept(event)
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        self.builder.finish()
-    }
-}
-
-impl<A> ArrayBuilder<A> for DynamicArrayBuilder<A> {
-    fn build_array(&mut self) -> Result<A> {
-        self.builder.build_array()
-    }
-}
-
-impl<A> From<Box<dyn ArrayBuilder<A>>> for DynamicArrayBuilder<A> {
-    fn from(builder: Box<dyn ArrayBuilder<A>>) -> Self {
-        Self { builder }
     }
 }
 

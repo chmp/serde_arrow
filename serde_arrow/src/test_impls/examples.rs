@@ -333,3 +333,43 @@ test_example!(
         }
     },
 );
+
+test_roundtrip_arrays!(
+    simple_example {
+        #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+        struct S {
+            a: f32,
+            b: u32,
+        }
+
+        let items = &[
+            S{ a: 2.0, b: 4 },
+            S{ a: -123.0, b: 9 },
+        ];
+        let fields = &[
+            GenericField::new("a", GenericDataType::F32, false),
+            GenericField::new("b", GenericDataType::U32, false),
+        ];
+    }
+    assert_round_trip(fields, items);
+);
+
+test_roundtrip_arrays!(
+    toplevel_nullables {
+        #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+        struct S {
+            a: Option<f32>,
+            b: Option<u32>,
+        }
+
+        let items = &[
+            S{ a: Some(2.0), b: None },
+            S{ a: None, b: Some(9) },
+        ];
+        let fields = &[
+            GenericField::new("a", GenericDataType::F32, true),
+            GenericField::new("b", GenericDataType::U32, true),
+        ];
+    }
+    assert_round_trip(fields, items);
+);

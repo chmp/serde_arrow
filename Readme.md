@@ -107,15 +107,6 @@ compared to arrow2-convert:
 
 ![Time ](timings.png)
 
-Here, `serde_arrow_bytecode` uses the experimental bytecode serializer, that can
-be enabled with
-
-```rust
-serde_arrow::experimental::configure(|c| {
-    c.serialize_with_bytecode = true;
-})
-```
-
 The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->

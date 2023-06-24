@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::internal::error::Result;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -15,7 +13,7 @@ impl BitBuffer {
         self.len
     }
 
-    pub fn push(&mut self, value: bool) -> Result<()> {
+    pub fn push(&mut self, value: bool) {
         while self.len >= self.capacity {
             for _ in 0..64 {
                 self.buffer.push(0);
@@ -27,7 +25,10 @@ impl BitBuffer {
             self.buffer[self.len / 8] |= 1 << (self.len % 8);
         }
         self.len += 1;
-        Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -42,33 +43,12 @@ impl NullBuffer {
         self.len
     }
 
-    pub fn push(&mut self, _: ()) -> Result<()> {
+    pub fn push(&mut self, _: ()) {
         self.len += 1;
-        Ok(())
-    }
-}
-
-// TODO: is this needed?
-#[derive(Debug, Clone)]
-pub struct PrimitiveBuffer<T> {
-    pub(crate) buffer: Vec<T>,
-}
-
-impl<T> std::default::Default for PrimitiveBuffer<T> {
-    fn default() -> Self {
-        Self { buffer: Vec::new() }
-    }
-}
-
-impl<T> PrimitiveBuffer<T> {
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.buffer.len()
     }
 
-    pub fn push(&mut self, val: T) -> Result<()> {
-        self.buffer.push(val);
-        Ok(())
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -126,56 +106,8 @@ impl<O: Offset> OffsetBuilder<O> {
         self.current_items = self.current_items.clone() + O::try_form_usize(1)?;
         Ok(())
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct StringBuffer<O> {
-    pub(crate) data: Vec<u8>,
-    pub(crate) offsets: OffsetBuilder<O>,
-}
-
-impl<O: Offset> std::default::Default for StringBuffer<O> {
-    fn default() -> Self {
-        Self {
-            offsets: Default::default(),
-            data: Default::default(),
-        }
-    }
-}
-
-impl<O: Offset> StringBuffer<O> {
-    pub fn push(&mut self, val: &str) -> Result<()> {
-        self.data.extend(val.as_bytes().iter().copied());
-        self.offsets.push(val.len())?;
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct StringDictonary<O> {
-    pub(crate) index: HashMap<String, usize>,
-    pub(crate) values: StringBuffer<O>,
-}
-
-impl<O: Offset> std::default::Default for StringDictonary<O> {
-    fn default() -> Self {
-        Self {
-            index: Default::default(),
-            values: Default::default(),
-        }
-    }
-}
-
-impl<O: Offset> StringDictonary<O> {
-    pub fn push(&mut self, val: &str) -> Result<usize> {
-        if self.index.contains_key(val) {
-            Ok(self.index[val])
-        } else {
-            let res = self.index.len();
-            self.index.insert(val.to_string(), res);
-            self.values.push(val)?;
-            Ok(res)
-        }
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }

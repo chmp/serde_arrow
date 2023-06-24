@@ -4,7 +4,6 @@ mod round_trip;
 mod round_trip_array;
 mod schema;
 mod schema_mod;
-mod sinks;
 mod sources;
 pub(crate) mod utils;
 

@@ -4,6 +4,7 @@ use crate::{
     internal::{
         error::{error, fail},
         schema::{GenericDataType, GenericField},
+        CONFIGURATION,
     },
     schema::Strategy,
     Result,
@@ -19,6 +20,14 @@ pub fn compile_serialization(
 ) -> Result<Program> {
     let mut program = Program::new(options);
     program.compile(fields)?;
+
+    {
+        let current_config = CONFIGURATION.read().unwrap().clone();
+        if current_config.debug_print_program {
+            println!("Program: {program:?}");
+        }
+    }
+
     Ok(program)
 }
 
@@ -68,8 +77,8 @@ pub enum DictionaryIndex {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DictionaryValue {
-    Utf8(usize),
-    LargeUtf8(usize),
+    Utf8 { buffer: usize, offsets: usize },
+    LargeUtf8 { buffer: usize, offsets: usize },
 }
 
 macro_rules! define_bytecode {
@@ -256,6 +265,7 @@ define_bytecode!(
     PushDictionary {
         values: DictionaryValue,
         indices: DictionaryIndex,
+        dictionary: usize,
     },
 );
 
@@ -482,7 +492,7 @@ impl NullDefinition {
     }
 }
 
-/// Map the array to the corresponding builders
+/// Map an array to its corresponding buffers
 #[derive(Debug, Clone)]
 pub enum ArrayMapping {
     Null {
@@ -643,8 +653,8 @@ pub struct BufferCounts {
     pub(crate) num_u32_offsets: usize,
     /// number of offsets encoded with 64 bits
     pub(crate) num_u64_offsets: usize,
+    /// number string -> index maps for dictionaries
     pub(crate) num_dictionaries: usize,
-    pub(crate) num_large_dictionaries: usize,
     /// number of bit-sets to record seen / unseen fields
     pub(crate) num_seen: usize,
 }
@@ -1179,12 +1189,21 @@ impl Program {
         };
 
         let values = match &field.children[1].data_type {
-            D::Utf8 => V::Utf8(self.buffers.num_dictionaries.next_value()),
-            D::LargeUtf8 => V::LargeUtf8(self.buffers.num_large_dictionaries.next_value()),
+            D::Utf8 => V::Utf8 {
+                buffer: self.buffers.num_u8.next_value(),
+                offsets: self.buffers.num_u32_offsets.next_value(),
+            },
+            D::LargeUtf8 => V::LargeUtf8 {
+                buffer: self.buffers.num_u8.next_value(),
+                offsets: self.buffers.num_u64_offsets.next_value(),
+            },
             dt => fail!("cannot compile dictionary with values of type {dt}"),
         };
+        let dictionary = self.buffers.num_dictionaries.next_value();
+
         self.push_instr(PushDictionary {
             next: UNSET_INSTR,
+            dictionary,
             values,
             indices,
         });

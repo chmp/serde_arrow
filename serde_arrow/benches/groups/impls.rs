@@ -5,7 +5,6 @@ macro_rules! define_benchmark {
         n = [$($n:expr),*],
         $(
             serialization {
-                $(serde_arrow_bytecode = $bench_serde_arrow_bytecode:expr,)?
                 $(serde_arrow = $bench_serde_arrow:expr,)?
                 $(arrow = $bench_arrow:expr,)?
                 $(arrow2_convert = $bench_arrow2_convert:expr,)?
@@ -24,16 +23,6 @@ macro_rules! define_benchmark {
                     .map(|_| <$ty>::random(&mut rng))
                     .collect::<Vec<_>>();
                 let arrow_fields = serde_arrow::arrow::serialize_into_fields(&items, Default::default()).unwrap();
-
-                #[allow(unused)]
-                let bench_serde_arrow_bytecode = true;
-                $($(let bench_serde_arrow_bytecode = $bench_serde_arrow_bytecode; )?)?
-
-                if bench_serde_arrow_bytecode {
-                    group.bench_function("serde_arrow_bytecode", |b| {
-                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_bytecode::serialize(&arrow_fields, &items).unwrap()));
-                    });
-                }
 
                 #[allow(unused)]
                 let bench_serde_arrow = true;
@@ -95,27 +84,6 @@ pub mod serde_arrow {
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::experimental::configure(|config| {
-            config.serialize_with_bytecode = false;
-        });
-        serde_arrow::arrow::serialize_into_arrays(&fields, &items)
-    }
-}
-
-pub mod serde_arrow_bytecode {
-    use serde::Serialize;
-    use serde_arrow::{
-        Result,
-        _impl::arrow::{array::ArrayRef, datatypes::Field},
-    };
-
-    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>>
-    where
-        T: Serialize + ?Sized,
-    {
-        serde_arrow::experimental::configure(|config| {
-            config.serialize_with_bytecode = true;
-        });
         serde_arrow::arrow::serialize_into_arrays(&fields, &items)
     }
 }

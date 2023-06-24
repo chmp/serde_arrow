@@ -1,25 +1,28 @@
 //! Build arrow2 arrays from individual buffers
 //!
-use crate::_impl::arrow2::{
-    array::{
-        Array, BooleanArray, DictionaryArray, ListArray, MapArray, NullArray, PrimitiveArray,
-        StructArray, UnionArray, Utf8Array,
+use crate::{
+    _impl::arrow2::{
+        array::{
+            Array, BooleanArray, DictionaryArray, ListArray, MapArray, NullArray, PrimitiveArray,
+            StructArray, UnionArray, Utf8Array,
+        },
+        bitmap::Bitmap,
+        buffer::Buffer,
+        datatypes::{DataType, Field},
+        offset::OffsetsBuffer,
+        types::f16,
     },
-    bitmap::Bitmap,
-    buffer::Buffer,
-    datatypes::{DataType, Field},
-    offset::OffsetsBuffer,
-    types::f16,
+    internal::error::fail,
 };
 
 use crate::internal::{
-    bytecode::{
+    conversions::ToBytes,
+    error::Result,
+    serialization::{
         compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
     },
-    conversions::ToBytes,
-    error::Result,
 };
 
 impl Interpreter {
@@ -30,14 +33,23 @@ impl Interpreter {
             let array = build_array(&mut self.buffers, mapping)?;
             res.push(array);
         }
+        self.buffers.clear();
         Ok(res)
+    }
+
+    pub fn build_arrow2_array(&mut self) -> Result<Box<dyn Array>> {
+        let arrays = self.build_arrow2_arrays()?;
+        if arrays.len() != 1 {
+            fail!("Invalid number of result arrays: {}", arrays.len());
+        }
+        Ok(arrays.into_iter().next().unwrap())
     }
 }
 
 macro_rules! build_array_primitive {
     ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
-        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer);
         let validity = build_validity($buffers, $validity);
         let array = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), validity)?;
         Ok(Box::new(array))
@@ -47,7 +59,7 @@ macro_rules! build_array_primitive {
 macro_rules! build_dictionary_from_indices {
     ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $data_type:expr, $values:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
-        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer.buffer);
+        let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer);
         let indices = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), $validity)?;
 
         Ok(Box::new(DictionaryArray::try_new(
@@ -104,7 +116,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             buffer, validity, ..
         } => {
             let buffer = std::mem::take(&mut buffers.u16[*buffer]);
-            let buffer: Vec<f16> = buffer.buffer.into_iter().map(f16::from_bits).collect();
+            let buffer: Vec<f16> = buffer.into_iter().map(f16::from_bits).collect();
             let validity = build_validity(buffers, *validity);
             let array = PrimitiveArray::try_new(DataType::Float16, Buffer::from(buffer), validity)?;
             Ok(Box::new(array))
@@ -138,21 +150,23 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let validity = build_validity(buffers, *validity);
             let values: Box<dyn Array> = match dictionary {
-                V::Utf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
+                V::Utf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
                     Box::new(Utf8Array::new(
                         DataType::Utf8,
-                        OffsetsBuffer::try_from(dictionary.values.offsets.offsets)?,
-                        Buffer::from(dictionary.values.data),
+                        OffsetsBuffer::try_from(offsets.offsets)?,
+                        Buffer::from(data),
                         None,
                     ))
                 }
-                V::LargeUtf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
+                V::LargeUtf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
                     Box::new(Utf8Array::new(
                         DataType::LargeUtf8,
-                        OffsetsBuffer::try_from(dictionary.values.offsets.offsets)?,
-                        Buffer::from(dictionary.values.data),
+                        OffsetsBuffer::try_from(offsets.offsets)?,
+                        Buffer::from(data),
                         None,
                     ))
                 }
@@ -238,7 +252,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             types,
         } => {
             let types = std::mem::take(&mut buffers.u8[*types]);
-            let types: Vec<i8> = ToBytes::from_bytes_vec(types.buffer);
+            let types: Vec<i8> = ToBytes::from_bytes_vec(types);
 
             let mut current_offset = vec![0; fields.len()];
             let mut offsets = Vec::new();
@@ -299,7 +313,7 @@ fn build_array_utf8(
     Ok(Box::new(Utf8Array::new(
         DataType::Utf8,
         OffsetsBuffer::try_from(offsets.offsets)?,
-        Buffer::from(data.buffer),
+        Buffer::from(data),
         validity,
     )))
 }
@@ -317,7 +331,7 @@ fn build_array_large_utf8(
     Ok(Box::new(Utf8Array::new(
         DataType::LargeUtf8,
         OffsetsBuffer::try_from(offsets.offsets)?,
-        Buffer::from(data.buffer),
+        Buffer::from(data),
         validity,
     )))
 }

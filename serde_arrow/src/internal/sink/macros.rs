@@ -60,50 +60,6 @@
 //!
 
 #[allow(unused)]
-macro_rules! forward_generic_to_specialized {
-    () => {
-        fn accept(
-            &mut self,
-            event: $crate::internal::event::Event<'_>,
-        ) -> $crate::internal::error::Result<()> {
-            use $crate::internal::event::Event::*;
-            match event {
-                StartSequence => self.accept_start_sequence(),
-                StartTuple => self.accept_start_tuple(),
-                StartMap => self.accept_start_map(),
-                StartStruct => self.accept_start_struct(),
-                EndSequence => self.accept_end_sequence(),
-                EndTuple => self.accept_end_tuple(),
-                EndMap => self.accept_end_map(),
-                EndStruct => self.accept_end_struct(),
-                Item => self.accept_item(),
-                Null => self.accept_null(),
-                Some => self.accept_some(),
-                Default => self.accept_default(),
-                Bool(val) => self.accept_bool(val),
-                I8(val) => self.accept_i8(val),
-                I16(val) => self.accept_i16(val),
-                I32(val) => self.accept_i32(val),
-                I64(val) => self.accept_i64(val),
-                U8(val) => self.accept_u8(val),
-                U16(val) => self.accept_u16(val),
-                U32(val) => self.accept_u32(val),
-                U64(val) => self.accept_u64(val),
-                F32(val) => self.accept_f32(val),
-                F64(val) => self.accept_f64(val),
-                Str(val) => self.accept_str(val),
-                OwnedStr(val) => self.accept_str(&val),
-                Variant(name, idx) => self.accept_variant(name, idx),
-                OwnedVariant(name, idx) => self.accept_variant(&name, idx),
-            }
-        }
-    };
-}
-
-#[allow(unused)]
-pub(crate) use forward_generic_to_specialized;
-
-#[allow(unused)]
 macro_rules! forward_specialized_to_generic {
     () => {
         fn accept_start_sequence(&mut self) -> $crate::internal::error::Result<()> {
