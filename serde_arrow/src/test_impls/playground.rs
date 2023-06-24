@@ -4,8 +4,8 @@ use crate::{
     arrow, arrow2,
     base::{deserialize_from_source, Event, EventSource},
     internal::{
-        common::{define_bytecode, Buffers},
-        error::fail,
+        common::{define_bytecode, ArrayMapping, Buffers},
+        error::{error, fail},
         schema::{GenericDataType, GenericField},
     },
     Result,
@@ -167,9 +167,79 @@ impl<'a> EventSource<'a> for Interpreter<'a> {
     }
 }
 
+trait BufferExtract {
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping>;
+}
+
+impl<T> BufferExtract for T
+where
+    T: AsRef<dyn crate::_impl::arrow2::array::Array>,
+{
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping> {
+        use crate::_impl::arrow2::{array::PrimitiveArray, types::f16};
+
+        match &field.data_type {
+            GenericDataType::I32 => {
+                if field.nullable {
+                    fail!("nullable fields are not yet supported");
+                }
+
+                let data = self
+                    .as_ref()
+                    .as_any()
+                    .downcast_ref::<PrimitiveArray<i32>>()
+                    .ok_or_else(|| error!("Cannot interpret array as I32 array"))?
+                    .values()
+                    .as_slice();
+                let data: &[u32] = bytemuck::try_cast_slice(data)?;
+
+                let buffer = buffers.u32.len();
+                buffers.u32.push(data);
+
+                Ok(ArrayMapping::I32 {
+                    field: field.clone(),
+                    buffer,
+                    validity: None,
+                })
+            }
+            GenericDataType::F16 => {
+                if field.nullable {
+                    fail!("nullable fields are not yet supported");
+                }
+                let data = self
+                    .as_ref()
+                    .as_any()
+                    .downcast_ref::<PrimitiveArray<f16>>()
+                    .ok_or_else(|| error!("Cannot interpret array as F16 array"))?
+                    .values()
+                    .as_slice();
+                let data: &[u16] = bytemuck::try_cast_slice(data)?;
+
+                let buffer = buffers.u16.len();
+                buffers.u16.push(data);
+
+                Ok(ArrayMapping::F16 {
+                    field: field.clone(),
+                    buffer,
+                    validity: None,
+                })
+            }
+            dt => fail!("BufferExtract for {dt} is not implemented"),
+        }
+    }
+}
+
 #[test]
 fn example_arrow2() {
-    use crate::_impl::arrow2::{array::PrimitiveArray, datatypes::Field, types::f16};
+    use crate::_impl::arrow2::datatypes::Field;
 
     #[derive(Debug, PartialEq, Deserialize, Serialize)]
     struct S {
@@ -183,70 +253,109 @@ fn example_arrow2() {
         GenericField::new("a", GenericDataType::I32, false),
         GenericField::new("b", GenericDataType::F16, false),
     ];
-    let fields = fields
-        .iter()
-        .map(|f| Field::try_from(f))
-        .collect::<Result<Vec<_>>>()
-        .unwrap();
 
-    let arrays = arrow2::serialize_into_arrays(&fields, items).unwrap();
+    let arrays;
+    {
+        let fields = fields
+            .iter()
+            .map(|f| Field::try_from(f))
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
 
-    let a = &arrays[0];
-    let a_data = a
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i32>>()
-        .unwrap()
-        .values()
-        .as_slice();
-    let a_data: &[u32] = bytemuck::try_cast_slice(a_data).unwrap();
-
-    let b = &arrays[1];
-    let b_data = b
-        .as_any()
-        .downcast_ref::<PrimitiveArray<f16>>()
-        .unwrap()
-        .values()
-        .as_slice();
-    let b_data: &[u16] = bytemuck::try_cast_slice(b_data).unwrap();
+        arrays = arrow2::serialize_into_arrays(&fields, items).unwrap();
+    }
 
     let mut buffers = Buffers::new();
+
+    let mut mappings = Vec::new();
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        mappings.push(array.extract_buffers(field, &mut buffers).unwrap());
+    }
+
+    // TODO: where to get the count from?
     buffers.u0.push(3);
-    buffers.u8.push(fields[0].name.as_bytes());
-    buffers.u8.push(fields[1].name.as_bytes());
-    buffers.u16.push(b_data);
-    buffers.u32.push(a_data);
 
-    let positions = vec![0, 0, 0];
+    let mut num_positions = 0;
 
-    let program = vec![
-        Bytecode::EmitStartSequence(EmitStartSequence { next: 1 }),
-        Bytecode::EmitItem(EmitItem {
-            next: 2,
-            if_end: 8,
-            position: 0,
-            count: 0,
-        }),
-        Bytecode::EmitStartStruct(EmitStartStruct { next: 3 }),
-        Bytecode::EmitConstantString(EmitConstantString { next: 4, buffer: 0 }),
-        Bytecode::EmitI32(EmitI32 {
-            next: 5,
-            buffer: 0,
-            position: 1,
-        }),
-        Bytecode::EmitConstantString(EmitConstantString { next: 6, buffer: 1 }),
-        Bytecode::EmitF16(EmitF16 {
-            next: 7,
-            buffer: 0,
-            position: 2,
-        }),
-        Bytecode::EmitEndStruct(EmitEndStruct { next: 1 }),
-        Bytecode::EndOfProgram(EndOfProgram { next: 8 }),
-    ];
+    let mut program = Vec::new();
+
+    program.push(Bytecode::EmitStartSequence(EmitStartSequence { next: 1 }));
+
+    num_positions += 1;
+    program.push(Bytecode::EmitItem(EmitItem {
+        next: 2,
+        if_end: 8,
+        position: 0,
+        count: 0,
+    }));
+
+    program.push(Bytecode::EmitStartStruct(EmitStartStruct { next: 3 }));
+
+    for mapping in &mappings {
+        match mapping {
+            ArrayMapping::F16 {
+                field,
+                buffer,
+                validity,
+            } => {
+                if validity.is_some() {
+                    todo!()
+                }
+
+                let name_buffer = buffers.u8.len();
+                buffers.u8.push(field.name.as_bytes());
+
+                let position = num_positions;
+                num_positions += 1;
+
+                let instr = program.len();
+                program.push(Bytecode::EmitConstantString(EmitConstantString {
+                    next: instr + 1,
+                    buffer: name_buffer,
+                }));
+                program.push(Bytecode::EmitF16(EmitF16 {
+                    next: instr + 2,
+                    buffer: *buffer,
+                    position,
+                }));
+            }
+            ArrayMapping::I32 {
+                field,
+                buffer,
+                validity,
+            } => {
+                if validity.is_some() {
+                    todo!()
+                }
+
+                let name_buffer = buffers.u8.len();
+                buffers.u8.push(field.name.as_bytes());
+
+                let position = num_positions;
+                num_positions += 1;
+
+                let instr = program.len();
+                program.push(Bytecode::EmitConstantString(EmitConstantString {
+                    next: instr + 1,
+                    buffer: name_buffer,
+                }));
+                program.push(Bytecode::EmitI32(EmitI32 {
+                    next: instr + 2,
+                    buffer: *buffer,
+                    position,
+                }));
+            }
+            _ => todo!(),
+        }
+    }
+
+    program.push(Bytecode::EmitEndStruct(EmitEndStruct { next: 1 }));
+    program.push(Bytecode::EndOfProgram(EndOfProgram { next: 8 }));
 
     let interpreter = Interpreter {
         current_instr: 0,
         program,
-        positions,
+        positions: vec![0; num_positions],
         buffers,
     };
 
