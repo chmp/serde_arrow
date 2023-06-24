@@ -31,7 +31,6 @@ pub(crate) use hash_map;
 macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
-        $(test_compilation = $test_compilation:expr,)?
         $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
@@ -198,7 +197,6 @@ pub(crate) use test_example_impl;
 /// ```rust,ignore
 /// test_example!(
 ///     test_name = $test_name:ident,
-///     $(test_compilation = $test_compilation:expr,)?
 ///     $(test_deserialization = $test_deserialization:expr,)?
 ///     $(tracing_options = $tracing_options:expr,)?
 ///     field = $field:expr,
