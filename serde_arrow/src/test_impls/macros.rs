@@ -374,3 +374,93 @@ macro_rules! test_error {
 }
 
 pub(crate) use test_error;
+
+macro_rules! test_roundtrip_arrays {
+    (
+        $name:ident {
+            $($setup:tt)*
+        }
+        assert_round_trip(
+            $fields:expr,
+            $inputs:expr
+            $(, expected: $expected:expr)?
+        );
+    ) => {
+        mod $name {
+            mod arrow2 {
+                use serde::{Serialize, Deserialize};
+                use crate::{
+                    arrow2,
+                    internal::schema::{GenericField, GenericDataType},
+                    Result,
+                };
+                use crate::_impl::arrow2::datatypes::Field;
+
+                #[test]
+                fn serialize() {
+                    $($setup)*
+
+                    let fields = $fields;
+                    let inputs = $inputs;
+
+                    let expected = inputs;
+                    $(let expected = $expected;)?
+
+                    let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
+
+                    let arrays = arrow2::serialize_into_arrays(&fields, inputs).unwrap();
+                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+
+                    assert_eq!(reconstructed, expected);
+                }
+
+                #[test]
+                fn builder_push() {
+                    $($setup)*
+
+                    let fields = $fields;
+                    let inputs = $inputs;
+
+                    let expected = inputs;
+                    $(let expected = $expected;)?
+
+                    let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
+
+                    let mut builder = arrow2::ArraysBuilder::new(&fields).unwrap();
+
+                    for item in inputs.iter() {
+                        builder.push(item).unwrap();
+                    }
+
+                    let arrays = builder.build_arrays().unwrap();
+                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+
+                    assert_eq!(reconstructed, expected);
+                }
+
+                #[test]
+                fn builder_extend() {
+                    $($setup)*
+
+                    let fields = $fields;
+                    let inputs = $inputs;
+
+                    let expected = inputs;
+                    $(let expected = $expected;)?
+
+                    let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
+
+                    let mut builder = arrow2::ArraysBuilder::new(&fields).unwrap();
+                    builder.extend(inputs).unwrap();
+
+                    let arrays = builder.build_arrays().unwrap();
+                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+
+                    assert_eq!(reconstructed, expected);
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use test_roundtrip_arrays;

@@ -69,8 +69,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rand = "0.8"
 
-arrow-json-39 = { package = "arrow-json", version = "39" }
-
 # for benchmarks
+arrow-json-39 = { package = "arrow-json", version = "39" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"
