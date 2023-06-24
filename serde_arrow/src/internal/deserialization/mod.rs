@@ -260,6 +260,6 @@ impl<'a> EventSource<'a> for Interpreter<'a> {
         let (next_instr, ev) =
             self.program[self.current_instr].emit(&mut self.positions, &self.buffers)?;
         self.current_instr = next_instr;
-        return Ok(ev);
+        Ok(ev)
     }
 }

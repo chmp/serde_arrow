@@ -11,6 +11,10 @@ impl<T> BufferExtract for T
 where
     T: AsRef<dyn crate::_impl::arrow2::array::Array>,
 {
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
     fn extract_buffers<'a>(
         &'a self,
         field: &GenericField,

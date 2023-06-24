@@ -2,6 +2,7 @@ use super::array_mapping::ArrayMapping;
 use crate::internal::{error::Result, schema::GenericField};
 
 pub trait BufferExtract {
+    fn len(&self) -> usize;
     fn extract_buffers<'a>(
         &'a self,
         field: &GenericField,

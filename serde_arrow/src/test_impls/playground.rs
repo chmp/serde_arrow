@@ -2,10 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arrow, arrow2,
-    base::deserialize_from_source,
     internal::{
-        common::{BufferExtract, Buffers},
-        deserialization,
+        deserialize_from_arrays,
         schema::{GenericDataType, GenericField},
     },
     Result,
@@ -39,15 +37,7 @@ fn example_arrow2() {
         arrays = arrow2::serialize_into_arrays(&fields, items).unwrap();
     }
 
-    let mut buffers = Buffers::new();
-    let mut mappings = Vec::new();
-    for (field, array) in fields.iter().zip(arrays.iter()) {
-        mappings.push(array.extract_buffers(field, &mut buffers).unwrap());
-    }
-
-    let interpreter = deserialization::compile_deserialization(3, &mappings, buffers).unwrap();
-    let rountripped: Vec<S> = deserialize_from_source(interpreter).unwrap();
-
+    let rountripped: Vec<S> = deserialize_from_arrays(&fields, &arrays).unwrap();
     assert_eq!(rountripped, items);
 }
 

@@ -11,13 +11,15 @@ pub mod source;
 
 use std::sync::RwLock;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use self::{
-    error::{fail, Result},
+    common::{BufferExtract, Buffers},
+    error::{error, fail, Result},
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
     serialization::{compile_serialization, CompilationOptions, Interpreter},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
+    source::deserialize_from_source,
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
@@ -117,4 +119,28 @@ impl GenericBuilder {
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         serialize_into_sink(&mut self.0, items)
     }
+}
+
+#[allow(unused)]
+pub fn deserialize_from_arrays<'de, T, A>(fields: &[GenericField], arrays: &'de [A]) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: BufferExtract,
+{
+    // TODO: support zero arrays as well
+    let num_items = arrays
+        .iter()
+        .map(|a| a.len())
+        .min()
+        .ok_or_else(|| error!("need at least one array"))?;
+
+    let mut buffers = Buffers::new();
+    let mut mappings = Vec::new();
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        mappings.push(array.extract_buffers(field, &mut buffers).unwrap());
+    }
+
+    let interpreter =
+        deserialization::compile_deserialization(num_items, &mappings, buffers).unwrap();
+    deserialize_from_source(interpreter)
 }
