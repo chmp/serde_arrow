@@ -1,4 +1,5 @@
 use crate::_impl::arrow::array::Array;
+use crate::internal::common::BitBuffer;
 use crate::internal::{
     common::{ArrayMapping, BufferExtract, Buffers},
     error::{error, fail, Result},
@@ -6,8 +7,11 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow::{
-    array::PrimitiveArray,
-    datatypes::{Float16Type, Int32Type},
+    array::{ArrowPrimitiveType, PrimitiveArray},
+    datatypes::{
+        Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    },
 };
 
 impl BufferExtract for dyn Array {
@@ -20,50 +24,53 @@ impl BufferExtract for dyn Array {
         field: &GenericField,
         buffers: &mut Buffers<'a>,
     ) -> Result<ArrayMapping> {
+        macro_rules! convert_primitive {
+            ($this:expr, $arrow_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = downcast_primitive_array::<$arrow_type>($this)?;
+                let buffer = buffers.$push_func(typed.values())?;
+                let validity = get_validity($this).map(|v| buffers.push_u1(v));
+
+                Ok(ArrayMapping::$variant {
+                    field: field.clone(),
+                    buffer,
+                    validity,
+                })
+            }};
+        }
+
+        use GenericDataType as T;
+
         match &field.data_type {
-            GenericDataType::I32 => {
-                if field.nullable {
-                    fail!("nullable fields are not yet supported");
-                }
-
-                let data = self
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Int32Type>>()
-                    .ok_or_else(|| error!("Cannot interpret array as I32 array"))?
-                    .values();
-                let data: &[u32] = bytemuck::try_cast_slice(data).unwrap();
-
-                let buffer = buffers.u32.len();
-                buffers.u32.push(data);
-
-                Ok(ArrayMapping::I32 {
-                    field: field.clone(),
-                    buffer,
-                    validity: None,
-                })
-            }
-            GenericDataType::F16 => {
-                if field.nullable {
-                    fail!("nullable fields are not yet supported");
-                }
-
-                let data = self
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Float16Type>>()
-                    .ok_or_else(|| error!("Cannot interpret array as F16 array"))?
-                    .values();
-                let data: &[u16] = bytemuck::try_cast_slice(data).unwrap();
-
-                let buffer = buffers.u16.len();
-                buffers.u16.push(data);
-
-                Ok(ArrayMapping::F16 {
-                    field: field.clone(),
-                    buffer,
-                    validity: None,
-                })
-            }
+            T::U8 => convert_primitive!(self, UInt8Type, U8, push_u8_cast),
+            T::U16 => convert_primitive!(self, UInt16Type, U16, push_u16_cast),
+            T::U32 => convert_primitive!(self, UInt32Type, U32, push_u32_cast),
+            T::U64 => convert_primitive!(self, UInt64Type, U64, push_u64_cast),
+            T::I8 => convert_primitive!(self, Int8Type, I8, push_u8_cast),
+            T::I16 => convert_primitive!(self, Int16Type, I16, push_u16_cast),
+            T::I32 => convert_primitive!(self, Int32Type, I32, push_u32_cast),
+            T::I64 => convert_primitive!(self, Int64Type, I64, push_u64_cast),
+            T::F16 => convert_primitive!(self, Float16Type, F16, push_u16_cast),
+            T::F32 => convert_primitive!(self, Float32Type, F32, push_u32_cast),
+            T::F64 => convert_primitive!(self, Float64Type, F64, push_u64_cast),
             dt => fail!("BufferExtract for {dt} is not implemented"),
         }
     }
+}
+
+fn downcast_primitive_array<T: ArrowPrimitiveType>(arr: &dyn Array) -> Result<&PrimitiveArray<T>> {
+    arr.as_any()
+        .downcast_ref::<PrimitiveArray<T>>()
+        .ok_or_else(|| error!("Cannot interpret array as typed array"))
+}
+
+fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
+    let validity = arr.nulls()?;
+    let data = validity.validity();
+    let offset = validity.offset();
+    let number_of_bits = validity.len();
+    Some(BitBuffer {
+        data,
+        offset,
+        number_of_bits,
+    })
 }

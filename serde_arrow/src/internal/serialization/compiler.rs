@@ -812,6 +812,7 @@ impl Program {
             field: field.clone(),
             fields,
             types: type_idx,
+            validity: None,
         })
     }
 

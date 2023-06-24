@@ -18,124 +18,115 @@ pub enum DictionaryValue {
     LargeUtf8 { buffer: usize, offsets: usize },
 }
 
-/// Map an array to its corresponding buffers
-#[derive(Debug, Clone)]
-pub enum ArrayMapping {
+macro_rules! define_array_mapping {
+    (
+        $(
+            $variant:ident {
+                $($field:ident:$ty:ty,)*
+            },
+        )*
+    ) => {
+        /// Map an array to its corresponding buffers
+        #[derive(Debug, Clone)]
+        pub enum ArrayMapping {
+            $(
+                $variant {
+                    field: GenericField,
+                    validity: Option<usize>,
+                    $( $field:$ty, )*
+                },
+            )*
+        }
+
+        impl ArrayMapping {
+            pub fn get_field(&self) -> &GenericField {
+                match self {
+                    $(  ArrayMapping::$variant { field, .. } => field, )*
+                }
+            }
+
+            pub fn get_validity(&self) -> Option<usize> {
+                match self {
+                    $(  ArrayMapping::$variant { validity, .. } => *validity, )*
+                }
+            }
+        }
+    };
+}
+
+#[rustfmt::skip]
+define_array_mapping!(
     Null {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     Bool {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     U8 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     U16 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     U32 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     U64 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     I8 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     I16 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     I32 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     I64 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     F16 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     F32 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     F64 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
     Utf8 {
-        field: GenericField,
         buffer: usize,
         offsets: usize,
-        validity: Option<usize>,
     },
     LargeUtf8 {
-        field: GenericField,
         buffer: usize,
         offsets: usize,
-        validity: Option<usize>,
     },
     Date64 {
-        field: GenericField,
         buffer: usize,
-        validity: Option<usize>,
     },
-    #[allow(unused)]
     List {
-        field: GenericField,
         item: Box<ArrayMapping>,
         offsets: usize,
-        validity: Option<usize>,
     },
     Dictionary {
-        field: GenericField,
         dictionary: DictionaryValue,
         indices: DictionaryIndex,
-        validity: Option<usize>,
     },
     LargeList {
-        field: GenericField,
         item: Box<ArrayMapping>,
         offsets: usize,
-        validity: Option<usize>,
     },
     Struct {
-        field: GenericField,
         fields: Vec<ArrayMapping>,
-        validity: Option<usize>,
     },
     Union {
-        field: GenericField,
         fields: Vec<ArrayMapping>,
         types: usize,
     },
     Map {
-        field: GenericField,
         offsets: usize,
-        validity: Option<usize>,
         entries: Box<ArrayMapping>,
     },
-}
+);

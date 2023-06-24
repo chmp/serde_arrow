@@ -16,19 +16,19 @@ pub fn compile_deserialization<'a>(
 ) -> Result<Interpreter<'a>> {
     let mut num_positions = 0;
 
-    buffers.u0.push(num_items);
-
     let mut program = Vec::new();
 
     program.push(Bytecode::EmitStartSequence(EmitStartSequence { next: 1 }));
 
+    let count = buffers.push_u0(num_items);
     let item_pos = program.len();
     num_positions += 1;
+
     program.push(Bytecode::EmitItem(EmitItem {
         next: item_pos + 1,
         if_end: usize::MAX,
         position: 0,
-        count: 0,
+        count,
     }));
 
     program.push(Bytecode::EmitStartStruct(EmitStartStruct { next: 3 }));
@@ -44,8 +44,7 @@ pub fn compile_deserialization<'a>(
                     todo!()
                 }
 
-                let name_buffer = buffers.u8.len();
-                buffers.u8.push(field.name.as_bytes());
+                let name_buffer = buffers.push_u8(field.name.as_bytes());
 
                 let position = num_positions;
                 num_positions += 1;
@@ -66,12 +65,7 @@ pub fn compile_deserialization<'a>(
                 buffer,
                 validity,
             } => {
-                if validity.is_some() {
-                    todo!()
-                }
-
-                let name_buffer = buffers.u8.len();
-                buffers.u8.push(field.name.as_bytes());
+                let name_buffer = buffers.push_u8(field.name.as_bytes());
 
                 let position = num_positions;
                 num_positions += 1;
@@ -81,11 +75,32 @@ pub fn compile_deserialization<'a>(
                     next: instr + 1,
                     buffer: name_buffer,
                 }));
+
+                let option_instr;
+                if let &Some(validity) = validity {
+                    option_instr = Some(program.len());
+
+                    program.push(Bytecode::EmitOptionPrimitive(EmitOptionPrimitive {
+                        next: option_instr.unwrap() + 1,
+                        position,
+                        validity,
+                        if_none: usize::MAX,
+                    }))
+                } else {
+                    option_instr = None
+                };
+                let instr = program.len();
                 program.push(Bytecode::EmitI32(EmitI32 {
-                    next: instr + 2,
+                    next: instr + 1,
                     buffer: *buffer,
                     position,
                 }));
+
+                if let Some(option_instr) = option_instr {
+                    let if_none = program.len();
+                    let Some(Bytecode::EmitOptionPrimitive(instr)) = program.get_mut(option_instr) else { unreachable!() };
+                    instr.if_none = if_none;
+                }
             }
             _ => todo!(),
         }
@@ -114,10 +129,10 @@ pub fn compile_deserialization<'a>(
 define_bytecode!{
     EmitStartSequence {},
     EmitItem {
-        // the instruction to jump to if the list is at its end
+        /// the instruction to jump to if the list is at its end
         position: usize,
         if_end: usize,
-        // the buffer that contains the number of items in this sequence
+        /// the buffer that contains the number of items in this sequence
         count: usize,
     },
     EmitStartStruct{},
@@ -126,6 +141,17 @@ define_bytecode!{
         buffer: usize,
     },
     EndOfProgram{},
+    /// Emit nullability information for a primitive type
+    /// 
+    /// This instruction increases the primitives positions in case of null.
+    EmitOptionPrimitive{
+        /// The index of the position counter
+        position: usize,
+        /// The index of the u1 buffer containing the validity 
+        validity: usize,
+        /// The instruction to jump to, if the validity is false 
+        if_none: usize,
+    },
     EmitI32{
         position: usize,
         buffer: usize,
@@ -210,6 +236,21 @@ impl Instruction for EmitConstantString {
     ) -> Result<(usize, Option<Event<'a>>)> {
         let s = std::str::from_utf8(buffers.u8[self.buffer])?;
         Ok((self.next, Some(Event::Str(s))))
+    }
+}
+
+impl Instruction for EmitOptionPrimitive {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        if buffers.u1[self.validity].is_set(positions[self.position]) {
+            Ok((self.next, Some(Event::Some)))
+        } else {
+            positions[self.position] += 1;
+            Ok((self.if_none, Some(Event::Null)))
+        }
     }
 }
 

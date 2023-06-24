@@ -247,6 +247,7 @@ fn build_array(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<B
             field,
             fields,
             types,
+            ..
         } => {
             let types = std::mem::take(&mut buffers.u8[*types]);
             let types: Vec<i8> = ToBytes::from_bytes_vec(types);

@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use crate::internal::{
-    common::{ArrayMapping, BitBuffer, DictionaryIndex, DictionaryValue},
+    common::{ArrayMapping, DictionaryIndex, DictionaryValue, MutableBitBuffer},
     conversions::ToBytes,
     error::{fail, Result},
     serialization::{interpreter::MutableBuffers, Interpreter},
@@ -239,6 +239,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             field,
             fields,
             types,
+            ..
         } => {
             let types = std::mem::take(&mut buffers.u8[*types]);
             let types: Vec<i8> = ToBytes::from_bytes_vec(types);
@@ -341,7 +342,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
 fn build_array_data_utf8(
     data: Vec<u8>,
     offsets: Vec<i32>,
-    validity: Option<BitBuffer>,
+    validity: Option<MutableBitBuffer>,
 ) -> Result<ArrayData> {
     build_array_data_utf8_impl(DataType::Utf8, data, offsets, validity)
 }
@@ -349,7 +350,7 @@ fn build_array_data_utf8(
 fn build_array_data_large_utf8(
     data: Vec<u8>,
     offsets: Vec<i64>,
-    validity: Option<BitBuffer>,
+    validity: Option<MutableBitBuffer>,
 ) -> Result<ArrayData> {
     build_array_data_utf8_impl(DataType::LargeUtf8, data, offsets, validity)
 }
@@ -358,7 +359,7 @@ fn build_array_data_utf8_impl<O: ArrowNativeType>(
     data_type: DataType,
     data: Vec<u8>,
     offsets: Vec<O>,
-    validity: Option<BitBuffer>,
+    validity: Option<MutableBitBuffer>,
 ) -> Result<ArrayData> {
     let values_len = offsets.len() - 1;
 
@@ -380,7 +381,7 @@ fn build_array_data_primitive<T: ArrowNativeType>(
     data_type: DataType,
     len: usize,
     data: Vec<T>,
-    validity: Option<BitBuffer>,
+    validity: Option<MutableBitBuffer>,
 ) -> Result<ArrayData> {
     Ok(ArrayData::try_new(
         data_type,

@@ -83,3 +83,37 @@ test_roundtrip_arrays!(
     }
     assert_round_trip(fields, items);
 );
+
+test_roundtrip_arrays!(
+    example_field_order_different_from_struct {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        struct S {
+            a: i32,
+            b: f32,
+        }
+
+        let items = &[S { a: 0, b: 2.0 }, S { a: 1, b: 3.0 }, S { a: 2, b: 4.0 }];
+
+        let fields = vec![
+            GenericField::new("b", GenericDataType::F16, false),
+            GenericField::new("a", GenericDataType::I32, false),
+        ];
+    }
+    assert_round_trip(fields, items);
+);
+
+test_roundtrip_arrays!(
+    example_optional_fields {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        struct S {
+            a: Option<i32>,
+        }
+
+        let items = &[S { a: Some(0) }, S { a: None }, S { a: Some(2) }];
+
+        let fields = vec![
+            GenericField::new("a", GenericDataType::I32, true),
+        ];
+    }
+    assert_round_trip(fields, items);
+);

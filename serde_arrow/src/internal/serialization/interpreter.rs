@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use crate::{
     base::Event,
     internal::{
-        common::{BitBuffer, DictionaryIndex, DictionaryValue, NullBuffer, OffsetBuilder},
+        common::{
+            DictionaryIndex, DictionaryValue, MutableBitBuffer, MutableCountBuffer,
+            MutableOffsetBuffer,
+        },
         conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
         error::{self, fail, Result},
         serialization::compiler::{
@@ -32,9 +35,9 @@ pub struct Interpreter {
 #[derive(Debug, Clone)]
 pub struct MutableBuffers {
     /// 0 bit buffers
-    pub u0: Vec<NullBuffer>,
+    pub u0: Vec<MutableCountBuffer>,
     /// 1 bit buffers
-    pub u1: Vec<BitBuffer>,
+    pub u1: Vec<MutableBitBuffer>,
     /// 8 bit buffers
     pub u8: Vec<Vec<u8>>,
     /// 16 bit buffers
@@ -44,9 +47,9 @@ pub struct MutableBuffers {
     /// 64 bit buffers
     pub u64: Vec<Vec<u64>>,
     /// 32 bit offsets
-    pub u32_offsets: Vec<OffsetBuilder<i32>>,
+    pub u32_offsets: Vec<MutableOffsetBuffer<i32>>,
     /// 64 bit offsets
-    pub u64_offsets: Vec<OffsetBuilder<i64>>,
+    pub u64_offsets: Vec<MutableOffsetBuffer<i64>>,
     /// markers for which struct fields have been seen
     pub seen: Vec<BitSet>,
     /// mappings from strings to indices for dictionaries

@@ -3,14 +3,18 @@ mod array_mapping;
 mod buffers;
 
 pub use array_mapping::{ArrayMapping, DictionaryIndex, DictionaryValue};
-pub use buffers::{BitBuffer, BufferExtract, Buffers, NullBuffer, Offset, OffsetBuilder};
+pub use buffers::{
+    BitBuffer, BufferExtract, Buffers, MutableBitBuffer, MutableCountBuffer, MutableOffsetBuffer,
+    Offset,
+};
 
 macro_rules! define_bytecode {
     (
         $(
+            $(#[doc = $variant_doc:literal])*
             $variant:ident {
                 $(
-                    $(#[doc = $doc:literal])?
+                    $(#[doc = $field_doc:literal])*
                     $field:ident: $ty:ty,
                 )*
             },
@@ -22,11 +26,12 @@ macro_rules! define_bytecode {
         }
 
         $(
+            $(#[doc = $variant_doc])*
             #[derive(Debug, PartialEq, Clone)]
             pub struct $variant {
                 pub next: usize,
                 $(
-                    $(#[doc = $doc])?
+                    $(#[doc = $field_doc])*
                     pub $field: $ty,
                 )*
             }
