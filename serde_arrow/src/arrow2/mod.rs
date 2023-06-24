@@ -3,6 +3,7 @@
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
+pub(crate) mod deserialization;
 pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod serialization;

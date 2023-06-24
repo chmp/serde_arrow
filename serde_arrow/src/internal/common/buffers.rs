@@ -1,4 +1,13 @@
-use crate::internal::error::Result;
+use super::array_mapping::ArrayMapping;
+use crate::internal::{error::Result, schema::GenericField};
+
+pub trait BufferExtract {
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping>;
+}
 
 /// Readonly buffers
 #[derive(Default)]
@@ -10,6 +19,7 @@ pub struct Buffers<'a> {
 }
 
 impl<'a> Buffers<'a> {
+    #[allow(unused)]
     pub fn new() -> Self {
         Self::default()
     }

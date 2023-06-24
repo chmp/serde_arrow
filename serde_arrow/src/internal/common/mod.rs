@@ -3,7 +3,7 @@ mod array_mapping;
 mod buffers;
 
 pub use array_mapping::{ArrayMapping, DictionaryIndex, DictionaryValue};
-pub use buffers::{BitBuffer, Buffers, NullBuffer, Offset, OffsetBuilder};
+pub use buffers::{BitBuffer, BufferExtract, Buffers, NullBuffer, Offset, OffsetBuilder};
 
 macro_rules! define_bytecode {
     (
