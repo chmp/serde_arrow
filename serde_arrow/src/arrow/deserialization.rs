@@ -1,14 +1,13 @@
-use crate::_impl::arrow2::{
-    array::{Array, PrimitiveArray},
-    types::f16,
+use crate::_impl::arrow::array::Array;
+use crate::internal::{
+    common::{ArrayMapping, BufferExtract, Buffers},
+    error::{error, fail, Result},
+    schema::{GenericDataType, GenericField},
 };
-use crate::{
-    internal::{
-        common::{ArrayMapping, BufferExtract, Buffers},
-        error::{error, fail},
-        schema::{GenericDataType, GenericField},
-    },
-    Result,
+
+use crate::_impl::arrow::{
+    array::PrimitiveArray,
+    datatypes::{Float16Type, Int32Type},
 };
 
 impl BufferExtract for dyn Array {
@@ -29,11 +28,10 @@ impl BufferExtract for dyn Array {
 
                 let data = self
                     .as_any()
-                    .downcast_ref::<PrimitiveArray<i32>>()
+                    .downcast_ref::<PrimitiveArray<Int32Type>>()
                     .ok_or_else(|| error!("Cannot interpret array as I32 array"))?
-                    .values()
-                    .as_slice();
-                let data: &[u32] = bytemuck::try_cast_slice(data)?;
+                    .values();
+                let data: &[u32] = bytemuck::try_cast_slice(data).unwrap();
 
                 let buffer = buffers.u32.len();
                 buffers.u32.push(data);
@@ -48,14 +46,13 @@ impl BufferExtract for dyn Array {
                 if field.nullable {
                     fail!("nullable fields are not yet supported");
                 }
+
                 let data = self
-                    .as_ref()
                     .as_any()
-                    .downcast_ref::<PrimitiveArray<f16>>()
+                    .downcast_ref::<PrimitiveArray<Float16Type>>()
                     .ok_or_else(|| error!("Cannot interpret array as F16 array"))?
-                    .values()
-                    .as_slice();
-                let data: &[u16] = bytemuck::try_cast_slice(data)?;
+                    .values();
+                let data: &[u16] = bytemuck::try_cast_slice(data).unwrap();
 
                 let buffer = buffers.u16.len();
                 buffers.u16.push(data);

@@ -43,10 +43,7 @@ fn example_arrow2() {
 
 #[test]
 fn example_arrow() {
-    use crate::_impl::arrow::{
-        array::PrimitiveArray,
-        datatypes::{Field, Float16Type, Int32Type},
-    };
+    use crate::_impl::arrow::datatypes::Field;
 
     #[derive(Debug, PartialEq, Deserialize, Serialize)]
     struct S {
@@ -60,33 +57,18 @@ fn example_arrow() {
         GenericField::new("a", GenericDataType::I32, false),
         GenericField::new("b", GenericDataType::F16, false),
     ];
-    let fields = fields
-        .iter()
-        .map(|f| Field::try_from(f))
-        .collect::<Result<Vec<_>>>()
-        .unwrap();
 
-    let arrays = arrow::serialize_into_arrays(&fields, items).unwrap();
+    let arrays;
+    {
+        let fields = fields
+            .iter()
+            .map(|f| Field::try_from(f))
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
 
-    let a = &arrays[0];
+        arrays = arrow::serialize_into_arrays(&fields, items).unwrap();
+    }
 
-    let a_data = a
-        .as_any()
-        .downcast_ref::<PrimitiveArray<Int32Type>>()
-        .unwrap()
-        .values();
-    let a_data: &[u32] = bytemuck::try_cast_slice(a_data).unwrap();
-
-    assert_eq!(a_data, &[0, 1, 2]);
-
-    let b = &arrays[1];
-
-    let b_data = b
-        .as_any()
-        .downcast_ref::<PrimitiveArray<Float16Type>>()
-        .unwrap()
-        .values();
-    let b_data: &[u16] = bytemuck::try_cast_slice(b_data).unwrap();
-
-    assert_eq!(b_data.len(), 3);
+    let rountripped: Vec<S> = deserialize_from_arrays(&fields, &arrays).unwrap();
+    assert_eq!(rountripped, items);
 }

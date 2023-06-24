@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::array_mapping::ArrayMapping;
 use crate::internal::{error::Result, schema::GenericField};
 
@@ -8,6 +10,34 @@ pub trait BufferExtract {
         field: &GenericField,
         buffers: &mut Buffers<'a>,
     ) -> Result<ArrayMapping>;
+}
+
+impl<T: BufferExtract + ?Sized> BufferExtract for Box<T> {
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping> {
+        self.as_ref().extract_buffers(field, buffers)
+    }
+}
+
+impl<T: BufferExtract + ?Sized> BufferExtract for Arc<T> {
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping> {
+        self.as_ref().extract_buffers(field, buffers)
+    }
 }
 
 /// Readonly buffers
