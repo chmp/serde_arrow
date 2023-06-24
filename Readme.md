@@ -110,42 +110,37 @@ compared to arrow2-convert:
 The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
-###  complex_common_serialize(100000)
+### complex_common_serialize(100000)
 
-| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
-|----------------------|-----------|----------------|-----------------|-------------|-------|
-| arrow2_convert       |     48.16 |           1.00 |            0.33 |        0.08 |  0.06 |
-| serde_arrow_bytecode |    147.66 |           3.07 |            1.00 |        0.25 |  0.18 |
-| serde_arrow          |    592.16 |          12.30 |            4.01 |        1.00 |  0.73 |
-| arrow                |    815.95 |          16.94 |            5.53 |        1.38 |  1.00 |
+| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
+|----------------|-----------|----------------|-------------|-------|
+| arrow2_convert |     65.31 |           1.00 |        0.32 |  0.04 |
+| serde_arrow    |    206.52 |           3.16 |        1.00 |  0.14 |
+| arrow          |   1492.13 |          22.85 |        7.23 |  1.00 |
 
-###  complex_common_serialize(1000000)
+### complex_common_serialize(1000000)
 
-| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
-|----------------------|-----------|----------------|-----------------|-------------|-------|
-| arrow2_convert       |    464.95 |           1.00 |            0.32 |        0.08 |  0.06 |
-| serde_arrow_bytecode |   1450.16 |           3.12 |            1.00 |        0.25 |  0.18 |
-| serde_arrow          |   5784.91 |          12.44 |            3.99 |        1.00 |  0.71 |
-| arrow                |   8144.66 |          17.52 |            5.62 |        1.41 |  1.00 |
+| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
+|----------------|-----------|----------------|-------------|-------|
+| arrow2_convert |    507.49 |           1.00 |        0.25 |  0.05 |
+| serde_arrow    |   2029.95 |           4.00 |        1.00 |  0.21 |
+| arrow          |   9815.04 |          19.34 |        4.84 |  1.00 |
 
-###  primitives_serialize(100000)
+### primitives_serialize(100000)
 
-| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
-|----------------------|-----------|----------------|-----------------|-------------|-------|
-| arrow2_convert       |     14.26 |           1.00 |            0.32 |        0.26 |  0.07 |
-| serde_arrow_bytecode |     45.04 |           3.16 |            1.00 |        0.81 |  0.24 |
-| serde_arrow          |     55.86 |           3.92 |            1.24 |        1.00 |  0.29 |
-| arrow                |    191.31 |          13.42 |            4.25 |        3.42 |  1.00 |
+| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
+|----------------|-----------|----------------|-------------|-------|
+| arrow2_convert |     12.62 |           1.00 |        0.24 |  0.06 |
+| serde_arrow    |     52.88 |           4.19 |        1.00 |  0.27 |
+| arrow          |    197.70 |          15.67 |        3.74 |  1.00 |
 
-###  primitives_serialize(1000000)
+### primitives_serialize(1000000)
 
-| label                | time [ms] | arrow2_convert | serde_arrow_byt | serde_arrow | arrow |
-|----------------------|-----------|----------------|-----------------|-------------|-------|
-| arrow2_convert       |    149.41 |           1.00 |            0.33 |        0.27 |  0.08 |
-| serde_arrow_bytecode |    451.34 |           3.02 |            1.00 |        0.82 |  0.23 |
-| serde_arrow          |    549.38 |           3.68 |            1.22 |        1.00 |  0.28 |
-| arrow                |   1957.01 |          13.10 |            4.34 |        3.56 |  1.00 |
-
+| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
+|----------------|-----------|----------------|-------------|-------|
+| arrow2_convert |    148.00 |           1.00 |        0.26 |  0.07 |
+| serde_arrow    |    568.58 |           3.84 |        1.00 |  0.29 |
+| arrow          |   1991.82 |          13.46 |        3.50 |  1.00 |
 
 <!-- end:benchmarks -->
 
