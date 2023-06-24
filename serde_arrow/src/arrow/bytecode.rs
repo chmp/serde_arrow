@@ -319,13 +319,15 @@ pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result
             };
 
             let values = match dictionary {
-                V::Utf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
-                    build_array_data_utf8(dictionary.data, dictionary.offsets.offsets, None)?
+                V::Utf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
+                    build_array_data_utf8(data, offsets.offsets, None)?
                 }
-                V::LargeUtf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
-                    build_array_data_large_utf8(dictionary.data, dictionary.offsets.offsets, None)?
+                V::LargeUtf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
+                    build_array_data_large_utf8(data, offsets.offsets, None)?
                 }
             };
 

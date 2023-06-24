@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::internal::error::Result;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -107,33 +105,6 @@ impl<O: Offset> OffsetBuilder<O> {
     pub fn inc_current_items(&mut self) -> Result<()> {
         self.current_items = self.current_items.clone() + O::try_form_usize(1)?;
         Ok(())
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct StringDictonary<O: Offset> {
-    pub(crate) index: HashMap<String, usize>,
-    pub(crate) data: Vec<u8>,
-    pub(crate) offsets: OffsetBuilder<O>,
-}
-
-impl<O: Offset> StringDictonary<O> {
-    pub fn push(&mut self, val: &str) -> Result<usize> {
-        if self.index.contains_key(val) {
-            Ok(self.index[val])
-        } else {
-            let res = self.index.len();
-            self.index.insert(val.to_string(), res);
-
-            self.data.extend(val.as_bytes().iter().copied());
-            self.offsets.push(val.len())?;
-
-            Ok(res)
-        }
     }
 
     pub fn clear(&mut self) {

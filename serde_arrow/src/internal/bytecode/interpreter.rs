@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use crate::{
     base::Event,
     internal::{
         bytecode::{
-            buffers::{BitBuffer, NullBuffer, OffsetBuilder, StringDictonary},
+            buffers::{BitBuffer, NullBuffer, OffsetBuilder},
             compiler::{
                 dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
                 LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, MapEnd,
@@ -50,8 +52,8 @@ pub struct Buffers {
     pub u64_offsets: Vec<OffsetBuilder<i64>>,
     /// markers for which struct fields have been seen
     pub seen: Vec<BitSet>,
-    pub dictionaries: Vec<StringDictonary<i32>>,
-    pub large_dictionaries: Vec<StringDictonary<i64>>,
+    /// mappings from strings to indices for dictionaries
+    pub dictionaries: Vec<HashMap<String, usize>>,
 }
 
 impl Buffers {
@@ -67,7 +69,6 @@ impl Buffers {
             u64_offsets: vec![Default::default(); counts.num_u64_offsets],
             seen: vec![Default::default(); counts.num_seen],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
-            large_dictionaries: vec![Default::default(); counts.num_large_dictionaries],
         }
     }
 
@@ -82,7 +83,6 @@ impl Buffers {
         self.u64_offsets.iter_mut().for_each(|b| b.clear());
         self.seen.iter_mut().for_each(|b| b.clear());
         self.dictionaries.iter_mut().for_each(|b| b.clear());
-        self.large_dictionaries.iter_mut().for_each(|b| b.clear());
     }
 }
 
@@ -683,10 +683,26 @@ impl Instruction for PushDictionary {
         val: &str,
     ) -> Result<usize> {
         use {DictionaryIndex as I, DictionaryValue as V};
-        let idx = match self.values {
-            V::Utf8(dict) => buffers.dictionaries[dict].push(val)?,
-            V::LargeUtf8(dict) => buffers.large_dictionaries[dict].push(val)?,
+
+        let idx = if buffers.dictionaries[self.dictionary].contains_key(val) {
+            buffers.dictionaries[self.dictionary][val]
+        } else {
+            match self.values {
+                V::Utf8 { buffer, offsets } => {
+                    buffers.u8[buffer].extend(val.as_bytes().iter().copied());
+                    buffers.u32_offsets[offsets].push(val.len())?;
+                }
+                V::LargeUtf8 { buffer, offsets } => {
+                    buffers.u8[buffer].extend(val.as_bytes().iter().copied());
+                    buffers.u64_offsets[offsets].push(val.len())?;
+                }
+            }
+
+            let idx = buffers.dictionaries[self.dictionary].len();
+            buffers.dictionaries[self.dictionary].insert(val.to_string(), idx);
+            idx
         };
+
         match self.indices {
             I::U8(indices) => buffers.u8[indices].push(idx.try_into()?),
             I::U16(indices) => buffers.u16[indices].push(idx.try_into()?),

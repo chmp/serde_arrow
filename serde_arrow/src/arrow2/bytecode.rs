@@ -150,21 +150,23 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             let data_type = Field::try_from(field)?.data_type;
             let validity = build_validity(buffers, *validity);
             let values: Box<dyn Array> = match dictionary {
-                V::Utf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.dictionaries[*dict]);
+                V::Utf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
                     Box::new(Utf8Array::new(
                         DataType::Utf8,
-                        OffsetsBuffer::try_from(dictionary.offsets.offsets)?,
-                        Buffer::from(dictionary.data),
+                        OffsetsBuffer::try_from(offsets.offsets)?,
+                        Buffer::from(data),
                         None,
                     ))
                 }
-                V::LargeUtf8(dict) => {
-                    let dictionary = std::mem::take(&mut buffers.large_dictionaries[*dict]);
+                V::LargeUtf8 { buffer, offsets } => {
+                    let data = std::mem::take(&mut buffers.u8[*buffer]);
+                    let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
                     Box::new(Utf8Array::new(
                         DataType::LargeUtf8,
-                        OffsetsBuffer::try_from(dictionary.offsets.offsets)?,
-                        Buffer::from(dictionary.data),
+                        OffsetsBuffer::try_from(offsets.offsets)?,
+                        Buffer::from(data),
                         None,
                     ))
                 }
