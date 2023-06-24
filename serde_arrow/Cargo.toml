@@ -29,9 +29,10 @@ arrow-36 = ["dep:arrow-array-36", "dep:arrow-schema-36", "dep:arrow-data-36", "d
 arrow-35 = ["dep:arrow-array-35", "dep:arrow-schema-35", "dep:arrow-data-35", "dep:arrow-buffer-35"]
 
 [dependencies]
+bytemuck = "1"
 # TODO: make optional, only required for str -> date conversions
 chrono = "0.4"
-half = "2"
+half = { version = "2", features = ["bytemuck"] }
 serde = "1.0"
 
 arrow-array-39 = { package = "arrow-array", version = "39", optional = true }

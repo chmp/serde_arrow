@@ -1,5 +1,20 @@
 use crate::internal::error::Result;
 
+/// Readonly buffers
+#[derive(Default)]
+pub struct Buffers<'a> {
+    pub u0: Vec<usize>,
+    pub u8: Vec<&'a [u8]>,
+    pub u16: Vec<&'a [u16]>,
+    pub u32: Vec<&'a [u32]>,
+}
+
+impl<'a> Buffers<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct BitBuffer {
     pub(crate) buffer: Vec<u8>,

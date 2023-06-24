@@ -1,11 +1,13 @@
-pub(crate) mod conversions;
-pub(crate) mod error;
-pub(crate) mod event;
-pub(crate) mod generic_sources;
-pub(crate) mod schema;
+pub mod common;
+pub mod conversions;
+pub mod deserialization;
+pub mod error;
+pub mod event;
+pub mod generic_sources;
+pub mod schema;
 pub mod serialization;
-pub(crate) mod sink;
-pub(crate) mod source;
+pub mod sink;
+pub mod source;
 
 use std::sync::RwLock;
 

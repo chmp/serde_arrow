@@ -1,14 +1,10 @@
 #![allow(missing_docs)]
 
 use crate::internal::{
+    common::{ArrayMapping, BitBuffer, DictionaryIndex, DictionaryValue},
     conversions::ToBytes,
     error::{fail, Result},
-    serialization::{
-        buffers::BitBuffer,
-        compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
-        interpreter::Buffers,
-        Interpreter,
-    },
+    serialization::{interpreter::MutableBuffers, Interpreter},
 };
 
 use crate::_impl::arrow::{
@@ -48,7 +44,7 @@ macro_rules! build_primitive_array_data {
     }};
 }
 
-pub fn build_array_data(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<ArrayData> {
+pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<ArrayData> {
     use ArrayMapping as M;
     match mapping {
         &M::Null { buffer, .. } => Ok(NullArray::new(buffers.u0[buffer].len()).into_data()),
