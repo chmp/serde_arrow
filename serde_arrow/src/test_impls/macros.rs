@@ -258,7 +258,7 @@ macro_rules! test_events {
     ) => {
         mod $test_name {
             use crate::internal::{
-                bytecode::{compile_serialization, CompilationOptions, Interpreter},
+                serialization::{compile_serialization, CompilationOptions, Interpreter},
                 event::Event,
                 schema::{GenericDataType, GenericField, Tracer, TracingOptions},
                 sink::{accept_events, StripOuterSequenceSink},

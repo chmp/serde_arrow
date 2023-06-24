@@ -16,13 +16,13 @@ use crate::{
 };
 
 use crate::internal::{
-    bytecode::{
+    conversions::ToBytes,
+    error::Result,
+    serialization::{
         compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
     },
-    conversions::ToBytes,
-    error::Result,
 };
 
 impl Interpreter {

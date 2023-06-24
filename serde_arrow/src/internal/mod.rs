@@ -1,9 +1,9 @@
-pub mod bytecode;
 pub(crate) mod conversions;
 pub(crate) mod error;
 pub(crate) mod event;
 pub(crate) mod generic_sources;
 pub(crate) mod schema;
+pub mod serialization;
 pub(crate) mod sink;
 pub(crate) mod source;
 
@@ -12,9 +12,9 @@ use std::sync::RwLock;
 use serde::Serialize;
 
 use self::{
-    bytecode::{compile_serialization, CompilationOptions, Interpreter},
     error::{fail, Result},
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
+    serialization::{compile_serialization, CompilationOptions, Interpreter},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
 };
 

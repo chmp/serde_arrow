@@ -1,14 +1,14 @@
 #![allow(missing_docs)]
 
 use crate::internal::{
-    bytecode::{
+    conversions::ToBytes,
+    error::{fail, Result},
+    serialization::{
         buffers::BitBuffer,
         compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
         interpreter::Buffers,
         Interpreter,
     },
-    conversions::ToBytes,
-    error::{fail, Result},
 };
 
 use crate::_impl::arrow::{

@@ -3,9 +3,9 @@
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
-pub(crate) mod bytecode;
 pub(crate) mod display;
 pub(crate) mod schema;
+pub(crate) mod serialization;
 pub(crate) mod sources;
 mod type_support;
 
@@ -18,9 +18,9 @@ use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
         self,
-        bytecode::{compile_serialization, CompilationOptions, Interpreter},
         error::Result,
         schema::{GenericField, TracingOptions},
+        serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
         source::{deserialize_from_source, AddOuterSequenceSource},
     },

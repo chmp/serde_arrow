@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use crate::{
     base::Event,
     internal::{
-        bytecode::{
+        conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
+        error::{self, fail, Result},
+        serialization::{
             buffers::{BitBuffer, NullBuffer, OffsetBuilder},
             compiler::{
                 dispatch_bytecode, BufferCounts, Bytecode, DictionaryIndex, DictionaryValue,
@@ -17,8 +19,6 @@ use crate::{
                 UnionEnd, Variant,
             },
         },
-        conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
-        error::{self, fail, Result},
         sink::EventSink,
     },
 };

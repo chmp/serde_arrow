@@ -4,8 +4,8 @@
 //! `arrow` arrays to Rust objects is not yet supported.
 //!
 #![deny(missing_docs)]
-pub(crate) mod bytecode;
 mod schema;
+pub(crate) mod serialization;
 mod type_support;
 
 #[cfg(test)]
@@ -17,9 +17,9 @@ use crate::{
     _impl::arrow::{array::ArrayRef, datatypes::Field},
     internal::{
         self,
-        bytecode::{compile_serialization, CompilationOptions, Interpreter},
         error::Result,
         schema::{GenericField, TracingOptions},
+        serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
     },
 };

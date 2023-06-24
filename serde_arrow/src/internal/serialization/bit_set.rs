@@ -28,7 +28,7 @@ impl BitSet {
 
 #[cfg(test)]
 mod test {
-    use crate::internal::bytecode::bit_set::BitSet;
+    use crate::internal::serialization::bit_set::BitSet;
 
     #[test]
     fn examples() {
