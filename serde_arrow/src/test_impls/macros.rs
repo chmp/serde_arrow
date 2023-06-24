@@ -175,13 +175,41 @@ macro_rules! test_example_impl {
             let array = builder.build_array().unwrap();
             assert_eq!(array.as_ref(), array_reference.as_ref());
 
-            // TODO: test deserialization
+            let test_deserialization: &[&str] = &["arrow", "arrow2"];
+            $(let test_deserialization: &[&str] = &$test_deserialization;)?
+
+            if test_deserialization.contains(&IMPL) {
+                let expected_items = items;
+                $(let expected_items: &[$ty] = &$expected_values;)?
+
+                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                assert_eq!(expected_items, items_round_trip);
+            }
         }
     };
 }
 
 pub(crate) use test_example_impl;
 
+/// Test conversion of a single array
+///
+/// This macro supports the following syntax:
+///
+/// ```rust,ignore
+/// test_example!(
+///     test_name = $test_name:ident,
+///     $(test_compilation = $test_compilation:expr,)?
+///     $(test_deserialization = $test_deserialization:expr,)?
+///     $(tracing_options = $tracing_options:expr,)?
+///     field = $field:expr,
+///     $(overwrite_field = $overwrite_field:expr,)?
+///     ty = $ty:ty,
+///     values = $values:expr,
+///     $(expected_values = $expected_values:expr,)?
+///     $( nulls = $nulls:expr, )?
+///     $(define = { $($definitions:item)* } ,)?
+/// );
+/// ```
 macro_rules! test_example {
     (
         test_name = $test_name:ident,
