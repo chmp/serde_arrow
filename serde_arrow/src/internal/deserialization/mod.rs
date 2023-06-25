@@ -1,7 +1,10 @@
-use crate::internal::{
-    error::{fail, Result},
-    event::Event,
-    source::EventSource,
+use crate::{
+    internal::{
+        error::{fail, Result},
+        event::Event,
+        source::EventSource,
+    },
+    schema::Strategy,
 };
 
 use super::{
@@ -239,7 +242,27 @@ impl<'a> Compiler<'a> {
                 offsets,
                 position,
             }),
-            _ => todo!(),
+            M::Date64 { field, buffer, .. } => match field.strategy.as_ref() {
+                Some(Strategy::NaiveStrAsDate64) => self.push_instr(EmitDate64NaiveStr {
+                    next: NEXT_INSTR,
+                    buffer: *buffer,
+                    position,
+                }),
+                Some(Strategy::UtcStrAsDate64) => self.push_instr(EmitDate64UtcStr {
+                    next: NEXT_INSTR,
+                    buffer: *buffer,
+                    position,
+                }),
+                None => self.push_instr(EmitI64 {
+                    next: NEXT_INSTR,
+                    buffer: *buffer,
+                    position,
+                }),
+                Some(strategy) => {
+                    fail!("compilation of date64 with strategy {strategy} is not yet supported")
+                }
+            },
+            m => fail!("deserialization for {m:?} is not yet implemented"),
         };
         Ok(())
     }
@@ -368,6 +391,14 @@ define_bytecode!{
         position: usize,
         buffer: usize,
         offsets: usize,
+    },
+    EmitDate64NaiveStr {
+        position: usize,
+        buffer: usize,
+    },
+    EmitDate64UtcStr {
+        position: usize,
+        buffer: usize,
     },
 }
 
@@ -677,6 +708,48 @@ impl Instruction for EmitStr64 {
         let end = usize::try_from(buffers.get_i64(self.offsets)[pos + 1])?;
         let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
         Ok((self.next, Some(Event::Str(s))))
+    }
+}
+
+impl Instruction for EmitDate64NaiveStr {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        use chrono::NaiveDateTime;
+
+        let val =
+            i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+
+        // TODO: update with chrono 0.5
+        #[allow(deprecated)]
+        let val = NaiveDateTime::from_timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+
+        // NOTE: chrono documents that Debug, not Display, can be parsed
+        Ok((self.next, Some(format!("{:?}", val).into())))
+    }
+}
+
+impl Instruction for EmitDate64UtcStr {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        use chrono::{TimeZone, Utc};
+
+        let val =
+            i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+
+        // TODO: update with chrono 0.5
+        #[allow(deprecated)]
+        let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+
+        // NOTE: chrono documents that Debug, not Display, can be parsed
+        Ok((self.next, Some(format!("{:?}", val).into())))
     }
 }
 

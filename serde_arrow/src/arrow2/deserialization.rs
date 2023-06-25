@@ -85,6 +85,7 @@ impl BufferExtract for dyn Array {
             T::F16 => convert_primitive!(self, f16, F16, push_u16_cast),
             T::F32 => convert_primitive!(self, f32, F32, push_u32_cast),
             T::F64 => convert_primitive!(self, f64, F64, push_u64_cast),
+            T::Date64 => convert_primitive!(self, i64, Date64, push_u64_cast),
             T::Utf8 => {
                 let typed = self
                     .as_any()
