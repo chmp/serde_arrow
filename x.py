@@ -390,14 +390,14 @@ def summarize_status():
     num_ignored_tests = _count_pattern(r"^\s*[ignore]\s*$")
     num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*\[\s*\]\s*,\s*$")
     num_no_deserialization = _count_pattern(
-        r"^\s*test_deserialization\s*=\s*false\s*,\s*$"
+        r"^\s*test_bytecode_deserialization\s*=\s*false\s*,\s*$"
     )
 
     print("tests:                  ", num_tests)
     print("ignored tests:          ", num_ignored_tests)
     for label, num_false in [
         ("compilation support:    ", num_no_compilation),
-        ("deserialization support:", num_no_deserialization),
+        ("bytecode deser. support:", num_no_deserialization),
     ]:
         print(
             label,

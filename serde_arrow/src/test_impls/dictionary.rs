@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = string_dict_u32,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -18,6 +19,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u32,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -30,6 +32,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -53,6 +56,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -68,6 +72,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u16,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -91,6 +96,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u16,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -106,6 +112,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u64,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -129,6 +136,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u64,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -144,6 +152,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i32,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -167,6 +176,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i32,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -182,6 +192,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -205,6 +216,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -220,6 +232,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i16,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -243,6 +256,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i16,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -258,6 +272,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i64,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -281,6 +296,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i64,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -296,6 +312,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u32_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -315,6 +332,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u32_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -330,6 +348,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u8_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -349,6 +368,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u8_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -364,6 +384,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u16_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -383,6 +404,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u16_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -398,6 +420,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_u64_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -417,6 +440,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_u64_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -432,6 +456,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i32_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -451,6 +476,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i32_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -466,6 +492,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i8_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -485,6 +512,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i8_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -500,6 +528,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i16_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -519,6 +548,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i16_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)
@@ -534,6 +564,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_i64_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, false)
@@ -553,6 +584,7 @@ test_example!(
 
 test_example!(
     test_name = string_dict_nullable_i64_utf8,
+    test_bytecode_deserialization = false,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
     field = GenericField::new("root", GenericDataType::Dictionary, true)

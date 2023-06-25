@@ -31,8 +31,8 @@ pub(crate) use hash_map;
 macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
-        $(test_deserialization = $test_deserialization:expr,)?
         $(test_bytecode_deserialization = $test_bytecode_deserialization:expr,)?
+        $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
