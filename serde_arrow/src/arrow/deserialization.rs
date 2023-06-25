@@ -7,9 +7,9 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow::{
-    array::{ArrowPrimitiveType, PrimitiveArray},
+    array::{ArrowPrimitiveType, BooleanArray, LargeStringArray, PrimitiveArray, StringArray},
     datatypes::{
-        Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+        DataType, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
         UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
 };
@@ -30,7 +30,7 @@ impl BufferExtract for dyn Array {
                 let buffer = buffers.$push_func(typed.values())?;
                 let validity = get_validity($this).map(|v| buffers.push_u1(v));
 
-                Ok(ArrayMapping::$variant {
+                Ok(M::$variant {
                     field: field.clone(),
                     buffer,
                     validity,
@@ -38,9 +38,39 @@ impl BufferExtract for dyn Array {
             }};
         }
 
-        use GenericDataType as T;
+        use {ArrayMapping as M, GenericDataType as T};
 
         match &field.data_type {
+            T::Null => {
+                if !matches!(self.data_type(), DataType::Null) {
+                    fail!("non-null array with null field");
+                }
+                Ok(M::Null {
+                    field: field.clone(),
+                    validity: None,
+                    buffer: usize::MAX,
+                })
+            }
+            T::Bool => {
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<BooleanArray>()
+                    .ok_or_else(|| error!("cannot convert array into bool"))?;
+                let values = typed.values();
+
+                let buffer = buffers.push_u1(BitBuffer {
+                    data: values.values(),
+                    offset: values.offset(),
+                    number_of_bits: values.len(),
+                });
+                let validity = get_validity(self).map(|v| buffers.push_u1(v));
+
+                Ok(M::Bool {
+                    field: field.clone(),
+                    validity,
+                    buffer,
+                })
+            }
             T::U8 => convert_primitive!(self, UInt8Type, U8, push_u8_cast),
             T::U16 => convert_primitive!(self, UInt16Type, U16, push_u16_cast),
             T::U32 => convert_primitive!(self, UInt32Type, U32, push_u32_cast),
@@ -52,6 +82,40 @@ impl BufferExtract for dyn Array {
             T::F16 => convert_primitive!(self, Float16Type, F16, push_u16_cast),
             T::F32 => convert_primitive!(self, Float32Type, F32, push_u32_cast),
             T::F64 => convert_primitive!(self, Float64Type, F64, push_u64_cast),
+            T::Utf8 => {
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .ok_or_else(|| error!("cannot convert array into string"))?;
+
+                let buffer = buffers.push_u8(typed.value_data());
+                let offsets = buffers.push_u32_cast(typed.value_offsets())?;
+                let validity = get_validity(self).map(|v| buffers.push_u1(v));
+
+                Ok(M::Utf8 {
+                    field: field.clone(),
+                    validity,
+                    buffer,
+                    offsets,
+                })
+            }
+            T::LargeUtf8 => {
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<LargeStringArray>()
+                    .ok_or_else(|| error!("cannot convert array into string"))?;
+
+                let buffer = buffers.push_u8(typed.value_data());
+                let offsets = buffers.push_u64_cast(typed.value_offsets())?;
+                let validity = get_validity(self).map(|v| buffers.push_u1(v));
+
+                Ok(M::LargeUtf8 {
+                    field: field.clone(),
+                    validity,
+                    buffer,
+                    offsets,
+                })
+            }
             dt => fail!("BufferExtract for {dt} is not implemented"),
         }
     }

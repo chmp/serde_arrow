@@ -108,6 +108,16 @@ impl<'a> Buffers<'a> {
     }
 }
 
+impl<'a> Buffers<'a> {
+    pub fn get_i32(&self, idx: usize) -> &'a [i32] {
+        bytemuck::cast_slice(self.u32[idx])
+    }
+
+    pub fn get_i64(&self, idx: usize) -> &'a [i64] {
+        bytemuck::cast_slice(self.u64[idx])
+    }
+}
+
 pub struct BitBuffer<'a> {
     pub data: &'a [u8],
     pub offset: usize,

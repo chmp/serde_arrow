@@ -448,7 +448,7 @@ pub struct Structure {
     pub array_mapping: Vec<ArrayMapping>,
 }
 
-/// See [Buffers][super::interpreter::Buffers] for details
+/// See [MutableBuffers][super::interpreter::MutableBuffers] for details
 #[derive(Debug, Default, Clone)]
 pub struct BufferCounts {
     /// number of 0-bit buffers (counts)

@@ -6,7 +6,9 @@
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
 - Implement bytecode serialization of f16
-- Make bytecode the only serialization implementation for a 2.6x speed up
+- Remove state machine serialization, and use bytecode serialization as the
+  default. This change results in a 2.6x speed up
+- Remove for `arrow==35` support
 
 ## 0.7.1
 

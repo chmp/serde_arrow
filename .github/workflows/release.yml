@@ -41,10 +41,6 @@
           "run": "cargo check --features arrow2-0-17"
         },
         {
-          "name": "Check arrow-35",
-          "run": "cargo check --features arrow-35"
-        },
-        {
           "name": "Check arrow-36",
           "run": "cargo check --features arrow-36"
         },

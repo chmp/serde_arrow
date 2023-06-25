@@ -2,6 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = utc_as_str,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     ty = DateTime<Utc>,
     values = [
@@ -16,6 +17,7 @@ test_example!(
 
 test_example!(
     test_name = naive_as_str,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::LargeUtf8, false),
     ty = NaiveDateTime,
     values = [

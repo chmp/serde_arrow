@@ -4,7 +4,7 @@
 //!
 #![deny(missing_docs)]
 pub(crate) mod deserialization;
-pub(crate) mod display;
+// pub(crate) mod display;
 pub(crate) mod schema;
 pub(crate) mod serialization;
 pub(crate) mod sources;

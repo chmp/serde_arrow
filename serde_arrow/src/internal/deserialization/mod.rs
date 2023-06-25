@@ -4,130 +4,288 @@ use crate::internal::{
     source::EventSource,
 };
 
-use super::common::{define_bytecode, ArrayMapping, Buffers};
+use super::{
+    common::{define_bytecode, ArrayMapping, Buffers},
+    CONFIGURATION,
+};
 
 use half::f16;
+
+const UNSET_INSTR: usize = usize::MAX;
+const NEXT_INSTR: usize = usize::MAX - 1;
+
+#[derive(Debug, Clone)]
+pub struct CompilationOptions {
+    pub wrap_with_struct: bool,
+}
+
+impl std::default::Default for CompilationOptions {
+    fn default() -> Self {
+        Self {
+            wrap_with_struct: true,
+        }
+    }
+}
+
+impl CompilationOptions {
+    pub fn wrap_with_struct(mut self, val: bool) -> Self {
+        self.wrap_with_struct = val;
+        self
+    }
+}
 
 #[allow(unused)]
 pub fn compile_deserialization<'a>(
     num_items: usize,
     arrays: &'a [ArrayMapping],
-    mut buffers: Buffers<'a>,
+    buffers: Buffers<'a>,
+    options: CompilationOptions,
 ) -> Result<Interpreter<'a>> {
-    let mut num_positions = 0;
+    let mut compiler = Compiler {
+        num_items,
+        arrays,
+        buffers,
+        options,
+        num_positions: 0,
+        program: Vec::new(),
+    };
+    compiler.compile()?;
 
-    let mut program = Vec::new();
+    let current_config = CONFIGURATION.read().unwrap().clone();
+    if current_config.debug_print_program {
+        println!("Program: {program:?}", program = compiler.program);
+    }
 
-    program.push(Bytecode::EmitStartSequence(EmitStartSequence { next: 1 }));
+    Ok(compiler.into_program())
+}
 
-    let count = buffers.push_u0(num_items);
-    let item_pos = program.len();
-    num_positions += 1;
+struct Compiler<'a> {
+    num_items: usize,
+    arrays: &'a [ArrayMapping],
+    buffers: Buffers<'a>,
+    options: CompilationOptions,
+    num_positions: usize,
+    program: Vec<Bytecode>,
+}
 
-    program.push(Bytecode::EmitItem(EmitItem {
-        next: item_pos + 1,
-        if_end: usize::MAX,
-        position: 0,
-        count,
-    }));
+impl<'a> Compiler<'a> {
+    fn compile(&mut self) -> Result<()> {
+        if !self.options.wrap_with_struct && self.arrays.is_empty() {
+            fail!("cannot compile deserialization without any arrays if not wrapped with struct");
+        }
 
-    program.push(Bytecode::EmitStartStruct(EmitStartStruct { next: 3 }));
+        self.push_instr(EmitStartSequence { next: 1 });
 
-    for array in arrays {
-        match array {
-            ArrayMapping::F16 {
-                field,
-                buffer,
-                validity,
-            } => {
-                if validity.is_some() {
-                    todo!()
-                }
+        let outer_sequence_count = self.buffers.push_u0(self.num_items);
+        let outer_sequence_item_pos = self.program.len();
 
-                let name_buffer = buffers.push_u8(field.name.as_bytes());
+        let outer_sequence_position = self.new_position();
+        self.push_instr(EmitItem {
+            next: NEXT_INSTR,
+            if_end: UNSET_INSTR,
+            position: outer_sequence_position,
+            count: outer_sequence_count,
+        });
 
-                let position = num_positions;
-                num_positions += 1;
+        let outer_sequence_content_pos = self.program.len();
+        if self.options.wrap_with_struct {
+            self.push_instr(EmitStartStruct { next: 3 });
+        }
 
-                let instr = program.len();
-                program.push(Bytecode::EmitConstantString(EmitConstantString {
-                    next: instr + 1,
+        for array in self.arrays {
+            if self.options.wrap_with_struct {
+                let field = array.get_field();
+                let name_buffer = self.buffers.push_u8(field.name.as_bytes());
+                self.push_instr(EmitConstantString {
+                    next: NEXT_INSTR,
                     buffer: name_buffer,
-                }));
-                program.push(Bytecode::EmitF16(EmitF16 {
-                    next: instr + 2,
-                    buffer: *buffer,
-                    position,
-                }));
+                });
             }
-            ArrayMapping::I32 {
-                field,
-                buffer,
+
+            self.compile_field(array)?;
+        }
+
+        if self.options.wrap_with_struct {
+            self.push_instr(EmitEndStruct { next: NEXT_INSTR });
+        }
+
+        self.push_instr(EmitEndSequence {
+            next: NEXT_INSTR,
+            position: outer_sequence_position,
+            if_item: outer_sequence_content_pos,
+            count: outer_sequence_count,
+        });
+
+        let end_of_program = self.program.len();
+        self.push_instr(EndOfProgram {
+            next: end_of_program,
+        });
+
+        if let Bytecode::EmitItem(item) = &mut self.program[outer_sequence_item_pos] {
+            item.if_end = end_of_program;
+        } else {
+            fail!("invalid state in compilation")
+        }
+
+        Ok(())
+    }
+
+    fn compile_field(&mut self, array: &'a ArrayMapping) -> Result<()> {
+        // TODO: generalize this
+        let position = self.new_position();
+
+        let option_instr;
+        if let Some(validity) = array.get_validity() {
+            option_instr = Some(self.program.len());
+
+            self.push_instr(EmitOptionPrimitive {
+                next: NEXT_INSTR,
+                position,
                 validity,
-            } => {
-                let name_buffer = buffers.push_u8(field.name.as_bytes());
+                if_none: usize::MAX,
+            });
+        } else {
+            option_instr = None
+        };
 
-                let position = num_positions;
-                num_positions += 1;
+        self.compile_field_inner(array, position)?;
 
-                let instr = program.len();
-                program.push(Bytecode::EmitConstantString(EmitConstantString {
-                    next: instr + 1,
-                    buffer: name_buffer,
-                }));
+        if let Some(option_instr) = option_instr {
+            let if_none = self.program.len();
+            let Some(Bytecode::EmitOptionPrimitive(instr)) = self.program.get_mut(option_instr) else { unreachable!() };
+            instr.if_none = if_none;
+        }
+        Ok(())
+    }
 
-                let option_instr;
-                if let &Some(validity) = validity {
-                    option_instr = Some(program.len());
+    fn compile_field_inner(&mut self, array: &'a ArrayMapping, position: usize) -> Result<()> {
+        use ArrayMapping as M;
 
-                    program.push(Bytecode::EmitOptionPrimitive(EmitOptionPrimitive {
-                        next: option_instr.unwrap() + 1,
-                        position,
-                        validity,
-                        if_none: usize::MAX,
-                    }))
-                } else {
-                    option_instr = None
-                };
-                let instr = program.len();
-                program.push(Bytecode::EmitI32(EmitI32 {
-                    next: instr + 1,
-                    buffer: *buffer,
-                    position,
-                }));
-
-                if let Some(option_instr) = option_instr {
-                    let if_none = program.len();
-                    let Some(Bytecode::EmitOptionPrimitive(instr)) = program.get_mut(option_instr) else { unreachable!() };
-                    instr.if_none = if_none;
-                }
-            }
+        let _ = match array {
+            M::Null { .. } => self.push_instr(EmitNull { next: NEXT_INSTR }),
+            &M::Bool { buffer, .. } => self.push_instr(EmitBool {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::U8 { buffer, .. } => self.push_instr(EmitU8 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::U16 { buffer, .. } => self.push_instr(EmitU16 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::U32 { buffer, .. } => self.push_instr(EmitU32 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::U64 { buffer, .. } => self.push_instr(EmitU64 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::I8 { buffer, .. } => self.push_instr(EmitI8 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::I16 { buffer, .. } => self.push_instr(EmitI16 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::I32 { buffer, .. } => self.push_instr(EmitI32 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::I64 { buffer, .. } => self.push_instr(EmitI64 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::F16 { buffer, .. } => self.push_instr(EmitF16 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::F32 { buffer, .. } => self.push_instr(EmitF32 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::F64 { buffer, .. } => self.push_instr(EmitF64 {
+                next: NEXT_INSTR,
+                buffer,
+                position,
+            }),
+            &M::Utf8 {
+                buffer, offsets, ..
+            } => self.push_instr(EmitStr32 {
+                next: NEXT_INSTR,
+                buffer,
+                offsets,
+                position,
+            }),
+            &M::LargeUtf8 {
+                buffer, offsets, ..
+            } => self.push_instr(EmitStr64 {
+                next: NEXT_INSTR,
+                buffer,
+                offsets,
+                position,
+            }),
             _ => todo!(),
+        };
+        Ok(())
+    }
+}
+
+impl<'a> Compiler<'a> {
+    fn push_instr<I: Into<Bytecode>>(&mut self, instr: I) -> usize {
+        let instr_idx = self.program.len();
+
+        let mut instr = instr.into();
+        dispatch_bytecode!(&mut instr, instr => {
+            if instr.next == NEXT_INSTR {
+                instr.next = instr_idx + 1;
+            }
+        });
+
+        self.program.push(instr);
+        instr_idx
+    }
+
+    fn new_position(&mut self) -> usize {
+        self.num_positions += 1;
+        self.num_positions - 1
+    }
+
+    fn into_program(self) -> Interpreter<'a> {
+        Interpreter {
+            current_instr: 0,
+            program: self.program,
+            positions: vec![0; self.num_positions],
+            buffers: self.buffers,
         }
     }
-
-    program.push(Bytecode::EmitEndStruct(EmitEndStruct { next: item_pos }));
-
-    let end_of_program = program.len();
-    program.push(Bytecode::EndOfProgram(EndOfProgram {
-        next: end_of_program,
-    }));
-
-    if let Bytecode::EmitItem(item) = &mut program[item_pos] {
-        item.if_end = end_of_program;
-    }
-
-    Ok(Interpreter {
-        current_instr: 0,
-        program,
-        positions: vec![0; num_positions],
-        buffers,
-    })
 }
 
 #[rustfmt::skip]
 define_bytecode!{
     EmitStartSequence {},
+    /// Handle the end-of-sequence / item case
+    EmitEndSequence {
+        /// the instruction to jump to if the list is at its end
+        position: usize,
+        if_item: usize,
+        /// the buffer that contains the number of items in this sequence
+        count: usize,
+    },
     EmitItem {
         /// the instruction to jump to if the list is at its end
         position: usize,
@@ -135,16 +293,16 @@ define_bytecode!{
         /// the buffer that contains the number of items in this sequence
         count: usize,
     },
-    EmitStartStruct{},
-    EmitEndStruct{},
+    EmitStartStruct {},
+    EmitEndStruct {},
     EmitConstantString{
         buffer: usize,
     },
-    EndOfProgram{},
+    EndOfProgram {},
     /// Emit nullability information for a primitive type
     /// 
     /// This instruction increases the primitives positions in case of null.
-    EmitOptionPrimitive{
+    EmitOptionPrimitive {
         /// The index of the position counter
         position: usize,
         /// The index of the u1 buffer containing the validity 
@@ -152,13 +310,64 @@ define_bytecode!{
         /// The instruction to jump to, if the validity is false 
         if_none: usize,
     },
-    EmitI32{
+    EmitNull {},
+    EmitBool {
+        position: usize,
+        buffer: usize,
+    },
+    EmitU8 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitU16 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitU32 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitU64 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitI8 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitI16 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitI32 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitI64 {
         position: usize,
         buffer: usize,
     },
     EmitF16 {
         position: usize,
         buffer: usize,
+    },
+    EmitF32 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitF64 {
+        position: usize,
+        buffer: usize,
+    },
+    EmitStr32 {
+        position: usize,
+        buffer: usize,
+        offsets: usize,
+    },
+    EmitStr64 {
+        position: usize,
+        buffer: usize,
+        offsets: usize,
     },
 }
 
@@ -204,6 +413,21 @@ impl Instruction for EmitItem {
         } else {
             positions[self.position] += 1;
             Ok((self.next, Some(Event::Item)))
+        }
+    }
+}
+
+impl Instruction for EmitEndSequence {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        if positions[self.position] >= buffers.u0[self.count] {
+            Ok((self.next, Some(Event::EndSequence)))
+        } else {
+            positions[self.position] += 1;
+            Ok((self.if_item, Some(Event::Item)))
         }
     }
 }
@@ -264,6 +488,102 @@ impl Instruction for EndOfProgram {
     }
 }
 
+impl Instruction for EmitNull {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::Null)))
+    }
+}
+
+impl Instruction for EmitBool {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val = buffers.u1[self.buffer].is_set(positions[self.position]);
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::Bool(val))))
+    }
+}
+
+impl Instruction for EmitU8 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val = buffers.u8[self.buffer][positions[self.position]];
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::U8(val))))
+    }
+}
+
+impl Instruction for EmitU16 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val = buffers.u16[self.buffer][positions[self.position]];
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::U16(val))))
+    }
+}
+
+impl Instruction for EmitU32 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val = buffers.u32[self.buffer][positions[self.position]];
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::U32(val))))
+    }
+}
+
+impl Instruction for EmitU64 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val = buffers.u64[self.buffer][positions[self.position]];
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::U64(val))))
+    }
+}
+
+impl Instruction for EmitI8 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            i8::from_ne_bytes(buffers.u8[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::I8(val))))
+    }
+}
+
+impl Instruction for EmitI16 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            i16::from_ne_bytes(buffers.u16[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::I16(val))))
+    }
+}
+
 impl Instruction for EmitI32 {
     fn emit<'a>(
         &self,
@@ -277,6 +597,19 @@ impl Instruction for EmitI32 {
     }
 }
 
+impl Instruction for EmitI64 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::I64(val))))
+    }
+}
+
 impl Instruction for EmitF16 {
     fn emit<'a>(
         &self,
@@ -286,6 +619,64 @@ impl Instruction for EmitF16 {
         let val = f16::from_bits(buffers.u16[self.buffer][positions[self.position]]);
         positions[self.position] += 1;
         Ok((self.next, Some(Event::F32(val.to_f32()))))
+    }
+}
+
+impl Instruction for EmitF32 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            f32::from_ne_bytes(buffers.u32[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::F32(val))))
+    }
+}
+
+impl Instruction for EmitF64 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            f64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::F64(val))))
+    }
+}
+
+impl Instruction for EmitStr32 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let pos = positions[self.position];
+        positions[self.position] += 1;
+
+        let start = usize::try_from(buffers.get_i32(self.offsets)[pos])?;
+        let end = usize::try_from(buffers.get_i32(self.offsets)[pos + 1])?;
+        let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
+        Ok((self.next, Some(Event::Str(s))))
+    }
+}
+
+impl Instruction for EmitStr64 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let pos = positions[self.position];
+        positions[self.position] += 1;
+
+        let start = usize::try_from(buffers.get_i64(self.offsets)[pos])?;
+        let end = usize::try_from(buffers.get_i64(self.offsets)[pos + 1])?;
+        let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
+        Ok((self.next, Some(Event::Str(s))))
     }
 }
 

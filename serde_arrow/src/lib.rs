@@ -119,7 +119,6 @@
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
 //! | `arrow-36`    | `arrow=36`    |
-//! | `arrow-35`    | `arrow=35`    |
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 //!
@@ -154,8 +153,9 @@ pub mod _impl {
             pub mod arrow {
                 pub mod array {
                     pub use $arrow_array::array::{
-                        make_array, Array, ArrayRef, ArrowPrimitiveType, GenericListArray,
-                        NullArray, OffsetSizeTrait, PrimitiveArray,
+                        make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
+                        GenericListArray, LargeStringArray, NullArray, OffsetSizeTrait,
+                        PrimitiveArray, StringArray,
                     };
                     pub use $arrow_array::builder::{
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
@@ -174,10 +174,7 @@ pub mod _impl {
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
 
-                    #[cfg(not(feature = "arrow-35"))]
                     pub use $arrow_array::types::ArrowPrimitiveType;
-                    #[cfg(feature = "arrow-35")]
-                    pub use $arrow_array::ArrowPrimitiveType;
                 }
                 pub mod ffi {
                     pub use $arrow_data::ffi::FFI_ArrowArray;
@@ -230,20 +227,6 @@ pub mod _impl {
         arrow_schema_36
     );
 
-    #[cfg(all(
-        feature = "arrow-35",
-        not(feature = "arrow-36"),
-        not(feature = "arrow-37"),
-        not(feature = "arrow-38"),
-        not(feature = "arrow-39"),
-    ))]
-    build_arrow_crate!(
-        arrow_array_35,
-        arrow_buffer_35,
-        arrow_data_35,
-        arrow_schema_35
-    );
-
     pub mod docs {
         #[doc = include_str!("../Implementation.md")]
         #[cfg(not(doctest))]
@@ -263,7 +246,6 @@ pub mod _impl {
 pub mod arrow2;
 
 #[cfg(any(
-    feature = "arrow-35",
     feature = "arrow-36",
     feature = "arrow-37",
     feature = "arrow-38",
@@ -274,7 +256,6 @@ pub mod arrow;
 #[cfg(all(
     test,
     any(
-        feature = "arrow-35",
         feature = "arrow-36",
         feature = "arrow-37",
         feature = "arrow-38",

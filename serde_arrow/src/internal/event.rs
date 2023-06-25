@@ -335,6 +335,17 @@ macro_rules! event_implement_try_from_from_event {
     };
 }
 
+impl<'a> TryFrom<Event<'a>> for f32 {
+    type Error = Error;
+    fn try_from(val: Event<'_>) -> Result<f32> {
+        match val {
+            Event::F32(val) => Ok(val),
+            Event::F64(val) => Ok(val as f32),
+            event => fail!("invalid conversion from {} to f32", event),
+        }
+    }
+}
+
 event_implement_try_from_from_event!(bool, Bool);
 
 event_implement_try_from_from_event!(i8, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
@@ -347,7 +358,6 @@ event_implement_try_from_from_event!(u16, U8, U16, U32, U64, I8, I16, I32, I64, 
 event_implement_try_from_from_event!(u32, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
 event_implement_try_from_from_event!(u64, U8, U16, U32, U64, I8, I16, I32, I64, Bool);
 
-event_implement_try_from_from_event!(f32, F32);
 event_implement_try_from_from_event!(f64, F32, F64);
 
 event_implement_try_from_from_event!(String, Str, OwnedStr);

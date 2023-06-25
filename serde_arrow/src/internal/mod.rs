@@ -15,9 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use self::{
     common::{BufferExtract, Buffers},
-    error::{error, fail, Result},
+    error::{fail, Error, Result},
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
-    serialization::{compile_serialization, CompilationOptions, Interpreter},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
     source::deserialize_from_source,
 };
@@ -88,22 +87,25 @@ where
     Ok(field)
 }
 
-pub struct GenericBuilder(pub Interpreter);
+pub struct GenericBuilder(pub serialization::Interpreter);
 
 impl GenericBuilder {
     pub fn new_for_array(field: GenericField) -> Result<Self> {
-        let program = compile_serialization(
+        let program = serialization::compile_serialization(
             std::slice::from_ref(&field),
-            CompilationOptions::default().wrap_with_struct(false),
+            serialization::CompilationOptions::default().wrap_with_struct(false),
         )?;
-        let interpreter = Interpreter::new(program);
+        let interpreter = serialization::Interpreter::new(program);
 
         Ok(Self(interpreter))
     }
 
     pub fn new_for_arrays(fields: &[GenericField]) -> Result<Self> {
-        let program = compile_serialization(fields, CompilationOptions::default())?;
-        let interpreter = Interpreter::new(program);
+        let program = serialization::compile_serialization(
+            fields,
+            serialization::CompilationOptions::default(),
+        )?;
+        let interpreter = serialization::Interpreter::new(program);
 
         Ok(Self(interpreter))
     }
@@ -122,25 +124,54 @@ impl GenericBuilder {
 }
 
 #[allow(unused)]
-pub fn deserialize_from_arrays<'de, T, A>(fields: &[GenericField], arrays: &'de [A]) -> Result<T>
+pub fn deserialize_from_arrays<'de, T, F, A>(fields: &'de [F], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
+    F: 'static,
+    GenericField: TryFrom<&'de F, Error = Error>,
     A: BufferExtract,
 {
-    // TODO: support zero arrays as well
-    let num_items = arrays
+    let fields = fields
         .iter()
-        .map(|a| a.len())
-        .min()
-        .ok_or_else(|| error!("need at least one array"))?;
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+
+    let num_items = arrays.iter().map(|a| a.len()).min().unwrap_or_default();
 
     let mut buffers = Buffers::new();
     let mut mappings = Vec::new();
     for (field, array) in fields.iter().zip(arrays.iter()) {
-        mappings.push(array.extract_buffers(field, &mut buffers).unwrap());
+        mappings.push(array.extract_buffers(field, &mut buffers)?);
     }
 
-    let interpreter =
-        deserialization::compile_deserialization(num_items, &mappings, buffers).unwrap();
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        &mappings,
+        buffers,
+        deserialization::CompilationOptions::default(),
+    )?;
+    deserialize_from_source(interpreter)
+}
+
+#[allow(unused)]
+pub fn deserialize_from_array<'de, T, F, A>(field: &'de F, array: &'de A) -> Result<T>
+where
+    T: Deserialize<'de>,
+    F: 'static,
+    GenericField: TryFrom<&'de F, Error = Error>,
+    A: BufferExtract,
+{
+    let field = GenericField::try_from(field)?;
+    let num_items = array.len();
+
+    let mut buffers = Buffers::new();
+    let mapping = array.extract_buffers(&field, &mut buffers)?;
+
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        std::slice::from_ref(&mapping),
+        buffers,
+        deserialization::CompilationOptions::default().wrap_with_struct(false),
+    )?;
     deserialize_from_source(interpreter)
 }

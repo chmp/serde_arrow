@@ -32,11 +32,9 @@ macro_rules! test_roundtrip_arrays {
                 let expected = inputs;
                 $(let expected = $expected;)?
 
-                let arrays;
-                {
-                    let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
-                    arrays = arrow2::serialize_into_arrays(&fields, inputs).unwrap();
-                }
+
+                let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
+                let arrays = arrow2::serialize_into_arrays(&fields, inputs).unwrap();
 
                 let reconstructed: Vec<S> = deserialize_from_arrays(&fields, &arrays).unwrap();
                 assert_eq!(reconstructed, expected);
@@ -53,11 +51,8 @@ macro_rules! test_roundtrip_arrays {
                 let expected = inputs;
                 $(let expected = $expected;)?
 
-                let arrays;
-                {
-                    let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
-                    arrays = arrow::serialize_into_arrays(&fields, inputs).unwrap();
-                }
+                let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
+                let arrays = arrow::serialize_into_arrays(&fields, inputs).unwrap();
 
                 let reconstructed: Vec<S> = deserialize_from_arrays(&fields, &arrays).unwrap();
                 assert_eq!(reconstructed, expected);
@@ -79,6 +74,46 @@ test_roundtrip_arrays!(
         let fields = vec![
             GenericField::new("a", GenericDataType::I32, false),
             GenericField::new("b", GenericDataType::F16, false),
+        ];
+    }
+    assert_round_trip(fields, items);
+);
+
+test_roundtrip_arrays!(
+    primitives {
+        #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+        struct S {
+            a: u8,
+            b: u16,
+            c: u32,
+            d: u64,
+            e: u8,
+            f: u16,
+            g: u32,
+            h: u64,
+            i: f32,
+            j: f32,
+            k: f64,
+        }
+
+        let items = &[
+            S::default(),
+            S::default(),
+            S::default(),
+        ];
+
+        let fields = vec![
+            GenericField::new("a", GenericDataType::U8, false),
+            GenericField::new("b", GenericDataType::U16, false),
+            GenericField::new("c", GenericDataType::U32, false),
+            GenericField::new("d", GenericDataType::U64, false),
+            GenericField::new("e", GenericDataType::I8, false),
+            GenericField::new("f", GenericDataType::I16, false),
+            GenericField::new("g", GenericDataType::I32, false),
+            GenericField::new("h", GenericDataType::I64, false),
+            GenericField::new("i", GenericDataType::F16, false),
+            GenericField::new("j", GenericDataType::F32, false),
+            GenericField::new("k", GenericDataType::F64, false),
         ];
     }
     assert_round_trip(fields, items);

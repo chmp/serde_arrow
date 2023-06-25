@@ -32,6 +32,7 @@ macro_rules! test_example_impl {
     (
         test_name = $test_name:ident,
         $(test_deserialization = $test_deserialization:expr,)?
+        $(test_bytecode_deserialization = $test_bytecode_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
         $(overwrite_field = $overwrite_field:expr,)?
@@ -143,6 +144,17 @@ macro_rules! test_example_impl {
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
                 let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                assert_eq!(expected_items, items_round_trip);
+            }
+
+            let test_bytecode_deserialization: bool = false;
+            $(let test_bytecode_deserialization: bool = $test_bytecode_deserialization;)?
+
+            if test_bytecode_deserialization {
+                let expected_items = items;
+                $(let expected_items: &[$ty] = &$expected_values;)?
+
+                let items_round_trip: Vec<$ty> = crate::internal::deserialize_from_array(&field, &array).unwrap();
                 assert_eq!(expected_items, items_round_trip);
             }
         }
