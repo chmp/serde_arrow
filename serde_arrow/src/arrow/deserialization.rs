@@ -7,7 +7,10 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow::{
-    array::{ArrowPrimitiveType, BooleanArray, LargeStringArray, PrimitiveArray, StringArray},
+    array::{
+        ArrowPrimitiveType, BooleanArray, GenericListArray, LargeStringArray, PrimitiveArray,
+        StringArray, StructArray,
+    },
     datatypes::{
         DataType, Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
         Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
@@ -34,6 +37,51 @@ impl BufferExtract for dyn Array {
                     field: field.clone(),
                     buffer,
                     validity,
+                })
+            }};
+        }
+
+        macro_rules! convert_utf8 {
+            ($this:expr, $array_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = $this
+                    .as_any()
+                    .downcast_ref::<$array_type>()
+                    .ok_or_else(|| error!("cannot convert array into string"))?;
+
+                let buffer = buffers.push_u8(typed.value_data());
+                let offsets = buffers.$push_func(typed.value_offsets())?;
+                let validity = get_validity(self).map(|v| buffers.push_u1(v));
+
+                Ok(M::$variant {
+                    field: field.clone(),
+                    validity,
+                    buffer,
+                    offsets,
+                })
+            }};
+        }
+
+        macro_rules! convert_list {
+            ($this:expr, $offset_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = $this
+                    .as_any()
+                    .downcast_ref::<GenericListArray<$offset_type>>()
+                    .ok_or_else(|| error!("cannot convert array into GenericListArray<i64>"))?;
+
+                let offsets = buffers.$push_func(typed.value_offsets())?;
+                let validity = get_validity(self).map(|v| buffers.push_u1(v));
+
+                let item_field = field
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("cannot get first child of list array"))?;
+                let item = typed.values().extract_buffers(item_field, buffers)?;
+
+                Ok(M::$variant {
+                    field: field.clone(),
+                    item: Box::new(item),
+                    validity,
+                    offsets,
                 })
             }};
         }
@@ -83,38 +131,26 @@ impl BufferExtract for dyn Array {
             T::F32 => convert_primitive!(self, Float32Type, F32, push_u32_cast),
             T::F64 => convert_primitive!(self, Float64Type, F64, push_u64_cast),
             T::Date64 => convert_primitive!(self, Date64Type, Date64, push_u64_cast),
-            T::Utf8 => {
+            T::Utf8 => convert_utf8!(self, StringArray, Utf8, push_u32_cast),
+            T::LargeUtf8 => convert_utf8!(self, LargeStringArray, LargeUtf8, push_u64_cast),
+            T::List => convert_list!(self, i32, List, push_u32_cast),
+            T::LargeList => convert_list!(self, i64, LargeList, push_u64_cast),
+            T::Struct => {
                 let typed = self
                     .as_any()
-                    .downcast_ref::<StringArray>()
+                    .downcast_ref::<StructArray>()
                     .ok_or_else(|| error!("cannot convert array into string"))?;
-
-                let buffer = buffers.push_u8(typed.value_data());
-                let offsets = buffers.push_u32_cast(typed.value_offsets())?;
                 let validity = get_validity(self).map(|v| buffers.push_u1(v));
+                let mut fields = Vec::new();
 
-                Ok(M::Utf8 {
+                for (field, col) in field.children.iter().zip(typed.columns()) {
+                    fields.push(col.extract_buffers(field, buffers)?);
+                }
+
+                Ok(M::Struct {
                     field: field.clone(),
                     validity,
-                    buffer,
-                    offsets,
-                })
-            }
-            T::LargeUtf8 => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<LargeStringArray>()
-                    .ok_or_else(|| error!("cannot convert array into string"))?;
-
-                let buffer = buffers.push_u8(typed.value_data());
-                let offsets = buffers.push_u64_cast(typed.value_offsets())?;
-                let validity = get_validity(self).map(|v| buffers.push_u1(v));
-
-                Ok(M::LargeUtf8 {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                    offsets,
+                    fields,
                 })
             }
             dt => fail!("BufferExtract for {dt} is not implemented"),

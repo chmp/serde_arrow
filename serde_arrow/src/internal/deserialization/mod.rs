@@ -1,6 +1,6 @@
 use crate::{
     internal::{
-        error::{fail, Result},
+        error::{error, fail, Result},
         event::Event,
         source::EventSource,
     },
@@ -77,13 +77,13 @@ impl<'a> Compiler<'a> {
             fail!("cannot compile deserialization without any arrays if not wrapped with struct");
         }
 
-        self.push_instr(EmitStartSequence { next: 1 });
+        self.push_instr(EmitOuterStartSequence { next: 1 });
 
         let outer_sequence_count = self.buffers.push_u0(self.num_items);
         let outer_sequence_item_pos = self.program.len();
 
         let outer_sequence_position = self.new_position();
-        self.push_instr(EmitItem {
+        self.push_instr(EmitOuterItem {
             next: NEXT_INSTR,
             if_end: UNSET_INSTR,
             position: outer_sequence_position,
@@ -92,7 +92,7 @@ impl<'a> Compiler<'a> {
 
         let outer_sequence_content_pos = self.program.len();
         if self.options.wrap_with_struct {
-            self.push_instr(EmitStartStruct { next: 3 });
+            self.push_instr(EmitStartStruct { next: NEXT_INSTR });
         }
 
         for array in self.arrays {
@@ -112,7 +112,7 @@ impl<'a> Compiler<'a> {
             self.push_instr(EmitEndStruct { next: NEXT_INSTR });
         }
 
-        self.push_instr(EmitEndSequence {
+        self.push_instr(EmitOuterEndSequence {
             next: NEXT_INSTR,
             position: outer_sequence_position,
             if_item: outer_sequence_content_pos,
@@ -124,7 +124,7 @@ impl<'a> Compiler<'a> {
             next: end_of_program,
         });
 
-        if let Bytecode::EmitItem(item) = &mut self.program[outer_sequence_item_pos] {
+        if let Bytecode::EmitOuterItem(item) = &mut self.program[outer_sequence_item_pos] {
             item.if_end = end_of_program;
         } else {
             fail!("invalid state in compilation")
@@ -262,12 +262,102 @@ impl<'a> Compiler<'a> {
                     fail!("compilation of date64 with strategy {strategy} is not yet supported")
                 }
             },
+            M::List { item, offsets, .. } => self
+                .compile_list(item, position, *offsets, false)
+                .map(|_| 0)?,
+            M::LargeList { item, offsets, .. } => self
+                .compile_list(item, position, *offsets, true)
+                .map(|_| 0)?,
+            M::Struct { field, fields, .. } => match field.strategy.as_ref() {
+                None => self.compile_struct(fields).map(|_| 0)?,
+                Some(strategy) => {
+                    fail!("compilation of structs with strategy {strategy} is not yet supported")
+                }
+            },
             m => fail!("deserialization for {m:?} is not yet implemented"),
         };
         Ok(())
     }
 }
 
+/// List support
+impl<'a> Compiler<'a> {
+    fn compile_list(
+        &mut self,
+        item: &'a ArrayMapping,
+        position: usize,
+        offsets: usize,
+        is_large: bool,
+    ) -> Result<()> {
+        let inner_position = self.new_position();
+        let emit_start_instr = self.push_instr(EmitStartSequence {
+            next: NEXT_INSTR,
+            if_end: UNSET_INSTR,
+            position,
+            inner_position,
+            offsets,
+            is_large,
+        });
+
+        let if_item_instr = self.program.len() + 1;
+        let emit_item_instr = self.push_instr(EmitItem {
+            next: NEXT_INSTR,
+            if_end: UNSET_INSTR,
+            position,
+            inner_position,
+            offsets,
+            is_large,
+        });
+
+        self.compile_field(item)?;
+
+        let if_end_instr = self.program.len() + 1;
+        self.push_instr(EmitEndSequence {
+            next: NEXT_INSTR,
+            if_item: if_item_instr,
+            position,
+            inner_position,
+            offsets,
+            is_large,
+        });
+
+        if let Some(Bytecode::EmitItem(instr)) = self.program.get_mut(emit_item_instr) {
+            instr.if_end = if_end_instr;
+        } else {
+            fail!("invalid state during compilation");
+        }
+        if let Some(Bytecode::EmitStartSequence(instr)) = self.program.get_mut(emit_start_instr) {
+            instr.if_end = if_end_instr;
+        } else {
+            fail!("invalid state during compilation");
+        }
+
+        Ok(())
+    }
+}
+
+/// Struct support
+impl<'a> Compiler<'a> {
+    fn compile_struct(&mut self, arrays: &'a [ArrayMapping]) -> Result<()> {
+        self.push_instr(EmitStartStruct { next: NEXT_INSTR });
+
+        for array in arrays {
+            let field = array.get_field();
+            let name_buffer = self.buffers.push_u8(field.name.as_bytes());
+            self.push_instr(EmitConstantString {
+                next: NEXT_INSTR,
+                buffer: name_buffer,
+            });
+
+            self.compile_field(array)?;
+        }
+
+        self.push_instr(EmitEndStruct { next: NEXT_INSTR });
+        Ok(())
+    }
+}
+
+/// Utility functions
 impl<'a> Compiler<'a> {
     fn push_instr<I: Into<Bytecode>>(&mut self, instr: I) -> usize {
         let instr_idx = self.program.len();
@@ -300,21 +390,58 @@ impl<'a> Compiler<'a> {
 
 #[rustfmt::skip]
 define_bytecode!{
-    EmitStartSequence {},
+    EmitOuterStartSequence {},
     /// Handle the end-of-sequence / item case
-    EmitEndSequence {
-        /// the instruction to jump to if the list is at its end
+    EmitOuterEndSequence {
         position: usize,
+        /// the instruction to jump to if the list is not yet at its end
         if_item: usize,
         /// the buffer that contains the number of items in this sequence
         count: usize,
     },
-    EmitItem {
-        /// the instruction to jump to if the list is at its end
+    EmitOuterItem {
         position: usize,
+        /// the instruction to jump to if the list is at its end
         if_end: usize,
         /// the buffer that contains the number of items in this sequence
         count: usize,
+    },
+    EmitStartSequence {
+        /// the position inside the offsets array
+        position: usize,
+        /// the instruction to jump to if the list is at its end
+        if_end: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the buffer that contains the offsets
+        offsets: usize,
+        /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
+        is_large: bool,
+    },
+    /// Handle the end-of-sequence / item case
+    EmitEndSequence {
+        /// the position inside the offsets array
+        position: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the instruction to jump to if the list is not yet at its end
+        if_item: usize,
+        /// the buffer that contains the offsets
+        offsets: usize,
+        /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
+        is_large: bool,
+    },
+    EmitItem {
+        /// the position inside the offsets array
+        position: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the instruction to jump to if the list is at its end
+        if_end: usize,
+        /// the buffer that contains the number of offsets in this sequence
+        offsets: usize,
+        /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
+        is_large: bool,
     },
     EmitStartStruct {},
     EmitEndStruct {},
@@ -409,7 +536,7 @@ trait Instruction: std::fmt::Debug {
         positions: &mut [usize],
         buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
-        fail!("not implemented for {self:?}")
+        fail!("not implemented for {self:?} (positions: {positions:?})")
     }
 }
 
@@ -423,7 +550,7 @@ impl Instruction for Bytecode {
     }
 }
 
-impl Instruction for EmitStartSequence {
+impl Instruction for EmitOuterStartSequence {
     fn emit<'a>(
         &self,
         _positions: &mut [usize],
@@ -433,7 +560,7 @@ impl Instruction for EmitStartSequence {
     }
 }
 
-impl Instruction for EmitItem {
+impl Instruction for EmitOuterItem {
     fn emit<'a>(
         &self,
         positions: &mut [usize],
@@ -448,7 +575,7 @@ impl Instruction for EmitItem {
     }
 }
 
-impl Instruction for EmitEndSequence {
+impl Instruction for EmitOuterEndSequence {
     fn emit<'a>(
         &self,
         positions: &mut [usize],
@@ -480,6 +607,106 @@ impl Instruction for EmitEndStruct {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::EndStruct)))
+    }
+}
+
+impl Instruction for EmitStartSequence {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        let start: usize = if self.is_large {
+            buffers
+                .get_i64(self.offsets)
+                .get(outer_pos)
+                .copied()
+                .ok_or_else(|| error!("attempting to to get non existing list"))?
+                .try_into()?
+        } else {
+            buffers
+                .get_i32(self.offsets)
+                .get(outer_pos)
+                .copied()
+                .ok_or_else(|| error!("attempting to to get non existing list"))?
+                .try_into()?
+        };
+
+        positions[self.inner_position] = start;
+
+        Ok((self.next, Some(Event::StartSequence)))
+    }
+}
+
+impl Instruction for EmitItem {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        let end: usize = if self.is_large {
+            buffers
+                .get_i64(self.offsets)
+                .get(outer_pos + 1)
+                .copied()
+                .ok_or_else(|| error!("Cannot get offset"))?
+                .try_into()?
+        } else {
+            buffers
+                .get_i32(self.offsets)
+                .get(outer_pos + 1)
+                .copied()
+                .ok_or_else(|| error!("Cannot get offset"))?
+                .try_into()?
+        };
+
+        let inner_pos = positions[self.inner_position];
+        if inner_pos >= end {
+            positions[self.position] += 1;
+            Ok((self.if_end, Some(Event::EndSequence)))
+        } else {
+            positions[self.inner_position] += 1;
+            Ok((self.next, Some(Event::Item)))
+        }
+    }
+}
+
+impl Instruction for EmitEndSequence {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        let end: usize = if self.is_large {
+            buffers
+                .get_i64(self.offsets)
+                .get(outer_pos + 1)
+                .copied()
+                .ok_or_else(|| error!("Cannot get offset"))?
+                .try_into()?
+        } else {
+            buffers
+                .get_i32(self.offsets)
+                .get(outer_pos + 1)
+                .copied()
+                .ok_or_else(|| error!("Cannot get offset"))?
+                .try_into()?
+        };
+
+        let inner_pos = positions[self.inner_position];
+        if inner_pos >= end {
+            positions[self.position] += 1;
+            Ok((self.next, Some(Event::EndSequence)))
+        } else {
+            positions[self.inner_position] += 1;
+            Ok((self.if_item, Some(Event::Item)))
+        }
     }
 }
 
