@@ -290,6 +290,9 @@ impl<'a> Compiler<'a> {
                 None => self
                     .compile_struct(fields, position, child_positions)
                     .map(|_| 0)?,
+                Some(Strategy::TupleAsStruct) => self
+                    .compile_tuple_struct(fields, position, child_positions)
+                    .map(|_| 0)?,
                 Some(strategy) => {
                     fail!("compilation of structs with strategy {strategy} is not yet supported")
                 }
@@ -380,6 +383,26 @@ impl<'a> Compiler<'a> {
         }
 
         self.push_instr(EmitEndStruct {
+            next: NEXT_INSTR,
+            position,
+        });
+        Ok(())
+    }
+
+    fn compile_tuple_struct(
+        &mut self,
+        arrays: &'a [ArrayMapping],
+        position: usize,
+        child_positions: &mut Vec<usize>,
+    ) -> Result<()> {
+        self.push_instr(EmitStartTuple { next: NEXT_INSTR });
+
+        for array in arrays {
+            self.push_instr(EmitItemTuple { next: NEXT_INSTR });
+            self.compile_field(array, child_positions)?;
+        }
+
+        self.push_instr(EmitEndTuple {
             next: NEXT_INSTR,
             position,
         });
@@ -479,6 +502,11 @@ define_bytecode!{
     EmitEndStruct {
         position: usize,
     },
+    EmitStartTuple {},
+    EmitEndTuple {
+        position: usize,
+    },
+    EmitItemTuple {},
     EmitConstantString{
         buffer: usize,
     },
@@ -664,6 +692,37 @@ impl Instruction for EmitEndStruct {
     ) -> Result<(usize, Option<Event<'a>>)> {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::EndStruct)))
+    }
+}
+
+impl Instruction for EmitStartTuple {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::StartTuple)))
+    }
+}
+
+impl Instruction for EmitItemTuple {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::Item)))
+    }
+}
+
+impl Instruction for EmitEndTuple {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::EndTuple)))
     }
 }
 
