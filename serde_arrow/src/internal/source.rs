@@ -429,12 +429,16 @@ impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deseria
     where
         K: DeserializeSeed<'de>,
     {
-        if matches!(
-            self.source.peek()?,
-            Some(Event::EndStruct) | Some(Event::EndMap)
-        ) {
-            return Ok(None);
+        match self.source.peek()? {
+            Some(Event::EndStruct) | Some(Event::EndMap) => return Ok(None),
+            // allow optional item markers. E.g., structs are currently
+            // serialized without item markers.
+            Some(Event::Item) => {
+                self.source.next()?;
+            }
+            _ => {}
         }
+
         seed.deserialize(&mut **self).map(Some)
     }
 
