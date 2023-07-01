@@ -331,8 +331,6 @@ impl<'a> Compiler<'a> {
 
         let mut child_positions = Vec::new();
         self.compile_field(item, &mut child_positions)?;
-
-        // null values have no items (TODO: test this assumption)
         std::mem::drop(child_positions);
 
         let if_end_instr = self.program.len() + 1;

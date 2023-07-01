@@ -118,7 +118,7 @@ impl<'a> Buffers<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BitBuffer<'a> {
     pub data: &'a [u8],
     pub offset: usize,
@@ -130,6 +130,10 @@ impl<'a> BitBuffer<'a> {
         let flag = 1 << ((idx + self.offset) % 8);
         let byte = self.data[(idx + self.offset) / 8];
         byte & flag == flag
+    }
+
+    pub fn len(&self) -> usize {
+        self.number_of_bits
     }
 }
 

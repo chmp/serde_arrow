@@ -5,7 +5,7 @@ use crate::_impl::arrow2::{
 };
 use crate::{
     internal::{
-        common::{ArrayMapping, BitBuffer, BufferExtract, Buffers},
+        common::{check_supported_list_layout, ArrayMapping, BitBuffer, BufferExtract, Buffers},
         error::{error, fail},
         schema::{GenericDataType, GenericField},
     },
@@ -61,14 +61,19 @@ impl BufferExtract for dyn Array {
         }
 
         macro_rules! convert_list {
-            ($this:expr, $offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = $this
+            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = self
                     .as_any()
                     .downcast_ref::<ListArray<$offset_type>>()
                     .ok_or_else(|| error!("cannot interpret array as LargeList array"))?;
 
-                let offsets = buffers.$push_func(typed.offsets())?;
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
+                let validity = get_validity(typed);
+                let offsets = typed.offsets();
+
+                check_supported_list_layout(validity, offsets)?;
+
+                let offsets = buffers.$push_func(offsets)?;
+                let validity = validity.map(|v| buffers.push_u1(v));
 
                 let item_field = field
                     .children
@@ -133,8 +138,8 @@ impl BufferExtract for dyn Array {
             T::Date64 => convert_primitive!(self, i64, Date64, push_u64_cast),
             T::Utf8 => convert_utf8!(self, i32, Utf8, push_u32_cast),
             T::LargeUtf8 => convert_utf8!(self, i64, LargeUtf8, push_u64_cast),
-            T::List => convert_list!(self, i32, List, push_u32_cast),
-            T::LargeList => convert_list!(self, i64, LargeList, push_u64_cast),
+            T::List => convert_list!(i32, List, push_u32_cast),
+            T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
             T::Struct => {
                 let typed = self
                     .as_any()
