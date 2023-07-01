@@ -94,6 +94,32 @@ test_example!(
 );
 
 test_example!(
+    test_name = nullable_nested_struct,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_child(GenericField::new("a", GenericDataType::U32, false))
+        .with_child(GenericField::new("b", GenericDataType::Struct, true)
+            .with_child(GenericField::new("c", GenericDataType::I16, false))
+            .with_child(GenericField::new("d", GenericDataType::F64, false))),
+    ty = Option<S1>,
+    values = [Some(S1 { a: 1, b: None }), None, Some(S1 { a: 3, b: Some(S2{ c: -7, d: 42.0}) })],
+    nulls = [false, true, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S1 {
+            a: u32,
+            b: Option<S2>,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S2 {
+            c: i16,
+            d: f64,
+        }
+    },
+);
+
+test_example!(
     test_name = nullable_struct_nullable_fields,
     test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
