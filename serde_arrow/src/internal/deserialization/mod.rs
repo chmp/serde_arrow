@@ -293,6 +293,9 @@ impl<'a> Compiler<'a> {
                 Some(Strategy::TupleAsStruct) => self
                     .compile_tuple_struct(fields, position, child_positions)
                     .map(|_| 0)?,
+                Some(Strategy::MapAsStruct) => self
+                    .compile_map_struct(fields, position, child_positions)
+                    .map(|_| 0)?,
                 Some(strategy) => {
                     fail!("compilation of structs with strategy {strategy} is not yet supported")
                 }
@@ -408,6 +411,31 @@ impl<'a> Compiler<'a> {
         });
         Ok(())
     }
+
+    fn compile_map_struct(
+        &mut self,
+        arrays: &'a [ArrayMapping],
+        position: usize,
+        child_positions: &mut Vec<usize>,
+    ) -> Result<()> {
+        self.push_instr(EmitStartMapStruct { next: NEXT_INSTR });
+
+        for array in arrays {
+            let field = array.get_field();
+            let name_buffer = self.buffers.push_u8(field.name.as_bytes());
+            self.push_instr(EmitConstantString {
+                next: NEXT_INSTR,
+                buffer: name_buffer,
+            });
+            self.compile_field(array, child_positions)?;
+        }
+
+        self.push_instr(EmitEndMapStruct {
+            next: NEXT_INSTR,
+            position,
+        });
+        Ok(())
+    }
 }
 
 /// Utility functions
@@ -504,6 +532,10 @@ define_bytecode!{
     },
     EmitStartTuple {},
     EmitEndTuple {
+        position: usize,
+    },
+    EmitStartMapStruct {},
+    EmitEndMapStruct {
         position: usize,
     },
     EmitItemTuple {},
@@ -692,6 +724,27 @@ impl Instruction for EmitEndStruct {
     ) -> Result<(usize, Option<Event<'a>>)> {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::EndStruct)))
+    }
+}
+
+impl Instruction for EmitStartMapStruct {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::StartMap)))
+    }
+}
+
+impl Instruction for EmitEndMapStruct {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        positions[self.position] += 1;
+        Ok((self.next, Some(Event::EndMap)))
     }
 }
 
