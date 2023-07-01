@@ -77,13 +77,13 @@ test_example!(
 
 test_example!(
     test_name = nullable_struct,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
     ty = Option<S>,
-    values = [Some(S { a: 1, b: true }), None],
-    nulls = [false, true],
+    values = [Some(S { a: 1, b: true }), None, Some(S { a: 3, b: false })],
+    nulls = [false, true, false],
     define = {
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
@@ -95,7 +95,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_struct_nullable_fields,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, true)),

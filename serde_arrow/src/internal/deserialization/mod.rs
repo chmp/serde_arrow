@@ -92,9 +92,10 @@ impl<'a> Compiler<'a> {
 
         let outer_sequence_content_pos = self.program.len();
         if self.options.wrap_with_struct {
-            self.push_instr(EmitStartStruct { next: NEXT_INSTR });
+            self.push_instr(EmitStartOuterStruct { next: NEXT_INSTR });
         }
 
+        let mut child_positions = Vec::new();
         for array in self.arrays {
             if self.options.wrap_with_struct {
                 let field = array.get_field();
@@ -105,11 +106,13 @@ impl<'a> Compiler<'a> {
                 });
             }
 
-            self.compile_field(array)?;
+            self.compile_field(array, &mut child_positions)?;
         }
+        // The top-level struct cannot be null
+        std::mem::drop(child_positions);
 
         if self.options.wrap_with_struct {
-            self.push_instr(EmitEndStruct { next: NEXT_INSTR });
+            self.push_instr(EmitEndOuterStruct { next: NEXT_INSTR });
         }
 
         self.push_instr(EmitOuterEndSequence {
@@ -133,8 +136,13 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
-    fn compile_field(&mut self, array: &'a ArrayMapping) -> Result<()> {
-        // TODO: generalize this
+    /// Compile a field inside a struct (outermost or any nested struct)
+    ///
+    fn compile_field(
+        &mut self,
+        array: &'a ArrayMapping,
+        child_positions: &mut Vec<usize>,
+    ) -> Result<()> {
         let position = self.new_position();
 
         let option_instr;
@@ -145,23 +153,33 @@ impl<'a> Compiler<'a> {
                 next: NEXT_INSTR,
                 position,
                 validity,
+                positions_to_increment: Vec::new(),
                 if_none: usize::MAX,
             });
         } else {
             option_instr = None
         };
 
-        self.compile_field_inner(array, position)?;
+        let mut inner_child_positions = vec![position];
+        self.compile_field_inner(array, position, &mut inner_child_positions)?;
+
+        child_positions.extend(inner_child_positions.iter().copied());
 
         if let Some(option_instr) = option_instr {
             let if_none = self.program.len();
             let Some(Bytecode::EmitOptionPrimitive(instr)) = self.program.get_mut(option_instr) else { unreachable!() };
             instr.if_none = if_none;
+            instr.positions_to_increment = inner_child_positions;
         }
         Ok(())
     }
 
-    fn compile_field_inner(&mut self, array: &'a ArrayMapping, position: usize) -> Result<()> {
+    fn compile_field_inner(
+        &mut self,
+        array: &'a ArrayMapping,
+        position: usize,
+        child_positions: &mut Vec<usize>,
+    ) -> Result<()> {
         use ArrayMapping as M;
 
         let _ = match array {
@@ -269,7 +287,9 @@ impl<'a> Compiler<'a> {
                 .compile_list(item, position, *offsets, true)
                 .map(|_| 0)?,
             M::Struct { field, fields, .. } => match field.strategy.as_ref() {
-                None => self.compile_struct(fields).map(|_| 0)?,
+                None => self
+                    .compile_struct(fields, position, child_positions)
+                    .map(|_| 0)?,
                 Some(strategy) => {
                     fail!("compilation of structs with strategy {strategy} is not yet supported")
                 }
@@ -309,7 +329,11 @@ impl<'a> Compiler<'a> {
             is_large,
         });
 
-        self.compile_field(item)?;
+        let mut child_positions = Vec::new();
+        self.compile_field(item, &mut child_positions)?;
+
+        // null values have no items (TODO: test this assumption)
+        std::mem::drop(child_positions);
 
         let if_end_instr = self.program.len() + 1;
         self.push_instr(EmitEndSequence {
@@ -338,7 +362,12 @@ impl<'a> Compiler<'a> {
 
 /// Struct support
 impl<'a> Compiler<'a> {
-    fn compile_struct(&mut self, arrays: &'a [ArrayMapping]) -> Result<()> {
+    fn compile_struct(
+        &mut self,
+        arrays: &'a [ArrayMapping],
+        position: usize,
+        child_positions: &mut Vec<usize>,
+    ) -> Result<()> {
         self.push_instr(EmitStartStruct { next: NEXT_INSTR });
 
         for array in arrays {
@@ -349,10 +378,13 @@ impl<'a> Compiler<'a> {
                 buffer: name_buffer,
             });
 
-            self.compile_field(array)?;
+            self.compile_field(array, child_positions)?;
         }
 
-        self.push_instr(EmitEndStruct { next: NEXT_INSTR });
+        self.push_instr(EmitEndStruct {
+            next: NEXT_INSTR,
+            position,
+        });
         Ok(())
     }
 }
@@ -443,8 +475,12 @@ define_bytecode!{
         /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
         is_large: bool,
     },
+    EmitStartOuterStruct {},
+    EmitEndOuterStruct {},
     EmitStartStruct {},
-    EmitEndStruct {},
+    EmitEndStruct {
+        position: usize,
+    },
     EmitConstantString{
         buffer: usize,
     },
@@ -453,12 +489,14 @@ define_bytecode!{
     /// 
     /// This instruction increases the primitives positions in case of null.
     EmitOptionPrimitive {
-        /// The index of the position counter
+        /// The index of the position counter for the validity
         position: usize,
         /// The index of the u1 buffer containing the validity 
         validity: usize,
         /// The instruction to jump to, if the validity is false 
         if_none: usize,
+        /// The indices of the position counters to increment if none
+        positions_to_increment: Vec<usize>,
     },
     EmitNull {},
     EmitBool {
@@ -590,6 +628,26 @@ impl Instruction for EmitOuterEndSequence {
     }
 }
 
+impl Instruction for EmitStartOuterStruct {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::StartStruct)))
+    }
+}
+
+impl Instruction for EmitEndOuterStruct {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        Ok((self.next, Some(Event::EndStruct)))
+    }
+}
+
 impl Instruction for EmitStartStruct {
     fn emit<'a>(
         &self,
@@ -603,9 +661,10 @@ impl Instruction for EmitStartStruct {
 impl Instruction for EmitEndStruct {
     fn emit<'a>(
         &self,
-        _positions: &mut [usize],
+        positions: &mut [usize],
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
+        positions[self.position] += 1;
         Ok((self.next, Some(Event::EndStruct)))
     }
 }
@@ -727,10 +786,13 @@ impl Instruction for EmitOptionPrimitive {
         positions: &mut [usize],
         buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
-        if buffers.u1[self.validity].is_set(positions[self.position]) {
+        let pos = positions[self.position];
+        if buffers.u1[self.validity].is_set(pos) {
             Ok((self.next, Some(Event::Some)))
         } else {
-            positions[self.position] += 1;
+            for idx in &self.positions_to_increment {
+                positions[*idx] += 1;
+            }
             Ok((self.if_none, Some(Event::Null)))
         }
     }

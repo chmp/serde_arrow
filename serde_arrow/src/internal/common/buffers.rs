@@ -118,6 +118,7 @@ impl<'a> Buffers<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct BitBuffer<'a> {
     pub data: &'a [u8],
     pub offset: usize,
