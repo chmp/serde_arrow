@@ -23,8 +23,8 @@ impl BufferExtract for dyn Array {
         buffers: &mut Buffers<'a>,
     ) -> Result<ArrayMapping> {
         macro_rules! convert_primitive {
-            ($this:expr, $array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = $this
+            ($array_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = self
                     .as_any()
                     .downcast_ref::<PrimitiveArray<$array_type>>()
                     .ok_or_else(|| error!("cannot interpret array as I32 array"))?;
@@ -41,8 +41,8 @@ impl BufferExtract for dyn Array {
         }
 
         macro_rules! convert_utf8 {
-            ($this:expr, $offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = $this
+            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
+                let typed = self
                     .as_any()
                     .downcast_ref::<Utf8Array<$offset_type>>()
                     .ok_or_else(|| error!("cannot interpret array as Utf8 array"))?;
@@ -124,20 +124,20 @@ impl BufferExtract for dyn Array {
                     buffer,
                 })
             }
-            T::U8 => convert_primitive!(self, u8, U8, push_u8_cast),
-            T::U16 => convert_primitive!(self, u16, U16, push_u16_cast),
-            T::U32 => convert_primitive!(self, u32, U32, push_u32_cast),
-            T::U64 => convert_primitive!(self, u64, U64, push_u64_cast),
-            T::I8 => convert_primitive!(self, i8, I8, push_u8_cast),
-            T::I16 => convert_primitive!(self, i16, I16, push_u16_cast),
-            T::I32 => convert_primitive!(self, i32, I32, push_u32_cast),
-            T::I64 => convert_primitive!(self, i64, I64, push_u64_cast),
-            T::F16 => convert_primitive!(self, f16, F16, push_u16_cast),
-            T::F32 => convert_primitive!(self, f32, F32, push_u32_cast),
-            T::F64 => convert_primitive!(self, f64, F64, push_u64_cast),
-            T::Date64 => convert_primitive!(self, i64, Date64, push_u64_cast),
-            T::Utf8 => convert_utf8!(self, i32, Utf8, push_u32_cast),
-            T::LargeUtf8 => convert_utf8!(self, i64, LargeUtf8, push_u64_cast),
+            T::U8 => convert_primitive!(u8, U8, push_u8_cast),
+            T::U16 => convert_primitive!(u16, U16, push_u16_cast),
+            T::U32 => convert_primitive!(u32, U32, push_u32_cast),
+            T::U64 => convert_primitive!(u64, U64, push_u64_cast),
+            T::I8 => convert_primitive!(i8, I8, push_u8_cast),
+            T::I16 => convert_primitive!(i16, I16, push_u16_cast),
+            T::I32 => convert_primitive!(i32, I32, push_u32_cast),
+            T::I64 => convert_primitive!(i64, I64, push_u64_cast),
+            T::F16 => convert_primitive!(f16, F16, push_u16_cast),
+            T::F32 => convert_primitive!(f32, F32, push_u32_cast),
+            T::F64 => convert_primitive!(f64, F64, push_u64_cast),
+            T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
+            T::Utf8 => convert_utf8!(i32, Utf8, push_u32_cast),
+            T::LargeUtf8 => convert_utf8!(i64, LargeUtf8, push_u64_cast),
             T::List => convert_list!(i32, List, push_u32_cast),
             T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
             T::Struct => {
