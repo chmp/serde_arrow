@@ -50,7 +50,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -66,7 +66,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields_2,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -84,7 +84,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields_3,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)

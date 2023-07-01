@@ -150,7 +150,7 @@ macro_rules! test_example_impl {
             let test_bytecode_deserialization: bool = false;
             $(let test_bytecode_deserialization: bool = $test_bytecode_deserialization;)?
 
-            if test_bytecode_deserialization {
+            if test_bytecode_deserialization && test_deserialization.contains(&IMPL) {
                 let expected_items = items;
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
