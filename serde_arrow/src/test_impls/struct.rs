@@ -156,6 +156,30 @@ test_example!(
 //     },
 // );
 
+test_example!(
+    test_name = nullable_struct_list_field,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_child(GenericField::new("a", GenericDataType::U32, false))
+        .with_child(GenericField::new("b", GenericDataType::LargeList, true)
+            .with_child(GenericField::new("element", GenericDataType::Bool, false))),
+    ty = Option<S>,
+    values = [
+        Some(S { a: 1, b: None }),
+        Some(S { a: 3, b: Some(vec![]) }),
+        None,
+        Some(S { a: 3, b: Some(vec![true, false, true]) }),
+    ],
+    nulls = [false, false, true, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S {
+            a: u32,
+            b: Option<Vec<bool>>,
+        }
+    },
+);
+
 test_events!(
     test_name = out_of_order_fields,
     fields = [
