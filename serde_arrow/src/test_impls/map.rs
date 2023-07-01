@@ -117,7 +117,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -135,7 +135,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_empty,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -154,7 +154,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_int_keys,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(

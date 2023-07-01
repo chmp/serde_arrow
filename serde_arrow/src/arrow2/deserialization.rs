@@ -1,5 +1,5 @@
 use crate::_impl::arrow2::{
-    array::{Array, BooleanArray, ListArray, PrimitiveArray, StructArray, Utf8Array},
+    array::{Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, Utf8Array},
     datatypes::DataType,
     types::f16,
 };
@@ -157,6 +157,62 @@ impl BufferExtract for dyn Array {
                     field: field.clone(),
                     validity,
                     fields,
+                })
+            }
+            T::Map => {
+                let entries_field = field
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("cannot get children of map"))?;
+                let keys_field = entries_field
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("cannot get keys field"))?;
+                let values_field = entries_field
+                    .children
+                    .get(1)
+                    .ok_or_else(|| error!("cannot get values field"))?;
+
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<MapArray>()
+                    .ok_or_else(|| error!("cannot convert array into map array"))?;
+                let typed_entries = typed
+                    .field()
+                    .as_any()
+                    .downcast_ref::<StructArray>()
+                    .ok_or_else(|| error!("cannot convert map field into struct array"))?;
+                let typed_keys = typed_entries
+                    .values()
+                    .get(0)
+                    .ok_or_else(|| error!("cannot get keys array of map entries"))?;
+                let typed_values = typed_entries
+                    .values()
+                    .get(1)
+                    .ok_or_else(|| error!("cannot get keys array of map entries"))?;
+
+                let offsets = typed.offsets().as_slice();
+                let validity = get_validity(typed);
+
+                check_supported_list_layout(validity, offsets)?;
+
+                let offsets = buffers.push_u32_cast(offsets)?;
+                let validity = validity.map(|b| buffers.push_u1(b));
+
+                let keys = typed_keys.extract_buffers(keys_field, buffers)?;
+                let values = typed_values.extract_buffers(values_field, buffers)?;
+
+                let entries = Box::new(M::Struct {
+                    field: entries_field.clone(),
+                    validity: None,
+                    fields: vec![keys, values],
+                });
+
+                Ok(M::Map {
+                    field: field.clone(),
+                    validity,
+                    offsets,
+                    entries,
                 })
             }
             dt => fail!("BufferExtract for {dt} is not implemented"),

@@ -11,8 +11,7 @@ use crate::internal::{
 /// deserialization. The spec says "a null value may correspond to a
 /// **non-empty** segment in the child array."
 ///
-/// [arrow format spec]:
-///     https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
+/// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
 pub fn check_supported_list_layout<'a, O>(
     validity: Option<BitBuffer<'a>>,
     offsets: &'a [O],

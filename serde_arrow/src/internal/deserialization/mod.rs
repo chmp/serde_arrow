@@ -300,6 +300,21 @@ impl<'a> Compiler<'a> {
                     fail!("compilation of structs with strategy {strategy} is not yet supported")
                 }
             },
+            M::Map {
+                offsets, entries, ..
+            } => {
+                let M::Struct { fields: entries_fields,.. } = entries.as_ref() else {
+                    fail!("cannot extract entries arrays mapping")
+                };
+                let Some(key_field) = entries_fields.get(0) else {
+                    fail!("cannot extract key field")
+                };
+                let Some(values_field) = entries_fields.get(1) else {
+                    fail!("cannot extract values field")
+                };
+                self.compile_map(key_field, values_field, position, *offsets)
+                    .map(|_| 0)?
+            }
             m => fail!("deserialization for {m:?} is not yet implemented"),
         };
         Ok(())
@@ -326,7 +341,7 @@ impl<'a> Compiler<'a> {
         });
 
         let if_item_instr = self.program.len() + 1;
-        let emit_item_instr = self.push_instr(EmitItem {
+        let emit_item_instr = self.push_instr(EmitItemSequence {
             next: NEXT_INSTR,
             if_end: UNSET_INSTR,
             position,
@@ -349,7 +364,7 @@ impl<'a> Compiler<'a> {
             is_large,
         });
 
-        if let Some(Bytecode::EmitItem(instr)) = self.program.get_mut(emit_item_instr) {
+        if let Some(Bytecode::EmitItemSequence(instr)) = self.program.get_mut(emit_item_instr) {
             instr.if_end = if_end_instr;
         } else {
             fail!("invalid state during compilation");
@@ -438,6 +453,69 @@ impl<'a> Compiler<'a> {
     }
 }
 
+/// Map support
+impl<'a> Compiler<'a> {
+    fn compile_map(
+        &mut self,
+        key_field: &'a ArrayMapping,
+        value_field: &'a ArrayMapping,
+        position: usize,
+        offsets: usize,
+    ) -> Result<()> {
+        let inner_position = self.new_position();
+
+        let emit_start_instr = self.push_instr(EmitStartMap {
+            next: NEXT_INSTR,
+            if_end: UNSET_INSTR,
+            position,
+            inner_position,
+            offsets,
+        });
+
+        let if_item_instr = self.program.len() + 1;
+        let emit_item_instr = self.push_instr(EmitItemMap {
+            next: NEXT_INSTR,
+            if_end: UNSET_INSTR,
+            position,
+            inner_position,
+            offsets,
+        });
+
+        let mut dummy_positions = Vec::new();
+
+        let keys_position = self.new_position();
+        self.compile_field_inner(key_field, keys_position, &mut dummy_positions)?;
+
+        let values_position = self.new_position();
+        self.compile_field_inner(value_field, values_position, &mut dummy_positions)?;
+
+        // null maps entries with non-empty segments are not supported
+        std::mem::drop(dummy_positions);
+
+        let if_end_instr = self.program.len() + 1;
+        self.push_instr(EmitEndMap {
+            next: NEXT_INSTR,
+            if_item: if_item_instr,
+            position,
+            inner_position,
+            offsets,
+        });
+
+        if let Some(Bytecode::EmitItemMap(instr)) = self.program.get_mut(emit_item_instr) {
+            instr.if_end = if_end_instr;
+        } else {
+            fail!("invalid state during compilation");
+        }
+        if let Some(Bytecode::EmitStartMap(instr)) = self.program.get_mut(emit_start_instr) {
+            instr.if_end = if_end_instr;
+        } else {
+            fail!("invalid state during compilation");
+        }
+
+        Ok(())
+    }
+}
+
 /// Utility functions
 impl<'a> Compiler<'a> {
     fn push_instr<I: Into<Bytecode>>(&mut self, instr: I) -> usize {
@@ -512,7 +590,7 @@ define_bytecode!{
         /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
         is_large: bool,
     },
-    EmitItem {
+    EmitItemSequence {
         /// the position inside the offsets array
         position: usize,
         /// the position inside the overall items
@@ -523,6 +601,37 @@ define_bytecode!{
         offsets: usize,
         /// whether to use i64 offsets (`true`) or i32 offsets (`false )`
         is_large: bool,
+    },
+    EmitStartMap {
+        /// the position inside the offsets array
+        position: usize,
+        /// the instruction to jump to if the list is at its end
+        if_end: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the buffer that contains the offsets
+        offsets: usize,
+    },
+    /// Handle the end-of-sequence / item case
+    EmitEndMap {
+        /// the position inside the offsets array
+        position: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the instruction to jump to if the list is not yet at its end
+        if_item: usize,
+        /// the buffer that contains the offsets
+        offsets: usize,
+    },
+    EmitItemMap {
+        /// the position inside the offsets array
+        position: usize,
+        /// the position inside the overall items
+        inner_position: usize,
+        /// the instruction to jump to if the list is at its end
+        if_end: usize,
+        /// the buffer that contains the number of offsets in this sequence
+        offsets: usize,
     },
     EmitStartOuterStruct {},
     EmitEndOuterStruct {},
@@ -809,7 +918,7 @@ impl Instruction for EmitStartSequence {
     }
 }
 
-impl Instruction for EmitItem {
+impl Instruction for EmitItemSequence {
     fn emit<'a>(
         &self,
         positions: &mut [usize],
@@ -872,6 +981,77 @@ impl Instruction for EmitEndSequence {
         if inner_pos >= end {
             positions[self.position] += 1;
             Ok((self.next, Some(Event::EndSequence)))
+        } else {
+            positions[self.inner_position] += 1;
+            Ok((self.if_item, Some(Event::Item)))
+        }
+    }
+}
+
+impl Instruction for EmitStartMap {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        positions[self.inner_position] = buffers
+            .get_i32(self.offsets)
+            .get(outer_pos)
+            .copied()
+            .ok_or_else(|| error!("attempting to to get non existing list"))?
+            .try_into()?;
+
+        Ok((self.next, Some(Event::StartMap)))
+    }
+}
+
+impl Instruction for EmitItemMap {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        let end: usize = buffers
+            .get_i32(self.offsets)
+            .get(outer_pos + 1)
+            .copied()
+            .ok_or_else(|| error!("Cannot get offset"))?
+            .try_into()?;
+
+        let inner_pos = positions[self.inner_position];
+        if inner_pos >= end {
+            positions[self.position] += 1;
+            Ok((self.if_end, Some(Event::EndMap)))
+        } else {
+            positions[self.inner_position] += 1;
+            Ok((self.next, Some(Event::Item)))
+        }
+    }
+}
+
+impl Instruction for EmitEndMap {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let outer_pos = positions[self.position];
+
+        let end: usize = buffers
+            .get_i32(self.offsets)
+            .get(outer_pos + 1)
+            .copied()
+            .ok_or_else(|| error!("Cannot get offset"))?
+            .try_into()?;
+
+        let inner_pos = positions[self.inner_position];
+        if inner_pos >= end {
+            positions[self.position] += 1;
+            Ok((self.next, Some(Event::EndMap)))
         } else {
             positions[self.inner_position] += 1;
             Ok((self.if_item, Some(Event::Item)))
