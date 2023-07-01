@@ -1,7 +1,13 @@
-use crate::_impl::arrow2::{
-    array::{Array, BooleanArray, ListArray, MapArray, PrimitiveArray, StructArray, Utf8Array},
-    datatypes::DataType,
-    types::f16,
+use crate::{
+    _impl::arrow2::{
+        array::{
+            Array, BooleanArray, DictionaryArray, ListArray, MapArray, PrimitiveArray, StructArray,
+            Utf8Array,
+        },
+        datatypes::DataType,
+        types::f16,
+    },
+    internal::common::{DictionaryIndex, DictionaryValue},
 };
 use crate::{
     internal::{
@@ -214,6 +220,64 @@ impl BufferExtract for dyn Array {
                     offsets,
                     entries,
                 })
+            }
+            T::Dictionary => {
+                let keys_field = field
+                    .children
+                    .get(0)
+                    .ok_or_else(|| error!("cannot get key field of dictionary"))?;
+                let values_field = field
+                    .children
+                    .get(1)
+                    .ok_or_else(|| error!("cannot get values field"))?;
+
+                macro_rules! convert_dictionary {
+                    ($key_type:ty, $variant:ident) => {{
+                        let typed = self
+                            .as_any()
+                            .downcast_ref::<DictionaryArray<$key_type>>()
+                            .ok_or_else(|| error!("cannot convert array into u32 dictionary"))?;
+
+                        // NOTE: the array is validity is given by the key validity
+                        if typed.values().null_count() != 0 {
+                            fail!("dictionaries with nullable values are not supported");
+                        }
+
+                        let validity = get_validity(typed).map(|b| buffers.push_u1(b));
+                        let keys =
+                            (typed.keys() as &dyn Array).extract_buffers(keys_field, buffers)?;
+
+                        let M::$variant { buffer: index_buffer, .. } = keys else {
+                            fail!("internal error unexpected array mapping for keys")
+                        };
+
+                        let values = typed.values().extract_buffers(values_field, buffers)?;
+
+                        let dictionary = match values {
+                            M::Utf8 { buffer, offsets, .. } => DictionaryValue::Utf8{ buffer, offsets },
+                            M::LargeUtf8 { buffer, offsets, .. } => DictionaryValue::LargeUtf8{ buffer, offsets },
+                            m => fail!("BufferExtract for dictionaries with values of type {m:?} is not implemented"),
+                        };
+                        Ok(M::Dictionary {
+                            field: field.clone(),
+                            validity,
+                            dictionary,
+                            indices: DictionaryIndex::$variant(index_buffer),
+                        })
+                    }};
+                }
+
+                match &keys_field.data_type {
+                    T::U8 => convert_dictionary!(u8, U8),
+                    T::U16 => convert_dictionary!(u16, U16),
+                    T::U32 => convert_dictionary!(u32, U32),
+                    T::U64 => convert_dictionary!(u64, U64),
+                    T::I8 => convert_dictionary!(i8, I8),
+                    T::I16 => convert_dictionary!(i16, I16),
+                    T::I32 => convert_dictionary!(i32, I32),
+                    T::I64 => convert_dictionary!(i64, I64),
+                    dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
+                }
             }
             dt => fail!("BufferExtract for {dt} is not implemented"),
         }

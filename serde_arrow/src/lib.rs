@@ -154,8 +154,8 @@ pub mod _impl {
                 pub mod array {
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
-                        GenericListArray, LargeStringArray, MapArray, NullArray, OffsetSizeTrait,
-                        PrimitiveArray, StringArray, StructArray,
+                        DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
+                        OffsetSizeTrait, PrimitiveArray, StringArray, StructArray,
                     };
                     pub use $arrow_array::builder::{
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,

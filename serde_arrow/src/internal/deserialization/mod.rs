@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    common::{define_bytecode, ArrayMapping, Buffers},
+    common::{define_bytecode, ArrayMapping, Buffers, DictionaryIndex, DictionaryValue},
     CONFIGURATION,
 };
 
@@ -260,6 +260,16 @@ impl<'a> Compiler<'a> {
                 offsets,
                 position,
             }),
+            &M::Dictionary {
+                dictionary,
+                indices,
+                ..
+            } => self.push_instr(EmitDictionaryStr {
+                next: NEXT_INSTR,
+                position,
+                value: dictionary,
+                index: indices,
+            }),
             M::Date64 { field, buffer, .. } => match field.strategy.as_ref() {
                 Some(Strategy::NaiveStrAsDate64) => self.push_instr(EmitDate64NaiveStr {
                     next: NEXT_INSTR,
@@ -312,6 +322,7 @@ impl<'a> Compiler<'a> {
                 let Some(values_field) = entries_fields.get(1) else {
                     fail!("cannot extract values field")
                 };
+                // TODO: check that keys and values are truly non-nullable
                 self.compile_map(key_field, values_field, position, *offsets)
                     .map(|_| 0)?
             }
@@ -731,6 +742,11 @@ define_bytecode!{
     EmitDate64UtcStr {
         position: usize,
         buffer: usize,
+    },
+    EmitDictionaryStr {
+        position: usize,
+        value: DictionaryValue,
+        index: DictionaryIndex,
     },
 }
 
@@ -1308,6 +1324,45 @@ impl Instruction for EmitDate64NaiveStr {
 
         // NOTE: chrono documents that Debug, not Display, can be parsed
         Ok((self.next, Some(format!("{:?}", val).into())))
+    }
+}
+
+impl Instruction for EmitDictionaryStr {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        use {DictionaryIndex as I, DictionaryValue as V};
+
+        let pos = positions[self.position];
+        positions[self.position] += 1;
+
+        let index: usize = match self.index {
+            I::U8(buffer) => buffers.get_u8(buffer)[pos].try_into()?,
+            I::U16(buffer) => buffers.get_u16(buffer)[pos].try_into()?,
+            I::U32(buffer) => buffers.get_u32(buffer)[pos].try_into()?,
+            I::U64(buffer) => buffers.get_u64(buffer)[pos].try_into()?,
+            I::I8(buffer) => buffers.get_i8(buffer)[pos].try_into()?,
+            I::I16(buffer) => buffers.get_i16(buffer)[pos].try_into()?,
+            I::I32(buffer) => buffers.get_i32(buffer)[pos].try_into()?,
+            I::I64(buffer) => buffers.get_i64(buffer)[pos].try_into()?,
+        };
+
+        match self.value {
+            V::Utf8 { buffer, offsets } => {
+                let start = usize::try_from(buffers.get_i32(offsets)[index])?;
+                let end = usize::try_from(buffers.get_i32(offsets)[index + 1])?;
+                let s = std::str::from_utf8(&buffers.u8[buffer][start..end])?;
+                Ok((self.next, Some(Event::Str(s))))
+            }
+            V::LargeUtf8 { buffer, offsets } => {
+                let start = usize::try_from(buffers.get_i64(offsets)[index])?;
+                let end = usize::try_from(buffers.get_i64(offsets)[index + 1])?;
+                let s = std::str::from_utf8(&buffers.u8[buffer][start..end])?;
+                Ok((self.next, Some(Event::Str(s))))
+            }
+        }
     }
 }
 

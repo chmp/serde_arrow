@@ -109,6 +109,30 @@ impl<'a> Buffers<'a> {
 }
 
 impl<'a> Buffers<'a> {
+    pub fn get_u8(&self, idx: usize) -> &'a [u8] {
+        self.u8[idx]
+    }
+
+    pub fn get_u16(&self, idx: usize) -> &'a [u16] {
+        self.u16[idx]
+    }
+
+    pub fn get_u32(&self, idx: usize) -> &'a [u32] {
+        self.u32[idx]
+    }
+
+    pub fn get_u64(&self, idx: usize) -> &'a [u64] {
+        self.u64[idx]
+    }
+
+    pub fn get_i8(&self, idx: usize) -> &'a [i8] {
+        bytemuck::cast_slice(self.u8[idx])
+    }
+
+    pub fn get_i16(&self, idx: usize) -> &'a [i16] {
+        bytemuck::cast_slice(self.u16[idx])
+    }
+
     pub fn get_i32(&self, idx: usize) -> &'a [i32] {
         bytemuck::cast_slice(self.u32[idx])
     }
