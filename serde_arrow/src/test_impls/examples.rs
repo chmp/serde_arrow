@@ -494,6 +494,7 @@ test_example!(
 
 test_example!(
     test_name = struct_nullable_item,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::Bool, true))
@@ -526,14 +527,13 @@ test_example!(
     },
 );
 
-// TODO: fix more examples
-/*
 test_example!(
     test_name = tuple_nullable,
-    field = GenericField::new("value", GenericDataType::Struct, true)
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
         .with_strategy(Strategy::TupleAsStruct)
-        .with_child(GenericField::new("0", GenericGenericDataType::Bool, false))
-        .with_child(GenericField::new("1", GenericGenericDataType::I64, false)),
+        .with_child(GenericField::new("0", GenericDataType::Bool, false))
+        .with_child(GenericField::new("1", GenericDataType::I64, false)),
     ty = Option<(bool, i64)>,
     values = [
         Some((true, 21)),
@@ -544,14 +544,14 @@ test_example!(
 
 test_example!(
     test_name = tuple_nullable_nested,
-    field = Field::new("value", DataType::Struct(vec![
-        Field::new("0", DataType::Struct(vec![
-                Field::new("0", GenericDataType::Bool, false),
-                Field::new("1", GenericDataType::I64, false),
-            ]), false)
-            .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
-        Field::new("1", GenericDataType::I64, false),
-    ]), true).with_metadata(strategy_meta(Strategy::TupleAsStruct)),
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_strategy(Strategy::TupleAsStruct)
+        .with_child(GenericField::new("0", GenericDataType::Struct, false)
+            .with_strategy(Strategy::TupleAsStruct)
+            .with_child(GenericField::new("0", GenericDataType::Bool, false))
+            .with_child(GenericField::new("1", GenericDataType::I64, false)))
+        .with_child(GenericField::new("1", GenericDataType::I64, false)),
     ty = Option<((bool, i64), i64)>,
     values = [
         Some(((true, 21), 7)),
@@ -562,20 +562,12 @@ test_example!(
 
 test_example!(
     test_name = enums,
-    field = Field::new(
-        "value",
-        DataType::Union(
-            vec![
-                Field::new("U8", DataType::UInt8, false),
-                Field::new("U16", DataType::UInt16, false),
-                Field::new("U32", DataType::UInt32, false),
-                Field::new("U64", DataType::UInt64, false),
-            ],
-            None,
-            UnionMode::Dense,
-        ),
-        false,
-    ),
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("U8", GenericDataType::U8, false))
+        .with_child(GenericField::new("U16", GenericDataType::U16, false))
+        .with_child(GenericField::new("U32", GenericDataType::U32, false))
+        .with_child(GenericField::new("U64", GenericDataType::U64, false)),
     ty = Item,
     values = [Item::U32(2), Item::U64(3), Item::U8(0), Item::U16(1),],
     define = {
@@ -591,34 +583,20 @@ test_example!(
 
 test_example!(
     test_name = enums_tuple,
-    field = Field::new(
-        "value",
-        DataType::Union(
-            vec![
-                Field::new(
-                    "A",
-                    DataType::Struct(vec![
-                        Field::new("0", DataType::UInt8, false),
-                        Field::new("1", DataType::UInt32, false),
-                    ]),
-                    false,
-                )
-                .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
-                Field::new(
-                    "B",
-                    DataType::Struct(vec![
-                        Field::new("0", DataType::UInt16, false),
-                        Field::new("1", DataType::UInt64, false),
-                    ]),
-                    false,
-                )
-                .with_metadata(strategy_meta(Strategy::TupleAsStruct)),
-            ],
-            None,
-            UnionMode::Dense,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(
+            GenericField::new("A", GenericDataType::Struct, false)
+                .with_strategy(Strategy::TupleAsStruct)
+                .with_child(GenericField::new("0", GenericDataType::U8, false))
+                .with_child(GenericField::new("1", GenericDataType::U32, false))
+        )
+        .with_child(
+            GenericField::new("B", GenericDataType::Struct, false)
+                .with_strategy(Strategy::TupleAsStruct)
+                .with_child(GenericField::new("0", GenericDataType::U16, false))
+                .with_child(GenericField::new("1", GenericDataType::U64, false))
         ),
-        false,
-    ),
     ty = Item,
     values = [Item::A(2, 3), Item::B(0, 1),],
     define = {
@@ -632,32 +610,18 @@ test_example!(
 
 test_example!(
     test_name = enums_struct,
-    field = Field::new(
-        "value",
-        DataType::Union(
-            vec![
-                Field::new(
-                    "A",
-                    DataType::Struct(vec![
-                        Field::new("a", DataType::UInt8, false),
-                        Field::new("b", DataType::UInt32, false),
-                    ]),
-                    false,
-                ),
-                Field::new(
-                    "B",
-                    DataType::Struct(vec![
-                        Field::new("c", DataType::UInt16, false),
-                        Field::new("d", DataType::UInt64, false),
-                    ]),
-                    false,
-                ),
-            ],
-            None,
-            UnionMode::Dense,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(
+            GenericField::new("A", GenericDataType::Struct, false)
+                .with_child(GenericField::new("a", GenericDataType::U8, false))
+                .with_child(GenericField::new("b", GenericDataType::U32, false))
+        )
+        .with_child(
+            GenericField::new("B", GenericDataType::Struct, false)
+                .with_child(GenericField::new("c", GenericDataType::U16, false))
+                .with_child(GenericField::new("d", GenericDataType::U64, false))
         ),
-        false,
-    ),
     ty = Item,
     values = [Item::A { a: 2, b: 3 }, Item::B { c: 0, d: 1 },],
     define = {
@@ -671,19 +635,11 @@ test_example!(
 
 test_example!(
     test_name = enums_union,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = Field::new(
-        "value",
-        DataType::Union(
-            vec![
-                Field::new("A", DataType::Null, true),
-                Field::new("B", DataType::Null, true),
-            ],
-            None,
-            UnionMode::Dense
-        ),
-        false,
-    ),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true)),
     ty = Item,
     values = [Item::A, Item::B,],
     define = {
@@ -695,6 +651,8 @@ test_example!(
     },
 );
 
+// TODO: fix more examples
+/*
 test_example!(
     test_name = hash_maps,
     tracing_options = TracingOptions::new().map_as_struct(false),
@@ -871,117 +829,6 @@ test_example!(
 
 // TODO: fix these tests
 /*
-
-/// Test that dates as RFC 3339 strings are correctly handled
-#[test]
-fn dtype_date64_naive_str() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Record {
-        val: NaiveDateTime,
-    }
-
-    let records: &[Record] = &[
-        Record {
-            val: NaiveDateTime::from_timestamp(12 * 60 * 60 * 24, 0),
-        },
-        Record {
-            val: NaiveDateTime::from_timestamp(9 * 60 * 60 * 24, 0),
-        },
-    ];
-
-    let mut fields = serialize_into_fields(records, Default::default()).unwrap();
-
-    let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
-    val_field.data_type = DataType::Date64;
-    val_field.metadata = Strategy::NaiveStrAsDate64.into();
-
-    println!("{fields:?}");
-
-    let arrays = serialize_into_arrays(&fields, records).unwrap();
-
-    assert_eq!(arrays.len(), 1);
-
-    let actual = arrays[0]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i64>>()
-        .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
-        .to(DataType::Date64);
-
-    assert_eq!(actual, &expected);
-
-    let events = collect_events_from_array(&fields, &arrays).unwrap();
-    let expected_events = vec![
-        Event::StartSequence,
-        Event::StartStruct,
-        Event::Str("val").to_static(),
-        Event::Str("1970-01-13T00:00:00").to_static(),
-        Event::EndStruct,
-        Event::StartStruct,
-        Event::Str("val").to_static(),
-        Event::Str("1970-01-10T00:00:00").to_static(),
-        Event::EndStruct,
-        Event::EndSequence,
-    ];
-    assert_eq!(events, expected_events);
-
-    let round_tripped: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
-    assert_eq!(round_tripped, records);
-}
-
-#[test]
-fn dtype_date64_str() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Record {
-        val: DateTime<Utc>,
-    }
-
-    let records: &[Record] = &[
-        Record {
-            val: Utc.timestamp(12 * 60 * 60 * 24, 0),
-        },
-        Record {
-            val: Utc.timestamp(9 * 60 * 60 * 24, 0),
-        },
-    ];
-
-    let mut fields = serialize_into_fields(records, Default::default()).unwrap();
-    let val_field = fields.iter_mut().find(|field| field.name == "val").unwrap();
-    val_field.data_type = DataType::Date64;
-    val_field.metadata = Strategy::UtcStrAsDate64.into();
-
-    let arrays = serialize_into_arrays(&fields, records).unwrap();
-
-    assert_eq!(arrays.len(), 1);
-
-    let actual = arrays[0]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<i64>>()
-        .unwrap();
-    let expected = PrimitiveArray::<i64>::from_slice([12_000 * 60 * 60 * 24, 9_000 * 60 * 60 * 24])
-        .to(DataType::Date64);
-
-    assert_eq!(actual, &expected);
-
-    let events = collect_events_from_array(&fields, &arrays).unwrap();
-    let expected_events = vec![
-        Event::StartSequence,
-        Event::StartStruct,
-        Event::Str("val").to_static(),
-        Event::Str("1970-01-13T00:00:00Z").to_static(),
-        Event::EndStruct,
-        Event::StartStruct,
-        Event::Str("val").to_static(),
-        Event::Str("1970-01-10T00:00:00Z").to_static(),
-        Event::EndStruct,
-        Event::EndSequence,
-    ];
-    assert_eq!(events, expected_events);
-
-    let round_tripped: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
-    assert_eq!(round_tripped, records);
-}
-
 #[test]
 fn nested_list_structs() {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -1186,57 +1033,6 @@ fn wrapper_tuple() {
 }
 
 #[test]
-fn test_string_as_large_utf8() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Item {
-        a: String,
-    }
-
-    let items = vec![
-        Item {
-            a: String::from("hello"),
-        },
-        Item {
-            a: String::from("world"),
-        },
-    ];
-
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
-    let expected_fields = vec![Field::new("a", DataType::LargeUtf8, false)];
-
-    assert_eq!(fields, expected_fields);
-
-    let arrays = serialize_into_arrays(&fields, &items).unwrap();
-    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
-
-    assert_eq!(items_from_arrays, items);
-}
-
-#[test]
-fn test_string_as_utf8() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Item {
-        a: String,
-    }
-
-    let items = vec![
-        Item {
-            a: String::from("hello"),
-        },
-        Item {
-            a: String::from("world"),
-        },
-    ];
-
-    let fields = vec![Field::new("a", DataType::Utf8, false)];
-
-    let arrays = serialize_into_arrays(&fields, &items).unwrap();
-    let items_from_arrays: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
-
-    assert_eq!(items_from_arrays, items);
-}
-
-#[test]
 fn test_unit() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Item {
@@ -1381,42 +1177,5 @@ fn test_complex_benchmark_example() {
     let round_tripped: Vec<Item> = deserialize_from_arrays(&fields, &arrays).unwrap();
 
     assert_eq!(items, round_tripped);
-}
-
-#[ignore]
-#[test]
-fn test_maps_with_missing_items() {
-    let mut items: Vec<HashMap<String, i32>> = Vec::new();
-    let mut item = HashMap::new();
-    item.insert(String::from("a"), 0);
-    item.insert(String::from("b"), 1);
-    items.push(item);
-
-    let mut item = HashMap::new();
-    item.insert(String::from("a"), 2);
-    item.insert(String::from("c"), 3);
-    items.push(item);
-
-    let fields = serialize_into_fields(&items, Default::default()).unwrap();
-    let arrays = serialize_into_arrays(&fields, &items).unwrap();
-    let actual: Vec<HashMap<String, Option<i32>>> =
-        deserialize_from_arrays(&fields, &arrays).unwrap();
-
-    // Note: missing items are serialized as null, therefore the deserialized
-    // type must support them
-    let mut expected: Vec<HashMap<String, Option<i32>>> = Vec::new();
-    let mut item = HashMap::new();
-    item.insert(String::from("a"), Some(0));
-    item.insert(String::from("b"), Some(1));
-    item.insert(String::from("c"), None);
-    expected.push(item);
-
-    let mut item = HashMap::new();
-    item.insert(String::from("a"), Some(2));
-    item.insert(String::from("b"), None);
-    item.insert(String::from("c"), Some(3));
-    expected.push(item);
-
-    assert_eq!(actual, expected);
 }
 */
