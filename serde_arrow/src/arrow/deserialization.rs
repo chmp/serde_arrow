@@ -264,7 +264,33 @@ impl BufferExtract for dyn Array {
                     dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
                 }
             }
-            dt => fail!("BufferExtract for {dt} is not implemented"),
+            #[cfg(has_arrow_36)]
+            T::Union => fail!("unions are not supported for arrow=36"),
+            #[cfg(not(has_arrow_36))]
+            T::Union => {
+                use crate::_impl::arrow::array::UnionArray;
+
+                // TODO: test assumptions
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<UnionArray>()
+                    .ok_or_else(|| error!("cannot convert array to union array"))?;
+
+                let types = buffers.push_u8_cast(typed.type_ids())?;
+
+                let mut fields = Vec::new();
+                for (idx, field) in field.children.iter().enumerate() {
+                    let array = typed.child(idx.try_into()?);
+                    fields.push(array.extract_buffers(field, buffers)?);
+                }
+
+                Ok(M::Union {
+                    field: field.clone(),
+                    validity: None,
+                    fields,
+                    types,
+                })
+            }
         }
     }
 }

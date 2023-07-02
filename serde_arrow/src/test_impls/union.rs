@@ -2,7 +2,7 @@ use super::macros::{test_error, test_example};
 
 test_example!(
     test_name = fieldless_unions,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
@@ -23,7 +23,7 @@ test_example!(
 
 test_example!(
     test_name = fieldless_union_out_of_order,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
@@ -44,7 +44,7 @@ test_example!(
 
 test_example!(
     test_name = union_simple,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
@@ -68,7 +68,7 @@ test_example!(
 
 test_example!(
     test_name = union_mixed,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     field =
         GenericField::new("root", GenericDataType::Union, false)
             .with_child(
@@ -107,7 +107,7 @@ test_example!(
 
 test_example!(
     test_name = union_nested,
-    test_bytecode_deserialization = false,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(

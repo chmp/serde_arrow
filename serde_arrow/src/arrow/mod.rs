@@ -9,19 +9,20 @@ mod schema;
 pub(crate) mod serialization;
 mod type_support;
 
-#[cfg(test)]
-mod test;
-
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    _impl::arrow::{array::ArrayRef, datatypes::Field},
+    _impl::arrow::{
+        array::{Array, ArrayRef},
+        datatypes::Field,
+    },
     internal::{
         self,
         error::Result,
         schema::{GenericField, TracingOptions},
         serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
+        source::deserialize_from_source,
     },
 };
 
@@ -141,6 +142,43 @@ where
     interpreter.build_arrow_arrays()
 }
 
+/// TODO: document
+pub fn deserialize_from_arrays<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array>,
+{
+    use crate::internal::{
+        common::{BufferExtract, Buffers},
+        deserialization,
+    };
+
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+
+    let num_items = arrays
+        .iter()
+        .map(|a| a.as_ref().len())
+        .min()
+        .unwrap_or_default();
+
+    let mut buffers = Buffers::new();
+    let mut mappings = Vec::new();
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        mappings.push(array.as_ref().extract_buffers(field, &mut buffers)?);
+    }
+
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        &mappings,
+        buffers,
+        deserialization::CompilationOptions::default(),
+    )?;
+    deserialize_from_source(interpreter)
+}
+
 /// Serialize an object that represents a single array into an array
 ///
 /// Example:
@@ -171,6 +209,15 @@ where
     let mut interpreter = Interpreter::new(program);
     serialize_into_sink(&mut interpreter, items)?;
     interpreter.build_arrow_array()
+}
+
+/// TODO: document
+pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array> + 'de + ?Sized,
+{
+    internal::deserialize_from_array(field, array.as_ref())
 }
 
 /// Build a single array item by item

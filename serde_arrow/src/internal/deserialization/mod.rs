@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     internal::{
         error::{error, fail, Result},
@@ -37,7 +39,6 @@ impl CompilationOptions {
     }
 }
 
-#[allow(unused)]
 pub fn compile_deserialization<'a>(
     num_items: usize,
     arrays: &'a [ArrayMapping],
@@ -73,6 +74,12 @@ struct Compiler<'a> {
 
 impl<'a> Compiler<'a> {
     fn compile(&mut self) -> Result<()> {
+        self.compile_fields()?;
+        self.fix_redirects()?;
+        Ok(())
+    }
+
+    fn compile_fields(&mut self) -> Result<()> {
         if !self.options.wrap_with_struct && self.arrays.is_empty() {
             fail!("cannot compile deserialization without any arrays if not wrapped with struct");
         }
@@ -326,7 +333,9 @@ impl<'a> Compiler<'a> {
                 self.compile_map(key_field, values_field, position, *offsets)
                     .map(|_| 0)?
             }
-            m => fail!("deserialization for {m:?} is not yet implemented"),
+            M::Union { fields, types, .. } => {
+                self.compile_union(fields, position, *types).map(|_| 0)?
+            }
         };
         Ok(())
     }
@@ -527,6 +536,90 @@ impl<'a> Compiler<'a> {
     }
 }
 
+/// Union support
+impl<'a> Compiler<'a> {
+    fn compile_union(
+        &mut self,
+        fields: &'a [ArrayMapping],
+        position: usize,
+        types: usize,
+    ) -> Result<()> {
+        let mut field_names = Vec::new();
+        for field in fields {
+            let idx = self.buffers.push_u8(field.get_field().name.as_bytes());
+            field_names.push(idx);
+        }
+        let dispatch_instr = self.push_instr(UnionDispatch {
+            next: UNSET_INSTR,
+            field_instr: Vec::new(),
+            position,
+            types,
+            field_names,
+        });
+
+        let mut field_instr = Vec::new();
+        let mut redirect_instrs = Vec::new();
+
+        for field in fields {
+            field_instr.push(self.program.len());
+
+            let mut dummy_positions = Vec::new();
+            self.compile_field(field, &mut dummy_positions)?;
+            // unions in nullable structs are currently not supported
+            std::mem::drop(dummy_positions);
+
+            let redirect_instr = self.push_instr(Redirect { next: UNSET_INSTR });
+            redirect_instrs.push(redirect_instr);
+        }
+
+        let Some(Bytecode::UnionDispatch(instr)) = self.program.get_mut(dispatch_instr)  else {
+            fail!("internal error: did not find union dispatch")
+        };
+        instr.field_instr = field_instr;
+
+        let instr_after_union = self.program.len();
+        for redirect_instr in redirect_instrs {
+            let Some(Bytecode::Redirect(instr)) = self.program.get_mut(redirect_instr) else {
+                fail!("internal error: did not find redirect");
+            };
+            instr.next = instr_after_union;
+        }
+
+        Ok(())
+    }
+
+    fn fix_redirects(&mut self) -> Result<()> {
+        let mut redirect_map = HashMap::new();
+        for (idx, instr) in self.program.iter().enumerate() {
+            if let Bytecode::Redirect(instr) = instr {
+                redirect_map.insert(idx, instr.next);
+            }
+        }
+
+        let mut multi_hop_map = HashMap::new();
+        for (&start, &end) in &redirect_map {
+            let mut budget = self.program.len();
+
+            let mut end = end;
+            while let Some(&next) = redirect_map.get(&end) {
+                if budget == 0 {
+                    fail!("budget exceed while following redirect: cycle?")
+                }
+                end = next;
+                budget -= 1;
+            }
+
+            multi_hop_map.insert(start, end);
+        }
+
+        for instr in &mut self.program {
+            instr.update_targets(&multi_hop_map)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Utility functions
 impl<'a> Compiler<'a> {
     fn push_instr<I: Into<Bytecode>>(&mut self, instr: I) -> usize {
@@ -560,6 +653,9 @@ impl<'a> Compiler<'a> {
 
 #[rustfmt::skip]
 define_bytecode!{
+    /// A dummy instruction used mark jump positions which should be rewritten
+    /// to the next value of this instruction 
+    Redirect {},
     EmitOuterStartSequence {},
     /// Handle the end-of-sequence / item case
     EmitOuterEndSequence {
@@ -748,6 +844,12 @@ define_bytecode!{
         value: DictionaryValue,
         index: DictionaryIndex,
     },
+    UnionDispatch {
+        position: usize,
+        types: usize,
+        field_instr: Vec<usize>,
+        field_names: Vec<usize>,
+    },
 }
 
 trait Instruction: std::fmt::Debug {
@@ -759,6 +861,8 @@ trait Instruction: std::fmt::Debug {
     ) -> Result<(usize, Option<Event<'a>>)> {
         fail!("not implemented for {self:?} (positions: {positions:?})")
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()>;
 }
 
 impl Instruction for Bytecode {
@@ -767,7 +871,28 @@ impl Instruction for Bytecode {
         positions: &mut [usize],
         buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
-        dispatch_bytecode!(&self, instr => instr.emit(positions, buffers))
+        dispatch_bytecode!(self, instr => instr.emit(positions, buffers))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        dispatch_bytecode!(self, instr => instr.update_targets(redirects))
+    }
+}
+
+impl Instruction for Redirect {
+    fn emit<'a>(
+        &self,
+        _positions: &mut [usize],
+        _buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        fail!(concat!(
+            "internal error: redirect reached in execution. ",
+            "This should not happen. Please open an issue.",
+        ))
+    }
+
+    fn update_targets(&mut self, _redirects: &HashMap<usize, usize>) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -778,6 +903,11 @@ impl Instruction for EmitOuterStartSequence {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::StartSequence)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -794,6 +924,12 @@ impl Instruction for EmitOuterItem {
             Ok((self.next, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_end = get_target_update(redirects, self.if_end);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitOuterEndSequence {
@@ -809,6 +945,12 @@ impl Instruction for EmitOuterEndSequence {
             Ok((self.if_item, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_item = get_target_update(redirects, self.if_item);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStartOuterStruct {
@@ -818,6 +960,11 @@ impl Instruction for EmitStartOuterStruct {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::StartStruct)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -829,6 +976,11 @@ impl Instruction for EmitEndOuterStruct {
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::EndStruct)))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStartStruct {
@@ -838,6 +990,11 @@ impl Instruction for EmitStartStruct {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::StartStruct)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -850,6 +1007,11 @@ impl Instruction for EmitEndStruct {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::EndStruct)))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStartMapStruct {
@@ -859,6 +1021,11 @@ impl Instruction for EmitStartMapStruct {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::StartMap)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -871,6 +1038,11 @@ impl Instruction for EmitEndMapStruct {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::EndMap)))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStartTuple {
@@ -880,6 +1052,11 @@ impl Instruction for EmitStartTuple {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::StartTuple)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -891,6 +1068,11 @@ impl Instruction for EmitItemTuple {
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::Item)))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitEndTuple {
@@ -901,6 +1083,11 @@ impl Instruction for EmitEndTuple {
     ) -> Result<(usize, Option<Event<'a>>)> {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::EndTuple)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -931,6 +1118,11 @@ impl Instruction for EmitStartSequence {
         positions[self.inner_position] = start;
 
         Ok((self.next, Some(Event::StartSequence)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -967,6 +1159,12 @@ impl Instruction for EmitItemSequence {
             Ok((self.next, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_end = get_target_update(redirects, self.if_end);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitEndSequence {
@@ -1002,6 +1200,12 @@ impl Instruction for EmitEndSequence {
             Ok((self.if_item, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_item = get_target_update(redirects, self.if_item);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStartMap {
@@ -1020,6 +1224,11 @@ impl Instruction for EmitStartMap {
             .try_into()?;
 
         Ok((self.next, Some(Event::StartMap)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1047,6 +1256,12 @@ impl Instruction for EmitItemMap {
             Ok((self.next, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_end = get_target_update(redirects, self.if_end);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitEndMap {
@@ -1073,6 +1288,12 @@ impl Instruction for EmitEndMap {
             Ok((self.if_item, Some(Event::Item)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_item = get_target_update(redirects, self.if_item);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitConstantString {
@@ -1083,6 +1304,11 @@ impl Instruction for EmitConstantString {
     ) -> Result<(usize, Option<Event<'a>>)> {
         let s = std::str::from_utf8(buffers.u8[self.buffer])?;
         Ok((self.next, Some(Event::Str(s))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1102,6 +1328,39 @@ impl Instruction for EmitOptionPrimitive {
             Ok((self.if_none, Some(Event::Null)))
         }
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        self.if_none = get_target_update(redirects, self.if_none);
+        Ok(())
+    }
+}
+
+impl Instruction for UnionDispatch {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let pos = positions[self.position];
+        positions[self.position] += 1;
+
+        let ty: usize = buffers.get_i8(self.types)[pos].try_into()?;
+        let name = buffers.get_u8(self.field_names[ty]);
+        let name = std::str::from_utf8(name)?;
+
+        let next = self.field_instr[ty];
+
+        Ok((next, Some(Event::Variant(name, ty))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        for field_instr in &mut self.field_instr {
+            *field_instr = get_target_update(redirects, *field_instr);
+        }
+        Ok(())
+    }
 }
 
 impl Instruction for EndOfProgram {
@@ -1112,6 +1371,11 @@ impl Instruction for EndOfProgram {
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, None))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitNull {
@@ -1121,6 +1385,11 @@ impl Instruction for EmitNull {
         _buffers: &Buffers<'a>,
     ) -> Result<(usize, Option<Event<'a>>)> {
         Ok((self.next, Some(Event::Null)))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1134,6 +1403,11 @@ impl Instruction for EmitBool {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::Bool(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitU8 {
@@ -1145,6 +1419,11 @@ impl Instruction for EmitU8 {
         let val = buffers.u8[self.buffer][positions[self.position]];
         positions[self.position] += 1;
         Ok((self.next, Some(Event::U8(val))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1158,6 +1437,11 @@ impl Instruction for EmitU16 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::U16(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitU32 {
@@ -1170,6 +1454,11 @@ impl Instruction for EmitU32 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::U32(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitU64 {
@@ -1181,6 +1470,11 @@ impl Instruction for EmitU64 {
         let val = buffers.u64[self.buffer][positions[self.position]];
         positions[self.position] += 1;
         Ok((self.next, Some(Event::U64(val))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1195,6 +1489,11 @@ impl Instruction for EmitI8 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::I8(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitI16 {
@@ -1207,6 +1506,11 @@ impl Instruction for EmitI16 {
             i16::from_ne_bytes(buffers.u16[self.buffer][positions[self.position]].to_ne_bytes());
         positions[self.position] += 1;
         Ok((self.next, Some(Event::I16(val))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1221,6 +1525,11 @@ impl Instruction for EmitI32 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::I32(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitI64 {
@@ -1234,6 +1543,11 @@ impl Instruction for EmitI64 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::I64(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitF16 {
@@ -1245,6 +1559,11 @@ impl Instruction for EmitF16 {
         let val = f16::from_bits(buffers.u16[self.buffer][positions[self.position]]);
         positions[self.position] += 1;
         Ok((self.next, Some(Event::F32(val.to_f32()))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1259,6 +1578,11 @@ impl Instruction for EmitF32 {
         positions[self.position] += 1;
         Ok((self.next, Some(Event::F32(val))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitF64 {
@@ -1271,6 +1595,11 @@ impl Instruction for EmitF64 {
             f64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
         positions[self.position] += 1;
         Ok((self.next, Some(Event::F64(val))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1288,6 +1617,11 @@ impl Instruction for EmitStr32 {
         let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
         Ok((self.next, Some(Event::Str(s))))
     }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
 }
 
 impl Instruction for EmitStr64 {
@@ -1303,6 +1637,11 @@ impl Instruction for EmitStr64 {
         let end = usize::try_from(buffers.get_i64(self.offsets)[pos + 1])?;
         let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
         Ok((self.next, Some(Event::Str(s))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1324,6 +1663,37 @@ impl Instruction for EmitDate64NaiveStr {
 
         // NOTE: chrono documents that Debug, not Display, can be parsed
         Ok((self.next, Some(format!("{:?}", val).into())))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
+}
+
+impl Instruction for EmitDate64UtcStr {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        use chrono::{TimeZone, Utc};
+
+        let val =
+            i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+
+        // TODO: update with chrono 0.5
+        #[allow(deprecated)]
+        let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
+
+        // NOTE: chrono documents that Debug, not Display, can be parsed
+        Ok((self.next, Some(format!("{:?}", val).into())))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1364,26 +1734,10 @@ impl Instruction for EmitDictionaryStr {
             }
         }
     }
-}
 
-impl Instruction for EmitDate64UtcStr {
-    fn emit<'a>(
-        &self,
-        positions: &mut [usize],
-        buffers: &Buffers<'a>,
-    ) -> Result<(usize, Option<Event<'a>>)> {
-        use chrono::{TimeZone, Utc};
-
-        let val =
-            i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
-        positions[self.position] += 1;
-
-        // TODO: update with chrono 0.5
-        #[allow(deprecated)]
-        let val = Utc.timestamp(val / 1000, (val % 1000) as u32 * 100_000);
-
-        // NOTE: chrono documents that Debug, not Display, can be parsed
-        Ok((self.next, Some(format!("{:?}", val).into())))
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
     }
 }
 
@@ -1401,4 +1755,8 @@ impl<'a> EventSource<'a> for Interpreter<'a> {
         self.current_instr = next_instr;
         Ok(ev)
     }
+}
+
+fn get_target_update(redirects: &HashMap<usize, usize>, instr: usize) -> usize {
+    redirects.get(&instr).copied().unwrap_or(instr)
 }

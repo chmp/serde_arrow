@@ -2,7 +2,7 @@ use crate::{
     _impl::arrow2::{
         array::{
             Array, BooleanArray, DictionaryArray, ListArray, MapArray, PrimitiveArray, StructArray,
-            Utf8Array,
+            UnionArray, Utf8Array,
         },
         datatypes::DataType,
         types::f16,
@@ -17,6 +17,20 @@ use crate::{
     },
     Result,
 };
+
+impl BufferExtract for &dyn Array {
+    fn len(&self) -> usize {
+        (*self).len()
+    }
+
+    fn extract_buffers<'a>(
+        &'a self,
+        field: &GenericField,
+        buffers: &mut Buffers<'a>,
+    ) -> Result<ArrayMapping> {
+        (*self).extract_buffers(field, buffers)
+    }
+}
 
 impl BufferExtract for dyn Array {
     fn len(&self) -> usize {
@@ -279,7 +293,26 @@ impl BufferExtract for dyn Array {
                     dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
                 }
             }
-            dt => fail!("BufferExtract for {dt} is not implemented"),
+            T::Union => {
+                // TODO: test assumptions
+                let typed = self
+                    .as_any()
+                    .downcast_ref::<UnionArray>()
+                    .ok_or_else(|| error!("cannot convert array to union array"))?;
+
+                let types = buffers.push_u8_cast(typed.types().as_slice())?;
+                let mut fields = Vec::new();
+                for (field, array) in field.children.iter().zip(typed.fields()) {
+                    fields.push(array.extract_buffers(field, buffers)?);
+                }
+
+                Ok(M::Union {
+                    field: field.clone(),
+                    validity: None,
+                    fields,
+                    types,
+                })
+            }
         }
     }
 }

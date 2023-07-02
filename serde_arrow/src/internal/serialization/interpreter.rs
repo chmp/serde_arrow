@@ -809,7 +809,7 @@ impl Instruction for Variant {
             fail!(
                 concat!(
                     "Serialization failed: an unknown variant with index {child_idx} for field was ",
-                    "encountered. To fix this error, sure all variants are seen during ",
+                    "encountered. To fix this error, ensure all variants are seen during ",
                     "schema tracing or add the relevant variants manually to the traced fields.",
                 ),
                 child_idx = idx,

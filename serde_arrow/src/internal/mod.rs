@@ -3,7 +3,6 @@ pub mod conversions;
 pub mod deserialization;
 pub mod error;
 pub mod event;
-pub mod generic_sources;
 pub mod schema;
 pub mod serialization;
 pub mod sink;
@@ -123,43 +122,12 @@ impl GenericBuilder {
     }
 }
 
-#[allow(unused)]
-pub fn deserialize_from_arrays<'de, T, F, A>(fields: &'de [F], arrays: &'de [A]) -> Result<T>
-where
-    T: Deserialize<'de>,
-    F: 'static,
-    GenericField: TryFrom<&'de F, Error = Error>,
-    A: BufferExtract,
-{
-    let fields = fields
-        .iter()
-        .map(GenericField::try_from)
-        .collect::<Result<Vec<_>>>()?;
-
-    let num_items = arrays.iter().map(|a| a.len()).min().unwrap_or_default();
-
-    let mut buffers = Buffers::new();
-    let mut mappings = Vec::new();
-    for (field, array) in fields.iter().zip(arrays.iter()) {
-        mappings.push(array.extract_buffers(field, &mut buffers)?);
-    }
-
-    let interpreter = deserialization::compile_deserialization(
-        num_items,
-        &mappings,
-        buffers,
-        deserialization::CompilationOptions::default(),
-    )?;
-    deserialize_from_source(interpreter)
-}
-
-#[allow(unused)]
 pub fn deserialize_from_array<'de, T, F, A>(field: &'de F, array: &'de A) -> Result<T>
 where
     T: Deserialize<'de>,
     F: 'static,
     GenericField: TryFrom<&'de F, Error = Error>,
-    A: BufferExtract,
+    A: BufferExtract + ?Sized,
 {
     let field = GenericField::try_from(field)?;
     let num_items = array.len();

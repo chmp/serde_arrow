@@ -180,6 +180,32 @@ test_example!(
     },
 );
 
+test_example!(
+    #[ignore = "error during serialization"]
+    test_name = serde_flatten,
+    test_bytecode_deserialization = ture,
+    field = GenericField::new("root", GenericDataType::Struct, false),
+    ty = Item,
+    values = [Item {
+        a: 0,
+        b: Inner { value: true },
+    },],
+    nulls = [false],
+    define = {
+        #[derive(Debug, Serialize, Deserialize, PartialEq)]
+        struct Item {
+            a: i8,
+            #[serde(flatten)]
+            b: Inner,
+        }
+
+        #[derive(Debug, Serialize, Deserialize, PartialEq)]
+        struct Inner {
+            value: bool,
+        }
+    },
+);
+
 test_events!(
     test_name = out_of_order_fields,
     fields = [

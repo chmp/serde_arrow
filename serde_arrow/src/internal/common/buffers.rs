@@ -54,7 +54,6 @@ pub struct Buffers<'a> {
 }
 
 impl<'a> Buffers<'a> {
-    #[allow(unused)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -199,7 +198,6 @@ pub struct MutableCountBuffer {
 }
 
 impl MutableCountBuffer {
-    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.len
     }

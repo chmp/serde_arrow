@@ -30,6 +30,7 @@ pub(crate) use hash_map;
 
 macro_rules! test_example_impl {
     (
+        $(#[ignore = $ignore:literal])?
         test_name = $test_name:ident,
         $(test_bytecode_deserialization = $test_bytecode_deserialization:expr,)?
         $(test_deserialization = $test_deserialization:expr,)?
@@ -60,6 +61,7 @@ macro_rules! test_example_impl {
             },
         };
 
+        $(#[ignore = $ignore])?
         #[test]
         fn tracing() {
             $($($definitions)*)?
@@ -96,6 +98,7 @@ macro_rules! test_example_impl {
             traced.validate_compatibility(&field).unwrap();
         }
 
+        $(#[ignore = $ignore])?
         #[test]
         fn serialization() {
             let _guard = ScopedConfiguration::configure(|c| {
@@ -146,19 +149,9 @@ macro_rules! test_example_impl {
                 let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
                 assert_eq!(expected_items, items_round_trip);
             }
-
-            let test_bytecode_deserialization: bool = false;
-            $(let test_bytecode_deserialization: bool = $test_bytecode_deserialization;)?
-
-            if test_bytecode_deserialization && test_deserialization.contains(&IMPL) {
-                let expected_items = items;
-                $(let expected_items: &[$ty] = &$expected_values;)?
-
-                let items_round_trip: Vec<$ty> = crate::internal::deserialize_from_array(&field, &array).unwrap();
-                assert_eq!(expected_items, items_round_trip);
-            }
         }
 
+        $(#[ignore = $ignore])?
         #[test]
         fn builder() {
             $($($definitions)*)?
@@ -222,6 +215,7 @@ pub(crate) use test_example_impl;
 /// ```
 macro_rules! test_example {
     (
+        $(#[ignore = $ignore:literal])?
         test_name = $test_name:ident,
         $($tt:tt)*
     ) => {
@@ -229,13 +223,13 @@ macro_rules! test_example {
         mod $test_name {
             mod arrow {
                 use crate::{
-                    arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    arrow::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow::datatypes::Field,
-                    test_impls::utils::deserialize_from_array,
                 };
                 const IMPL: &'static str = "arrow";
 
                 $crate::test_impls::macros::test_example_impl!(
+                    $(#[ignore = $ignore])?
                     test_name = $test_name,
                     $($tt)*
                 );
@@ -248,6 +242,7 @@ macro_rules! test_example {
                 const IMPL: &'static str = "arrow2";
 
                 $crate::test_impls::macros::test_example_impl!(
+                    $(#[ignore = $ignore])?
                     test_name = $test_name,
                     $($tt)*
                 );
@@ -356,9 +351,8 @@ macro_rules! test_error {
         mod $test_name {
             mod arrow {
                 use crate::{
-                    arrow::{serialize_into_field, serialize_into_array, ArrayBuilder},
+                    arrow::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
                     _impl::arrow::datatypes::Field,
-                    test_impls::utils::deserialize_from_array,
                 };
                 const IMPL: &'static str = "arrow";
 

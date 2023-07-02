@@ -387,7 +387,7 @@ def summarize_status():
         return len(_extract(pat))
 
     num_tests = _count_pattern(r"^\s*test_example!\(\s*$")
-    num_ignored_tests = _count_pattern(r"^\s*[ignore]\s*$")
+    num_ignored_tests = _count_pattern(r"^\s*#[ignore[^\]]*]\s*$")
     num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*\[\s*\]\s*,\s*$")
     num_no_deserialization = _count_pattern(
         r"^\s*test_bytecode_deserialization\s*=\s*false\s*,\s*$"

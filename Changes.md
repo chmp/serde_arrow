@@ -2,12 +2,14 @@
 
 ## development
 
+- Add deserialization support for arrow
+- Implement deserialization via bytecode (remove state machine implementation)
+- Implement bytecode serialization of f16
+- Remove state machine serialization, and use bytecode serialization as the
+  default. This change results in a 2.6x speed up for the default configuration
 - Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
-- Implement bytecode serialization of f16
-- Remove state machine serialization, and use bytecode serialization as the
-  default. This change results in a 2.6x speed up
 - Remove for `arrow==35` support
 
 ## 0.7.1
