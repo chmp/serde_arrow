@@ -12,6 +12,8 @@
   with maps serialized as structs
 - Remove for `arrow==35` support
 - Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43` support
+- Add support for coercing different numeric types (use
+  `TracingOptions::default().coerce_numbers(true)`) 
 
 ## 0.7.1
 

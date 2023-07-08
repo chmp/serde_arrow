@@ -468,3 +468,135 @@ macro_rules! test_roundtrip_arrays {
 }
 
 pub(crate) use test_roundtrip_arrays;
+
+macro_rules! test_serialize_into_array {
+    (
+        $(#[ignore = $ignore:literal])?
+        test_name = $test_name:ident,
+        $($tt:tt)*
+    ) => {
+        #[allow(unused)]
+        mod $test_name {
+            mod arrow {
+                use crate::arrow::{serialize_into_field, serialize_into_array};
+                $crate::test_impls::macros::test_serialize_into_array_impl!(
+                    $(#[ignore = $ignore])?
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+            mod arrow2 {
+                use crate::arrow2::{serialize_into_field, serialize_into_array};
+                $crate::test_impls::macros::test_serialize_into_array_impl!(
+                    $(#[ignore = $ignore])?
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+        }
+    };
+}
+
+pub(crate) use test_serialize_into_array;
+
+macro_rules! test_serialize_into_array_impl {
+    (
+        $(#[ignore = $ignore:literal])?
+        test_name = $test_name:ident,
+        values = $values:expr,
+        $(define = { $($definitions:item)* } ,)?
+    ) => {
+        use super::*;
+
+        use crate::{
+            internal::schema::TracingOptions,
+            test_impls::utils::ScopedConfiguration,
+        };
+
+        $(#[ignore = $ignore])?
+        #[test]
+        fn serialization() {
+            let _guard = ScopedConfiguration::configure(|c| {
+                c.debug_print_program = true;
+            });
+
+            $($($definitions)*)?
+
+            let items = &$values;
+            let field = serialize_into_field(&items, "root", TracingOptions::default()).unwrap();
+            let array = serialize_into_array(&field, &items).unwrap();
+
+            std::mem::drop(array);
+        }
+
+    };
+}
+pub(crate) use test_serialize_into_array_impl;
+
+macro_rules! test_serialize_into_arrays {
+    (
+        $(#[ignore = $ignore:literal])?
+        test_name = $test_name:ident,
+        $($tt:tt)*
+    ) => {
+        #[allow(unused)]
+        mod $test_name {
+            mod arrow {
+                use crate::arrow::{serialize_into_fields, serialize_into_arrays};
+                $crate::test_impls::macros::test_serialize_into_arrays_impl!(
+                    $(#[ignore = $ignore])?
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+            mod arrow2 {
+                use crate::arrow2::{serialize_into_fields, serialize_into_arrays};
+                $crate::test_impls::macros::test_serialize_into_arrays_impl!(
+                    $(#[ignore = $ignore])?
+                    test_name = $test_name,
+                    $($tt)*
+                );
+            }
+        }
+    };
+}
+
+pub(crate) use test_serialize_into_arrays;
+
+macro_rules! test_serialize_into_arrays_impl {
+    (
+        $(#[ignore = $ignore:literal])?
+        test_name = $test_name:ident,
+        $(tracing_options = $tracing_options:expr,)?
+        values = $values:expr,
+        $(define = { $($definitions:item)* } ,)?
+    ) => {
+        use super::*;
+
+        use crate::{
+            internal::schema::TracingOptions,
+            test_impls::utils::ScopedConfiguration,
+        };
+
+        $(#[ignore = $ignore])?
+        #[test]
+        fn serialization() {
+            let _guard = ScopedConfiguration::configure(|c| {
+                c.debug_print_program = true;
+            });
+
+            $($($definitions)*)?
+
+            let tracing_options = TracingOptions::default();
+            $(let tracing_options = $tracing_options; )?
+
+            let items = &$values;
+            let fields = serialize_into_fields(&items, tracing_options).unwrap();
+            let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+            std::mem::drop(arrays);
+        }
+
+    };
+}
+pub(crate) use test_serialize_into_arrays_impl;

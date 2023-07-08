@@ -401,6 +401,11 @@ impl Instruction for OuterRecordField {
         self.accept_end_struct(structure, buffers)
     }
 
+    /// Ignore items
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+        Ok(self.self_pos)
+    }
+
     fn accept_str(
         &self,
         structure: &Structure,
@@ -1037,6 +1042,14 @@ impl_primitive_instruction!(
     PushF64(WrappedF64, u64) {
         accept_f32(f32),
         accept_f64(f64),
+        accept_u8(u8),
+        accept_u16(u16),
+        accept_u32(u32),
+        accept_u64(u64),
+        accept_i8(i8),
+        accept_i16(i16),
+        accept_i32(i32),
+        accept_i64(i64),
     },
 );
 
