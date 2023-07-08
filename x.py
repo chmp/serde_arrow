@@ -64,7 +64,6 @@ workflow_release_template = {
 @cmd(help="Run all common development tasks before a commit")
 @arg("--backtrace", action="store_true", default=False)
 def precommit(backtrace=False):
-    python(self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py")
     update_workflows()
 
     fmt()
