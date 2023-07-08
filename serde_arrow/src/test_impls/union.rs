@@ -138,6 +138,97 @@ test_example!(
     },
 );
 
+test_example!(
+    test_name = enums,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("U8", GenericDataType::U8, false))
+        .with_child(GenericField::new("U16", GenericDataType::U16, false))
+        .with_child(GenericField::new("U32", GenericDataType::U32, false))
+        .with_child(GenericField::new("U64", GenericDataType::U64, false)),
+    ty = Item,
+    values = [Item::U32(2), Item::U64(3), Item::U8(0), Item::U16(1),],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            U8(u8),
+            U16(u16),
+            U32(u32),
+            U64(u64),
+        }
+    },
+);
+
+test_example!(
+    test_name = enums_tuple,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(
+            GenericField::new("A", GenericDataType::Struct, false)
+                .with_strategy(Strategy::TupleAsStruct)
+                .with_child(GenericField::new("0", GenericDataType::U8, false))
+                .with_child(GenericField::new("1", GenericDataType::U32, false))
+        )
+        .with_child(
+            GenericField::new("B", GenericDataType::Struct, false)
+                .with_strategy(Strategy::TupleAsStruct)
+                .with_child(GenericField::new("0", GenericDataType::U16, false))
+                .with_child(GenericField::new("1", GenericDataType::U64, false))
+        ),
+    ty = Item,
+    values = [Item::A(2, 3), Item::B(0, 1),],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A(u8, u32),
+            B(u16, u64),
+        }
+    },
+);
+
+test_example!(
+    test_name = enums_struct,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(
+            GenericField::new("A", GenericDataType::Struct, false)
+                .with_child(GenericField::new("a", GenericDataType::U8, false))
+                .with_child(GenericField::new("b", GenericDataType::U32, false))
+        )
+        .with_child(
+            GenericField::new("B", GenericDataType::Struct, false)
+                .with_child(GenericField::new("c", GenericDataType::U16, false))
+                .with_child(GenericField::new("d", GenericDataType::U64, false))
+        ),
+    ty = Item,
+    values = [Item::A { a: 2, b: 3 }, Item::B { c: 0, d: 1 },],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A { a: u8, b: u32 },
+            B { c: u16, d: u64 },
+        }
+    },
+);
+
+test_example!(
+    test_name = enums_union,
+    test_bytecode_deserialization = true,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Union, false)
+        .with_child(GenericField::new("A", GenericDataType::Null, true))
+        .with_child(GenericField::new("B", GenericDataType::Null, true)),
+    ty = Item,
+    values = [Item::A, Item::B,],
+    define = {
+        #[derive(Debug, PartialEq, Deserialize, Serialize)]
+        enum Item {
+            A,
+            B,
+        }
+    },
+);
+
 test_error!(
     test_name = missing_union_variants,
     expected_error = "Serialization failed: an unknown variant",

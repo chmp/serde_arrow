@@ -49,3 +49,36 @@ test_example!(
     values = [((1,),), ((2,),)],
     nulls = [false, false],
 );
+
+test_example!(
+    test_name = tuple_nullable,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_strategy(Strategy::TupleAsStruct)
+        .with_child(GenericField::new("0", GenericDataType::Bool, false))
+        .with_child(GenericField::new("1", GenericDataType::I64, false)),
+    ty = Option<(bool, i64)>,
+    values = [
+        Some((true, 21)),
+        None,
+        Some((false, 42)),
+    ],
+);
+
+test_example!(
+    test_name = tuple_nullable_nested,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_strategy(Strategy::TupleAsStruct)
+        .with_child(GenericField::new("0", GenericDataType::Struct, false)
+            .with_strategy(Strategy::TupleAsStruct)
+            .with_child(GenericField::new("0", GenericDataType::Bool, false))
+            .with_child(GenericField::new("1", GenericDataType::I64, false)))
+        .with_child(GenericField::new("1", GenericDataType::I64, false)),
+    ty = Option<((bool, i64), i64)>,
+    values = [
+        Some(((true, 21), 7)),
+        None,
+        Some(((false, 42), 13)),
+    ],
+);
