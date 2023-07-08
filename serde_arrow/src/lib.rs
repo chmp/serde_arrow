@@ -14,14 +14,18 @@
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
 //! in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
-//! [`arrow2`][arrow2] for schema tracing and serialization from Rust structs to
-//! arrays. Deserialization from arrays to Rust structs is currently only
-//! implemented for `arrow2`.
+//! [`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
+//! arrays, and deserialization from arrays to Rust structs.
+//!
+//! `serde_arrow` relies on a schema to translate between Rust and Arrow. The
+//! schema is expressed as Arrow fields and describes the schema of the arrays.
+//! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
+//! schema should contain a  `Date64`.
 //!
 //! ## Overview
 //!
 //! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frames, some work on multiples arrays, i.e., data frames
+//! of a data frame, some work on multiples arrays, i.e., data frames
 //! themselves.
 //!
 //! | implementation | operation | multiple arrays           |  single array            |
