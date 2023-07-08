@@ -3,7 +3,3 @@ members = [
     "serde_arrow",
     "example",
 ]
-
-exclude = [
-    "arrow2-to-arrow",
-]

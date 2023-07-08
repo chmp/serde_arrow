@@ -132,5 +132,4 @@ their respective FFI interfaces:
 The arrow2 crate includes [a helper trait][arrow2-arrow2arrow] to perform this
 conversion when used with the `arrow` feature.
 
-[arrow2-to-arrow]: https://github.com/chmp/serde_arrow/tree/main/arrow2-to-arrow
 [arrow2-arrow2arrow]: https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html
