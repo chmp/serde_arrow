@@ -651,150 +651,88 @@ test_example!(
     },
 );
 
-// TODO: fix more examples
-/*
 test_example!(
     test_name = hash_maps,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = Field::new(
-        "value",
-        DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                DataType::Struct(vec![
-                    Field::new("key", GenericDataType::I64, false),
-                    Field::new("value", GenericDataType::Bool, false),
-                ]),
-                false
-            )),
-            false,
-        ),
-        false,
-    ),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
     ty = HashMap<i64, bool>,
     values = [
-        hashmap!{0 => true, 1 => false, 2 => true},
-        hashmap!{3 => false, 4 => true},
-        hashmap!{},
+        hash_map!{0 => true, 1 => false, 2 => true},
+        hash_map!{3 => false, 4 => true},
+        hash_map!{},
     ],
 );
 
 test_example!(
     test_name = hash_maps_nullable,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = Field::new(
-        "value",
-        DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                DataType::Struct(vec![
-                    Field::new("key", GenericDataType::I64, false),
-                    Field::new("value", GenericDataType::Bool, false),
-                ]),
-                false
-            )),
-            false,
-        ),
-        true,
-    ),
+    field = GenericField::new("root", GenericDataType::Map, true)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
     ty = Option<HashMap<i64, bool>>,
     values = [
-        Some(hashmap!{0 => true, 1 => false, 2 => true}),
-        Some(hashmap!{3 => false, 4 => true}),
-        Some(hashmap!{}),
+        Some(hash_map!{0 => true, 1 => false, 2 => true}),
+        Some(hash_map!{3 => false, 4 => true}),
+        Some(hash_map!{}),
     ],
 );
 
 test_example!(
     test_name = hash_maps_nullable_keys,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = Field::new(
-        "value",
-        DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                DataType::Struct(vec![
-                    Field::new("key", GenericDataType::I64, true),
-                    Field::new("value", GenericDataType::Bool, false),
-                ]),
-                false
-            )),
-            false,
-        ),
-        false,
-    ),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, true))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
     ty = HashMap<Option<i64>, bool>,
     values = [
-        hashmap!{Some(0) => true, Some(1) => false, Some(2) => true},
-        hashmap!{Some(3) => false, Some(4) => true},
-        hashmap!{},
+        hash_map!{Some(0) => true, Some(1) => false, Some(2) => true},
+        hash_map!{Some(3) => false, Some(4) => true},
+        hash_map!{},
     ],
 );
 
 test_example!(
     test_name = hash_maps_nullable_values,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = Field::new(
-        "value",
-        DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                DataType::Struct(vec![
-                    Field::new("key", GenericDataType::I64, false),
-                    Field::new("value", GenericDataType::Bool, true),
-                ]),
-                false
-            )),
-            false,
-        ),
-        false,
-    ),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, true))),
     ty = HashMap<i64, Option<bool>>,
     values = [
-        hashmap!{0 => Some(true), 1 => Some(false), 2 => Some(true)},
-        hashmap!{3 => Some(false), 4 => Some(true)},
-        hashmap!{},
+        hash_map!{0 => Some(true), 1 => Some(false), 2 => Some(true)},
+        hash_map!{3 => Some(false), 4 => Some(true)},
+        hash_map!{},
     ],
 );
 
 test_example!(
     test_name = btree_maps,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = Field::new(
-        "value",
-        DataType::Map(
-            Box::new(Field::new(
-                "entries",
-                DataType::Struct(vec![
-                    Field::new("key", GenericDataType::I64, false),
-                    Field::new("value", GenericDataType::Bool, false),
-                ]),
-                false
-            )),
-            false,
-        ),
-        false,
-    ),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
     ty = BTreeMap<i64, bool>,
     values = [
-        btreemap!{0 => true, 1 => false, 2 => true},
-        btreemap!{3 => false, 4 => true},
-        btreemap!{},
+        btree_map!{0 => true, 1 => false, 2 => true},
+        btree_map!{3 => false, 4 => true},
+        btree_map!{},
     ],
 );
 
 test_example!(
     test_name = flattened_structures,
-    field = Field::new(
-        "value",
-        DataType::Struct(vec![
-            Field::new("a", GenericDataType::I64, false),
-            Field::new("b", DataType::Float32, false),
-            Field::new("c", DataType::Float64, false),
-        ]),
-        false,
-    )
-    .with_metadata(strategy_meta(Strategy::MapAsStruct)),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::I64, false))
+        .with_child(GenericField::new("b", GenericDataType::F32, false))
+        .with_child(GenericField::new("c", GenericDataType::F64, false))
+        .with_strategy(Strategy::MapAsStruct),
     ty = Outer,
     values = [
         Outer {
@@ -825,7 +763,6 @@ test_example!(
         }
     },
 );
- */
 
 // TODO: fix these tests
 /*

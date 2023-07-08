@@ -181,10 +181,13 @@ test_example!(
 );
 
 test_example!(
-    #[ignore = "error during serialization"]
+    // #[ignore = "error during serialization"]
     test_name = serde_flatten,
-    test_bytecode_deserialization = ture,
-    field = GenericField::new("root", GenericDataType::Struct, false),
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::I8, false))
+        .with_child(GenericField::new("value", GenericDataType::Bool, false)),
     ty = Item,
     values = [Item {
         a: 0,
