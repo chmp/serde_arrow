@@ -80,3 +80,16 @@ test_example!(
     ty = Vec<Option<bool>>,
     values = [vec![Some(true), Some(false)], vec![], vec![None, Some(false)]],
 );
+
+test_example!(
+    test_name = byte_arrays,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::LargeList, false)
+        .with_child(GenericField::new("element", GenericDataType::U8, false)),
+    ty = Vec<u8>,
+    values = [
+        b"hello".to_vec(),
+        b"world!".to_vec(),
+    ],
+    nulls = [false, false],
+);

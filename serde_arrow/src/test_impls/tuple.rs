@@ -13,6 +13,22 @@ test_example!(
 );
 
 test_example!(
+    test_name = tuple_struct_u64_bool,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::TupleAsStruct)
+        .with_child(GenericField::new("0", GenericDataType::U64, false))
+        .with_child(GenericField::new("1", GenericDataType::Bool, false)),
+    ty = S,
+    values = [S(1, true), S(2, false)],
+    nulls = [false, false],
+    define = {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct S(u64, bool);
+    },
+);
+
+test_example!(
     test_name = nullbale_tuple_u64_bool,
     test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
