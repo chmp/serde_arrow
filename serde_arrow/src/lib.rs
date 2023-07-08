@@ -28,7 +28,7 @@
 //! |---|---|---|---|
 //! | **arrow** | schema tracing | [arrow::serialize_into_fields] | [arrow::serialize_into_field] |
 //! | | Rust to Arrow | [arrow::serialize_into_arrays] | [arrow::serialize_into_array] |
-//! | | Arrow to Rust | not supported | not supported |
+//! | | Arrow to Rust | [arrow::deserialize_from_arrays] | [arrow::deserialize_from_array] |
 //! | | Builder | [arrow::ArraysBuilder] | [arrow::ArrayBuilder] |
 //! | | | | |
 //! | **arrow2** | schema tracing | [arrow2::serialize_into_fields] | [arrow2::serialize_into_field] |
