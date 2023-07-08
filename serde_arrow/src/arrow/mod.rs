@@ -142,7 +142,40 @@ where
     interpreter.build_arrow_arrays()
 }
 
-/// TODO: document
+/// Deserialize a type from the given arrays
+///
+/// The type should be a list of records (e.g., a vector of structs).
+///
+/// ```rust
+/// use serde::{Deserialize, Serialize};
+/// use serde_arrow::{
+///     arrow::{
+///         deserialize_from_arrays,
+///         serialize_into_arrays,
+///         serialize_into_fields,
+///     },
+///     schema::TracingOptions,
+/// };
+///
+/// ##[derive(Deserialize, Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// // provide an example record to get the field information
+/// let fields = serialize_into_fields(
+///     &[Record { a: Some(1.0), b: 2}],
+///     TracingOptions::default(),
+/// ).unwrap();
+/// # let items = &[Record { a: Some(1.0), b: 2}];
+/// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
+/// #
+///
+/// // deserialize the records from arrays
+/// let items: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
+/// ```
+///
 pub fn deserialize_from_arrays<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
@@ -211,7 +244,25 @@ where
     interpreter.build_arrow_array()
 }
 
-/// TODO: document
+/// Deserialize a sequence of objects from a single array
+///
+/// Example:
+///
+/// ```rust
+/// # use serde_arrow::_impl::arrow as arrow;
+/// #
+/// use arrow::{array::Array, datatypes::{DataType, Field}};
+/// use serde_arrow::arrow::{
+///   serialize_into_array,
+///   deserialize_from_array,
+/// };
+///
+/// let field = Field::new("floats", DataType::Float32, false);
+///
+/// let array = serialize_into_array(&field,  &vec![1.0_f32, 2.0, 3.0]).unwrap();
+/// let items: Vec<f32> = deserialize_from_array(&field, &array).unwrap();
+/// ```
+///
 pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
 where
     T: Deserialize<'de>,
