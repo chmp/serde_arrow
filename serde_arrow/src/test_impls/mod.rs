@@ -1,6 +1,7 @@
 mod chrono;
 mod dictionary;
 mod examples;
+mod json_values;
 mod list;
 mod macros;
 mod map;

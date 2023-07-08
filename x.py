@@ -25,7 +25,13 @@ workflow_test_template = {
         "workflow_dispatch": {},
         "pull_request": {
             "branches": ["main"],
-            "types": ["ready_for_review", "synchronize"],
+            "types": [
+                "opened",
+                "edited",
+                "reopened",
+                "ready_for_review",
+                "synchronize",
+            ],
         },
     },
     "env": {"CARGO_TERM_COLOR": "always"},

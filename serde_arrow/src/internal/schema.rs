@@ -506,6 +506,20 @@ pub struct TracingOptions {
     /// If `true`, strings are traced as `Dictionary(UInt64, LargeUtf8)`. If
     /// `false`, strings are traced as `LargeUtf8`.
     pub string_dictionary_encoding: bool,
+
+    /// If `true`, coerce different numeric types.
+    ///
+    /// This option may be helpful when dealing with data formats that do not
+    /// encode the complete numeric type, e.g., JSON. The following rules are
+    /// used:
+    ///
+    /// - unsigned + other unsigned -> u64
+    /// - signed + other signed -> i64
+    /// - float + other float -> f64
+    /// - unsigned + signed -> i64
+    /// - unsigned + float -> f64
+    /// - signed  + float -> f64
+    pub coerce_numbers: bool,
 }
 
 impl Default for TracingOptions {
@@ -514,6 +528,7 @@ impl Default for TracingOptions {
             allow_null_fields: false,
             map_as_struct: true,
             string_dictionary_encoding: false,
+            coerce_numbers: false,
         }
     }
 }
@@ -523,21 +538,27 @@ impl TracingOptions {
         Default::default()
     }
 
-    /// Set the `allow_null_fields` value
+    /// Configure `allow_null_fields`
     pub fn allow_null_fields(mut self, value: bool) -> Self {
         self.allow_null_fields = value;
         self
     }
 
-    /// Set the `map_as_struct` value
+    /// Configure `map_as_struct`
     pub fn map_as_struct(mut self, value: bool) -> Self {
         self.map_as_struct = value;
         self
     }
 
-    /// Set the `string_dictionary_encoding` value
+    /// Configure `string_dictionary_encoding`
     pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
         self.string_dictionary_encoding = value;
+        self
+    }
+
+    /// Configure `coerce_numbers`
+    pub fn coerce_numbers(mut self, value: bool) -> Self {
+        self.coerce_numbers = value;
         self
     }
 }
@@ -621,6 +642,7 @@ impl EventSink for Tracer {
                         tracer.nullable,
                         tracer.options.string_dictionary_encoding,
                         tracer.options.allow_null_fields,
+                        tracer.options.coerce_numbers,
                     );
                     tracer.accept(event)?;
                     *self = Tracer::Primitive(tracer)
@@ -1421,16 +1443,23 @@ pub enum MapTracerState {
 pub struct PrimitiveTracer {
     pub string_dictionary_encoding: bool,
     pub allow_null_fields: bool,
+    pub coerce_numbers: bool,
     pub item_type: GenericDataType,
     pub nullable: bool,
     pub finished: bool,
 }
 
 impl PrimitiveTracer {
-    pub fn new(nullable: bool, string_dictionary_encoding: bool, allow_null_fields: bool) -> Self {
+    pub fn new(
+        nullable: bool,
+        string_dictionary_encoding: bool,
+        allow_null_fields: bool,
+        coerce_numbers: bool,
+    ) -> Self {
         Self {
             item_type: GenericDataType::Null,
             allow_null_fields,
+            coerce_numbers,
             nullable,
             string_dictionary_encoding,
             finished: false,
@@ -1471,51 +1500,61 @@ impl EventSink for PrimitiveTracer {
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        type D = GenericDataType;
-        type E<'a> = Event<'a>;
+        use GenericDataType::*;
 
-        match (event, self.item_type) {
-            (E::Some | Event::Null, _) => {
+        let ev_type = match event {
+            Event::Some | Event::Null => Null,
+            Event::Bool(_) => Bool,
+            Event::Str(_) | Event::OwnedStr(_) => LargeUtf8,
+            Event::U8(_) => U8,
+            Event::U16(_) => U16,
+            Event::U32(_) => U32,
+            Event::U64(_) => U64,
+            Event::I8(_) => I8,
+            Event::I16(_) => I16,
+            Event::I32(_) => I32,
+            Event::I64(_) => I64,
+            Event::F32(_) => F32,
+            Event::F64(_) => F64,
+            ev => fail!("Cannot handle event {ev} in primitive tracer"),
+        };
+
+        self.item_type = match (self.item_type, ev_type) {
+            (ty, Null) => {
                 self.nullable = true;
+                ty
             }
-            (E::Bool(_), D::Bool | D::Null) => {
-                self.item_type = D::Bool;
-            }
-            (E::I8(_), D::I8 | D::Null) => {
-                self.item_type = D::I8;
-            }
-            (E::I16(_), D::I16 | D::Null) => {
-                self.item_type = D::I16;
-            }
-            (E::I32(_), D::I32 | D::Null) => {
-                self.item_type = D::I32;
-            }
-            (E::I64(_), D::I64 | D::Null) => {
-                self.item_type = D::I64;
-            }
-            (E::U8(_), D::U8 | D::Null) => {
-                self.item_type = D::U8;
-            }
-            (E::U16(_), D::U16 | D::Null) => {
-                self.item_type = D::U16;
-            }
-            (E::U32(_), D::U32 | D::Null) => {
-                self.item_type = D::U32;
-            }
-            (E::U64(_), D::U64 | D::Null) => {
-                self.item_type = D::U64;
-            }
-            (E::F32(_), D::F32 | D::Null) => {
-                self.item_type = D::F32;
-            }
-            (E::F64(_), D::F64 | D::Null) => {
-                self.item_type = D::F64;
-            }
-            (E::Str(_) | E::OwnedStr(_), D::LargeUtf8 | D::Null) => {
-                self.item_type = D::LargeUtf8;
-            }
-            (ev, ty) => fail!("Cannot accept event {ev} for primitive type {ty}"),
-        }
+            (Bool | Null, Bool) => Bool,
+            (I8 | Null, I8) => I8,
+            (I16 | Null, I16) => I16,
+            (I32 | Null, I32) => I32,
+            (I64 | Null, I64) => I64,
+            (U8 | Null, U8) => U8,
+            (U16 | Null, U16) => U16,
+            (U32 | Null, U32) => U32,
+            (U64 | Null, U64) => U64,
+            (F32 | Null, F32) => F32,
+            (F64 | Null, F64) => F64,
+            (LargeUtf8 | Null, LargeUtf8) => LargeUtf8,
+            (ty, ev) if self.coerce_numbers => match (ty, ev) {
+                // unsigned x unsigned -> u64
+                (U8 | U16 | U32 | U64, U8 | U16 | U32 | U64) => U64,
+                // signed x signed -> i64
+                (I8 | I16 | I32 | I64, I8 | I16 | I32 | I64) => I64,
+                // signed x unsigned -> i64
+                (I8 | I16 | I32 | I64, U8 | U16 | U32 | U64) => I64,
+                // unsigned x signed -> i64
+                (U8 | U16 | U32 | U64, I8 | I16 | I32 | I64) => I64,
+                // float x float -> f64
+                (F32 | F64, F32 | F64) => F64,
+                // int x float -> f64
+                (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, F32 | F64) => F64,
+                // float x int -> f64
+                (F32 | F64, I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64) => F64,
+                (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
+            },
+            (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
+        };
         Ok(())
     }
 

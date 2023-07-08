@@ -139,6 +139,7 @@ define_bytecode!(
         list_idx: usize,
     },
     OuterRecordField {
+        self_pos: usize,
         struct_idx: usize,
         field_name: String,
     },
@@ -520,8 +521,10 @@ impl Program {
 
         for (field_idx, field) in fields.iter().enumerate() {
             if self.options.wrap_with_struct {
+                let self_pos = self.structure.program.len();
                 self.push_instr(OuterRecordField {
                     next: UNSET_INSTR,
+                    self_pos,
                     struct_idx: 0,
                     field_name: field.name.to_string(),
                 });

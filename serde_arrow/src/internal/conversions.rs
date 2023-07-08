@@ -137,58 +137,67 @@ impl ToBytes for f64 {
     }
 }
 
-pub struct WrappedF32(f32);
+macro_rules! define_wrapper {
+    ($wrapper:ident($wrapped:ty) {  $($tt:tt)* }) => {
+        pub struct $wrapper($wrapped);
+        define_wrapper!(_impl, $wrapper, $wrapped, $($tt)*);
+    };
+    (_impl, $wrapper:ident, $wrapped:ty,) => {
 
-impl From<f32> for WrappedF32 {
-    fn from(value: f32) -> Self {
-        Self(value)
-    }
+    };
+    (_impl, $wrapper:ident, $wrapped:ty, type Bytes = $bytes:ty, $($tt:tt)*) => {
+        impl ToBytes for $wrapper {
+            type Bytes = $bytes;
+
+            fn from_bytes(val: Self::Bytes) -> Self {
+                Self(<$wrapped>::from_ne_bytes(val.to_ne_bytes()))
+            }
+
+            fn to_bytes(self) -> Self::Bytes {
+                Self::Bytes::from_ne_bytes(self.0.to_ne_bytes())
+            }
+        }
+
+        define_wrapper!(_impl, $wrapper, $wrapped, $($tt)*);
+    };
+    (_impl, $wrapper:ident, $wrapped:ty, from($ty:ty), $($tt:tt)*) => {
+        impl From<$ty> for $wrapper {
+            fn from(value: $ty) -> Self {
+                Self(value as $wrapped)
+            }
+        }
+
+        define_wrapper!(_impl, $wrapper, $wrapped, $($tt)*);
+    };
 }
 
-impl From<f64> for WrappedF32 {
-    fn from(value: f64) -> Self {
-        // TODO: handle failures
-        Self(value as f32)
-    }
-}
+define_wrapper!(WrappedF32(f32) {
+    type Bytes = u32,
+    from(f32),
+    from(f64),
+    from(u8),
+    from(u16),
+    from(u32),
+    from(u64),
+    from(i8),
+    from(i16),
+    from(i32),
+    from(i64),
+});
 
-impl ToBytes for WrappedF32 {
-    type Bytes = u32;
-
-    fn from_bytes(val: Self::Bytes) -> Self {
-        Self(f32::from_ne_bytes(val.to_ne_bytes()))
-    }
-
-    fn to_bytes(self) -> Self::Bytes {
-        Self::Bytes::from_ne_bytes(self.0.to_ne_bytes())
-    }
-}
-
-pub struct WrappedF64(f64);
-
-impl From<f32> for WrappedF64 {
-    fn from(value: f32) -> Self {
-        Self(value as f64)
-    }
-}
-
-impl From<f64> for WrappedF64 {
-    fn from(value: f64) -> Self {
-        Self(value)
-    }
-}
-
-impl ToBytes for WrappedF64 {
-    type Bytes = u64;
-
-    fn from_bytes(val: Self::Bytes) -> Self {
-        Self(f64::from_ne_bytes(val.to_ne_bytes()))
-    }
-
-    fn to_bytes(self) -> Self::Bytes {
-        Self::Bytes::from_ne_bytes(self.0.to_ne_bytes())
-    }
-}
+define_wrapper!(WrappedF64(f64) {
+    type Bytes = u64,
+    from(f32),
+    from(f64),
+    from(u8),
+    from(u16),
+    from(u32),
+    from(u64),
+    from(i8),
+    from(i16),
+    from(i32),
+    from(i64),
+});
 
 pub struct WrappedF16(f16);
 
