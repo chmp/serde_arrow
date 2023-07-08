@@ -4,7 +4,16 @@ __effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
 cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
-all_arrow_features = ["arrow-36", "arrow-37", "arrow-38", "arrow-39"]
+all_arrow_features = [
+    "arrow-36",
+    "arrow-37",
+    "arrow-38",
+    "arrow-39",
+    "arrow-40",
+    "arrow-41",
+    "arrow-42",
+    "arrow-43",
+]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
@@ -183,6 +192,7 @@ def test(backtrace=False, full=False):
 def check_cargo_toml():
     import tomli
 
+    print(":: check Cargo.toml")
     with open(self_path / "serde_arrow" / "Cargo.toml", "rb") as fobj:
         config = tomli.load(fobj)
 
@@ -206,8 +216,41 @@ def check_cargo_toml():
         if actual_features != expected_features:
             raise ValueError(
                 f"Invalid {label}. "
-                f"Expected features {expected_features}, found: {actual_features}"
+                f"Expected: {expected_features}, found: {actual_features}"
             )
+
+    # TODO: check the features / dependencies
+    for feature in all_arrow_features:
+        *_, version = feature.partition("-")
+
+        actual_feature_def = sorted(config["features"][feature])
+        expected_feature_def = sorted(
+            [
+                f"dep:arrow-array-{version}",
+                f"dep:arrow-schema-{version}",
+                f"dep:arrow-data-{version}",
+                f"dep:arrow-buffer-{version}",
+            ]
+        )
+
+        if actual_feature_def != expected_feature_def:
+            raise ValueError(
+                f"Invalid feature definition for {feature}. "
+                f"Expected: {expected_feature_def}, found: {actual_feature_def}"
+            )
+
+        for component in ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]:
+            expected_dep = {"package": component, "version": version, "optional": True}
+            actual_dep = config["dependencies"].get(f"{component}-{version}")
+
+            if actual_dep is None:
+                raise ValueError(f"Missing dependency {component}-{version}")
+
+            if actual_dep != expected_dep:
+                raise ValueError(
+                    f"Invalid dependency {component}-{version}. "
+                    f"Expected: {expected_dep}, found: {actual_dep}"
+                )
 
 
 @cmd(help="Run the benchmarks")
