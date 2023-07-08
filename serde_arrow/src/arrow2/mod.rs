@@ -406,8 +406,3 @@ impl ArraysBuilder {
         self.0 .0.build_arrow2_arrays()
     }
 }
-
-/// Experimental functionality that is not subject to semver compatibility
-pub mod experimental {
-    pub use super::schema::find_field_mut;
-}
