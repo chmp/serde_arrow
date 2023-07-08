@@ -64,7 +64,7 @@ impl TryFrom<&Field> for GenericField {
                 children.push(field.as_ref().try_into()?);
                 GenericDataType::Map
             }
-            #[cfg(not(any(feature = "arrow-35", feature = "arrow-36")))]
+            #[cfg(not(feature = "arrow-36"))]
             DataType::Union(fields, mode) => {
                 if !matches!(mode, UnionMode::Dense) {
                     fail!("Only dense unions are supported at the moment");
@@ -78,7 +78,7 @@ impl TryFrom<&Field> for GenericField {
                 }
                 GenericDataType::Union
             }
-            #[cfg(any(feature = "arrow-35", feature = "arrow-36"))]
+            #[cfg(feature = "arrow-36")]
             DataType::Union(fields, field_indices, mode) => {
                 if field_indices
                     .iter()
@@ -174,7 +174,7 @@ impl TryFrom<&GenericField> for Field {
                     .try_into()?;
                 DataType::Map(Box::new(element_field).into(), false)
             }
-            #[cfg(not(any(feature = "arrow-35", feature = "arrow-36")))]
+            #[cfg(not(feature = "arrow-36"))]
             GenericDataType::Union => {
                 let mut fields = Vec::new();
                 for (idx, field) in value.children.iter().enumerate() {
@@ -182,7 +182,7 @@ impl TryFrom<&GenericField> for Field {
                 }
                 DataType::Union(fields.into_iter().collect(), UnionMode::Dense)
             }
-            #[cfg(any(feature = "arrow-35", feature = "arrow-36"))]
+            #[cfg(feature = "arrow-36")]
             GenericDataType::Union => DataType::Union(
                 value
                     .children

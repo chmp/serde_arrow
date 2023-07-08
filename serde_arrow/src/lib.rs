@@ -12,7 +12,7 @@
 //! [polars]: https://github.com/pola-rs/polars
 //! [datafusion]: https://github.com/apache/arrow-datafusion/
 //!
-//! In the Rust ecosystem there are two competing implemenetations of the arrow
+//! In the Rust ecosystem there are two competing implementations of the arrow
 //! in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
 //! [`arrow2`][arrow2] for schema tracing and serialization from Rust structs to
 //! arrays. Deserialization from arrays to Rust structs is currently only
@@ -24,11 +24,11 @@
 //! of a data frames, some work on multiples arrays, i.e., data frames
 //! themselves.
 //!
-//! | implementation | operation | mutliple arrays           |  single array            |
+//! | implementation | operation | multiple arrays           |  single array            |
 //! |---|---|---|---|
 //! | **arrow** | schema tracing | [arrow::serialize_into_fields] | [arrow::serialize_into_field] |
 //! | | Rust to Arrow | [arrow::serialize_into_arrays] | [arrow::serialize_into_array] |
-//! | | Arrow to Rust | not supported | not supported |
+//! | | Arrow to Rust | [arrow::deserialize_from_arrays] | [arrow::deserialize_from_array] |
 //! | | Builder | [arrow::ArraysBuilder] | [arrow::ArrayBuilder] |
 //! | | | | |
 //! | **arrow2** | schema tracing | [arrow2::serialize_into_fields] | [arrow2::serialize_into_field] |
@@ -119,7 +119,6 @@
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
 //! | `arrow-36`    | `arrow=36`    |
-//! | `arrow-35`    | `arrow=35`    |
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 //!
@@ -140,10 +139,10 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow2-0-17")]
+    #[cfg(has_arrow2_0_17)]
     build_arrow2_crate!(arrow2_0_17);
 
-    #[cfg(all(feature = "arrow2-0-16", not(feature = "arrow2-0-17")))]
+    #[cfg(has_arrow2_0_16)]
     build_arrow2_crate!(arrow2_0_16);
 
     #[allow(unused)]
@@ -154,8 +153,9 @@ pub mod _impl {
             pub mod arrow {
                 pub mod array {
                     pub use $arrow_array::array::{
-                        make_array, Array, ArrayRef, ArrowPrimitiveType, GenericListArray,
-                        NullArray, OffsetSizeTrait,
+                        make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
+                        DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
+                        OffsetSizeTrait, PrimitiveArray, StringArray, StructArray, UnionArray,
                     };
                     pub use $arrow_array::builder::{
                         BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
@@ -174,10 +174,7 @@ pub mod _impl {
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
 
-                    #[cfg(not(feature = "arrow-35"))]
                     pub use $arrow_array::types::ArrowPrimitiveType;
-                    #[cfg(feature = "arrow-35")]
-                    pub use $arrow_array::ArrowPrimitiveType;
                 }
                 pub mod ffi {
                     pub use $arrow_data::ffi::FFI_ArrowArray;
@@ -189,7 +186,7 @@ pub mod _impl {
         };
     }
 
-    #[cfg(feature = "arrow-39")]
+    #[cfg(has_arrow_39)]
     build_arrow_crate!(
         arrow_array_39,
         arrow_buffer_39,
@@ -197,7 +194,7 @@ pub mod _impl {
         arrow_schema_39
     );
 
-    #[cfg(all(feature = "arrow-38", not(feature = "arrow-39")))]
+    #[cfg(has_arrow_38)]
     build_arrow_crate!(
         arrow_array_38,
         arrow_buffer_38,
@@ -205,11 +202,7 @@ pub mod _impl {
         arrow_schema_38
     );
 
-    #[cfg(all(
-        feature = "arrow-37",
-        not(feature = "arrow-38"),
-        not(feature = "arrow-39"),
-    ))]
+    #[cfg(has_arrow_37)]
     build_arrow_crate!(
         arrow_array_37,
         arrow_buffer_37,
@@ -217,31 +210,12 @@ pub mod _impl {
         arrow_schema_37
     );
 
-    #[cfg(all(
-        feature = "arrow-36",
-        not(feature = "arrow-37"),
-        not(feature = "arrow-38"),
-        not(feature = "arrow-39"),
-    ))]
+    #[cfg(has_arrow_36)]
     build_arrow_crate!(
         arrow_array_36,
         arrow_buffer_36,
         arrow_data_36,
         arrow_schema_36
-    );
-
-    #[cfg(all(
-        feature = "arrow-35",
-        not(feature = "arrow-36"),
-        not(feature = "arrow-37"),
-        not(feature = "arrow-38"),
-        not(feature = "arrow-39"),
-    ))]
-    build_arrow_crate!(
-        arrow_array_35,
-        arrow_buffer_35,
-        arrow_data_35,
-        arrow_schema_35
     );
 
     pub mod docs {
@@ -259,29 +233,13 @@ pub mod _impl {
     }
 }
 
-#[cfg(any(feature = "arrow2-0-17", feature = "arrow2-0-16"))]
+#[cfg(has_arrow2)]
 pub mod arrow2;
 
-#[cfg(any(
-    feature = "arrow-35",
-    feature = "arrow-36",
-    feature = "arrow-37",
-    feature = "arrow-38",
-    feature = "arrow-39",
-))]
+#[cfg(has_arrow)]
 pub mod arrow;
 
-#[cfg(all(
-    test,
-    any(
-        feature = "arrow-35",
-        feature = "arrow-36",
-        feature = "arrow-37",
-        feature = "arrow-38",
-        feature = "arrow-39",
-    ),
-    any(feature = "arrow2-0-17", feature = "arrow2-0-16")
-))]
+#[cfg(all(test, has_arrow, has_arrow2))]
 mod test_impls;
 
 #[cfg(test)]

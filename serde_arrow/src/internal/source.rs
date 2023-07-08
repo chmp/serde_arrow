@@ -78,69 +78,6 @@ impl<'a, S: EventSource<'a> + 'a> EventSource<'a> for PeekableEventSource<'a, S>
     }
 }
 
-pub struct DynamicSource<'a> {
-    source: Box<dyn EventSource<'a> + 'a>,
-}
-
-impl<'a> DynamicSource<'a> {
-    pub fn new<S: EventSource<'a> + 'a>(source: S) -> Self {
-        Self {
-            source: Box::new(source),
-        }
-    }
-}
-
-impl<'a> EventSource<'a> for DynamicSource<'a> {
-    fn next(&mut self) -> Result<Option<Event<'a>>> {
-        self.source.next()
-    }
-}
-
-enum AddOuterSequenceState {
-    Start,
-    Inner,
-    Done,
-}
-
-pub(crate) struct AddOuterSequenceSource<S> {
-    wrapped: S,
-    state: AddOuterSequenceState,
-}
-
-impl<S> AddOuterSequenceSource<S> {
-    pub fn new(wrapped: S) -> Self {
-        Self {
-            wrapped,
-            state: AddOuterSequenceState::Start,
-        }
-    }
-}
-
-impl<'a, S: EventSource<'a>> EventSource<'a> for AddOuterSequenceSource<S> {
-    fn next(&mut self) -> Result<Option<Event<'a>>> {
-        let res: Event<'a>;
-        self.state = match self.state {
-            AddOuterSequenceState::Start => {
-                res = Event::StartSequence;
-                AddOuterSequenceState::Inner
-            }
-            AddOuterSequenceState::Inner => {
-                let cand = self.wrapped.next()?;
-                if let Some(ev) = cand {
-                    res = ev;
-                    AddOuterSequenceState::Inner
-                } else {
-                    res = Event::EndSequence;
-                    AddOuterSequenceState::Done
-                }
-            }
-            AddOuterSequenceState::Done => return Ok(None),
-        };
-
-        Ok(Some(res))
-    }
-}
-
 pub trait IntoEventSource<'a> {
     type EventSource: EventSource<'a>;
 
@@ -429,12 +366,16 @@ impl<'de, 'a, 'event, S: EventSource<'event>> MapAccess<'de> for &'a mut Deseria
     where
         K: DeserializeSeed<'de>,
     {
-        if matches!(
-            self.source.peek()?,
-            Some(Event::EndStruct) | Some(Event::EndMap)
-        ) {
-            return Ok(None);
+        match self.source.peek()? {
+            Some(Event::EndStruct) | Some(Event::EndMap) => return Ok(None),
+            // allow optional item markers. E.g., structs are currently
+            // serialized without item markers.
+            Some(Event::Item) => {
+                self.source.next()?;
+            }
+            _ => {}
         }
+
         seed.deserialize(&mut **self).map(Some)
     }
 

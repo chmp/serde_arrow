@@ -16,13 +16,10 @@ use crate::{
 };
 
 use crate::internal::{
+    common::{ArrayMapping, DictionaryIndex, DictionaryValue},
     conversions::ToBytes,
     error::Result,
-    serialization::{
-        compiler::{ArrayMapping, DictionaryIndex, DictionaryValue},
-        interpreter::Buffers,
-        Interpreter,
-    },
+    serialization::{interpreter::MutableBuffers, Interpreter},
 };
 
 impl Interpreter {
@@ -68,7 +65,7 @@ macro_rules! build_dictionary_from_indices {
     }};
 }
 
-fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn Array>> {
+fn build_array(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<Box<dyn Array>> {
     use ArrayMapping as M;
     match mapping {
         M::Null { buffer, .. } => {
@@ -250,6 +247,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
             field,
             fields,
             types,
+            ..
         } => {
             let types = std::mem::take(&mut buffers.u8[*types]);
             let types: Vec<i8> = ToBytes::from_bytes_vec(types);
@@ -301,7 +299,7 @@ fn build_array(buffers: &mut Buffers, mapping: &ArrayMapping) -> Result<Box<dyn 
 }
 
 fn build_array_utf8(
-    buffers: &mut Buffers,
+    buffers: &mut MutableBuffers,
     buffer_idx: usize,
     offsets_idx: usize,
     validity_idx: Option<usize>,
@@ -319,7 +317,7 @@ fn build_array_utf8(
 }
 
 fn build_array_large_utf8(
-    buffers: &mut Buffers,
+    buffers: &mut MutableBuffers,
     buffer_idx: usize,
     offsets_idx: usize,
     validity_idx: Option<usize>,
@@ -336,7 +334,7 @@ fn build_array_large_utf8(
     )))
 }
 
-fn build_validity(buffers: &mut Buffers, validity_idx: Option<usize>) -> Option<Bitmap> {
+fn build_validity(buffers: &mut MutableBuffers, validity_idx: Option<usize>) -> Option<Bitmap> {
     let val = std::mem::take(&mut buffers.u1[validity_idx?]);
     Some(Bitmap::from_u8_vec(val.buffer, val.len))
 }

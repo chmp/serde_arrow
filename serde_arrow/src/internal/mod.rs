@@ -1,21 +1,23 @@
-pub(crate) mod conversions;
-pub(crate) mod error;
-pub(crate) mod event;
-pub(crate) mod generic_sources;
-pub(crate) mod schema;
+pub mod common;
+pub mod conversions;
+pub mod deserialization;
+pub mod error;
+pub mod event;
+pub mod schema;
 pub mod serialization;
-pub(crate) mod sink;
-pub(crate) mod source;
+pub mod sink;
+pub mod source;
 
 use std::sync::RwLock;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use self::{
-    error::{fail, Result},
+    common::{BufferExtract, Buffers},
+    error::{fail, Error, Result},
     schema::{GenericDataType, GenericField, Tracer, TracingOptions},
-    serialization::{compile_serialization, CompilationOptions, Interpreter},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
+    source::deserialize_from_source,
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
@@ -84,22 +86,25 @@ where
     Ok(field)
 }
 
-pub struct GenericBuilder(pub Interpreter);
+pub struct GenericBuilder(pub serialization::Interpreter);
 
 impl GenericBuilder {
     pub fn new_for_array(field: GenericField) -> Result<Self> {
-        let program = compile_serialization(
+        let program = serialization::compile_serialization(
             std::slice::from_ref(&field),
-            CompilationOptions::default().wrap_with_struct(false),
+            serialization::CompilationOptions::default().wrap_with_struct(false),
         )?;
-        let interpreter = Interpreter::new(program);
+        let interpreter = serialization::Interpreter::new(program);
 
         Ok(Self(interpreter))
     }
 
     pub fn new_for_arrays(fields: &[GenericField]) -> Result<Self> {
-        let program = compile_serialization(fields, CompilationOptions::default())?;
-        let interpreter = Interpreter::new(program);
+        let program = serialization::compile_serialization(
+            fields,
+            serialization::CompilationOptions::default(),
+        )?;
+        let interpreter = serialization::Interpreter::new(program);
 
         Ok(Self(interpreter))
     }
@@ -115,4 +120,26 @@ impl GenericBuilder {
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         serialize_into_sink(&mut self.0, items)
     }
+}
+
+pub fn deserialize_from_array<'de, T, F, A>(field: &'de F, array: &'de A) -> Result<T>
+where
+    T: Deserialize<'de>,
+    F: 'static,
+    GenericField: TryFrom<&'de F, Error = Error>,
+    A: BufferExtract + ?Sized,
+{
+    let field = GenericField::try_from(field)?;
+    let num_items = array.len();
+
+    let mut buffers = Buffers::new();
+    let mapping = array.extract_buffers(&field, &mut buffers)?;
+
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        std::slice::from_ref(&mapping),
+        buffers,
+        deserialization::CompilationOptions::default().wrap_with_struct(false),
+    )?;
+    deserialize_from_source(interpreter)
 }

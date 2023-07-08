@@ -4,6 +4,7 @@ use super::macros::{test_events, test_example};
 
 test_example!(
     test_name = map_as_struct,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -18,6 +19,7 @@ test_example!(
 
 test_example!(
     test_name = hash_map_as_struct,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -32,6 +34,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_nullable,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -47,6 +50,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -62,6 +66,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields_2,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -79,6 +84,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_missing_fields_3,
+    test_bytecode_deserialization = true,
     test_deserialization = [],
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
@@ -96,6 +102,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_struct_nullable_fields,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
@@ -110,6 +117,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -127,6 +135,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_empty,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -145,6 +154,7 @@ test_example!(
 
 test_example!(
     test_name = map_as_map_int_keys,
+    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
     field = GenericField::new("root", GenericDataType::Map, false)
         .with_child(
@@ -158,6 +168,81 @@ test_example!(
         btree_map!{ -2_i32 => 3_u32, -4_i32 => 4_u32 },
     ],
     nulls = [false, false],
+);
+
+test_example!(
+    test_name = hash_maps,
+    tracing_options = TracingOptions::new().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
+    ty = HashMap<i64, bool>,
+    values = [
+        hash_map!{0 => true, 1 => false, 2 => true},
+        hash_map!{3 => false, 4 => true},
+        hash_map!{},
+    ],
+);
+
+test_example!(
+    test_name = hash_maps_nullable,
+    tracing_options = TracingOptions::new().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, true)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
+    ty = Option<HashMap<i64, bool>>,
+    values = [
+        Some(hash_map!{0 => true, 1 => false, 2 => true}),
+        Some(hash_map!{3 => false, 4 => true}),
+        Some(hash_map!{}),
+    ],
+);
+
+test_example!(
+    test_name = hash_maps_nullable_keys,
+    tracing_options = TracingOptions::new().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, true))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
+    ty = HashMap<Option<i64>, bool>,
+    values = [
+        hash_map!{Some(0) => true, Some(1) => false, Some(2) => true},
+        hash_map!{Some(3) => false, Some(4) => true},
+        hash_map!{},
+    ],
+);
+
+test_example!(
+    test_name = hash_maps_nullable_values,
+    tracing_options = TracingOptions::new().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, true))),
+    ty = HashMap<i64, Option<bool>>,
+    values = [
+        hash_map!{0 => Some(true), 1 => Some(false), 2 => Some(true)},
+        hash_map!{3 => Some(false), 4 => Some(true)},
+        hash_map!{},
+    ],
+);
+
+test_example!(
+    test_name = btree_maps,
+    tracing_options = TracingOptions::new().map_as_struct(false),
+    field = GenericField::new("root", GenericDataType::Map, false)
+        .with_child(GenericField::new("entries", GenericDataType::Struct, false)
+            .with_child(GenericField::new("key", GenericDataType::I64, false))
+            .with_child(GenericField::new("value", GenericDataType::Bool, false))),
+    ty = BTreeMap<i64, bool>,
+    values = [
+        btree_map!{0 => true, 1 => false, 2 => true},
+        btree_map!{3 => false, 4 => true},
+        btree_map!{},
+    ],
 );
 
 test_events!(

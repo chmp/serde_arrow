@@ -2,6 +2,7 @@ use super::macros::*;
 
 test_example!(
     test_name = struct_,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
@@ -19,6 +20,7 @@ test_example!(
 
 test_example!(
     test_name = struct_nested,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false))
@@ -48,6 +50,7 @@ test_example!(
 
 test_example!(
     test_name = struct_nullable_field,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
@@ -74,12 +77,13 @@ test_example!(
 
 test_example!(
     test_name = nullable_struct,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
     ty = Option<S>,
-    values = [Some(S { a: 1, b: true }), None],
-    nulls = [false, true],
+    values = [Some(S { a: 1, b: true }), None, Some(S { a: 3, b: false })],
+    nulls = [false, true, false],
     define = {
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct S {
@@ -90,7 +94,34 @@ test_example!(
 );
 
 test_example!(
+    test_name = nullable_nested_struct,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_child(GenericField::new("a", GenericDataType::U32, false))
+        .with_child(GenericField::new("b", GenericDataType::Struct, true)
+            .with_child(GenericField::new("c", GenericDataType::I16, false))
+            .with_child(GenericField::new("d", GenericDataType::F64, false))),
+    ty = Option<S1>,
+    values = [Some(S1 { a: 1, b: None }), None, Some(S1 { a: 3, b: Some(S2{ c: -7, d: 42.0}) })],
+    nulls = [false, true, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S1 {
+            a: u32,
+            b: Option<S2>,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S2 {
+            c: i16,
+            d: f64,
+        }
+    },
+);
+
+test_example!(
     test_name = nullable_struct_nullable_fields,
+    test_bytecode_deserialization = true,
     field = GenericField::new("root", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, true)),
@@ -124,6 +155,216 @@ test_example!(
 //         struct S {}
 //     },
 // );
+
+test_example!(
+    test_name = nullable_struct_list_field,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, true)
+        .with_child(GenericField::new("a", GenericDataType::U32, false))
+        .with_child(GenericField::new("b", GenericDataType::LargeList, true)
+            .with_child(GenericField::new("element", GenericDataType::Bool, false))),
+    ty = Option<S>,
+    values = [
+        Some(S { a: 1, b: None }),
+        Some(S { a: 3, b: Some(vec![]) }),
+        None,
+        Some(S { a: 3, b: Some(vec![true, false, true]) }),
+    ],
+    nulls = [false, false, true, false],
+    define = {
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct S {
+            a: u32,
+            b: Option<Vec<bool>>,
+        }
+    },
+);
+
+test_example!(
+    // #[ignore = "error during serialization"]
+    test_name = serde_flatten,
+    test_bytecode_deserialization = true,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_strategy(Strategy::MapAsStruct)
+        .with_child(GenericField::new("a", GenericDataType::I8, false))
+        .with_child(GenericField::new("value", GenericDataType::Bool, false)),
+    ty = Item,
+    values = [Item {
+        a: 0,
+        b: Inner { value: true },
+    },],
+    nulls = [false],
+    define = {
+        #[derive(Debug, Serialize, Deserialize, PartialEq)]
+        struct Item {
+            a: i8,
+            #[serde(flatten)]
+            b: Inner,
+        }
+
+        #[derive(Debug, Serialize, Deserialize, PartialEq)]
+        struct Inner {
+            value: bool,
+        }
+    },
+);
+
+test_example!(
+    test_name = flattened_structures,
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::I64, false))
+        .with_child(GenericField::new("b", GenericDataType::F32, false))
+        .with_child(GenericField::new("c", GenericDataType::F64, false))
+        .with_strategy(Strategy::MapAsStruct),
+    ty = Outer,
+    values = [
+        Outer {
+            a: 0,
+            inner: Inner { b: 1.0, c: 2.0 }
+        },
+        Outer {
+            a: 3,
+            inner: Inner { b: 4.0, c: 5.0 }
+        },
+        Outer {
+            a: 6,
+            inner: Inner { b: 7.0, c: 8.0 }
+        },
+    ],
+    define = {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            a: i64,
+            #[serde(flatten)]
+            inner: Inner,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Inner {
+            b: f32,
+            c: f64,
+        }
+    },
+);
+
+test_example!(
+    test_name = struct_nullable,
+    test_bytecode_deserialization = true,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root",GenericDataType::Struct, true)
+        .with_child(GenericField::new("a", GenericDataType::Bool, false))
+        .with_child(GenericField::new("b", GenericDataType::I64, false))
+        .with_child(GenericField::new("c", GenericDataType::Null, true))
+        .with_child(GenericField::new("d", GenericDataType::LargeUtf8, false)),
+    ty = Option<Struct>,
+    values = [
+        Some(Struct {
+            a: true,
+            b: 42,
+            c: (),
+            d: String::from("hello"),
+        }),
+        None,
+        Some(Struct {
+            a: false,
+            b: 13,
+            c: (),
+            d: String::from("world"),
+        }),
+    ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            inner: Struct,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Struct {
+            a: bool,
+            b: i64,
+            c: (),
+            d: String,
+        }
+    },
+);
+
+test_example!(
+    test_name = struct_nullable_nested,
+    test_bytecode_deserialization = true,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root",GenericDataType::Struct, true)
+        .with_child(GenericField::new("inner", GenericDataType::Struct, false)
+            .with_child(GenericField::new("a", GenericDataType::Bool, false))
+            .with_child(GenericField::new("b", GenericDataType::I64, false))
+            .with_child(GenericField::new("c", GenericDataType::Null, true))
+            .with_child(GenericField::new("d", GenericDataType::LargeUtf8, false))),
+    ty = Option<Outer>,
+    values = [
+        Some(Outer {
+            inner: Struct {
+            a: true,
+            b: 42,
+            c: (),
+            d: String::from("hello"),
+        }}),
+        None,
+        Some(Outer {inner: Struct {
+            a: false,
+            b: 13,
+            c: (),
+            d: String::from("world"),
+        }}),
+    ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            inner: Struct,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct Struct {
+            a: bool,
+            b: i64,
+            c: (),
+            d: String,
+        }
+    },
+);
+
+test_example!(
+    test_name = struct_nullable_item,
+    test_bytecode_deserialization = true,
+    tracing_options = TracingOptions::default().allow_null_fields(true),
+    field = GenericField::new("root", GenericDataType::Struct, false)
+        .with_child(GenericField::new("a", GenericDataType::Bool, true))
+        .with_child(GenericField::new("b", GenericDataType::I64, true))
+        .with_child(GenericField::new("c", GenericDataType::Null, true))
+        .with_child(GenericField::new("d", GenericDataType::LargeUtf8, true)),
+    ty = StructNullable,
+    values = [
+        StructNullable {
+            a: None,
+            b: None,
+            c: None,
+            d: Some(String::from("hello")),
+        },
+        StructNullable {
+            a: Some(true),
+            b: Some(42),
+            c: None,
+            d: None,
+        },
+    ],
+    define = {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        struct StructNullable {
+            a: Option<bool>,
+            b: Option<i64>,
+            c: Option<()>,
+            d: Option<String>,
+        }
+    },
+);
 
 test_events!(
     test_name = out_of_order_fields,

@@ -142,8 +142,20 @@ impl From<std::fmt::Error> for Error {
     }
 }
 
+impl From<std::str::Utf8Error> for Error {
+    fn from(err: std::str::Utf8Error) -> Self {
+        Self::custom_from(format!("std::str::Utf8Error: {err}"), err)
+    }
+}
+
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<bytemuck::PodCastError> for Error {
+    fn from(err: bytemuck::PodCastError) -> Self {
+        Self::custom(format!("bytemuck::PodCastError: {err}"))
     }
 }

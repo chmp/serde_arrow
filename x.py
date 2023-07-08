@@ -4,7 +4,7 @@ __effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
 cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
-all_arrow_features = ["arrow-35", "arrow-36", "arrow-37", "arrow-38", "arrow-39"]
+all_arrow_features = ["arrow-36", "arrow-37", "arrow-38", "arrow-39"]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
 
@@ -64,7 +64,6 @@ workflow_release_template = {
 @cmd(help="Run all common development tasks before a commit")
 @arg("--backtrace", action="store_true", default=False)
 def precommit(backtrace=False):
-    python(self_path / "serde_arrow" / "src" / "arrow2" / "gen_display_tests.py")
     update_workflows()
 
     fmt()
@@ -387,17 +386,17 @@ def summarize_status():
         return len(_extract(pat))
 
     num_tests = _count_pattern(r"^\s*test_example!\(\s*$")
-    num_ignored_tests = _count_pattern(r"^\s*[ignore]\s*$")
+    num_ignored_tests = _count_pattern(r"^\s*#[ignore[^\]]*]\s*$")
     num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*\[\s*\]\s*,\s*$")
     num_no_deserialization = _count_pattern(
-        r"^\s*test_deserialization\s*=\s*false\s*,\s*$"
+        r"^\s*test_bytecode_deserialization\s*=\s*false\s*,\s*$"
     )
 
     print("tests:                  ", num_tests)
     print("ignored tests:          ", num_ignored_tests)
     for label, num_false in [
         ("compilation support:    ", num_no_compilation),
-        ("deserialization support:", num_no_deserialization),
+        ("bytecode deser. support:", num_no_deserialization),
     ]:
         print(
             label,

@@ -3,10 +3,9 @@
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
-pub(crate) mod display;
+pub(crate) mod deserialization;
 pub(crate) mod schema;
 pub(crate) mod serialization;
-pub(crate) mod sources;
 mod type_support;
 
 #[cfg(test)]
@@ -22,11 +21,9 @@ use crate::{
         schema::{GenericField, TracingOptions},
         serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
-        source::{deserialize_from_source, AddOuterSequenceSource},
+        source::deserialize_from_source,
     },
 };
-
-use self::sources::{build_dynamic_source, build_record_source};
 
 /// Determine the schema (as a list of fields) for the given items
 ///
@@ -161,8 +158,35 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    let source = build_record_source(fields, arrays)?;
-    deserialize_from_source(source)
+    use crate::internal::{
+        common::{BufferExtract, Buffers},
+        deserialization,
+    };
+
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+
+    let num_items = arrays
+        .iter()
+        .map(|a| a.as_ref().len())
+        .min()
+        .unwrap_or_default();
+
+    let mut buffers = Buffers::new();
+    let mut mappings = Vec::new();
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        mappings.push(array.as_ref().extract_buffers(field, &mut buffers)?);
+    }
+
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        &mappings,
+        buffers,
+        deserialization::CompilationOptions::default(),
+    )?;
+    deserialize_from_source(interpreter)
 }
 
 /// Determine the schema of an object that represents a single array
@@ -240,14 +264,12 @@ where
 /// let items: Vec<f32> = deserialize_from_array(&field, &array).unwrap();
 /// ```
 ///
-pub fn deserialize_from_array<'de, T, A>(field: &Field, array: A) -> Result<T>
+pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
 where
     T: Deserialize<'de>,
-    A: AsRef<dyn Array> + 'de,
+    A: AsRef<dyn Array> + 'de + ?Sized,
 {
-    let source = build_dynamic_source(field, array.as_ref())?;
-    let source = AddOuterSequenceSource::new(source);
-    deserialize_from_source(source)
+    internal::deserialize_from_array(field, array.as_ref())
 }
 
 /// Build a single array item by item

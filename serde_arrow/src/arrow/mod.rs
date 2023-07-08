@@ -4,23 +4,25 @@
 //! `arrow` arrays to Rust objects is not yet supported.
 //!
 #![deny(missing_docs)]
+mod deserialization;
 mod schema;
 pub(crate) mod serialization;
 mod type_support;
 
-#[cfg(test)]
-mod test;
-
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    _impl::arrow::{array::ArrayRef, datatypes::Field},
+    _impl::arrow::{
+        array::{Array, ArrayRef},
+        datatypes::Field,
+    },
     internal::{
         self,
         error::Result,
         schema::{GenericField, TracingOptions},
         serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
+        source::deserialize_from_source,
     },
 };
 
@@ -140,6 +142,76 @@ where
     interpreter.build_arrow_arrays()
 }
 
+/// Deserialize a type from the given arrays
+///
+/// The type should be a list of records (e.g., a vector of structs).
+///
+/// ```rust
+/// use serde::{Deserialize, Serialize};
+/// use serde_arrow::{
+///     arrow::{
+///         deserialize_from_arrays,
+///         serialize_into_arrays,
+///         serialize_into_fields,
+///     },
+///     schema::TracingOptions,
+/// };
+///
+/// ##[derive(Deserialize, Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// // provide an example record to get the field information
+/// let fields = serialize_into_fields(
+///     &[Record { a: Some(1.0), b: 2}],
+///     TracingOptions::default(),
+/// ).unwrap();
+/// # let items = &[Record { a: Some(1.0), b: 2}];
+/// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
+/// #
+///
+/// // deserialize the records from arrays
+/// let items: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
+/// ```
+///
+pub fn deserialize_from_arrays<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array>,
+{
+    use crate::internal::{
+        common::{BufferExtract, Buffers},
+        deserialization,
+    };
+
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+
+    let num_items = arrays
+        .iter()
+        .map(|a| a.as_ref().len())
+        .min()
+        .unwrap_or_default();
+
+    let mut buffers = Buffers::new();
+    let mut mappings = Vec::new();
+    for (field, array) in fields.iter().zip(arrays.iter()) {
+        mappings.push(array.as_ref().extract_buffers(field, &mut buffers)?);
+    }
+
+    let interpreter = deserialization::compile_deserialization(
+        num_items,
+        &mappings,
+        buffers,
+        deserialization::CompilationOptions::default(),
+    )?;
+    deserialize_from_source(interpreter)
+}
+
 /// Serialize an object that represents a single array into an array
 ///
 /// Example:
@@ -170,6 +242,33 @@ where
     let mut interpreter = Interpreter::new(program);
     serialize_into_sink(&mut interpreter, items)?;
     interpreter.build_arrow_array()
+}
+
+/// Deserialize a sequence of objects from a single array
+///
+/// Example:
+///
+/// ```rust
+/// # use serde_arrow::_impl::arrow as arrow;
+/// #
+/// use arrow::{array::Array, datatypes::{DataType, Field}};
+/// use serde_arrow::arrow::{
+///   serialize_into_array,
+///   deserialize_from_array,
+/// };
+///
+/// let field = Field::new("floats", DataType::Float32, false);
+///
+/// let array = serialize_into_array(&field,  &vec![1.0_f32, 2.0, 3.0]).unwrap();
+/// let items: Vec<f32> = deserialize_from_array(&field, &array).unwrap();
+/// ```
+///
+pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array> + 'de + ?Sized,
+{
+    internal::deserialize_from_array(field, array.as_ref())
 }
 
 /// Build a single array item by item

@@ -1,6 +1,5 @@
 use crate::{
     _impl::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
-    arrow2::display,
     internal::{
         error::{error, fail, Error, Result},
         schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
@@ -74,17 +73,11 @@ fn get_child_fields(dt: &mut DataType) -> Result<&mut [Field]> {
         DataType::Map(field, _) => {
             let fields = match &mut field.data_type {
                 DataType::Struct(fields) => fields,
-                dt => fail!(
-                    "Expected struct as the interior type of a map, found: {dt}",
-                    dt = display::DataType(dt)
-                ),
+                dt => fail!("Expected struct as the interior type of a map, found: {dt:?}",),
             };
             Ok(fields)
         }
-        dt => fail!(
-            "Data type {dt} does not support nested fields",
-            dt = display::DataType(dt)
-        ),
+        dt => fail!("Data type {dt:?} does not support nested fields",),
     }
 }
 
@@ -166,7 +159,7 @@ impl TryFrom<&Field> for GenericField {
                 children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
                 GenericDataType::Dictionary
             }
-            dt => fail!("Cannot convert data type {dt}", dt = display::DataType(dt)),
+            dt => fail!("Cannot convert data type {dt:?}"),
         };
 
         Ok(GenericField {
