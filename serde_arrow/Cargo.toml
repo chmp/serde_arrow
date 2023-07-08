@@ -13,15 +13,19 @@ bench = false
 
 [[bench]]
 name = "arrow2"
-required-features = ["arrow2-0-17", "arrow-39"]
+required-features = ["arrow2-0-17", "arrow-43"]
 harness = false
 
 [package.metadata.docs.rs]
-features = ["arrow2-0-17", "arrow-39"]
+features = ["arrow2-0-17", "arrow-43"]
 
 [features]
 default = []
 
+arrow-43 = ["dep:arrow-array-43", "dep:arrow-schema-43", "dep:arrow-data-43", "dep:arrow-buffer-43"]
+arrow-42 = ["dep:arrow-array-42", "dep:arrow-schema-42", "dep:arrow-data-42", "dep:arrow-buffer-42"]
+arrow-41 = ["dep:arrow-array-41", "dep:arrow-schema-41", "dep:arrow-data-41", "dep:arrow-buffer-41"]
+arrow-40 = ["dep:arrow-array-40", "dep:arrow-schema-40", "dep:arrow-data-40", "dep:arrow-buffer-40"]
 arrow-39 = ["dep:arrow-array-39", "dep:arrow-schema-39", "dep:arrow-data-39", "dep:arrow-buffer-39"]
 arrow-38 = ["dep:arrow-array-38", "dep:arrow-schema-38", "dep:arrow-data-38", "dep:arrow-buffer-38"]
 arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "dep:arrow-data-37", "dep:arrow-buffer-37"]
@@ -34,24 +38,44 @@ chrono = "0.4"
 half = { version = "2", features = ["bytemuck"] }
 serde = "1.0"
 
+arrow-array-43 = { package = "arrow-array", version = "43", optional = true }
+arrow-buffer-43 = { package = "arrow-buffer", version = "43", optional = true }
+arrow-data-43 = { package = "arrow-data", version="43", optional = true }
+arrow-schema-43 = { package = "arrow-schema", version = "43", optional = true }
+
+arrow-array-42 = { package = "arrow-array", version = "42", optional = true }
+arrow-buffer-42 = { package = "arrow-buffer", version = "42", optional = true }
+arrow-data-42 = { package = "arrow-data", version="42", optional = true }
+arrow-schema-42 = { package = "arrow-schema", version = "42", optional = true }
+
+arrow-array-41 = { package = "arrow-array", version = "41", optional = true }
+arrow-buffer-41 = { package = "arrow-buffer", version = "41", optional = true }
+arrow-data-41 = { package = "arrow-data", version="41", optional = true }
+arrow-schema-41 = { package = "arrow-schema", version = "41", optional = true }
+
+arrow-array-40 = { package = "arrow-array", version = "40", optional = true }
+arrow-buffer-40 = { package = "arrow-buffer", version = "40", optional = true }
+arrow-data-40 = { package = "arrow-data", version="40", optional = true }
+arrow-schema-40 = { package = "arrow-schema", version = "40", optional = true }
+
 arrow-array-39 = { package = "arrow-array", version = "39", optional = true }
 arrow-buffer-39 = { package = "arrow-buffer", version = "39", optional = true }
-arrow-data-39 = { package = "arrow-data", version="39", optional = true, features = ["ffi"] }
+arrow-data-39 = { package = "arrow-data", version="39", optional = true }
 arrow-schema-39 = { package = "arrow-schema", version = "39", optional = true }
 
 arrow-array-38 = { package = "arrow-array", version = "38", optional = true }
 arrow-buffer-38 = { package = "arrow-buffer", version = "38", optional = true }
-arrow-data-38 = { package = "arrow-data", version="38", optional = true, features = ["ffi"] }
+arrow-data-38 = { package = "arrow-data", version="38", optional = true }
 arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true }
 
 arrow-array-37 = { package = "arrow-array", version = "37", optional = true }
 arrow-buffer-37 = { package = "arrow-buffer", version = "37", optional = true }
-arrow-data-37 = { package = "arrow-data", version="37", optional = true, features = ["ffi"]  }
+arrow-data-37 = { package = "arrow-data", version="37", optional = true  }
 arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true }
 
 arrow-array-36 = { package = "arrow-array", version = "36", optional = true }
 arrow-buffer-36 = { package = "arrow-buffer", version = "36", optional = true }
-arrow-data-36 = { package = "arrow-data", version="36", optional = true, features = ["ffi"]  }
+arrow-data-36 = { package = "arrow-data", version="36", optional = true  }
 arrow-schema-36 = { package = "arrow-schema", version = "36", optional = true }
 
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
@@ -65,6 +89,6 @@ serde_json = "1"
 rand = "0.8"
 
 # for benchmarks
-arrow-json-39 = { package = "arrow-json", version = "39" }
+arrow-json-43 = { package = "arrow-json", version = "43" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"

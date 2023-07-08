@@ -14,14 +14,18 @@
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
 //! in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
-//! [`arrow2`][arrow2] for schema tracing and serialization from Rust structs to
-//! arrays. Deserialization from arrays to Rust structs is currently only
-//! implemented for `arrow2`.
+//! [`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
+//! arrays, and deserialization from arrays to Rust structs.
+//!
+//! `serde_arrow` relies on a schema to translate between Rust and Arrow. The
+//! schema is expressed as Arrow fields and describes the schema of the arrays.
+//! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
+//! schema should contain a  `Date64`.
 //!
 //! ## Overview
 //!
 //! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frames, some work on multiples arrays, i.e., data frames
+//! of a data frame, some work on multiples arrays, i.e., data frames
 //! themselves.
 //!
 //! | implementation | operation | multiple arrays           |  single array            |
@@ -104,9 +108,9 @@
 //!
 //! Which version of `arrow` or `arrow2` is used can be selected via features.
 //! Per default no arrow implementation is used. In that case only the base
-//! features of `serde_arrow` are availble.
+//! features of `serde_arrow` are available.
 //!
-//! The `arrow-*` and `arrow2-*` feature groupss are comptaible with each other.
+//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
 //! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
 //! the highest version is selected, if multiple features are activated. E.g,
 //! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
@@ -115,6 +119,10 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-43`    | `arrow=43`    |
+//! | `arrow-42`    | `arrow=42`    |
+//! | `arrow-41`    | `arrow=41`    |
+//! | `arrow-40`    | `arrow=40`    |
 //! | `arrow-39`    | `arrow=39`    |
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
@@ -130,6 +138,7 @@ mod internal;
 /// compatibility promises. It re-exports the  arrow impls selected via features
 /// to allow usage in doc tests or benchmarks.
 ///
+#[rustfmt::skip]
 pub mod _impl {
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
@@ -139,11 +148,8 @@ pub mod _impl {
         };
     }
 
-    #[cfg(has_arrow2_0_17)]
-    build_arrow2_crate!(arrow2_0_17);
-
-    #[cfg(has_arrow2_0_16)]
-    build_arrow2_crate!(arrow2_0_16);
+    #[cfg(has_arrow2_0_17)] build_arrow2_crate!(arrow2_0_17);
+    #[cfg(has_arrow2_0_16)] build_arrow2_crate!(arrow2_0_16);
 
     #[allow(unused)]
     macro_rules! build_arrow_crate {
@@ -157,10 +163,6 @@ pub mod _impl {
                         DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
                         OffsetSizeTrait, PrimitiveArray, StringArray, StructArray, UnionArray,
                     };
-                    pub use $arrow_array::builder::{
-                        BooleanBufferBuilder, BooleanBuilder, GenericStringBuilder,
-                        PrimitiveBuilder,
-                    };
                     pub use $arrow_data::ArrayData;
                 }
                 pub mod buffer {
@@ -168,16 +170,12 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        Date64Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
-                        Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+                        ArrowPrimitiveType, Date64Type, Float16Type, Float32Type, Float64Type,
+                        Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type, UInt32Type,
+                        UInt64Type, UInt8Type,
                     };
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, UnionMode};
-
-                    pub use $arrow_array::types::ArrowPrimitiveType;
-                }
-                pub mod ffi {
-                    pub use $arrow_data::ffi::FFI_ArrowArray;
                 }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
@@ -186,37 +184,14 @@ pub mod _impl {
         };
     }
 
-    #[cfg(has_arrow_39)]
-    build_arrow_crate!(
-        arrow_array_39,
-        arrow_buffer_39,
-        arrow_data_39,
-        arrow_schema_39
-    );
-
-    #[cfg(has_arrow_38)]
-    build_arrow_crate!(
-        arrow_array_38,
-        arrow_buffer_38,
-        arrow_data_38,
-        arrow_schema_38
-    );
-
-    #[cfg(has_arrow_37)]
-    build_arrow_crate!(
-        arrow_array_37,
-        arrow_buffer_37,
-        arrow_data_37,
-        arrow_schema_37
-    );
-
-    #[cfg(has_arrow_36)]
-    build_arrow_crate!(
-        arrow_array_36,
-        arrow_buffer_36,
-        arrow_data_36,
-        arrow_schema_36
-    );
+    #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_buffer_43, arrow_data_43, arrow_schema_43);
+    #[cfg(has_arrow_42)] build_arrow_crate!(arrow_array_42, arrow_buffer_42, arrow_data_42, arrow_schema_42);
+    #[cfg(has_arrow_41)] build_arrow_crate!(arrow_array_41, arrow_buffer_41, arrow_data_41, arrow_schema_41);
+    #[cfg(has_arrow_40)] build_arrow_crate!(arrow_array_40, arrow_buffer_40, arrow_data_40, arrow_schema_40);
+    #[cfg(has_arrow_39)] build_arrow_crate!(arrow_array_39, arrow_buffer_39, arrow_data_39, arrow_schema_39);
+    #[cfg(has_arrow_38)] build_arrow_crate!(arrow_array_38, arrow_buffer_38, arrow_data_38, arrow_schema_38);
+    #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_buffer_37, arrow_data_37, arrow_schema_37);
+    #[cfg(has_arrow_36)] build_arrow_crate!(arrow_array_36, arrow_buffer_36, arrow_data_36, arrow_schema_36);
 
     pub mod docs {
         #[doc = include_str!("../Implementation.md")]
@@ -259,8 +234,7 @@ pub mod base {
     };
 }
 
-/// Helpers to configure how Arrow and Rust types are translated into one
-/// another
+/// Configure how Arrow and Rust types are translated into one another
 ///
 /// When tracing the schema using the `serialize_into_fields` methods, the
 /// following defaults are used:
@@ -292,12 +266,6 @@ pub mod base {
 /// # #[cfg(not(feature="arrow2"))]
 /// # fn main() {}
 /// ```
-///
-/// For arrow2, the experimental [find_field_mut][] function may be helpful to
-/// modify nested schemas genreated by tracing.
-///
-/// [find_field_mut]: crate::arrow2::experimental::find_field_mut
-///
 pub mod schema {
     pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
 }

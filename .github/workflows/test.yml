@@ -59,12 +59,28 @@
           "run": "cargo check --features arrow-39"
         },
         {
+          "name": "Check arrow-40",
+          "run": "cargo check --features arrow-40"
+        },
+        {
+          "name": "Check arrow-41",
+          "run": "cargo check --features arrow-41"
+        },
+        {
+          "name": "Check arrow-42",
+          "run": "cargo check --features arrow-42"
+        },
+        {
+          "name": "Check arrow-43",
+          "run": "cargo check --features arrow-43"
+        },
+        {
           "name": "Build",
-          "run": "cargo build --features arrow2-0-17,arrow-39"
+          "run": "cargo build --features arrow2-0-17,arrow-43"
         },
         {
           "name": "Test",
-          "run": "cargo test --features arrow2-0-17,arrow-39"
+          "run": "cargo test --features arrow2-0-17,arrow-43"
         }
       ]
     }

@@ -118,8 +118,8 @@ pub enum Strategy {
     MapAsStruct,
     /// Mark a variant as unknown
     ///
-    /// This startegy applies only to fields with DataType Null. If
-    /// serialization or deseralization of such a field is attempted, it will
+    /// This strategy applies only to fields with DataType Null. If
+    /// serialization or deserialization of such a field is attempted, it will
     /// result in an error.
     UnknownVariant,
 }
@@ -494,7 +494,7 @@ impl GenericField {
 pub struct TracingOptions {
     /// If `true`, accept null-only fields (e.g., fields with type `()` or fields
     /// with only `None` entries). If `false`, schema tracing will fail in this
-    /// case
+    /// case.
     pub allow_null_fields: bool,
 
     /// If `true` serialize maps as structs (the default). See
@@ -503,9 +503,8 @@ pub struct TracingOptions {
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
     ///
-    /// If `true` will trace strings not as `LargeUtf8`, but as
-    /// `Dictionary(UInt64, LargeUtf8)`.
-    ///
+    /// If `true`, strings are traced as `Dictionary(UInt64, LargeUtf8)`. If
+    /// `false`, strings are traced as `LargeUtf8`.
     pub string_dictionary_encoding: bool,
 }
 
