@@ -23,11 +23,10 @@ back.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
 types is as easy as using Serde's derive macros.
 
-In the Rust ecosystem there are two competing implemenetations of the arrow
-in-memory format: [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-supports both for schema tracing and serialization from Rust structs to arrays.
-Deserialization from arrays to Rust structs is currently only implemented for
-`arrow2`.
+In the Rust ecosystem there are two competing implementations of the arrow
+in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
+[`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
+arrays, and deserialization from arrays to Rust structs.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
 [arrow2]: https://docs.rs/arrow2/latest/arrow2/
