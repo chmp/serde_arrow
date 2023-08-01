@@ -4,7 +4,7 @@ use crate::{
     internal::{
         common::{define_bytecode, ArrayMapping, DictionaryIndex, DictionaryValue},
         error::{error, fail},
-        schema::{GenericDataType, GenericField},
+        schema::{GenericDataType, GenericField, GenericTimeUnit},
         CONFIGURATION,
     },
     schema::Strategy,
@@ -911,7 +911,7 @@ impl Program {
     ) -> Result<ArrayMapping> {
         use GenericDataType as D;
 
-        match field.data_type {
+        match &field.data_type {
             D::Null => compile_primtive!(self, field, validity, num_u0, PushNull, Null),
             D::Bool => compile_primtive!(self, field, validity, num_u1, PushBool, Bool),
             D::U8 => compile_primtive!(self, field, validity, num_u8, PushU8, U8),
@@ -978,6 +978,31 @@ impl Program {
             D::LargeList => self.compile_large_list(field, validity),
             D::Union => self.compile_union(field, validity),
             D::Map => self.compile_map(field, validity),
+            D::Timestamp(unit, tz) => {
+                if !matches!(unit, GenericTimeUnit::Second) {
+                    fail!("Only timestamps with second unit are supported");
+                }
+
+                match tz.as_deref() {
+                    None => compile_primtive!(
+                        self,
+                        field,
+                        validity,
+                        num_u64,
+                        PushDate64FromNaiveStr,
+                        Date64
+                    ),
+                    Some("UTC") => compile_primtive!(
+                        self,
+                        field,
+                        validity,
+                        num_u64,
+                        PushDate64FromUtcStr,
+                        Date64
+                    ),
+                    Some(tz) => fail!("Timezone {tz} is not supported"),
+                }
+            }
         }
     }
 }

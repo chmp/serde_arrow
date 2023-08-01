@@ -13,7 +13,9 @@
 - Remove for `arrow==35` support
 - Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43` support
 - Add support for coercing different numeric types (use
-  `TracingOptions::default().coerce_numbers(true)`) 
+  `TracingOptions::default().coerce_numbers(true)`)
+- Add support for `Timestamp(Seconds, None)` and
+  `Timestamp(Seconds, Some("UTC"))`.
 
 ## 0.7.1
 

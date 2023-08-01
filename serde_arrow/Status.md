@@ -16,6 +16,8 @@ Supported arrow data types:
 - [ ] `Time64`
 - [ ] `Duration`
 - [ ] `Interval`
+- [x] `Timestamp(Second, None | Some("UTC"))`: at the moment only second are
+  supported and either no timezone or UTC
 - [ ] `Binary`
 - [ ] `FixedSizeBinary`
 - [ ] `LargeBinary`

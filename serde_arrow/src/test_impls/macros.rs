@@ -52,6 +52,7 @@ macro_rules! test_example_impl {
             internal::schema::{
                 GenericDataType,
                 GenericField,
+                GenericTimeUnit,
                 Strategy,
                 TracingOptions,
             },

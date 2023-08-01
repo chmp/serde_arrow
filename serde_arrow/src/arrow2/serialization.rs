@@ -44,11 +44,12 @@ impl Interpreter {
 }
 
 macro_rules! build_array_primitive {
-    ($buffers:expr, $ty:ty, $array:ident, $variant:ident, $buffer:expr, $validity:expr) => {{
+    ($buffers:expr, $ty:ty, $array:ident, $field:expr, $buffer:expr, $validity:expr) => {{
         let buffer = std::mem::take(&mut $buffers.$array[$buffer]);
         let buffer: Vec<$ty> = ToBytes::from_bytes_vec(buffer);
         let validity = build_validity($buffers, $validity);
-        let array = PrimitiveArray::try_new(DataType::$variant, Buffer::from(buffer), validity)?;
+        let data_type = Field::try_from($field)?.data_type;
+        let array = PrimitiveArray::try_new(data_type, Buffer::from(buffer), validity)?;
         Ok(Box::new(array))
     }};
 }
@@ -83,32 +84,59 @@ fn build_array(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<B
             Ok(Box::new(array))
         }
         M::U8 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, u8, u8, UInt8, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, u8, u8, field, *buffer, *validity),
         M::U16 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, u16, u16, UInt16, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, u16, u16, field, *buffer, *validity),
         M::U32 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, u32, u32, UInt32, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, u32, u32, field, *buffer, *validity),
         M::U64 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, u64, u64, UInt64, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, u64, u64, field, *buffer, *validity),
         M::I8 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, i8, u8, Int8, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, i8, u8, field, *buffer, *validity),
         M::I16 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, i16, u16, Int16, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, i16, u16, field, *buffer, *validity),
         M::I32 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, i32, u32, Int32, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, i32, u32, field, *buffer, *validity),
         M::I64 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, i64, u64, Int64, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, i64, u64, field, *buffer, *validity),
         M::F32 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, f32, u32, Float32, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, f32, u32, field, *buffer, *validity),
         M::F16 {
             buffer, validity, ..
         } => {
@@ -119,11 +147,17 @@ fn build_array(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<B
             Ok(Box::new(array))
         }
         M::F64 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, f64, u64, Float64, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, f64, u64, field, *buffer, *validity),
         M::Date64 {
-            buffer, validity, ..
-        } => build_array_primitive!(buffers, i64, u64, Date64, *buffer, *validity),
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_array_primitive!(buffers, i64, u64, field, *buffer, *validity),
         M::Utf8 {
             buffer,
             offsets,
