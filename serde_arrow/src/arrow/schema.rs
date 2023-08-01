@@ -1,9 +1,9 @@
 use super::type_support::FieldRef;
 use crate::{
-    _impl::arrow::datatypes::{DataType, Field, UnionMode},
+    _impl::arrow::datatypes::{DataType, Field, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
+        schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy, STRATEGY_KEY},
     },
 };
 
@@ -28,6 +28,22 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Utf8 => Ok(GenericDataType::Utf8),
             DataType::LargeUtf8 => Ok(GenericDataType::LargeUtf8),
             DataType::Date64 => Ok(GenericDataType::Date64),
+            DataType::Timestamp(TimeUnit::Second, tz) => Ok(GenericDataType::Timestamp(
+                GenericTimeUnit::Second,
+                tz.as_ref().map(|s| s.to_string()),
+            )),
+            DataType::Timestamp(TimeUnit::Millisecond, tz) => Ok(GenericDataType::Timestamp(
+                GenericTimeUnit::Millisecond,
+                tz.as_ref().map(|s| s.to_string()),
+            )),
+            DataType::Timestamp(TimeUnit::Microsecond, tz) => Ok(GenericDataType::Timestamp(
+                GenericTimeUnit::Microsecond,
+                tz.as_ref().map(|s| s.to_string()),
+            )),
+            DataType::Timestamp(TimeUnit::Nanosecond, tz) => Ok(GenericDataType::Timestamp(
+                GenericTimeUnit::Nanosecond,
+                tz.as_ref().map(|s| s.to_string()),
+            )),
             _ => fail!("Only primitive data types can be converted to GenericDataType"),
         }
     }
@@ -108,13 +124,16 @@ impl TryFrom<&Field> for GenericField {
             dt => dt.try_into()?,
         };
 
-        Ok(GenericField {
+        let field = GenericField {
             data_type,
             name,
             strategy,
             children,
             nullable,
-        })
+        };
+        field.validate()?;
+
+        Ok(field)
     }
 }
 
@@ -219,6 +238,18 @@ impl TryFrom<&GenericField> for Field {
                 };
 
                 DataType::Dictionary(Box::new(key_type), Box::new(val_field.data_type().clone()))
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
+                DataType::Timestamp(TimeUnit::Second, tz.clone().map(|s| s.into()))
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Millisecond, tz) => {
+                DataType::Timestamp(TimeUnit::Millisecond, tz.clone().map(|s| s.into()))
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Microsecond, tz) => {
+                DataType::Timestamp(TimeUnit::Microsecond, tz.clone().map(|s| s.into()))
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz) => {
+                DataType::Timestamp(TimeUnit::Nanosecond, tz.clone().map(|s| s.into()))
             }
         };
 

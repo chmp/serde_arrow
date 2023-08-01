@@ -169,7 +169,26 @@ impl From<Strategy> for HashMap<String, String> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+pub enum GenericTimeUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+}
+
+impl std::fmt::Display for GenericTimeUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GenericTimeUnit::Second => write!(f, "Second"),
+            GenericTimeUnit::Millisecond => write!(f, "Millisecond"),
+            GenericTimeUnit::Microsecond => write!(f, "Microsecond"),
+            GenericTimeUnit::Nanosecond => write!(f, "Nanosecond"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum GenericDataType {
     Null,
     Bool,
@@ -193,6 +212,7 @@ pub enum GenericDataType {
     Union,
     Map,
     Dictionary,
+    Timestamp(GenericTimeUnit, Option<String>),
 }
 
 impl std::fmt::Display for GenericDataType {
@@ -221,6 +241,13 @@ impl std::fmt::Display for GenericDataType {
             Union => write!(f, "Union"),
             Map => write!(f, "Map"),
             Dictionary => write!(f, "Dictionary"),
+            Timestamp(unit, timezone) => {
+                if let Some(timezone) = timezone {
+                    write!(f, "Timestamp({unit}, Some({timezone:?}))")
+                } else {
+                    write!(f, "Timestamp({unit}, None)")
+                }
+            }
         }
     }
 }
@@ -273,10 +300,11 @@ impl GenericField {
             GenericDataType::LargeList => self.validate_list(),
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
+            GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
         }
     }
 
-    /// Test that the fields is compatible wiht the current one
+    /// Test that the other field is compatible with the current one
     ///
     pub fn is_compatible(&self, other: &GenericField) -> bool {
         self.validate_compatibility(other).is_ok()
@@ -347,8 +375,42 @@ impl GenericField {
                 self.strategy.as_ref().unwrap()
             );
         }
-
         Ok(())
+    }
+
+    pub(crate) fn validate_timestamp(&self) -> Result<()> {
+        match &self.strategy {
+            None => Ok(()),
+            Some(strategy @ Strategy::UtcStrAsDate64) => {
+                if !matches!(&self.data_type, GenericDataType::Timestamp(GenericTimeUnit::Second, Some(tz)) if tz == "UTC")
+                {
+                    fail!(
+                        "invalid strategy for timestamp field {}: {}",
+                        self.data_type,
+                        strategy,
+                    );
+                }
+                Ok(())
+            }
+            Some(strategy @ Strategy::NaiveStrAsDate64) => {
+                if !matches!(
+                    &self.data_type,
+                    GenericDataType::Timestamp(GenericTimeUnit::Second, None)
+                ) {
+                    fail!(
+                        "invalid strategy for timestamp field {}: {}",
+                        self.data_type,
+                        strategy,
+                    );
+                }
+                Ok(())
+            }
+            Some(strategy) => fail!(
+                "invalid strategy for timestamp field {}: {}",
+                self.data_type,
+                strategy
+            ),
+        }
     }
 
     pub(crate) fn validate_struct(&self) -> Result<()> {
@@ -1480,18 +1542,18 @@ impl PrimitiveTracer {
             ));
         }
 
-        match self.item_type {
+        match &self.item_type {
             dt @ (D::LargeUtf8 | D::Utf8) => {
                 if !self.string_dictionary_encoding {
-                    Ok(GenericField::new(name, dt, self.nullable))
+                    Ok(GenericField::new(name, dt.clone(), self.nullable))
                 } else {
                     let field = GenericField::new(name, D::Dictionary, self.nullable)
                         .with_child(GenericField::new("key", D::U32, false))
-                        .with_child(GenericField::new("value", dt, false));
+                        .with_child(GenericField::new("value", dt.clone(), false));
                     Ok(field)
                 }
             }
-            dt => Ok(GenericField::new(name, dt, self.nullable)),
+            dt => Ok(GenericField::new(name, dt.clone(), self.nullable)),
         }
     }
 }
@@ -1519,10 +1581,10 @@ impl EventSink for PrimitiveTracer {
             ev => fail!("Cannot handle event {ev} in primitive tracer"),
         };
 
-        self.item_type = match (self.item_type, ev_type) {
+        self.item_type = match (&self.item_type, ev_type) {
             (ty, Null) => {
                 self.nullable = true;
-                ty
+                ty.clone()
             }
             (Bool | Null, Bool) => Bool,
             (I8 | Null, I8) => I8,

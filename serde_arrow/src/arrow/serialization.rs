@@ -36,11 +36,12 @@ impl Interpreter {
 }
 
 macro_rules! build_primitive_array_data {
-    ($buffers:expr, $dtype:ident, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
+    ($buffers:expr, $field:expr, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
         let data = std::mem::take(&mut $buffers.$bytes_ty[$buffer]);
         let data: Vec<$ty> = ToBytes::from_bytes_vec(data);
         let validity = $validity.map(|validity| std::mem::take(&mut $buffers.u1[validity]));
-        build_array_data_primitive(DataType::$dtype, data.len(), data, validity)
+        let data_type = Field::try_from($field)?.data_type().clone();
+        build_array_data_primitive(data_type, data.len(), data, validity)
     }};
 }
 
@@ -55,30 +56,54 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_primitive(DataType::Boolean, data.len(), data.buffer, validity)
         }
-        &M::U8 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt8, u8, u8, buffer, validity),
-        &M::U16 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt16, u16, u16, buffer, validity),
-        &M::U32 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt32, u32, u32, buffer, validity),
-        &M::U64 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, UInt64, u64, u64, buffer, validity),
-        &M::I8 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int8, i8, u8, buffer, validity),
-        &M::I16 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int16, i16, u16, buffer, validity),
-        &M::I32 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int32, i32, u32, buffer, validity),
-        &M::I64 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Int64, i64, u64, buffer, validity),
+        M::U8 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, u8, u8, *buffer, *validity),
+        M::U16 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, u16, u16, *buffer, *validity),
+        M::U32 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, u32, u32, *buffer, *validity),
+        M::U64 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, u64, u64, *buffer, *validity),
+        M::I8 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, i8, u8, *buffer, *validity),
+        M::I16 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, i16, u16, *buffer, *validity),
+        M::I32 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, i32, u32, *buffer, *validity),
+        M::I64 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, i64, u64, *buffer, *validity),
         &M::F16 {
             buffer, validity, ..
         } => {
@@ -90,15 +115,24 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_primitive(DataType::Float16, data.len(), data, validity)
         }
-        &M::F32 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Float32, f32, u32, buffer, validity),
-        &M::F64 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Float64, f64, u64, buffer, validity),
-        &M::Date64 {
-            buffer, validity, ..
-        } => build_primitive_array_data!(buffers, Date64, i64, u64, buffer, validity),
+        M::F32 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, f32, u32, *buffer, *validity),
+        M::F64 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, f64, u64, *buffer, *validity),
+        M::Date64 {
+            field,
+            buffer,
+            validity,
+            ..
+        } => build_primitive_array_data!(buffers, field, i64, u64, *buffer, *validity),
         &M::Utf8 {
             buffer,
             offsets,

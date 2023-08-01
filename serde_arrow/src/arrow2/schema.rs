@@ -1,8 +1,8 @@
 use crate::{
-    _impl::arrow2::datatypes::{DataType, Field, IntegerType, UnionMode},
+    _impl::arrow2::datatypes::{DataType, Field, IntegerType, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, Strategy, STRATEGY_KEY},
+        schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy, STRATEGY_KEY},
     },
 };
 
@@ -35,6 +35,18 @@ impl TryFrom<&Field> for GenericField {
             DataType::Utf8 => GenericDataType::Utf8,
             DataType::LargeUtf8 => GenericDataType::LargeUtf8,
             DataType::Date64 => GenericDataType::Date64,
+            DataType::Timestamp(TimeUnit::Second, tz) => {
+                GenericDataType::Timestamp(GenericTimeUnit::Second, tz.clone())
+            }
+            DataType::Timestamp(TimeUnit::Millisecond, tz) => {
+                GenericDataType::Timestamp(GenericTimeUnit::Millisecond, tz.clone())
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, tz) => {
+                GenericDataType::Timestamp(GenericTimeUnit::Microsecond, tz.clone())
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, tz) => {
+                GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz.clone())
+            }
             DataType::List(field) => {
                 children.push(GenericField::try_from(field.as_ref())?);
                 GenericDataType::List
@@ -87,13 +99,16 @@ impl TryFrom<&Field> for GenericField {
             dt => fail!("Cannot convert data type {dt:?}"),
         };
 
-        Ok(GenericField {
+        let field = GenericField {
             data_type,
             name,
             strategy,
             children,
             nullable,
-        })
+        };
+        field.validate()?;
+
+        Ok(field)
     }
 }
 
@@ -116,6 +131,18 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
             GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
+                DataType::Timestamp(TimeUnit::Second, tz.clone())
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Millisecond, tz) => {
+                DataType::Timestamp(TimeUnit::Millisecond, tz.clone())
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Microsecond, tz) => {
+                DataType::Timestamp(TimeUnit::Microsecond, tz.clone())
+            }
+            GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz) => {
+                DataType::Timestamp(TimeUnit::Nanosecond, tz.clone())
+            }
             GenericDataType::Utf8 => DataType::Utf8,
             GenericDataType::LargeUtf8 => DataType::LargeUtf8,
             GenericDataType::List => DataType::List(Box::new(
