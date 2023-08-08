@@ -9,22 +9,23 @@ use crate::{
         },
         conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
         error::{self, fail, Result},
-        serialization::compiler::{
-            dispatch_bytecode, BufferCounts, Bytecode, LargeListEnd, LargeListItem, LargeListStart,
-            ListEnd, ListItem, ListStart, MapEnd, MapItem, MapStart, OptionMarker, OuterRecordEnd,
-            OuterRecordField, OuterRecordStart, OuterSequenceEnd, OuterSequenceItem,
-            OuterSequenceStart, Program, ProgramEnd, PushBool, PushDate64FromNaiveStr,
-            PushDate64FromUtcStr, PushDictionary, PushF32, PushF64, PushI16, PushI32, PushI64,
-            PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64, PushU8, PushUtf8,
-            StructEnd, StructField, StructItem, StructStart, Structure, TupleStructEnd,
-            TupleStructItem, TupleStructStart, UnionEnd, Variant,
+        serialization::{
+            bit_set::BitSet,
+            compiler::{
+                dispatch_bytecode, BufferCounts, Bytecode, LargeListEnd, LargeListItem,
+                LargeListStart, ListEnd, ListItem, ListStart, MapEnd, MapItem, MapStart,
+                OptionMarker, OuterRecordEnd, OuterRecordField, OuterRecordStart, OuterSequenceEnd,
+                OuterSequenceItem, OuterSequenceStart, Panic, Program, ProgramEnd, PushBool,
+                PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary, PushF16, PushF32,
+                PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16,
+                PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem,
+                StructStart, Structure, TupleStructEnd, TupleStructItem, TupleStructStart,
+                UnionEnd, Variant,
+            },
         },
         sink::EventSink,
     },
 };
-
-use super::compiler::Panic;
-use super::{bit_set::BitSet, compiler::PushF16};
 
 pub struct Interpreter {
     pub program_counter: usize,
@@ -99,12 +100,19 @@ impl Interpreter {
 // TODO: use custom trait to improve error message
 #[allow(unused_variables)]
 trait Instruction: std::fmt::Debug {
+    const NAME: &'static str;
+    const EXPECTED: &'static [&'static str];
+
     fn accept_start_sequence(
         &self,
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept StartSequence");
+        fail!(
+            "{name} cannot accept StartSequence, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_end_sequence(
@@ -112,7 +120,11 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept EndSequence");
+        fail!(
+            "{name} cannot accept EndSequence, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_start_tuple(
@@ -120,7 +132,11 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept StartTuple");
+        fail!(
+            "{name} cannot accept StartTuple, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_end_tuple(
@@ -128,7 +144,11 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept EndTuple");
+        fail!(
+            "{name} cannot accept EndTuple, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_start_struct(
@@ -136,7 +156,11 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept StartStructure");
+        fail!(
+            "{name} cannot accept StartStructure, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_end_struct(
@@ -144,7 +168,11 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept EndStructure");
+        fail!(
+            "{name} cannot accept EndStructure, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_start_map(
@@ -152,23 +180,43 @@ trait Instruction: std::fmt::Debug {
         structure: &Structure,
         buffers: &mut MutableBuffers,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept StartMap");
+        fail!(
+            "{name} cannot accept StartMap, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        fail!("{self:?} cannot accept EndMap");
+        fail!(
+            "{name} cannot accept EndMap, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        fail!("{self:?} cannot accept Item");
+        fail!(
+            "{name} cannot accept Item, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_some(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        fail!("{self:?} cannot accept Some")
+        fail!(
+            "{name} cannot accept Some, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_default(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        fail!("{self:?} cannot accept Default")
+        fail!(
+            "{name} cannot accept Default, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_variant(
@@ -178,11 +226,15 @@ trait Instruction: std::fmt::Debug {
         name: &str,
         idx: usize,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept Variant({name:?}, {idx}")
+        fail!("{name} cannot accept Variant({name:?}, {idx}")
     }
 
     fn accept_null(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        fail!("{self:?} cannot accept Null")
+        fail!(
+            "{name} cannot accept Null, expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_bool(
@@ -191,7 +243,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: bool,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept Bool({val})");
+        fail!(
+            "{name} cannot accept Bool({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_u8(
@@ -200,7 +256,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: u8,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept U8({val})");
+        fail!(
+            "{name} cannot accept U8({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_u16(
@@ -209,7 +269,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: u16,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept U16({val})");
+        fail!(
+            "{name} cannot accept U16({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_u32(
@@ -218,7 +282,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: u32,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept U32({val})");
+        fail!(
+            "{name} cannot accept U32({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_u64(
@@ -227,7 +295,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: u64,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept U64({val})");
+        fail!(
+            "{name} cannot accept U64({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_i8(
@@ -236,7 +308,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: i8,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept I8({val})");
+        fail!(
+            "{name} cannot accept I8({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_i16(
@@ -245,7 +321,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: i16,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept I16({val})");
+        fail!(
+            "{name} cannot accept I16({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_i32(
@@ -254,7 +334,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: i32,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept I32({val})");
+        fail!(
+            "{name} cannot accept I32({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_i64(
@@ -263,7 +347,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: i64,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept I64({val})");
+        fail!(
+            "{name} cannot accept I64({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_f32(
@@ -272,7 +360,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: f32,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept F32({val})");
+        fail!(
+            "{name} cannot accept F32({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_f64(
@@ -281,7 +373,11 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: f64,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept F64({val})");
+        fail!(
+            "{name} cannot accept F64({val}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 
     fn accept_str(
@@ -290,13 +386,129 @@ trait Instruction: std::fmt::Debug {
         buffers: &mut MutableBuffers,
         val: &str,
     ) -> Result<usize> {
-        fail!("{self:?} cannot accept Str({val:?})")
+        fail!(
+            "{name} cannot accept Str({val:?}), expected {expected:?}",
+            name = Self::NAME,
+            expected = Self::EXPECTED
+        );
     }
 }
 
-impl Instruction for Panic {}
+impl Instruction for Panic {
+    const NAME: &'static str = "Panic";
+    const EXPECTED: &'static [&'static str] = &[];
+
+    fn accept_start_sequence(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_end_sequence(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_start_tuple(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_end_tuple(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_start_struct(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_end_struct(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_start_map(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_end_map(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_item(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_some(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_default(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_variant(
+        &self,
+        _: &Structure,
+        _: &mut MutableBuffers,
+        _: &str,
+        _: usize,
+    ) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_null(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_bool(&self, _: &Structure, _: &mut MutableBuffers, _: bool) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_u8(&self, _: &Structure, _: &mut MutableBuffers, _: u8) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_u16(&self, _: &Structure, _: &mut MutableBuffers, _: u16) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_u32(&self, _: &Structure, _: &mut MutableBuffers, _: u32) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_u64(&self, _: &Structure, _: &mut MutableBuffers, _: u64) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_i8(&self, _: &Structure, _: &mut MutableBuffers, _: i8) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_i16(&self, _: &Structure, _: &mut MutableBuffers, _: i16) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_i32(&self, _: &Structure, _: &mut MutableBuffers, _: i32) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_i64(&self, _: &Structure, _: &mut MutableBuffers, _: i64) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_f32(&self, _: &Structure, _: &mut MutableBuffers, _: f32) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_f64(&self, _: &Structure, _: &mut MutableBuffers, _: f64) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+
+    fn accept_str(&self, _: &Structure, _: &mut MutableBuffers, _: &str) -> Result<usize> {
+        fail!("{}", self.message);
+    }
+}
 
 impl Instruction for MapEnd {
+    const NAME: &'static str = "MapEnd";
+    const EXPECTED: &'static [&'static str] = &["Item", "EndMap"];
+
     fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.maps[self.map_idx].key)
@@ -309,6 +521,9 @@ impl Instruction for MapEnd {
 }
 
 impl Instruction for OuterSequenceStart {
+    const NAME: &'static str = "OuterSequenceStart";
+    const EXPECTED: &'static [&'static str] = &["StartSequence", "StartTuple"];
+
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
@@ -326,9 +541,15 @@ impl Instruction for OuterSequenceStart {
     }
 }
 
-impl Instruction for ProgramEnd {}
+impl Instruction for ProgramEnd {
+    const NAME: &'static str = "ProgramEnd";
+    const EXPECTED: &'static [&'static str] = &[];
+}
 
 impl Instruction for OuterSequenceItem {
+    const NAME: &'static str = "OuterSequenceItem";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
         &self,
         structure: &Structure,
@@ -349,7 +570,11 @@ impl Instruction for OuterSequenceItem {
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 }
+
 impl Instruction for OuterSequenceEnd {
+    const NAME: &'static str = "OuterSequenceEnd";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
         &self,
         _structure: &Structure,
@@ -372,6 +597,9 @@ impl Instruction for OuterSequenceEnd {
 }
 
 impl Instruction for OuterRecordStart {
+    const NAME: &'static str = "OuterRecordStart";
+    const EXPECTED: &'static [&'static str] = &["StartStruct", "StartMap"];
+
     fn accept_start_struct(
         &self,
         _structure: &Structure,
@@ -388,7 +616,11 @@ impl Instruction for OuterRecordStart {
         self.accept_start_struct(structure, buffers)
     }
 }
+
 impl Instruction for OuterRecordField {
+    const NAME: &'static str = "OuterRecordField";
+    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Item", "Str"];
+
     fn accept_end_struct(
         &self,
         structure: &Structure,
@@ -424,6 +656,9 @@ impl Instruction for OuterRecordField {
 }
 
 impl Instruction for OuterRecordEnd {
+    const NAME: &'static str = "OuterRecordEnd";
+    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str"];
+
     fn accept_end_struct(
         &self,
         _structure: &Structure,
@@ -450,6 +685,9 @@ impl Instruction for OuterRecordEnd {
 }
 
 impl Instruction for LargeListStart {
+    const NAME: &'static str = "LargeListStart";
+    const EXPECTED: &'static [&'static str] = &["StartSequence", "StartTuple"];
+
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
@@ -468,7 +706,19 @@ impl Instruction for LargeListStart {
 }
 
 impl Instruction for LargeListItem {
+    const NAME: &'static str = "LargeListItem";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
+        &self,
+        structure: &Structure,
+        buffers: &mut MutableBuffers,
+    ) -> Result<usize> {
+        buffers.u64_offsets[self.offsets].push_current_items();
+        Ok(structure.large_lists[self.list_idx].r#return)
+    }
+
+    fn accept_end_tuple(
         &self,
         structure: &Structure,
         buffers: &mut MutableBuffers,
@@ -481,19 +731,22 @@ impl Instruction for LargeListItem {
         buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
-
-    fn accept_end_tuple(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
-        Ok(structure.large_lists[self.list_idx].r#return)
-    }
 }
 
 impl Instruction for LargeListEnd {
+    const NAME: &'static str = "LargeListEnd";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
+        &self,
+        _structure: &Structure,
+        buffers: &mut MutableBuffers,
+    ) -> Result<usize> {
+        buffers.u64_offsets[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+
+    fn accept_end_tuple(
         &self,
         _structure: &Structure,
         buffers: &mut MutableBuffers,
@@ -506,18 +759,12 @@ impl Instruction for LargeListEnd {
         buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(structure.large_lists[self.list_idx].item)
     }
-
-    fn accept_end_tuple(
-        &self,
-        _structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
-        Ok(self.next)
-    }
 }
 
 impl Instruction for ListStart {
+    const NAME: &'static str = "ListStart";
+    const EXPECTED: &'static [&'static str] = &["StartSequence", "StartTuple"];
+
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
@@ -536,7 +783,19 @@ impl Instruction for ListStart {
 }
 
 impl Instruction for ListItem {
+    const NAME: &'static str = "ListItem";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
+        &self,
+        structure: &Structure,
+        buffers: &mut MutableBuffers,
+    ) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].push_current_items();
+        Ok(structure.lists[self.list_idx].r#return)
+    }
+
+    fn accept_end_tuple(
         &self,
         structure: &Structure,
         buffers: &mut MutableBuffers,
@@ -549,19 +808,22 @@ impl Instruction for ListItem {
         buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
-
-    fn accept_end_tuple(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
-        Ok(structure.lists[self.list_idx].r#return)
-    }
 }
 
 impl Instruction for ListEnd {
+    const NAME: &'static str = "ListEnd";
+    const EXPECTED: &'static [&'static str] = &["EndSequence", "EndTuple", "Item"];
+
     fn accept_end_sequence(
+        &self,
+        _structure: &Structure,
+        buffers: &mut MutableBuffers,
+    ) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].push_current_items();
+        Ok(self.next)
+    }
+
+    fn accept_end_tuple(
         &self,
         _structure: &Structure,
         buffers: &mut MutableBuffers,
@@ -573,15 +835,6 @@ impl Instruction for ListEnd {
     fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.lists[self.list_idx].item)
-    }
-
-    fn accept_end_tuple(
-        &self,
-        _structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
-        Ok(self.next)
     }
 }
 
@@ -605,6 +858,9 @@ fn struct_end(
 }
 
 impl Instruction for StructStart {
+    const NAME: &'static str = "StructStart";
+    const EXPECTED: &'static [&'static str] = &["StartStruct", "StartMap"];
+
     fn accept_start_struct(
         &self,
         _structure: &Structure,
@@ -624,6 +880,9 @@ impl Instruction for StructStart {
 }
 
 impl Instruction for StructField {
+    const NAME: &'static str = "StructField";
+    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str"];
+
     fn accept_end_struct(
         &self,
         structure: &Structure,
@@ -657,6 +916,9 @@ impl Instruction for StructField {
 }
 
 impl Instruction for StructEnd {
+    const NAME: &'static str = "StructEnd";
+    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str", "Item"];
+
     fn accept_end_struct(
         &self,
         structure: &Structure,
@@ -690,6 +952,9 @@ impl Instruction for StructEnd {
 }
 
 impl Instruction for StructItem {
+    const NAME: &'static str = "StructItem";
+    const EXPECTED: &'static [&'static str] = &["EndMap", "Item"];
+
     fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
         Ok(self.next)
     }
@@ -701,6 +966,9 @@ impl Instruction for StructItem {
 }
 
 impl Instruction for MapStart {
+    const NAME: &'static str = "MapStart";
+    const EXPECTED: &'static [&'static str] = &["StartMap"];
+
     fn accept_start_map(
         &self,
         _structure: &Structure,
@@ -711,6 +979,9 @@ impl Instruction for MapStart {
 }
 
 impl Instruction for MapItem {
+    const NAME: &'static str = "MapItem";
+    const EXPECTED: &'static [&'static str] = &["EndMap", "Item"];
+
     fn accept_item(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
@@ -723,6 +994,9 @@ impl Instruction for MapItem {
 }
 
 impl Instruction for TupleStructStart {
+    const NAME: &'static str = "TupleStructStart";
+    const EXPECTED: &'static [&'static str] = &["StartTuple"];
+
     fn accept_start_tuple(
         &self,
         _structure: &Structure,
@@ -733,12 +1007,17 @@ impl Instruction for TupleStructStart {
 }
 
 impl Instruction for TupleStructItem {
+    const NAME: &'static str = "TupleStructItem";
+    const EXPECTED: &'static [&'static str] = &["Item"];
     fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
         Ok(self.next)
     }
 }
 
 impl Instruction for TupleStructEnd {
+    const NAME: &'static str = "TupleStructEnd";
+    const EXPECTED: &'static [&'static str] = &["EndTuple"];
+
     fn accept_end_tuple(
         &self,
         _structure: &Structure,
@@ -765,6 +1044,33 @@ macro_rules! option_marker_handle {
 /// encountered, call the next instruction inline.
 ///
 impl Instruction for OptionMarker {
+    const NAME: &'static str = "OptionMarker";
+    const EXPECTED: &'static [&'static str] = &[
+        "Some",
+        "Null",
+        "StartSequence",
+        "EndSequence",
+        "StartTuple",
+        "EndTuple",
+        "StartStruct",
+        "EndStruct",
+        "Item",
+        "Default",
+        "Variant",
+        "Bool",
+        "U8",
+        "U16",
+        "U32",
+        "U64",
+        "I8",
+        "I16",
+        "I32",
+        "I64",
+        "F32",
+        "F64",
+        "Str",
+    ];
+
     fn accept_some(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
         Ok(self.self_pos)
     }
@@ -800,6 +1106,9 @@ impl Instruction for OptionMarker {
 }
 
 impl Instruction for Variant {
+    const NAME: &'static str = "Variant";
+    const EXPECTED: &'static [&'static str] = &["Variant"];
+
     fn accept_variant(
         &self,
         structure: &Structure,
@@ -824,6 +1133,9 @@ impl Instruction for Variant {
 }
 
 impl Instruction for PushUtf8 {
+    const NAME: &'static str = "PushUtf8";
+    const EXPECTED: &'static [&'static str] = &["Str"];
+
     fn accept_str(
         &self,
         _structure: &Structure,
@@ -837,6 +1149,9 @@ impl Instruction for PushUtf8 {
 }
 
 impl Instruction for PushLargeUtf8 {
+    const NAME: &'static str = "PushLargeUtf8";
+    const EXPECTED: &'static [&'static str] = &["Str"];
+
     fn accept_str(
         &self,
         _structure: &Structure,
@@ -850,6 +1165,9 @@ impl Instruction for PushLargeUtf8 {
 }
 
 impl Instruction for PushDate64FromNaiveStr {
+    const NAME: &'static str = "PushDate64FromNaiveStr";
+    const EXPECTED: &'static [&'static str] = &["Str"];
+
     fn accept_str(
         &self,
         _structure: &Structure,
@@ -864,6 +1182,9 @@ impl Instruction for PushDate64FromNaiveStr {
 }
 
 impl Instruction for PushDate64FromUtcStr {
+    const NAME: &'static str = "PushDate64FromUtcStr";
+    const EXPECTED: &'static [&'static str] = &["Str"];
+
     fn accept_str(
         &self,
         _structure: &Structure,
@@ -878,6 +1199,9 @@ impl Instruction for PushDate64FromUtcStr {
 }
 
 impl Instruction for PushDictionary {
+    const NAME: &'static str = "PushDictionary";
+    const EXPECTED: &'static [&'static str] = &["Str"];
+
     fn accept_str(
         &self,
         _structure: &Structure,
@@ -919,9 +1243,15 @@ impl Instruction for PushDictionary {
     }
 }
 
-impl Instruction for UnionEnd {}
+impl Instruction for UnionEnd {
+    const NAME: &'static str = "UnionEnd";
+    const EXPECTED: &'static [&'static str] = &[];
+}
 
 impl Instruction for PushNull {
+    const NAME: &'static str = "PushNull";
+    const EXPECTED: &'static [&'static str] = &["Null"];
+
     fn accept_null(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         buffers.u0[self.idx].push(());
         Ok(self.next)
@@ -938,6 +1268,9 @@ macro_rules! impl_primitive_instruction {
     ) => {
         $(
             impl Instruction for $name {
+                const NAME: &'static str = stringify!($name);
+                const EXPECTED: &'static [&'static str] = &[$(stringify!($ty)),*];
+
                 $(
                     fn $func(&self, _structure: &Structure, buffers: &mut MutableBuffers, val: $ty) -> Result<usize> {
                         let val = <$val_type>::try_from(val)?;
@@ -1054,6 +1387,9 @@ impl_primitive_instruction!(
 );
 
 impl Instruction for PushBool {
+    const NAME: &'static str = "PushBool";
+    const EXPECTED: &'static [&'static str] = &["Bool"];
+
     fn accept_bool(
         &self,
         _structure: &Structure,
