@@ -534,70 +534,42 @@ macro_rules! test_serialize_into_array_impl {
 }
 pub(crate) use test_serialize_into_array_impl;
 
-macro_rules! test_serialize_into_arrays {
+macro_rules! test_generic {
     (
         $(#[ignore = $ignore:literal])?
-        test_name = $test_name:ident,
-        $($tt:tt)*
+        fn $name:ident() {
+            $($stmt:stmt)*
+        }
     ) => {
         #[allow(unused)]
-        mod $test_name {
+        mod $name {
+            use crate::{
+                internal::schema::TracingOptions,
+                test_impls::utils::ScopedConfiguration,
+            };
+
             mod arrow {
+                use super::*;
                 use crate::arrow::{serialize_into_fields, serialize_into_arrays};
-                $crate::test_impls::macros::test_serialize_into_arrays_impl!(
-                    $(#[ignore = $ignore])?
-                    test_name = $test_name,
-                    $($tt)*
-                );
+
+                $(#[ignore = $ignore])?
+                #[test]
+                fn test() {
+                    $($stmt)*
+                }
             }
             mod arrow2 {
+                use super::*;
                 use crate::arrow2::{serialize_into_fields, serialize_into_arrays};
-                $crate::test_impls::macros::test_serialize_into_arrays_impl!(
-                    $(#[ignore = $ignore])?
-                    test_name = $test_name,
-                    $($tt)*
-                );
+
+                $(#[ignore = $ignore])?
+                #[test]
+                fn test() {
+                    $($stmt)*
+                }
             }
         }
     };
 }
 
-pub(crate) use test_serialize_into_arrays;
-
-macro_rules! test_serialize_into_arrays_impl {
-    (
-        $(#[ignore = $ignore:literal])?
-        test_name = $test_name:ident,
-        $(tracing_options = $tracing_options:expr,)?
-        values = $values:expr,
-        $(define = { $($definitions:item)* } ,)?
-    ) => {
-        use super::*;
-
-        use crate::{
-            internal::schema::TracingOptions,
-            test_impls::utils::ScopedConfiguration,
-        };
-
-        $(#[ignore = $ignore])?
-        #[test]
-        fn serialization() {
-            let _guard = ScopedConfiguration::configure(|c| {
-                c.debug_print_program = true;
-            });
-
-            $($($definitions)*)?
-
-            let tracing_options = TracingOptions::default();
-            $(let tracing_options = $tracing_options; )?
-
-            let items = &$values;
-            let fields = serialize_into_fields(&items, tracing_options).unwrap();
-            let arrays = serialize_into_arrays(&fields, &items).unwrap();
-
-            std::mem::drop(arrays);
-        }
-
-    };
-}
-pub(crate) use test_serialize_into_arrays_impl;
+pub(crate) use test_generic;
