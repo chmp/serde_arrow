@@ -94,7 +94,7 @@ fn example_readme() -> Result<(), PanicOnError> {
     let fields = serialize_into_fields(&items, Default::default())?;
     let arrays = serialize_into_arrays(&fields, &items)?;
 
-    std::mem::drop((fields, arrays));
+    drop((fields, arrays));
     Ok(())
 }
 

@@ -144,6 +144,7 @@ define_bytecode!(
         field_name: String,
     },
     OuterRecordEnd {
+        self_pos: usize,
         struct_idx: usize,
     },
     LargeListItem {
@@ -176,6 +177,7 @@ define_bytecode!(
         seen: usize,
     },
     StructEnd {
+        self_pos: usize,
         struct_idx: usize,
         seen: usize,
     },
@@ -224,8 +226,6 @@ impl Bytecode {
 pub struct StructDefinition {
     /// The fields of this struct
     pub fields: BTreeMap<String, FieldDefinition>,
-    /// The jump target for an item
-    pub item: usize,
     /// The jump target if a struct is closed
     pub r#return: usize,
 }
@@ -543,9 +543,11 @@ impl Program {
         }
 
         if self.options.wrap_with_struct {
+            let self_pos = self.structure.program.len();
             self.push_instr(OuterRecordEnd {
                 next: UNSET_INSTR,
                 struct_idx: 0,
+                self_pos,
             });
             self.structure.structs[0].r#return = self.structure.program.len();
         }
@@ -593,7 +595,6 @@ impl Program {
                 next: UNSET_INSTR,
                 seen,
             });
-            self.structure.structs[struct_idx].item = UNSET_INSTR;
         } else {
             seen = usize::MAX;
             self.push_instr(TupleStructStart { next: UNSET_INSTR });
@@ -612,9 +613,6 @@ impl Program {
                         seen,
                         struct_idx,
                     });
-                    if self.structure.structs[struct_idx].item == UNSET_INSTR {
-                        self.structure.structs[struct_idx].item = self.structure.program.len();
-                    }
                 }
                 self.push_instr(StructField {
                     next: UNSET_INSTR,
@@ -648,8 +646,10 @@ impl Program {
         }
 
         if !is_tuple {
+            let self_pos = self.structure.program.len();
             self.push_instr(StructEnd {
                 next: UNSET_INSTR,
+                self_pos,
                 struct_idx,
                 seen,
             });
