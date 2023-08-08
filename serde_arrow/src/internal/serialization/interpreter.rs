@@ -682,6 +682,12 @@ impl Instruction for OuterRecordEnd {
         };
         Ok(field_def.jump)
     }
+
+    // relevant for maps serialized as structs: stay at the current position and
+    // wait for the following field name
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+        Ok(self.self_pos)
+    }
 }
 
 impl Instruction for LargeListStart {
@@ -945,9 +951,10 @@ impl Instruction for StructEnd {
         Ok(field_def.jump)
     }
 
-    // relevant for maps serialized as structs
-    fn accept_item(&self, structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(structure.structs[self.struct_idx].item)
+    // relevant for maps serialized as structs: stay at this position and wait
+    // for the following field name
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+        Ok(self.self_pos)
     }
 }
 

@@ -80,6 +80,28 @@ test_generic!(
 );
 
 test_generic!(
+    fn serde_json_out_of_order() {
+        use serde_json::json;
+
+        // Note: if serde_json is compiled with the preserver_order feature, the
+        // keys will be "a", "b" or the keys are sorted, in which keys the key
+        // order is alos "a", "b".
+        let items = json!([{ "a": "hello", "b": -2 }, { "a": "world", "b": 4 }]);
+
+        // Here the key "b" is encountered in the OuterRecordEnd state. This was
+        // previously not correctly handled (issue #80).
+        let fields = vec![
+            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
+            Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap(),
+        ];
+
+        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+
+        drop(arrays);
+    }
+);
+
+test_generic!(
     fn serde_json_nullable_strings_non_nullable_field() {
         use serde_json::json;
 
