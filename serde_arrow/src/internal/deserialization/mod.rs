@@ -116,7 +116,7 @@ impl<'a> Compiler<'a> {
             self.compile_field(array, &mut child_positions)?;
         }
         // The top-level struct cannot be null
-        std::mem::drop(child_positions);
+        drop(child_positions);
 
         if self.options.wrap_with_struct {
             self.push_instr(EmitEndOuterStruct { next: NEXT_INSTR });
@@ -372,7 +372,7 @@ impl<'a> Compiler<'a> {
 
         let mut child_positions = Vec::new();
         self.compile_field(item, &mut child_positions)?;
-        std::mem::drop(child_positions);
+        drop(child_positions);
 
         let if_end_instr = self.program.len() + 1;
         self.push_instr(EmitEndSequence {
@@ -510,7 +510,7 @@ impl<'a> Compiler<'a> {
         self.compile_field_inner(value_field, values_position, &mut dummy_positions)?;
 
         // null maps entries with non-empty segments are not supported
-        std::mem::drop(dummy_positions);
+        drop(dummy_positions);
 
         let if_end_instr = self.program.len() + 1;
         self.push_instr(EmitEndMap {
@@ -566,7 +566,7 @@ impl<'a> Compiler<'a> {
             let mut dummy_positions = Vec::new();
             self.compile_field(field, &mut dummy_positions)?;
             // unions in nullable structs are currently not supported
-            std::mem::drop(dummy_positions);
+            drop(dummy_positions);
 
             let redirect_instr = self.push_instr(Redirect { next: UNSET_INSTR });
             redirect_instrs.push(redirect_instr);

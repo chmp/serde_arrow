@@ -527,7 +527,7 @@ macro_rules! test_serialize_into_array_impl {
             let field = serialize_into_field(&items, "root", TracingOptions::default()).unwrap();
             let array = serialize_into_array(&field, &items).unwrap();
 
-            std::mem::drop(array);
+            drop(array);
         }
 
     };
