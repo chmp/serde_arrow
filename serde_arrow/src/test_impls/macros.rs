@@ -544,13 +544,14 @@ macro_rules! test_generic {
         #[allow(unused)]
         mod $name {
             use crate::{
-                internal::schema::TracingOptions,
+                internal::schema::{TracingOptions, GenericField, GenericDataType},
                 test_impls::utils::ScopedConfiguration,
             };
 
             mod arrow {
                 use super::*;
                 use crate::arrow::{serialize_into_fields, serialize_into_arrays};
+                use crate::_impl::arrow::datatypes::Field;
 
                 $(#[ignore = $ignore])?
                 #[test]
@@ -561,6 +562,7 @@ macro_rules! test_generic {
             mod arrow2 {
                 use super::*;
                 use crate::arrow2::{serialize_into_fields, serialize_into_arrays};
+                use crate::_impl::arrow2::datatypes::Field;
 
                 $(#[ignore = $ignore])?
                 #[test]
