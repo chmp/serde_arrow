@@ -23,6 +23,18 @@ impl Interpreter {
             res.push(array);
         }
         self.buffers.clear();
+
+        let max_len = res.iter().map(|a| a.len()).max().unwrap_or_default();
+        for (arr, mapping) in res.iter().zip(&self.structure.array_mapping) {
+            if arr.len() != max_len {
+                fail!("
+                    Unbalanced array lengths: array {name} has length {len}, but expected {max_len}",
+                    name = mapping.get_field().name,
+                    len = arr.len(),
+                );
+            }
+        }
+
         Ok(res)
     }
 
