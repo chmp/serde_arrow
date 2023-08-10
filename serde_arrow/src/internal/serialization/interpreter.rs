@@ -624,8 +624,9 @@ impl Instruction for OuterRecordField {
     fn accept_end_struct(
         &self,
         structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        buffers: &mut MutableBuffers,
     ) -> Result<usize> {
+        struct_end(structure, buffers, self.struct_idx, self.seen)?;
         Ok(structure.structs[self.struct_idx].r#return)
     }
 
@@ -641,15 +642,17 @@ impl Instruction for OuterRecordField {
     fn accept_str(
         &self,
         structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        buffers: &mut MutableBuffers,
         val: &str,
     ) -> Result<usize> {
         if self.field_name == val {
+            buffers.seen[self.seen].insert(self.field_idx);
             Ok(self.next)
         } else {
             let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
                 fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
             };
+            buffers.seen[self.seen].insert(field_def.index);
             Ok(field_def.jump)
         }
     }
@@ -661,9 +664,10 @@ impl Instruction for OuterRecordEnd {
 
     fn accept_end_struct(
         &self,
-        _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        structure: &Structure,
+        buffers: &mut MutableBuffers,
     ) -> Result<usize> {
+        struct_end(structure, buffers, self.struct_idx, self.seen)?;
         Ok(self.next)
     }
 
@@ -674,12 +678,13 @@ impl Instruction for OuterRecordEnd {
     fn accept_str(
         &self,
         structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        buffers: &mut MutableBuffers,
         val: &str,
     ) -> Result<usize> {
         let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
             fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
         };
+        buffers.seen[self.seen].insert(field_def.index);
         Ok(field_def.jump)
     }
 

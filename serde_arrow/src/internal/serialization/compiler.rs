@@ -142,10 +142,13 @@ define_bytecode!(
         self_pos: usize,
         struct_idx: usize,
         field_name: String,
+        field_idx: usize,
+        seen: usize,
     },
     OuterRecordEnd {
         self_pos: usize,
         struct_idx: usize,
+        seen: usize,
     },
     LargeListItem {
         list_idx: usize,
@@ -514,10 +517,14 @@ impl Program {
         });
         self.structure.large_lists[0].item = self.structure.program.len();
 
+        let seen: usize;
         if self.options.wrap_with_struct {
+            seen = self.buffers.num_seen.next_value();
             self.structure.structs.push(StructDefinition::default());
             self.push_instr(OuterRecordStart { next: UNSET_INSTR });
-        }
+        } else {
+            seen = usize::MAX;
+        };
 
         for (field_idx, field) in fields.iter().enumerate() {
             if self.options.wrap_with_struct {
@@ -525,8 +532,10 @@ impl Program {
                 self.push_instr(OuterRecordField {
                     next: UNSET_INSTR,
                     self_pos,
+                    seen,
                     struct_idx: 0,
                     field_name: field.name.to_string(),
+                    field_idx,
                 });
                 self.structure.structs[0].fields.insert(
                     field.name.to_string(),
@@ -537,7 +546,15 @@ impl Program {
                     },
                 );
             }
-            let (f, _) = self.compile_field(field)?;
+            let (f, null_definition) = self.compile_field(field)?;
+
+            if self.options.wrap_with_struct {
+                let field_def = self.structure.structs[0]
+                    .fields
+                    .get_mut(&field.name)
+                    .ok_or_else(|| error!("compile error: could not read struct field"))?;
+                field_def.null_definition = null_definition;
+            }
 
             self.structure.array_mapping.push(f);
         }
@@ -548,6 +565,7 @@ impl Program {
                 next: UNSET_INSTR,
                 struct_idx: 0,
                 self_pos,
+                seen,
             });
             self.structure.structs[0].r#return = self.structure.program.len();
         }
