@@ -16,6 +16,10 @@
   `TracingOptions::default().coerce_numbers(true)`)
 - Add support for `Timestamp(Seconds, None)` and
   `Timestamp(Seconds, Some("UTC"))`.
+- Raise an error if resulting arrays are of unequal length (#78)
+- Fix bug in bytecode serialization for missing fields (#79)
+- Handle nullable top-level fields correctly in bytecode serialization
+- Fix bug in bytecode serialization for out of order fields (#80)
 
 ## 0.7.1
 
