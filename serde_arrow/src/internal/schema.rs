@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 ///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
-/// A collection of fields that can be serialized and deserialized
+/// A collection of fields that can be easily serialized and deserialized
 #[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Schema {
     pub(crate) fields: Vec<GenericField>,
