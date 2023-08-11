@@ -10,8 +10,8 @@
 - Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
-- Remove for `arrow==35` support
-- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43` support
+- Remove for `arrow=35`, `arrow=36` support
+- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43`,`arrow=44`, `arrow=45` support
 - Add support for coercing different numeric types (use
   `TracingOptions::default().coerce_numbers(true)`)
 - Add support for `Timestamp(Seconds, None)` and

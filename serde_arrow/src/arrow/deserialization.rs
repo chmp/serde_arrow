@@ -278,9 +278,6 @@ impl BufferExtract for dyn Array {
                     dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
                 }
             }
-            #[cfg(has_arrow_36)]
-            T::Union => fail!("unions are not supported for arrow=36"),
-            #[cfg(not(has_arrow_36))]
             T::Union => {
                 use crate::_impl::arrow::array::UnionArray;
 

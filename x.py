@@ -5,7 +5,6 @@ cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
 all_arrow_features = [
-    "arrow-36",
     "arrow-37",
     "arrow-38",
     "arrow-39",
@@ -13,6 +12,8 @@ all_arrow_features = [
     "arrow-41",
     "arrow-42",
     "arrow-43",
+    "arrow-44",
+    "arrow-45",
 ]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"

@@ -119,6 +119,8 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-45`    | `arrow=45`    |
+//! | `arrow-44`    | `arrow=44`    |
 //! | `arrow-43`    | `arrow=43`    |
 //! | `arrow-42`    | `arrow=42`    |
 //! | `arrow-41`    | `arrow=41`    |
@@ -126,7 +128,6 @@
 //! | `arrow-39`    | `arrow=39`    |
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
-//! | `arrow-36`    | `arrow=36`    |
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 //!
@@ -184,6 +185,8 @@ pub mod _impl {
         };
     }
 
+    #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_buffer_45, arrow_data_45, arrow_schema_45);
+    #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_buffer_44, arrow_data_44, arrow_schema_44);
     #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_buffer_43, arrow_data_43, arrow_schema_43);
     #[cfg(has_arrow_42)] build_arrow_crate!(arrow_array_42, arrow_buffer_42, arrow_data_42, arrow_schema_42);
     #[cfg(has_arrow_41)] build_arrow_crate!(arrow_array_41, arrow_buffer_41, arrow_data_41, arrow_schema_41);
