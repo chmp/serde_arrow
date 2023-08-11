@@ -268,12 +268,23 @@ impl Program {
         if !is_tuple {
             seen = self.buffers.num_seen.next_value();
             self.structure.structs.push(StructDefinition::default());
+
+            let start_pos = self.structure.program.len();
             self.push_instr(StructStart {
-                next: UNSET_INSTR,
+                next: start_pos + 2,
                 seen,
             });
 
-            // TODO: add unknown field support here
+            let depth = self.buffers.num_u0.next_value();
+            let unknown_field_pos = self.structure.program.len();
+            self.push_instr(StructUnknownField {
+                next: UNSET_INSTR,
+                depth,
+                self_pos: unknown_field_pos,
+                struct_idx,
+            });
+
+            self.structure.structs[struct_idx].unknown_field = unknown_field_pos;
         } else {
             seen = usize::MAX;
             self.push_instr(TupleStructStart { next: UNSET_INSTR });

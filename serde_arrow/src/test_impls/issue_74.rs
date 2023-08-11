@@ -176,3 +176,45 @@ test_missing_field!(tuple: {
 
     [S{a: 1, b: (0, T { b: vec![], c: true})}, S{a: 3, b: (1, T { b: vec![1, 2], c: false })}]
 });
+
+test_generic!(
+    fn nested_field() {
+        use serde::Serialize;
+
+        #[derive(Serialize, Debug, PartialEq)]
+        struct S {
+            a: i16,
+            b: T,
+        }
+
+        #[derive(Serialize, Debug, PartialEq)]
+        struct T {
+            b: i32,
+            c: bool,
+        }
+
+        let items = [
+            S {
+                a: 1,
+                b: T { b: 0, c: true },
+            },
+            S {
+                a: 3,
+                b: T { b: 1, c: false },
+            },
+        ];
+        let fields = [
+            Field::try_from(&GenericField::new("a", GenericDataType::U8, false)).unwrap(),
+            Field::try_from(
+                &GenericField::new("b", GenericDataType::Struct, false)
+                    .with_child(GenericField::new("b", GenericDataType::I32, false)),
+            )
+            .unwrap(),
+        ];
+
+        let res = serialize_into_arrays(&fields, &items).unwrap();
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].len(), items.len());
+        assert_eq!(res[1].len(), items.len());
+    }
+);
