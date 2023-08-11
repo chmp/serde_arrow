@@ -3,8 +3,10 @@ use crate::internal::{
     serialization::compiler::Structure,
 };
 
-use super::super::bytecode::{StructEnd, StructField, StructItem, StructStart, StructUnknownField};
-use super::{apply_null, Instruction, MutableBuffers};
+use super::super::bytecode::{
+    MapEnd, MapItem, MapStart, StructEnd, StructField, StructItem, StructStart, StructUnknownField,
+};
+use super::{misc::apply_null, Instruction, MutableBuffers};
 
 fn struct_end(
     structure: &Structure,
@@ -277,5 +279,48 @@ impl Instruction for StructItem {
     fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         struct_end(structure, buffers, self.struct_idx, self.seen)?;
         Ok(structure.structs[self.struct_idx].r#return)
+    }
+}
+
+impl Instruction for MapStart {
+    const NAME: &'static str = "MapStart";
+    const EXPECTED: &'static [&'static str] = &["StartMap"];
+
+    fn accept_start_map(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut MutableBuffers,
+    ) -> Result<usize> {
+        Ok(self.next)
+    }
+}
+
+impl Instruction for MapEnd {
+    const NAME: &'static str = "MapEnd";
+    const EXPECTED: &'static [&'static str] = &["Item", "EndMap"];
+
+    fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
+        Ok(structure.maps[self.map_idx].key)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].push_current_items();
+        Ok(structure.maps[self.map_idx].r#return)
+    }
+}
+
+impl Instruction for MapItem {
+    const NAME: &'static str = "MapItem";
+    const EXPECTED: &'static [&'static str] = &["EndMap", "Item"];
+
+    fn accept_item(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].inc_current_items()?;
+        Ok(self.next)
+    }
+
+    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+        buffers.u32_offsets[self.offsets].push_current_items();
+        Ok(structure.maps[self.map_idx].r#return)
     }
 }
