@@ -15,7 +15,8 @@ use super::{
         ProgramEnd, PushBool, PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary,
         PushF16, PushF32, PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull,
         PushU16, PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem,
-        StructStart, TupleStructEnd, TupleStructItem, TupleStructStart, UnionEnd, Variant,
+        StructStart, StructUnknownField, TupleStructEnd, TupleStructItem, TupleStructStart,
+        UnionEnd, Variant,
     },
     structure::{
         FieldDefinition, ListDefinition, MapDefinition, NullDefinition, StructDefinition,
@@ -146,6 +147,7 @@ impl Program {
 }
 
 impl Program {
+    // TODO: unify outer_structure / structure
     fn compile_outer_structure(&mut self, fields: &[GenericField]) -> Result<()> {
         if !self.options.wrap_with_struct && fields.len() != 1 {
             fail!("only single fields are supported without struct wrapping");
@@ -163,9 +165,22 @@ impl Program {
         if self.options.wrap_with_struct {
             seen = self.buffers.num_seen.next_value();
             self.structure.structs.push(StructDefinition::default());
-            self.push_instr(OuterRecordStart { next: UNSET_INSTR });
 
-            // add unknown field support here
+            let start_pos = self.structure.program.len();
+            self.push_instr(OuterRecordStart {
+                next: start_pos + 2,
+            });
+
+            let depth = self.buffers.num_u0.next_value();
+            let unknown_field_pos = self.structure.program.len();
+            self.push_instr(StructUnknownField {
+                next: UNSET_INSTR,
+                depth,
+                self_pos: unknown_field_pos,
+                struct_idx: 0,
+            });
+
+            self.structure.structs[0].unknown_field = unknown_field_pos;
         } else {
             seen = usize::MAX;
         };

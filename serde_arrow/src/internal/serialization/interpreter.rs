@@ -1,3 +1,5 @@
+mod structures;
+
 use std::collections::HashMap;
 
 use crate::{
@@ -8,18 +10,17 @@ use crate::{
             MutableOffsetBuffer,
         },
         conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
-        error::{self, fail, Result},
+        error::{fail, Result},
         serialization::{
             bit_set::BitSet,
             bytecode::{
                 dispatch_bytecode, Bytecode, LargeListEnd, LargeListItem, LargeListStart, ListEnd,
-                ListItem, ListStart, MapEnd, MapItem, MapStart, OptionMarker, OuterRecordEnd,
-                OuterRecordField, OuterRecordStart, OuterSequenceEnd, OuterSequenceItem,
-                OuterSequenceStart, Panic, ProgramEnd, PushBool, PushDate64FromNaiveStr,
-                PushDate64FromUtcStr, PushDictionary, PushF16, PushF32, PushF64, PushI16, PushI32,
-                PushI64, PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64, PushU8,
-                PushUtf8, StructEnd, StructField, StructItem, StructStart, TupleStructEnd,
-                TupleStructItem, TupleStructStart, UnionEnd, Variant,
+                ListItem, ListStart, MapEnd, MapItem, MapStart, OptionMarker, OuterSequenceEnd,
+                OuterSequenceItem, OuterSequenceStart, Panic, ProgramEnd, PushBool,
+                PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary, PushF16, PushF32,
+                PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16,
+                PushU32, PushU64, PushU8, PushUtf8, TupleStructEnd, TupleStructItem,
+                TupleStructStart, UnionEnd, Variant,
             },
             compiler::{BufferCounts, Program, Structure},
         },
@@ -596,105 +597,6 @@ impl Instruction for OuterSequenceEnd {
     }
 }
 
-impl Instruction for OuterRecordStart {
-    const NAME: &'static str = "OuterRecordStart";
-    const EXPECTED: &'static [&'static str] = &["StartStruct", "StartMap"];
-
-    fn accept_start_struct(
-        &self,
-        _structure: &Structure,
-        _buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        Ok(self.next)
-    }
-
-    fn accept_start_map(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        self.accept_start_struct(structure, buffers)
-    }
-}
-
-impl Instruction for OuterRecordField {
-    const NAME: &'static str = "OuterRecordField";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Item", "Str"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(structure.structs[self.struct_idx].r#return)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    /// Ignore items
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.self_pos)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        if self.field_name == val {
-            buffers.seen[self.seen].insert(self.field_idx);
-            Ok(self.next)
-        } else {
-            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
-                fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
-            };
-            buffers.seen[self.seen].insert(field_def.index);
-            Ok(field_def.jump)
-        }
-    }
-}
-
-impl Instruction for OuterRecordEnd {
-    const NAME: &'static str = "OuterRecordEnd";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(self.next)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
-            fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
-        };
-        buffers.seen[self.seen].insert(field_def.index);
-        Ok(field_def.jump)
-    }
-
-    // relevant for maps serialized as structs: stay at the current position and
-    // wait for the following field name
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.self_pos)
-    }
-}
-
 impl Instruction for LargeListStart {
     const NAME: &'static str = "LargeListStart";
     const EXPECTED: &'static [&'static str] = &["StartSequence", "StartTuple"];
@@ -846,134 +748,6 @@ impl Instruction for ListEnd {
     fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
         buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.lists[self.list_idx].item)
-    }
-}
-
-fn struct_end(
-    structure: &Structure,
-    buffers: &mut MutableBuffers,
-    struct_idx: usize,
-    seen: usize,
-) -> Result<()> {
-    for (name, field_def) in &structure.structs[struct_idx].fields {
-        if !buffers.seen[seen].contains(field_def.index) {
-            let null_definition = field_def
-                .null_definition
-                .ok_or_else(|| error::error!("missing non-nullable field {name} in struct"))?;
-            apply_null(structure, buffers, null_definition)?;
-        }
-    }
-    buffers.seen[seen].clear();
-
-    Ok(())
-}
-
-impl Instruction for StructStart {
-    const NAME: &'static str = "StructStart";
-    const EXPECTED: &'static [&'static str] = &["StartStruct", "StartMap"];
-
-    fn accept_start_struct(
-        &self,
-        _structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        buffers.seen[self.seen].clear();
-        Ok(self.next)
-    }
-
-    fn accept_start_map(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        self.accept_start_struct(structure, buffers)
-    }
-}
-
-impl Instruction for StructField {
-    const NAME: &'static str = "StructField";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(structure.structs[self.struct_idx].r#return)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        if self.field_name == val {
-            buffers.seen[self.seen].insert(self.field_idx);
-            Ok(self.next)
-        } else {
-            let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
-                fail!("Cannot find field {val} in struct {idx}", idx=self.struct_idx);
-            };
-            buffers.seen[self.seen].insert(field_def.index);
-            Ok(field_def.jump)
-        }
-    }
-}
-
-impl Instruction for StructEnd {
-    const NAME: &'static str = "StructEnd";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str", "Item"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(self.next)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) else {
-            fail!("cannot find field {val:?} in struct {idx}", idx=self.struct_idx);
-        };
-        buffers.seen[self.seen].insert(field_def.index);
-        Ok(field_def.jump)
-    }
-
-    // relevant for maps serialized as structs: stay at this position and wait
-    // for the following field name
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.self_pos)
-    }
-}
-
-impl Instruction for StructItem {
-    const NAME: &'static str = "StructItem";
-    const EXPECTED: &'static [&'static str] = &["EndMap", "Item"];
-
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.next)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(structure.structs[self.struct_idx].r#return)
     }
 }
 

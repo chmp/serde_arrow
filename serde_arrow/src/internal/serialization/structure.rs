@@ -11,6 +11,8 @@ pub struct StructDefinition {
     pub fields: BTreeMap<String, FieldDefinition>,
     /// The jump target if a struct is closed
     pub r#return: usize,
+    /// The instruction handling unknown fields
+    pub unknown_field: usize,
 }
 
 /// Definition of a field inside a struct

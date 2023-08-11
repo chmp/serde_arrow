@@ -6,8 +6,6 @@ define_bytecode!(
         message: String,
     },
     ProgramEnd {},
-    OuterSequenceStart {},
-    OuterRecordStart {},
     LargeListStart {},
     ListStart {},
     MapStart {},
@@ -68,12 +66,14 @@ define_bytecode!(
         buffer: usize,
         offsets: usize,
     },
+    OuterSequenceStart {},
     OuterSequenceItem {
         list_idx: usize,
     },
     OuterSequenceEnd {
         list_idx: usize,
     },
+    OuterRecordStart {},
     OuterRecordField {
         self_pos: usize,
         struct_idx: usize,
@@ -105,6 +105,16 @@ define_bytecode!(
     StructItem {
         struct_idx: usize,
         seen: usize,
+    },
+    /// Process unknown fields by ignoring any events emitted. Nested data is
+    /// processed by tracking nesting level.
+    StructUnknownField {
+        /// The index of the underlying struct
+        struct_idx: usize,
+        /// The program position of this instruction
+        self_pos: usize,
+        /// The index of the depth counter
+        depth: usize,
     },
     StructStart {
         seen: usize,
