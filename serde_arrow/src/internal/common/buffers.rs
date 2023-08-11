@@ -3,7 +3,10 @@ use std::sync::Arc;
 use bytemuck::NoUninit;
 
 use super::array_mapping::ArrayMapping;
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{
+    error::{fail, Result},
+    schema::GenericField,
+};
 
 pub trait BufferExtract {
     fn len(&self) -> usize;
@@ -204,6 +207,14 @@ impl MutableCountBuffer {
 
     pub fn push(&mut self, _: ()) {
         self.len += 1;
+    }
+
+    pub fn pop(&mut self, _: ()) -> Result<()> {
+        if self.len == 0 {
+            fail!("cannot pop from empty count buffer")
+        }
+        self.len -= 1;
+        Ok(())
     }
 
     pub fn clear(&mut self) {

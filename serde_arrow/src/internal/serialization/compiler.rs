@@ -1,17 +1,27 @@
-use std::collections::BTreeMap;
-
-use crate::{
-    internal::{
-        common::{define_bytecode, ArrayMapping, DictionaryIndex, DictionaryValue},
-        error::{error, fail},
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
-        CONFIGURATION,
-    },
-    schema::Strategy,
-    Result,
+use crate::internal::{
+    common::{ArrayMapping, DictionaryIndex, DictionaryValue},
+    error::Result,
+    error::{error, fail},
+    schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy},
+    CONFIGURATION,
 };
 
-use super::bit_set::BitSet;
+use super::{
+    bit_set::BitSet,
+    bytecode::{
+        Bytecode, LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart,
+        MapEnd, MapItem, MapStart, OptionMarker, OuterSequenceEnd, OuterSequenceItem,
+        OuterSequenceStart, Panic, ProgramEnd, PushBool, PushDate64FromNaiveStr,
+        PushDate64FromUtcStr, PushDictionary, PushF16, PushF32, PushF64, PushI16, PushI32, PushI64,
+        PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64, PushU8, PushUtf8, StructEnd,
+        StructField, StructItem, StructStart, StructUnknownField, TupleStructEnd, TupleStructItem,
+        TupleStructStart, UnionEnd, Variant,
+    },
+    structure::{
+        FieldDefinition, ListDefinition, MapDefinition, NullDefinition, StructDefinition,
+        UnionDefinition,
+    },
+};
 
 const UNSET_INSTR: usize = usize::MAX;
 
@@ -61,374 +71,6 @@ impl Counter for usize {
         let res = *self;
         *self += 1;
         res
-    }
-}
-
-#[rustfmt::skip]
-define_bytecode!(
-    Panic {
-        message: String,
-    },
-    ProgramEnd {},
-    OuterSequenceStart {},
-    OuterRecordStart {},
-    LargeListStart {},
-    ListStart {},
-    MapStart {},
-    TupleStructStart {},
-    TupleStructItem {},
-    TupleStructEnd {},
-    UnionEnd {},
-    PushNull {
-        idx: usize,
-    },
-    PushU8 {
-        idx: usize,
-    },
-    PushU16 {
-        idx: usize,
-    },
-    PushU32 {
-        idx: usize,
-    },
-    PushU64 {
-        idx: usize,
-    },
-    PushI8 {
-        idx: usize,
-    },
-    PushI16 {
-        idx: usize,
-    },
-    PushI32 {
-        idx: usize,
-    },
-    PushI64 {
-        idx: usize,
-    },
-    PushF16 {
-        idx: usize,
-    },
-    PushF32 {
-        idx: usize,
-    },
-    PushF64 {
-        idx: usize,
-    },
-    PushBool {
-        idx: usize,
-    },
-    PushDate64FromNaiveStr {
-        idx: usize,
-    },
-    PushDate64FromUtcStr {
-        idx: usize,
-    },
-    PushUtf8 {
-        buffer: usize,
-        offsets: usize,
-    },
-    PushLargeUtf8 {
-        buffer: usize,
-        offsets: usize,
-    },
-    OuterSequenceItem {
-        list_idx: usize,
-    },
-    OuterSequenceEnd {
-        list_idx: usize,
-    },
-    OuterRecordField {
-        self_pos: usize,
-        struct_idx: usize,
-        field_name: String,
-        field_idx: usize,
-        seen: usize,
-    },
-    OuterRecordEnd {
-        self_pos: usize,
-        struct_idx: usize,
-        seen: usize,
-    },
-    LargeListItem {
-        list_idx: usize,
-        offsets: usize,
-    },
-    LargeListEnd {
-        list_idx: usize,
-        offsets: usize,
-    },
-    ListItem {
-        list_idx: usize,
-        offsets: usize,
-    },
-    ListEnd {
-        list_idx: usize,
-        offsets: usize,
-    },
-    StructItem {
-        struct_idx: usize,
-        seen: usize,
-    },
-    StructStart {
-        seen: usize,
-    },
-    StructField {
-        struct_idx: usize,
-        field_name: String,
-        field_idx: usize,
-        seen: usize,
-    },
-    StructEnd {
-        self_pos: usize,
-        struct_idx: usize,
-        seen: usize,
-    },
-    MapItem {
-        map_idx: usize,
-        offsets: usize,
-    },
-    MapEnd {
-        map_idx: usize,
-        offsets: usize,
-    },
-    OptionMarker {
-        self_pos: usize,
-        if_none: usize,
-        /// The index of the relevant bit buffer on the buffers
-        validity: usize,
-        /// The index of the relevant null definition of the structure
-        null_definition: usize,
-    },
-    Variant {
-        union_idx: usize,
-        type_idx: usize,
-    },
-    PushDictionary {
-        values: DictionaryValue,
-        indices: DictionaryIndex,
-        dictionary: usize,
-    },
-);
-
-impl Bytecode {
-    fn is_allowed_jump_target(&self) -> bool {
-        !matches!(self, Bytecode::UnionEnd(_))
-    }
-
-    fn get_next(&self) -> usize {
-        dispatch_bytecode!(self, instr => instr.next)
-    }
-
-    fn set_next(&mut self, val: usize) {
-        dispatch_bytecode!(self, instr => { instr.next = val; });
-    }
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct StructDefinition {
-    /// The fields of this struct
-    pub fields: BTreeMap<String, FieldDefinition>,
-    /// The jump target if a struct is closed
-    pub r#return: usize,
-}
-
-/// Definition of a field inside a struct
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct FieldDefinition {
-    /// The index of this field in the overall struct
-    pub index: usize,
-    /// The jump target for the individual fields
-    pub jump: usize,
-    /// The null definition for this field
-    pub null_definition: Option<usize>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct ListDefinition {
-    /// The jump target if another item is encountered
-    pub item: usize,
-    /// The jump target if a list is closed
-    pub r#return: usize,
-    pub offset: usize,
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct MapDefinition {
-    /// The jump target if another item is encountered
-    pub key: usize,
-    /// The jump target if a map is closed
-    pub r#return: usize,
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct UnionDefinition {
-    pub fields: Vec<usize>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct NullDefinition {
-    pub u0: Vec<usize>,
-    pub u1: Vec<usize>,
-    pub u8: Vec<usize>,
-    pub u16: Vec<usize>,
-    pub u32: Vec<usize>,
-    pub u64: Vec<usize>,
-    pub u32_offsets: Vec<usize>,
-    pub u64_offsets: Vec<usize>,
-}
-
-impl NullDefinition {
-    pub fn update_from_array_mapping(&mut self, m: &ArrayMapping) -> Result<()> {
-        match m {
-            &ArrayMapping::Null {
-                buffer, validity, ..
-            } => {
-                self.u0.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::Bool {
-                buffer, validity, ..
-            } => {
-                self.u1.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::U8 {
-                buffer, validity, ..
-            } => {
-                self.u8.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::U16 {
-                buffer, validity, ..
-            } => {
-                self.u16.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::U32 {
-                buffer, validity, ..
-            } => {
-                self.u32.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::U64 {
-                buffer, validity, ..
-            } => {
-                self.u64.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::I8 {
-                buffer, validity, ..
-            } => {
-                self.u8.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::I16 {
-                buffer, validity, ..
-            } => {
-                self.u16.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::I32 {
-                buffer, validity, ..
-            } => {
-                self.u32.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::I64 {
-                buffer, validity, ..
-            } => {
-                self.u64.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::F16 {
-                buffer, validity, ..
-            } => {
-                self.u16.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::F32 {
-                buffer, validity, ..
-            } => {
-                self.u32.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::F64 {
-                buffer, validity, ..
-            } => {
-                self.u64.push(buffer);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::Utf8 {
-                offsets, validity, ..
-            } => {
-                // NOTE: an empty string contains no data
-                self.u32_offsets.push(offsets);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::LargeUtf8 {
-                offsets, validity, ..
-            } => {
-                // NOTE: an empty string contains no data
-                self.u64_offsets.push(offsets);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::Date64 {
-                buffer, validity, ..
-            } => {
-                self.u64.push(buffer);
-                self.u1.extend(validity);
-            }
-            ArrayMapping::Struct {
-                fields, validity, ..
-            } => {
-                for field in fields {
-                    self.update_from_array_mapping(field)?;
-                }
-                self.u1.extend(validity.iter().copied());
-            }
-            &ArrayMapping::Map {
-                offsets, validity, ..
-            } => {
-                // NOTE: the entries is not included
-                self.u64_offsets.push(offsets);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::LargeList {
-                offsets, validity, ..
-            } => {
-                // NOTE: the item is not included
-                self.u64_offsets.push(offsets);
-                self.u1.extend(validity);
-            }
-            &ArrayMapping::Dictionary {
-                indices, validity, ..
-            } => {
-                match indices {
-                    DictionaryIndex::U8(idx) => self.u8.push(idx),
-                    DictionaryIndex::U16(idx) => self.u16.push(idx),
-                    DictionaryIndex::U32(idx) => self.u32.push(idx),
-                    DictionaryIndex::U64(idx) => self.u64.push(idx),
-                    DictionaryIndex::I8(idx) => self.u8.push(idx),
-                    DictionaryIndex::I16(idx) => self.u16.push(idx),
-                    DictionaryIndex::I32(idx) => self.u32.push(idx),
-                    DictionaryIndex::I64(idx) => self.u64.push(idx),
-                }
-                self.u1.extend(validity);
-            }
-            m => todo!("cannot update null definition from {m:?}"),
-        }
-        Ok(())
-    }
-
-    pub fn sort_indices(&mut self) {
-        self.u1.sort();
-        self.u8.sort();
-        self.u16.sort();
-        self.u32.sort();
-        self.u64.sort();
-        self.u32_offsets.sort();
-        self.u64_offsets.sort();
     }
 }
 
@@ -517,57 +159,11 @@ impl Program {
         });
         self.structure.large_lists[0].item = self.structure.program.len();
 
-        let seen: usize;
         if self.options.wrap_with_struct {
-            seen = self.buffers.num_seen.next_value();
-            self.structure.structs.push(StructDefinition::default());
-            self.push_instr(OuterRecordStart { next: UNSET_INSTR });
+            self.structure.array_mapping = self.compile_struct_impl(fields, None)?;
         } else {
-            seen = usize::MAX;
-        };
-
-        for (field_idx, field) in fields.iter().enumerate() {
-            if self.options.wrap_with_struct {
-                let self_pos = self.structure.program.len();
-                self.push_instr(OuterRecordField {
-                    next: UNSET_INSTR,
-                    self_pos,
-                    seen,
-                    struct_idx: 0,
-                    field_name: field.name.to_string(),
-                    field_idx,
-                });
-                self.structure.structs[0].fields.insert(
-                    field.name.to_string(),
-                    FieldDefinition {
-                        index: field_idx,
-                        jump: self.structure.program.len(),
-                        null_definition: None,
-                    },
-                );
-            }
-            let (f, null_definition) = self.compile_field(field)?;
-
-            if self.options.wrap_with_struct {
-                let field_def = self.structure.structs[0]
-                    .fields
-                    .get_mut(&field.name)
-                    .ok_or_else(|| error!("compile error: could not read struct field"))?;
-                field_def.null_definition = null_definition;
-            }
-
-            self.structure.array_mapping.push(f);
-        }
-
-        if self.options.wrap_with_struct {
-            let self_pos = self.structure.program.len();
-            self.push_instr(OuterRecordEnd {
-                next: UNSET_INSTR,
-                struct_idx: 0,
-                self_pos,
-                seen,
-            });
-            self.structure.structs[0].r#return = self.structure.program.len();
+            let (f, _) = self.compile_field(&fields[0])?;
+            self.structure.array_mapping = vec![f];
         }
 
         self.push_instr(OuterSequenceEnd {
@@ -596,7 +192,21 @@ impl Program {
             }
         }
 
-        let (is_tuple, is_map) = match field.strategy.as_ref() {
+        let field_mapping = self.compile_struct_impl(&field.children, field.strategy.as_ref())?;
+
+        Ok(ArrayMapping::Struct {
+            field: field.clone(),
+            fields: field_mapping,
+            validity,
+        })
+    }
+
+    fn compile_struct_impl(
+        &mut self,
+        children: &[GenericField],
+        strategy: Option<&Strategy>,
+    ) -> Result<Vec<ArrayMapping>> {
+        let (is_tuple, is_map) = match strategy {
             None => (false, false),
             Some(Strategy::MapAsStruct) => (false, true),
             Some(Strategy::TupleAsStruct) => (true, false),
@@ -609,10 +219,23 @@ impl Program {
         if !is_tuple {
             seen = self.buffers.num_seen.next_value();
             self.structure.structs.push(StructDefinition::default());
+
+            let start_pos = self.structure.program.len();
             self.push_instr(StructStart {
-                next: UNSET_INSTR,
+                next: start_pos + 2,
                 seen,
             });
+
+            let depth = self.buffers.num_u0.next_value();
+            let unknown_field_pos = self.structure.program.len();
+            self.push_instr(StructUnknownField {
+                next: UNSET_INSTR,
+                depth,
+                self_pos: unknown_field_pos,
+                struct_idx,
+            });
+
+            self.structure.structs[struct_idx].unknown_field = unknown_field_pos;
         } else {
             seen = usize::MAX;
             self.push_instr(TupleStructStart { next: UNSET_INSTR });
@@ -620,7 +243,7 @@ impl Program {
 
         let mut field_mapping = vec![];
 
-        for (field_idx, field) in field.children.iter().enumerate() {
+        for (field_idx, field) in children.iter().enumerate() {
             if !is_tuple {
                 if field_idx >= BitSet::MAX {
                     fail!("Structs can contain at most {} fields", BitSet::MAX);
@@ -632,7 +255,9 @@ impl Program {
                         struct_idx,
                     });
                 }
+                let self_pos = self.structure.program.len();
                 self.push_instr(StructField {
+                    self_pos,
                     next: UNSET_INSTR,
                     struct_idx,
                     field_name: field.name.to_string(),
@@ -676,11 +301,7 @@ impl Program {
             self.push_instr(TupleStructEnd { next: UNSET_INSTR });
         }
 
-        Ok(ArrayMapping::Struct {
-            field: field.clone(),
-            fields: field_mapping,
-            validity,
-        })
+        Ok(field_mapping)
     }
 
     fn compile_list(
@@ -1221,8 +842,6 @@ impl Program {
                 let field_instr = self.instruction_before(field_def.jump);
                 let is_valid = if let Some(Bytecode::StructField(instr)) = field_instr {
                     instr.struct_idx == struct_idx && instr.field_name == *name
-                } else if let Some(Bytecode::OuterRecordField(instr)) = field_instr {
-                    instr.struct_idx == struct_idx && instr.field_name == *name
                 } else {
                     false
                 };
@@ -1234,9 +853,7 @@ impl Program {
             let before_return_instr = self.instruction_before(r#struct.r#return);
             if !matches!(
                 before_return_instr,
-                Some(&Bytecode::StructEnd(_))
-                    | Some(&Bytecode::OuterRecordEnd(_))
-                    | Some(&Bytecode::UnionEnd(_))
+                Some(&Bytecode::StructEnd(_)) | Some(&Bytecode::UnionEnd(_))
             ) {
                 fail!("invalid struct definition ({struct_idx}): instr before return is {before_return_instr:?}");
             }

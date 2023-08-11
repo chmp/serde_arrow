@@ -12,4 +12,5 @@ mod r#union;
 mod utils;
 mod wrappers;
 
+mod issue_74;
 mod issue_79;
