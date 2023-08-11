@@ -3,10 +3,7 @@ use crate::internal::{
     serialization::compiler::Structure,
 };
 
-use super::super::bytecode::{
-    OuterRecordEnd, OuterRecordField, OuterRecordStart, StructEnd, StructField, StructItem,
-    StructStart, StructUnknownField,
-};
+use super::super::bytecode::{StructEnd, StructField, StructItem, StructStart, StructUnknownField};
 use super::{apply_null, Instruction, MutableBuffers};
 
 fn struct_end(
@@ -26,105 +23,6 @@ fn struct_end(
     buffers.seen[seen].clear();
 
     Ok(())
-}
-
-impl Instruction for OuterRecordStart {
-    const NAME: &'static str = "OuterRecordStart";
-    const EXPECTED: &'static [&'static str] = &["StartStruct", "StartMap"];
-
-    fn accept_start_struct(
-        &self,
-        _structure: &Structure,
-        _buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        Ok(self.next)
-    }
-
-    fn accept_start_map(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        self.accept_start_struct(structure, buffers)
-    }
-}
-
-impl Instruction for OuterRecordField {
-    const NAME: &'static str = "OuterRecordField";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Item", "Str"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(structure.structs[self.struct_idx].r#return)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    /// Ignore items
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.self_pos)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        if self.field_name == val {
-            buffers.seen[self.seen].insert(self.field_idx);
-            Ok(self.next)
-        } else if let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) {
-            buffers.seen[self.seen].insert(field_def.index);
-            Ok(field_def.jump)
-        } else {
-            Ok(structure.structs[self.struct_idx].unknown_field)
-        }
-    }
-}
-
-impl Instruction for OuterRecordEnd {
-    const NAME: &'static str = "OuterRecordEnd";
-    const EXPECTED: &'static [&'static str] = &["EndStruct", "EndMap", "Str"];
-
-    fn accept_end_struct(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-    ) -> Result<usize> {
-        struct_end(structure, buffers, self.struct_idx, self.seen)?;
-        Ok(self.next)
-    }
-
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        self.accept_end_struct(structure, buffers)
-    }
-
-    fn accept_str(
-        &self,
-        structure: &Structure,
-        buffers: &mut MutableBuffers,
-        val: &str,
-    ) -> Result<usize> {
-        if let Some(field_def) = structure.structs[self.struct_idx].fields.get(val) {
-            buffers.seen[self.seen].insert(field_def.index);
-            Ok(field_def.jump)
-        } else {
-            Ok(structure.structs[self.struct_idx].unknown_field)
-        }
-    }
-
-    // relevant for maps serialized as structs: stay at the current position and
-    // wait for the following field name
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
-        Ok(self.self_pos)
-    }
 }
 
 impl Instruction for StructStart {
@@ -321,6 +219,12 @@ impl Instruction for StructField {
         } else {
             Ok(structure.structs[self.struct_idx].unknown_field)
         }
+    }
+
+    // relevant for maps serialized as structs: stay at the current position and
+    // wait for the following field name
+    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+        Ok(self.self_pos)
     }
 }
 

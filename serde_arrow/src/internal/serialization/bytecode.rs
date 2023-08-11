@@ -73,19 +73,6 @@ define_bytecode!(
     OuterSequenceEnd {
         list_idx: usize,
     },
-    OuterRecordStart {},
-    OuterRecordField {
-        self_pos: usize,
-        struct_idx: usize,
-        field_name: String,
-        field_idx: usize,
-        seen: usize,
-    },
-    OuterRecordEnd {
-        self_pos: usize,
-        struct_idx: usize,
-        seen: usize,
-    },
     LargeListItem {
         list_idx: usize,
         offsets: usize,
@@ -120,6 +107,7 @@ define_bytecode!(
         seen: usize,
     },
     StructField {
+        self_pos: usize,
         struct_idx: usize,
         field_name: String,
         field_idx: usize,

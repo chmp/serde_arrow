@@ -10,13 +10,12 @@ use super::{
     bit_set::BitSet,
     bytecode::{
         Bytecode, LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart,
-        MapEnd, MapItem, MapStart, OptionMarker, OuterRecordEnd, OuterRecordField,
-        OuterRecordStart, OuterSequenceEnd, OuterSequenceItem, OuterSequenceStart, Panic,
-        ProgramEnd, PushBool, PushDate64FromNaiveStr, PushDate64FromUtcStr, PushDictionary,
-        PushF16, PushF32, PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull,
-        PushU16, PushU32, PushU64, PushU8, PushUtf8, StructEnd, StructField, StructItem,
-        StructStart, StructUnknownField, TupleStructEnd, TupleStructItem, TupleStructStart,
-        UnionEnd, Variant,
+        MapEnd, MapItem, MapStart, OptionMarker, OuterSequenceEnd, OuterSequenceItem,
+        OuterSequenceStart, Panic, ProgramEnd, PushBool, PushDate64FromNaiveStr,
+        PushDate64FromUtcStr, PushDictionary, PushF16, PushF32, PushF64, PushI16, PushI32, PushI64,
+        PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64, PushU8, PushUtf8, StructEnd,
+        StructField, StructItem, StructStart, StructUnknownField, TupleStructEnd, TupleStructItem,
+        TupleStructStart, UnionEnd, Variant,
     },
     structure::{
         FieldDefinition, ListDefinition, MapDefinition, NullDefinition, StructDefinition,
@@ -147,7 +146,6 @@ impl Program {
 }
 
 impl Program {
-    // TODO: unify outer_structure / structure
     fn compile_outer_structure(&mut self, fields: &[GenericField]) -> Result<()> {
         if !self.options.wrap_with_struct && fields.len() != 1 {
             fail!("only single fields are supported without struct wrapping");
@@ -161,72 +159,11 @@ impl Program {
         });
         self.structure.large_lists[0].item = self.structure.program.len();
 
-        let seen: usize;
         if self.options.wrap_with_struct {
-            seen = self.buffers.num_seen.next_value();
-            self.structure.structs.push(StructDefinition::default());
-
-            let start_pos = self.structure.program.len();
-            self.push_instr(OuterRecordStart {
-                next: start_pos + 2,
-            });
-
-            let depth = self.buffers.num_u0.next_value();
-            let unknown_field_pos = self.structure.program.len();
-            self.push_instr(StructUnknownField {
-                next: UNSET_INSTR,
-                depth,
-                self_pos: unknown_field_pos,
-                struct_idx: 0,
-            });
-
-            self.structure.structs[0].unknown_field = unknown_field_pos;
+            self.structure.array_mapping = self.compile_struct_impl(fields, None)?;
         } else {
-            seen = usize::MAX;
-        };
-
-        for (field_idx, field) in fields.iter().enumerate() {
-            if self.options.wrap_with_struct {
-                let self_pos = self.structure.program.len();
-                self.push_instr(OuterRecordField {
-                    next: UNSET_INSTR,
-                    self_pos,
-                    seen,
-                    struct_idx: 0,
-                    field_name: field.name.to_string(),
-                    field_idx,
-                });
-                self.structure.structs[0].fields.insert(
-                    field.name.to_string(),
-                    FieldDefinition {
-                        index: field_idx,
-                        jump: self.structure.program.len(),
-                        null_definition: None,
-                    },
-                );
-            }
-            let (f, null_definition) = self.compile_field(field)?;
-
-            if self.options.wrap_with_struct {
-                let field_def = self.structure.structs[0]
-                    .fields
-                    .get_mut(&field.name)
-                    .ok_or_else(|| error!("compile error: could not read struct field"))?;
-                field_def.null_definition = null_definition;
-            }
-
-            self.structure.array_mapping.push(f);
-        }
-
-        if self.options.wrap_with_struct {
-            let self_pos = self.structure.program.len();
-            self.push_instr(OuterRecordEnd {
-                next: UNSET_INSTR,
-                struct_idx: 0,
-                self_pos,
-                seen,
-            });
-            self.structure.structs[0].r#return = self.structure.program.len();
+            let (f, _) = self.compile_field(&fields[0])?;
+            self.structure.array_mapping = vec![f];
         }
 
         self.push_instr(OuterSequenceEnd {
@@ -255,7 +192,21 @@ impl Program {
             }
         }
 
-        let (is_tuple, is_map) = match field.strategy.as_ref() {
+        let field_mapping = self.compile_struct_impl(&field.children, field.strategy.as_ref())?;
+
+        Ok(ArrayMapping::Struct {
+            field: field.clone(),
+            fields: field_mapping,
+            validity,
+        })
+    }
+
+    fn compile_struct_impl(
+        &mut self,
+        children: &[GenericField],
+        strategy: Option<&Strategy>,
+    ) -> Result<Vec<ArrayMapping>> {
+        let (is_tuple, is_map) = match strategy {
             None => (false, false),
             Some(Strategy::MapAsStruct) => (false, true),
             Some(Strategy::TupleAsStruct) => (true, false),
@@ -292,7 +243,7 @@ impl Program {
 
         let mut field_mapping = vec![];
 
-        for (field_idx, field) in field.children.iter().enumerate() {
+        for (field_idx, field) in children.iter().enumerate() {
             if !is_tuple {
                 if field_idx >= BitSet::MAX {
                     fail!("Structs can contain at most {} fields", BitSet::MAX);
@@ -304,7 +255,9 @@ impl Program {
                         struct_idx,
                     });
                 }
+                let self_pos = self.structure.program.len();
                 self.push_instr(StructField {
+                    self_pos,
                     next: UNSET_INSTR,
                     struct_idx,
                     field_name: field.name.to_string(),
@@ -348,11 +301,7 @@ impl Program {
             self.push_instr(TupleStructEnd { next: UNSET_INSTR });
         }
 
-        Ok(ArrayMapping::Struct {
-            field: field.clone(),
-            fields: field_mapping,
-            validity,
-        })
+        Ok(field_mapping)
     }
 
     fn compile_list(
@@ -893,8 +842,6 @@ impl Program {
                 let field_instr = self.instruction_before(field_def.jump);
                 let is_valid = if let Some(Bytecode::StructField(instr)) = field_instr {
                     instr.struct_idx == struct_idx && instr.field_name == *name
-                } else if let Some(Bytecode::OuterRecordField(instr)) = field_instr {
-                    instr.struct_idx == struct_idx && instr.field_name == *name
                 } else {
                     false
                 };
@@ -906,9 +853,7 @@ impl Program {
             let before_return_instr = self.instruction_before(r#struct.r#return);
             if !matches!(
                 before_return_instr,
-                Some(&Bytecode::StructEnd(_))
-                    | Some(&Bytecode::OuterRecordEnd(_))
-                    | Some(&Bytecode::UnionEnd(_))
+                Some(&Bytecode::StructEnd(_)) | Some(&Bytecode::UnionEnd(_))
             ) {
                 fail!("invalid struct definition ({struct_idx}): instr before return is {before_return_instr:?}");
             }
