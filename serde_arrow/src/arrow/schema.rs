@@ -80,7 +80,6 @@ impl TryFrom<&Field> for GenericField {
                 children.push(field.as_ref().try_into()?);
                 GenericDataType::Map
             }
-            #[cfg(not(feature = "arrow-36"))]
             DataType::Union(fields, mode) => {
                 if !matches!(mode, UnionMode::Dense) {
                     fail!("Only dense unions are supported at the moment");
@@ -91,24 +90,6 @@ impl TryFrom<&Field> for GenericField {
                         fail!("Union types with explicit field indices are not supported");
                     }
                     children.push(field.as_ref().try_into()?);
-                }
-                GenericDataType::Union
-            }
-            #[cfg(feature = "arrow-36")]
-            DataType::Union(fields, field_indices, mode) => {
-                if field_indices
-                    .iter()
-                    .enumerate()
-                    .any(|(pos, &idx)| idx < 0 || pos != (idx as usize))
-                {
-                    fail!("Union types with explicit field indices are not supported");
-                }
-                if !matches!(mode, UnionMode::Dense) {
-                    fail!("Only dense unions are supported at the moment");
-                }
-
-                for field in fields {
-                    children.push(field.try_into()?);
                 }
                 GenericDataType::Union
             }
