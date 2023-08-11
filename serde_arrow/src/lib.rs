@@ -276,5 +276,6 @@ pub mod schema {
 /// Experimental functionality that is not bound by semver compatibility
 ///
 pub mod experimental {
+    pub use crate::internal::schema::Schema;
     pub use crate::internal::{configure, Configuration};
 }

@@ -12,65 +12,31 @@ use crate::internal::{
 
 use super::sink::macros;
 
-/// Test that two fields are compatible with each other
-///
-fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
-    if left == right {
-        return true;
-    }
-
-    let (left, right) = if left.data_type > right.data_type {
-        (right, left)
-    } else {
-        (left, right)
-    };
-
-    use GenericDataType as D;
-
-    match &left.data_type {
-        D::I8 => matches!(
-            &right.data_type,
-            D::I16 | D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
-        ),
-        D::I16 => matches!(
-            &right.data_type,
-            D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
-        ),
-        D::I32 => matches!(&right.data_type, D::I64 | D::U8 | D::U16 | D::U32 | D::U64),
-        D::I64 => matches!(
-            &right.data_type,
-            D::U8 | D::U16 | D::U32 | D::U64 | D::Date64
-        ),
-        D::U8 => matches!(&right.data_type, D::U16 | D::U32 | D::U64),
-        D::U16 => matches!(&right.data_type, D::U32 | D::U64),
-        D::U32 => matches!(&right.data_type, D::U64),
-        D::Utf8 => match &right.data_type {
-            D::LargeUtf8 => true,
-            D::Dictionary => true,
-            D::Date64 => matches!(
-                &right.strategy,
-                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
-            ),
-            _ => false,
-        },
-        D::LargeUtf8 => match &right.data_type {
-            D::Dictionary => true,
-            D::Date64 => matches!(
-                &right.strategy,
-                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
-            ),
-            _ => false,
-        },
-        D::Dictionary => right.data_type == D::Dictionary,
-        _ => false,
-    }
-}
+use serde::{Deserialize, Serialize};
 
 /// The metadata key under which to store the strategy
 ///
 /// See the [module][crate::schema] for details.
 ///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
+
+/// A collection of fields that can be serialized and deserialized
+#[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct Schema {
+    pub(crate) fields: Vec<GenericField>,
+}
+
+impl Schema {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[allow(unused)]
+    fn with_field(mut self, field: GenericField) -> Self {
+        self.fields.push(field);
+        self
+    }
+}
 
 /// Strategies for handling types without direct match between arrow and serde
 ///
@@ -79,7 +45,7 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// Rust objects themselves, some field types are incorrectly recognized (e.g.,
 /// datetimes).
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Strategy {
     /// Marker that the type of the field could not be determined during tracing
@@ -169,7 +135,7 @@ impl From<Strategy> for HashMap<String, String> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum GenericTimeUnit {
     Second,
     Millisecond,
@@ -188,7 +154,7 @@ impl std::fmt::Display for GenericTimeUnit {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum GenericDataType {
     Null,
     Bool,
@@ -252,13 +218,26 @@ impl std::fmt::Display for GenericDataType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct GenericField {
-    pub data_type: GenericDataType,
     pub name: String,
+    pub data_type: GenericDataType,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub strategy: Option<Strategy>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
     pub nullable: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<GenericField>,
+}
+
+fn is_false(val: &bool) -> bool {
+    !*val
 }
 
 impl GenericField {
@@ -538,6 +517,60 @@ impl GenericField {
             child.validate()?;
         }
         Ok(())
+    }
+}
+
+/// Test that two fields are compatible with each other
+///
+fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
+    if left == right {
+        return true;
+    }
+
+    let (left, right) = if left.data_type > right.data_type {
+        (right, left)
+    } else {
+        (left, right)
+    };
+
+    use GenericDataType as D;
+
+    match &left.data_type {
+        D::I8 => matches!(
+            &right.data_type,
+            D::I16 | D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
+        ),
+        D::I16 => matches!(
+            &right.data_type,
+            D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
+        ),
+        D::I32 => matches!(&right.data_type, D::I64 | D::U8 | D::U16 | D::U32 | D::U64),
+        D::I64 => matches!(
+            &right.data_type,
+            D::U8 | D::U16 | D::U32 | D::U64 | D::Date64
+        ),
+        D::U8 => matches!(&right.data_type, D::U16 | D::U32 | D::U64),
+        D::U16 => matches!(&right.data_type, D::U32 | D::U64),
+        D::U32 => matches!(&right.data_type, D::U64),
+        D::Utf8 => match &right.data_type {
+            D::LargeUtf8 => true,
+            D::Dictionary => true,
+            D::Date64 => matches!(
+                &right.strategy,
+                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
+            ),
+            _ => false,
+        },
+        D::LargeUtf8 => match &right.data_type {
+            D::Dictionary => true,
+            D::Date64 => matches!(
+                &right.strategy,
+                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
+            ),
+            _ => false,
+        },
+        D::Dictionary => right.data_type == D::Dictionary,
+        _ => false,
     }
 }
 
@@ -1623,5 +1656,46 @@ impl EventSink for PrimitiveTracer {
     fn finish(&mut self) -> Result<()> {
         self.finished = true;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_schema_serialization {
+    use crate::internal::schema::GenericDataType;
+
+    use super::{GenericField, Schema};
+
+    #[test]
+    fn example() {
+        let schema = Schema::new()
+            .with_field(GenericField::new("foo", GenericDataType::U8, false))
+            .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
+
+        let actual = serde_json::to_string(&schema).unwrap();
+        assert_eq!(
+            actual,
+            r#"{"fields":[{"name":"foo","data_type":"U8"},{"name":"bar","data_type":"Utf8"}]}"#
+        );
+
+        let round_tripped: Schema = serde_json::from_str(&actual).unwrap();
+        assert_eq!(round_tripped, schema);
+    }
+
+    #[test]
+    fn list() {
+        let schema =
+            Schema::new().with_field(
+                GenericField::new("value", GenericDataType::List, false)
+                    .with_child(GenericField::new("element", GenericDataType::I32, false)),
+            );
+
+        let actual = serde_json::to_string(&schema).unwrap();
+        assert_eq!(
+            actual,
+            r#"{"fields":[{"name":"value","data_type":"List","children":[{"name":"element","data_type":"I32"}]}]}"#
+        );
+
+        let round_tripped: Schema = serde_json::from_str(&actual).unwrap();
+        assert_eq!(round_tripped, schema);
     }
 }

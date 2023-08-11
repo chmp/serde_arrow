@@ -3,9 +3,26 @@ use crate::{
     _impl::arrow::datatypes::{DataType, Field, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy, STRATEGY_KEY},
+        schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
     },
 };
+
+impl Schema {
+    /// Build a new Schema object from fields
+    pub fn from_arrow_fields(fields: &[Field]) -> Result<Self> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(GenericField::try_from)
+                .collect::<Result<_>>()?,
+        })
+    }
+
+    /// Build a vec of fields from a  Schema object
+    pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
+        self.fields.iter().map(Field::try_from).collect()
+    }
+}
 
 impl TryFrom<&DataType> for GenericDataType {
     type Error = Error;

@@ -2,9 +2,26 @@ use crate::{
     _impl::arrow2::datatypes::{DataType, Field, IntegerType, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy, STRATEGY_KEY},
+        schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
     },
 };
+
+impl Schema {
+    /// Build a new Schema object from fields
+    pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(GenericField::try_from)
+                .collect::<Result<_>>()?,
+        })
+    }
+
+    /// Build a vec of fields from a  Schema object
+    pub fn get_arrow2_fields(&self) -> Result<Vec<Field>> {
+        self.fields.iter().map(Field::try_from).collect()
+    }
+}
 
 impl TryFrom<&Field> for GenericField {
     type Error = Error;

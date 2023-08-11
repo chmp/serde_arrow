@@ -20,6 +20,9 @@
 - Fix bug in bytecode serialization for missing fields (#79)
 - Handle nullable top-level fields correctly in bytecode serialization
 - Fix bug in bytecode serialization for out of order fields (#80)
+- Ignore unknown fields in serialization (Rust -> Arrow)
+- Add an experimental schema struct under `serde_arrow::experimental::Schema`
+  that can be easily serialized and deserialized.
 
 ## 0.7.1
 
