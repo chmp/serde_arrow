@@ -113,33 +113,33 @@ The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are lis
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     65.31 |           1.00 |        0.32 |  0.04 |
-| serde_arrow    |    206.52 |           3.16 |        1.00 |  0.14 |
-| arrow          |   1492.13 |          22.85 |        7.23 |  1.00 |
+| arrow2_convert |     53.14 |           1.00 |        0.15 |  0.03 |
+| serde_arrow    |    348.85 |           6.57 |        1.00 |  0.20 |
+| arrow          |   1703.18 |          32.05 |        4.88 |  1.00 |
 
 ### complex_common_serialize(1000000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    507.49 |           1.00 |        0.25 |  0.05 |
-| serde_arrow    |   2029.95 |           4.00 |        1.00 |  0.21 |
-| arrow          |   9815.04 |          19.34 |        4.84 |  1.00 |
+| arrow2_convert |    478.85 |           1.00 |        0.18 |  0.05 |
+| serde_arrow    |   2711.26 |           5.66 |        1.00 |  0.31 |
+| arrow          |   8729.60 |          18.23 |        3.22 |  1.00 |
 
 ### primitives_serialize(100000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     12.62 |           1.00 |        0.24 |  0.06 |
-| serde_arrow    |     52.88 |           4.19 |        1.00 |  0.27 |
-| arrow          |    197.70 |          15.67 |        3.74 |  1.00 |
+| arrow2_convert |     13.64 |           1.00 |        0.19 |  0.07 |
+| serde_arrow    |     73.32 |           5.38 |        1.00 |  0.38 |
+| arrow          |    192.76 |          14.13 |        2.63 |  1.00 |
 
 ### primitives_serialize(1000000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    148.00 |           1.00 |        0.26 |  0.07 |
-| serde_arrow    |    568.58 |           3.84 |        1.00 |  0.29 |
-| arrow          |   1991.82 |          13.46 |        3.50 |  1.00 |
+| arrow2_convert |    178.98 |           1.00 |        0.25 |  0.09 |
+| serde_arrow    |    716.76 |           4.00 |        1.00 |  0.36 |
+| arrow          |   2005.61 |          11.21 |        2.80 |  1.00 |
 
 <!-- end:benchmarks -->
 
