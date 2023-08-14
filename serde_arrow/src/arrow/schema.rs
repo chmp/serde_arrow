@@ -7,6 +7,7 @@ use crate::{
     },
 };
 
+/// Support for arrow types (requires one of the `arrow-*` features)
 impl Schema {
     /// Build a new Schema object from fields
     pub fn from_arrow_fields(fields: &[Field]) -> Result<Self> {

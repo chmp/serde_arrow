@@ -7,6 +7,7 @@ pub mod schema;
 pub mod serialization;
 pub mod sink;
 pub mod source;
+pub mod tracing;
 
 use std::sync::RwLock;
 
@@ -15,9 +16,10 @@ use serde::{Deserialize, Serialize};
 use self::{
     common::{BufferExtract, Buffers},
     error::{fail, Error, Result},
-    schema::{GenericDataType, GenericField, Tracer, TracingOptions},
+    schema::{GenericDataType, GenericField},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
     source::deserialize_from_source,
+    tracing::{Tracer, TracingOptions},
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {

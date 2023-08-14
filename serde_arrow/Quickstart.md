@@ -5,7 +5,8 @@
 1. [Working with date time objects](#working-with-date-time-objects)
 2. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
 3. [Working with enums](#working-with-enums)
-4. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
+4. [Specifying the schema in JSON](#specifying-the-schema-in-json)
+5. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
 
 ## Working with date time objects
 
@@ -75,7 +76,7 @@ field.data_type = DataType::Dictionary(
     IntegerType::UInt32,
     // the data type of the values
     Box::new(DataType::Utf8),
-    // serde_arrow does not support sorted generating sorted dictionaries
+    // serde_arrow does not support sorted dictionaries
     false,
 );
 ```
@@ -92,7 +93,7 @@ let fields = serialize_into_fields(
 
 ## Working with enums
 
-Rust enums correspond to arrow's enum types and are supported by `serde_arrow`.
+Rust enums correspond to arrow's union types and are supported by `serde_arrow`.
 Both enums with fields and without are supported. Variants without fields are
 mapped to null arrays. Only variants that are included in the union field can be
 serialized or deserialized and the variants must have the correct index. When
@@ -118,6 +119,24 @@ will be mapped to the following arrow union:
 - `type = 0`: `Null`
 - `type = 1`: `Struct { 0: u32, 1: u32 }`
 - `type = 2`: `Struct { a: f32, b: f32 }`
+
+## Specifying the schema in JSON
+
+```rust
+let schema_json = r#"
+    [
+        {
+            "name": "date",
+            "data_type": "Date64",
+            "strategy": "NaiveStrAsDate64"
+        },
+        {"name":"foo","data_type":"U8"},
+        {"name":"bar","data_type":"Utf8"}
+    ]
+"#;
+
+let schema: Schema = serde_json::from_str(&schema_json).unwrap();
+```
 
 ## Convert from arrow2 to arrow arrays
 

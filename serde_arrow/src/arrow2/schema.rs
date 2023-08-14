@@ -6,6 +6,7 @@ use crate::{
     },
 };
 
+/// Support for arrow2 types (requires one of the `arrow2-*` features)
 impl Schema {
     /// Build a new Schema object from fields
     pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {

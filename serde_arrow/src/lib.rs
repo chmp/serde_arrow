@@ -2,25 +2,22 @@
 //!
 //! The arrow in-memory format is a powerful way to work with data frame like
 //! structures. However, the API of the underlying Rust crates can be at times
-//! cumbersome to use due to the statically typed nature of Rust.
-//!
-//! `serde_arrow`, offers a simple way to convert Rust objects into Arrow arrays
-//! and back. `serde_arrow` relies on the [Serde](https://serde.rs) package to
-//! interpret Rust objects. Therefore, adding support for `serde_arrow` to
-//! custom types is as easy as using Serde's derive macros.
-//!
-//! [polars]: https://github.com/pola-rs/polars
-//! [datafusion]: https://github.com/apache/arrow-datafusion/
+//! cumbersome to use due to the statically typed nature of Rust. `serde_arrow`,
+//! offers a simple way to convert Rust objects into Arrow arrays and back.
+//! `serde_arrow` relies on the [Serde](https://serde.rs) package to interpret
+//! Rust objects. Therefore, adding support for `serde_arrow` to custom types is
+//! as easy as using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
-//! [`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
-//! arrays, and deserialization from arrays to Rust structs.
+//! in-memory format, [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
+//! supports both.
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow. The
 //! schema is expressed as Arrow fields and describes the schema of the arrays.
 //! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
-//! schema should contain a  `Date64`.
+//! schema should contain a  `Date64`. `serde_arrow` supports to derive the
+//! schema from the data itself via schema tracing, but does not require it. It
+//! is always possible to specify the schema manually.
 //!
 //! ## Overview
 //!
@@ -39,11 +36,6 @@
 //! | | Rust to Arrow | [arrow2::serialize_into_arrays] | [arrow2::serialize_into_array] |
 //! | | Arrow to Rust | [arrow2::deserialize_from_arrays] | [arrow2::deserialize_from_array] |
 //! | | Builder | [arrow2::ArraysBuilder] | [arrow2::ArrayBuilder] |
-//!
-//! Functions working on multiple arrays expect sequences of records in Rust,
-//! e.g., a vector of structs. Functions working on single arrays expect vectors
-//! of arrays elements.
-//!
 //!
 //! ## Example
 //!
@@ -81,8 +73,7 @@
 //! # fn main() { }
 //! ```
 //!
-//! The generated arrays can then be written to disk, e.g., as parquet, and
-//! loaded in another system.
+//! The generated arrays can then be written to disk, e.g., as parquet:
 //!
 //! ```rust,ignore
 //! use arrow2::{chunk::Chunk, datatypes::Schema};
@@ -225,18 +216,6 @@ mod test;
 
 pub use crate::internal::error::{Error, Result};
 
-/// The basic machinery powering `serde_arrow`
-///
-/// This module collects helpers to convert objects to events and back.
-///
-pub mod base {
-    pub use crate::internal::{
-        event::Event,
-        sink::{accept_events, serialize_into_sink, EventSink},
-        source::{deserialize_from_source, EventSource},
-    };
-}
-
 /// Configure how Arrow and Rust types are translated into one another
 ///
 /// When tracing the schema using the `serialize_into_fields` methods, the
@@ -250,7 +229,7 @@ pub mod base {
 ///
 /// Null-only fields (e.g., fields of type `()` or fields with only `None`
 /// entries) result in errors per default.
-/// [`TracingOptions::allow_null_fields`][crate::internal::schema::TracingOptions::allow_null_fields]
+/// [`TracingOptions::allow_null_fields`][crate::internal::tracing::TracingOptions::allow_null_fields]
 /// allows to disable this behavior.
 ///
 /// All customization of the types happens via the metadata of the fields
@@ -270,12 +249,14 @@ pub mod base {
 /// # fn main() {}
 /// ```
 pub mod schema {
-    pub use crate::internal::schema::{Strategy, TracingOptions, STRATEGY_KEY};
+    pub use crate::internal::{
+        schema::{Schema, Strategy, STRATEGY_KEY},
+        tracing::TracingOptions,
+    };
 }
 
 /// Experimental functionality that is not bound by semver compatibility
 ///
 pub mod experimental {
-    pub use crate::internal::schema::Schema;
     pub use crate::internal::{configure, Configuration};
 }

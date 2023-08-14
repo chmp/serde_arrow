@@ -49,12 +49,14 @@ macro_rules! test_example_impl {
         use super::*;
 
         use crate::{
-            internal::schema::{
-                GenericDataType,
-                GenericField,
-                GenericTimeUnit,
-                Strategy,
-                TracingOptions,
+            internal::{
+                schema::{
+                    GenericDataType,
+                    GenericField,
+                    GenericTimeUnit,
+                    Strategy,
+                },
+                tracing::TracingOptions,
             },
             test_impls::{
                 macros::{btree_map, hash_map},
@@ -266,7 +268,8 @@ macro_rules! test_events {
             use crate::internal::{
                 serialization::{compile_serialization, CompilationOptions, Interpreter},
                 event::Event,
-                schema::{GenericDataType, GenericField, Tracer, TracingOptions},
+                schema::{GenericDataType, GenericField},
+                tracing::{Tracer, TracingOptions},
                 sink::{accept_events, StripOuterSequenceSink},
             };
 
@@ -510,7 +513,7 @@ macro_rules! test_serialize_into_array_impl {
         use super::*;
 
         use crate::{
-            internal::schema::TracingOptions,
+            internal::tracing::TracingOptions,
             test_impls::utils::ScopedConfiguration,
         };
 
@@ -544,7 +547,10 @@ macro_rules! test_generic {
         #[allow(unused)]
         mod $name {
             use crate::{
-                internal::schema::{TracingOptions, GenericField, GenericDataType},
+                internal::{
+                    schema::{GenericField, GenericDataType},
+                    tracing::TracingOptions,
+                },
                 test_impls::utils::ScopedConfiguration,
             };
 

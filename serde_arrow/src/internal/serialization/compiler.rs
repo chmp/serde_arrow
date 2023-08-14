@@ -618,8 +618,8 @@ impl Program {
             D::Union => self.compile_union(field, validity),
             D::Map => self.compile_map(field, validity),
             D::Timestamp(unit, tz) => {
-                if !matches!(unit, GenericTimeUnit::Second) {
-                    fail!("Only timestamps with second unit are supported");
+                if !matches!(unit, GenericTimeUnit::Millisecond) {
+                    fail!("Only timestamps with millisecond unit are supported");
                 }
 
                 match tz.as_deref() {

@@ -25,6 +25,7 @@ pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
 
 /// Helper method to push a series events into the given sink
 ///
+#[allow(unused)]
 pub fn accept_events<'a, S, I>(sink: &mut S, events: I) -> Result<()>
 where
     S: EventSink,
