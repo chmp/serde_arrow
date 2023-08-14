@@ -1,24 +1,44 @@
 # Change log
 
-## development
+## 0.8.0
 
-- Add deserialization support for arrow
-- Implement deserialization via bytecode (remove state machine implementation)
-- Implement bytecode serialization of f16
+Make bytecode based serialization  and deserialization the default
+
 - Remove state machine serialization, and use bytecode serialization as the
   default. This change results in a 2.6x speed up for the default configuration
+- Implement deserialization via bytecode (remove state machine implementation)
+- Add deserialization support for arrow
+
+Update arrow version support
+
+- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43`,`arrow=44`, `arrow=45` support
+- Remove for `arrow=35`, `arrow=36` support
+
+Improve type support
+
+- Implement bytecode serialization / deserialization of f16
+- Add support for coercing different numeric types (use
+  `TracingOptions::default().coerce_numbers(true)`)
+- Add support for `Timestamp(Milliseconds, None)` and
+  `Timestamp(Milliseconds, Some("UTC"))`.
+
+Quality of life features
+
+- Ignore unknown fields in serialization (Rust -> Arrow)
+- Raise an error if resulting arrays are of unequal length (#78)
+- Add an experimental schema struct under `serde_arrow::experimental::Schema`
+  that can be easily serialized and deserialized.
+
+No longer export the `base` module: the implementation details as-is where not
+really useful. Remove for now and think about a better design.
+
+Bug fixes:
+
+- Fix bug in bytecode serialization for missing fields (#79)
 - Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
-- Remove for `arrow=35`, `arrow=36` support
-- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43`,`arrow=44`, `arrow=45` support
-- Add support for coercing different numeric types (use
-  `TracingOptions::default().coerce_numbers(true)`)
-- Add support for `Timestamp(Seconds, None)` and
-  `Timestamp(Seconds, Some("UTC"))`.
-- Raise an error if resulting arrays are of unequal length (#78)
-- Fix bug in bytecode serialization for missing fields (#79)
-- Handle nullable top-level fields correctly in bytecode serialization
+- Fix nullable top-level fields in bytecode serialization
 - Fix bug in bytecode serialization for out of order fields (#80)
 
 ## 0.7.1

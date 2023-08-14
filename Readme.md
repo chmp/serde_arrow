@@ -1,4 +1,4 @@
-# `serde_arrow` - convert sequences of structs / maps to and from arrow arrays
+# `serde_arrow` - convert sequences Rust objects to Arrow arrays and back again
 
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)

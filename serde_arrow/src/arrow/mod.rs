@@ -19,10 +19,11 @@ use crate::{
     internal::{
         self,
         error::Result,
-        schema::{GenericField, TracingOptions},
+        schema::GenericField,
         serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
         source::deserialize_from_source,
+        tracing::TracingOptions,
     },
 };
 

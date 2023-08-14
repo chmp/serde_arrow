@@ -5,18 +5,16 @@ mod structures;
 
 use std::collections::HashMap;
 
-use crate::{
-    base::Event,
-    internal::{
-        common::{MutableBitBuffer, MutableCountBuffer, MutableOffsetBuffer},
-        error::{fail, Result},
-        serialization::{
-            bit_set::BitSet,
-            bytecode::{dispatch_bytecode, Bytecode},
-            compiler::{BufferCounts, Program, Structure},
-        },
-        sink::EventSink,
+use crate::internal::{
+    common::{MutableBitBuffer, MutableCountBuffer, MutableOffsetBuffer},
+    error::{fail, Result},
+    event::Event,
+    serialization::{
+        bit_set::BitSet,
+        bytecode::{dispatch_bytecode, Bytecode},
+        compiler::{BufferCounts, Program, Structure},
     },
+    sink::EventSink,
 };
 
 pub struct Interpreter {
