@@ -1538,7 +1538,7 @@ dependencies = [
 
 [[package]]
 name = "serde_arrow"
-version = "0.8.0-rc.2"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "arrow-array 37.0.0",
