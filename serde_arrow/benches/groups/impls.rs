@@ -92,8 +92,8 @@ pub mod arrow {
 
     use std::sync::Arc;
 
-    use arrow_json_45::ReaderBuilder;
-    use arrow_schema_45::Schema;
+    use arrow_json_46::ReaderBuilder;
+    use arrow_schema_46::Schema;
 
     use serde::Serialize;
 

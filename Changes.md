@@ -11,7 +11,8 @@ Make bytecode based serialization  and deserialization the default
 
 Update arrow version support
 
-- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43`,`arrow=44`, `arrow=45` support
+- Add `arrow=40`, `arrow=41`, `arrow=42`, `arrow=43`,`arrow=44`, `arrow=45`,
+  `arrow=46` support
 - Remove for `arrow=35`, `arrow=36` support
 
 Improve type support
