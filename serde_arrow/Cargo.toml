@@ -13,15 +13,16 @@ bench = false
 
 [[bench]]
 name = "arrow2"
-required-features = ["arrow2-0-17", "arrow-45"]
+required-features = ["arrow2-0-17", "arrow-46"]
 harness = false
 
 [package.metadata.docs.rs]
-features = ["arrow2-0-17", "arrow-45"]
+features = ["arrow2-0-17", "arrow-46"]
 
 [features]
 default = []
 
+arrow-46 = ["dep:arrow-array-46", "dep:arrow-schema-46", "dep:arrow-data-46", "dep:arrow-buffer-46"]
 arrow-45 = ["dep:arrow-array-45", "dep:arrow-schema-45", "dep:arrow-data-45", "dep:arrow-buffer-45"]
 arrow-44 = ["dep:arrow-array-44", "dep:arrow-schema-44", "dep:arrow-data-44", "dep:arrow-buffer-44"]
 arrow-43 = ["dep:arrow-array-43", "dep:arrow-schema-43", "dep:arrow-data-43", "dep:arrow-buffer-43"]
@@ -38,6 +39,11 @@ bytemuck = "1"
 chrono = "0.4"
 half = { version = "2", features = ["bytemuck"] }
 serde = "1.0"
+
+arrow-array-46 = { package = "arrow-array", version = "46", optional = true }
+arrow-buffer-46 = { package = "arrow-buffer", version = "46", optional = true }
+arrow-data-46 = { package = "arrow-data", version="46", optional = true }
+arrow-schema-46 = { package = "arrow-schema", version = "46", optional = true }
 
 arrow-array-45 = { package = "arrow-array", version = "45", optional = true }
 arrow-buffer-45 = { package = "arrow-buffer", version = "45", optional = true }
@@ -95,6 +101,6 @@ serde_json = "1"
 rand = "0.8"
 
 # for benchmarks
-arrow-json-45 = { package = "arrow-json", version = "45" }
+arrow-json-46 = { package = "arrow-json", version = "46" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"

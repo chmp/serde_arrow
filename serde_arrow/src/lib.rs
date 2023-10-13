@@ -110,6 +110,7 @@
 //!
 //! | Feature       | Arrow Version |
 //! |---------------|---------------|
+//! | `arrow-46`    | `arrow=46`    |
 //! | `arrow-45`    | `arrow=45`    |
 //! | `arrow-44`    | `arrow=44`    |
 //! | `arrow-43`    | `arrow=43`    |
@@ -176,6 +177,7 @@ pub mod _impl {
         };
     }
 
+    #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_buffer_46, arrow_data_46, arrow_schema_46);
     #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_buffer_45, arrow_data_45, arrow_schema_45);
     #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_buffer_44, arrow_data_44, arrow_schema_44);
     #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_buffer_43, arrow_data_43, arrow_schema_43);
