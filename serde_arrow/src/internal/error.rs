@@ -132,7 +132,7 @@ impl From<chrono::format::ParseError> for Error {
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
-        Self::custom_from(format!("arrow2::Error: {err}"), err)
+        Self::custom_from(format!("TryFromIntError: {err}"), err)
     }
 }
 

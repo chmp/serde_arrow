@@ -333,7 +333,9 @@ macro_rules! test_error_impl {
             let actual = block();
             let expected = $expected_error;
 
-            let Err(actual) = actual else { panic!("expected an error, but no error was raised"); };
+            let Err(actual) = actual else {
+                panic!("expected an error, but no error was raised");
+            };
 
             let actual = actual.to_string();
 
