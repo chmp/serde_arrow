@@ -214,24 +214,29 @@ pub enum StructMode {
 }
 
 pub struct StructTracer {
+    pub path: String,
+    pub options: TracingOptions,
+    pub nullable: bool,
+    pub state: StructTracerState,
     pub mode: StructMode,
     pub field_tracers: Vec<SamplesTracer>,
-    pub nullable: bool,
     pub field_names: Vec<String>,
     pub index: HashMap<String, usize>,
-    pub next: StructTracerState,
+    // TODO: document and clean up these fields
     pub item_index: usize,
     pub seen_this_item: BTreeSet<usize>,
     pub seen_previous_items: BTreeSet<usize>,
-    pub path: String,
-    pub options: TracingOptions,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum StructTracerState {
-    Start,
-    Key,
-    Value(usize, usize),
+    /// The tracer is waiting for the next key
+    WaitForKey,
+    /// The tracer is currently processing the next key
+    InKey,
+    /// The tracer is currently tracing a value for `(field, depth)`
+    InValue(usize, usize),
+    /// The tracer is finished
     Finished,
 }
 
@@ -245,7 +250,7 @@ impl StructTracer {
             field_names: Vec::new(),
             index: HashMap::new(),
             nullable,
-            next: StructTracerState::Start,
+            state: StructTracerState::WaitForKey,
             item_index: 0,
             seen_this_item: BTreeSet::new(),
             seen_previous_items: BTreeSet::new(),
@@ -257,7 +262,7 @@ impl StructTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.next, StructTracerState::Finished) {
+        if !matches!(self.state, StructTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
         let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
@@ -273,19 +278,19 @@ impl StructTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.next, StructTracerState::Finished) {
+        if !matches!(self.state, StructTracerState::Finished) {
             fail!("Cannot reset unfinished tracer");
         }
         for tracer in &mut self.field_tracers {
             tracer.reset()?;
         }
 
-        self.next = StructTracerState::Start;
+        self.state = StructTracerState::WaitForKey;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, StructTracerState::Start) {
+        if !matches!(self.state, StructTracerState::WaitForKey) {
             fail!("Incomplete struct in schema tracing");
         }
 
@@ -293,7 +298,7 @@ impl StructTracer {
             tracer.finish()?;
         }
 
-        self.next = StructTracerState::Finished;
+        self.state = StructTracerState::Finished;
 
         Ok(())
     }
@@ -306,18 +311,18 @@ impl EventSink for StructTracer {
         use StructTracerState::*;
         type E<'a> = Event<'a>;
 
-        self.next = match (self.next, event) {
-            (Start, E::StartStruct | E::StartMap) => Key,
-            (Start, E::Null | E::Some) => {
+        self.state = match (self.state, event) {
+            (WaitForKey, E::StartStruct | E::StartMap) => InKey,
+            (WaitForKey, E::Null | E::Some) => {
                 self.nullable = true;
-                Start
+                WaitForKey
             }
-            (Start, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
-            (Key, E::Item) => Key,
-            (Key, E::Str(key)) => {
+            (WaitForKey, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
+            (InKey, E::Item) => InKey,
+            (InKey, E::Str(key)) => {
                 if let Some(&field) = self.index.get(key) {
                     self.mark_seen(field);
-                    Value(field, 0)
+                    InValue(field, 0)
                 } else {
                     let field = self.field_tracers.len();
                     self.field_tracers.push(SamplesTracer::new(
@@ -327,10 +332,10 @@ impl EventSink for StructTracer {
                     self.field_names.push(key.to_owned());
                     self.index.insert(key.to_owned(), field);
                     self.mark_seen(field);
-                    Value(field, 0)
+                    InValue(field, 0)
                 }
             }
-            (Key, E::EndStruct | E::EndMap) => {
+            (InKey, E::EndStruct | E::EndMap) => {
                 if self.item_index == 0 {
                     self.seen_previous_items = self.seen_this_item.clone();
                 }
@@ -348,32 +353,32 @@ impl EventSink for StructTracer {
                 self.seen_this_item.clear();
                 self.item_index += 1;
 
-                Start
+                WaitForKey
             }
-            (Key, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
-            (Value(field, depth), ev) if ev.is_start() => {
+            (InKey, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
+            (InValue(field, depth), ev) if ev.is_start() => {
                 self.field_tracers[field].accept(ev)?;
-                Value(field, depth + 1)
+                InValue(field, depth + 1)
             }
-            (Value(field, depth), ev) if ev.is_end() => {
+            (InValue(field, depth), ev) if ev.is_end() => {
                 self.field_tracers[field].accept(ev)?;
                 match depth {
                     0 => fail!("Invalid closing event in struct tracer in state Value"),
-                    1 => Key,
-                    depth => Value(field, depth - 1),
+                    1 => InKey,
+                    depth => InValue(field, depth - 1),
                 }
             }
-            (Value(field, depth), ev) if ev.is_marker() => {
+            (InValue(field, depth), ev) if ev.is_marker() => {
                 self.field_tracers[field].accept(ev)?;
                 // markers are always followed by the actual  value
-                Value(field, depth)
+                InValue(field, depth)
             }
-            (Value(field, depth), ev) => {
+            (InValue(field, depth), ev) => {
                 self.field_tracers[field].accept(ev)?;
                 match depth {
                     // Any event at depth == 0 that does not start a structure (is a complete value)
-                    0 => Key,
-                    _ => Value(field, depth),
+                    0 => InKey,
+                    _ => InValue(field, depth),
                 }
             }
             (Finished, _) => fail!("finished StructTracer cannot handle events"),
@@ -389,7 +394,7 @@ impl EventSink for StructTracer {
 pub struct TupleTracer {
     pub field_tracers: Vec<SamplesTracer>,
     pub nullable: bool,
-    pub next: TupleTracerState,
+    pub state: TupleTracerState,
     pub path: String,
     pub options: TracingOptions,
 }
@@ -397,8 +402,10 @@ pub struct TupleTracer {
 #[derive(Debug, Clone, Copy)]
 pub enum TupleTracerState {
     WaitForStart,
+    /// Wait for the item with `(field_index)`
     WaitForItem(usize),
-    Item(usize, usize),
+    /// Process the item at `(field_index, depth)`
+    InItem(usize, usize),
     Finished,
 }
 
@@ -409,12 +416,12 @@ impl TupleTracer {
             options,
             field_tracers: Vec::new(),
             nullable,
-            next: TupleTracerState::WaitForStart,
+            state: TupleTracerState::WaitForStart,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.next, TupleTracerState::Finished) {
+        if !matches!(self.state, TupleTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -438,24 +445,24 @@ impl TupleTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.next, TupleTracerState::Finished) {
+        if !matches!(self.state, TupleTracerState::Finished) {
             fail!("Cannot reset unfinished tuple tracer");
         }
         for tracer in &mut self.field_tracers {
             tracer.reset()?;
         }
-        self.next = TupleTracerState::WaitForStart;
+        self.state = TupleTracerState::WaitForStart;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, TupleTracerState::WaitForStart) {
+        if !matches!(self.state, TupleTracerState::WaitForStart) {
             fail!("Incomplete tuple in schema tracing");
         }
         for tracer in &mut self.field_tracers {
             tracer.finish()?;
         }
-        self.next = TupleTracerState::Finished;
+        self.state = TupleTracerState::Finished;
         Ok(())
     }
 }
@@ -467,7 +474,7 @@ impl EventSink for TupleTracer {
         use TupleTracerState::*;
         type E<'a> = Event<'a>;
 
-        self.next = match (self.next, event) {
+        self.state = match (self.state, event) {
             (WaitForStart, Event::StartTuple) => WaitForItem(0),
             (WaitForStart, E::Null | E::Some) => {
                 self.nullable = true;
@@ -477,17 +484,17 @@ impl EventSink for TupleTracer {
                 "Invalid event {ev} for TupleTracer in state Start [{path}]",
                 path = self.path
             ),
-            (WaitForItem(field), Event::Item) => Item(field, 0),
+            (WaitForItem(field), Event::Item) => InItem(field, 0),
             (WaitForItem(_), E::EndTuple) => WaitForStart,
             (WaitForItem(field), ev) => fail!(
                 "Invalid event {ev} for TupleTracer in state WaitForItem({field}) [{path}]",
                 path = self.path
             ),
-            (Item(field, depth), ev) if ev.is_start() => {
+            (InItem(field, depth), ev) if ev.is_start() => {
                 self.field_tracer(field).accept(ev)?;
-                Item(field, depth + 1)
+                InItem(field, depth + 1)
             }
-            (Item(field, depth), ev) if ev.is_end() => {
+            (InItem(field, depth), ev) if ev.is_end() => {
                 self.field_tracer(field).accept(ev)?;
                 match depth {
                     0 => fail!(
@@ -495,20 +502,20 @@ impl EventSink for TupleTracer {
                         path = self.path
                     ),
                     1 => WaitForItem(field + 1),
-                    depth => Item(field, depth - 1),
+                    depth => InItem(field, depth - 1),
                 }
             }
-            (Item(field, depth), ev) if ev.is_marker() => {
+            (InItem(field, depth), ev) if ev.is_marker() => {
                 self.field_tracer(field).accept(ev)?;
                 // markers are always followed by the actual  value
-                Item(field, depth)
+                InItem(field, depth)
             }
-            (Item(field, depth), ev) => {
+            (InItem(field, depth), ev) => {
                 self.field_tracer(field).accept(ev)?;
                 match depth {
                     // Any event at depth == 0 that does not start a structure (is a complete value)
                     0 => WaitForItem(field + 1),
-                    _ => Item(field, depth),
+                    _ => InItem(field, depth),
                 }
             }
             (Finished, ev) => fail!("finished tuple tracer cannot handle event {ev}"),
@@ -640,8 +647,10 @@ pub struct UnionTracer {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UnionTracerState {
-    Inactive,
-    Active(usize, usize),
+    /// Wait for the next variant
+    WaitForVariant,
+    /// Process the current variant at `(variant_index, depth)`
+    InVariant(usize, usize),
     Finished,
 }
 
@@ -653,7 +662,7 @@ impl UnionTracer {
             variants: Vec::new(),
             tracers: BTreeMap::new(),
             nullable,
-            next: UnionTracerState::Inactive,
+            next: UnionTracerState::WaitForVariant,
         }
     }
 
@@ -718,7 +727,7 @@ impl UnionTracer {
         for tracer in self.tracers.values_mut() {
             tracer.reset()?;
         }
-        self.next = UnionTracerState::Inactive;
+        self.next = UnionTracerState::WaitForVariant;
         Ok(())
     }
 
@@ -740,43 +749,43 @@ impl EventSink for UnionTracer {
         type E<'a> = Event<'a>;
 
         self.next = match self.next {
-            S::Inactive => match event {
+            S::WaitForVariant => match event {
                 E::Variant(variant, idx) => {
                     self.ensure_variant(variant, idx)?;
-                    S::Active(idx, 0)
+                    S::InVariant(idx, 0)
                 }
                 E::Some => fail!("Nullable unions are not supported"),
                 E::OwnedVariant(variant, idx) => {
                     self.ensure_variant(variant, idx)?;
-                    S::Active(idx, 0)
+                    S::InVariant(idx, 0)
                 }
                 ev => fail!("Invalid event {ev} for UnionTracer in State Inactive"),
             },
-            S::Active(idx, depth) => match event {
+            S::InVariant(idx, depth) => match event {
                 ev if ev.is_start() => {
                     self.tracers.get_mut(&idx).unwrap().accept(ev)?;
-                    S::Active(idx, depth + 1)
+                    S::InVariant(idx, depth + 1)
                 }
                 ev if ev.is_end() => match depth {
                     0 => fail!("Invalid end event {ev} at depth 0 in UnionTracer"),
                     1 => {
                         self.tracers.get_mut(&idx).unwrap().accept(ev)?;
-                        S::Inactive
+                        S::WaitForVariant
                     }
                     _ => {
                         self.tracers.get_mut(&idx).unwrap().accept(ev)?;
-                        S::Active(idx, depth - 1)
+                        S::InVariant(idx, depth - 1)
                     }
                 },
                 ev if ev.is_marker() => {
                     self.tracers.get_mut(&idx).unwrap().accept(ev)?;
-                    S::Active(idx, depth)
+                    S::InVariant(idx, depth)
                 }
                 ev if ev.is_value() => {
                     self.tracers.get_mut(&idx).unwrap().accept(ev)?;
                     match depth {
-                        0 => S::Inactive,
-                        _ => S::Active(idx, depth),
+                        0 => S::WaitForVariant,
+                        _ => S::InVariant(idx, depth),
                     }
                 }
                 _ => unreachable!(),
@@ -796,14 +805,16 @@ pub struct MapTracer {
     pub key: Box<SamplesTracer>,
     pub value: Box<SamplesTracer>,
     pub nullable: bool,
-    next: MapTracerState,
+    pub state: MapTracerState,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum MapTracerState {
-    Start,
-    Key(usize),
-    Value(usize),
+    WaitForKey,
+    /// Process the current key at `(depth)`
+    InKey(usize),
+    /// Process the current value at `(depth)`
+    InValue(usize),
     Finished,
 }
 
@@ -813,13 +824,13 @@ impl MapTracer {
             nullable,
             key: Box::new(SamplesTracer::new(format!("{path}.$key"), options.clone())),
             value: Box::new(SamplesTracer::new(format!("{path}.$value"), options)),
-            next: MapTracerState::Start,
+            state: MapTracerState::WaitForKey,
             path,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.next, MapTracerState::Finished) {
+        if !matches!(self.state, MapTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -836,14 +847,14 @@ impl MapTracer {
     pub fn reset(&mut self) -> Result<()> {
         self.key.reset()?;
         self.value.reset()?;
-        self.next = MapTracerState::Start;
+        self.state = MapTracerState::WaitForKey;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
         self.key.finish()?;
         self.value.finish()?;
-        self.next = MapTracerState::Finished;
+        self.state = MapTracerState::Finished;
         Ok(())
     }
 }
@@ -855,77 +866,77 @@ impl EventSink for MapTracer {
         type S = MapTracerState;
         type E<'a> = Event<'a>;
 
-        self.next = match self.next {
-            S::Start => match event {
-                Event::StartMap => S::Key(0),
+        self.state = match self.state {
+            S::WaitForKey => match event {
+                Event::StartMap => S::InKey(0),
                 Event::Null | Event::Some => {
                     self.nullable = true;
-                    S::Start
+                    S::WaitForKey
                 }
                 ev => fail!("Unexpected event {ev} in state Start of MapTracer"),
             },
-            S::Key(depth) => match event {
-                Event::Item if depth == 0 => S::Key(depth),
+            S::InKey(depth) => match event {
+                Event::Item if depth == 0 => S::InKey(depth),
                 ev if ev.is_end() => match depth {
                     0 => {
                         if !matches!(ev, E::EndMap) {
                             fail!("Unexpected event {ev} in State Key at depth 0 in MapTracer")
                         }
-                        S::Start
+                        S::WaitForKey
                     }
                     1 => {
                         self.key.accept(ev)?;
-                        S::Value(0)
+                        S::InValue(0)
                     }
                     _ => {
                         self.key.accept(ev)?;
-                        S::Key(depth - 1)
+                        S::InKey(depth - 1)
                     }
                 },
                 ev if ev.is_start() => {
                     self.key.accept(ev)?;
-                    S::Key(depth + 1)
+                    S::InKey(depth + 1)
                 }
                 ev if ev.is_marker() => {
                     self.key.accept(ev)?;
-                    S::Key(depth)
+                    S::InKey(depth)
                 }
                 ev if ev.is_value() => {
                     self.key.accept(ev)?;
                     if depth == 0 {
-                        S::Value(0)
+                        S::InValue(0)
                     } else {
-                        S::Key(depth)
+                        S::InKey(depth)
                     }
                 }
                 _ => unreachable!(),
             },
-            S::Value(depth) => match event {
+            S::InValue(depth) => match event {
                 ev if ev.is_end() => match depth {
                     0 => fail!("Unexpected event {ev} in State Value at depth 0 in MapTracer"),
                     1 => {
                         self.value.accept(ev)?;
-                        S::Key(0)
+                        S::InKey(0)
                     }
                     _ => {
                         self.value.accept(ev)?;
-                        S::Value(depth - 1)
+                        S::InValue(depth - 1)
                     }
                 },
                 ev if ev.is_start() => {
                     self.value.accept(ev)?;
-                    S::Value(depth + 1)
+                    S::InValue(depth + 1)
                 }
                 ev if ev.is_marker() => {
                     self.value.accept(ev)?;
-                    S::Value(depth)
+                    S::InValue(depth)
                 }
                 ev if ev.is_value() => {
                     self.value.accept(ev)?;
                     if depth == 0 {
-                        S::Key(0)
+                        S::InKey(0)
                     } else {
-                        S::Value(depth)
+                        S::InValue(depth)
                     }
                 }
                 _ => unreachable!(),
