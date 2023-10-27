@@ -19,7 +19,7 @@ use self::{
     schema::{GenericDataType, GenericField},
     sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
     source::deserialize_from_source,
-    tracing::{Tracer, TracingOptions},
+    tracing::{trace_type, SamplesTracer, TracingOptions},
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
@@ -57,7 +57,7 @@ pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Ve
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(String::from("$"), options);
+    let tracer = SamplesTracer::new(String::from("$"), options);
     let mut tracer = StripOuterSequenceSink::new(tracer);
     serialize_into_sink(&mut tracer, items)?;
     let root = tracer.into_inner().to_field("root")?;
@@ -79,7 +79,7 @@ pub fn serialize_into_field<T>(
 where
     T: Serialize + ?Sized,
 {
-    let tracer = Tracer::new(String::from("$"), options);
+    let tracer = SamplesTracer::new(String::from("$"), options);
     let tracer = StripOuterSequenceSink::new(tracer);
     let mut tracer = tracer;
     serialize_into_sink(&mut tracer, items)?;

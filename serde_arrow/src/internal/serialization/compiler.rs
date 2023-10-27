@@ -504,7 +504,8 @@ impl Program {
 
         if let Some(option_marker_pos) = option_marker_pos {
             let current_program_len = self.structure.program.len();
-            let Bytecode::OptionMarker(instr) = &mut self.structure.program[option_marker_pos] else {
+            let Bytecode::OptionMarker(instr) = &mut self.structure.program[option_marker_pos]
+            else {
                 fail!("Internal error during compilation");
             };
             instr.if_none = current_program_len;

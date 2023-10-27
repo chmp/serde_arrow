@@ -7,147 +7,34 @@ use crate::internal::{
     error::{fail, Result},
     event::Event,
     sink::EventSink,
+    tracing::tracer::{PrimitiveTracer, UnknownTracer},
 };
 
 use super::{
-    schema::{GenericDataType, GenericField, Strategy},
-    sink::macros,
+    super::{
+        schema::{GenericDataType, GenericField, Strategy},
+        sink::macros,
+    },
+    TracingOptions,
 };
 
-/// Configure how the schema is traced
-///
-/// Example:
-///
-/// ```rust
-/// # use serde_arrow::schema::TracingOptions;
-/// let tracing_options = TracingOptions::default()
-///     .map_as_struct(true)
-///     .string_dictionary_encoding(false);
-/// ```
-///
-/// The defaults are:
-///
-/// ```rust
-/// # use serde_arrow::schema::TracingOptions;
-/// # let defaults =
-/// TracingOptions {
-///     allow_null_fields: false,
-///     map_as_struct: true,
-///     string_dictionary_encoding: false,
-///     coerce_numbers: false,
-///     try_parse_dates: false,
-/// }
-/// # ;
-/// # assert_eq!(defaults, TracingOptions::default());
-/// ```
-#[derive(Debug, Clone, PartialEq)]
-pub struct TracingOptions {
-    /// If `true`, accept null-only fields (e.g., fields with type `()` or fields
-    /// with only `None` entries). If `false`, schema tracing will fail in this
-    /// case.
-    pub allow_null_fields: bool,
-
-    /// If `true` serialize maps as structs (the default). See
-    /// [`Strategy::MapAsStruct`] for details.
-    pub map_as_struct: bool,
-
-    /// If `true` serialize strings dictionary encoded. The default is `false`.
-    ///
-    /// If `true`, strings are traced as `Dictionary(UInt64, LargeUtf8)`. If
-    /// `false`, strings are traced as `LargeUtf8`.
-    pub string_dictionary_encoding: bool,
-
-    /// If `true`, coerce different numeric types.
-    ///
-    /// This option may be helpful when dealing with data formats that do not
-    /// encode the complete numeric type, e.g., JSON. The following rules are
-    /// used:
-    ///
-    /// - unsigned + other unsigned -> u64
-    /// - signed + other signed -> i64
-    /// - float + other float -> f64
-    /// - unsigned + signed -> i64
-    /// - unsigned + float -> f64
-    /// - signed  + float -> f64
-    pub coerce_numbers: bool,
-
-    /// If `true`, try to auto detect datetimes in string columns
-    ///
-    /// Currently the naive datetime (`YYYY-MM-DDThh:mm:ss`) and UTC datetimes
-    /// (`YYYY-MM-DDThh:mm:ssZ`) are understood.
-    ///
-    /// For string fields where all values are either missing or conform to one
-    /// of the format the data type is set as `Date64` with strategy
-    /// [`NaiveStrAsDate64`][Strategy::NaiveStrAsDate64] or
-    /// [`UtcStrAsDate64`][Strategy::UtcStrAsDate64].    
-    pub try_parse_dates: bool,
-}
-
-impl Default for TracingOptions {
-    fn default() -> Self {
-        Self {
-            allow_null_fields: false,
-            map_as_struct: true,
-            string_dictionary_encoding: false,
-            coerce_numbers: false,
-            try_parse_dates: false,
-        }
-    }
-}
-
-impl TracingOptions {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    /// Configure `allow_null_fields`
-    pub fn allow_null_fields(mut self, value: bool) -> Self {
-        self.allow_null_fields = value;
-        self
-    }
-
-    /// Configure `map_as_struct`
-    pub fn map_as_struct(mut self, value: bool) -> Self {
-        self.map_as_struct = value;
-        self
-    }
-
-    /// Configure `string_dictionary_encoding`
-    pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
-        self.string_dictionary_encoding = value;
-        self
-    }
-
-    /// Configure `coerce_numbers`
-    pub fn coerce_numbers(mut self, value: bool) -> Self {
-        self.coerce_numbers = value;
-        self
-    }
-
-    /// Configure `coerce_numbers`
-    pub fn guess_dates(mut self, value: bool) -> Self {
-        self.try_parse_dates = value;
-        self
-    }
-}
-
-pub enum Tracer {
+pub enum SamplesTracer {
     Unknown(UnknownTracer),
-    Struct(StructTracer),
-    List(ListTracer),
     Primitive(PrimitiveTracer),
-    Tuple(TupleTracer),
-    Union(UnionTracer),
+    List(ListTracer),
     Map(MapTracer),
+    Struct(StructTracer),
+    Union(UnionTracer),
+    Tuple(TupleTracer),
 }
 
-impl Tracer {
+impl SamplesTracer {
     pub fn new(path: String, options: TracingOptions) -> Self {
         Self::Unknown(UnknownTracer::new(path, options))
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        use Tracer::*;
+        use SamplesTracer::*;
         match self {
             Unknown(t) => t.to_field(name),
             List(t) => t.to_field(name),
@@ -160,7 +47,7 @@ impl Tracer {
     }
 
     pub fn mark_nullable(&mut self) {
-        use Tracer::*;
+        use SamplesTracer::*;
         match self {
             Unknown(_) => {}
             List(t) => {
@@ -183,9 +70,33 @@ impl Tracer {
             }
         }
     }
+
+    fn reset(&mut self) -> Result<()> {
+        match self {
+            Self::Unknown(tracer) => tracer.reset(),
+            Self::List(tracer) => tracer.reset(),
+            Self::Struct(tracer) => tracer.reset(),
+            Self::Primitive(tracer) => tracer.reset(),
+            Self::Tuple(tracer) => tracer.reset(),
+            Self::Union(tracer) => tracer.reset(),
+            Self::Map(tracer) => tracer.reset(),
+        }
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        match self {
+            Self::Unknown(tracer) => tracer.finish(),
+            Self::List(tracer) => tracer.finish(),
+            Self::Struct(tracer) => tracer.finish(),
+            Self::Primitive(tracer) => tracer.finish(),
+            Self::Tuple(tracer) => tracer.finish(),
+            Self::Union(tracer) => tracer.finish(),
+            Self::Map(tracer) => tracer.finish(),
+        }
+    }
 }
 
-impl EventSink for Tracer {
+impl EventSink for SamplesTracer {
     macros::forward_specialized_to_generic!();
 
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
@@ -206,9 +117,14 @@ impl EventSink for Tracer {
                 | Event::F64(_)
                 | Event::Str(_)
                 | Event::OwnedStr(_) => {
-                    let mut tracer = PrimitiveTracer::new(tracer.nullable, tracer.options.clone());
+                    let mut tracer = PrimitiveTracer::new(
+                        tracer.path.clone(),
+                        tracer.options.clone(),
+                        GenericDataType::Null,
+                        tracer.nullable,
+                    );
                     tracer.accept(event)?;
-                    *self = Tracer::Primitive(tracer)
+                    *self = SamplesTracer::Primitive(tracer)
                 }
                 Event::StartSequence => {
                     let mut tracer = ListTracer::new(
@@ -217,7 +133,7 @@ impl EventSink for Tracer {
                         tracer.nullable,
                     );
                     tracer.accept(event)?;
-                    *self = Tracer::List(tracer);
+                    *self = SamplesTracer::List(tracer);
                 }
                 Event::StartStruct => {
                     let mut tracer = StructTracer::new(
@@ -227,7 +143,7 @@ impl EventSink for Tracer {
                         tracer.nullable,
                     );
                     tracer.accept(event)?;
-                    *self = Tracer::Struct(tracer);
+                    *self = SamplesTracer::Struct(tracer);
                 }
                 Event::StartTuple => {
                     let mut tracer = TupleTracer::new(
@@ -236,7 +152,7 @@ impl EventSink for Tracer {
                         tracer.nullable,
                     );
                     tracer.accept(event)?;
-                    *self = Tracer::Tuple(tracer);
+                    *self = SamplesTracer::Tuple(tracer);
                 }
                 Event::StartMap => {
                     if tracer.options.map_as_struct {
@@ -247,7 +163,7 @@ impl EventSink for Tracer {
                             tracer.nullable,
                         );
                         tracer.accept(event)?;
-                        *self = Tracer::Struct(tracer);
+                        *self = SamplesTracer::Struct(tracer);
                     } else {
                         let mut tracer = MapTracer::new(
                             tracer.path.clone(),
@@ -255,7 +171,7 @@ impl EventSink for Tracer {
                             tracer.nullable,
                         );
                         tracer.accept(event)?;
-                        *self = Tracer::Map(tracer);
+                        *self = SamplesTracer::Map(tracer);
                     }
                 }
                 Event::Variant(_, _) => {
@@ -265,7 +181,7 @@ impl EventSink for Tracer {
                         tracer.nullable,
                     );
                     tracer.accept(event)?;
-                    *self = Tracer::Union(tracer)
+                    *self = SamplesTracer::Union(tracer)
                 }
                 ev if ev.is_end() => fail!(
                     "Invalid end nesting events for unknown tracer ({path})",
@@ -287,56 +203,7 @@ impl EventSink for Tracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        match self {
-            Self::Unknown(tracer) => tracer.finish(),
-            Self::List(tracer) => tracer.finish(),
-            Self::Struct(tracer) => tracer.finish(),
-            Self::Primitive(tracer) => tracer.finish(),
-            Self::Tuple(tracer) => tracer.finish(),
-            Self::Union(tracer) => tracer.finish(),
-            Self::Map(tracer) => tracer.finish(),
-        }
-    }
-}
-
-pub struct UnknownTracer {
-    pub nullable: bool,
-    pub finished: bool,
-    pub path: String,
-    pub options: TracingOptions,
-}
-
-impl UnknownTracer {
-    pub fn new(path: String, options: TracingOptions) -> Self {
-        Self {
-            nullable: false,
-            finished: false,
-            path,
-            options,
-        }
-    }
-
-    pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-        if !self.options.allow_null_fields {
-            fail!(concat!(
-                "Encountered null only field. This error can be disabled by ",
-                "setting `allow_null_fields` to `true` in `TracingOptions`",
-            ));
-        }
-
-        Ok(GenericField::new(
-            name,
-            GenericDataType::Null,
-            self.nullable,
-        ))
-    }
-
-    pub fn finish(&mut self) -> Result<()> {
-        self.finished = true;
-        Ok(())
+        SamplesTracer::finish(self)
     }
 }
 
@@ -348,7 +215,7 @@ pub enum StructMode {
 
 pub struct StructTracer {
     pub mode: StructMode,
-    pub field_tracers: Vec<Tracer>,
+    pub field_tracers: Vec<SamplesTracer>,
     pub nullable: bool,
     pub field_names: Vec<String>,
     pub index: HashMap<String, usize>,
@@ -356,7 +223,6 @@ pub struct StructTracer {
     pub item_index: usize,
     pub seen_this_item: BTreeSet<usize>,
     pub seen_previous_items: BTreeSet<usize>,
-    pub finished: bool,
     pub path: String,
     pub options: TracingOptions,
 }
@@ -366,6 +232,7 @@ pub enum StructTracerState {
     Start,
     Key,
     Value(usize, usize),
+    Finished,
 }
 
 impl StructTracer {
@@ -382,12 +249,15 @@ impl StructTracer {
             item_index: 0,
             seen_this_item: BTreeSet::new(),
             seen_previous_items: BTreeSet::new(),
-            finished: false,
         }
     }
 
+    pub fn mark_seen(&mut self, field: usize) {
+        self.seen_this_item.insert(field);
+    }
+
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
+        if !matches!(self.next, StructTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
         let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
@@ -402,8 +272,30 @@ impl StructTracer {
         Ok(field)
     }
 
-    pub fn mark_seen(&mut self, field: usize) {
-        self.seen_this_item.insert(field);
+    pub fn reset(&mut self) -> Result<()> {
+        if !matches!(self.next, StructTracerState::Finished) {
+            fail!("Cannot reset unfinished tracer");
+        }
+        for tracer in &mut self.field_tracers {
+            tracer.reset()?;
+        }
+
+        self.next = StructTracerState::Start;
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        if !matches!(self.next, StructTracerState::Start) {
+            fail!("Incomplete struct in schema tracing");
+        }
+
+        for tracer in &mut self.field_tracers {
+            tracer.finish()?;
+        }
+
+        self.next = StructTracerState::Finished;
+
+        Ok(())
     }
 }
 
@@ -428,7 +320,7 @@ impl EventSink for StructTracer {
                     Value(field, 0)
                 } else {
                     let field = self.field_tracers.len();
-                    self.field_tracers.push(Tracer::new(
+                    self.field_tracers.push(SamplesTracer::new(
                         format!("{path}.{key}", path = self.path),
                         self.options.clone(),
                     ));
@@ -484,32 +376,30 @@ impl EventSink for StructTracer {
                     _ => Value(field, depth),
                 }
             }
+            (Finished, _) => fail!("finished StructTracer cannot handle events"),
         };
         Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, StructTracerState::Start) {
-            fail!("Incomplete struct in schema tracing");
-        }
-
-        for tracer in &mut self.field_tracers {
-            tracer.finish()?;
-        }
-
-        self.finished = true;
-
-        Ok(())
+        StructTracer::finish(self)
     }
 }
 
 pub struct TupleTracer {
-    pub field_tracers: Vec<Tracer>,
+    pub field_tracers: Vec<SamplesTracer>,
     pub nullable: bool,
     pub next: TupleTracerState,
-    pub finished: bool,
     pub path: String,
     pub options: TracingOptions,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TupleTracerState {
+    WaitForStart,
+    WaitForItem(usize),
+    Item(usize, usize),
+    Finished,
 }
 
 impl TupleTracer {
@@ -520,12 +410,11 @@ impl TupleTracer {
             field_tracers: Vec::new(),
             nullable,
             next: TupleTracerState::WaitForStart,
-            finished: false,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
+        if !matches!(self.next, TupleTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -538,22 +427,37 @@ impl TupleTracer {
         Ok(field)
     }
 
-    fn field_tracer(&mut self, idx: usize) -> &mut Tracer {
+    fn field_tracer(&mut self, idx: usize) -> &mut SamplesTracer {
         while self.field_tracers.len() <= idx {
-            self.field_tracers.push(Tracer::new(
+            self.field_tracers.push(SamplesTracer::new(
                 format!("{path}.{idx}", path = self.path),
                 self.options.clone(),
             ));
         }
         &mut self.field_tracers[idx]
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-pub enum TupleTracerState {
-    WaitForStart,
-    WaitForItem(usize),
-    Item(usize, usize),
+    pub fn reset(&mut self) -> Result<()> {
+        if !matches!(self.next, TupleTracerState::Finished) {
+            fail!("Cannot reset unfinished tuple tracer");
+        }
+        for tracer in &mut self.field_tracers {
+            tracer.reset()?;
+        }
+        self.next = TupleTracerState::WaitForStart;
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        if !matches!(self.next, TupleTracerState::WaitForStart) {
+            fail!("Incomplete tuple in schema tracing");
+        }
+        for tracer in &mut self.field_tracers {
+            tracer.finish()?;
+        }
+        self.next = TupleTracerState::Finished;
+        Ok(())
+    }
 }
 
 impl EventSink for TupleTracer {
@@ -607,27 +511,20 @@ impl EventSink for TupleTracer {
                     _ => Item(field, depth),
                 }
             }
+            (Finished, ev) => fail!("finished tuple tracer cannot handle event {ev}"),
         };
         Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, TupleTracerState::WaitForStart) {
-            fail!("Incomplete tuple in schema tracing");
-        }
-        for tracer in &mut self.field_tracers {
-            tracer.finish()?;
-        }
-        self.finished = true;
-        Ok(())
+        TupleTracer::finish(self)
     }
 }
 
 pub struct ListTracer {
-    pub item_tracer: Box<Tracer>,
+    pub item_tracer: Box<SamplesTracer>,
     pub nullable: bool,
-    pub next: ListTracerState,
-    pub finished: bool,
+    pub state: ListTracerState,
     pub path: String,
 }
 
@@ -635,22 +532,22 @@ pub struct ListTracer {
 pub enum ListTracerState {
     WaitForStart,
     WaitForItem,
-    Item(usize),
+    InItem(usize),
+    Finished,
 }
 
 impl ListTracer {
     pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
             path: path.clone(),
-            item_tracer: Box::new(Tracer::new(path, options)),
+            item_tracer: Box::new(SamplesTracer::new(path, options)),
             nullable,
-            next: ListTracerState::WaitForStart,
-            finished: false,
+            state: ListTracerState::WaitForStart,
         }
     }
 
-    fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !matches!(self.state, ListTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -658,6 +555,24 @@ impl ListTracer {
         field.children.push(self.item_tracer.to_field("element")?);
 
         Ok(field)
+    }
+
+    pub fn reset(&mut self) -> Result<()> {
+        if !matches!(self.state, ListTracerState::Finished) {
+            fail!("Cannot reset unfinished list tracer");
+        }
+        self.item_tracer.reset()?;
+        self.state = ListTracerState::Finished;
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        if !matches!(self.state, ListTracerState::WaitForStart) {
+            fail!("Incomplete list in schema tracing");
+        }
+        self.item_tracer.finish()?;
+        self.state = ListTracerState::Finished;
+        Ok(())
     }
 }
 
@@ -667,19 +582,19 @@ impl EventSink for ListTracer {
     fn accept(&mut self, event: Event<'_>) -> Result<()> {
         use {Event as E, ListTracerState as S};
 
-        self.next = match (self.next, event) {
+        self.state = match (self.state, event) {
             (S::WaitForStart, E::Null | E::Some) => {
                 self.nullable = true;
                 S::WaitForStart
             }
             (S::WaitForStart, E::StartSequence) => S::WaitForItem,
             (S::WaitForItem, E::EndSequence) => S::WaitForStart,
-            (S::WaitForItem, E::Item) => S::Item(0),
-            (S::Item(depth), ev) if ev.is_start() => {
+            (S::WaitForItem, E::Item) => S::InItem(0),
+            (S::InItem(depth), ev) if ev.is_start() => {
                 self.item_tracer.accept(ev)?;
-                S::Item(depth + 1)
+                S::InItem(depth + 1)
             }
-            (S::Item(depth), ev) if ev.is_end() => match depth {
+            (S::InItem(depth), ev) if ev.is_end() => match depth {
                 0 => fail!(
                     "Invalid event {ev} for list tracer ({path}) in state Item(0)",
                     path = self.path
@@ -690,16 +605,16 @@ impl EventSink for ListTracer {
                 }
                 depth => {
                     self.item_tracer.accept(ev)?;
-                    S::Item(depth - 1)
+                    S::InItem(depth - 1)
                 }
             },
-            (S::Item(0), ev) if ev.is_value() => {
+            (S::InItem(0), ev) if ev.is_value() => {
                 self.item_tracer.accept(ev)?;
                 S::WaitForItem
             }
-            (S::Item(depth), ev) => {
+            (S::InItem(depth), ev) => {
                 self.item_tracer.accept(ev)?;
-                S::Item(depth)
+                S::InItem(depth)
             }
             (state, ev) => fail!(
                 "Invalid event {ev} for list tracer ({path}) in state {state:?}",
@@ -710,23 +625,24 @@ impl EventSink for ListTracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        if !matches!(self.next, ListTracerState::WaitForStart) {
-            fail!("Incomplete list in schema tracing");
-        }
-        self.item_tracer.finish()?;
-        self.finished = true;
-        Ok(())
+        ListTracer::finish(self)
     }
 }
 
 pub struct UnionTracer {
     pub variants: Vec<Option<String>>,
-    pub tracers: BTreeMap<usize, Tracer>,
+    pub tracers: BTreeMap<usize, SamplesTracer>,
     pub nullable: bool,
     pub next: UnionTracerState,
-    pub finished: bool,
     pub path: String,
     pub options: TracingOptions,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum UnionTracerState {
+    Inactive,
+    Active(usize, usize),
+    Finished,
 }
 
 impl UnionTracer {
@@ -738,12 +654,11 @@ impl UnionTracer {
             tracers: BTreeMap::new(),
             nullable,
             next: UnionTracerState::Inactive,
-            finished: false,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
+        if !matches!(self.next, UnionTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -779,7 +694,7 @@ impl UnionTracer {
         }
 
         self.tracers.entry(idx).or_insert_with(|| {
-            Tracer::new(
+            SamplesTracer::new(
                 format!("{path}.{key}", path = self.path, key = variant.as_ref()),
                 self.options.clone(),
             )
@@ -793,6 +708,26 @@ impl UnionTracer {
         } else {
             self.variants[idx] = Some(variant.into());
         }
+        Ok(())
+    }
+
+    pub fn reset(&mut self) -> Result<()> {
+        if !matches!(self.next, UnionTracerState::Finished) {
+            fail!("Cannot reset unfinished union tracer");
+        }
+        for tracer in self.tracers.values_mut() {
+            tracer.reset()?;
+        }
+        self.next = UnionTracerState::Inactive;
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        // TODO: fix me
+        for tracer in self.tracers.values_mut() {
+            tracer.finish()?;
+        }
+        self.next = UnionTracerState::Finished;
         Ok(())
     }
 }
@@ -846,48 +781,45 @@ impl EventSink for UnionTracer {
                 }
                 _ => unreachable!(),
             },
+            S::Finished => fail!("finished union tracer cannot handle event"),
         };
         Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {
-        for tracer in self.tracers.values_mut() {
-            tracer.finish()?;
-        }
-        self.finished = true;
-        Ok(())
+        UnionTracer::finish(self)
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum UnionTracerState {
-    Inactive,
-    Active(usize, usize),
 }
 
 pub struct MapTracer {
     pub path: String,
-    pub key: Box<Tracer>,
-    pub value: Box<Tracer>,
+    pub key: Box<SamplesTracer>,
+    pub value: Box<SamplesTracer>,
     pub nullable: bool,
-    pub finished: bool,
     next: MapTracerState,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MapTracerState {
+    Start,
+    Key(usize),
+    Value(usize),
+    Finished,
 }
 
 impl MapTracer {
     pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
             nullable,
-            key: Box::new(Tracer::new(format!("{path}.$key"), options.clone())),
-            value: Box::new(Tracer::new(format!("{path}.$value"), options)),
+            key: Box::new(SamplesTracer::new(format!("{path}.$key"), options.clone())),
+            value: Box::new(SamplesTracer::new(format!("{path}.$value"), options)),
             next: MapTracerState::Start,
             path,
-            finished: true,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !self.finished {
+        if !matches!(self.next, MapTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
@@ -899,6 +831,20 @@ impl MapTracer {
         field.children.push(entries);
 
         Ok(field)
+    }
+
+    pub fn reset(&mut self) -> Result<()> {
+        self.key.reset()?;
+        self.value.reset()?;
+        self.next = MapTracerState::Start;
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        self.key.finish()?;
+        self.value.finish()?;
+        self.next = MapTracerState::Finished;
+        Ok(())
     }
 }
 
@@ -984,72 +930,13 @@ impl EventSink for MapTracer {
                 }
                 _ => unreachable!(),
             },
+            S::Finished => fail!("Finished map tracer cannot handle event"),
         };
         Ok(())
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.key.finish()?;
-        self.value.finish()?;
-        self.finished = true;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MapTracerState {
-    Start,
-    Key(usize),
-    Value(usize),
-}
-
-pub struct PrimitiveTracer {
-    pub options: TracingOptions,
-    pub item_type: GenericDataType,
-    pub strategy: Option<Strategy>,
-    pub nullable: bool,
-    pub finished: bool,
-}
-
-impl PrimitiveTracer {
-    pub fn new(nullable: bool, options: TracingOptions) -> Self {
-        Self {
-            item_type: GenericDataType::Null,
-            strategy: None,
-            finished: false,
-            nullable,
-            options,
-        }
-    }
-
-    pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        type D = GenericDataType;
-
-        if !self.finished {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
-        if !self.options.allow_null_fields && matches!(self.item_type, D::Null) {
-            fail!(concat!(
-                "Encountered null only field. This error can be disabled by ",
-                "setting `allow_null_fields` to `true` in `TracingOptions`",
-            ));
-        }
-
-        match &self.item_type {
-            dt @ (D::LargeUtf8 | D::Utf8) => {
-                if !self.options.string_dictionary_encoding {
-                    Ok(GenericField::new(name, dt.clone(), self.nullable))
-                } else {
-                    let field = GenericField::new(name, D::Dictionary, self.nullable)
-                        .with_child(GenericField::new("key", D::U32, false))
-                        .with_child(GenericField::new("value", dt.clone(), false));
-                    Ok(field)
-                }
-            }
-            dt => Ok(GenericField::new(name, dt.clone(), self.nullable)
-                .with_optional_strategy(self.strategy.clone())),
-        }
+        MapTracer::finish(self)
     }
 }
 
@@ -1130,8 +1017,7 @@ impl EventSink for PrimitiveTracer {
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.finished = true;
-        Ok(())
+        PrimitiveTracer::finish(self)
     }
 }
 
