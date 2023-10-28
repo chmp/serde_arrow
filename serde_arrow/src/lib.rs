@@ -261,5 +261,5 @@ pub mod schema {
 ///
 #[deny(missing_docs)]
 pub mod experimental {
-    pub use crate::internal::{configure, Configuration};
+    pub use crate::internal::config::{configure, Configuration};
 }

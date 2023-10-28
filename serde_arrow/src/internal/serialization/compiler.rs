@@ -3,7 +3,7 @@ use crate::internal::{
     error::Result,
     error::{error, fail},
     schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy},
-    CONFIGURATION,
+    config::CONFIGURATION,
 };
 
 use super::{

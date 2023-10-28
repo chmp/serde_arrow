@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     common::{define_bytecode, ArrayMapping, Buffers, DictionaryIndex, DictionaryValue},
-    CONFIGURATION,
+    config::CONFIGURATION,
 };
 
 use half::f16;

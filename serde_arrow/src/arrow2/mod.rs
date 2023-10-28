@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        self,
+        generic,
         error::Result,
         schema::GenericField,
         serialization::{compile_serialization, CompilationOptions, Interpreter},
@@ -271,7 +271,7 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array> + 'de + ?Sized,
 {
-    internal::deserialize_from_array(field, array.as_ref())
+    generic::deserialize_from_array(field, array.as_ref())
 }
 
 /// Build a single array item by item
@@ -295,7 +295,7 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
-pub struct ArrayBuilder(internal::GenericBuilder);
+pub struct ArrayBuilder(generic::GenericBuilder);
 
 impl ArrayBuilder {
     /// Construct a new build for the given field
@@ -303,7 +303,7 @@ impl ArrayBuilder {
     /// This method may fail for an unsupported data type of the given field.
     ///
     pub fn new(field: &Field) -> Result<Self> {
-        Ok(Self(internal::GenericBuilder::new_for_array(
+        Ok(Self(generic::GenericBuilder::new_for_array(
             GenericField::try_from(field)?,
         )?))
     }
@@ -366,7 +366,7 @@ impl ArrayBuilder {
 /// assert_eq!(arrays.len(), 2);
 /// assert_eq!(arrays[0].len(), 6);
 /// ```
-pub struct ArraysBuilder(internal::GenericBuilder);
+pub struct ArraysBuilder(generic::GenericBuilder);
 
 impl std::fmt::Debug for ArraysBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -385,7 +385,7 @@ impl ArraysBuilder {
             .iter()
             .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self(internal::GenericBuilder::new_for_arrays(&fields)?))
+        Ok(Self(generic::GenericBuilder::new_for_arrays(&fields)?))
     }
 
     /// Add a single record to the arrays
