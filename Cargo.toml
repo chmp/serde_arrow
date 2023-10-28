@@ -3,3 +3,5 @@ members = [
     "serde_arrow",
     "example",
 ]
+
+resolver = "2"
