@@ -4,33 +4,25 @@ use serde::{
 };
 
 use crate::internal::{
-    fail,
-    schema::GenericField,
-    tracing::{
-        tracer::{StructField, Tracer},
-        TracingOptions,
-    },
-    Error, Result,
+    error::{fail, Error, Result},
+    tracing::tracer::{StructField, Tracer},
 };
 
-pub fn trace_type<'de, T: Deserialize<'de>>(
-    options: TracingOptions,
-    name: &str,
-) -> Result<GenericField> {
-    let mut tracer = Tracer::new(String::from("$"), options);
-
-    // TODO: make configurable
-    let mut attempts = 100;
-    while !tracer.is_complete() {
-        if attempts == 0 {
-            fail!("could not determine ...")
+impl Tracer {
+    pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
+        // TODO: make configurable
+        let mut attempts = 100;
+        while !self.is_complete() {
+            if attempts == 0 {
+                fail!("could not determine ...")
+            }
+            T::deserialize(TraceAny(&mut *self))?;
+            attempts -= 1;
         }
-        T::deserialize(TraceAny(&mut tracer))?;
-        attempts -= 1;
-    }
 
-    tracer.finish()?;
-    tracer.to_field(name)
+        self.finish()?;
+        Ok(())
+    }
 }
 
 struct TraceAny<'a>(&'a mut Tracer);
@@ -455,175 +447,172 @@ impl<'de, 'a> serde::de::Deserializer<'de> for IdentifierDeserializer<'a> {
     unimplemented!('de, deserialize_ignored_any);
 }
 
-#[test]
-fn trace_primitives() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
 
-    assert_eq!(
-        trace_type::<i8>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I8, false)
-    );
-    assert_eq!(
-        trace_type::<i16>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I16, false)
-    );
-    assert_eq!(
-        trace_type::<i32>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I32, false)
-    );
-    assert_eq!(
-        trace_type::<i64>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I64, false)
-    );
+    use serde::Deserialize;
 
-    assert_eq!(
-        trace_type::<u8>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::U8, false)
-    );
-    assert_eq!(
-        trace_type::<u16>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::U16, false)
-    );
-    assert_eq!(
-        trace_type::<u32>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::U32, false)
-    );
-    assert_eq!(
-        trace_type::<u64>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::U64, false)
-    );
-
-    assert_eq!(
-        trace_type::<f32>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::F32, false)
-    );
-    assert_eq!(
-        trace_type::<f64>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::F64, false)
-    );
-}
-
-#[test]
-fn trace_option() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    assert_eq!(
-        trace_type::<i8>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I8, false)
-    );
-    assert_eq!(
-        trace_type::<Option<i8>>(TracingOptions::default(), "root").unwrap(),
-        F::new("root", T::I8, true)
-    );
-}
-
-#[test]
-fn trace_struct() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    #[allow(dead_code)]
-    #[derive(Deserialize)]
-    struct Example {
-        a: bool,
-        b: Option<i8>,
-    }
-
-    let actual = trace_type::<Example>(TracingOptions::default(), "root").unwrap();
-    let expected = F::new("root", T::Struct, false)
-        .with_child(F::new("a", T::Bool, false))
-        .with_child(F::new("b", T::I8, true));
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn trace_tuple_as_struct() {
-    use {
-        crate::internal::schema::GenericDataType as T, crate::internal::schema::Strategy,
-        GenericField as F,
+    use crate::internal::{
+        schema::{GenericDataType as T, GenericField as F, Strategy},
+        tracing::{TracedSchema, TracingOptions},
     };
 
-    let actual = trace_type::<(bool, Option<i8>)>(TracingOptions::default(), "root").unwrap();
-    let expected = F::new("root", T::Struct, false)
-        .with_child(F::new("0", T::Bool, false))
-        .with_child(F::new("1", T::I8, true))
-        .with_strategy(Strategy::TupleAsStruct);
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn trace_union() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    #[allow(dead_code)]
-    #[derive(Deserialize)]
-    enum Example {
-        A(i8),
-        B(f32),
+    fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
+        let mut schema = TracedSchema::new(options);
+        schema.trace_type::<T>().unwrap();
+        schema.to_field("root").unwrap()
     }
 
-    let actual = trace_type::<Example>(TracingOptions::default(), "root").unwrap();
-    let expected = F::new("root", T::Union, false)
-        .with_child(F::new("A", T::I8, false))
-        .with_child(F::new("B", T::F32, false));
+    #[test]
+    fn trace_primitives() {
+        assert_eq!(
+            trace_type::<i8>(TracingOptions::default()),
+            F::new("root", T::I8, false)
+        );
+        assert_eq!(
+            trace_type::<i16>(TracingOptions::default()),
+            F::new("root", T::I16, false)
+        );
+        assert_eq!(
+            trace_type::<i32>(TracingOptions::default()),
+            F::new("root", T::I32, false)
+        );
+        assert_eq!(
+            trace_type::<i64>(TracingOptions::default()),
+            F::new("root", T::I64, false)
+        );
 
-    assert_eq!(actual, expected);
-}
+        assert_eq!(
+            trace_type::<u8>(TracingOptions::default()),
+            F::new("root", T::U8, false)
+        );
+        assert_eq!(
+            trace_type::<u16>(TracingOptions::default()),
+            F::new("root", T::U16, false)
+        );
+        assert_eq!(
+            trace_type::<u32>(TracingOptions::default()),
+            F::new("root", T::U32, false)
+        );
+        assert_eq!(
+            trace_type::<u64>(TracingOptions::default()),
+            F::new("root", T::U64, false)
+        );
 
-#[test]
-fn trace_list() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    let actual = trace_type::<Vec<String>>(TracingOptions::default(), "root").unwrap();
-    let expected =
-        F::new("root", T::LargeList, false).with_child(F::new("element", T::LargeUtf8, false));
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn trace_map() {
-    use std::collections::HashMap;
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    let actual =
-        trace_type::<HashMap<i8, String>>(TracingOptions::default().map_as_struct(false), "root")
-            .unwrap();
-    let expected = F::new("root", T::Map, false).with_child(
-        F::new("entries", T::Struct, false)
-            .with_child(F::new("key", T::I8, false))
-            .with_child(F::new("value", T::LargeUtf8, false)),
-    );
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn issue_90() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
-
-    #[derive(Deserialize)]
-    pub struct Distribution {
-        pub samples: Vec<f64>,
-        pub statistic: String,
+        assert_eq!(
+            trace_type::<f32>(TracingOptions::default()),
+            F::new("root", T::F32, false)
+        );
+        assert_eq!(
+            trace_type::<f64>(TracingOptions::default()),
+            F::new("root", T::F64, false)
+        );
     }
 
-    #[derive(Deserialize)]
-    pub struct VectorMetric {
-        pub distribution: Option<Distribution>,
+    #[test]
+    fn trace_option() {
+        assert_eq!(
+            trace_type::<i8>(TracingOptions::default()),
+            F::new("root", T::I8, false)
+        );
+        assert_eq!(
+            trace_type::<Option<i8>>(TracingOptions::default()),
+            F::new("root", T::I8, true)
+        );
     }
 
-    let actual = trace_type::<VectorMetric>(TracingOptions::default(), "root").unwrap();
-    let expected = F::new("root", T::Struct, false).with_child(
-        F::new("distribution", T::Struct, true)
-            .with_child(F::new("samples", T::LargeList, false).with_child(F::new(
-                "element",
-                T::F64,
-                false,
-            )))
-            .with_child(F::new("statistic", T::LargeUtf8, false)),
-    );
+    #[test]
+    fn trace_struct() {
+        #[allow(dead_code)]
+        #[derive(Deserialize)]
+        struct Example {
+            a: bool,
+            b: Option<i8>,
+        }
 
-    assert_eq!(actual, expected);
+        let actual = trace_type::<Example>(TracingOptions::default());
+        let expected = F::new("root", T::Struct, false)
+            .with_child(F::new("a", T::Bool, false))
+            .with_child(F::new("b", T::I8, true));
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trace_tuple_as_struct() {
+        let actual = trace_type::<(bool, Option<i8>)>(TracingOptions::default());
+        let expected = F::new("root", T::Struct, false)
+            .with_child(F::new("0", T::Bool, false))
+            .with_child(F::new("1", T::I8, true))
+            .with_strategy(Strategy::TupleAsStruct);
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trace_union() {
+        #[allow(dead_code)]
+        #[derive(Deserialize)]
+        enum Example {
+            A(i8),
+            B(f32),
+        }
+
+        let actual = trace_type::<Example>(TracingOptions::default());
+        let expected = F::new("root", T::Union, false)
+            .with_child(F::new("A", T::I8, false))
+            .with_child(F::new("B", T::F32, false));
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trace_list() {
+        let actual = trace_type::<Vec<String>>(TracingOptions::default());
+        let expected =
+            F::new("root", T::LargeList, false).with_child(F::new("element", T::LargeUtf8, false));
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trace_map() {
+        let actual =
+            trace_type::<HashMap<i8, String>>(TracingOptions::default().map_as_struct(false));
+        let expected = F::new("root", T::Map, false).with_child(
+            F::new("entries", T::Struct, false)
+                .with_child(F::new("key", T::I8, false))
+                .with_child(F::new("value", T::LargeUtf8, false)),
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn issue_90() {
+        #[derive(Deserialize)]
+        pub struct Distribution {
+            pub samples: Vec<f64>,
+            pub statistic: String,
+        }
+
+        #[derive(Deserialize)]
+        pub struct VectorMetric {
+            pub distribution: Option<Distribution>,
+        }
+
+        let actual = trace_type::<VectorMetric>(TracingOptions::default());
+        let expected = F::new("root", T::Struct, false).with_child(
+            F::new("distribution", T::Struct, true)
+                .with_child(F::new("samples", T::LargeList, false).with_child(F::new(
+                    "element",
+                    T::F64,
+                    false,
+                )))
+                .with_child(F::new("statistic", T::LargeUtf8, false)),
+        );
+
+        assert_eq!(actual, expected);
+    }
 }

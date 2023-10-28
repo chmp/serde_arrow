@@ -4,10 +4,12 @@ pub mod types;
 
 use serde::{Deserialize, Serialize};
 
-use crate::internal::{schema::Schema, Result};
+use crate::internal::{
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, Schema},
+};
 
 pub use tracer::Tracer;
-pub use types::trace_type;
 
 /// Configure how the schema is traced
 ///
@@ -43,7 +45,7 @@ pub struct TracingOptions {
     pub allow_null_fields: bool,
 
     /// If `true` serialize maps as structs (the default). See
-    /// [`Strategy::MapAsStruct`] for details.
+    /// [`Strategy::MapAsStruct`][crate::schema::Strategy] for details.
     pub map_as_struct: bool,
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
@@ -73,8 +75,8 @@ pub struct TracingOptions {
     ///
     /// For string fields where all values are either missing or conform to one
     /// of the format the data type is set as `Date64` with strategy
-    /// [`NaiveStrAsDate64`][Strategy::NaiveStrAsDate64] or
-    /// [`UtcStrAsDate64`][Strategy::UtcStrAsDate64].    
+    /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
+    /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
     pub try_parse_dates: bool,
 }
 
@@ -126,28 +128,52 @@ impl TracingOptions {
     }
 }
 
-pub struct TracedSchema {}
-
-impl TracedSchema {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn get_schema(&self) -> Result<Schema> {
-        todo!()
-    }
-
-    // TODO: add  get_arrow2_fields
-    // TODO: add  get_arrow_fields
+/// Collect schema information from samples and types
+pub struct TracedSchema {
+    tracer: Tracer,
 }
 
 impl TracedSchema {
-    pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
-        todo!()
+    /// Construct a new instance with the given options
+    pub fn new(options: TracingOptions) -> Self {
+        Self {
+            tracer: Tracer::new(String::from("$"), options),
+        }
     }
 
+    pub(crate) fn to_field(&self, name: &str) -> Result<GenericField> {
+        self.tracer.to_field(name)
+    }
+
+    pub(crate) fn to_fields(&self) -> Result<Vec<GenericField>> {
+        let root = self.tracer.to_field("root")?;
+
+        match root.data_type {
+            GenericDataType::Struct => Ok(root.children),
+            GenericDataType::Null => fail!("No records found to determine schema"),
+            dt => fail!("Unexpected root data type {dt:?}"),
+        }
+    }
+
+    /// Convert the traced schema into a schema object
+    pub fn to_schema(&self) -> Result<Schema> {
+        Ok(Schema {
+            fields: self.to_fields()?,
+        })
+    }
+}
+
+impl TracedSchema {
+    /// Trace the given samples and collect schema information
+    pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
+        self.tracer.reset()?;
+        self.tracer.trace_samples(samples)
+    }
+
+    /// Trace the given type and collect schema information
     pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
-        todo!()
+        self.tracer.reset()?;
+        self.tracer.trace_type::<T>()
     }
 }
 

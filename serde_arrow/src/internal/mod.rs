@@ -15,11 +15,10 @@ use serde::{Deserialize, Serialize};
 
 use self::{
     common::{BufferExtract, Buffers},
-    error::{fail, Error, Result},
-    schema::{GenericDataType, GenericField},
-    sink::{serialize_into_sink, EventSerializer, EventSink, StripOuterSequenceSink},
+    error::{Error, Result},
+    schema::GenericField,
+    sink::{serialize_into_sink, EventSerializer, EventSink},
     source::deserialize_from_source,
-    tracing::{trace_type, Tracer, TracingOptions},
 };
 
 pub static CONFIGURATION: RwLock<Configuration> = RwLock::new(Configuration {
@@ -51,41 +50,6 @@ pub struct Configuration {
 pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
     let mut guard = CONFIGURATION.write().unwrap();
     f(&mut guard)
-}
-
-pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<GenericField>>
-where
-    T: Serialize + ?Sized,
-{
-    let tracer = Tracer::new(String::from("$"), options);
-    let mut tracer = StripOuterSequenceSink::new(tracer);
-    serialize_into_sink(&mut tracer, items)?;
-    let root = tracer.into_inner().to_field("root")?;
-
-    match root.data_type {
-        GenericDataType::Struct => {}
-        GenericDataType::Null => fail!("No records found to determine schema"),
-        dt => fail!("Unexpected root data type {dt:?}"),
-    };
-
-    Ok(root.children)
-}
-
-pub fn serialize_into_field<T>(
-    items: &T,
-    name: &str,
-    options: TracingOptions,
-) -> Result<GenericField>
-where
-    T: Serialize + ?Sized,
-{
-    let tracer = Tracer::new(String::from("$"), options);
-    let tracer = StripOuterSequenceSink::new(tracer);
-    let mut tracer = tracer;
-    serialize_into_sink(&mut tracer, items)?;
-
-    let field = tracer.into_inner().to_field(name)?;
-    Ok(field)
 }
 
 pub struct GenericBuilder(pub serialization::Interpreter);

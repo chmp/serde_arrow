@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use crate::internal::{
     error::{fail, Result},
     event::Event,
     schema::{GenericDataType, Strategy},
     sink::macros,
-    sink::EventSink,
+    sink::{serialize_into_sink, EventSink, StripOuterSequenceSink},
     tracing::tracer::{
         ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
         StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
@@ -13,6 +15,25 @@ use crate::internal::{
     },
     tracing::TracingOptions,
 };
+
+impl Tracer {
+    pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
+        let mut tracer = StripOuterSequenceSink::new(&mut *self);
+        serialize_into_sink(&mut tracer, samples)
+    }
+}
+
+impl<'a> EventSink for &'a mut Tracer {
+    macros::forward_specialized_to_generic!();
+
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        (*self).accept(event)
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        (*self).finish()
+    }
+}
 
 impl EventSink for Tracer {
     macros::forward_specialized_to_generic!();

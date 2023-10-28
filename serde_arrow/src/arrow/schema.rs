@@ -4,6 +4,7 @@ use crate::{
     internal::{
         error::{error, fail, Error, Result},
         schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
+        tracing::TracedSchema,
     },
 };
 
@@ -22,6 +23,14 @@ impl Schema {
     /// Build a vec of fields from a  Schema object
     pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
         self.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+/// Support for arrow types (requires one of the `arrow-*` features)
+impl TracedSchema {
+    /// Build a vec of fields from a  TracedSchema object
+    pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
+        self.to_fields()?.iter().map(Field::try_from).collect()
     }
 }
 

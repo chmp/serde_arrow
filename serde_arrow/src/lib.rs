@@ -9,8 +9,7 @@
 //! as easy as using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-//! supports both.
+//! in-memory format, [`arrow`][] and [`arrow2`][]. `serde_arrow` supports both.
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow. The
 //! schema is expressed as Arrow fields and describes the schema of the arrays.
@@ -250,15 +249,17 @@ pub use crate::internal::error::{Error, Result};
 /// # #[cfg(not(feature="arrow2"))]
 /// # fn main() {}
 /// ```
+#[deny(missing_docs)]
 pub mod schema {
     pub use crate::internal::{
         schema::{Schema, Strategy, STRATEGY_KEY},
-        tracing::TracingOptions,
+        tracing::{TracedSchema, TracingOptions},
     };
 }
 
 /// Experimental functionality that is not bound by semver compatibility
 ///
+#[deny(missing_docs)]
 pub mod experimental {
     pub use crate::internal::{configure, Configuration};
 }

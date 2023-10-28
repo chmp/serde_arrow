@@ -22,7 +22,7 @@ use crate::{
         serialization::{compile_serialization, CompilationOptions, Interpreter},
         sink::serialize_into_sink,
         source::deserialize_from_source,
-        tracing::TracingOptions,
+        tracing::{TracedSchema, TracingOptions},
     },
 };
 
@@ -70,10 +70,9 @@ pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Ve
 where
     T: Serialize + ?Sized,
 {
-    internal::serialize_into_fields(items, options)?
-        .iter()
-        .map(|f| f.try_into())
-        .collect()
+    let mut schema = TracedSchema::new(options);
+    schema.trace_samples(items)?;
+    schema.to_arrow2_fields()
 }
 
 /// Build arrays from the given items
@@ -209,8 +208,10 @@ pub fn serialize_into_field<T>(items: &T, name: &str, options: TracingOptions) -
 where
     T: Serialize + ?Sized,
 {
-    let field = internal::serialize_into_field(items, name, options)?;
-    (&field).try_into()
+    let mut schema = TracedSchema::new(options);
+    schema.trace_samples(items)?;
+    let field = schema.to_field(name)?;
+    Field::try_from(&field)
 }
 
 /// Serialize a sequence of objects representing a single array into an array

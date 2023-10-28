@@ -64,10 +64,6 @@ impl Tracer {
         dispatch_tracer!(self, tracer => tracer.to_field(name))
     }
 
-    pub fn get_depth(&self) -> usize {
-        self.get_path().chars().filter(|c| *c == '.').count()
-    }
-
     pub fn get_options(&self) -> &TracingOptions {
         dispatch_tracer!(self, tracer => &tracer.options)
     }
@@ -345,9 +341,6 @@ impl UnknownTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, UnknownTracerState::Finished) {
-            fail!("cannot reset an unfinished tracer");
-        }
         self.state = UnknownTracerState::Unfinished;
         Ok(())
     }
@@ -433,13 +426,25 @@ impl MapTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        self.key_tracer.reset()?;
-        self.value_tracer.reset()?;
-        self.state = MapTracerState::WaitForKey;
-        Ok(())
+        match self.state {
+            MapTracerState::WaitForKey | MapTracerState::Finished => {
+                self.key_tracer.reset()?;
+                self.value_tracer.reset()?;
+                self.state = MapTracerState::WaitForKey;
+                Ok(())
+            }
+            state => fail!("Cannot reset map tracer in state {state:?}"),
+        }
     }
 
     pub fn finish(&mut self) -> Result<()> {
+        if !matches!(self.state, MapTracerState::WaitForKey) {
+            fail!(
+                "Cannot finish map tracer in state {state:?}",
+                state = self.state
+            );
+        }
+
         self.key_tracer.finish()?;
         self.value_tracer.finish()?;
         self.state = MapTracerState::Finished;
@@ -499,12 +504,14 @@ impl ListTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, ListTracerState::Finished) {
-            fail!("Cannot reset unfinished list tracer");
+        match self.state {
+            ListTracerState::WaitForStart | ListTracerState::Finished => {
+                self.item_tracer.reset()?;
+                self.state = ListTracerState::Finished;
+                Ok(())
+            }
+            state => fail!("cannot reset list tracer in {state:?}"),
         }
-        self.item_tracer.reset()?;
-        self.state = ListTracerState::Finished;
-        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -574,14 +581,16 @@ impl TupleTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, TupleTracerState::Finished) {
-            fail!("Cannot reset unfinished tuple tracer");
+        match self.state {
+            TupleTracerState::WaitForStart | TupleTracerState::Finished => {
+                for tracer in &mut self.field_tracers {
+                    tracer.reset()?;
+                }
+                self.state = TupleTracerState::WaitForStart;
+                Ok(())
+            }
+            state => fail!("Cannot reset tuple tracer in state {state:?}"),
         }
-        for tracer in &mut self.field_tracers {
-            tracer.reset()?;
-        }
-        self.state = TupleTracerState::WaitForStart;
-        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -673,15 +682,17 @@ impl StructTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, StructTracerState::Finished) {
-            fail!("Cannot reset unfinished tracer");
-        }
-        for field in &mut self.fields {
-            field.tracer.reset()?;
-        }
+        match self.state {
+            StructTracerState::WaitForKey | StructTracerState::Finished => {
+                for field in &mut self.fields {
+                    field.tracer.reset()?;
+                }
 
-        self.state = StructTracerState::WaitForKey;
-        Ok(())
+                self.state = StructTracerState::WaitForKey;
+                Ok(())
+            }
+            state => fail!("Cannot unfinished tracer in state {state:?}"),
+        }
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -801,17 +812,19 @@ impl UnionTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, UnionTracerState::Finished) {
-            fail!("Cannot reset unfinished union tracer");
+        match self.state {
+            UnionTracerState::WaitForVariant | UnionTracerState::Finished => {
+                for variant in &mut self.variants {
+                    let Some(variant) = variant.as_mut() else {
+                        continue;
+                    };
+                    variant.tracer.reset()?;
+                }
+                self.state = UnionTracerState::WaitForVariant;
+                Ok(())
+            }
+            state => fail!("Cannot reset union tracer in state {state:?}"),
         }
-        for variant in &mut self.variants {
-            let Some(variant) = variant.as_mut() else {
-                continue;
-            };
-            variant.tracer.reset()?;
-        }
-        self.state = UnionTracerState::WaitForVariant;
-        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -869,9 +882,6 @@ impl PrimitiveTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.state, PrimitiveTracerState::Finished) {
-            fail!("Cannot reset an unfished tracer");
-        }
         self.state = PrimitiveTracerState::Unfinished;
         Ok(())
     }

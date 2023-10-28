@@ -282,10 +282,10 @@ macro_rules! test_events {
                 let options = TracingOptions::default();
                 $(let options = $tracing_options;)?
 
-                let tracer = Tracer::new(String::from("$"), options);
-                let mut tracer = StripOuterSequenceSink::new(tracer);
-                accept_events(&mut tracer, events.iter().cloned()).unwrap();
-                let root = tracer.into_inner().to_field("root").unwrap();
+                let mut tracer = Tracer::new(String::from("$"), options);
+                let mut sink = StripOuterSequenceSink::new(&mut tracer);
+                accept_events(&mut sink, events.iter().cloned()).unwrap();
+                let root = tracer.to_field("root").unwrap();
 
                 assert_eq!(root.children, fields);
             }
