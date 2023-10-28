@@ -7,7 +7,7 @@ use crate::internal::{
     fail,
     schema::GenericField,
     tracing::{
-        tracer::{Field, Tracer},
+        tracer::{StructField, Tracer},
         TracingOptions,
     },
     Error, Result,
@@ -307,7 +307,7 @@ impl<'de, 'a> serde::de::SeqAccess<'de> for TraceTupleStruct<'a> {
 }
 
 struct TraceStruct<'a> {
-    fields: &'a mut [Field],
+    fields: &'a mut [StructField],
     pos: usize,
     names: &'static [&'static str],
 }
@@ -577,7 +577,7 @@ fn trace_list() {
 
     let actual = trace_type::<Vec<String>>(TracingOptions::default(), "root").unwrap();
     let expected =
-        F::new("root", T::LargeList, false).with_child(F::new("item", T::LargeUtf8, false));
+        F::new("root", T::LargeList, false).with_child(F::new("element", T::LargeUtf8, false));
 
     assert_eq!(actual, expected);
 }
@@ -590,9 +590,11 @@ fn trace_map() {
     let actual =
         trace_type::<HashMap<i8, String>>(TracingOptions::default().map_as_struct(false), "root")
             .unwrap();
-    let expected = F::new("root", T::Map, false)
-        .with_child(F::new("key", T::I8, false))
-        .with_child(F::new("value", T::LargeUtf8, false));
+    let expected = F::new("root", T::Map, false).with_child(
+        F::new("entries", T::Struct, false)
+            .with_child(F::new("key", T::I8, false))
+            .with_child(F::new("value", T::LargeUtf8, false)),
+    );
 
     assert_eq!(actual, expected);
 }
@@ -616,7 +618,7 @@ fn issue_90() {
     let expected = F::new("root", T::Struct, false).with_child(
         F::new("distribution", T::Struct, true)
             .with_child(F::new("samples", T::LargeList, false).with_child(F::new(
-                "item",
+                "element",
                 T::F64,
                 false,
             )))

@@ -269,7 +269,7 @@ macro_rules! test_events {
                 serialization::{compile_serialization, CompilationOptions, Interpreter},
                 event::Event,
                 schema::{GenericDataType, GenericField},
-                tracing::{SamplesTracer, TracingOptions},
+                tracing::{Tracer, TracingOptions},
                 sink::{accept_events, StripOuterSequenceSink},
             };
 
@@ -282,7 +282,7 @@ macro_rules! test_events {
                 let options = TracingOptions::default();
                 $(let options = $tracing_options;)?
 
-                let tracer = SamplesTracer::new(String::from("$"), options);
+                let tracer = Tracer::new(String::from("$"), options);
                 let mut tracer = StripOuterSequenceSink::new(tracer);
                 accept_events(&mut tracer, events.iter().cloned()).unwrap();
                 let root = tracer.into_inner().to_field("root").unwrap();

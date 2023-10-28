@@ -4,12 +4,9 @@ pub mod types;
 
 use serde::{Deserialize, Serialize};
 
-use crate::internal::{
-    schema::{GenericField, Schema},
-    Result,
-};
+use crate::internal::{schema::Schema, Result};
 
-pub use samples::SamplesTracer;
+pub use tracer::Tracer;
 pub use types::trace_type;
 
 /// Configure how the schema is traced
