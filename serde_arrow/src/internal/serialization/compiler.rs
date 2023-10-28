@@ -1,9 +1,9 @@
 use crate::internal::{
     common::{ArrayMapping, DictionaryIndex, DictionaryValue},
+    config::CONFIGURATION,
     error::Result,
     error::{error, fail},
     schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy},
-    config::CONFIGURATION,
 };
 
 use super::{

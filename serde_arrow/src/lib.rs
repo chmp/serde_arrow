@@ -253,7 +253,7 @@ pub use crate::internal::error::{Error, Result};
 pub mod schema {
     pub use crate::internal::{
         schema::{Schema, Strategy, STRATEGY_KEY},
-        tracing::{TracedSchema, TracingOptions},
+        tracing::{SchemaTracer, TracingOptions},
     };
 }
 

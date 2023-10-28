@@ -2,14 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::internal::{
     common::{BufferExtract, Buffers},
+    deserialization,
     error::{Error, Result},
     schema::GenericField,
+    serialization,
     sink::{serialize_into_sink, EventSerializer, EventSink},
     source::deserialize_from_source,
-    serialization,
-    deserialization,
 };
-
 
 pub struct GenericBuilder(pub serialization::Interpreter);
 

@@ -15,6 +15,23 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
 /// A collection of fields that can be easily serialized and deserialized
 ///
+/// ```rust
+/// # use serde_arrow::schema::Schema;
+/// let schema_json = r#"
+/// [
+///     {
+///         "name": "date",
+///         "data_type": "Date64",
+///         "strategy": "NaiveStrAsDate64"
+///     },
+///     {"name":"foo","data_type":"U8"},
+///     {"name":"bar","data_type":"Utf8"}
+/// ]
+/// "#;
+///
+/// let schema: Schema = serde_json::from_str(&schema_json).unwrap();
+/// ```
+///
 /// The serialization format is designed to be as easy as possible to to write
 /// by hand. The schema can be given in two ways:
 ///

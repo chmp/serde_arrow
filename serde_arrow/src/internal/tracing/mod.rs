@@ -129,11 +129,11 @@ impl TracingOptions {
 }
 
 /// Collect schema information from samples and types
-pub struct TracedSchema {
+pub struct SchemaTracer {
     tracer: Tracer,
 }
 
-impl TracedSchema {
+impl SchemaTracer {
     /// Construct a new instance with the given options
     pub fn new(options: TracingOptions) -> Self {
         Self {
@@ -163,7 +163,7 @@ impl TracedSchema {
     }
 }
 
-impl TracedSchema {
+impl SchemaTracer {
     /// Trace the given samples and collect schema information
     pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
         self.tracer.reset()?;

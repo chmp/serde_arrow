@@ -455,11 +455,11 @@ mod test {
 
     use crate::internal::{
         schema::{GenericDataType as T, GenericField as F, Strategy},
-        tracing::{TracedSchema, TracingOptions},
+        tracing::{SchemaTracer, TracingOptions},
     };
 
     fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
-        let mut schema = TracedSchema::new(options);
+        let mut schema = SchemaTracer::new(options);
         schema.trace_type::<T>().unwrap();
         schema.to_field("root").unwrap()
     }
