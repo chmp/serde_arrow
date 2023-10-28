@@ -1,5 +1,10 @@
 # Change log
 
+## 0.9.0
+
+- Remove `try_parse_dates` in favor of `guess_dates` field in `TracingOptions`
+- Add type based tracing to allow schema tracing without samples
+
 ## 0.8.0
 
 Make bytecode based serialization  and deserialization the default

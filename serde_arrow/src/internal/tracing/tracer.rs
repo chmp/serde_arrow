@@ -56,6 +56,10 @@ impl Tracer {
         dispatch_tracer!(self, tracer => tracer.get_type())
     }
 
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        dispatch_tracer!(self, tracer => tracer.get_strategy())
+    }
+
     pub fn get_nullable(&self) -> bool {
         dispatch_tracer!(self, tracer => tracer.nullable)
     }
@@ -114,7 +118,7 @@ impl Tracer {
                     nullable: this.get_nullable(),
                     mode: StructMode::Struct,
                     state: StructTracerState::WaitForKey,
-                    current_sample: 0,
+                    seen_samples: 0,
                 };
                 *this = Self::Struct(tracer);
                 Ok(())
@@ -249,6 +253,48 @@ impl Tracer {
     }
 }
 
+impl Tracer {
+    pub fn ensure_utf8(&mut self) -> Result<()> {
+        if self.is_unknown() {
+            let tracer = PrimitiveTracer::new(
+                self.get_path().to_owned(),
+                self.get_options().clone(),
+                GenericDataType::LargeUtf8,
+                self.get_nullable(),
+            );
+            *self = Self::Primitive(tracer);
+        }
+        self.ensure_utf8_type_compatible()
+    }
+
+    pub fn ensure_utf8_type_compatible(&self) -> Result<()> {
+        let Some(item_type) = self.get_type() else {
+            fail!("unknown tracer is not compatible with LargeUtf8");
+        };
+
+        let strategy = self.get_strategy();
+
+        let compatible = matches!(
+            (item_type, strategy),
+            (GenericDataType::LargeUtf8, None)
+                | (GenericDataType::Utf8, None)
+                | (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
+                | (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
+        );
+
+        if !compatible {
+            fail!(
+                "mismatched types, previous {:?} with strategy {:?}, current {:?}",
+                item_type,
+                strategy,
+                GenericDataType::LargeUtf8
+            );
+        }
+
+        Ok(())
+    }
+}
+
 macro_rules! impl_primitive_ensures {
     (
         $(
@@ -294,7 +340,6 @@ impl_primitive_ensures!(
     (ensure_u64, U64),
     (ensure_f32, F32),
     (ensure_f64, F64),
-    (ensure_utf8, LargeUtf8),
 );
 
 #[derive(Debug, PartialEq, Clone)]
@@ -353,6 +398,10 @@ impl UnknownTracer {
         Ok(())
     }
 
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        None
+    }
+
     pub fn get_path(&self) -> &str {
         &self.path
     }
@@ -396,6 +445,10 @@ impl MapTracer {
             state: MapTracerState::WaitForKey,
             path,
         }
+    }
+
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        None
     }
 
     pub fn get_path(&self) -> &str {
@@ -478,6 +531,10 @@ impl ListTracer {
             nullable,
             state: ListTracerState::WaitForStart,
         }
+    }
+
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        None
     }
 
     pub fn get_path(&self) -> &str {
@@ -580,6 +637,10 @@ impl TupleTracer {
         Some(&GenericDataType::Struct)
     }
 
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        Some(&Strategy::TupleAsStruct)
+    }
+
     pub fn reset(&mut self) -> Result<()> {
         match self.state {
             TupleTracerState::WaitForStart | TupleTracerState::Finished => {
@@ -624,7 +685,8 @@ pub struct StructTracer {
     pub index: HashMap<String, usize>,
     pub mode: StructMode,
     pub state: StructTracerState,
-    pub current_sample: usize,
+    /// Count how many samples were seen by this tracer
+    pub seen_samples: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -655,6 +717,13 @@ pub enum StructTracerState {
 impl StructTracer {
     pub fn get_path(&self) -> &str {
         &self.path
+    }
+
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        match self.mode {
+            StructMode::Struct => None,
+            StructMode::Map => Some(&Strategy::MapAsStruct),
+        }
     }
 
     pub fn is_complete(&self) -> bool {
@@ -791,6 +860,10 @@ impl UnionTracer {
         Some(&GenericDataType::Union)
     }
 
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        None
+    }
+
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
         if !matches!(self.state, UnionTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
@@ -848,6 +921,8 @@ pub struct PrimitiveTracer {
     pub strategy: Option<Strategy>,
     pub item_type: GenericDataType,
     pub state: PrimitiveTracerState,
+    /// Count how many samples were seen by this tracer
+    pub seen_samples: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -870,6 +945,7 @@ impl PrimitiveTracer {
             nullable,
             strategy: None,
             state: PrimitiveTracerState::Unfinished,
+            seen_samples: 0,
         }
     }
 
@@ -928,5 +1004,9 @@ impl PrimitiveTracer {
 
     pub fn get_type(&self) -> Option<&GenericDataType> {
         Some(&self.item_type)
+    }
+
+    pub fn get_strategy(&self) -> Option<&Strategy> {
+        self.strategy.as_ref()
     }
 }

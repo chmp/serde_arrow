@@ -240,3 +240,16 @@ test_example!(
     ],
     nulls = [false, false, false],
 );
+
+test_example!(
+    test_name = incompatible_date_formats,
+    test_bytecode_deserialization = true,
+    tracing_options = TracingOptions::default().guess_dates(true),
+    field = GenericField::new("root", GenericDataType::LargeUtf8, false),
+    ty = String,
+    values = [
+        String::from("2015-09-18T23:56:04Z"),
+        String::from("2023-08-14T17:00:04"),
+    ],
+    nulls = [false, false],
+);

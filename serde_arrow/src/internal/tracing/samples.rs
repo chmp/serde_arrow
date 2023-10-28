@@ -156,7 +156,7 @@ impl StructTracer {
             index: HashMap::new(),
             nullable,
             state: StructTracerState::WaitForKey,
-            current_sample: 0,
+            seen_samples: 0,
         }
     }
 }
@@ -181,7 +181,7 @@ impl EventSink for StructTracer {
                     let Some(field) = self.fields.get_mut(field_idx) else {
                         fail!("invalid state");
                     };
-                    field.last_seen_in_sample = self.current_sample;
+                    field.last_seen_in_sample = self.seen_samples;
 
                     InValue(field_idx, 0)
                 } else {
@@ -191,11 +191,11 @@ impl EventSink for StructTracer {
                             self.options.clone(),
                         ),
                         name: key.to_owned(),
-                        last_seen_in_sample: self.current_sample,
+                        last_seen_in_sample: self.seen_samples,
                     };
 
                     // field was missing in previous samples
-                    if self.current_sample != 0 {
+                    if self.seen_samples != 0 {
                         println!("{key}");
                         field.tracer.mark_nullable();
                     }
@@ -209,11 +209,11 @@ impl EventSink for StructTracer {
             (InKey, E::EndStruct | E::EndMap) => {
                 for field in &mut self.fields {
                     // field. was not seen in this sample
-                    if field.last_seen_in_sample != self.current_sample {
+                    if field.last_seen_in_sample != self.seen_samples {
                         field.tracer.mark_nullable();
                     }
                 }
-                self.current_sample += 1;
+                self.seen_samples += 1;
 
                 WaitForKey
             }
@@ -543,36 +543,55 @@ impl EventSink for PrimitiveTracer {
             ev => fail!("Cannot handle event {ev} in primitive tracer"),
         };
 
-        (self.item_type, self.strategy) = match (&self.item_type, ev_type) {
-            (ty, Null) => {
+        // coercion rules as a table of (this_ty, this_strategy), (ev_ty, ev_strategy)
+        (self.item_type, self.strategy) = match (
+            (&self.item_type, self.strategy.as_ref()),
+            (ev_type, ev_strategy),
+        ) {
+            ((ty, strategy), (Null, None)) => {
                 self.nullable = true;
-                (ty.clone(), self.strategy.clone())
+                (ty.clone(), strategy.cloned())
             }
-            (Bool | Null, Bool) => (Bool, None),
-            (I8 | Null, I8) => (I8, None),
-            (I16 | Null, I16) => (I16, None),
-            (I32 | Null, I32) => (I32, None),
-            (I64 | Null, I64) => (I64, None),
-            (U8 | Null, U8) => (U8, None),
-            (U16 | Null, U16) => (U16, None),
-            (U32 | Null, U32) => (U32, None),
-            (U64 | Null, U64) => (U64, None),
-            (F32 | Null, F32) => (F32, None),
-            (F64 | Null, F64) => (F64, None),
-            (Null, Date64) => (Date64, ev_strategy),
-            (Date64, Date64) => match (&self.strategy, ev_strategy) {
-                (Some(S::NaiveStrAsDate64), Some(S::NaiveStrAsDate64)) => {
-                    (Date64, Some(S::NaiveStrAsDate64))
-                }
-                (Some(S::UtcStrAsDate64), Some(S::UtcStrAsDate64)) => {
-                    (Date64, Some(S::UtcStrAsDate64))
-                }
-                _ => (LargeUtf8, None),
-            },
-            (LargeUtf8 | Null, LargeUtf8) | (Date64, LargeUtf8) | (LargeUtf8, Date64) => {
+            ((Null, None), (ev_type, ev_strategy)) => (ev_type, ev_strategy),
+            ((Bool, None), (Bool, None)) => (Bool, None),
+            ((I8, None), (I8, None)) => (I8, None),
+            ((I16, None), (I16, None)) => (I16, None),
+            ((I32, None), (I32, None)) => (I32, None),
+            ((I64, None), (I64, None)) => (I64, None),
+            ((U8, None), (U8, None)) => (U8, None),
+            ((U16, None), (U16, None)) => (U16, None),
+            ((U32, None), (U32, None)) => (U32, None),
+            ((U64, None), (U64, None)) => (U64, None),
+            ((F32, None), (F32, None)) => (F32, None),
+            ((F64, None), (F64, None)) => (F64, None),
+            ((Date64, Some(S::NaiveStrAsDate64)), (Date64, Some(S::NaiveStrAsDate64))) => {
+                (Date64, Some(S::NaiveStrAsDate64))
+            }
+            ((Date64, Some(S::UtcStrAsDate64)), (Date64, Some(S::UtcStrAsDate64))) => {
+                (Date64, Some(S::UtcStrAsDate64))
+            }
+            ((Date64, Some(S::NaiveStrAsDate64)), (Date64, Some(S::UtcStrAsDate64))) => {
                 (LargeUtf8, None)
             }
-            (ty, ev) if self.options.coerce_numbers => match (ty, ev) {
+            // incompatible strategies, coerce to string
+            ((Date64, Some(S::UtcStrAsDate64)), (Date64, Some(S::NaiveStrAsDate64))) => {
+                (LargeUtf8, None)
+            }
+            (
+                (LargeUtf8, None) | (Date64, Some(S::NaiveStrAsDate64) | Some(S::UtcStrAsDate64)),
+                (LargeUtf8, None),
+            ) => (LargeUtf8, None),
+            (
+                (LargeUtf8, None),
+                (Date64, strategy @ (Some(S::NaiveStrAsDate64) | Some(S::UtcStrAsDate64))),
+            ) => {
+                if self.seen_samples == 0 {
+                    (Date64, strategy)
+                } else {
+                    (LargeUtf8, None)
+                }
+            }
+            ((ty, None), (ev, None)) if self.options.coerce_numbers => match (ty, ev) {
                 // unsigned x unsigned -> u64
                 (U8 | U16 | U32 | U64, U8 | U16 | U32 | U64) => (U64, None),
                 // signed x signed -> i64
@@ -589,8 +608,12 @@ impl EventSink for PrimitiveTracer {
                 (F32 | F64, I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64) => (F64, None),
                 (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
             },
-            (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
+            ((this_ty, this_strategy), (ev_ty, ev_strategy)) => {
+                fail!("Cannot accept event {ev_ty} with strategy {ev_strategy:?} for tracer of primitive type {this_ty} with strategy {this_strategy:?}")
+            }
         };
+
+        self.seen_samples += 1;
         Ok(())
     }
 
@@ -601,11 +624,9 @@ impl EventSink for PrimitiveTracer {
 
 impl PrimitiveTracer {
     fn get_string_type_and_strategy(&self, s: &str) -> (GenericDataType, Option<Strategy>) {
-        if !self.options.try_parse_dates {
-            (GenericDataType::LargeUtf8, None)
-        } else if matches_naive_datetime(s) {
+        if self.options.guess_dates && matches_naive_datetime(s) {
             (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
-        } else if matches_utc_datetime(s) {
+        } else if self.options.guess_dates && matches_utc_datetime(s) {
             (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
         } else {
             (GenericDataType::LargeUtf8, None)

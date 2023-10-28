@@ -20,7 +20,13 @@ impl Schema {
     }
 
     /// Build a vec of fields from a  Schema object
+    #[deprecated = "The method `get_arrow2_fields` is deprecated. Use `to_arrow2_fields` instead"]
     pub fn get_arrow2_fields(&self) -> Result<Vec<Field>> {
+        self.to_arrow2_fields()
+    }
+
+    /// Build a vec of fields from a  Schema object
+    pub fn to_arrow2_fields(&self) -> Result<Vec<Field>> {
         self.fields.iter().map(Field::try_from).collect()
     }
 }

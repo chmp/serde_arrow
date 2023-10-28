@@ -26,18 +26,16 @@ pub use tracer::Tracer;
 ///
 /// ```rust
 /// # use serde_arrow::schema::TracingOptions;
-/// # let defaults =
-/// TracingOptions {
-///     allow_null_fields: false,
-///     map_as_struct: true,
-///     string_dictionary_encoding: false,
-///     coerce_numbers: false,
-///     try_parse_dates: false,
-/// }
-/// # ;
-/// # assert_eq!(defaults, TracingOptions::default());
+/// let default = TracingOptions::default();
+///
+/// assert_eq!(default.allow_null_fields, false);
+/// assert_eq!(default.map_as_struct, true);
+/// assert_eq!(default.string_dictionary_encoding, false);
+/// assert_eq!(default.coerce_numbers, false);
+/// assert_eq!(default.guess_dates, false);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct TracingOptions {
     /// If `true`, accept null-only fields (e.g., fields with type `()` or fields
     /// with only `None` entries). If `false`, schema tracing will fail in this
@@ -77,7 +75,7 @@ pub struct TracingOptions {
     /// of the format the data type is set as `Date64` with strategy
     /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
     /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
-    pub try_parse_dates: bool,
+    pub guess_dates: bool,
 }
 
 impl Default for TracingOptions {
@@ -87,7 +85,7 @@ impl Default for TracingOptions {
             map_as_struct: true,
             string_dictionary_encoding: false,
             coerce_numbers: false,
-            try_parse_dates: false,
+            guess_dates: false,
         }
     }
 }
@@ -97,33 +95,33 @@ impl TracingOptions {
         Default::default()
     }
 
-    /// Configure `allow_null_fields`
+    /// Set [`allow_null_fields`](#structfield.allow_null_fields)
     pub fn allow_null_fields(mut self, value: bool) -> Self {
         self.allow_null_fields = value;
         self
     }
 
-    /// Configure `map_as_struct`
+    /// Set [`map_as_struct`](#structfield.map_as_struct)
     pub fn map_as_struct(mut self, value: bool) -> Self {
         self.map_as_struct = value;
         self
     }
 
-    /// Configure `string_dictionary_encoding`
+    /// Set [`string_dictionary_encoding`](#structfield.string_dictionary_encoding)
     pub fn string_dictionary_encoding(mut self, value: bool) -> Self {
         self.string_dictionary_encoding = value;
         self
     }
 
-    /// Configure `coerce_numbers`
+    /// Set [`coerce_numbers`](#structfield.coerce_numbers)
     pub fn coerce_numbers(mut self, value: bool) -> Self {
         self.coerce_numbers = value;
         self
     }
 
-    /// Configure `coerce_numbers`
+    /// Set [`try_parse_dates`](#structfield.try_parse_dates)
     pub fn guess_dates(mut self, value: bool) -> Self {
-        self.try_parse_dates = value;
+        self.guess_dates = value;
         self
     }
 }
