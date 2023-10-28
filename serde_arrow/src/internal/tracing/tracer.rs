@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::internal::{
     error::{fail, Result},
     schema::{GenericDataType, GenericField, Strategy},
@@ -27,6 +29,7 @@ defined_tracer!(
     List(ListTracer),
     Map(MapTracer),
     Struct(StructTracer),
+    Tuple(TupleTracer),
     Union(UnionTracer),
 );
 
@@ -78,6 +81,7 @@ impl Tracer {
     }
 }
 
+// TODO: move into trace any?
 impl Tracer {
     pub fn mark_nullable(&mut self) {
         dispatch_tracer!(self, tracer => { tracer.nullable = true; });
@@ -86,26 +90,72 @@ impl Tracer {
     pub fn ensure_struct<S: std::fmt::Display>(&mut self, fields: &[S]) -> Result<()> {
         match self {
             this @ Self::Unknown(_) => {
+                let field_names = fields
+                    .iter()
+                    .map(|field| field.to_string())
+                    .collect::<Vec<_>>();
+                let index = field_names
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, name)| (name.to_string(), idx))
+                    .collect::<HashMap<_, _>>();
+
                 let tracer = StructTracer {
                     path: this.get_path().to_owned(),
                     options: this.get_options().clone(),
-                    field_tracers: fields
+                    fields: fields
                         .iter()
-                        .map(|field| {
-                            Tracer::new(
+                        .map(|field| Field {
+                            tracer: Tracer::new(
                                 format!("{}.{}", this.get_path(), field),
                                 this.get_options().clone(),
-                            )
+                            ),
+                            name: field.to_string(),
+                            last_seen_in_sample: 0,
                         })
                         .collect(),
-                    field_names: fields.iter().map(|field| field.to_string()).collect(),
+                    index,
                     nullable: this.get_nullable(),
-                    strategy: None,
+                    mode: StructMode::Struct,
+                    state: StructTracerState::WaitForKey,
+                    current_sample: 0,
                 };
                 *this = Self::Struct(tracer);
                 Ok(())
             }
             Self::Struct(_tracer) => {
+                // TODO: check fields are equal
+                Ok(())
+            }
+            _ => fail!(
+                "mismatched types, previous {:?}, current struct",
+                self.get_type()
+            ),
+        }
+    }
+
+    pub fn ensure_tuple(&mut self, num_fields: usize) -> Result<()> {
+        match self {
+            this @ Self::Unknown(_) => {
+                let tracer = TupleTracer {
+                    path: this.get_path().to_owned(),
+                    options: this.get_options().clone(),
+                    field_tracers: (0..num_fields)
+                        .into_iter()
+                        .map(|i| {
+                            Tracer::new(
+                                format!("{}.{}", this.get_path(), i),
+                                this.get_options().clone(),
+                            )
+                        })
+                        .collect(),
+                    nullable: this.get_nullable(),
+                    state: TupleTracerState::WaitForStart,
+                };
+                *this = Self::Tuple(tracer);
+                Ok(())
+            }
+            Self::Tuple(_tracer) => {
                 // TODO: check fields are equal
                 Ok(())
             }
@@ -122,23 +172,26 @@ impl Tracer {
                 let tracer = UnionTracer {
                     path: this.get_path().to_owned(),
                     options: this.get_options().clone(),
-                    variant_tracers: variants
+                    state: UnionTracerState::WaitForVariant,
+                    variants: variants
                         .iter()
                         .map(|variant| {
-                            Tracer::new(
-                                format!("{}.{}", this.get_path(), variant),
-                                this.get_options().clone(),
-                            )
+                            Some(Variant {
+                                name: variant.to_string(),
+                                tracer: Tracer::new(
+                                    format!("{}.{}", this.get_path(), variant),
+                                    this.get_options().clone(),
+                                ),
+                            })
                         })
                         .collect(),
-                    variant_names: variants.iter().map(|s| s.to_string()).collect(),
                     nullable: this.get_nullable(),
                 };
                 *this = Self::Union(tracer);
                 Ok(())
             }
             Self::Union(_tracer) => {
-                // TODO: check fields are equal
+                // TODO: check fields are equal or fill missing fields
                 Ok(())
             }
             _ => fail!(
@@ -159,6 +212,7 @@ impl Tracer {
                         format!("{}.item", this.get_path()),
                         this.get_options().clone(),
                     )),
+                    state: ListTracerState::WaitForStart,
                 };
                 *this = Self::List(tracer);
                 Ok(())
@@ -186,6 +240,7 @@ impl Tracer {
                         format!("{}.value", this.get_path()),
                         this.get_options().clone(),
                     )),
+                    state: MapTracerState::WaitForKey,
                 };
                 *this = Self::Map(tracer);
                 Ok(())
@@ -326,6 +381,17 @@ pub struct MapTracer {
     pub nullable: bool,
     pub key_tracer: Box<Tracer>,
     pub value_tracer: Box<Tracer>,
+    pub state: MapTracerState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MapTracerState {
+    WaitForKey,
+    /// Process the current key at `(depth)`
+    InKey(usize),
+    /// Process the current value at `(depth)`
+    InValue(usize),
+    Finished,
 }
 
 impl MapTracer {
@@ -369,6 +435,15 @@ pub struct ListTracer {
     pub options: TracingOptions,
     pub nullable: bool,
     pub item_tracer: Box<Tracer>,
+    pub state: ListTracerState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ListTracerState {
+    WaitForStart,
+    WaitForItem,
+    InItem(usize),
+    Finished,
 }
 
 impl ListTracer {
@@ -380,54 +455,77 @@ impl ListTracer {
         self.item_tracer.is_complete()
     }
 
-    pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        let item = self.item_tracer.to_field("item")?;
-        let res =
-            GenericField::new(name, GenericDataType::LargeList, self.nullable).with_child(item);
-        Ok(res)
-    }
-
     pub fn get_type(&self) -> Option<&GenericDataType> {
         Some(&GenericDataType::LargeList)
     }
 
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        if !matches!(self.state, ListTracerState::Finished) {
+            fail!("Cannot build field {name} from unfinished tracer");
+        }
+
+        let mut field = GenericField::new(name, GenericDataType::LargeList, self.nullable);
+        field.children.push(self.item_tracer.to_field("item")?);
+
+        Ok(field)
+    }
+
     pub fn reset(&mut self) -> Result<()> {
-        self.item_tracer.reset()
+        if !matches!(self.state, ListTracerState::Finished) {
+            fail!("Cannot reset unfinished list tracer");
+        }
+        self.item_tracer.reset()?;
+        self.state = ListTracerState::Finished;
+        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        self.item_tracer.finish()
+        if !matches!(self.state, ListTracerState::WaitForStart) {
+            fail!("Incomplete list in schema tracing");
+        }
+        self.item_tracer.finish()?;
+        self.state = ListTracerState::Finished;
+        Ok(())
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct StructTracer {
+pub struct TupleTracer {
     pub path: String,
     pub options: TracingOptions,
     pub nullable: bool,
-    pub field_names: Vec<String>,
     pub field_tracers: Vec<Tracer>,
-    pub strategy: Option<Strategy>,
+    pub state: TupleTracerState,
 }
 
-impl StructTracer {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TupleTracerState {
+    WaitForStart,
+    /// Wait for the item with `(field_index)`
+    WaitForItem(usize),
+    /// Process the item at `(field_index, depth)`
+    InItem(usize, usize),
+    Finished,
+}
+
+impl TupleTracer {
     pub fn get_path(&self) -> &str {
         &self.path
     }
 
     pub fn is_complete(&self) -> bool {
-        self.field_tracers.iter().all(Tracer::is_complete)
+        self.field_tracers.iter().all(|tracer| tracer.is_complete())
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
+        let mut res_field = GenericField::new(name, GenericDataType::Struct, self.nullable);
 
-        for (tracer, name) in self.field_tracers.iter().zip(&self.field_names) {
-            field.children.push(tracer.to_field(name)?);
+        for (idx, tracer) in self.field_tracers.iter().enumerate() {
+            res_field.children.push(tracer.to_field(&idx.to_string())?);
         }
-        field.strategy = self.strategy.clone();
+        res_field.strategy = Some(Strategy::TupleAsStruct);
 
-        Ok(field)
+        Ok(res_field)
     }
 
     pub fn get_type(&self) -> Option<&GenericDataType> {
@@ -450,13 +548,102 @@ impl StructTracer {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct StructTracer {
+    pub path: String,
+    pub options: TracingOptions,
+    pub nullable: bool,
+    pub fields: Vec<Field>,
+    pub index: HashMap<String, usize>,
+    pub mode: StructMode,
+    pub state: StructTracerState,
+    pub current_sample: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Field {
+    pub name: String,
+    pub tracer: Tracer,
+    pub last_seen_in_sample: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum StructMode {
+    Struct,
+    Map,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StructTracerState {
+    /// The tracer is waiting for the next key
+    WaitForKey,
+    /// The tracer is currently processing the next key
+    InKey,
+    /// The tracer is currently tracing a value for `(field, depth)`
+    InValue(usize, usize),
+    /// The tracer is finished
+    Finished,
+}
+
+impl StructTracer {
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.fields.iter().all(|field| field.tracer.is_complete())
+    }
+
+    pub fn to_field(&self, name: &str) -> Result<GenericField> {
+        let mut res_field = GenericField::new(name, GenericDataType::Struct, self.nullable);
+        for field in &self.fields {
+            res_field.children.push(field.tracer.to_field(&field.name)?);
+        }
+
+        Ok(res_field)
+    }
+
+    pub fn get_type(&self) -> Option<&GenericDataType> {
+        Some(&GenericDataType::Struct)
+    }
+
+    pub fn reset(&mut self) -> Result<()> {
+        for field in &mut self.fields {
+            field.tracer.reset()?;
+        }
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        for field in &mut self.fields {
+            field.tracer.finish()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 
 pub struct UnionTracer {
     pub path: String,
     pub options: TracingOptions,
     pub nullable: bool,
-    pub variant_names: Vec<String>,
-    pub variant_tracers: Vec<Tracer>,
+    pub variants: Vec<Option<Variant>>,
+    pub state: UnionTracerState,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Variant {
+    pub name: String,
+    pub tracer: Tracer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UnionTracerState {
+    /// Wait for the next variant
+    WaitForVariant,
+    /// Process the current variant at `(variant_index, depth)`
+    InVariant(usize, usize),
+    Finished,
 }
 
 impl UnionTracer {
@@ -465,14 +652,29 @@ impl UnionTracer {
     }
 
     pub fn is_complete(&self) -> bool {
-        self.variant_tracers.iter().all(Tracer::is_complete)
+        self.variants
+            .iter()
+            .flat_map(|opt| opt.as_ref())
+            .all(|variant| variant.tracer.is_complete())
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
-        for (tracer, name) in self.variant_tracers.iter().zip(&self.variant_names) {
-            field.children.push(tracer.to_field(name)?);
+        if !matches!(self.state, UnionTracerState::Finished) {
+            fail!("Cannot build field {name} from unfinished tracer");
         }
+
+        let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
+        for variant in &self.variants {
+            if let Some(variant) = variant {
+                field.children.push(variant.tracer.to_field(&variant.name)?);
+            } else {
+                field.children.push(
+                    GenericField::new("", GenericDataType::Null, true)
+                        .with_strategy(Strategy::UnknownVariant),
+                );
+            };
+        }
+
         Ok(field)
     }
 
@@ -481,16 +683,28 @@ impl UnionTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        for tracer in &mut self.variant_tracers {
-            tracer.reset()?;
+        if !matches!(self.state, UnionTracerState::Finished) {
+            fail!("Cannot reset unfinished union tracer");
         }
+        for variant in &mut self.variants {
+            let Some(variant) = variant.as_mut() else {
+                continue;
+            };
+            variant.tracer.reset()?;
+        }
+        self.state = UnionTracerState::WaitForVariant;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        for tracer in &mut self.variant_tracers {
-            tracer.finish()?;
+        // TODO: fix me
+        for variant in &mut self.variants {
+            let Some(variant) = variant.as_mut() else {
+                continue;
+            };
+            variant.tracer.finish()?;
         }
+        self.state = UnionTracerState::Finished;
         Ok(())
     }
 }

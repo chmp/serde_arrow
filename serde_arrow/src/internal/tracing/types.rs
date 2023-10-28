@@ -5,8 +5,11 @@ use serde::{
 
 use crate::internal::{
     fail,
-    schema::{GenericField, Strategy},
-    tracing::{tracer::Tracer, TracingOptions},
+    schema::GenericField,
+    tracing::{
+        tracer::{Field, Tracer},
+        TracingOptions,
+    },
     Error, Result,
 };
 
@@ -161,16 +164,14 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
-        let field_names = (0..len).map(|idx| idx.to_string()).collect::<Vec<_>>();
-        self.0.ensure_struct(&field_names)?;
+        self.0.ensure_tuple(len)?;
 
-        let Tracer::Struct(tracer) = self.0 else {
+        let Tracer::Tuple(tracer) = self.0 else {
             unreachable!();
         };
-        tracer.strategy = Some(Strategy::TupleAsStruct);
 
         visitor.visit_seq(TraceTupleStruct {
-            field_tracers: &mut tracer.field_tracers,
+            tracers: &mut tracer.field_tracers,
             pos: 0,
         })
     }
@@ -212,9 +213,9 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         };
 
         visitor.visit_map(TraceStruct {
-            field_tracers: &mut tracer.field_tracers,
+            fields: &mut tracer.fields,
             pos: 0,
-            fields,
+            names: fields,
         })
     }
 
@@ -231,18 +232,22 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         };
 
         let idx = tracer
-            .variant_tracers
+            .variants
             .iter()
-            .position(|tracer| tracer.is_unknown())
+            .position(|opt| opt.as_ref().unwrap().tracer.is_unknown())
             .unwrap_or_default();
-        if idx >= tracer.variant_tracers.len() {
+        if idx >= tracer.variants.len() {
             fail!("invalid variant index");
         }
 
+        let Some(variant) = tracer.variants[idx].as_mut() else {
+            fail!("invalid state");
+        };
+
         let res = visitor.visit_enum(TraceEnum {
-            tracer: &mut tracer.variant_tracers[idx],
+            tracer: &mut variant.tracer,
             pos: idx,
-            variant: &tracer.variant_names[idx],
+            variant: &variant.name,
         })?;
         Ok(res)
     }
@@ -282,7 +287,7 @@ impl<'de, 'a> serde::de::MapAccess<'de> for TraceMap<'a> {
 }
 
 struct TraceTupleStruct<'a> {
-    field_tracers: &'a mut [Tracer],
+    tracers: &'a mut [Tracer],
     pos: usize,
 }
 
@@ -290,11 +295,11 @@ impl<'de, 'a> serde::de::SeqAccess<'de> for TraceTupleStruct<'a> {
     type Error = Error;
 
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
-        if self.pos >= self.field_tracers.len() {
+        if self.pos >= self.tracers.len() {
             return Ok(None);
         }
 
-        let item = seed.deserialize(TraceAny(&mut self.field_tracers[self.pos]))?;
+        let item = seed.deserialize(TraceAny(&mut self.tracers[self.pos]))?;
         self.pos += 1;
 
         Ok(Some(item))
@@ -302,27 +307,27 @@ impl<'de, 'a> serde::de::SeqAccess<'de> for TraceTupleStruct<'a> {
 }
 
 struct TraceStruct<'a> {
-    field_tracers: &'a mut [Tracer],
+    fields: &'a mut [Field],
     pos: usize,
-    fields: &'static [&'static str],
+    names: &'static [&'static str],
 }
 
 impl<'de, 'a> serde::de::MapAccess<'de> for TraceStruct<'a> {
     type Error = Error;
 
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
-        if self.pos >= self.fields.len() {
+        if self.pos >= self.names.len() {
             return Ok(None);
         }
         let key = seed.deserialize(IdentifierDeserializer {
             idx: self.pos,
-            name: self.fields[self.pos],
+            name: self.names[self.pos],
         })?;
         Ok(Some(key))
     }
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let value = seed.deserialize(TraceAny(&mut self.field_tracers[self.pos]))?;
+        let value = seed.deserialize(TraceAny(&mut self.fields[self.pos].tracer))?;
         self.pos += 1;
 
         Ok(value)
@@ -533,7 +538,10 @@ fn trace_struct() {
 
 #[test]
 fn trace_tuple_as_struct() {
-    use {crate::internal::schema::GenericDataType as T, GenericField as F};
+    use {
+        crate::internal::schema::GenericDataType as T, crate::internal::schema::Strategy,
+        GenericField as F,
+    };
 
     let actual = trace_type::<(bool, Option<i8>)>(TracingOptions::default(), "root").unwrap();
     let expected = F::new("root", T::Struct, false)

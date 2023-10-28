@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap},
     iter,
 };
 
@@ -49,7 +49,9 @@ impl SamplesTracer {
     pub fn mark_nullable(&mut self) {
         use SamplesTracer::*;
         match self {
-            Unknown(_) => {}
+            Unknown(t) => {
+                t.nullable = true;
+            }
             List(t) => {
                 t.nullable = true;
             }
@@ -219,13 +221,15 @@ pub struct StructTracer {
     pub nullable: bool,
     pub state: StructTracerState,
     pub mode: StructMode,
-    pub field_tracers: Vec<SamplesTracer>,
-    pub field_names: Vec<String>,
+    pub fields: Vec<Field>,
     pub index: HashMap<String, usize>,
-    // TODO: document and clean up these fields
-    pub item_index: usize,
-    pub seen_this_item: BTreeSet<usize>,
-    pub seen_previous_items: BTreeSet<usize>,
+    pub current_sample: usize,
+}
+
+pub struct Field {
+    pub name: String,
+    pub tracer: SamplesTracer,
+    pub last_seen_in_sample: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -246,43 +250,36 @@ impl StructTracer {
             path,
             options,
             mode,
-            field_tracers: Vec::new(),
-            field_names: Vec::new(),
+            fields: Vec::new(),
             index: HashMap::new(),
             nullable,
             state: StructTracerState::WaitForKey,
-            item_index: 0,
-            seen_this_item: BTreeSet::new(),
-            seen_previous_items: BTreeSet::new(),
+            current_sample: 0,
         }
-    }
-
-    pub fn mark_seen(&mut self, field: usize) {
-        self.seen_this_item.insert(field);
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
         if !matches!(self.state, StructTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
-        let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
-        for (tracer, name) in iter::zip(&self.field_tracers, &self.field_names) {
-            field.children.push(tracer.to_field(name)?);
+        let mut res_field = GenericField::new(name, GenericDataType::Struct, self.nullable);
+        for field in &self.fields {
+            res_field.children.push(field.tracer.to_field(&field.name)?);
         }
 
         if let StructMode::Map = self.mode {
-            field.children.sort_by(|a, b| a.name.cmp(&b.name));
-            field.strategy = Some(Strategy::MapAsStruct);
+            res_field.children.sort_by(|a, b| a.name.cmp(&b.name));
+            res_field.strategy = Some(Strategy::MapAsStruct);
         }
-        Ok(field)
+        Ok(res_field)
     }
 
     pub fn reset(&mut self) -> Result<()> {
         if !matches!(self.state, StructTracerState::Finished) {
             fail!("Cannot reset unfinished tracer");
         }
-        for tracer in &mut self.field_tracers {
-            tracer.reset()?;
+        for field in &mut self.fields {
+            field.tracer.reset()?;
         }
 
         self.state = StructTracerState::WaitForKey;
@@ -294,8 +291,8 @@ impl StructTracer {
             fail!("Incomplete struct in schema tracing");
         }
 
-        for tracer in &mut self.field_tracers {
-            tracer.finish()?;
+        for field in &mut self.fields {
+            field.tracer.finish()?;
         }
 
         self.state = StructTracerState::Finished;
@@ -320,48 +317,53 @@ impl EventSink for StructTracer {
             (WaitForKey, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
             (InKey, E::Item) => InKey,
             (InKey, E::Str(key)) => {
-                if let Some(&field) = self.index.get(key) {
-                    self.mark_seen(field);
-                    InValue(field, 0)
+                if let Some(&field_idx) = self.index.get(key) {
+                    let Some(field) = self.fields.get_mut(field_idx) else {
+                        fail!("invalid state");
+                    };
+                    field.last_seen_in_sample = self.current_sample;
+
+                    InValue(field_idx, 0)
                 } else {
-                    let field = self.field_tracers.len();
-                    self.field_tracers.push(SamplesTracer::new(
-                        format!("{path}.{key}", path = self.path),
-                        self.options.clone(),
-                    ));
-                    self.field_names.push(key.to_owned());
-                    self.index.insert(key.to_owned(), field);
-                    self.mark_seen(field);
-                    InValue(field, 0)
+                    let mut field = Field {
+                        tracer: SamplesTracer::new(
+                            format!("{path}.{key}", path = self.path),
+                            self.options.clone(),
+                        ),
+                        name: key.to_owned(),
+                        last_seen_in_sample: self.current_sample,
+                    };
+
+                    // field was missing in previous samples
+                    if self.current_sample != 0 {
+                        println!("{key}");
+                        field.tracer.mark_nullable();
+                    }
+
+                    let field_idx = self.fields.len();
+                    self.fields.push(field);
+                    self.index.insert(key.to_owned(), field_idx);
+                    InValue(field_idx, 0)
                 }
             }
             (InKey, E::EndStruct | E::EndMap) => {
-                if self.item_index == 0 {
-                    self.seen_previous_items = self.seen_this_item.clone();
-                }
-
-                for (field, tracer) in self.field_tracers.iter_mut().enumerate() {
-                    if !self.seen_this_item.contains(&field)
-                        || !self.seen_previous_items.contains(&field)
-                    {
-                        tracer.mark_nullable();
+                for field in &mut self.fields {
+                    // field. was not seen in this sample
+                    if field.last_seen_in_sample != self.current_sample {
+                        field.tracer.mark_nullable();
                     }
                 }
-                for seen in &self.seen_this_item {
-                    self.seen_previous_items.insert(*seen);
-                }
-                self.seen_this_item.clear();
-                self.item_index += 1;
+                self.current_sample += 1;
 
                 WaitForKey
             }
             (InKey, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
             (InValue(field, depth), ev) if ev.is_start() => {
-                self.field_tracers[field].accept(ev)?;
+                self.fields[field].tracer.accept(ev)?;
                 InValue(field, depth + 1)
             }
             (InValue(field, depth), ev) if ev.is_end() => {
-                self.field_tracers[field].accept(ev)?;
+                self.fields[field].tracer.accept(ev)?;
                 match depth {
                     0 => fail!("Invalid closing event in struct tracer in state Value"),
                     1 => InKey,
@@ -369,12 +371,12 @@ impl EventSink for StructTracer {
                 }
             }
             (InValue(field, depth), ev) if ev.is_marker() => {
-                self.field_tracers[field].accept(ev)?;
+                self.fields[field].tracer.accept(ev)?;
                 // markers are always followed by the actual  value
                 InValue(field, depth)
             }
             (InValue(field, depth), ev) => {
-                self.field_tracers[field].accept(ev)?;
+                self.fields[field].tracer.accept(ev)?;
                 match depth {
                     // Any event at depth == 0 that does not start a structure (is a complete value)
                     0 => InKey,
@@ -529,10 +531,11 @@ impl EventSink for TupleTracer {
 }
 
 pub struct ListTracer {
+    pub path: String,
+    pub options: TracingOptions,
     pub item_tracer: Box<SamplesTracer>,
     pub nullable: bool,
     pub state: ListTracerState,
-    pub path: String,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -547,6 +550,7 @@ impl ListTracer {
     pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
             path: path.clone(),
+            options: options.clone(),
             item_tracer: Box::new(SamplesTracer::new(path, options)),
             nullable,
             state: ListTracerState::WaitForStart,
@@ -637,12 +641,16 @@ impl EventSink for ListTracer {
 }
 
 pub struct UnionTracer {
-    pub variants: Vec<Option<String>>,
-    pub tracers: BTreeMap<usize, SamplesTracer>,
+    pub variants: Vec<Option<Variant>>,
     pub nullable: bool,
-    pub next: UnionTracerState,
+    pub state: UnionTracerState,
     pub path: String,
     pub options: TracingOptions,
+}
+
+pub struct Variant {
+    name: String,
+    tracer: SamplesTracer,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -660,34 +668,26 @@ impl UnionTracer {
             path,
             options,
             variants: Vec::new(),
-            tracers: BTreeMap::new(),
             nullable,
-            next: UnionTracerState::WaitForVariant,
+            state: UnionTracerState::WaitForVariant,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.next, UnionTracerState::Finished) {
+        if !matches!(self.state, UnionTracerState::Finished) {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
         let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
-        for (idx, variant_name) in self.variants.iter().enumerate() {
-            if let Some(variant_name) = variant_name {
-                let Some(tracer) = self.tracers.get(&idx) else {
-                    panic!(concat!(
-                        "invalid state: tracer for variant {idx} with name {variant_name:?} not initialized. ",
-                        "This should not happen, please open an issue at https://github.com/chmp/serde_arrow",
-                    ), idx=idx, variant_name=variant_name);
-                };
-
-                field.children.push(tracer.to_field(variant_name)?);
+        for variant in &self.variants {
+            if let Some(variant) = variant {
+                field.children.push(variant.tracer.to_field(&variant.name)?);
             } else {
                 field.children.push(
                     GenericField::new("", GenericDataType::Null, true)
                         .with_strategy(Strategy::UnknownVariant),
                 );
-            }
+            };
         }
 
         Ok(field)
@@ -702,41 +702,50 @@ impl UnionTracer {
             self.variants.push(None);
         }
 
-        self.tracers.entry(idx).or_insert_with(|| {
-            SamplesTracer::new(
-                format!("{path}.{key}", path = self.path, key = variant.as_ref()),
-                self.options.clone(),
-            )
-        });
-
-        if let Some(prev) = self.variants[idx].as_ref() {
+        if let Some(prev) = self.variants[idx].as_mut() {
             let variant = variant.as_ref();
-            if prev != variant {
-                fail!("Incompatible names for variant {idx}: {prev}, {variant}");
+            if prev.name != variant {
+                fail!(
+                    "Incompatible names for variant {idx}: {prev}, {variant}",
+                    prev = prev.name
+                );
             }
         } else {
-            self.variants[idx] = Some(variant.into());
+            let tracer = SamplesTracer::new(
+                format!("{path}.{key}", path = self.path, key = variant.as_ref()),
+                self.options.clone(),
+            );
+            let name = variant.into();
+
+            self.variants[idx] = Some(Variant { name, tracer });
         }
+
         Ok(())
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        if !matches!(self.next, UnionTracerState::Finished) {
+        if !matches!(self.state, UnionTracerState::Finished) {
             fail!("Cannot reset unfinished union tracer");
         }
-        for tracer in self.tracers.values_mut() {
-            tracer.reset()?;
+        for variant in &mut self.variants {
+            let Some(variant) = variant.as_mut() else {
+                continue;
+            };
+            variant.tracer.reset()?;
         }
-        self.next = UnionTracerState::WaitForVariant;
+        self.state = UnionTracerState::WaitForVariant;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
         // TODO: fix me
-        for tracer in self.tracers.values_mut() {
-            tracer.finish()?;
+        for variant in &mut self.variants {
+            let Some(variant) = variant.as_mut() else {
+                continue;
+            };
+            variant.tracer.finish()?;
         }
-        self.next = UnionTracerState::Finished;
+        self.state = UnionTracerState::Finished;
         Ok(())
     }
 }
@@ -748,7 +757,7 @@ impl EventSink for UnionTracer {
         type S = UnionTracerState;
         type E<'a> = Event<'a>;
 
-        self.next = match self.next {
+        self.state = match self.state {
             S::WaitForVariant => match event {
                 E::Variant(variant, idx) => {
                     self.ensure_variant(variant, idx)?;
@@ -763,26 +772,26 @@ impl EventSink for UnionTracer {
             },
             S::InVariant(idx, depth) => match event {
                 ev if ev.is_start() => {
-                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
+                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
                     S::InVariant(idx, depth + 1)
                 }
                 ev if ev.is_end() => match depth {
                     0 => fail!("Invalid end event {ev} at depth 0 in UnionTracer"),
                     1 => {
-                        self.tracers.get_mut(&idx).unwrap().accept(ev)?;
+                        self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
                         S::WaitForVariant
                     }
                     _ => {
-                        self.tracers.get_mut(&idx).unwrap().accept(ev)?;
+                        self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
                         S::InVariant(idx, depth - 1)
                     }
                 },
                 ev if ev.is_marker() => {
-                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
+                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
                     S::InVariant(idx, depth)
                 }
                 ev if ev.is_value() => {
-                    self.tracers.get_mut(&idx).unwrap().accept(ev)?;
+                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
                     match depth {
                         0 => S::WaitForVariant,
                         _ => S::InVariant(idx, depth),
@@ -802,8 +811,9 @@ impl EventSink for UnionTracer {
 
 pub struct MapTracer {
     pub path: String,
-    pub key: Box<SamplesTracer>,
-    pub value: Box<SamplesTracer>,
+    pub options: TracingOptions,
+    pub key_tracer: Box<SamplesTracer>,
+    pub value_tracer: Box<SamplesTracer>,
     pub nullable: bool,
     pub state: MapTracerState,
 }
@@ -822,8 +832,9 @@ impl MapTracer {
     pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
         Self {
             nullable,
-            key: Box::new(SamplesTracer::new(format!("{path}.$key"), options.clone())),
-            value: Box::new(SamplesTracer::new(format!("{path}.$value"), options)),
+            options: options.clone(),
+            key_tracer: Box::new(SamplesTracer::new(format!("{path}.$key"), options.clone())),
+            value_tracer: Box::new(SamplesTracer::new(format!("{path}.$value"), options)),
             state: MapTracerState::WaitForKey,
             path,
         }
@@ -835,8 +846,8 @@ impl MapTracer {
         }
 
         let mut entries = GenericField::new("entries", GenericDataType::Struct, false);
-        entries.children.push(self.key.to_field("key")?);
-        entries.children.push(self.value.to_field("value")?);
+        entries.children.push(self.key_tracer.to_field("key")?);
+        entries.children.push(self.value_tracer.to_field("value")?);
 
         let mut field = GenericField::new(name, GenericDataType::Map, self.nullable);
         field.children.push(entries);
@@ -845,15 +856,15 @@ impl MapTracer {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        self.key.reset()?;
-        self.value.reset()?;
+        self.key_tracer.reset()?;
+        self.value_tracer.reset()?;
         self.state = MapTracerState::WaitForKey;
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        self.key.finish()?;
-        self.value.finish()?;
+        self.key_tracer.finish()?;
+        self.value_tracer.finish()?;
         self.state = MapTracerState::Finished;
         Ok(())
     }
@@ -885,24 +896,24 @@ impl EventSink for MapTracer {
                         S::WaitForKey
                     }
                     1 => {
-                        self.key.accept(ev)?;
+                        self.key_tracer.accept(ev)?;
                         S::InValue(0)
                     }
                     _ => {
-                        self.key.accept(ev)?;
+                        self.key_tracer.accept(ev)?;
                         S::InKey(depth - 1)
                     }
                 },
                 ev if ev.is_start() => {
-                    self.key.accept(ev)?;
+                    self.key_tracer.accept(ev)?;
                     S::InKey(depth + 1)
                 }
                 ev if ev.is_marker() => {
-                    self.key.accept(ev)?;
+                    self.key_tracer.accept(ev)?;
                     S::InKey(depth)
                 }
                 ev if ev.is_value() => {
-                    self.key.accept(ev)?;
+                    self.key_tracer.accept(ev)?;
                     if depth == 0 {
                         S::InValue(0)
                     } else {
@@ -915,24 +926,24 @@ impl EventSink for MapTracer {
                 ev if ev.is_end() => match depth {
                     0 => fail!("Unexpected event {ev} in State Value at depth 0 in MapTracer"),
                     1 => {
-                        self.value.accept(ev)?;
+                        self.value_tracer.accept(ev)?;
                         S::InKey(0)
                     }
                     _ => {
-                        self.value.accept(ev)?;
+                        self.value_tracer.accept(ev)?;
                         S::InValue(depth - 1)
                     }
                 },
                 ev if ev.is_start() => {
-                    self.value.accept(ev)?;
+                    self.value_tracer.accept(ev)?;
                     S::InValue(depth + 1)
                 }
                 ev if ev.is_marker() => {
-                    self.value.accept(ev)?;
+                    self.value_tracer.accept(ev)?;
                     S::InValue(depth)
                 }
                 ev if ev.is_value() => {
-                    self.value.accept(ev)?;
+                    self.value_tracer.accept(ev)?;
                     if depth == 0 {
                         S::InKey(0)
                     } else {
