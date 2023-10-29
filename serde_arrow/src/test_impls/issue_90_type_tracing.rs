@@ -4,13 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::internal::{
     schema::{GenericDataType as T, GenericField as F, Strategy},
-    tracing::{SchemaTracer, TracingOptions},
+    tracing::{Tracer, TracingOptions},
 };
 
 fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
-    let mut schema = SchemaTracer::new(options);
-    schema.trace_type::<T>().unwrap();
-    schema.to_field("root").unwrap()
+    let mut tracer = Tracer::new(String::from("$"), options.as_field("root"));
+    tracer.trace_type::<T>().unwrap();
+
+    let schema = tracer.to_schema().unwrap();
+    schema.fields.into_iter().next().unwrap()
 }
 
 #[test]
@@ -42,6 +44,10 @@ fn issue_90() {
 
 #[test]
 fn trace_primitives() {
+    assert_eq!(
+        trace_type::<()>(TracingOptions::default().allow_null_fields(true)),
+        F::new("root", T::Null, true),
+    );
     assert_eq!(
         trace_type::<i8>(TracingOptions::default()),
         F::new("root", T::I8, false)
@@ -189,35 +195,50 @@ mod mixed_tracing_dates {
 
     #[test]
     fn type_then_samples() {
-        let mut tracer = SchemaTracer::new(TracingOptions::default().guess_dates(true));
+        let mut tracer = Tracer::new(
+            String::from("$"),
+            TracingOptions::default().guess_dates(true),
+        );
 
         tracer.trace_type::<Example>().unwrap();
         tracer.trace_samples(&samples()).unwrap();
 
-        let actual = tracer.to_fields().unwrap();
+        let actual = tracer.to_schema().unwrap().fields;
         assert_eq!(actual, expected());
     }
 
     #[test]
     fn samples_then_type() {
-        let mut tracer = SchemaTracer::new(TracingOptions::default().guess_dates(true));
+        let mut tracer = Tracer::new(
+            String::from("$"),
+            TracingOptions::default().guess_dates(true),
+        );
 
         tracer.trace_samples(&samples()).unwrap();
         tracer.trace_type::<Example>().unwrap();
 
-        let actual = tracer.to_fields().unwrap();
+        let actual = tracer.to_schema().unwrap().fields;
         assert_eq!(actual, expected());
     }
 
     #[test]
     fn invalid_values_first() {
-        let mut tracer = SchemaTracer::new(TracingOptions::default().guess_dates(true));
+        let mut tracer = Tracer::new(
+            String::from("$"),
+            TracingOptions::default().guess_dates(true).as_field("root"),
+        );
 
         tracer.trace_samples(&["foo bar"]).unwrap();
         tracer.trace_type::<String>().unwrap();
         tracer.trace_samples(&["2015-09-18T23:56:04Z"]).unwrap();
-        
-        let actual = tracer.to_field("root").unwrap();
+
+        let actual = tracer
+            .to_schema()
+            .unwrap()
+            .fields
+            .into_iter()
+            .next()
+            .unwrap();
         let expected = F::new("root", T::LargeUtf8, false);
 
         assert_eq!(actual, expected);
@@ -225,14 +246,57 @@ mod mixed_tracing_dates {
 
     #[test]
     fn invalid_values_last() {
-        let mut tracer = SchemaTracer::new(TracingOptions::default().guess_dates(true));
+        let mut tracer = Tracer::new(
+            String::from("$"),
+            TracingOptions::default().guess_dates(true).as_field("root"),
+        );
 
         tracer.trace_samples(&["2015-09-18T23:56:04Z"]).unwrap();
         tracer.trace_type::<String>().unwrap();
         tracer.trace_samples(&["foo bar"]).unwrap();
 
-        let actual = tracer.to_field("root").unwrap();
+        let actual = tracer
+            .to_schema()
+            .unwrap()
+            .fields
+            .into_iter()
+            .next()
+            .unwrap();
         let expected = F::new("root", T::LargeUtf8, false);
+
+        assert_eq!(actual, expected);
+    }
+}
+
+mod mixed_tracing_unions {
+    use crate::internal::{generic, tracing};
+
+    use super::*;
+
+    #[test]
+    fn example() {
+        #[derive(Serialize, Deserialize)]
+        enum E {
+            A,
+            B,
+            C(u32),
+        }
+
+        let mut tracer = tracing::Tracer::new(
+            String::from("$"),
+            TracingOptions::default()
+                .allow_null_fields(true)
+                .as_field("root"),
+        );
+        tracer.trace_type::<E>().unwrap();
+        tracer.trace_samples(&[E::A, E::C(32)]).unwrap();
+        let schema = tracer.to_schema().unwrap();
+
+        let actual = generic::to_single_item(schema.fields).unwrap();
+        let expected = F::new("root", T::Union, false)
+            .with_child(F::new("A", T::Null, true))
+            .with_child(F::new("B", T::Null, true))
+            .with_child(F::new("C", T::U32, false));
 
         assert_eq!(actual, expected);
     }

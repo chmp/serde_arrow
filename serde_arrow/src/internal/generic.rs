@@ -10,6 +10,15 @@ use crate::internal::{
     source::deserialize_from_source,
 };
 
+/// Return the item if the vector has exactly one
+pub fn to_single_item<T>(items: Vec<T>) -> Option<T> {
+    if items.len() == 1 {
+        items.into_iter().next()
+    } else {
+        None
+    }
+}
+
 pub struct GenericBuilder(pub serialization::Interpreter);
 
 impl GenericBuilder {

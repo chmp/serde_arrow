@@ -18,6 +18,7 @@ use crate::internal::{
 
 impl Tracer {
     pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
+        self.reset()?;
         let mut tracer = StripOuterSequenceSink::new(&mut *self);
         serialize_into_sink(&mut tracer, samples)
     }

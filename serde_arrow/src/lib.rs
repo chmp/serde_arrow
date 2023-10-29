@@ -212,6 +212,9 @@ pub mod arrow;
 #[cfg(all(test, has_arrow, has_arrow2))]
 mod test_impls;
 
+#[cfg(all(test, has_arrow, has_arrow2))]
+mod test_end_to_end;
+
 #[cfg(test)]
 mod test;
 
@@ -253,8 +256,44 @@ pub use crate::internal::error::{Error, Result};
 pub mod schema {
     pub use crate::internal::{
         schema::{Schema, Strategy, STRATEGY_KEY},
-        tracing::{SchemaTracer, TracingOptions},
+        tracing::TracingOptions,
     };
+
+    /// Trace the schema from type information and samples
+    pub struct SchemaTracer(crate::internal::tracing::Tracer);
+
+    impl SchemaTracer {
+        /// Build a new schema tracer with the given options
+        pub fn new(options: TracingOptions) -> Self {
+            Self(crate::internal::tracing::Tracer::new(
+                String::from("$"),
+                options,
+            ))
+        }
+
+        /// Trace type information of the given type
+        ///
+        /// Note: the given type should be the type of the element, not the
+        /// sequence of elements.
+        pub fn trace_type<'de, T: serde::Deserialize<'de>>(&mut self) -> crate::Result<()> {
+            self.0.trace_type::<T>()
+        }
+
+        /// Trace type information from the given samples
+        ///
+        /// Note: the given samples should be a sequence of elements.
+        pub fn trace_samples<T: serde::Serialize + ?Sized>(
+            &mut self,
+            samples: &T,
+        ) -> crate::Result<()> {
+            self.0.trace_samples(samples)
+        }
+
+        /// Convert the tracer to a schema
+        pub fn to_schema(&self) -> crate::Result<Schema> {
+            self.0.to_schema()
+        }
+    }
 }
 
 /// Experimental functionality that is not bound by semver compatibility

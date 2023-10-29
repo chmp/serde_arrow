@@ -3,7 +3,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::internal::error::{fail, Error, Result};
+use crate::internal::{
+    error::{fail, Error, Result},
+    tracing::{Tracer, TracingOptions},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -92,10 +95,26 @@ impl Schema {
         Self::default()
     }
 
-    #[allow(unused)]
-    fn with_field(mut self, field: GenericField) -> Self {
-        self.fields.push(field);
-        self
+    /// Determine the schema from the given type
+    ///
+    /// For more control consider using the underlying
+    /// [SchemaTracer][crate::schema::SchemaTracer] directly.
+    ///
+    pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        let mut tracer = Tracer::new(String::from("$"), options);
+        tracer.trace_type::<T>()?;
+        tracer.to_schema()
+    }
+
+    /// Determine the schema from the given samples
+    ///
+    /// For more control consider using the underlying
+    /// [SchemaTracer][crate::schema::SchemaTracer] directly.
+    ///
+    pub fn from_samples<T: Serialize>(options: TracingOptions, samples: &T) -> Result<Self> {
+        let mut tracer = Tracer::new(String::from("$"), options);
+        tracer.trace_samples(samples)?;
+        tracer.to_schema()
     }
 }
 
@@ -747,6 +766,13 @@ mod test_schema_serialization {
     use crate::internal::schema::GenericDataType;
 
     use super::{GenericField, Schema};
+
+    impl Schema {
+        fn with_field(mut self, field: GenericField) -> Self {
+            self.fields.push(field);
+            self
+        }
+    }
 
     #[test]
     fn example() {

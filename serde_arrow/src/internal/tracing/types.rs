@@ -10,6 +10,8 @@ use crate::internal::{
 
 impl Tracer {
     pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
+        self.reset()?;
+
         // TODO: make configurable
         let mut attempts = 100;
         while !self.is_complete() {

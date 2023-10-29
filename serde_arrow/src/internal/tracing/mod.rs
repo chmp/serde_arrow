@@ -2,13 +2,6 @@ pub mod samples;
 pub mod tracer;
 pub mod types;
 
-use serde::{Deserialize, Serialize};
-
-use crate::internal::{
-    error::{fail, Result},
-    schema::{GenericDataType, GenericField, Schema},
-};
-
 pub use tracer::Tracer;
 
 /// Configure how the schema is traced
@@ -76,6 +69,13 @@ pub struct TracingOptions {
     /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
     /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
     pub guess_dates: bool,
+
+    /// If not `None`, trace the schema as a field with the given name instead
+    /// of multiple fields
+    ///
+    /// This may be helpful when the individual items are not structs, but other
+    /// objects, e.g., numbers or strings.
+    pub as_field: Option<String>,
 }
 
 impl Default for TracingOptions {
@@ -86,6 +86,7 @@ impl Default for TracingOptions {
             string_dictionary_encoding: false,
             coerce_numbers: false,
             guess_dates: false,
+            as_field: None,
         }
     }
 }
@@ -124,56 +125,10 @@ impl TracingOptions {
         self.guess_dates = value;
         self
     }
-}
 
-/// Collect schema information from samples and types
-pub struct SchemaTracer {
-    tracer: Tracer,
-}
-
-impl SchemaTracer {
-    /// Construct a new instance with the given options
-    pub fn new(options: TracingOptions) -> Self {
-        Self {
-            tracer: Tracer::new(String::from("$"), options),
-        }
-    }
-
-    pub(crate) fn to_field(&self, name: &str) -> Result<GenericField> {
-        self.tracer.to_field(name)
-    }
-
-    pub(crate) fn to_fields(&self) -> Result<Vec<GenericField>> {
-        let root = self.tracer.to_field("root")?;
-
-        match root.data_type {
-            GenericDataType::Struct => Ok(root.children),
-            GenericDataType::Null => fail!("No records found to determine schema"),
-            dt => fail!("Unexpected root data type {dt:?}"),
-        }
-    }
-
-    /// Convert the traced schema into a schema object
-    pub fn to_schema(&self) -> Result<Schema> {
-        Ok(Schema {
-            fields: self.to_fields()?,
-        })
+    /// Set [`as_field`](#structfield.as_field)
+    pub fn as_field<S: Into<String>>(mut self, value: S) -> Self {
+        self.as_field = Some(value.into());
+        self
     }
 }
-
-impl SchemaTracer {
-    /// Trace the given samples and collect schema information
-    pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
-        self.tracer.reset()?;
-        self.tracer.trace_samples(samples)
-    }
-
-    /// Trace the given type and collect schema information
-    pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
-        self.tracer.reset()?;
-        self.tracer.trace_type::<T>()
-    }
-}
-
-#[test]
-fn test_trace_type() {}

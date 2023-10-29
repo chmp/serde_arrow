@@ -3,8 +3,8 @@ use crate::{
     _impl::arrow::datatypes::{DataType, Field, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
+        generic,
         schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
-        tracing::SchemaTracer,
     },
 };
 
@@ -30,13 +30,12 @@ impl Schema {
     pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
         self.fields.iter().map(Field::try_from).collect()
     }
-}
 
-/// Support for arrow types (requires one of the `arrow-*` features)
-impl SchemaTracer {
-    /// Build a vec of fields from a  TracedSchema object
-    pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
-        self.to_fields()?.iter().map(Field::try_from).collect()
+    /// If this schema object has a single valid field, return it
+    pub fn to_arrow_field(&self) -> Result<Field> {
+        let fields = self.to_arrow_fields()?;
+        generic::to_single_item(fields)
+            .ok_or_else(|| error!("schema does not have exactly one field"))
     }
 }
 

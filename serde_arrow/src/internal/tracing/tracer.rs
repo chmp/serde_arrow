@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::internal::{
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, Strategy},
+    schema::{GenericDataType, GenericField, Schema, Strategy},
     tracing::TracingOptions,
 };
 
@@ -36,6 +36,24 @@ defined_tracer!(
 impl Tracer {
     pub fn new(path: String, options: TracingOptions) -> Self {
         Self::Unknown(UnknownTracer::new(path, options))
+    }
+
+    /// Convert the traced schema into a schema object
+    pub fn to_schema(&self) -> Result<Schema> {
+        let fields = if let Some(field_name) = self.get_options().as_field.as_ref() {
+            let field = self.to_field(field_name)?;
+            vec![field]
+        } else {
+            let root = self.to_field("root")?;
+
+            match root.data_type {
+                GenericDataType::Struct => root.children,
+                GenericDataType::Null => fail!("No records found to determine schema"),
+                dt => fail!("Unexpected root data type {dt:?}"),
+            }
+        };
+
+        Ok(Schema { fields })
     }
 }
 
@@ -977,6 +995,7 @@ impl PrimitiveTracer {
         }
 
         match &self.item_type {
+            D::Null => Ok(GenericField::new(name, D::Null, true)),
             dt @ (D::LargeUtf8 | D::Utf8) => {
                 if !self.options.string_dictionary_encoding {
                     Ok(GenericField::new(name, dt.clone(), self.nullable))
