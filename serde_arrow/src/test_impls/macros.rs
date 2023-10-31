@@ -49,18 +49,15 @@ macro_rules! test_example_impl {
         use super::*;
 
         use crate::{
-            internal::{
-                schema::{
-                    GenericDataType,
-                    GenericField,
-                    GenericTimeUnit,
-                    Strategy,
-                },
-                tracing::TracingOptions,
+            schema::{SerdeArrowSchema, TracingOptions, Strategy},
+            utils::Items,
+            internal::schema::{
+                GenericDataType,
+                GenericField,
+                GenericTimeUnit,
             },
             test_impls::{
                 macros::{btree_map, hash_map},
-                utils::ScopedConfiguration,
             },
         };
 
@@ -78,8 +75,8 @@ macro_rules! test_example_impl {
 
             println!("{options:?}");
 
-            let actual = serialize_into_field(&items, "root", options).unwrap();
-            let expected: Field = (&field).try_into().unwrap();
+            let actual: Vec<Field> = SerdeArrowSchema::from_samples(&Items(items), options).unwrap().try_into().unwrap();
+            let expected: Vec<Field> = vec![(&field).try_into().unwrap()];
             assert_eq!(
                 actual,
                 expected,
@@ -94,7 +91,7 @@ macro_rules! test_example_impl {
                 expected = expected,
             );
 
-            let traced: GenericField = (&actual).try_into().unwrap();
+            let traced: GenericField = (&actual[0]).try_into().unwrap();
             println!("traced: {:?}\n", traced);
             println!("defined: {:?}\n", field);
 
@@ -104,10 +101,6 @@ macro_rules! test_example_impl {
         $(#[ignore = $ignore])?
         #[test]
         fn serialization() {
-            let _guard = ScopedConfiguration::configure(|c| {
-                c.debug_print_program = true;
-            });
-
             $($($definitions)*)?
 
             let items: &[$ty] = &$values;
@@ -115,7 +108,8 @@ macro_rules! test_example_impl {
             $(let field = $overwrite_field;)?
             let field: Field = (&field).try_into().unwrap();
 
-            let array = serialize_into_array(&field, &items).unwrap();
+            let arrays = to_arrow(std::slice::from_ref(&field), &Items(items)).unwrap();
+            let array = arrays.into_iter().next().unwrap();
             assert_eq!(array.data_type(), field.data_type(), "Unexpected data type");
             assert_eq!(array.len(), items.len(), "Unexpected number of items");
 
@@ -149,7 +143,10 @@ macro_rules! test_example_impl {
                 let expected_items = items;
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
-                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                let Items(items_round_trip): Items<Vec<$ty>> = from_arrow(
+                    std::slice::from_ref(&field), 
+                    std::slice::from_ref(&array),
+                ).unwrap();
                 assert_eq!(expected_items, items_round_trip);
             }
         }
@@ -164,7 +161,8 @@ macro_rules! test_example_impl {
             $(let field = $overwrite_field;)?
             let field: Field = (&field).try_into().unwrap();
 
-            let array_reference = serialize_into_array(&field, &items).unwrap();
+            let arrays_reference = to_arrow(std::slice::from_ref(&field), &Items(items)).unwrap();
+            let array_reference = arrays_reference.into_iter().next().unwrap();
 
             let mut builder = ArrayBuilder::new(&field).unwrap();
 
@@ -189,7 +187,10 @@ macro_rules! test_example_impl {
                 let expected_items = items;
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
-                let items_round_trip: Vec<$ty> = deserialize_from_array(&field, &array).unwrap();
+                let Items(items_round_trip): Items<Vec<$ty>> = from_arrow(
+                    std::slice::from_ref(&field), 
+                    std::slice::from_ref(&array),
+                ).unwrap();
                 assert_eq!(expected_items, items_round_trip);
             }
         }
@@ -226,7 +227,9 @@ macro_rules! test_example {
         mod $test_name {
             mod arrow {
                 use crate::{
-                    arrow::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
+                    to_arrow,
+                    from_arrow,
+                    arrow::ArrayBuilder,
                     _impl::arrow::datatypes::Field,
                 };
                 const IMPL: &'static str = "arrow";
@@ -239,7 +242,9 @@ macro_rules! test_example {
             }
             mod arrow2 {
                 use crate::{
-                    arrow2::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
+                    to_arrow2 as to_arrow,
+                    from_arrow2 as from_arrow,
+                    arrow2::ArrayBuilder,
                     _impl::arrow2::datatypes::Field,
                 };
                 const IMPL: &'static str = "arrow2";
@@ -285,7 +290,7 @@ macro_rules! test_events {
                 let mut tracer = Tracer::new(String::from("$"), options);
                 let mut sink = StripOuterSequenceSink::new(&mut tracer);
                 accept_events(&mut sink, events.iter().cloned()).unwrap();
-                let root = tracer.to_field("root").unwrap();
+                let root = tracer.to_field("item").unwrap();
 
                 assert_eq!(root.children, fields);
             }
@@ -314,77 +319,6 @@ macro_rules! test_events {
 
 pub(crate) use test_events;
 
-macro_rules! test_error_impl {
-    (
-        test_name = $test_name:ident,
-        expected_error = $expected_error:expr,
-        block = $block:expr,
-    ) => {
-        use super::*;
-
-        use $crate::internal::error::Result;
-
-        #[test]
-        fn test() {
-            fn block() -> Result<()> {
-                $block
-            };
-
-            let actual = block();
-            let expected = $expected_error;
-
-            let Err(actual) = actual else {
-                panic!("expected an error, but no error was raised");
-            };
-
-            let actual = actual.to_string();
-
-            if !actual.contains(expected) {
-                panic!("Error did not contain {expected:?}. Full error: {actual}");
-            }
-        }
-    };
-}
-
-pub(crate) use test_error_impl;
-
-macro_rules! test_error {
-    (
-        test_name = $test_name:ident,
-        $($tt:tt)*
-    ) => {
-        #[allow(unused)]
-        mod $test_name {
-            mod arrow {
-                use crate::{
-                    arrow::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
-                    _impl::arrow::datatypes::Field,
-                };
-                const IMPL: &'static str = "arrow";
-
-                $crate::test_impls::macros::test_error_impl!(
-                    test_name = $test_name,
-                    $($tt)*
-                );
-            }
-            mod arrow2 {
-                use crate::{
-                    arrow2::{deserialize_from_array, serialize_into_field, serialize_into_array, ArrayBuilder},
-                    _impl::arrow2::datatypes::Field,
-                };
-                const IMPL: &'static str = "arrow2";
-
-                $crate::test_impls::macros::test_error_impl!(
-                    test_name = $test_name,
-                    $($tt)*
-                );
-            }
-        }
-    };
-}
-
-pub(crate) use test_error;
-
 macro_rules! test_roundtrip_arrays {
     (
         $name:ident {
@@ -400,6 +334,7 @@ macro_rules! test_roundtrip_arrays {
             mod arrow2 {
                 use serde::{Serialize, Deserialize};
                 use crate::{
+                    to_arrow2, from_arrow2,
                     arrow2,
                     internal::schema::{GenericField, GenericDataType},
                     Result,
@@ -418,8 +353,8 @@ macro_rules! test_roundtrip_arrays {
 
                     let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
 
-                    let arrays = arrow2::serialize_into_arrays(&fields, inputs).unwrap();
-                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+                    let arrays = to_arrow2(&fields, inputs).unwrap();
+                    let reconstructed: Vec<S> = from_arrow2(&fields, &arrays).unwrap();
 
                     assert_eq!(reconstructed, expected);
                 }
@@ -443,7 +378,7 @@ macro_rules! test_roundtrip_arrays {
                     }
 
                     let arrays = builder.build_arrays().unwrap();
-                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+                    let reconstructed: Vec<S> = from_arrow2(&fields, &arrays).unwrap();
 
                     assert_eq!(reconstructed, expected);
                 }
@@ -464,7 +399,7 @@ macro_rules! test_roundtrip_arrays {
                     builder.extend(inputs).unwrap();
 
                     let arrays = builder.build_arrays().unwrap();
-                    let reconstructed: Vec<S> = arrow2::deserialize_from_arrays(&fields, &arrays).unwrap();
+                    let reconstructed: Vec<S> = from_arrow2(&fields, &arrays).unwrap();
 
                     assert_eq!(reconstructed, expected);
                 }
@@ -474,70 +409,6 @@ macro_rules! test_roundtrip_arrays {
 }
 
 pub(crate) use test_roundtrip_arrays;
-
-macro_rules! test_serialize_into_array {
-    (
-        $(#[ignore = $ignore:literal])?
-        test_name = $test_name:ident,
-        $($tt:tt)*
-    ) => {
-        #[allow(unused)]
-        mod $test_name {
-            mod arrow {
-                use crate::arrow::{serialize_into_field, serialize_into_array};
-                $crate::test_impls::macros::test_serialize_into_array_impl!(
-                    $(#[ignore = $ignore])?
-                    test_name = $test_name,
-                    $($tt)*
-                );
-            }
-            mod arrow2 {
-                use crate::arrow2::{serialize_into_field, serialize_into_array};
-                $crate::test_impls::macros::test_serialize_into_array_impl!(
-                    $(#[ignore = $ignore])?
-                    test_name = $test_name,
-                    $($tt)*
-                );
-            }
-        }
-    };
-}
-
-pub(crate) use test_serialize_into_array;
-
-macro_rules! test_serialize_into_array_impl {
-    (
-        $(#[ignore = $ignore:literal])?
-        test_name = $test_name:ident,
-        values = $values:expr,
-        $(define = { $($definitions:item)* } ,)?
-    ) => {
-        use super::*;
-
-        use crate::{
-            internal::tracing::TracingOptions,
-            test_impls::utils::ScopedConfiguration,
-        };
-
-        $(#[ignore = $ignore])?
-        #[test]
-        fn serialization() {
-            let _guard = ScopedConfiguration::configure(|c| {
-                c.debug_print_program = true;
-            });
-
-            $($($definitions)*)?
-
-            let items = &$values;
-            let field = serialize_into_field(&items, "root", TracingOptions::default()).unwrap();
-            let array = serialize_into_array(&field, &items).unwrap();
-
-            drop(array);
-        }
-
-    };
-}
-pub(crate) use test_serialize_into_array_impl;
 
 macro_rules! test_generic {
     (
@@ -549,16 +420,14 @@ macro_rules! test_generic {
         #[allow(unused)]
         mod $name {
             use crate::{
-                internal::{
-                    schema::{GenericField, GenericDataType},
-                    tracing::TracingOptions,
-                },
-                test_impls::utils::ScopedConfiguration,
+                schema::{SerdeArrowSchema, TracingOptions},
+                utils::{Items, Item}
             };
+            use crate::internal::schema::{GenericField, GenericDataType};
 
             mod arrow {
                 use super::*;
-                use crate::arrow::{serialize_into_fields, serialize_into_arrays};
+                use crate::{to_arrow, from_arrow};
                 use crate::_impl::arrow::datatypes::Field;
 
                 $(#[ignore = $ignore])?
@@ -569,7 +438,7 @@ macro_rules! test_generic {
             }
             mod arrow2 {
                 use super::*;
-                use crate::arrow2::{serialize_into_fields, serialize_into_arrays};
+                use crate::{to_arrow2 as to_arrow, from_arrow2 as from_arrow};
                 use crate::_impl::arrow2::datatypes::Field;
 
                 $(#[ignore = $ignore])?
@@ -583,3 +452,14 @@ macro_rules! test_generic {
 }
 
 pub(crate) use test_generic;
+
+pub fn expect_error<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
+    let Err(actual) = actual else {
+        panic!("expected an error, but no error was raised");
+    };
+
+    let actual = actual.to_string();
+    if !actual.contains(expected) {
+        panic!("Error did not contain {expected:?}. Full error: {actual}");
+    }
+}

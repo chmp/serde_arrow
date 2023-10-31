@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::internal::{
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, Schema, Strategy},
+    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
     tracing::TracingOptions,
 };
 
@@ -39,21 +39,20 @@ impl Tracer {
     }
 
     /// Convert the traced schema into a schema object
-    pub fn to_schema(&self) -> Result<Schema> {
-        let fields = if let Some(field_name) = self.get_options().as_field.as_ref() {
-            let field = self.to_field(field_name)?;
-            vec![field]
-        } else {
-            let root = self.to_field("root")?;
+    pub fn to_schema(&self) -> Result<SerdeArrowSchema> {
+        let root = self.to_field("root")?;
 
-            match root.data_type {
-                GenericDataType::Struct => root.children,
-                GenericDataType::Null => fail!("No records found to determine schema"),
-                dt => fail!("Unexpected root data type {dt:?}"),
-            }
+        if root.nullable {
+            fail!("The root type cannot be nullable");
+        }
+
+        let fields = match root.data_type {
+            GenericDataType::Struct => root.children,
+            GenericDataType::Null => fail!("No records found to determine schema"),
+            dt => fail!("Unexpected root data type {dt:?}"),
         };
 
-        Ok(Schema { fields })
+        Ok(SerdeArrowSchema { fields })
     }
 }
 

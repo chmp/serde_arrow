@@ -9,7 +9,6 @@ mod primitives;
 mod r#struct;
 mod tuple;
 mod r#union;
-mod utils;
 mod wrappers;
 
 mod issue_74_unknown_fields;

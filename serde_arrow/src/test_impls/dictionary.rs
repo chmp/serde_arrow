@@ -5,7 +5,7 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
@@ -22,7 +22,7 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -35,14 +35,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U8, false))
         .with_child(GenericField::new(
             "value",
@@ -59,10 +59,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U8, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -75,14 +75,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U16, false))
         .with_child(GenericField::new(
             "value",
@@ -99,10 +99,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U16, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -115,14 +115,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U64, false))
         .with_child(GenericField::new(
             "value",
@@ -139,10 +139,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U64, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -155,14 +155,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I32, false))
         .with_child(GenericField::new(
             "value",
@@ -179,10 +179,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-        overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+        overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -195,14 +195,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I8, false))
         .with_child(GenericField::new(
             "value",
@@ -219,10 +219,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I8, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -235,14 +235,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I16, false))
         .with_child(GenericField::new(
             "value",
@@ -259,10 +259,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I16, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -275,14 +275,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I64, false))
         .with_child(GenericField::new(
             "value",
@@ -299,10 +299,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I64, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
     ty = Option<String>,
@@ -315,14 +315,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -335,10 +335,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -351,14 +351,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U8, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -371,10 +371,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U8, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -387,14 +387,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U16, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -407,10 +407,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U16, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -423,14 +423,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U64, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -443,10 +443,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U64, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -459,14 +459,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I32, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -479,10 +479,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-        overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+        overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I32, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -495,14 +495,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I8, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -515,10 +515,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I8, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -531,14 +531,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I16, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -551,10 +551,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I16, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,
@@ -567,14 +567,14 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, false)
+    field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new(
             "value",
             GenericDataType::LargeUtf8,
             false
         )),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, false)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, false)
         .with_child(GenericField::new("key", GenericDataType::I64, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = String,
@@ -587,10 +587,10 @@ test_example!(
     test_bytecode_deserialization = true,
     test_deserialization = [],
     tracing_options = TracingOptions::default().string_dictionary_encoding(true),
-    field = GenericField::new("root", GenericDataType::Dictionary, true)
+    field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::U32, false))
         .with_child(GenericField::new("value", GenericDataType::LargeUtf8, false)),
-    overwrite_field = GenericField::new("root", GenericDataType::Dictionary, true)
+    overwrite_field = GenericField::new("item", GenericDataType::Dictionary, true)
         .with_child(GenericField::new("key", GenericDataType::I64, false))
         .with_child(GenericField::new("value", GenericDataType::Utf8, false)),
     ty = Option<String>,

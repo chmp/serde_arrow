@@ -7,8 +7,8 @@ test_generic!(
         let tracing_options = TracingOptions::default();
 
         let items = vec![json!({ "a": 1, "b": 2 }), json!({ "a": 3, "b": 4 })];
-        let fields = serialize_into_fields(&items, tracing_options).unwrap();
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let fields: Vec<Field> = SerdeArrowSchema::from_samples(&items, tracing_options).unwrap().try_into().unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -21,8 +21,8 @@ test_generic!(
         let tracing_options = TracingOptions::default().coerce_numbers(true);
 
         let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
-        let fields = serialize_into_fields(&items, tracing_options).unwrap();
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let fields: Vec<Field> = SerdeArrowSchema::from_samples(&items, tracing_options).unwrap().try_into().unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -39,7 +39,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
         ];
 
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -56,7 +56,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
         ];
 
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -73,7 +73,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
         ];
 
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -95,7 +95,7 @@ test_generic!(
             Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap(),
         ];
 
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
     }
@@ -112,7 +112,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
         ];
 
-        let Err(err) = serialize_into_arrays(&fields, &items) else {
+        let Err(err) = to_arrow(&fields, &items) else {
             panic!("expected an error, but no error was raised");
         };
 

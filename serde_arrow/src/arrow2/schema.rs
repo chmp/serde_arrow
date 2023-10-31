@@ -2,13 +2,15 @@ use crate::{
     _impl::arrow2::datatypes::{DataType, Field, IntegerType, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        generic,
-        schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
+        schema::{
+            GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy,
+            STRATEGY_KEY,
+        },
     },
 };
 
 /// Support for arrow2 types (requires one of the `arrow2-*` features)
-impl Schema {
+impl SerdeArrowSchema {
     /// Build a new Schema object from fields
     pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {
         Ok(Self {
@@ -29,12 +31,13 @@ impl Schema {
     pub fn to_arrow2_fields(&self) -> Result<Vec<Field>> {
         self.fields.iter().map(Field::try_from).collect()
     }
+}
 
-    /// If this schema object has a single valid field, return it
-    pub fn to_arrow2_field(&self) -> Result<Field> {
-        let fields = self.to_arrow2_fields()?;
-        generic::to_single_item(fields)
-            .ok_or_else(|| error!("schema does not have exactly one field"))
+impl TryFrom<SerdeArrowSchema> for Vec<Field> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        value.to_arrow2_fields()
     }
 }
 

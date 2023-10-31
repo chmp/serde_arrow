@@ -69,13 +69,6 @@ pub struct TracingOptions {
     /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
     /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
     pub guess_dates: bool,
-
-    /// If not `None`, trace the schema as a field with the given name instead
-    /// of multiple fields
-    ///
-    /// This may be helpful when the individual items are not structs, but other
-    /// objects, e.g., numbers or strings.
-    pub as_field: Option<String>,
 }
 
 impl Default for TracingOptions {
@@ -86,7 +79,6 @@ impl Default for TracingOptions {
             string_dictionary_encoding: false,
             coerce_numbers: false,
             guess_dates: false,
-            as_field: None,
         }
     }
 }
@@ -123,12 +115,6 @@ impl TracingOptions {
     /// Set [`try_parse_dates`](#structfield.try_parse_dates)
     pub fn guess_dates(mut self, value: bool) -> Self {
         self.guess_dates = value;
-        self
-    }
-
-    /// Set [`as_field`](#structfield.as_field)
-    pub fn as_field<S: Into<String>>(mut self, value: S) -> Self {
-        self.as_field = Some(value.into());
         self
     }
 }

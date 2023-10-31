@@ -16,10 +16,12 @@ use serde::{Deserialize, Serialize};
 ///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
-/// A collection of fields that can be easily serialized and deserialized
+/// A collection of fields as understood by `serde_arrow`
+///
+/// `SerdeArrowSchema` is designed to be easily serialized and deserialized
 ///
 /// ```rust
-/// # use serde_arrow::schema::Schema;
+/// # use serde_arrow::schema::SerdeArrowSchema;
 /// let schema_json = r#"
 /// [
 ///     {
@@ -32,11 +34,10 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 /// ]
 /// "#;
 ///
-/// let schema: Schema = serde_json::from_str(&schema_json).unwrap();
+/// let schema: SerdeArrowSchema = serde_json::from_str(&schema_json).unwrap();
 /// ```
 ///
-/// The serialization format is designed to be as easy as possible to to write
-/// by hand. The schema can be given in two ways:
+/// The schema can be given in two ways:
 ///
 /// - an array of fields
 /// - or an object with a `"fields"` key that contains an array of fields
@@ -69,7 +70,7 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 ///
 #[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(from = "SchemaSerializationOptions")]
-pub struct Schema {
+pub struct SerdeArrowSchema {
     pub(crate) fields: Vec<GenericField>,
 }
 
@@ -80,7 +81,7 @@ enum SchemaSerializationOptions {
     FullSchema { fields: Vec<GenericField> },
 }
 
-impl From<SchemaSerializationOptions> for Schema {
+impl From<SchemaSerializationOptions> for SerdeArrowSchema {
     fn from(value: SchemaSerializationOptions) -> Self {
         use SchemaSerializationOptions::*;
         match value {
@@ -89,17 +90,13 @@ impl From<SchemaSerializationOptions> for Schema {
     }
 }
 
-impl Schema {
+impl SerdeArrowSchema {
     /// Return a new schema (empty) instance
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Determine the schema from the given type
-    ///
-    /// For more control consider using the underlying
-    /// [SchemaTracer][crate::schema::SchemaTracer] directly.
-    ///
     pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_type::<T>()?;
@@ -108,10 +105,13 @@ impl Schema {
 
     /// Determine the schema from the given samples
     ///
-    /// For more control consider using the underlying
-    /// [SchemaTracer][crate::schema::SchemaTracer] directly.
+    /// To correctly record the type information make sure to:
     ///
-    pub fn from_samples<T: Serialize>(options: TracingOptions, samples: &T) -> Result<Self> {
+    /// - include values for `Option<T>`
+    /// - include all variants of an enum
+    /// - include at least single element of a list or a map
+    ///
+    pub fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_samples(samples)?;
         tracer.to_schema()
@@ -765,9 +765,9 @@ fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
 mod test_schema_serialization {
     use crate::internal::schema::GenericDataType;
 
-    use super::{GenericField, Schema};
+    use super::{GenericField, SerdeArrowSchema};
 
-    impl Schema {
+    impl SerdeArrowSchema {
         fn with_field(mut self, field: GenericField) -> Self {
             self.fields.push(field);
             self
@@ -776,7 +776,7 @@ mod test_schema_serialization {
 
     #[test]
     fn example() {
-        let schema = Schema::new()
+        let schema = SerdeArrowSchema::new()
             .with_field(GenericField::new("foo", GenericDataType::U8, false))
             .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
@@ -786,25 +786,25 @@ mod test_schema_serialization {
             r#"{"fields":[{"name":"foo","data_type":"U8"},{"name":"bar","data_type":"Utf8"}]}"#
         );
 
-        let round_tripped: Schema = serde_json::from_str(&actual).unwrap();
+        let round_tripped: SerdeArrowSchema = serde_json::from_str(&actual).unwrap();
         assert_eq!(round_tripped, schema);
     }
 
     #[test]
     fn example_without_wrapper() {
-        let expected = Schema::new()
+        let expected = SerdeArrowSchema::new()
             .with_field(GenericField::new("foo", GenericDataType::U8, false))
             .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
         let input = r#"[{"name":"foo","data_type":"U8"},{"name":"bar","data_type":"Utf8"}]"#;
-        let actual: Schema = serde_json::from_str(&input).unwrap();
+        let actual: SerdeArrowSchema = serde_json::from_str(&input).unwrap();
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn list() {
         let schema =
-            Schema::new().with_field(
+            SerdeArrowSchema::new().with_field(
                 GenericField::new("value", GenericDataType::List, false)
                     .with_child(GenericField::new("element", GenericDataType::I32, false)),
             );
@@ -815,7 +815,7 @@ mod test_schema_serialization {
             r#"{"fields":[{"name":"value","data_type":"List","children":[{"name":"element","data_type":"I32"}]}]}"#
         );
 
-        let round_tripped: Schema = serde_json::from_str(&actual).unwrap();
+        let round_tripped: SerdeArrowSchema = serde_json::from_str(&actual).unwrap();
         assert_eq!(round_tripped, schema);
     }
 
@@ -828,8 +828,8 @@ mod test_schema_serialization {
             ]
         "#;
 
-        let actual: Schema = serde_json::from_str(&schema).unwrap();
-        let expected = Schema::new()
+        let actual: SerdeArrowSchema = serde_json::from_str(&schema).unwrap();
+        let expected = SerdeArrowSchema::new()
             .with_field(GenericField::new("foo", GenericDataType::U8, false))
             .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 

@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
+    generic::{Item, Items},
     schema::{GenericDataType as T, GenericField as F, Strategy},
     tracing::{Tracer, TracingOptions},
 };
 
 fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
-    let mut tracer = Tracer::new(String::from("$"), options.as_field("root"));
-    tracer.trace_type::<T>().unwrap();
+    let mut tracer = Tracer::new(String::from("$"), options);
+    tracer.trace_type::<Item<T>>().unwrap();
 
     let schema = tracer.to_schema().unwrap();
     schema.fields.into_iter().next().unwrap()
@@ -29,7 +30,7 @@ fn issue_90() {
     }
 
     let actual = trace_type::<VectorMetric>(TracingOptions::default());
-    let expected = F::new("root", T::Struct, false).with_child(
+    let expected = F::new("item", T::Struct, false).with_child(
         F::new("distribution", T::Struct, true)
             .with_child(F::new("samples", T::LargeList, false).with_child(F::new(
                 "element",
@@ -46,49 +47,49 @@ fn issue_90() {
 fn trace_primitives() {
     assert_eq!(
         trace_type::<()>(TracingOptions::default().allow_null_fields(true)),
-        F::new("root", T::Null, true),
+        F::new("item", T::Null, true),
     );
     assert_eq!(
         trace_type::<i8>(TracingOptions::default()),
-        F::new("root", T::I8, false)
+        F::new("item", T::I8, false)
     );
     assert_eq!(
         trace_type::<i16>(TracingOptions::default()),
-        F::new("root", T::I16, false)
+        F::new("item", T::I16, false)
     );
     assert_eq!(
         trace_type::<i32>(TracingOptions::default()),
-        F::new("root", T::I32, false)
+        F::new("item", T::I32, false)
     );
     assert_eq!(
         trace_type::<i64>(TracingOptions::default()),
-        F::new("root", T::I64, false)
+        F::new("item", T::I64, false)
     );
 
     assert_eq!(
         trace_type::<u8>(TracingOptions::default()),
-        F::new("root", T::U8, false)
+        F::new("item", T::U8, false)
     );
     assert_eq!(
         trace_type::<u16>(TracingOptions::default()),
-        F::new("root", T::U16, false)
+        F::new("item", T::U16, false)
     );
     assert_eq!(
         trace_type::<u32>(TracingOptions::default()),
-        F::new("root", T::U32, false)
+        F::new("item", T::U32, false)
     );
     assert_eq!(
         trace_type::<u64>(TracingOptions::default()),
-        F::new("root", T::U64, false)
+        F::new("item", T::U64, false)
     );
 
     assert_eq!(
         trace_type::<f32>(TracingOptions::default()),
-        F::new("root", T::F32, false)
+        F::new("item", T::F32, false)
     );
     assert_eq!(
         trace_type::<f64>(TracingOptions::default()),
-        F::new("root", T::F64, false)
+        F::new("item", T::F64, false)
     );
 }
 
@@ -96,11 +97,11 @@ fn trace_primitives() {
 fn trace_option() {
     assert_eq!(
         trace_type::<i8>(TracingOptions::default()),
-        F::new("root", T::I8, false)
+        F::new("item", T::I8, false)
     );
     assert_eq!(
         trace_type::<Option<i8>>(TracingOptions::default()),
-        F::new("root", T::I8, true)
+        F::new("item", T::I8, true)
     );
 }
 
@@ -114,7 +115,7 @@ fn trace_struct() {
     }
 
     let actual = trace_type::<Example>(TracingOptions::default());
-    let expected = F::new("root", T::Struct, false)
+    let expected = F::new("item", T::Struct, false)
         .with_child(F::new("a", T::Bool, false))
         .with_child(F::new("b", T::I8, true));
 
@@ -124,7 +125,7 @@ fn trace_struct() {
 #[test]
 fn trace_tuple_as_struct() {
     let actual = trace_type::<(bool, Option<i8>)>(TracingOptions::default());
-    let expected = F::new("root", T::Struct, false)
+    let expected = F::new("item", T::Struct, false)
         .with_child(F::new("0", T::Bool, false))
         .with_child(F::new("1", T::I8, true))
         .with_strategy(Strategy::TupleAsStruct);
@@ -142,7 +143,7 @@ fn trace_union() {
     }
 
     let actual = trace_type::<Example>(TracingOptions::default());
-    let expected = F::new("root", T::Union, false)
+    let expected = F::new("item", T::Union, false)
         .with_child(F::new("A", T::I8, false))
         .with_child(F::new("B", T::F32, false));
 
@@ -153,7 +154,7 @@ fn trace_union() {
 fn trace_list() {
     let actual = trace_type::<Vec<String>>(TracingOptions::default());
     let expected =
-        F::new("root", T::LargeList, false).with_child(F::new("element", T::LargeUtf8, false));
+        F::new("item", T::LargeList, false).with_child(F::new("element", T::LargeUtf8, false));
 
     assert_eq!(actual, expected);
 }
@@ -161,7 +162,7 @@ fn trace_list() {
 #[test]
 fn trace_map() {
     let actual = trace_type::<HashMap<i8, String>>(TracingOptions::default().map_as_struct(false));
-    let expected = F::new("root", T::Map, false).with_child(
+    let expected = F::new("item", T::Map, false).with_child(
         F::new("entries", T::Struct, false)
             .with_child(F::new("key", T::I8, false))
             .with_child(F::new("value", T::LargeUtf8, false)),
@@ -225,12 +226,12 @@ mod mixed_tracing_dates {
     fn invalid_values_first() {
         let mut tracer = Tracer::new(
             String::from("$"),
-            TracingOptions::default().guess_dates(true).as_field("root"),
+            TracingOptions::default().guess_dates(true),
         );
 
-        tracer.trace_samples(&["foo bar"]).unwrap();
-        tracer.trace_type::<String>().unwrap();
-        tracer.trace_samples(&["2015-09-18T23:56:04Z"]).unwrap();
+        tracer.trace_samples(&Items(["foo bar"])).unwrap();
+        tracer.trace_type::<Item<String>>().unwrap();
+        tracer.trace_samples(&Items(["2015-09-18T23:56:04Z"])).unwrap();
 
         let actual = tracer
             .to_schema()
@@ -239,7 +240,7 @@ mod mixed_tracing_dates {
             .into_iter()
             .next()
             .unwrap();
-        let expected = F::new("root", T::LargeUtf8, false);
+        let expected = F::new("item", T::LargeUtf8, false);
 
         assert_eq!(actual, expected);
     }
@@ -248,12 +249,12 @@ mod mixed_tracing_dates {
     fn invalid_values_last() {
         let mut tracer = Tracer::new(
             String::from("$"),
-            TracingOptions::default().guess_dates(true).as_field("root"),
+            TracingOptions::default().guess_dates(true),
         );
 
-        tracer.trace_samples(&["2015-09-18T23:56:04Z"]).unwrap();
-        tracer.trace_type::<String>().unwrap();
-        tracer.trace_samples(&["foo bar"]).unwrap();
+        tracer.trace_samples(&Items(["2015-09-18T23:56:04Z"])).unwrap();
+        tracer.trace_type::<Item<String>>().unwrap();
+        tracer.trace_samples(&Items(["foo bar"])).unwrap();
 
         let actual = tracer
             .to_schema()
@@ -262,14 +263,14 @@ mod mixed_tracing_dates {
             .into_iter()
             .next()
             .unwrap();
-        let expected = F::new("root", T::LargeUtf8, false);
+        let expected = F::new("item", T::LargeUtf8, false);
 
         assert_eq!(actual, expected);
     }
 }
 
 mod mixed_tracing_unions {
-    use crate::internal::{generic, tracing};
+    use crate::internal::{generic::{Items, Item}, tracing};
 
     use super::*;
 
@@ -285,15 +286,14 @@ mod mixed_tracing_unions {
         let mut tracer = tracing::Tracer::new(
             String::from("$"),
             TracingOptions::default()
-                .allow_null_fields(true)
-                .as_field("root"),
+                .allow_null_fields(true),
         );
-        tracer.trace_type::<E>().unwrap();
-        tracer.trace_samples(&[E::A, E::C(32)]).unwrap();
+        tracer.trace_type::<Item<E>>().unwrap();
+        tracer.trace_samples(&Items(&[E::A, E::C(32)])).unwrap();
         let schema = tracer.to_schema().unwrap();
 
-        let actual = generic::to_single_item(schema.fields).unwrap();
-        let expected = F::new("root", T::Union, false)
+        let actual = schema.fields.into_iter().next().unwrap();
+        let expected = F::new("item", T::Union, false)
             .with_child(F::new("A", T::Null, true))
             .with_child(F::new("B", T::Null, true))
             .with_child(F::new("C", T::U32, false));

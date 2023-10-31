@@ -124,6 +124,12 @@
 //!
 mod internal;
 
+#[cfg(has_arrow)]
+pub use arrow::api::{from_arrow, to_arrow};
+
+#[cfg(has_arrow2)]
+pub use arrow2::api::{from_arrow2, to_arrow2};
+
 /// Internal. Do not use
 ///
 /// This module is an internal implementation detail and not subject to any
@@ -131,6 +137,7 @@ mod internal;
 /// to allow usage in doc tests or benchmarks.
 ///
 #[rustfmt::skip]
+#[doc(hidden)]
 pub mod _impl {
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
@@ -149,6 +156,13 @@ pub mod _impl {
             /// A "fake" arrow crate re-exporting the relevant definitions of the
             /// used arrow-* subcrates
             pub mod arrow {
+                /// The raw arrow packages
+                pub mod _raw {
+                    pub use $arrow_array as array;
+                    pub use $arrow_buffer as buffer;
+                    pub use $arrow_data as data;
+                    pub use $arrow_schema as schema;
+                }
                 pub mod array {
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
@@ -220,85 +234,8 @@ mod test;
 
 pub use crate::internal::error::{Error, Result};
 
-/// Configure how Arrow and Rust types are translated into one another
-///
-/// When tracing the schema using the `serialize_into_fields` methods, the
-/// following defaults are used:
-///
-/// - Strings: `LargeUtf8`, i.e., i64 offsets
-/// - Lists: `LargeList`, i.e., i64 offsets
-/// - Strings with dictionary encoding: U32 keys and LargeUtf8 values
-///   - Rationale: `polars` cannot handle 64 bit keys in its default
-///     configuration
-///
-/// Null-only fields (e.g., fields of type `()` or fields with only `None`
-/// entries) result in errors per default.
-/// [`TracingOptions::allow_null_fields`][crate::internal::tracing::TracingOptions::allow_null_fields]
-/// allows to disable this behavior.
-///
-/// All customization of the types happens via the metadata of the fields
-/// structs describing arrays. For example, to let `serde_arrow` handle date
-/// time objects that are serialized to strings (chrono's default), use
-///
-/// ```rust
-/// # #[cfg(feature="arrow2")]
-/// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
-/// # let mut field = Field::new("my_field", DataType::Null, false);
-/// field.data_type = DataType::Date64;
-/// field.metadata = Strategy::UtcStrAsDate64.into();
-/// # }
-/// # #[cfg(not(feature="arrow2"))]
-/// # fn main() {}
-/// ```
 #[deny(missing_docs)]
-pub mod schema {
-    pub use crate::internal::{
-        schema::{Schema, Strategy, STRATEGY_KEY},
-        tracing::TracingOptions,
-    };
+pub mod schema;
 
-    /// Trace the schema from type information and samples
-    pub struct SchemaTracer(crate::internal::tracing::Tracer);
-
-    impl SchemaTracer {
-        /// Build a new schema tracer with the given options
-        pub fn new(options: TracingOptions) -> Self {
-            Self(crate::internal::tracing::Tracer::new(
-                String::from("$"),
-                options,
-            ))
-        }
-
-        /// Trace type information of the given type
-        ///
-        /// Note: the given type should be the type of the element, not the
-        /// sequence of elements.
-        pub fn trace_type<'de, T: serde::Deserialize<'de>>(&mut self) -> crate::Result<()> {
-            self.0.trace_type::<T>()
-        }
-
-        /// Trace type information from the given samples
-        ///
-        /// Note: the given samples should be a sequence of elements.
-        pub fn trace_samples<T: serde::Serialize + ?Sized>(
-            &mut self,
-            samples: &T,
-        ) -> crate::Result<()> {
-            self.0.trace_samples(samples)
-        }
-
-        /// Convert the tracer to a schema
-        pub fn to_schema(&self) -> crate::Result<Schema> {
-            self.0.to_schema()
-        }
-    }
-}
-
-/// Experimental functionality that is not bound by semver compatibility
-///
 #[deny(missing_docs)]
-pub mod experimental {
-    pub use crate::internal::config::{configure, Configuration};
-}
+pub mod utils;

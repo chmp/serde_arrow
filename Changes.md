@@ -2,8 +2,47 @@
 
 ## 0.9.0
 
+Breaking changes:
+
+- Make tracing options non-exhaustive
 - Remove `try_parse_dates` in favor of `guess_dates` field in `TracingOptions`
+- Remove experimental configuration api
+
+New feature: Improved schema tracing:
+
 - Add type based tracing to allow schema tracing without samples
+
+Deprecations:
+
+- Rename `serde_arrow::schema::Schema` to
+  `serde_arrow::schema::SerdeArrowSchema` to prevent name clashes with the
+  schema types of `arrow` and `arrow2`.
+- Deprecate `serialize_into_arrays`, `deserialize_from_arrays` methods in favor of
+  `to_arrow` / `to_arrow2` and `from_arrow` / `from_arrow2`
+- Deprecate `serialize_into_fields` methods in favor of
+  `SerdeArrowSchema::from_samples`
+- Deprecated single item methods in favor of using the `Items` and `Item`
+  wrappers
+
+Migration guide:
+
+```rust
+// old:
+serde_arrow::arrow::serialize_into_arrays(&fields, &items)?
+// new:
+serde_arrow::to_arrow(&fields, &items)?
+
+// old
+serde_arrow::arrow::deserialize_from_arrays(&fields, &arrays)?
+// new
+serde::from_arrow(&fields, &arrays)?
+
+// old
+serde_arrow::arrow::serialize_into_fields(&items)?
+// new
+use serde_arrow::schema::SerdeArrowSchema;
+SerdeArrowSchema::from_samples(&items)?.to_arrow_fields()?
+```
 
 ## 0.8.0
 

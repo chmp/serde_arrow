@@ -21,11 +21,12 @@ pub struct Configuration {
 ///
 /// Usage:
 ///
-/// ```
+/// ```ignore
 /// serde_arrow::experimental::configure(|c| {
 ///     // set attributes on c
 /// });
 /// ```
+#[allow(unused)]
 pub fn configure<F: FnOnce(&mut Configuration)>(f: F) {
     let mut guard = CONFIGURATION.write().unwrap();
     f(&mut guard)

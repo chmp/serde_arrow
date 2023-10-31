@@ -5,7 +5,7 @@ use super::macros::{test_events, test_example};
 test_example!(
     test_name = map_as_struct,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false)),
@@ -20,7 +20,7 @@ test_example!(
 test_example!(
     test_name = hash_map_as_struct,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false)),
@@ -35,7 +35,7 @@ test_example!(
 test_example!(
     test_name = map_as_struct_nullable,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, true)
+    field = GenericField::new("item", GenericDataType::Struct, true)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false)),
@@ -52,7 +52,7 @@ test_example!(
     test_name = map_as_struct_missing_fields,
     test_bytecode_deserialization = true,
     test_deserialization = [],
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, true)),
@@ -68,7 +68,7 @@ test_example!(
     test_name = map_as_struct_missing_fields_2,
     test_bytecode_deserialization = true,
     test_deserialization = [],
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true)),
@@ -86,7 +86,7 @@ test_example!(
     test_name = map_as_struct_missing_fields_3,
     test_bytecode_deserialization = true,
     test_deserialization = [],
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true)),
@@ -103,7 +103,7 @@ test_example!(
 test_example!(
     test_name = map_as_struct_nullable_fields,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true)),
@@ -119,7 +119,7 @@ test_example!(
     test_name = map_as_map,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(
             GenericField::new("entries", GenericDataType::Struct, false)
                 .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
@@ -137,7 +137,7 @@ test_example!(
     test_name = map_as_map_empty,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(
             GenericField::new("entries", GenericDataType::Struct, false)
                 .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
@@ -156,7 +156,7 @@ test_example!(
     test_name = map_as_map_int_keys,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(
             GenericField::new("entries", GenericDataType::Struct, false)
                 .with_child(GenericField::new("key", GenericDataType::I32, false))
@@ -173,7 +173,7 @@ test_example!(
 test_example!(
     test_name = hash_maps,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(GenericField::new("entries", GenericDataType::Struct, false)
             .with_child(GenericField::new("key", GenericDataType::I64, false))
             .with_child(GenericField::new("value", GenericDataType::Bool, false))),
@@ -188,7 +188,7 @@ test_example!(
 test_example!(
     test_name = hash_maps_nullable,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, true)
+    field = GenericField::new("item", GenericDataType::Map, true)
         .with_child(GenericField::new("entries", GenericDataType::Struct, false)
             .with_child(GenericField::new("key", GenericDataType::I64, false))
             .with_child(GenericField::new("value", GenericDataType::Bool, false))),
@@ -203,7 +203,7 @@ test_example!(
 test_example!(
     test_name = hash_maps_nullable_keys,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(GenericField::new("entries", GenericDataType::Struct, false)
             .with_child(GenericField::new("key", GenericDataType::I64, true))
             .with_child(GenericField::new("value", GenericDataType::Bool, false))),
@@ -218,7 +218,7 @@ test_example!(
 test_example!(
     test_name = hash_maps_nullable_values,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(GenericField::new("entries", GenericDataType::Struct, false)
             .with_child(GenericField::new("key", GenericDataType::I64, false))
             .with_child(GenericField::new("value", GenericDataType::Bool, true))),
@@ -233,7 +233,7 @@ test_example!(
 test_example!(
     test_name = btree_maps,
     tracing_options = TracingOptions::new().map_as_struct(false),
-    field = GenericField::new("root", GenericDataType::Map, false)
+    field = GenericField::new("item", GenericDataType::Map, false)
         .with_child(GenericField::new("entries", GenericDataType::Struct, false)
             .with_child(GenericField::new("key", GenericDataType::I64, false))
             .with_child(GenericField::new("value", GenericDataType::Bool, false))),

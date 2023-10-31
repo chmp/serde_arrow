@@ -3,7 +3,7 @@ use super::macros::*;
 test_example!(
     test_name = struct_,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
     ty = S,
@@ -21,7 +21,7 @@ test_example!(
 test_example!(
     test_name = struct_nested,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false))
         .with_child(
@@ -51,7 +51,7 @@ test_example!(
 test_example!(
     test_name = struct_nullable_field,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
     ty = S,
@@ -78,7 +78,7 @@ test_example!(
 test_example!(
     test_name = nullable_struct,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, true)
+    field = GenericField::new("item", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Bool, false)),
     ty = Option<S>,
@@ -96,7 +96,7 @@ test_example!(
 test_example!(
     test_name = nullable_nested_struct,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, true)
+    field = GenericField::new("item", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::Struct, true)
             .with_child(GenericField::new("c", GenericDataType::I16, false))
@@ -122,7 +122,7 @@ test_example!(
 test_example!(
     test_name = nullable_struct_nullable_fields,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, true)
+    field = GenericField::new("item", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::Bool, true)),
     ty = Option<S>,
@@ -146,7 +146,7 @@ test_example!(
 // arrow2 panics with: OutOfSpec("A StructArray must contain at least one field")
 // test_example!(
 //     test_name = empt_struct,
-//     field = GenericField::new("root", GenericDataType::Struct, false),
+//     field = GenericField::new("item", GenericDataType::Struct, false),
 //     ty = S,
 //     values = [S {}, S {}, S {}],
 //     nulls = [false, false, false],
@@ -159,7 +159,7 @@ test_example!(
 test_example!(
     test_name = nullable_struct_list_field,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, true)
+    field = GenericField::new("item", GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::LargeList, true)
             .with_child(GenericField::new("element", GenericDataType::Bool, false))),
@@ -184,7 +184,7 @@ test_example!(
     // #[ignore = "error during serialization"]
     test_name = serde_flatten,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::MapAsStruct)
         .with_child(GenericField::new("a", GenericDataType::I8, false))
         .with_child(GenericField::new("value", GenericDataType::Bool, false)),
@@ -211,7 +211,7 @@ test_example!(
 
 test_example!(
     test_name = flattened_structures,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::I64, false))
         .with_child(GenericField::new("b", GenericDataType::F32, false))
         .with_child(GenericField::new("c", GenericDataType::F64, false))
@@ -251,7 +251,7 @@ test_example!(
     test_name = struct_nullable,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root",GenericDataType::Struct, true)
+    field = GenericField::new("item",GenericDataType::Struct, true)
         .with_child(GenericField::new("a", GenericDataType::Bool, false))
         .with_child(GenericField::new("b", GenericDataType::I64, false))
         .with_child(GenericField::new("c", GenericDataType::Null, true))
@@ -292,7 +292,7 @@ test_example!(
     test_name = struct_nullable_nested,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root",GenericDataType::Struct, true)
+    field = GenericField::new("item",GenericDataType::Struct, true)
         .with_child(GenericField::new("inner", GenericDataType::Struct, false)
             .with_child(GenericField::new("a", GenericDataType::Bool, false))
             .with_child(GenericField::new("b", GenericDataType::I64, false))
@@ -335,7 +335,7 @@ test_example!(
     test_name = struct_nullable_item,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::Bool, true))
         .with_child(GenericField::new("b", GenericDataType::I64, true))
         .with_child(GenericField::new("c", GenericDataType::Null, true))

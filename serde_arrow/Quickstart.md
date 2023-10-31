@@ -122,6 +122,8 @@ will be mapped to the following arrow union:
 
 ## Specifying the schema in JSON
 
+TODO: cross-reference
+
 ```rust
 let schema_json = r#"
     [
