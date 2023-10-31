@@ -360,7 +360,7 @@ def plot_times(mean_times):
                 ),
             ]
         )
-        .groupby("impl")
+        .group_by("impl")
         .agg(pl.col("time").mean())
         .sort("time")
     )
