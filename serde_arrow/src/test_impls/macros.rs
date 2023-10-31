@@ -138,7 +138,7 @@ macro_rules! test_example_impl {
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
                 let Items(items_round_trip): Items<Vec<$ty>> = from_arrow(
-                    std::slice::from_ref(&field), 
+                    std::slice::from_ref(&field),
                     std::slice::from_ref(&array),
                 ).unwrap();
                 assert_eq!(expected_items, items_round_trip);
@@ -184,7 +184,7 @@ macro_rules! test_example_impl {
                 $(let expected_items: &[$ty] = &$expected_values;)?
 
                 let Items(items_round_trip): Items<Vec<$ty>> = from_arrow(
-                    std::slice::from_ref(&field), 
+                    std::slice::from_ref(&field),
                     std::slice::from_ref(&array),
                 ).unwrap();
                 assert_eq!(expected_items, items_round_trip);
@@ -328,7 +328,7 @@ macro_rules! test_roundtrip_arrays {
             mod arrow2 {
                 use serde::{Serialize, Deserialize};
                 use crate::{
-                    Arrow2Builder, to_arrow2, from_arrow2, 
+                    Arrow2Builder, to_arrow2, from_arrow2,
                     internal::schema::{GenericField, GenericDataType},
                     Result,
                 };

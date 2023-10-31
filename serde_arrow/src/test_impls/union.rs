@@ -242,7 +242,11 @@ test_generic!(
         }
 
         let tracing_options = TracingOptions::default().allow_null_fields(true);
-        let fields: Vec<Field> = SerdeArrowSchema::from_samples(&Items(&[U::A, U::C]), tracing_options).unwrap().try_into().unwrap();
+        let fields: Vec<Field> =
+            SerdeArrowSchema::from_samples(&Items(&[U::A, U::C]), tracing_options)
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         // NOTE: variant B was never encountered during tracing
         let res = to_arrow(&fields, &Items(&[U::A, U::B, U::C]));

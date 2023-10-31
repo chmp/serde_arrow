@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize, ser::SerializeSeq};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::{
     common::{BufferExtract, Buffers},
@@ -81,7 +81,10 @@ pub struct Item<T>(
 );
 
 impl<T: Serialize> Serialize for Item<T> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         #[derive(Debug, Serialize)]
         struct Item<'a, T> {
             item: &'a T,
@@ -91,7 +94,9 @@ impl<T: Serialize> Serialize for Item<T> {
 }
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Item<T> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         #[derive(Debug, Deserialize)]
         struct Item<T> {
             item: T,
@@ -103,38 +108,58 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Item<T> {
 
 // TODO: implement for all types?
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Items<Vec<T>> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        let items = Vec::<Item<T>>::deserialize(deserializer)?.into_iter().map(|item| item.0).collect();
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let items = Vec::<Item<T>>::deserialize(deserializer)?
+            .into_iter()
+            .map(|item| item.0)
+            .collect();
         Ok(Items(items))
     }
 }
 
 impl<T: Serialize> Serialize for Items<Vec<T>> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         Items(self.0.as_slice()).serialize(serializer)
     }
 }
 
 impl<'a, T: Serialize> Serialize for Items<&'a Vec<T>> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         Items(self.0.as_slice()).serialize(serializer)
     }
 }
 
 impl<const N: usize, T: Serialize> Serialize for Items<[T; N]> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         Items(self.0.as_slice()).serialize(serializer)
     }
 }
 
 impl<'a, const N: usize, T: Serialize> Serialize for Items<&'a [T; N]> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         Items(self.0.as_slice()).serialize(serializer)
     }
 }
 
 impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
         for item in self.0 {
             seq.serialize_element(&Item(item))?;

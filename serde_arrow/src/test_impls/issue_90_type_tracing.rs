@@ -231,7 +231,9 @@ mod mixed_tracing_dates {
 
         tracer.trace_samples(&Items(["foo bar"])).unwrap();
         tracer.trace_type::<Item<String>>().unwrap();
-        tracer.trace_samples(&Items(["2015-09-18T23:56:04Z"])).unwrap();
+        tracer
+            .trace_samples(&Items(["2015-09-18T23:56:04Z"]))
+            .unwrap();
 
         let actual = tracer
             .to_schema()
@@ -252,7 +254,9 @@ mod mixed_tracing_dates {
             TracingOptions::default().guess_dates(true),
         );
 
-        tracer.trace_samples(&Items(["2015-09-18T23:56:04Z"])).unwrap();
+        tracer
+            .trace_samples(&Items(["2015-09-18T23:56:04Z"]))
+            .unwrap();
         tracer.trace_type::<Item<String>>().unwrap();
         tracer.trace_samples(&Items(["foo bar"])).unwrap();
 
@@ -270,7 +274,10 @@ mod mixed_tracing_dates {
 }
 
 mod mixed_tracing_unions {
-    use crate::internal::{generic::{Items, Item}, tracing};
+    use crate::internal::{
+        generic::{Item, Items},
+        tracing,
+    };
 
     use super::*;
 
@@ -285,8 +292,7 @@ mod mixed_tracing_unions {
 
         let mut tracer = tracing::Tracer::new(
             String::from("$"),
-            TracingOptions::default()
-                .allow_null_fields(true),
+            TracingOptions::default().allow_null_fields(true),
         );
         tracer.trace_type::<Item<E>>().unwrap();
         tracer.trace_samples(&Items(&[E::A, E::C(32)])).unwrap();
