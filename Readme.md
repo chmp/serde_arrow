@@ -36,27 +36,25 @@ arrays, and deserialization from arrays to Rust structs.
 ## Example
 
 ```rust
-#[derive(Serialize)]
-struct Item {
+use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+
+#[derive(Serialize, Deserialize)]
+struct Record {
     a: f32,
     b: i32,
-    point: Point,
 }
 
-#[derive(Serialize)]
-struct Point(f32, f32);
-
-let items = vec![
-    Item { a: 1.0, b: 1, point: Point(0.0, 1.0) },
-    Item { a: 2.0, b: 2, point: Point(2.0, 3.0) },
-    // ...
+let records = vec![
+    Record { a: 1.0, b: 1 },
+    Record { a: 2.0, b: 2 },
+    Record { a: 3.0, b: 3 },
 ];
 
-// detect the field types and convert the items to arrays
-use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+let fields =
+    SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+    .to_arrow2_fields()?;
 
-let fields = serialize_into_fields(&items, TracingOptions::default())?;
-let arrays = serialize_into_arrays(&fields, &items)?;
+let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 ```
 
 These arrays can now be written to disk using the helper method defined in the
