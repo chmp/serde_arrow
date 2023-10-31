@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::macros::expect_error;
 use crate::internal::{
     generic::{Item, Items},
     schema::{GenericDataType as T, GenericField as F, Strategy},
@@ -306,4 +307,17 @@ mod mixed_tracing_unions {
 
         assert_eq!(actual, expected);
     }
+}
+
+#[test]
+fn unsupported_recursive_types() {
+    #[derive(Deserialize)]
+    struct Tree {
+        left: Option<Box<Tree>>,
+        right: Option<Box<Tree>>,
+    }
+
+    let mut tracer = Tracer::new(String::from("$"), TracingOptions::default());
+    let res = tracer.trace_type::<Tree>();
+    expect_error(&res, "too deeply nested type detected");
 }

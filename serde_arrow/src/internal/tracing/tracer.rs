@@ -6,6 +6,11 @@ use crate::internal::{
     tracing::TracingOptions,
 };
 
+// TODO: allow to customize
+const MAX_TYPE_DEPTH: usize = 20;
+const RECURSIVE_TYPE_WARNING: &str =
+    "too deeply nested type detected. Recursive types are not supported in schema tracing";
+
 macro_rules! defined_tracer {
     ($($variant:ident($impl:ident)),* $(,)? ) => {
         #[derive(Debug, PartialEq, Clone)]
@@ -96,6 +101,10 @@ impl Tracer {
     pub fn reset(&mut self) -> Result<()> {
         dispatch_tracer!(self, tracer => tracer.reset())
     }
+
+    pub fn get_depth(&self) -> usize {
+        self.get_path().chars().filter(|c| *c == '.').count()
+    }
 }
 
 // TODO: move into trace any?
@@ -104,7 +113,16 @@ impl Tracer {
         dispatch_tracer!(self, tracer => { tracer.nullable = true; });
     }
 
+    pub fn enforce_depth_limit(&self) -> Result<()> {
+        if self.get_depth() >= MAX_TYPE_DEPTH {
+            fail!("{RECURSIVE_TYPE_WARNING}");
+        }
+        Ok(())
+    }
+
     pub fn ensure_struct<S: std::fmt::Display>(&mut self, fields: &[S]) -> Result<()> {
+        self.enforce_depth_limit()?;
+
         match self {
             this @ Self::Unknown(_) => {
                 let field_names = fields
@@ -152,6 +170,8 @@ impl Tracer {
     }
 
     pub fn ensure_tuple(&mut self, num_fields: usize) -> Result<()> {
+        self.enforce_depth_limit()?;
+
         match self {
             this @ Self::Unknown(_) => {
                 let tracer = TupleTracer {
@@ -183,6 +203,8 @@ impl Tracer {
     }
 
     pub fn ensure_union(&mut self, variants: &[&str]) -> Result<()> {
+        self.enforce_depth_limit()?;
+
         match self {
             this @ Self::Unknown(_) => {
                 let tracer = UnionTracer {
@@ -218,6 +240,8 @@ impl Tracer {
     }
 
     pub fn ensure_list(&mut self) -> Result<()> {
+        self.enforce_depth_limit()?;
+
         match self {
             this @ Self::Unknown(_) => {
                 let tracer = ListTracer {
@@ -242,6 +266,8 @@ impl Tracer {
     }
 
     pub fn ensure_map(&mut self) -> Result<()> {
+        self.enforce_depth_limit()?;
+
         match self {
             this @ Self::Unknown(_) => {
                 let tracer = MapTracer {
