@@ -225,13 +225,12 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
+#[deprecated = "serde_arrow::arrow::ArrayBuilder is deprecated. Use serde_arrow::ArrowBuilder instead"]
 pub struct ArrayBuilder(generic::GenericBuilder);
 
+#[allow(deprecated)]
 impl ArrayBuilder {
     /// Construct a new build for the given field
-    ///
-    /// This method may fail for an unsupported data type of the given field.
-    ///
     pub fn new(field: &Field) -> Result<Self> {
         Ok(Self(generic::GenericBuilder::new_for_array(
             GenericField::try_from(field)?,
@@ -239,27 +238,22 @@ impl ArrayBuilder {
     }
 
     /// Add a single item to the arrays
-    ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
         self.0.push(item)
     }
 
     /// Add multiple items to the arrays
-    ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         self.0.extend(items)
     }
 
     /// Build the array from the rows pushed to far.
-    ///
-    /// This operation will reset the underlying buffers and start a new batch.
-    ///
     pub fn build_array(&mut self) -> Result<ArrayRef> {
         self.0 .0.build_arrow_array()
     }
 }
 
-/// Build arrays record by record
+/// Build arrow arrays record by record
 ///
 /// Example:
 ///
@@ -267,7 +261,7 @@ impl ArrayBuilder {
 /// # use serde_arrow::_impl::arrow as arrow;
 /// use arrow::datatypes::{DataType, Field};
 /// use serde::Serialize;
-/// use serde_arrow::arrow::{ArraysBuilder};
+/// use serde_arrow::ArrowBuilder;
 ///
 /// ##[derive(Serialize)]
 /// struct Record {
@@ -279,7 +273,7 @@ impl ArrayBuilder {
 ///     Field::new("a", DataType::Float32, true),
 ///     Field::new("b", DataType::UInt64, false),
 /// ];
-/// let mut builder = ArraysBuilder::new(&fields).unwrap();
+/// let mut builder = ArrowBuilder::new(&fields).unwrap();
 ///
 /// builder.push(&Record { a: Some(1.0), b: 2}).unwrap();
 /// builder.push(&Record { a: Some(3.0), b: 4}).unwrap();
@@ -296,16 +290,16 @@ impl ArrayBuilder {
 /// assert_eq!(arrays.len(), 2);
 /// assert_eq!(arrays[0].len(), 6);
 /// ```
-pub struct ArraysBuilder(generic::GenericBuilder);
+pub struct ArrowBuilder(generic::GenericBuilder);
 
-impl std::fmt::Debug for ArraysBuilder {
+impl std::fmt::Debug for ArrowBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArraysBuilder<...>")
+        write!(f, "ArrowBuilder<...>")
     }
 }
 
-impl ArraysBuilder {
-    /// Build a new ArraysBuilder for the given fields
+impl ArrowBuilder {
+    /// Build a new ArrowBuilder for the given fields
     ///
     /// This method may fail when unsupported data types are encountered in the
     /// given fields.

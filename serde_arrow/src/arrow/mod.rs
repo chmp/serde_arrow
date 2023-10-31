@@ -13,5 +13,9 @@ mod type_support;
 #[allow(deprecated)]
 pub use api::{
     deserialize_from_array, deserialize_from_arrays, serialize_into_array, serialize_into_arrays,
-    serialize_into_field, serialize_into_fields, ArrayBuilder, ArraysBuilder,
+    serialize_into_field, serialize_into_fields, ArrayBuilder,
 };
+
+/// Build arrays record by record
+#[deprecated = "serde_arrow::arrow::ArraysBuilder is deprecated. Use serde_arrow::ArrowBuilder instead."]
+pub type ArraysBuilder = api::ArrowBuilder;

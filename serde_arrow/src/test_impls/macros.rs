@@ -50,16 +50,10 @@ macro_rules! test_example_impl {
 
         use crate::{
             schema::{SerdeArrowSchema, TracingOptions, Strategy},
-            utils::Items,
-            internal::schema::{
-                GenericDataType,
-                GenericField,
-                GenericTimeUnit,
-            },
-            test_impls::{
-                macros::{btree_map, hash_map},
-            },
+            utils::{Items, Item},
         };
+        use crate::internal::schema::{GenericDataType, GenericField, GenericTimeUnit};
+        use crate::test_impls::macros::{btree_map, hash_map};
 
         $(#[ignore = $ignore])?
         #[test]
@@ -164,20 +158,22 @@ macro_rules! test_example_impl {
             let arrays_reference = to_arrow(std::slice::from_ref(&field), &Items(items)).unwrap();
             let array_reference = arrays_reference.into_iter().next().unwrap();
 
-            let mut builder = ArrayBuilder::new(&field).unwrap();
+            let mut builder = ArrowBuilder::new(std::slice::from_ref(&field)).unwrap();
 
             // build using extend
-            builder.extend(items).unwrap();
+            builder.extend(&Items(items)).unwrap();
 
-            let array = builder.build_array().unwrap();
+            let arrays = builder.build_arrays().unwrap();
+            let array = arrays.into_iter().next().unwrap();
             assert_eq!(array.as_ref(), array_reference.as_ref());
 
             // re-use the builder
             for item in items {
-                builder.push(item).unwrap();
+                builder.push(&Item(item)).unwrap();
             }
 
-            let array = builder.build_array().unwrap();
+            let arrays = builder.build_arrays().unwrap();
+            let array = arrays.into_iter().next().unwrap();
             assert_eq!(array.as_ref(), array_reference.as_ref());
 
             let test_deserialization: &[&str] = &["arrow", "arrow2"];
@@ -227,9 +223,7 @@ macro_rules! test_example {
         mod $test_name {
             mod arrow {
                 use crate::{
-                    to_arrow,
-                    from_arrow,
-                    arrow::ArrayBuilder,
+                    ArrowBuilder, to_arrow, from_arrow,
                     _impl::arrow::datatypes::Field,
                 };
                 const IMPL: &'static str = "arrow";
@@ -242,9 +236,9 @@ macro_rules! test_example {
             }
             mod arrow2 {
                 use crate::{
+                    Arrow2Builder as ArrowBuilder,
                     to_arrow2 as to_arrow,
                     from_arrow2 as from_arrow,
-                    arrow2::ArrayBuilder,
                     _impl::arrow2::datatypes::Field,
                 };
                 const IMPL: &'static str = "arrow2";
@@ -334,8 +328,7 @@ macro_rules! test_roundtrip_arrays {
             mod arrow2 {
                 use serde::{Serialize, Deserialize};
                 use crate::{
-                    to_arrow2, from_arrow2,
-                    arrow2,
+                    Arrow2Builder, to_arrow2, from_arrow2, 
                     internal::schema::{GenericField, GenericDataType},
                     Result,
                 };
@@ -371,7 +364,7 @@ macro_rules! test_roundtrip_arrays {
 
                     let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
 
-                    let mut builder = arrow2::ArraysBuilder::new(&fields).unwrap();
+                    let mut builder = Arrow2Builder::new(&fields).unwrap();
 
                     for item in inputs.iter() {
                         builder.push(item).unwrap();
@@ -395,7 +388,7 @@ macro_rules! test_roundtrip_arrays {
 
                     let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
 
-                    let mut builder = arrow2::ArraysBuilder::new(&fields).unwrap();
+                    let mut builder = Arrow2Builder::new(&fields).unwrap();
                     builder.extend(inputs).unwrap();
 
                     let arrays = builder.build_arrays().unwrap();

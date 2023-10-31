@@ -124,12 +124,6 @@
 //!
 mod internal;
 
-#[cfg(has_arrow)]
-pub use arrow::api::{from_arrow, to_arrow};
-
-#[cfg(has_arrow2)]
-pub use arrow2::api::{from_arrow2, to_arrow2};
-
 /// Internal. Do not use
 ///
 /// This module is an internal implementation detail and not subject to any
@@ -217,12 +211,6 @@ pub mod _impl {
     }
 }
 
-#[cfg(has_arrow2)]
-pub mod arrow2;
-
-#[cfg(has_arrow)]
-pub mod arrow;
-
 #[cfg(all(test, has_arrow, has_arrow2))]
 mod test_impls;
 
@@ -233,6 +221,20 @@ mod test_end_to_end;
 mod test;
 
 pub use crate::internal::error::{Error, Result};
+
+#[cfg(has_arrow)]
+pub use arrow::api::{from_arrow, to_arrow, ArrowBuilder};
+
+#[cfg(has_arrow)]
+// #[deprecated = "The items in serde_arrow::arrow are deprecated. See the individual items for suitable replacements"]
+pub mod arrow;
+
+#[cfg(has_arrow2)]
+pub use arrow2::api::{from_arrow2, to_arrow2, Arrow2Builder};
+
+#[cfg(has_arrow2)]
+// #[deprecated = "The items in serde_arrow::arrow2 are deprecated. See the individual items for suitable replacements"]
+pub mod arrow2;
 
 #[deny(missing_docs)]
 pub mod schema;

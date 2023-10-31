@@ -69,33 +69,6 @@ where
 }
 
 /// Build arrays from the given items
-///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs).
-///
-/// To build arrays record by record use [ArraysBuilder].
-///
-/// ```rust
-/// use serde::Serialize;
-/// use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
-///
-/// ##[derive(Serialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-///
-/// let items = vec![
-///     Record { a: Some(1.0), b: 2},
-///     // ...
-/// ];
-///
-/// let fields = serialize_into_fields(&items, Default::default()).unwrap();
-/// let arrays = serialize_into_arrays(&fields, &items).unwrap();
-///
-/// assert_eq!(arrays.len(), 2);
-/// ```
-///
 pub fn serialize_into_arrays<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
@@ -118,7 +91,7 @@ where
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs).
 ///
-/// To build arrays record by record use [ArraysBuilder].
+/// To build arrays record by record use [Arrow2Builder].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -407,8 +380,10 @@ where
 /// let array = builder.build_array().unwrap();
 /// assert_eq!(array.len(), 6);
 /// ```
+#[deprecated = "serde_arrow::arrow2::ArrayBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
 pub struct ArrayBuilder(generic::GenericBuilder);
 
+#[allow(deprecated)]
 impl ArrayBuilder {
     /// Construct a new build for the given field
     ///
@@ -441,7 +416,7 @@ impl ArrayBuilder {
     }
 }
 
-/// Build arrays record by record
+/// Build arrow2 arrays record by record
 ///
 /// Example:
 ///
@@ -449,7 +424,7 @@ impl ArrayBuilder {
 /// # use serde_arrow::_impl::arrow2 as arrow2;
 /// use arrow2::datatypes::{DataType, Field};
 /// use serde::Serialize;
-/// use serde_arrow::arrow2::{ArraysBuilder};
+/// use serde_arrow::Arrow2Builder;
 ///
 /// ##[derive(Serialize)]
 /// struct Record {
@@ -461,7 +436,7 @@ impl ArrayBuilder {
 ///     Field::new("a", DataType::Float32, true),
 ///     Field::new("b", DataType::UInt64, false),
 /// ];
-/// let mut builder = ArraysBuilder::new(&fields).unwrap();
+/// let mut builder = Arrow2Builder::new(&fields).unwrap();
 ///
 /// builder.push(&Record { a: Some(1.0), b: 2}).unwrap();
 /// builder.push(&Record { a: Some(3.0), b: 4}).unwrap();
@@ -478,16 +453,16 @@ impl ArrayBuilder {
 /// assert_eq!(arrays.len(), 2);
 /// assert_eq!(arrays[0].len(), 6);
 /// ```
-pub struct ArraysBuilder(generic::GenericBuilder);
+pub struct Arrow2Builder(generic::GenericBuilder);
 
-impl std::fmt::Debug for ArraysBuilder {
+impl std::fmt::Debug for Arrow2Builder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArraysBuilder<...>")
+        write!(f, "Arrow2Builder<...>")
     }
 }
 
-impl ArraysBuilder {
-    /// Build a new ArraysBuilder for the given fields
+impl Arrow2Builder {
+    /// Build a new Arrow2Builder for the given fields
     ///
     /// This method may fail when unsupported data types are encountered in the
     /// given fields.
