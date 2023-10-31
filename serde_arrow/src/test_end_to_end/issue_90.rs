@@ -22,7 +22,7 @@ pub struct VectorMetric {
 }
 
 #[test]
-fn example() -> Result<(), PanicOnError> {
+fn example() -> PanicOnError<()> {
     let metrics = vec![
         VectorMetric {
             distribution: Some(Distribution {
@@ -55,7 +55,7 @@ fn example() -> Result<(), PanicOnError> {
 }
 
 #[test]
-fn example_top_level_none() -> Result<(), PanicOnError> {
+fn example_top_level_none() -> PanicOnError<()> {
     use serde_arrow::schema::SerdeArrowSchema;
 
     // top-level options are not supported if fields are are extracted

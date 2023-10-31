@@ -68,13 +68,49 @@ where
     deserialize_from_source(interpreter)
 }
 
-/// A wrapper around a sequence of individual items
+/// A wrapper around a sequence of items
+///
+/// When serialized or deserialized, it behaves as if each item was wrapped in a
+/// struct with a single attribute `item`.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+/// # use serde_arrow::utils::Items;
+/// #
+/// assert_eq!(
+///     serde_json::to_string(&Items([13, 21]))?,
+///     r#"[{"item":13},{"item":21}]"#,
+/// );
+///
+/// let Items(items): Items<Vec<u32>> = serde_json::from_str(r#"[
+///     {"item": 21},
+///     {"item": 42}
+/// ]"#)?;
+/// assert_eq!(items, &[21, 42]);
+/// # Ok(())
+/// # }
+/// ```
 pub struct Items<T>(
     /// The wrapped object
     pub T,
 );
 
 /// A wrapper around a single item
+///
+/// When serialized or deserialized, it behaves as if the Item was wrapped in a
+/// struct with a single attribute `item`.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+/// # use serde_arrow::utils::Item;
+/// #
+/// assert_eq!(serde_json::to_string(&Item(42))?, r#"{"item":42}"#);
+///
+/// let Item(item): Item<u32> = serde_json::from_str(r#"{"item":21}"#)?;
+/// assert_eq!(item, 21);
+/// # Ok(())
+/// # }
+/// ```
 pub struct Item<T>(
     /// The wrapped object
     pub T,

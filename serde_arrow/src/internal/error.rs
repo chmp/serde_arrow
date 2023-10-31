@@ -160,12 +160,14 @@ impl From<bytemuck::PodCastError> for Error {
     }
 }
 
+pub type PanicOnError<T> = std::result::Result<T, PanicOnErrorError>;
+
 /// An error type for testing, that panics once an error is converted
 #[allow(unused)]
 #[derive(Debug)]
-pub struct PanicOnError;
+pub struct PanicOnErrorError;
 
-impl<E: std::fmt::Display> From<E> for PanicOnError {
+impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
     fn from(value: E) -> Self {
         panic!("{value}");
     }

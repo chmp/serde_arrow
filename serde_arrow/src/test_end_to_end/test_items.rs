@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{self as serde_arrow, internal::{error::PanicOnError, generic::Items}, schema::TracingOptions};
 
 #[test]
-fn example() -> Result<(), PanicOnError> {
+fn example() -> PanicOnError<()> {
     use serde_arrow::schema::SerdeArrowSchema;
 
     let items: Vec<u64> = vec![1, 2, 3, 4, 5];

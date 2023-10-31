@@ -202,6 +202,9 @@ pub mod _impl {
         #[cfg(not(doctest))]
         pub mod status {}
     }
+
+    // Reexport for tests
+    pub use crate::internal::error::PanicOnError;
 }
 
 #[cfg(all(test, has_arrow, has_arrow2))]

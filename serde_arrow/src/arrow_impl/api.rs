@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-
 /// Build arrow arrays record by record (*requires one of the `arrow-*`
 /// features*)
 ///
@@ -211,7 +210,29 @@ where
     deserialize_from_source(interpreter)
 }
 
-/// Determine the schema (as a list of fields) for the given items
+/// Replaced by
+/// [`SerdeArrowSchema::from_samples`][crate::schema::SerdeArrowSchema::from_samples]
+/// (*[example][serialize_into_fields]*)
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use serde::Serialize;
+/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+///
+/// ##[derive(Serialize)]
+/// struct Record {
+///     a: u32,
+///     b: f32,
+/// }
+///
+/// let samples = [Record { a: 1, b: 2.0 }, /* ... */ ];
+/// let fields = SerdeArrowSchema::from_samples(&samples, TracingOptions::default())?
+///     .to_arrow_fields()?;
+/// #
+/// # drop(fields);
+/// # Ok(())
+/// # }
+/// ```
 #[deprecated = "serialize_into_fields is deprecated. Use serde_arrow::schema::SerdeArrowSchema::from_samples instead"]
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<Field>>
 where
@@ -224,7 +245,25 @@ where
     schema.to_arrow_fields()
 }
 
-/// Determine the schema of an object that represents a single array
+/// Replaced by
+/// [`SerdeArrowSchema::from_samples`][crate::schema::SerdeArrowSchema::from_samples]
+/// and [`Items`][crate::utils::Items] (*[example][serialize_into_field]*)
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use serde_arrow::{
+///     schema::{SerdeArrowSchema, TracingOptions},
+///     utils::Items,
+/// };
+///
+/// let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
+/// let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
+///     .to_arrow_fields()?;
+/// #
+/// # drop(fields);
+/// # Ok(())
+/// # }
+/// ```
 #[deprecated = "serialize_into_field is deprecated. Use serde_arrow::to_arrow with serde_arrow::utils::Items instead"]
 pub fn serialize_into_field<T>(items: &T, name: &str, options: TracingOptions) -> Result<Field>
 where
@@ -256,7 +295,26 @@ where
     crate::from_arrow(fields, arrays)
 }
 
-/// Serialize an object that represents a single array into an array
+/// Replaced by [`serde_arrow::to_arrow`][crate::to_arrow] and
+/// [`Items`][crate::utils::Items] (*[example][serialize_into_array]*)
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use serde_arrow::{
+///     schema::{SerdeArrowSchema, TracingOptions},
+///     utils::Items,
+/// };
+///
+/// let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
+/// let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
+///     .to_arrow_fields()?;
+///
+/// let arrays = serde_arrow::to_arrow(&fields, &Items(&samples))?;
+/// #
+/// # drop(fields);
+/// # Ok(())
+/// # }
+/// ```
 #[deprecated = "serialize_into_array is deprecated. Use serde_arrow::arrow::ArrayBuilder instead"]
 pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<ArrayRef>
 where
@@ -273,7 +331,25 @@ where
     interpreter.build_arrow_array()
 }
 
-/// Deserialize a sequence of objects from a single array
+/// Replaced by [`serde_arrow::to_arrow`][crate::from_arrow] and
+/// [`Items`][crate::utils::Items] (*[example][deserialize_from_array]*)
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+/// # let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
+/// # let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
+/// #     .to_arrow_fields()?;
+/// # let arrays = serde_arrow::to_arrow(&fields, &Items(&samples))?;
+/// #
+/// use serde_arrow::utils::Items;
+///
+/// let Items(items): Items<Vec<u32>> = serde_arrow::from_arrow(&fields, &arrays)?;
+/// #
+/// # drop(items);
+/// # Ok(())
+/// # }
+/// ```
 #[deprecated = "deserialize_from_array is deprecated. Use serde_arrow::from_arrow instead"]
 pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
 where
@@ -283,7 +359,29 @@ where
     generic::deserialize_from_array(field, array.as_ref())
 }
 
-/// Build a single array item by item
+/// Replaced by [`ArrowBuilder`][crate::ArrowBuilder] and
+/// [`Items`][crate::utils::Items] / [`Item`][crate::utils::Item] (*[example][ArrayBuilder]*)
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow;
+/// use arrow::datatypes::{DataType, Field};
+/// use serde_arrow::{ArrowBuilder, utils::{Items, Item}};
+///  
+/// let fields = vec![Field::new("item", DataType::UInt8, false)];
+/// let mut builder = ArrowBuilder::new(&fields)?;
+///
+/// builder.push(&Item(0))?;
+/// builder.push(&Item(1))?;
+/// builder.push(&Item(2))?;
+///
+/// builder.extend(&Items(&[3, 4, 5]))?;
+///
+/// let arrays = builder.build_arrays()?;
+/// # drop(arrays);
+/// # Ok(())
+/// # }
+/// ```
 #[deprecated = "serde_arrow::arrow::ArrayBuilder is deprecated. Use serde_arrow::ArrowBuilder instead"]
 pub struct ArrayBuilder(generic::GenericBuilder);
 
