@@ -16,40 +16,31 @@
 //! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
-//! is always possible to specify the schema manually.
+//! is always possible to specify the schema manually. See the [`schema`]
+//! module for further details.
 //!
 //! ## Overview
 //!
-//! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frame, some work on multiples arrays, i.e., data frames
-//! themselves.
-//!
-//! | implementation | operation | multiple arrays           |  single array            |
-//! |---|---|---|---|
-//! | **arrow** | schema tracing | [arrow::serialize_into_fields] | [arrow::serialize_into_field] |
-//! | | Rust to Arrow | [arrow::serialize_into_arrays] | [arrow::serialize_into_array] |
-//! | | Arrow to Rust | [arrow::deserialize_from_arrays] | [arrow::deserialize_from_array] |
-//! | | Builder | [arrow::ArraysBuilder] | [arrow::ArrayBuilder] |
-//! | | | | |
-//! | **arrow2** | schema tracing | [arrow2::serialize_into_fields] | [arrow2::serialize_into_field] |
-//! | | Rust to Arrow | [arrow2::serialize_into_arrays] | [arrow2::serialize_into_array] |
-//! | | Arrow to Rust | [arrow2::deserialize_from_arrays] | [arrow2::deserialize_from_array] |
-//! | | Builder | [arrow2::ArraysBuilder] | [arrow2::ArrayBuilder] |
+//! | Operation        | `arrow`          |  `arrow2`         |
+//! |------------------|------------------|-------------------|
+//! | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
+//! | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
+//! | Arrow Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
+//! | | | |
+//! | Fields to SerdeArrowSchema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
+//! | SerdeArrowSchema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
 //!
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
 //!
 //! ```rust
-//! # use serde::Serialize;
-//! # #[cfg(feature = "arrow2-0-17")]
+//! # use serde::{Deserialize, Serialize};
+//! # #[cfg(feature = "has_arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
-//! use serde_arrow::{
-//!     schema::TracingOptions,
-//!     arrow2::{serialize_into_fields, serialize_into_arrays}
-//! };
+//! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 //!
-//! ##[derive(Serialize)]
+//! ##[derive(Serialize, Deserialize)]
 //! struct Example {
 //!     a: f32,
 //!     b: i32,
@@ -62,13 +53,15 @@
 //! ];
 //!
 //! // Auto-detect the arrow types. Result may need to be overwritten and
-//! // customized, see serde_arrow::schema::Strategy for details.
-//! let fields = serialize_into_fields(&records, TracingOptions::default())?;
-//! let arrays = serialize_into_arrays(&fields, &records)?;
+//! // customized, see serde_arrow::schema for details.
+//! let fields = SerdeArrowSchema::from_type::<Example>(TracingOptions::default())?
+//!     .to_arrow2_fields()?;
+//!
+//! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 //!
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "arrow2-0-17"))]
+//! # #[cfg(not(feature = "has_arrow2"))]
 //! # fn main() { }
 //! ```
 //!
@@ -124,14 +117,13 @@
 //!
 mod internal;
 
-/// Internal. Do not use
+/// *Internal. Do not use*
 ///
 /// This module is an internal implementation detail and not subject to any
 /// compatibility promises. It re-exports the  arrow impls selected via features
 /// to allow usage in doc tests or benchmarks.
 ///
 #[rustfmt::skip]
-#[doc(hidden)]
 pub mod _impl {
     #[allow(unused)]
     macro_rules! build_arrow2_crate {
@@ -196,6 +188,7 @@ pub mod _impl {
     #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_buffer_37, arrow_data_37, arrow_schema_37);
     #[cfg(has_arrow_36)] build_arrow_crate!(arrow_array_36, arrow_buffer_36, arrow_data_36, arrow_schema_36);
 
+    /// Documentation
     pub mod docs {
         #[doc = include_str!("../Implementation.md")]
         #[cfg(not(doctest))]
@@ -237,7 +230,7 @@ pub mod arrow {
         serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
     };
 
-    /// Build arrays record by record
+    /// Renamed to [`serde_arrow::ArrowBuilder`][crate::ArrowBuilder]
     #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
     pub type ArraysBuilder = crate::arrow_impl::api::ArrowBuilder;
 }
@@ -257,7 +250,7 @@ pub mod arrow2 {
         serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
     };
 
-    /// Build arrays record by record
+    /// Renamed to [`serde_arrow::Arrow2Builder`][crate::Arrow2Builder]
     #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
     pub type ArraysBuilder = crate::arrow2_impl::api::Arrow2Builder;
 }

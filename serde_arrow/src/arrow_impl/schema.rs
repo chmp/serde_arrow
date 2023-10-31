@@ -22,7 +22,18 @@ impl SerdeArrowSchema {
         })
     }
 
-    /// Build a vec of fields from a Schema object
+    /// This method is deprecated. Use
+    /// [`to_arrow_fields`][SerdeArrowSchema::to_arrow_fields] instead:
+    ///
+    /// ```rust
+    /// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    /// # #[derive(serde::Deserialize)]
+    /// # struct Item { a: u32 }
+    /// # let schema = SerdeArrowSchema::from_type::<Item>(TracingOptions::default()).unwrap();
+    /// # let fields =
+    /// schema.to_arrow_fields().unwrap()
+    /// # ;
+    /// ```
     #[deprecated = "The method `get_arrow_fields` is deprecated. Use `to_arrow_fields` instead"]
     pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
         self.to_arrow_fields()

@@ -1,7 +1,6 @@
 #![allow(deprecated)]
 
-use crate as serde_arrow;
-use crate::_impl::arrow2;
+use crate::{self as serde_arrow, _impl::arrow2};
 
 #[test]
 fn api_docs_serialize_into_fields() {
@@ -111,6 +110,8 @@ fn api_docs_deserialize_from_array() {
 
     let array = serialize_into_array(&field, &vec![1.0_f32, 2.0, 3.0]).unwrap();
     let items: Vec<f32> = deserialize_from_array(&field, &array).unwrap();
+
+    drop(items);
 }
 
 #[test]

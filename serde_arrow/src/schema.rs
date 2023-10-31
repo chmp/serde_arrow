@@ -19,7 +19,7 @@
 //! time objects that are serialized to strings (chrono's default), use
 //!
 //! ```rust
-//! # #[cfg(feature="arrow2")]
+//! # #[cfg(feature="has_arrow2")]
 //! # fn main() {
 //! # use arrow2::datatypes::{DataType, Field};
 //! # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
@@ -27,7 +27,7 @@
 //! field.data_type = DataType::Date64;
 //! field.metadata = Strategy::UtcStrAsDate64.into();
 //! # }
-//! # #[cfg(not(feature="arrow2"))]
+//! # #[cfg(not(feature="has_arrow2"))]
 //! # fn main() {}
 //! ```
 pub use crate::internal::{

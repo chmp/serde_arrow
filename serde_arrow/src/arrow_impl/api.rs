@@ -17,21 +17,144 @@ use crate::{
     },
 };
 
+
+/// Build arrow arrays record by record (*requires one of the `arrow-*`
+/// features*)
+///
+/// Example:
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow as arrow;
+/// use arrow::datatypes::{DataType, Field};
+/// use serde::Serialize;
+/// use serde_arrow::ArrowBuilder;
+///
+/// ##[derive(Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let mut builder = ArrowBuilder::new(&[
+///     Field::new("a", DataType::Float32, true),
+///     Field::new("b", DataType::UInt64, false),
+/// ])?;
+///
+/// builder.push(&Record { a: Some(1.0), b: 2})?;
+/// builder.push(&Record { a: Some(3.0), b: 4})?;
+/// builder.push(&Record { a: Some(5.0), b: 5})?;
+///
+/// builder.extend(&[
+///     Record { a: Some(6.0), b: 7},
+///     Record { a: Some(8.0), b: 9},
+///     Record { a: Some(10.0), b: 11},
+/// ])?;
+///
+/// let arrays = builder.build_arrays()?;
+/// #
+/// # assert_eq!(arrays.len(), 2);
+/// # assert_eq!(arrays[0].len(), 6);
+/// # Ok(())
+/// # }
+/// ```
+pub struct ArrowBuilder(generic::GenericBuilder);
+
+impl std::fmt::Debug for ArrowBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ArrowBuilder<...>")
+    }
+}
+
+impl ArrowBuilder {
+    /// Build a new ArrowBuilder for the given fields
+    ///
+    /// This method may fail when unsupported data types are encountered in the
+    /// given fields.
+    ///
+    pub fn new(fields: &[Field]) -> Result<Self> {
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self(generic::GenericBuilder::new_for_arrays(&fields)?))
+    }
+
+    /// Add a single record to the arrays
+    ///
+    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+        self.0.push(item)
+    }
+
+    /// Add multiple records to the arrays
+    ///
+    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        self.0.extend(items)
+    }
+
+    /// Build the arrays from the rows pushed to far.
+    ///
+    /// This operation will reset the underlying buffers and start a new batch.
+    ///
+    pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
+        self.0 .0.build_arrow_arrays()
+    }
+}
+
+/// Build arrow arrays from the given items  (*requires one of the `arrow-*`
+/// features*))
+///
+/// `items` should be given in the form a list of records (e.g., a vector of
+/// structs).
+///
+/// Example:
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use serde::{Serialize, Deserialize};
+/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+///
+/// ##[derive(Serialize, Deserialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let items = vec![
+///     Record { a: Some(1.0), b: 2},
+///     // ...
+/// ];
+///
+/// let fields = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+///     .to_arrow_fields()?;
+/// let arrays = serde_arrow::to_arrow(&fields, &items)?;
+/// #
+/// # assert_eq!(arrays.len(), 2);
+/// # Ok(())
+/// # }
+/// ```
+///
+pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>> {
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+
+    let program = compile_serialization(&fields, CompilationOptions::default())?;
+    let mut interpreter = Interpreter::new(program);
+    serialize_into_sink(&mut interpreter, items)?;
+    interpreter.build_arrow_arrays()
+}
+
 /// Deserialize items from arrow arrays (*requires one of the `arrow-*`
 /// features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs).
 ///
 /// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
 /// use serde::{Deserialize, Serialize};
-/// use serde_arrow::{
-///     arrow::{
-///         deserialize_from_arrays,
-///         serialize_into_arrays,
-///         serialize_into_fields,
-///     },
-///     schema::TracingOptions,
-/// };
+/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
 ///
 /// ##[derive(Deserialize, Serialize)]
 /// struct Record {
@@ -40,16 +163,16 @@ use crate::{
 /// }
 ///
 /// // provide an example record to get the field information
-/// let fields = serialize_into_fields(
-///     &[Record { a: Some(1.0), b: 2}],
-///     TracingOptions::default(),
-/// ).unwrap();
+/// let fields = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+///     .to_arrow_fields()?;
 /// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serialize_into_arrays(&fields, &items).unwrap();
+/// # let arrays = serde_arrow::to_arrow(&fields, &items).unwrap();
 /// #
 ///
 /// // deserialize the records from arrays
-/// let items: Vec<Record> = deserialize_from_arrays(&fields, &arrays).unwrap();
+/// let items: Vec<Record> = serde_arrow::from_arrow(&fields, &arrays).unwrap();
+/// # Ok(())
+/// # }
 /// ```
 ///
 pub fn from_arrow<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
@@ -114,67 +237,23 @@ where
     Field::try_from(&field)
 }
 
-/// Build arrays from the given items
+/// Renamed to [`serde_arrow::to_arrow`][crate::to_arrow]
 #[deprecated = "serialize_into_arrays is deprecated. Use serde_arrow::to_arrow instead"]
 pub fn serialize_into_arrays<T: Serialize + ?Sized>(
     fields: &[Field],
     items: &T,
 ) -> Result<Vec<ArrayRef>> {
-    to_arrow(fields, items)
+    crate::to_arrow(fields, items)
 }
 
-/// Build arrow arrays from the given items  (*requires one of the `arrow-*`
-/// features*))
-///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs).
-///
-/// Example:
-///
-/// ```rust
-/// # fn main() -> serde_arrow::Result<()> {
-/// use serde::{Serialize, Deserialize};
-/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
-///
-/// ##[derive(Serialize, Deserialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-///
-/// let items = vec![
-///     Record { a: Some(1.0), b: 2},
-///     // ...
-/// ];
-///
-/// let fields = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?.to_arrow_fields()?;
-/// let arrays = serde_arrow::to_arrow(&fields, &items)?;
-///
-/// assert_eq!(arrays.len(), 2);
-/// # Ok(())
-/// # }
-/// ```
-///
-pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>> {
-    let fields = fields
-        .iter()
-        .map(GenericField::try_from)
-        .collect::<Result<Vec<_>>>()?;
-
-    let program = compile_serialization(&fields, CompilationOptions::default())?;
-    let mut interpreter = Interpreter::new(program);
-    serialize_into_sink(&mut interpreter, items)?;
-    interpreter.build_arrow_arrays()
-}
-
-/// Deserialize a type from the given arrays
+/// Renamed to [`serde_arrow::from_arrow`][crate::from_arrow]
 #[deprecated = "deserialize_from_arrays is deprecated. Use serde_arrow::from_arrow instead"]
 pub fn deserialize_from_arrays<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    from_arrow(fields, arrays)
+    crate::from_arrow(fields, arrays)
 }
 
 /// Serialize an object that represents a single array into an array
@@ -195,7 +274,7 @@ where
 }
 
 /// Deserialize a sequence of objects from a single array
-#[deprecated = "deserialize_from_array is deprecated"]
+#[deprecated = "deserialize_from_array is deprecated. Use serde_arrow::from_arrow instead"]
 pub fn deserialize_from_array<'de, T, A>(field: &'de Field, array: &'de A) -> Result<T>
 where
     T: Deserialize<'de>,
@@ -205,26 +284,6 @@ where
 }
 
 /// Build a single array item by item
-///
-/// Example:
-///
-/// ```rust
-/// # use serde_arrow::_impl::arrow as arrow;
-/// use arrow::datatypes::{Field, DataType};
-/// use serde_arrow::arrow::ArrayBuilder;
-///
-/// let field = Field::new("value", DataType::Int64, false);
-/// let mut builder = ArrayBuilder::new(&field).unwrap();
-///
-/// builder.push(&-1_i64).unwrap();
-/// builder.push(&2_i64).unwrap();
-/// builder.push(&-3_i64).unwrap();
-///
-/// builder.extend(&[4_i64, -5, 6]).unwrap();
-///
-/// let array = builder.build_array().unwrap();
-/// assert_eq!(array.len(), 6);
-/// ```
 #[deprecated = "serde_arrow::arrow::ArrayBuilder is deprecated. Use serde_arrow::ArrowBuilder instead"]
 pub struct ArrayBuilder(generic::GenericBuilder);
 
@@ -250,85 +309,5 @@ impl ArrayBuilder {
     /// Build the array from the rows pushed to far.
     pub fn build_array(&mut self) -> Result<ArrayRef> {
         self.0 .0.build_arrow_array()
-    }
-}
-
-/// Build arrow arrays record by record
-///
-/// Example:
-///
-/// ```rust
-/// # use serde_arrow::_impl::arrow as arrow;
-/// use arrow::datatypes::{DataType, Field};
-/// use serde::Serialize;
-/// use serde_arrow::ArrowBuilder;
-///
-/// ##[derive(Serialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-
-/// let fields = vec![
-///     Field::new("a", DataType::Float32, true),
-///     Field::new("b", DataType::UInt64, false),
-/// ];
-/// let mut builder = ArrowBuilder::new(&fields).unwrap();
-///
-/// builder.push(&Record { a: Some(1.0), b: 2}).unwrap();
-/// builder.push(&Record { a: Some(3.0), b: 4}).unwrap();
-/// builder.push(&Record { a: Some(5.0), b: 5}).unwrap();
-///
-/// builder.extend(&[
-///     Record { a: Some(6.0), b: 7},
-///     Record { a: Some(8.0), b: 9},
-///     Record { a: Some(10.0), b: 11},
-/// ]).unwrap();
-///
-/// let arrays = builder.build_arrays().unwrap();
-///
-/// assert_eq!(arrays.len(), 2);
-/// assert_eq!(arrays[0].len(), 6);
-/// ```
-pub struct ArrowBuilder(generic::GenericBuilder);
-
-impl std::fmt::Debug for ArrowBuilder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArrowBuilder<...>")
-    }
-}
-
-impl ArrowBuilder {
-    /// Build a new ArrowBuilder for the given fields
-    ///
-    /// This method may fail when unsupported data types are encountered in the
-    /// given fields.
-    ///
-    pub fn new(fields: &[Field]) -> Result<Self> {
-        let fields = fields
-            .iter()
-            .map(GenericField::try_from)
-            .collect::<Result<Vec<_>>>()?;
-        Ok(Self(generic::GenericBuilder::new_for_arrays(&fields)?))
-    }
-
-    /// Add a single record to the arrays
-    ///
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.0.push(item)
-    }
-
-    /// Add multiple records to the arrays
-    ///
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.0.extend(items)
-    }
-
-    /// Build the arrays from the rows pushed to far.
-    ///
-    /// This operation will reset the underlying buffers and start a new batch.
-    ///
-    pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
-        self.0 .0.build_arrow_arrays()
     }
 }
