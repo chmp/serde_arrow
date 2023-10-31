@@ -5,8 +5,7 @@
 1. [Working with date time objects](#working-with-date-time-objects)
 2. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
 3. [Working with enums](#working-with-enums)
-4. [Specifying the schema in JSON](#specifying-the-schema-in-json)
-5. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
+4. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
 
 ## Working with date time objects
 
@@ -119,26 +118,6 @@ will be mapped to the following arrow union:
 - `type = 0`: `Null`
 - `type = 1`: `Struct { 0: u32, 1: u32 }`
 - `type = 2`: `Struct { a: f32, b: f32 }`
-
-## Specifying the schema in JSON
-
-TODO: cross-reference
-
-```rust
-let schema_json = r#"
-    [
-        {
-            "name": "date",
-            "data_type": "Date64",
-            "strategy": "NaiveStrAsDate64"
-        },
-        {"name":"foo","data_type":"U8"},
-        {"name":"bar","data_type":"Utf8"}
-    ]
-"#;
-
-let schema: Schema = serde_json::from_str(&schema_json).unwrap();
-```
 
 ## Convert from arrow2 to arrow arrays
 

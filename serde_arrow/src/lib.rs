@@ -19,7 +19,8 @@
 //! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
-//! is always possible to specify the schema manually. See the [`schema`] module
+//! is always possible to specify the schema manually. See the [`schema`
+//! module][schema] and [SerdeArrowSchema][schema::SerdeArrowSchema]
 //! for further details.
 //!
 //! ## Overview

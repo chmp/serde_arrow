@@ -1,21 +1,17 @@
-//! Configure how Arrow and Rust types are translated into one another
+//! The mapping between Rust and Arrow types
 //!
-//! When tracing the schema using the `serialize_into_fields` methods, the
-//! following defaults are used:
+//! To convert between Rust objects and Arrow types, `serde_arrows` requires
+//! schema information as a list of Arrow fields with additional meta data. See
+//! [SerdeArrowSchema] for details how to specify the schema.
+//!
+//! The default mapping of Rust types to Arrow types is as follows:
 //!
 //! - Strings: `LargeUtf8`, i.e., i64 offsets
 //! - Lists: `LargeList`, i.e., i64 offsets
-//! - Strings with dictionary encoding: U32 keys and LargeUtf8 values
-//!   - Rationale: `polars` cannot handle 64 bit keys in its default
-//!     configuration
+//! - Strings with dictionary encoding: `UInt32` keys and `LargeUtf8` values
 //!
-//! Null-only fields (e.g., fields of type `()` or fields with only `None`
-//! entries) result in errors per default.
-//! [`TracingOptions::allow_null_fields`][crate::internal::tracing::TracingOptions::allow_null_fields]
-//! allows to disable this behavior.
-//!
-//! All customization of the types happens via the metadata of the fields
-//! structs describing arrays. For example, to let `serde_arrow` handle date
+//! All customization of the types happens by including a suitable [Strategy] in
+//! the metadata of the fields. For example, to let `serde_arrow` handle date
 //! time objects that are serialized to strings (chrono's default), use
 //!
 //! ```rust

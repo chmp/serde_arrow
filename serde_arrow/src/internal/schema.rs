@@ -18,55 +18,14 @@ pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
 /// A collection of fields as understood by `serde_arrow`
 ///
-/// `SerdeArrowSchema` is designed to be easily serialized and deserialized
+/// There are three main ways to specify the schema:
 ///
-/// ```rust
-/// # use serde_arrow::schema::SerdeArrowSchema;
-/// let schema_json = r#"
-/// [
-///     {
-///         "name": "date",
-///         "data_type": "Date64",
-///         "strategy": "NaiveStrAsDate64"
-///     },
-///     {"name":"foo","data_type":"U8"},
-///     {"name":"bar","data_type":"Utf8"}
-/// ]
-/// "#;
-///
-/// let schema: SerdeArrowSchema = serde_json::from_str(&schema_json).unwrap();
-/// ```
-///
-/// The schema can be given in two ways:
-///
-/// - an array of fields
-/// - or an object with a `"fields"` key that contains an array of fields
-///
-/// Each field is an object with the following keys:
-///
-/// - `"name"` (**required**): the name of the field
-/// - `"data_type"` (**required**): the data type of the field as a string
-/// - `"nullable"` (**optional**): if `true`, the field can contain null values
-/// - `"strategy"` (**optional**): if given a string describing the strategy to
-///   use (e.g., "NaiveStrAsDate64").
-/// - `"children"` (**optional**): a list of child fields, the semantics depend
-///   on the data type
-///
-/// The following data types can be given
-///
-/// - booleans: `"Bool"`
-/// - signed integers: `"I8"`, `"I16"`, `"I32"`, `"I64"`
-/// - unsigned integers: `"U8"`, `"U16"`, `"U32"`, `"U64"`
-/// - floats: `"F16"`, `"F32"`, `"F64"`
-/// - strings: `"Utf8"`, `"LargeUtf8"`
-/// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single field
-///   named `"element"` that describes the element types
-/// - structs: `"Struct"`. `"children"` must contain the child fields
-/// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
-///   `"value"` that encode the key and value types
-/// - unions: `"Union"`. `"children"` must contain the different variants
-/// - dictionaries: `"Dictionary"`. `"children"` must contain two different
-///   fields, named `"key"` of integer type and named `"value"` of string type
+/// 1. [`SerdeArrowSchema::from_value`]: specify the schema manually, e.g., as a
+///    JSON value
+/// 2. [`SerdeArrowSchema::from_type`]: determine the schema from the record
+///    type
+/// 3. [`SerdeArrowSchema::from_samples`]: Determine the schema from samples of
+///    the data
 ///
 #[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(from = "SchemaSerializationOptions")]
@@ -96,7 +55,112 @@ impl SerdeArrowSchema {
         Self::default()
     }
 
-    /// Determine the schema from the given type
+    /// Build the schema from an object that implements serialize (e.g., `serde_json::Value`)
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// use serde_arrow::schema::SerdeArrowSchema;
+    ///
+    /// let schema = serde_json::json!([
+    ///     {"name":"foo","data_type":"U8"},
+    ///     {"name":"bar","data_type":"Utf8"},
+    /// ]);
+    ///
+    /// let schema = SerdeArrowSchema::from_value(&schema)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// `SerdeArrowSchema` can also be directly serialized and deserialized.
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # let json_schema_str = "[]";
+    /// #
+    /// use serde_arrow::schema::SerdeArrowSchema;
+    ///
+    /// let schema: SerdeArrowSchema = serde_json::from_str(json_schema_str)?;
+    /// serde_json::to_string(&schema)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// The schema can be given in two ways:
+    ///
+    /// - an array of fields
+    /// - or an object with a `"fields"` key that contains an array of fields
+    ///
+    /// Each field is an object with the following keys:
+    ///
+    /// - `"name"` (**required**): the name of the field
+    /// - `"data_type"` (**required**): the data type of the field as a string
+    /// - `"nullable"` (**optional**): if `true`, the field can contain null values
+    /// - `"strategy"` (**optional**): if given a string describing the strategy to
+    ///   use (e.g., "NaiveStrAsDate64").
+    /// - `"children"` (**optional**): a list of child fields, the semantics depend
+    ///   on the data type
+    ///
+    /// The following data types can be given
+    ///
+    /// - booleans: `"Bool"`
+    /// - signed integers: `"I8"`, `"I16"`, `"I32"`, `"I64"`
+    /// - unsigned integers: `"U8"`, `"U16"`, `"U32"`, `"U64"`
+    /// - floats: `"F16"`, `"F32"`, `"F64"`
+    /// - strings: `"Utf8"`, `"LargeUtf8"`
+    /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single field
+    ///   named `"element"` that describes the element types
+    /// - structs: `"Struct"`. `"children"` must contain the child fields
+    /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
+    ///   `"value"` that encode the key and value types
+    /// - unions: `"Union"`. `"children"` must contain the different variants
+    /// - dictionaries: `"Dictionary"`. `"children"` must contain two different
+    ///   fields, named `"key"` of integer type and named `"value"` of string type
+    ///
+    pub fn from_value<T: Serialize>(value: &T) -> Result<Self> {
+        // simple version of serde-transcode
+        let mut events = Vec::<crate::internal::event::Event>::new();
+        crate::internal::sink::serialize_into_sink(&mut events, value)?;
+        let this: Self = crate::internal::source::deserialize_from_source(&events)?;
+        Ok(this)
+    }
+
+    /// Determine the schema from the given record type
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::DataType;
+    /// use serde::Deserialize;
+    /// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    ///
+    /// ##[derive(Deserialize)]
+    /// struct Record {
+    ///     int: i32,
+    ///     float: f64,
+    ///     string: String,
+    /// }
+    ///
+    /// let schema = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?;
+    /// let fields = schema.to_arrow_fields()?;
+    ///
+    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
+    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
+    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// This approach requires the type to implement
+    /// [`Deserialize`][serde::Deserialize]. As only type information is used,
+    /// it is not possible to detect data dependent properties. E.g., it is not
+    /// possible to auto detect date time strings.
+    ///
+    /// Note, the type must encode a single "row" in the resulting data frame.
+    /// When encoding single arrays, use the [Item][crate::utils::Item] wrapper
+    /// instead of [Items][crate::utils::Items].
+    ///  
+    /// See [TracingOptions] for customization options.
+    ///
     pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_type::<T>()?;
@@ -105,11 +169,57 @@ impl SerdeArrowSchema {
 
     /// Determine the schema from the given samples
     ///
-    /// To correctly record the type information make sure to:
+    /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::DataType;
+    /// use serde::Serialize;
+    /// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
     ///
-    /// - include values for `Option<T>`
-    /// - include all variants of an enum
-    /// - include at least single element of a list or a map
+    /// ##[derive(Serialize)]
+    /// struct Record {
+    ///     int: i32,
+    ///     float: f64,
+    ///     string: String,
+    /// }
+    ///
+    /// let samples = vec![
+    ///     Record {
+    ///         int: 1,
+    ///         float: 2.0,
+    ///         string: String::from("hello")
+    ///     },
+    ///     Record {
+    ///         int: -1,
+    ///         float: 32.0,
+    ///         string: String::from("world")
+    ///     },
+    ///     // ...
+    /// ];
+    ///
+    /// let schema = SerdeArrowSchema::from_samples(&samples, TracingOptions::default())?;
+    /// let fields = schema.to_arrow_fields()?;
+    ///
+    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
+    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
+    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// This approach requires the type to implement
+    /// [`Serialize`][serde::Serialize] and the samples to include all relevant
+    /// values. It uses only the information encoded in the samples to generate
+    /// the schema. Therefore, the following requirements must be met:
+    ///
+    /// - at least one `Some` value for `Option<T>` fields
+    /// - all variants of enum fields
+    /// - at least one element of sequence fields (e.g., `Vec<T>`)
+    /// - at least one example of map types (with all possible keys , if
+    ///   [`options.map_as_struct == true`][TracingOptions::map_as_struct])
+    ///   (e.g., `HashMap<K, V>`)
+    ///
+    /// See [TracingOptions] for customization options.
     ///
     pub fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
         let mut tracer = Tracer::new(String::from("$"), options);
