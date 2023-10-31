@@ -12,6 +12,8 @@ macro_rules! define_benchmark {
         )?
     ) => {
         pub fn benchmark_serialize(c: &mut criterion::Criterion) {
+            use serde_arrow::schema::SerdeArrowSchema;
+
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));
                 group.sample_size(20);
@@ -22,7 +24,7 @@ macro_rules! define_benchmark {
                 let items = (0..n)
                     .map(|_| <$ty>::random(&mut rng))
                     .collect::<Vec<_>>();
-                let arrow_fields = serde_arrow::arrow::serialize_into_fields(&items, Default::default()).unwrap();
+                let arrow_fields = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap().to_arrow_fields().unwrap();
 
                 #[allow(unused)]
                 let bench_serde_arrow = true;
@@ -84,7 +86,7 @@ pub mod serde_arrow {
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::arrow::serialize_into_arrays(&fields, &items)
+        serde_arrow::to_arrow(&fields, &items)
     }
 }
 
