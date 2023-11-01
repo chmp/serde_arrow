@@ -14,6 +14,10 @@ fn main() {
     }
 
     let max_arrow_version: Option<usize> = [
+        #[cfg(feature = "arrow-48")]
+        48,
+        #[cfg(feature = "arrow-47")]
+        47,
         #[cfg(feature = "arrow-46")]
         46,
         #[cfg(feature = "arrow-45")]

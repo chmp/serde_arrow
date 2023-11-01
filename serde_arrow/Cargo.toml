@@ -13,15 +13,17 @@ bench = false
 
 [[bench]]
 name = "arrow2"
-required-features = ["arrow2-0-17", "arrow-46"]
+required-features = ["arrow2-0-17", "arrow-48"]
 harness = false
 
 [package.metadata.docs.rs]
-features = ["arrow2-0-17", "arrow-46"]
+features = ["arrow2-0-17", "arrow-48"]
 
 [features]
 default = []
 
+arrow-48 = ["dep:arrow-array-48", "dep:arrow-schema-48", "dep:arrow-data-48", "dep:arrow-buffer-48"]
+arrow-47 = ["dep:arrow-array-47", "dep:arrow-schema-47", "dep:arrow-data-47", "dep:arrow-buffer-47"]
 arrow-46 = ["dep:arrow-array-46", "dep:arrow-schema-46", "dep:arrow-data-46", "dep:arrow-buffer-46"]
 arrow-45 = ["dep:arrow-array-45", "dep:arrow-schema-45", "dep:arrow-data-45", "dep:arrow-buffer-45"]
 arrow-44 = ["dep:arrow-array-44", "dep:arrow-schema-44", "dep:arrow-data-44", "dep:arrow-buffer-44"]
@@ -38,7 +40,17 @@ bytemuck = "1"
 # TODO: make optional, only required for str -> date conversions
 chrono = "0.4"
 half = { version = "2", features = ["bytemuck"] }
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+
+arrow-array-48 = { package = "arrow-array", version = "48", optional = true }
+arrow-buffer-48 = { package = "arrow-buffer", version = "48", optional = true }
+arrow-data-48 = { package = "arrow-data", version="48", optional = true }
+arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true }
+
+arrow-array-47 = { package = "arrow-array", version = "47", optional = true }
+arrow-buffer-47 = { package = "arrow-buffer", version = "47", optional = true }
+arrow-data-47 = { package = "arrow-data", version="47", optional = true }
+arrow-schema-47 = { package = "arrow-schema", version = "47", optional = true }
 
 arrow-array-46 = { package = "arrow-array", version = "46", optional = true }
 arrow-buffer-46 = { package = "arrow-buffer", version = "46", optional = true }
@@ -90,8 +102,8 @@ arrow-buffer-37 = { package = "arrow-buffer", version = "37", optional = true }
 arrow-data-37 = { package = "arrow-data", version="37", optional = true  }
 arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true }
 
-arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
 arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true }
+arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
@@ -101,6 +113,6 @@ serde_json = "1"
 rand = "0.8"
 
 # for benchmarks
-arrow-json-46 = { package = "arrow-json", version = "46" }
+arrow-json-48 = { package = "arrow-json", version = "48" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"

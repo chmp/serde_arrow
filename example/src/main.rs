@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::{collections::HashMap, convert::TryInto, fs::File, path::Path};
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
@@ -6,10 +6,9 @@ use serde::Serialize;
 use arrow2::{
     array::Array,
     chunk::Chunk,
-    datatypes::{DataType, Field, Schema},
+    datatypes::{Field, Schema},
     io::ipc::write,
 };
-use serde_arrow::schema::Strategy;
 
 macro_rules! hashmap {
     () => {
@@ -79,17 +78,12 @@ fn main() -> Result<(), PanicOnError> {
         },
     ];
 
-    use serde_arrow::arrow2::{serialize_into_arrays, serialize_into_fields};
+    use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
 
-    let mut fields = serialize_into_fields(&examples, Default::default())?;
-
-    for field in &mut fields {
-        if field.name == "date64" {
-            *field = Field::new("date64", DataType::Date64, false)
-                .with_metadata(Strategy::NaiveStrAsDate64.into());
-        }
-    }
-    let arrays = serialize_into_arrays(&fields, &examples)?;
+    let fields: Vec<Field> =
+        SerdeArrowSchema::from_samples(&examples, TracingOptions::default().guess_dates(true))?
+            .try_into()?;
+    let arrays = serde_arrow::to_arrow2(&fields, &examples)?;
 
     let schema = Schema::from(fields);
     let chunk = Chunk::new(arrays);

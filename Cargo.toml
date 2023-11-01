@@ -3,3 +3,8 @@ members = [
     "serde_arrow",
     "example",
 ]
+
+resolver = "2"
+
+[profile.bench]
+debug = true

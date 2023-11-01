@@ -9,10 +9,10 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// At the moment only a generic string error is supported, but it is planned to
 /// offer concrete types to match against.
 ///
-/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [std::backtrace]
+/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`]
 /// for details. This backtrace is included when printing the error. If the
-/// error is caused by another error, that error can be retrieved with the
-/// [source][std::error::Error::source] function.
+/// error is caused by another error, that error can be retrieved with
+/// [`source()`][std::error::Error::source].
 ///
 #[non_exhaustive]
 pub enum Error {
@@ -132,7 +132,7 @@ impl From<chrono::format::ParseError> for Error {
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
-        Self::custom_from(format!("arrow2::Error: {err}"), err)
+        Self::custom_from(format!("TryFromIntError: {err}"), err)
     }
 }
 
@@ -157,5 +157,18 @@ impl From<Infallible> for Error {
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
         Self::custom(format!("bytemuck::PodCastError: {err}"))
+    }
+}
+
+pub type PanicOnError<T> = std::result::Result<T, PanicOnErrorError>;
+
+/// An error type for testing, that panics once an error is converted
+#[allow(unused)]
+#[derive(Debug)]
+pub struct PanicOnErrorError;
+
+impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
+    fn from(value: E) -> Self {
+        panic!("{value}");
     }
 }

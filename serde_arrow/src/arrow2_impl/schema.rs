@@ -2,12 +2,15 @@ use crate::{
     _impl::arrow2::datatypes::{DataType, Field, IntegerType, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, GenericTimeUnit, Schema, Strategy, STRATEGY_KEY},
+        schema::{
+            GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy,
+            STRATEGY_KEY,
+        },
     },
 };
 
-/// Support for arrow2 types (requires one of the `arrow2-*` features)
-impl Schema {
+/// Support for arrow2 types (*requires one of the `arrow2-*` features*)
+impl SerdeArrowSchema {
     /// Build a new Schema object from fields
     pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {
         Ok(Self {
@@ -18,9 +21,37 @@ impl Schema {
         })
     }
 
-    /// Build a vec of fields from a  Schema object
+    /// This method is deprecated. Use
+    /// [`to_arrow2_fields`][SerdeArrowSchema::to_arrow2_fields] instead:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    /// # #[derive(serde::Deserialize)]
+    /// # struct Item { a: u32 }
+    /// # let schema = SerdeArrowSchema::from_type::<Item>(TracingOptions::default()).unwrap();
+    /// # let fields =
+    /// schema.to_arrow2_fields()?
+    /// # ;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[deprecated = "The method `get_arrow2_fields` is deprecated. Use `to_arrow2_fields` instead"]
     pub fn get_arrow2_fields(&self) -> Result<Vec<Field>> {
+        self.to_arrow2_fields()
+    }
+
+    /// Build a vec of fields from a  Schema object
+    pub fn to_arrow2_fields(&self) -> Result<Vec<Field>> {
         self.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+impl TryFrom<SerdeArrowSchema> for Vec<Field> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        value.to_arrow2_fields()
     }
 }
 

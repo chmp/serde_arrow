@@ -1,10 +1,10 @@
-use super::macros::{test_error, test_example};
+use super::macros::{test_example, test_generic};
 
 test_example!(
     test_name = fieldless_unions,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
         .with_child(GenericField::new("B", GenericDataType::Null, true))
         .with_child(GenericField::new("C", GenericDataType::Null, true)),
@@ -25,7 +25,7 @@ test_example!(
     test_name = fieldless_union_out_of_order,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
         .with_child(GenericField::new("B", GenericDataType::Null, true))
         .with_child(GenericField::new("C", GenericDataType::Null, true)),
@@ -45,7 +45,7 @@ test_example!(
 test_example!(
     test_name = union_simple,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
         .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false)),
@@ -70,7 +70,7 @@ test_example!(
     test_name = union_mixed,
     test_bytecode_deserialization = true,
     field =
-        GenericField::new("root", GenericDataType::Union, false)
+        GenericField::new("item", GenericDataType::Union, false)
             .with_child(
                 GenericField::new("V1", GenericDataType::Struct, false)
                     .with_child(GenericField::new("a", GenericDataType::U32, false))
@@ -108,7 +108,7 @@ test_example!(
 test_example!(
     test_name = union_nested,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(
             GenericField::new("O", GenericDataType::Union, false)
@@ -141,7 +141,7 @@ test_example!(
 test_example!(
     test_name = enums,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U8", GenericDataType::U8, false))
         .with_child(GenericField::new("U16", GenericDataType::U16, false))
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
@@ -162,7 +162,7 @@ test_example!(
 test_example!(
     test_name = enums_tuple,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(
             GenericField::new("A", GenericDataType::Struct, false)
                 .with_strategy(Strategy::TupleAsStruct)
@@ -189,7 +189,7 @@ test_example!(
 test_example!(
     test_name = enums_struct,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(
             GenericField::new("A", GenericDataType::Struct, false)
                 .with_child(GenericField::new("a", GenericDataType::U8, false))
@@ -215,7 +215,7 @@ test_example!(
     test_name = enums_union,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Union, false)
+    field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
         .with_child(GenericField::new("B", GenericDataType::Null, true)),
     ty = Item,
@@ -229,10 +229,8 @@ test_example!(
     },
 );
 
-test_error!(
-    test_name = missing_union_variants,
-    expected_error = "Serialization failed: an unknown variant",
-    block = {
+test_generic!(
+    fn missing_union_variants() {
         use crate::schema::TracingOptions;
         use serde::{Deserialize, Serialize};
 
@@ -244,40 +242,14 @@ test_error!(
         }
 
         let tracing_options = TracingOptions::default().allow_null_fields(true);
-        let field = serialize_into_field(&[U::A, U::C], "root", tracing_options).unwrap();
+        let fields: Vec<Field> =
+            SerdeArrowSchema::from_samples(&Items(&[U::A, U::C]), tracing_options)
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         // NOTE: variant B was never encountered during tracing
-        serialize_into_array(&field, &[U::A, U::B, U::C])?;
-
-        Ok(())
-    },
-);
-
-test_error!(
-    test_name = missing_union_variant_compilation,
-    expected_error = "Serialization failed: an unknown variant",
-    block = {
-        use crate::schema::TracingOptions;
-        use crate::test_impls::utils::ScopedConfiguration;
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            A,
-            B,
-            C,
-        }
-
-        let _guard = ScopedConfiguration::configure(|c| {
-            c.debug_print_program = true;
-        });
-
-        let tracing_options = TracingOptions::default().allow_null_fields(true);
-        let field = serialize_into_field(&[U::A, U::C], "root", tracing_options).unwrap();
-
-        // NOTE: variant B was never encountered during tracing
-        serialize_into_array(&field, &[U::A, U::B, U::C])?;
-
-        Ok(())
-    },
+        let res = to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
+        crate::test_impls::macros::expect_error(&res, "Serialization failed: an unknown variant");
+    }
 );

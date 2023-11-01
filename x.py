@@ -15,6 +15,8 @@ all_arrow_features = [
     "arrow-44",
     "arrow-45",
     "arrow-46",
+    "arrow-47",
+    "arrow-48",
 ]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
@@ -149,16 +151,19 @@ def fmt():
 
 
 @cmd(help="Run the linting")
-def lint():
+@arg("--fast", action="store_true")
+def lint(fast=False):
     check_cargo_toml()
-    cargo("check")
-    for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-        cargo(
-            "check",
-            "--features",
-            arrow2_feature,
-        )
+    cargo("check", "--features", default_features)
     cargo("clippy", "--features", default_features)
+
+    if not fast:
+        for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
+            cargo(
+                "check",
+                "--features",
+                arrow2_feature,
+            )
 
 
 @cmd(help="Run the example")
@@ -360,7 +365,7 @@ def plot_times(mean_times):
                 ),
             ]
         )
-        .groupby("impl")
+        .group_by("impl")
         .agg(pl.col("time").mean())
         .sort("time")
     )

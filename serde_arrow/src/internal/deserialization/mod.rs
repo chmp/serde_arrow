@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     common::{define_bytecode, ArrayMapping, Buffers, DictionaryIndex, DictionaryValue},
-    CONFIGURATION,
+    config::CONFIGURATION,
 };
 
 use half::f16;
@@ -174,7 +174,10 @@ impl<'a> Compiler<'a> {
 
         if let Some(option_instr) = option_instr {
             let if_none = self.program.len();
-            let Some(Bytecode::EmitOptionPrimitive(instr)) = self.program.get_mut(option_instr) else { unreachable!() };
+            let Some(Bytecode::EmitOptionPrimitive(instr)) = self.program.get_mut(option_instr)
+            else {
+                unreachable!()
+            };
             instr.if_none = if_none;
             instr.positions_to_increment = inner_child_positions;
         }
@@ -320,7 +323,11 @@ impl<'a> Compiler<'a> {
             M::Map {
                 offsets, entries, ..
             } => {
-                let M::Struct { fields: entries_fields,.. } = entries.as_ref() else {
+                let M::Struct {
+                    fields: entries_fields,
+                    ..
+                } = entries.as_ref()
+                else {
                     fail!("cannot extract entries arrays mapping")
                 };
                 let Some(key_field) = entries_fields.get(0) else {
@@ -572,7 +579,7 @@ impl<'a> Compiler<'a> {
             redirect_instrs.push(redirect_instr);
         }
 
-        let Some(Bytecode::UnionDispatch(instr)) = self.program.get_mut(dispatch_instr)  else {
+        let Some(Bytecode::UnionDispatch(instr)) = self.program.get_mut(dispatch_instr) else {
             fail!("internal error: did not find union dispatch")
         };
         instr.field_instr = field_instr;

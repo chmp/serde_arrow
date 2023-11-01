@@ -19,7 +19,9 @@ pub fn check_supported_list_layout<'a, O>(
 where
     O: std::ops::Sub<Output = O> + std::cmp::PartialEq + From<i32> + Copy,
 {
-    let Some(validity) = validity else { return Ok(()) };
+    let Some(validity) = validity else {
+        return Ok(());
+    };
 
     if offsets.len() != validity.len() + 1 {
         fail!(

@@ -36,27 +36,25 @@ arrays, and deserialization from arrays to Rust structs.
 ## Example
 
 ```rust
-#[derive(Serialize)]
-struct Item {
+use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+
+#[derive(Serialize, Deserialize)]
+struct Record {
     a: f32,
     b: i32,
-    point: Point,
 }
 
-#[derive(Serialize)]
-struct Point(f32, f32);
-
-let items = vec![
-    Item { a: 1.0, b: 1, point: Point(0.0, 1.0) },
-    Item { a: 2.0, b: 2, point: Point(2.0, 3.0) },
-    // ...
+let records = vec![
+    Record { a: 1.0, b: 1 },
+    Record { a: 2.0, b: 2 },
+    Record { a: 3.0, b: 3 },
 ];
 
-// detect the field types and convert the items to arrays
-use serde_arrow::arrow2::{serialize_into_fields, serialize_into_arrays};
+let fields =
+    SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+    .to_arrow2_fields()?;
 
-let fields = serialize_into_fields(&items, TracingOptions::default())?;
-let arrays = serialize_into_arrays(&fields, &items)?;
+let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 ```
 
 These arrays can now be written to disk using the helper method defined in the
@@ -113,33 +111,33 @@ The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are lis
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     53.14 |           1.00 |        0.15 |  0.03 |
-| serde_arrow    |    348.85 |           6.57 |        1.00 |  0.20 |
-| arrow          |   1703.18 |          32.05 |        4.88 |  1.00 |
+| arrow2_convert |     52.28 |           1.00 |        0.21 |  0.06 |
+| serde_arrow    |    252.35 |           4.83 |        1.00 |  0.29 |
+| arrow          |    877.10 |          16.78 |        3.48 |  1.00 |
 
 ### complex_common_serialize(1000000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    478.85 |           1.00 |        0.18 |  0.05 |
-| serde_arrow    |   2711.26 |           5.66 |        1.00 |  0.31 |
-| arrow          |   8729.60 |          18.23 |        3.22 |  1.00 |
+| arrow2_convert |    527.58 |           1.00 |        0.22 |  0.06 |
+| serde_arrow    |   2403.99 |           4.56 |        1.00 |  0.27 |
+| arrow          |   8857.78 |          16.79 |        3.68 |  1.00 |
 
 ### primitives_serialize(100000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     13.64 |           1.00 |        0.19 |  0.07 |
-| serde_arrow    |     73.32 |           5.38 |        1.00 |  0.38 |
-| arrow          |    192.76 |          14.13 |        2.63 |  1.00 |
+| arrow2_convert |     13.05 |           1.00 |        0.21 |  0.06 |
+| serde_arrow    |     62.63 |           4.80 |        1.00 |  0.30 |
+| arrow          |    209.27 |          16.04 |        3.34 |  1.00 |
 
 ### primitives_serialize(1000000)
 
 | label          | time [ms] | arrow2_convert | serde_arrow | arrow |
 |----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    178.98 |           1.00 |        0.25 |  0.09 |
-| serde_arrow    |    716.76 |           4.00 |        1.00 |  0.36 |
-| arrow          |   2005.61 |          11.21 |        2.80 |  1.00 |
+| arrow2_convert |    144.58 |           1.00 |        0.24 |  0.07 |
+| serde_arrow    |    603.95 |           4.18 |        1.00 |  0.28 |
+| arrow          |   2160.02 |          14.94 |        3.58 |  1.00 |
 
 <!-- end:benchmarks -->
 

@@ -11,7 +11,7 @@ macro_rules! test_missing_field {
                     Field::try_from(&GenericField::new("a", GenericDataType::U8, false)).unwrap(),
                 ];
 
-                let res = serialize_into_arrays(&fields, &items).unwrap();
+                let res = to_arrow(&fields, &items).unwrap();
                 assert_eq!(res.len(), 1);
                 assert_eq!(res[0].len(), items.len());
             }
@@ -212,7 +212,7 @@ test_generic!(
             .unwrap(),
         ];
 
-        let res = serialize_into_arrays(&fields, &items).unwrap();
+        let res = to_arrow(&fields, &items).unwrap();
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].len(), items.len());
         assert_eq!(res[1].len(), items.len());

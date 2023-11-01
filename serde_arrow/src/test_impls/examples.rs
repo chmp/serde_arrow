@@ -3,7 +3,7 @@ use super::macros::*;
 test_example!(
     test_name = benchmark_primitives,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, false))
         .with_child(GenericField::new("c", GenericDataType::U32, false))
@@ -39,7 +39,7 @@ test_example!(
 test_example!(
     test_name = benchmark_complex_1,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
             GenericDataType::LargeUtf8,
@@ -96,7 +96,7 @@ test_example!(
 test_example!(
     test_name = benchmark_complex_2,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
             GenericDataType::LargeUtf8,
@@ -163,7 +163,7 @@ test_example!(
 test_example!(
     test_name = nested_options,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, true))
         .with_child(GenericField::new("c", GenericDataType::U32, true)),
@@ -219,7 +219,7 @@ test_example!(
     test_name = fieldless_unions_in_a_struct,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("foo", GenericDataType::U32, false))
         .with_child(
             GenericField::new("bar", GenericDataType::Union, false)
@@ -274,7 +274,7 @@ test_example!(
     test_name = issue_57,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Struct, false)
+    field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "filename",
             GenericDataType::LargeUtf8,
@@ -383,7 +383,7 @@ test_roundtrip_arrays!(
 test_example!(
     test_name = new_type_wrappers,
     test_bytecode_deserialization = true,
-    field = GenericField::new("root", GenericDataType::U64, false),
+    field = GenericField::new("item", GenericDataType::U64, false),
     ty = U64,
     values = [U64(0), U64(1), U64(2)],
     nulls = [false, false, false],
@@ -397,7 +397,7 @@ test_example!(
     test_name = unit,
     test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("root", GenericDataType::Null, true),
+    field = GenericField::new("item", GenericDataType::Null, true),
     ty = (),
     values = [(), (), (), ()],
 );

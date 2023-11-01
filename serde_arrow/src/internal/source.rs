@@ -116,8 +116,10 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Some(Event::F64(_)) => self.deserialize_f64(visitor),
             Some(Event::Str(_)) => self.deserialize_str(visitor),
             Some(Event::OwnedStr(_)) => self.deserialize_string(visitor),
-            Some(Event::StartStruct) => self.deserialize_map(visitor),
+            Some(Event::StartStruct) => self.deserialize_struct("", &[], visitor),
+            Some(Event::StartMap) => self.deserialize_map(visitor),
             Some(Event::StartSequence) => self.deserialize_seq(visitor),
+            Some(Event::StartTuple) => self.deserialize_tuple(0, visitor),
             Some(Event::Variant(_, _) | Event::OwnedVariant(_, _)) => {
                 self.deserialize_enum("", &[], visitor)
             }

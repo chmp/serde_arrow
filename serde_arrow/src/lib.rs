@@ -9,67 +9,65 @@
 //! as easy as using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`][arrow] and [`arrow2`][arrow2]. `serde_arrow`
-//! supports both.
+//! in-memory format, [`arrow`][] and [`arrow2`][]. `serde_arrow` supports both.
+//! The supported arrow implementations can be selected via
+//! [features](#features).
 //!
-//! `serde_arrow` relies on a schema to translate between Rust and Arrow. The
-//! schema is expressed as Arrow fields and describes the schema of the arrays.
+//! `serde_arrow` relies on a schema to translate between Rust and Arrow as
+//! their type system are not directly translatable. The schema is expressed as
+//! a collection of Arrow fields with additional metadata describing the arrays.
 //! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
-//! is always possible to specify the schema manually.
+//! is always possible to specify the schema manually. See the [`schema`
+//! module][schema] and [`SerdeArrowSchema`][schema::SerdeArrowSchema] for
+//! further details.
 //!
 //! ## Overview
 //!
-//! The functions come in pairs: some work on single  arrays, i.e., the series
-//! of a data frame, some work on multiples arrays, i.e., data frames
-//! themselves.
-//!
-//! | implementation | operation | multiple arrays           |  single array            |
-//! |---|---|---|---|
-//! | **arrow** | schema tracing | [arrow::serialize_into_fields] | [arrow::serialize_into_field] |
-//! | | Rust to Arrow | [arrow::serialize_into_arrays] | [arrow::serialize_into_array] |
-//! | | Arrow to Rust | [arrow::deserialize_from_arrays] | [arrow::deserialize_from_array] |
-//! | | Builder | [arrow::ArraysBuilder] | [arrow::ArrayBuilder] |
-//! | | | | |
-//! | **arrow2** | schema tracing | [arrow2::serialize_into_fields] | [arrow2::serialize_into_field] |
-//! | | Rust to Arrow | [arrow2::serialize_into_arrays] | [arrow2::serialize_into_array] |
-//! | | Arrow to Rust | [arrow2::deserialize_from_arrays] | [arrow2::deserialize_from_array] |
-//! | | Builder | [arrow2::ArraysBuilder] | [arrow2::ArrayBuilder] |
+//! | Operation        | `arrow` |  `arrow2` |
+//! |------------------|------------------|-------------------|
+//! | Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
+//! | | | |
+//! | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
+//! | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
+//! | Arrow Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
+//! | | | |
+//! | Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
+//! | Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
 //!
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
 //!
 //! ```rust
-//! # use serde::Serialize;
-//! # #[cfg(feature = "arrow2-0-17")]
+//! # use serde::{Deserialize, Serialize};
+//! # #[cfg(feature = "has_arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
-//! use serde_arrow::{
-//!     schema::TracingOptions,
-//!     arrow2::{serialize_into_fields, serialize_into_arrays}
-//! };
+//! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 //!
-//! ##[derive(Serialize)]
-//! struct Example {
+//! ##[derive(Serialize, Deserialize)]
+//! struct Record {
 //!     a: f32,
 //!     b: i32,
 //! }
 //!
 //! let records = vec![
-//!     Example { a: 1.0, b: 1 },
-//!     Example { a: 2.0, b: 2 },
-//!     Example { a: 3.0, b: 3 },
+//!     Record { a: 1.0, b: 1 },
+//!     Record { a: 2.0, b: 2 },
+//!     Record { a: 3.0, b: 3 },
 //! ];
 //!
-//! // Auto-detect the arrow types. Result may need to be overwritten and
-//! // customized, see serde_arrow::schema::Strategy for details.
-//! let fields = serialize_into_fields(&records, TracingOptions::default())?;
-//! let arrays = serialize_into_arrays(&fields, &records)?;
+//! let fields =
+//!     SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+//!     .to_arrow2_fields()?;
 //!
+//! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
+//! #
+//! # drop(arrays);
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "arrow2-0-17"))]
+//! # #[cfg(not(feature = "has_arrow2"))]
 //! # fn main() { }
 //! ```
 //!
@@ -108,24 +106,22 @@
 //!
 //! Available features:
 //!
-//! | Feature       | Arrow Version |
-//! |---------------|---------------|
-//! | `arrow-46`    | `arrow=46`    |
-//! | `arrow-45`    | `arrow=45`    |
-//! | `arrow-44`    | `arrow=44`    |
-//! | `arrow-43`    | `arrow=43`    |
-//! | `arrow-42`    | `arrow=42`    |
-//! | `arrow-41`    | `arrow=41`    |
-//! | `arrow-40`    | `arrow=40`    |
-//! | `arrow-39`    | `arrow=39`    |
-//! | `arrow-38`    | `arrow=38`    |
-//! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
+//! | Arrow Feature | Arrow Version |   | Arrow2 version | Arrow2 Version |
+//! |---------------|---------------|---|----------------|----------------|
+//! | `arrow-46`    | `arrow=46`    |   | `arrow2-0-17`  | `arrow2=0.17`  |
+//! | `arrow-45`    | `arrow=45`    |   | `arrow2-0-16`  | `arrow2=0.16`  |
+//! | `arrow-44`    | `arrow=44`    |   |                |                |
+//! | `arrow-43`    | `arrow=43`    |   |                |                |
+//! | `arrow-42`    | `arrow=42`    |   |                |                |
+//! | `arrow-41`    | `arrow=41`    |   |                |                |
+//! | `arrow-40`    | `arrow=40`    |   |                |                |
+//! | `arrow-39`    | `arrow=39`    |   |                |                |
+//! | `arrow-38`    | `arrow=38`    |   |                |                |
+//! | `arrow-37`    | `arrow=37`    |   |                |                |
 //!
 mod internal;
 
-/// Internal. Do not use
+/// *Internal. Do not use*
 ///
 /// This module is an internal implementation detail and not subject to any
 /// compatibility promises. It re-exports the  arrow impls selected via features
@@ -137,6 +133,7 @@ pub mod _impl {
     macro_rules! build_arrow2_crate {
         ($arrow2:ident) => {
             /// Re-export the used arrow2 crate
+            #[doc(hidden)]
             pub use $arrow2 as arrow2;
         };
     }
@@ -149,7 +146,15 @@ pub mod _impl {
         ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
             /// A "fake" arrow crate re-exporting the relevant definitions of the
             /// used arrow-* subcrates
+            #[doc(hidden)]
             pub mod arrow {
+                /// The raw arrow packages
+                pub mod _raw {
+                    pub use $arrow_array as array;
+                    pub use $arrow_buffer as buffer;
+                    pub use $arrow_data as data;
+                    pub use $arrow_schema as schema;
+                }
                 pub mod array {
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
@@ -177,6 +182,8 @@ pub mod _impl {
         };
     }
 
+    #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_buffer_48, arrow_data_48, arrow_schema_48);
+    #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_buffer_47, arrow_data_47, arrow_schema_47);
     #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_buffer_46, arrow_data_46, arrow_schema_46);
     #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_buffer_45, arrow_data_45, arrow_schema_45);
     #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_buffer_44, arrow_data_44, arrow_schema_44);
@@ -189,6 +196,7 @@ pub mod _impl {
     #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_buffer_37, arrow_data_37, arrow_schema_37);
     #[cfg(has_arrow_36)] build_arrow_crate!(arrow_array_36, arrow_buffer_36, arrow_data_36, arrow_schema_36);
 
+    /// Documentation
     pub mod docs {
         #[doc = include_str!("../Implementation.md")]
         #[cfg(not(doctest))]
@@ -202,63 +210,65 @@ pub mod _impl {
         #[cfg(not(doctest))]
         pub mod status {}
     }
+
+    // Reexport for tests
+    #[doc(hidden)]
+    pub use crate::internal::error::PanicOnError;
 }
-
-#[cfg(has_arrow2)]
-pub mod arrow2;
-
-#[cfg(has_arrow)]
-pub mod arrow;
 
 #[cfg(all(test, has_arrow, has_arrow2))]
 mod test_impls;
+
+#[cfg(all(test, has_arrow, has_arrow2))]
+mod test_end_to_end;
 
 #[cfg(test)]
 mod test;
 
 pub use crate::internal::error::{Error, Result};
 
-/// Configure how Arrow and Rust types are translated into one another
-///
-/// When tracing the schema using the `serialize_into_fields` methods, the
-/// following defaults are used:
-///
-/// - Strings: `LargeUtf8`, i.e., i64 offsets
-/// - Lists: `LargeList`, i.e., i64 offsets
-/// - Strings with dictionary encoding: U32 keys and LargeUtf8 values
-///   - Rationale: `polars` cannot handle 64 bit keys in its default
-///     configuration
-///
-/// Null-only fields (e.g., fields of type `()` or fields with only `None`
-/// entries) result in errors per default.
-/// [`TracingOptions::allow_null_fields`][crate::internal::tracing::TracingOptions::allow_null_fields]
-/// allows to disable this behavior.
-///
-/// All customization of the types happens via the metadata of the fields
-/// structs describing arrays. For example, to let `serde_arrow` handle date
-/// time objects that are serialized to strings (chrono's default), use
-///
-/// ```rust
-/// # #[cfg(feature="arrow2")]
-/// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
-/// # let mut field = Field::new("my_field", DataType::Null, false);
-/// field.data_type = DataType::Date64;
-/// field.metadata = Strategy::UtcStrAsDate64.into();
-/// # }
-/// # #[cfg(not(feature="arrow2"))]
-/// # fn main() {}
-/// ```
-pub mod schema {
-    pub use crate::internal::{
-        schema::{Schema, Strategy, STRATEGY_KEY},
-        tracing::TracingOptions,
+#[cfg(has_arrow)]
+mod arrow_impl;
+
+#[cfg(has_arrow)]
+pub use arrow_impl::api::{from_arrow, to_arrow, ArrowBuilder};
+
+#[cfg(has_arrow)]
+#[deprecated = "The items in serde_arrow::arrow are deprecated. See the individual items for suitable replacements"]
+pub mod arrow {
+    #[allow(deprecated)]
+    pub use crate::arrow_impl::api::{
+        deserialize_from_array, deserialize_from_arrays, serialize_into_array,
+        serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
     };
+
+    /// Renamed to [`serde_arrow::ArrowBuilder`][crate::ArrowBuilder]
+    #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
+    pub type ArraysBuilder = crate::arrow_impl::api::ArrowBuilder;
 }
 
-/// Experimental functionality that is not bound by semver compatibility
-///
-pub mod experimental {
-    pub use crate::internal::{configure, Configuration};
+#[cfg(has_arrow2)]
+mod arrow2_impl;
+
+#[cfg(has_arrow2)]
+pub use arrow2_impl::api::{from_arrow2, to_arrow2, Arrow2Builder};
+
+#[cfg(has_arrow2)]
+#[deprecated = "The items in serde_arrow::arrow2 are deprecated. See the individual items for suitable replacements"]
+pub mod arrow2 {
+    #[allow(deprecated)]
+    pub use crate::arrow2_impl::api::{
+        deserialize_from_array, deserialize_from_arrays, serialize_into_array,
+        serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
+    };
+
+    /// Renamed to [`serde_arrow::Arrow2Builder`][crate::Arrow2Builder]
+    #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
+    pub type ArraysBuilder = crate::arrow2_impl::api::Arrow2Builder;
 }
+
+#[deny(missing_docs)]
+pub mod schema;
+
+#[deny(missing_docs)]
+pub mod utils;

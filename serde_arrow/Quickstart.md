@@ -5,8 +5,7 @@
 1. [Working with date time objects](#working-with-date-time-objects)
 2. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
 3. [Working with enums](#working-with-enums)
-4. [Specifying the schema in JSON](#specifying-the-schema-in-json)
-5. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
+4. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
 
 ## Working with date time objects
 
@@ -120,33 +119,15 @@ will be mapped to the following arrow union:
 - `type = 1`: `Struct { 0: u32, 1: u32 }`
 - `type = 2`: `Struct { a: f32, b: f32 }`
 
-## Specifying the schema in JSON
-
-```rust
-let schema_json = r#"
-    [
-        {
-            "name": "date",
-            "data_type": "Date64",
-            "strategy": "NaiveStrAsDate64"
-        },
-        {"name":"foo","data_type":"U8"},
-        {"name":"bar","data_type":"Utf8"}
-    ]
-"#;
-
-let schema: Schema = serde_json::from_str(&schema_json).unwrap();
-```
-
 ## Convert from arrow2 to arrow arrays
 
 Both `arrow` and `arrow2` use the Arrow memory format. Thanks to this fact, it
 is possible to convert arrays between both packages with minimal work using
 their respective FFI interfaces:
 
-- [arrow2::ffi::export_field_to_c](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
-- [arrow2::ffi_export_array_to_ce](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
-- [arrow::ffi::ArrowArray::new](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
+- [`arrow2::ffi::export_field_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
+- [`arrow2::ffi_export_array_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
+- [`arrow::ffi::ArrowArray::new`](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
 
 The arrow2 crate includes [a helper trait][arrow2-arrow2arrow] to perform this
 conversion when used with the `arrow` feature.

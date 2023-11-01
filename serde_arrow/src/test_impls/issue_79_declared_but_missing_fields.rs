@@ -16,7 +16,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::U8, true)).unwrap(),
         ];
 
-        let arrays = serialize_into_arrays(&fields, &items).unwrap();
+        let arrays = to_arrow(&fields, &items).unwrap();
 
         assert_eq!(arrays.len(), 2);
         assert_eq!(arrays[0].len(), 2);
@@ -40,7 +40,7 @@ test_generic!(
             Field::try_from(&GenericField::new("b", GenericDataType::U8, false)).unwrap(),
         ];
 
-        let Err(err) = serialize_into_arrays(&fields, &items) else {
+        let Err(err) = to_arrow(&fields, &items) else {
             panic!("Expected error");
         };
         assert!(

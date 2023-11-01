@@ -125,10 +125,6 @@ impl<E> StripOuterSequenceSink<E> {
             state: StripOuterSequenceState::WaitForStart,
         }
     }
-
-    pub fn into_inner(self) -> E {
-        self.wrapped
-    }
 }
 
 impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
