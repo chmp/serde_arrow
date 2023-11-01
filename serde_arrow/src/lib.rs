@@ -20,8 +20,8 @@
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
 //! is always possible to specify the schema manually. See the [`schema`
-//! module][schema] and [SerdeArrowSchema][schema::SerdeArrowSchema]
-//! for further details.
+//! module][schema] and [`SerdeArrowSchema`][schema::SerdeArrowSchema] for
+//! further details.
 //!
 //! ## Overview
 //!
@@ -106,20 +106,18 @@
 //!
 //! Available features:
 //!
-//! | Feature       | Arrow Version |
-//! |---------------|---------------|
-//! | `arrow-46`    | `arrow=46`    |
-//! | `arrow-45`    | `arrow=45`    |
-//! | `arrow-44`    | `arrow=44`    |
-//! | `arrow-43`    | `arrow=43`    |
-//! | `arrow-42`    | `arrow=42`    |
-//! | `arrow-41`    | `arrow=41`    |
-//! | `arrow-40`    | `arrow=40`    |
-//! | `arrow-39`    | `arrow=39`    |
-//! | `arrow-38`    | `arrow=38`    |
-//! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
+//! | Arrow Feature | Arrow Version |   | Arrow2 version | Arrow2 Version |
+//! |---------------|---------------|---|----------------|----------------|
+//! | `arrow-46`    | `arrow=46`    |   | `arrow2-0-17`  | `arrow2=0.17`  |
+//! | `arrow-45`    | `arrow=45`    |   | `arrow2-0-16`  | `arrow2=0.16`  |
+//! | `arrow-44`    | `arrow=44`    |   |                |                |
+//! | `arrow-43`    | `arrow=43`    |   |                |                |
+//! | `arrow-42`    | `arrow=42`    |   |                |                |
+//! | `arrow-41`    | `arrow=41`    |   |                |                |
+//! | `arrow-40`    | `arrow=40`    |   |                |                |
+//! | `arrow-39`    | `arrow=39`    |   |                |                |
+//! | `arrow-38`    | `arrow=38`    |   |                |                |
+//! | `arrow-37`    | `arrow=37`    |   |                |                |
 //!
 mod internal;
 
@@ -135,6 +133,7 @@ pub mod _impl {
     macro_rules! build_arrow2_crate {
         ($arrow2:ident) => {
             /// Re-export the used arrow2 crate
+            #[doc(hidden)]
             pub use $arrow2 as arrow2;
         };
     }
@@ -147,6 +146,7 @@ pub mod _impl {
         ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
             /// A "fake" arrow crate re-exporting the relevant definitions of the
             /// used arrow-* subcrates
+            #[doc(hidden)]
             pub mod arrow {
                 /// The raw arrow packages
                 pub mod _raw {
@@ -210,6 +210,7 @@ pub mod _impl {
     }
 
     // Reexport for tests
+    #[doc(hidden)]
     pub use crate::internal::error::PanicOnError;
 }
 

@@ -20,6 +20,10 @@ use crate::{
 /// Build arrow arrays record by record (*requires one of the `arrow-*`
 /// features*)
 ///
+/// The given items should be records (e.g., structs). To serialize items
+/// encoding single values consider the [`Items`][crate::utils::Items] and
+/// [`Item`][crate::utils::Item] wrappers.
+///
 /// Example:
 ///
 /// ```rust
@@ -104,7 +108,10 @@ impl ArrowBuilder {
 /// features*))
 ///
 /// `items` should be given in the form a list of records (e.g., a vector of
-/// structs).
+/// structs). To serialize items encoding single values consider the
+/// [`Items`][crate::utils::Items] wrapper.
+///
+/// To build arrays record by record use [`ArrowBuilder`].
 ///
 /// Example:
 ///
@@ -148,7 +155,9 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 /// Deserialize items from arrow arrays (*requires one of the `arrow-*`
 /// features*)
 ///
-/// The type should be a list of records (e.g., a vector of structs).
+/// The type should be a list of records (e.g., a vector of structs). To
+/// deserialize items encoding single values consider the
+/// [`Items`][crate::utils::Items] wrapper.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -367,7 +376,7 @@ where
 /// # use serde_arrow::_impl::arrow;
 /// use arrow::datatypes::{DataType, Field};
 /// use serde_arrow::{ArrowBuilder, utils::{Items, Item}};
-///  
+///
 /// let fields = vec![Field::new("item", DataType::UInt8, false)];
 /// let mut builder = ArrowBuilder::new(&fields)?;
 ///

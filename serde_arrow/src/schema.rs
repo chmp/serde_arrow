@@ -2,15 +2,26 @@
 //!
 //! To convert between Rust objects and Arrow types, `serde_arrows` requires
 //! schema information as a list of Arrow fields with additional meta data. See
-//! [SerdeArrowSchema] for details how to specify the schema.
+//! [`SerdeArrowSchema`] for details on how to specify the schema.
 //!
-//! The default mapping of Rust types to Arrow types is as follows:
+//! The default mapping of Rust types to [Arrow types][arrow-types] is as follows:
 //!
-//! - Strings: `LargeUtf8`, i.e., i64 offsets
-//! - Lists: `LargeList`, i.e., i64 offsets
-//! - Strings with dictionary encoding: `UInt32` keys and `LargeUtf8` values
+//! [arrow-types]: https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html
 //!
-//! All customization of the types happens by including a suitable [Strategy] in
+//! - `()`: `Null`
+//! - `bool`: `Boolean`
+//! - `u8`, .., `u64`, `i8`, .., `i64`: `UInt8`, .., `Uint64`, `Int8`, ..
+//!   `UInt64`
+//! - Floats: floats are directly mapped (`f32` -> `Float32`)
+//! - Strings: `LargeUtf8` with i64 offsets
+//! - Sequences: `LargeList` with i64 offsets
+//! - Structs / Map / Tuples: `Struct` type
+//! - Enums: dense Unions. Each variant is mapped to a separate field. Its type
+//!   depends on the union type: Field-less variants are mapped to `NULL`. New
+//!   type variants are mapped according to their inner type. Other variant
+//!   types are mapped to struct types.
+//!
+//! All customization of the types happens by including a suitable [`Strategy`] in
 //! the metadata of the fields. For example, to let `serde_arrow` handle date
 //! time objects that are serialized to strings (chrono's default), use
 //!
@@ -31,6 +42,6 @@ pub use crate::internal::{
     tracing::TracingOptions,
 };
 
-/// Type alias for SerdeArrowSchema for backwards compatibility
+/// Renamed to [`SerdeArrowSchema`]
 #[deprecated = "serde_arrow::schema::Schema is deprecated. Use serde_arrow::schema::SerdeArrowSchema instead"]
 pub type Schema = SerdeArrowSchema;

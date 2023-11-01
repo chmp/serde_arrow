@@ -41,8 +41,11 @@ pub struct TracingOptions {
 
     /// If `true` serialize strings dictionary encoded. The default is `false`.
     ///
-    /// If `true`, strings are traced as `Dictionary(UInt64, LargeUtf8)`. If
+    /// If `true`, strings are traced as `Dictionary(UInt32, LargeUtf8)`. If
     /// `false`, strings are traced as `LargeUtf8`.
+    ///
+    /// Note: the 32 bit offsets are chosen, as they are supported by the
+    /// default polars package.
     pub string_dictionary_encoding: bool,
 
     /// If `true`, coerce different numeric types.

@@ -9,10 +9,10 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// At the moment only a generic string error is supported, but it is planned to
 /// offer concrete types to match against.
 ///
-/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [std::backtrace]
+/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`]
 /// for details. This backtrace is included when printing the error. If the
-/// error is caused by another error, that error can be retrieved with the
-/// [source][std::error::Error::source] function.
+/// error is caused by another error, that error can be retrieved with
+/// [`source()`][std::error::Error::source].
 ///
 #[non_exhaustive]
 pub enum Error {

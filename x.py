@@ -149,16 +149,19 @@ def fmt():
 
 
 @cmd(help="Run the linting")
-def lint():
+@arg("--fast", action="store_true")
+def lint(fast=False):
     check_cargo_toml()
-    cargo("check")
-    for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-        cargo(
-            "check",
-            "--features",
-            arrow2_feature,
-        )
+    cargo("check", "--features", default_features)
     cargo("clippy", "--features", default_features)
+
+    if not fast:
+        for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
+            cargo(
+                "check",
+                "--features",
+                arrow2_feature,
+            )
 
 
 @cmd(help="Run the example")

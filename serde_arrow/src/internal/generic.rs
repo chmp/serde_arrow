@@ -71,7 +71,7 @@ where
 /// A wrapper around a sequence of items
 ///
 /// When serialized or deserialized, it behaves as if each item was wrapped in a
-/// struct with a single attribute `item`.
+/// struct with a single attribute `"item"`.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -98,7 +98,7 @@ pub struct Items<T>(
 /// A wrapper around a single item
 ///
 /// When serialized or deserialized, it behaves as if the Item was wrapped in a
-/// struct with a single attribute `item`.
+/// struct with a single attribute `"item"`.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {

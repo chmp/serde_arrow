@@ -125,9 +125,9 @@ Both `arrow` and `arrow2` use the Arrow memory format. Thanks to this fact, it
 is possible to convert arrays between both packages with minimal work using
 their respective FFI interfaces:
 
-- [arrow2::ffi::export_field_to_c](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
-- [arrow2::ffi_export_array_to_ce](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
-- [arrow::ffi::ArrowArray::new](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
+- [`arrow2::ffi::export_field_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
+- [`arrow2::ffi_export_array_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
+- [`arrow::ffi::ArrowArray::new`](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
 
 The arrow2 crate includes [a helper trait][arrow2-arrow2arrow] to perform this
 conversion when used with the `arrow` feature.

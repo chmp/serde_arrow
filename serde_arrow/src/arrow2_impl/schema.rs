@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-/// Support for arrow2 types (requires one of the `arrow2-*` features)
+/// Support for arrow2 types (*requires one of the `arrow2-*` features*)
 impl SerdeArrowSchema {
     /// Build a new Schema object from fields
     pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {
@@ -25,13 +25,16 @@ impl SerdeArrowSchema {
     /// [`to_arrow2_fields`][SerdeArrowSchema::to_arrow2_fields] instead:
     ///
     /// ```rust
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
     /// # #[derive(serde::Deserialize)]
     /// # struct Item { a: u32 }
     /// # let schema = SerdeArrowSchema::from_type::<Item>(TracingOptions::default()).unwrap();
     /// # let fields =
-    /// schema.to_arrow2_fields().unwrap()
+    /// schema.to_arrow2_fields()?
     /// # ;
+    /// # Ok(())
+    /// # }
     /// ```
     #[deprecated = "The method `get_arrow2_fields` is deprecated. Use `to_arrow2_fields` instead"]
     pub fn get_arrow2_fields(&self) -> Result<Vec<Field>> {

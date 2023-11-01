@@ -5,14 +5,19 @@
 Breaking changes:
 
 - Make tracing options non-exhaustive
-- Remove `try_parse_dates` in favor of `guess_dates` field in `TracingOptions`
-- Remove experimental configuration api
+- Remove the `try_parse_dates` field in favor of the `guess_dates` field in
+  `TracingOptions` (the setter name is not affected)
+- Remove the experimental configuration api
 
-New feature: Improved schema tracing:
+Improvements:
 
+- Simpler and streamlined API
 - Add type based tracing to allow schema tracing without samples
+  (`SerdeArrowSchema::form_type()`)
+- Allow to build schema objects from serializable objects, e.g.,
+  `serde_json::Value` (`SerdeArrow::from_value()`)
 
-Deprecations:
+Deprecations (see the documentation of deprecated items for how to migratie):
 
 - Rename `serde_arrow::schema::Schema` to
   `serde_arrow::schema::SerdeArrowSchema` to prevent name clashes with the
@@ -23,26 +28,6 @@ Deprecations:
   `SerdeArrowSchema::from_samples`
 - Deprecated single item methods in favor of using the `Items` and `Item`
   wrappers
-
-Migration guide:
-
-```rust
-// old:
-serde_arrow::arrow::serialize_into_arrays(&fields, &items)?
-// new:
-serde_arrow::to_arrow(&fields, &items)?
-
-// old
-serde_arrow::arrow::deserialize_from_arrays(&fields, &arrays)?
-// new
-serde::from_arrow(&fields, &arrays)?
-
-// old
-serde_arrow::arrow::serialize_into_fields(&items)?
-// new
-use serde_arrow::schema::SerdeArrowSchema;
-SerdeArrowSchema::from_samples(&items)?.to_arrow_fields()?
-```
 
 ## 0.8.0
 

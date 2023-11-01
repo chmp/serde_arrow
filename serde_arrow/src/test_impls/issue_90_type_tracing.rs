@@ -311,6 +311,7 @@ mod mixed_tracing_unions {
 
 #[test]
 fn unsupported_recursive_types() {
+    #[allow(unused)]
     #[derive(Deserialize)]
     struct Tree {
         left: Option<Box<Tree>>,
