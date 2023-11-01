@@ -16,6 +16,7 @@ Improvements:
   (`SerdeArrowSchema::form_type()`)
 - Allow to build schema objects from serializable objects, e.g.,
   `serde_json::Value` (`SerdeArrow::from_value()`)
+- Add support for `arrow=47` and `arrow=48`
 
 Deprecations (see the documentation of deprecated items for how to migratie):
 

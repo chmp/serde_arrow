@@ -15,6 +15,8 @@ all_arrow_features = [
     "arrow-44",
     "arrow-45",
     "arrow-46",
+    "arrow-47",
+    "arrow-48",
 ]
 all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
 default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
