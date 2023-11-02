@@ -46,6 +46,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// `serde_json::Value`)
     ///
     /// ```rust
+    /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::Field;
@@ -59,6 +60,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// let fields = Vec::<Field>::from_value(&schema)?;
     /// # Ok(())
     /// # }
+    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # fn main() { }
     /// ```
     ///
     /// `SerdeArrowSchema` can also be directly serialized and deserialized.
@@ -124,6 +127,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// See [`TracingOptions`] for customization options.
     ///
     /// ```rust
+    /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, Field};
@@ -144,6 +148,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
     /// # Ok(())
     /// # }
+    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # fn main() { }
     /// ```
     ///
     fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
@@ -166,6 +172,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// See [`TracingOptions`] for customization options.
     ///
     /// ```rust
+    /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, Field};
@@ -200,6 +207,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
     /// # Ok(())
     /// # }
+    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # fn main() { }
     /// ```
     ///
     fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self>;
