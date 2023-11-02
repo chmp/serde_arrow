@@ -1,8 +1,6 @@
 [workspace]
-members = [
-    "serde_arrow",
-    "example",
-]
+members = ["serde_arrow", "example"]
+default-members = ["serde_arrow"]
 
 resolver = "2"
 

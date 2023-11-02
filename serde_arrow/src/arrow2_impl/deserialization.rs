@@ -89,6 +89,7 @@ impl BufferExtract for dyn Array {
 
                 let validity = get_validity(typed);
                 let offsets = typed.offsets();
+                let offsets = offsets.as_slice();
 
                 check_supported_list_layout(validity, offsets)?;
 
@@ -216,7 +217,6 @@ impl BufferExtract for dyn Array {
                 let validity = get_validity(typed);
 
                 check_supported_list_layout(validity, offsets)?;
-
                 let offsets = buffers.push_u32_cast(offsets)?;
                 let validity = validity.map(|b| buffers.push_u1(b));
 
