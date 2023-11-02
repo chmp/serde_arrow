@@ -23,7 +23,9 @@
 //! is always possible to specify the schema manually. See the [`schema`
 //! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
-#![cfg_attr(all(has_arrow, has_arrow2), doc = r#"
+#![cfg_attr(
+    all(has_arrow, has_arrow2),
+    doc = r#"
 ## Overview
 
 | Operation        | `arrow` |  `arrow2` |
@@ -36,7 +38,8 @@
 | | | |
 | Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
 | Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
-"#)]
+"#
+)]
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
@@ -45,6 +48,8 @@
 //! # use serde::{Deserialize, Serialize};
 //! # #[cfg(feature = "has_arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
+//! # use serde_arrow::_impl::arrow2;
+//! use arrow2::datatypes::Field;
 //! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 //!
 //! ##[derive(Serialize, Deserialize)]
@@ -59,10 +64,7 @@
 //!     Record { a: 3.0, b: 3 },
 //! ];
 //!
-//! let fields =
-//!     SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
-//!     .to_arrow2_fields()?;
-//!
+//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 //! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 //! #
 //! # drop(arrays);

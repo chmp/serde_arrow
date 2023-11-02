@@ -132,7 +132,6 @@ impl Arrow2Builder {
 /// ];
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-///
 /// let arrays = serde_arrow::to_arrow2(&fields, &items)?;
 /// #
 /// # assert_eq!(arrays.len(), 2);
@@ -178,10 +177,8 @@ where
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 /// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serde_arrow::to_arrow2(&fields, &items).unwrap();
+/// # let arrays = serde_arrow::to_arrow2(&fields, &items)?;
 /// #
-///
-/// // deserialize the records from arrays
 /// let items: Vec<Record> = serde_arrow::from_arrow2(&fields, &arrays)?;
 /// # Ok(())
 /// # }
@@ -247,7 +244,7 @@ where
 /// # Ok(())
 /// # }
 /// ```
-#[deprecated = "serde_arrow::arrow2::serialize_into_fields is deprecated. Use serde_arrow::schema::SerdeArrowSchema::from_samples instead"]
+#[deprecated = "serde_arrow::arrow2::serialize_into_fields is deprecated. Use serde_arrow::schema::SchemaLike::from_samples instead"]
 pub fn serialize_into_fields<T>(items: &T, options: TracingOptions) -> Result<Vec<Field>>
 where
     T: Serialize + ?Sized,
@@ -298,7 +295,7 @@ where
 /// # Ok(())
 /// # }
 /// ```
-#[deprecated = "serde_arrow::arrow2::serialize_into_field is deprecated. Use serde_arrow::schema::SerdeArrowSchema::from_samples instead"]
+#[deprecated = "serde_arrow::arrow2::serialize_into_field is deprecated. Use serde_arrow::schema::SchemaLike::from_samples with serde_arrow::utils::Items instead"]
 pub fn serialize_into_field<T>(items: &T, name: &str, options: TracingOptions) -> Result<Field>
 where
     T: Serialize + ?Sized,
@@ -314,23 +311,17 @@ where
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::_impl::arrow2;
-/// use arrow2::datatypes::Field;
-/// use serde_arrow::{
-///     schema::{SchemaLike, TracingOptions},
-///     utils::Items,
-/// };
+/// # use serde_arrow::_impl::arrow2::datatypes::Field;
+/// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+/// use serde_arrow::utils::Items;
 ///
 /// let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
-/// let fields = Vec::<Field>::from_samples(&Items(&samples), TracingOptions::default())?;
-///
+/// # let fields = Vec::<Field>::from_samples(&Items(&samples), TracingOptions::default())?;
 /// let arrays = serde_arrow::to_arrow2(&fields, &Items(&samples))?;
-/// #
-/// # drop(fields);
 /// # Ok(())
 /// # }
 /// ```
-#[deprecated = "serde_arrow::arrow2::serialize_into_array is deprecated. Use serde_arrow::to_arrow2 instead"]
+#[deprecated = "serde_arrow::arrow2::serialize_into_array is deprecated. Use serde_arrow::to_arrow2 with serde_arrow::utils::Items instead"]
 pub fn serialize_into_array<T>(field: &Field, items: &T) -> Result<Box<dyn Array>>
 where
     T: Serialize + ?Sized,
@@ -383,8 +374,9 @@ where
 /// use arrow2::datatypes::{DataType, Field};
 /// use serde_arrow::{Arrow2Builder, utils::{Items, Item}};
 ///
-/// let fields = vec![Field::new("item", DataType::UInt8, false)];
-/// let mut builder = Arrow2Builder::new(&fields)?;
+/// let mut builder = Arrow2Builder::new(&[
+///     Field::new("item", DataType::UInt8, false),
+/// ])?;
 ///
 /// builder.push(&Item(0))?;
 /// builder.push(&Item(1))?;
@@ -397,7 +389,7 @@ where
 /// # Ok(())
 /// # }
 /// ```
-#[deprecated = "serde_arrow::arrow2::ArrayBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
+#[deprecated = "serde_arrow::arrow2::ArrayBuilder is deprecated. Use serde_arrow::Arrow2Builder with serde_arrow::utils::Items instead"]
 pub struct ArrayBuilder(generic::GenericBuilder);
 
 #[allow(deprecated)]
