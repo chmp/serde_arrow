@@ -9,8 +9,9 @@
 //! as easy as using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`][] and [`arrow2`][]. `serde_arrow` supports both.
-//! The supported arrow implementations can be selected via
+//! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
+//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports
+//! both. The supported arrow implementations can be selected via
 //! [features](#features).
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as
@@ -20,22 +21,25 @@
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
 //! is always possible to specify the schema manually. See the [`schema`
-//! module][schema] and [`SerdeArrowSchema`][schema::SerdeArrowSchema] for
-//! further details.
+//! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
-//! ## Overview
-//!
-//! | Operation        | `arrow` |  `arrow2` |
-//! |------------------|------------------|-------------------|
-//! | Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
-//! | | | |
-//! | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
-//! | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
-//! | Arrow Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
-//! | | | |
-//! | Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
-//! | Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
-//!
+#![cfg_attr(
+    all(has_arrow, has_arrow2),
+    doc = r#"
+## Overview
+
+| Operation        | `arrow` |  `arrow2` |
+|------------------|------------------|-------------------|
+| Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
+| | | |
+| Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
+| Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
+| Array Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
+| | | |
+| Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
+| Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
+"#
+)]
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
@@ -44,6 +48,8 @@
 //! # use serde::{Deserialize, Serialize};
 //! # #[cfg(feature = "has_arrow2")]
 //! # fn main() -> serde_arrow::Result<()> {
+//! # use serde_arrow::_impl::arrow2;
+//! use arrow2::datatypes::Field;
 //! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 //!
 //! ##[derive(Serialize, Deserialize)]
@@ -58,10 +64,7 @@
 //!     Record { a: 3.0, b: 3 },
 //! ];
 //!
-//! let fields =
-//!     SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
-//!     .to_arrow2_fields()?;
-//!
+//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 //! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 //! #
 //! # drop(arrays);
@@ -119,6 +122,9 @@
 //! | `arrow-38`    | `arrow=38`    |   |                |                |
 //! | `arrow-37`    | `arrow=37`    |   |                |                |
 //!
+
+// be more forgiving without any active implementation
+#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*

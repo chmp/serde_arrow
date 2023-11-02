@@ -2,7 +2,7 @@
 //!
 //! To convert between Rust objects and Arrow types, `serde_arrows` requires
 //! schema information as a list of Arrow fields with additional meta data. See
-//! [`SerdeArrowSchema`] for details on how to specify the schema.
+//! [`SchemaLike`] for details on how to specify the schema.
 //!
 //! The default mapping of Rust types to [Arrow types][arrow-types] is as follows:
 //!
@@ -38,7 +38,7 @@
 //! # fn main() {}
 //! ```
 pub use crate::internal::{
-    schema::{SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
     tracing::TracingOptions,
 };
 

@@ -7,10 +7,7 @@ test_generic!(
         let tracing_options = TracingOptions::default();
 
         let items = vec![json!({ "a": 1, "b": 2 }), json!({ "a": 3, "b": 4 })];
-        let fields: Vec<Field> = SerdeArrowSchema::from_samples(&items, tracing_options)
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let fields = Vec::<Field>::from_samples(&items, tracing_options).unwrap();
         let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
@@ -24,10 +21,7 @@ test_generic!(
         let tracing_options = TracingOptions::default().coerce_numbers(true);
 
         let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
-        let fields: Vec<Field> = SerdeArrowSchema::from_samples(&items, tracing_options)
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let fields = Vec::<Field>::from_samples(&items, tracing_options).unwrap();
         let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
