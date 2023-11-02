@@ -118,6 +118,9 @@
 //! | `arrow-38`    | `arrow=38`    |   |                |                |
 //! | `arrow-37`    | `arrow=37`    |   |                |                |
 //!
+
+// be more forgiving without any active implementation
+#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
