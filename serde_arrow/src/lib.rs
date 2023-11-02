@@ -9,8 +9,9 @@
 //! as easy as using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`][] and [`arrow2`][]. `serde_arrow` supports both.
-//! The supported arrow implementations can be selected via
+//! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
+//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports
+//! both. The supported arrow implementations can be selected via
 //! [features](#features).
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as
@@ -22,19 +23,20 @@
 //! is always possible to specify the schema manually. See the [`schema`
 //! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
-//! ## Overview
-//!
-//! | Operation        | `arrow` |  `arrow2` |
-//! |------------------|------------------|-------------------|
-//! | Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
-//! | | | |
-//! | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
-//! | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
-//! | Arrow Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
-//! | | | |
-//! | Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
-//! | Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
-//!
+#![cfg_attr(all(has_arrow, has_arrow2), doc = r#"
+## Overview
+
+| Operation        | `arrow` |  `arrow2` |
+|------------------|------------------|-------------------|
+| Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
+| | | |
+| Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
+| Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
+| Array Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
+| | | |
+| Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
+| Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
+"#)]
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
