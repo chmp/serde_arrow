@@ -12,7 +12,7 @@ macro_rules! define_benchmark {
         )?
     ) => {
         pub fn benchmark_serialize(c: &mut criterion::Criterion) {
-            use serde_arrow::schema::SerdeArrowSchema;
+            use serde_arrow::schema::{SerdeArrowSchema, SchemaLike};
 
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));

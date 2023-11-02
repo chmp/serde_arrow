@@ -16,58 +16,47 @@ use serde::{Deserialize, Serialize};
 ///
 pub const STRATEGY_KEY: &str = "SERDE_ARROW:strategy";
 
-/// A collection of fields as understood by `serde_arrow`
+pub trait Sealed {}
+
+/// A sealed trait to add support for constructing schema-like objects
 ///
 /// There are three main ways to specify the schema:
 ///
-/// 1. [`SerdeArrowSchema::from_value`]: specify the schema manually, e.g., as a
-///    JSON value
-/// 2. [`SerdeArrowSchema::from_type`]: determine the schema from the record
-///    type
-/// 3. [`SerdeArrowSchema::from_samples`]: Determine the schema from samples of
-///    the data
+/// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON
+///    value
+/// 2. [`SchemaLike::from_type`]: determine the schema from the record type
+/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of the
+///    data
 ///
-#[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(from = "SchemaSerializationOptions")]
-pub struct SerdeArrowSchema {
-    pub(crate) fields: Vec<GenericField>,
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum SchemaSerializationOptions {
-    FieldsOnly(Vec<GenericField>),
-    FullSchema { fields: Vec<GenericField> },
-}
-
-impl From<SchemaSerializationOptions> for SerdeArrowSchema {
-    fn from(value: SchemaSerializationOptions) -> Self {
-        use SchemaSerializationOptions::*;
-        match value {
-            FieldsOnly(fields) | FullSchema { fields } => Self { fields },
-        }
-    }
-}
-
-impl SerdeArrowSchema {
-    /// Return a new schema (empty) instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+/// The following types implement [`SchemaLike`] and can be constructed in this
+/// way:
+///
+/// - [`SerdeArrowSchema`]
+#[cfg_attr(
+    has_arrow,
+    doc = "- `Vec<`[`arrow::datatypes::Field`][crate::_impl::arrow::datatypes::Field]`>"
+)]
+#[cfg_attr(
+    has_arrow2,
+    doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
+)]
+///
+pub trait SchemaLike: Sized + Sealed {
     /// Build the schema from an object that implements serialize (e.g.,
     /// `serde_json::Value`)
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-    /// use serde_arrow::schema::SerdeArrowSchema;
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::Field;
+    /// use serde_arrow::schema::SchemaLike;
     ///
     /// let schema = serde_json::json!([
     ///     {"name": "foo", "data_type": "U8"},
     ///     {"name": "bar", "data_type": "Utf8"},
     /// ]);
     ///
-    /// let schema = SerdeArrowSchema::from_value(&schema)?;
+    /// let fields = Vec::<Field>::from_value(&schema)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -119,13 +108,7 @@ impl SerdeArrowSchema {
     ///   fields, named `"key"` of integer type and named `"value"` of string
     ///   type
     ///
-    pub fn from_value<T: Serialize>(value: &T) -> Result<Self> {
-        // simple version of serde-transcode
-        let mut events = Vec::<crate::internal::event::Event>::new();
-        crate::internal::sink::serialize_into_sink(&mut events, value)?;
-        let this: Self = crate::internal::source::deserialize_from_source(&events)?;
-        Ok(this)
-    }
+    fn from_value<T: Serialize>(value: &T) -> Result<Self>;
 
     /// Determine the schema from the given record type
     ///
@@ -143,9 +126,9 @@ impl SerdeArrowSchema {
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::DataType;
+    /// use arrow::datatypes::{DataType, Field};
     /// use serde::Deserialize;
-    /// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    /// use serde_arrow::schema::{SchemaLike, TracingOptions};
     ///
     /// ##[derive(Deserialize)]
     /// struct Record {
@@ -154,8 +137,7 @@ impl SerdeArrowSchema {
     ///     string: String,
     /// }
     ///
-    /// let schema = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?;
-    /// let fields = schema.to_arrow_fields()?;
+    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
     ///
     /// assert_eq!(*fields[0].data_type(), DataType::Int32);
     /// assert_eq!(*fields[1].data_type(), DataType::Float64);
@@ -164,11 +146,7 @@ impl SerdeArrowSchema {
     /// # }
     /// ```
     ///
-    pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
-        let mut tracer = Tracer::new(String::from("$"), options);
-        tracer.trace_type::<T>()?;
-        tracer.to_schema()
-    }
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
 
     /// Determine the schema from the given samples
     ///
@@ -190,9 +168,9 @@ impl SerdeArrowSchema {
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::DataType;
+    /// use arrow::datatypes::{DataType, Field};
     /// use serde::Serialize;
-    /// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    /// use serde_arrow::schema::{SchemaLike, TracingOptions};
     ///
     /// ##[derive(Serialize)]
     /// struct Record {
@@ -215,8 +193,7 @@ impl SerdeArrowSchema {
     ///     // ...
     /// ];
     ///
-    /// let schema = SerdeArrowSchema::from_samples(&samples, TracingOptions::default())?;
-    /// let fields = schema.to_arrow_fields()?;
+    /// let fields = Vec::<Field>::from_samples(&samples, TracingOptions::default())?;
     ///
     /// assert_eq!(*fields[0].data_type(), DataType::Int32);
     /// assert_eq!(*fields[1].data_type(), DataType::Float64);
@@ -225,7 +202,57 @@ impl SerdeArrowSchema {
     /// # }
     /// ```
     ///
-    pub fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
+    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self>;
+}
+
+/// A collection of fields as understood by `serde_arrow`
+#[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(from = "SchemaSerializationOptions")]
+pub struct SerdeArrowSchema {
+    pub(crate) fields: Vec<GenericField>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SchemaSerializationOptions {
+    FieldsOnly(Vec<GenericField>),
+    FullSchema { fields: Vec<GenericField> },
+}
+
+impl From<SchemaSerializationOptions> for SerdeArrowSchema {
+    fn from(value: SchemaSerializationOptions) -> Self {
+        use SchemaSerializationOptions::*;
+        match value {
+            FieldsOnly(fields) | FullSchema { fields } => Self { fields },
+        }
+    }
+}
+
+impl SerdeArrowSchema {
+    /// Return a new schema without any fields
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Sealed for SerdeArrowSchema {}
+
+impl SchemaLike for SerdeArrowSchema {
+    fn from_value<T: Serialize>(value: &T) -> Result<Self> {
+        // simple version of serde-transcode
+        let mut events = Vec::<crate::internal::event::Event>::new();
+        crate::internal::sink::serialize_into_sink(&mut events, value)?;
+        let this: Self = crate::internal::source::deserialize_from_source(&events)?;
+        Ok(this)
+    }
+
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        let mut tracer = Tracer::new(String::from("$"), options);
+        tracer.trace_type::<T>()?;
+        tracer.to_schema()
+    }
+
+    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_samples(samples)?;
         tracer.to_schema()

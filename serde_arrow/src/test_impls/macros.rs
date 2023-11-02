@@ -49,10 +49,10 @@ macro_rules! test_example_impl {
         use super::*;
 
         use crate::{
-            schema::{SerdeArrowSchema, TracingOptions, Strategy},
+            schema::{TracingOptions, Strategy},
             utils::{Items, Item},
         };
-        use crate::internal::schema::{GenericDataType, GenericField, GenericTimeUnit};
+        use crate::internal::schema::{GenericDataType, GenericField, GenericTimeUnit, SchemaLike};
         use crate::test_impls::macros::{btree_map, hash_map};
 
         $(#[ignore = $ignore])?
@@ -69,7 +69,7 @@ macro_rules! test_example_impl {
 
             println!("{options:?}");
 
-            let actual: Vec<Field> = SerdeArrowSchema::from_samples(&Items(items), options).unwrap().try_into().unwrap();
+            let actual  = Vec::<Field>::from_samples(&Items(items), options).unwrap();
             let expected: Vec<Field> = vec![(&field).try_into().unwrap()];
             assert_eq!(
                 actual,
@@ -413,7 +413,7 @@ macro_rules! test_generic {
         #[allow(unused)]
         mod $name {
             use crate::{
-                schema::{SerdeArrowSchema, TracingOptions},
+                schema::{SchemaLike, TracingOptions},
                 utils::{Items, Item}
             };
             use crate::internal::schema::{GenericField, GenericDataType};

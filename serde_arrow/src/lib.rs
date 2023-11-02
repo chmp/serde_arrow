@@ -20,8 +20,7 @@
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
 //! is always possible to specify the schema manually. See the [`schema`
-//! module][schema] and [`SerdeArrowSchema`][schema::SerdeArrowSchema] for
-//! further details.
+//! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
 //! ## Overview
 //!

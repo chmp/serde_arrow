@@ -78,7 +78,7 @@ fn main() -> Result<(), PanicOnError> {
         },
     ];
 
-    use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    use serde_arrow::schema::{SchemaLike, SerdeArrowSchema, TracingOptions};
 
     let fields: Vec<Field> =
         SerdeArrowSchema::from_samples(&examples, TracingOptions::default().guess_dates(true))?

@@ -3,7 +3,11 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{self as serde_arrow, internal::error::PanicOnError, schema::TracingOptions};
+use crate::{
+    self as serde_arrow,
+    internal::error::PanicOnError,
+    schema::{SchemaLike, TracingOptions},
+};
 
 use crate::_impl::arrow::{
     _raw::{array::RecordBatch, schema::Schema},
@@ -39,10 +43,7 @@ fn example() -> PanicOnError<()> {
         VectorMetric { distribution: None },
     ];
 
-    use serde_arrow::schema::SerdeArrowSchema;
-
-    let fields: Vec<Field> =
-        SerdeArrowSchema::from_type::<VectorMetric>(TracingOptions::default())?.try_into()?;
+    let fields = Vec::<Field>::from_type::<VectorMetric>(TracingOptions::default())?;
     let arrays = serde_arrow::to_arrow(&fields, &metrics)?;
 
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields.clone())), arrays.clone())?;
@@ -56,10 +57,8 @@ fn example() -> PanicOnError<()> {
 
 #[test]
 fn example_top_level_none() -> PanicOnError<()> {
-    use serde_arrow::schema::SerdeArrowSchema;
-
     // top-level options are not supported if fields are are extracted
-    let res = SerdeArrowSchema::from_type::<Option<Distribution>>(TracingOptions::default());
+    let res = Vec::<Field>::from_type::<Option<Distribution>>(TracingOptions::default());
     assert!(res.is_err());
     Ok(())
 }

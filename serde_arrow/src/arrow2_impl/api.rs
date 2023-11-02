@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-/// Build arrow2 arrays record by record  (*requires one of the `arrow2-*`
+/// Build arrow2 arrays record by record (*requires one of the `arrow2-*`
 /// features*)
 ///
 /// The given items should be records (e.g., structs). To serialize items
@@ -115,8 +115,10 @@ impl Arrow2Builder {
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow2;
+/// use arrow2::datatypes::Field;
 /// use serde::{Serialize, Deserialize};
-/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
 /// ##[derive(Serialize, Deserialize)]
 /// struct Record {
@@ -129,8 +131,7 @@ impl Arrow2Builder {
 ///     // ...
 /// ];
 ///
-/// let fields = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?.
-///     to_arrow2_fields()?;
+/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 ///
 /// let arrays = serde_arrow::to_arrow2(&fields, &items)?;
 /// #
@@ -164,8 +165,10 @@ where
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow2;
+/// use arrow2::datatypes::Field;
 /// use serde::{Deserialize, Serialize};
-/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
 /// ##[derive(Deserialize, Serialize)]
 /// struct Record {
@@ -173,8 +176,7 @@ where
 ///     b: u64,
 /// }
 ///
-/// let fields = SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
-///     .to_arrow2_fields()?;
+/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 /// # let items = &[Record { a: Some(1.0), b: 2}];
 /// # let arrays = serde_arrow::to_arrow2(&fields, &items).unwrap();
 /// #
@@ -222,13 +224,15 @@ where
 }
 
 /// Replaced by
-/// [`SerdeArrowSchema::from_samples`][crate::schema::SerdeArrowSchema::from_samples]
+/// [`SchemaLike::from_samples`][crate::schema::SchemaLike::from_samples]
 /// (*[example][serialize_into_fields]*)
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow2;
+/// use arrow2::datatypes::Field;
 /// use serde::Serialize;
-/// use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
 /// ##[derive(Serialize)]
 /// struct Record {
@@ -237,8 +241,7 @@ where
 /// }
 ///
 /// let samples = [Record { a: 1, b: 2.0 }, /* ... */ ];
-/// let fields = SerdeArrowSchema::from_samples(&samples, TracingOptions::default())?
-///     .to_arrow2_fields()?;
+/// let fields = Vec::<Field>::from_samples(&samples, TracingOptions::default())?;
 /// #
 /// # drop(fields);
 /// # Ok(())
@@ -276,19 +279,20 @@ where
 }
 
 /// Replaced by
-/// [`SerdeArrowSchema::from_samples`][crate::schema::SerdeArrowSchema::from_samples]
-/// and [`Items`][crate::utils::Items] (*[example][serialize_into_field]*)
+/// [`SchemaLike::from_samples`][crate::schema::SchemaLike::from_samples] and
+/// [`Items`][crate::utils::Items] (*[example][serialize_into_field]*)
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow2;
+/// use arrow2::datatypes::Field;
 /// use serde_arrow::{
-///     schema::{SerdeArrowSchema, TracingOptions},
+///     schema::{SchemaLike, TracingOptions},
 ///     utils::Items,
 /// };
 ///
 /// let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
-/// let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
-///     .to_arrow2_fields()?;
+/// let fields = Vec::<Field>::from_samples(&Items(&samples), TracingOptions::default())?;
 /// #
 /// # drop(fields);
 /// # Ok(())
@@ -310,14 +314,15 @@ where
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow2;
+/// use arrow2::datatypes::Field;
 /// use serde_arrow::{
-///     schema::{SerdeArrowSchema, TracingOptions},
+///     schema::{SchemaLike, TracingOptions},
 ///     utils::Items,
 /// };
 ///
 /// let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
-/// let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
-///     .to_arrow2_fields()?;
+/// let fields = Vec::<Field>::from_samples(&Items(&samples), TracingOptions::default())?;
 ///
 /// let arrays = serde_arrow::to_arrow2(&fields, &Items(&samples))?;
 /// #
@@ -346,7 +351,7 @@ where
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+/// # use serde_arrow::schema::{SerdeArrowSchema, SchemaLike, TracingOptions};
 /// # let samples: Vec<u32> = vec![1, 2, 3, /* ... */ ];
 /// # let fields = SerdeArrowSchema::from_samples(&Items(&samples), TracingOptions::default())?
 /// #     .to_arrow2_fields()?;

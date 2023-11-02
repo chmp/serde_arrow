@@ -11,11 +11,13 @@ Breaking changes:
 
 Improvements:
 
-- Simpler and streamlined API
+- Simpler and streamlined API (`to_arrow` / `from_arrow` and `to_arrow2` /
+  `from_arrow2`)
+- Add `SchemaLike` trait to support direct construction of arrow / arrow2 fields
 - Add type based tracing to allow schema tracing without samples
-  (`SerdeArrowSchema::form_type()`)
+  (`SchemaLike::form_type()`)
 - Allow to build schema objects from serializable objects, e.g.,
-  `serde_json::Value` (`SerdeArrow::from_value()`)
+  `serde_json::Value` (`SchemaLike::from_value()`)
 - Add support for `arrow=47` and `arrow=48`
 
 Deprecations (see the documentation of deprecated items for how to migratie):
@@ -26,7 +28,7 @@ Deprecations (see the documentation of deprecated items for how to migratie):
 - Deprecate `serialize_into_arrays`, `deserialize_from_arrays` methods in favor of
   `to_arrow` / `to_arrow2` and `from_arrow` / `from_arrow2`
 - Deprecate `serialize_into_fields` methods in favor of
-  `SerdeArrowSchema::from_samples`
+  `SchemaLike::from_samples`
 - Deprecated single item methods in favor of using the `Items` and `Item`
   wrappers
 

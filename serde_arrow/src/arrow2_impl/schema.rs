@@ -3,8 +3,8 @@ use crate::{
     internal::{
         error::{error, fail, Error, Result},
         schema::{
-            GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy,
-            STRATEGY_KEY,
+            GenericDataType, GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
+            Strategy, STRATEGY_KEY,
         },
     },
 };
@@ -26,7 +26,7 @@ impl SerdeArrowSchema {
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-    /// # use serde_arrow::schema::{SerdeArrowSchema, TracingOptions};
+    /// # use serde_arrow::schema::{SerdeArrowSchema, SchemaLike, TracingOptions};
     /// # #[derive(serde::Deserialize)]
     /// # struct Item { a: u32 }
     /// # let schema = SerdeArrowSchema::from_type::<Item>(TracingOptions::default()).unwrap();
@@ -52,6 +52,29 @@ impl TryFrom<SerdeArrowSchema> for Vec<Field> {
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
         value.to_arrow2_fields()
+    }
+}
+
+impl Sealed for Vec<Field> {}
+
+/// Schema support for `Vec<arrow2::datatype::Field>` (*requires one of the
+/// `arrow2-*` features*)
+impl SchemaLike for Vec<Field> {
+    fn from_value<T: serde::Serialize>(value: &T) -> Result<Self> {
+        SerdeArrowSchema::from_value(value)?.to_arrow2_fields()
+    }
+
+    fn from_type<'de, T: serde::Deserialize<'de>>(
+        options: crate::schema::TracingOptions,
+    ) -> Result<Self> {
+        SerdeArrowSchema::from_type::<T>(options)?.to_arrow2_fields()
+    }
+
+    fn from_samples<T: serde::Serialize>(
+        samples: &T,
+        options: crate::schema::TracingOptions,
+    ) -> Result<Self> {
+        SerdeArrowSchema::from_samples(samples, options)?.to_arrow2_fields()
     }
 }
 

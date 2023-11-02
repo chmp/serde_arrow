@@ -16,11 +16,7 @@ use super::macros::test_generic;
 test_generic!(
     fn outer_vec() {
         let items: Vec<u32> = vec![0_u32, 1_u32, 2_u32];
-        let fields: Vec<Field> =
-            SerdeArrowSchema::from_samples(&Items(&items), TracingOptions::default())
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let fields = Vec::<Field>::from_samples(&Items(&items), TracingOptions::default()).unwrap();
         let arrays = to_arrow(&fields, &Items(&items)).unwrap();
 
         drop(arrays);
@@ -30,11 +26,7 @@ test_generic!(
 test_generic!(
     fn outer_slice() {
         let items: &[u32] = &[0_u32, 1_u32, 2_u32];
-        let fields: Vec<Field> =
-            SerdeArrowSchema::from_samples(&Items(items), TracingOptions::default())
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let fields = Vec::<Field>::from_samples(&Items(items), TracingOptions::default()).unwrap();
         let arrays = to_arrow(&fields, &Items(items)).unwrap();
 
         drop(arrays);
@@ -44,11 +36,7 @@ test_generic!(
 test_generic!(
     fn outer_array() {
         let items: &[u32; 3] = &[0_u32, 1_u32, 2_u32];
-        let fields: Vec<Field> =
-            SerdeArrowSchema::from_samples(&Items(items), TracingOptions::default())
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let fields = Vec::<Field>::from_samples(&Items(items), TracingOptions::default()).unwrap();
         let arrays = to_arrow(&fields, &Items(items)).unwrap();
 
         drop(arrays);
@@ -68,10 +56,7 @@ test_generic!(
             Item { item: 1_u32 },
             Item { item: 2_u32 },
         );
-        let fields: Vec<Field> = SerdeArrowSchema::from_samples(items, TracingOptions::default())
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let fields = Vec::<Field>::from_samples(items, TracingOptions::default()).unwrap();
         let arrays = to_arrow(&fields, &items).unwrap();
 
         drop(arrays);
