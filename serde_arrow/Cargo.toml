@@ -48,6 +48,11 @@ arrow-buffer-49 = { package = "arrow-buffer", version = "49", optional = true }
 arrow-data-49 = { package = "arrow-data", version="49", optional = true }
 arrow-schema-49 = { package = "arrow-schema", version = "49", optional = true }
 
+arrow-array-48 = { package = "arrow-array", version = "48", optional = true }
+arrow-buffer-48 = { package = "arrow-buffer", version = "48", optional = true }
+arrow-data-48 = { package = "arrow-data", version="48", optional = true }
+arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true }
+
 arrow-array-47 = { package = "arrow-array", version = "47", optional = true }
 arrow-buffer-47 = { package = "arrow-buffer", version = "47", optional = true }
 arrow-data-47 = { package = "arrow-data", version="47", optional = true }
