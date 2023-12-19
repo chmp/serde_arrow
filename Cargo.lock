@@ -242,6 +242,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrow-array"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bda9acea48b25123c08340f3a8ac361aa0f74469bb36f5ee9acf923fce23e9d"
+dependencies = [
+ "ahash",
+ "arrow-buffer 49.0.0",
+ "arrow-data 49.0.0",
+ "arrow-schema 49.0.0",
+ "chrono",
+ "half 2.2.1",
+ "hashbrown 0.14.0",
+ "num",
+]
+
+[[package]]
 name = "arrow-buffer"
 version = "37.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -358,6 +374,17 @@ name = "arrow-buffer"
 version = "48.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a722f90a09b94f295ab7102542e97199d3500128843446ef63e410ad546c5333"
+dependencies = [
+ "bytes",
+ "half 2.2.1",
+ "num",
+]
+
+[[package]]
+name = "arrow-buffer"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01a0fc21915b00fc6c2667b069c1b64bdd920982f426079bc4a7cab86822886c"
 dependencies = [
  "bytes",
  "half 2.2.1",
@@ -526,6 +553,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrow-data"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "907fafe280a3874474678c1858b9ca4cb7fd83fb8034ff5b6d6376205a08c634"
+dependencies = [
+ "arrow-buffer 49.0.0",
+ "arrow-schema 49.0.0",
+ "half 2.2.1",
+ "num",
+]
+
+[[package]]
 name = "arrow-format"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,6 +665,12 @@ name = "arrow-schema"
 version = "48.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d7a8c3f97f5ef6abd862155a6f39aaba36b029322462d72bbcfa69782a50614"
+
+[[package]]
+name = "arrow-schema"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09e28a5e781bf1b0f981333684ad13f5901f4cd2f20589eab7cf1797da8fc167"
 
 [[package]]
 name = "arrow-select"
@@ -1634,7 +1679,7 @@ dependencies = [
 
 [[package]]
 name = "serde_arrow"
-version = "0.9.0-rc.1"
+version = "0.9.0-rc.2"
 dependencies = [
  "anyhow",
  "arrow-array 37.0.0",
@@ -1649,6 +1694,7 @@ dependencies = [
  "arrow-array 46.0.0",
  "arrow-array 47.0.0",
  "arrow-array 48.0.0",
+ "arrow-array 49.0.0",
  "arrow-buffer 37.0.0",
  "arrow-buffer 38.0.0",
  "arrow-buffer 39.0.0",
@@ -1661,6 +1707,7 @@ dependencies = [
  "arrow-buffer 46.0.0",
  "arrow-buffer 47.0.0",
  "arrow-buffer 48.0.0",
+ "arrow-buffer 49.0.0",
  "arrow-data 37.0.0",
  "arrow-data 38.0.0",
  "arrow-data 39.0.0",
@@ -1673,6 +1720,7 @@ dependencies = [
  "arrow-data 46.0.0",
  "arrow-data 47.0.0",
  "arrow-data 48.0.0",
+ "arrow-data 49.0.0",
  "arrow-json",
  "arrow-schema 37.0.0",
  "arrow-schema 38.0.0",
@@ -1686,6 +1734,7 @@ dependencies = [
  "arrow-schema 46.0.0",
  "arrow-schema 47.0.0",
  "arrow-schema 48.0.0",
+ "arrow-schema 49.0.0",
  "arrow2 0.16.0",
  "arrow2 0.17.0",
  "arrow2_convert",

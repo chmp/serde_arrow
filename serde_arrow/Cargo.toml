@@ -1,6 +1,6 @@
 [package]
 name = "serde_arrow"
-version = "0.9.0-rc.1"
+version = "0.9.0-rc.2"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2021"
 description  = "convert sequences of structs / maps to arrow tables"
@@ -22,6 +22,7 @@ features = ["arrow2-0-17", "arrow-48"]
 [features]
 default = []
 
+arrow-49 = ["dep:arrow-array-49", "dep:arrow-schema-49", "dep:arrow-data-49", "dep:arrow-buffer-49"]
 arrow-48 = ["dep:arrow-array-48", "dep:arrow-schema-48", "dep:arrow-data-48", "dep:arrow-buffer-48"]
 arrow-47 = ["dep:arrow-array-47", "dep:arrow-schema-47", "dep:arrow-data-47", "dep:arrow-buffer-47"]
 arrow-46 = ["dep:arrow-array-46", "dep:arrow-schema-46", "dep:arrow-data-46", "dep:arrow-buffer-46"]
@@ -42,10 +43,10 @@ chrono = "0.4"
 half = { version = "2", features = ["bytemuck"] }
 serde = { version = "1.0", features = ["derive"] }
 
-arrow-array-48 = { package = "arrow-array", version = "48", optional = true }
-arrow-buffer-48 = { package = "arrow-buffer", version = "48", optional = true }
-arrow-data-48 = { package = "arrow-data", version="48", optional = true }
-arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true }
+arrow-array-49 = { package = "arrow-array", version = "49", optional = true }
+arrow-buffer-49 = { package = "arrow-buffer", version = "49", optional = true }
+arrow-data-49 = { package = "arrow-data", version="49", optional = true }
+arrow-schema-49 = { package = "arrow-schema", version = "49", optional = true }
 
 arrow-array-47 = { package = "arrow-array", version = "47", optional = true }
 arrow-buffer-47 = { package = "arrow-buffer", version = "47", optional = true }
