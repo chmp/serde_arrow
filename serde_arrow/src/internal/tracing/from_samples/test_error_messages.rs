@@ -23,7 +23,10 @@ fn outer_sequence_issue_97() {
         pub b: String,
         pub k: f64,
     }
-    let b = A{ b:String::from("Test"), k: 100.0 };
+    let b = A {
+        b: String::from("Test"),
+        k: 100.0,
+    };
 
     let res = SerdeArrowSchema::from_samples(&b, TracingOptions::default());
     let Err(err) = res else {
