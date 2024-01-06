@@ -1,4 +1,7 @@
-use std::{backtrace::Backtrace, convert::Infallible};
+use std::{
+    backtrace::{Backtrace, BacktraceStatus},
+    convert::Infallible,
+};
 
 /// A Result type that defaults to `serde_arrow`'s [Error] type
 ///
@@ -71,10 +74,22 @@ impl std::fmt::Display for Error {
         match self {
             Error::Custom(e) => write!(
                 f,
-                "Error: {msg}\nBacktrace:\n{bt}",
+                "Error: {msg}\n{bt}",
                 msg = e.message,
-                bt = e.backtrace,
+                bt = BacktraceDisplay(&e.backtrace),
             ),
+        }
+    }
+}
+
+struct BacktraceDisplay<'a>(&'a Backtrace);
+
+impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0.status() {
+            BacktraceStatus::Captured => write!(f, "Backtrace:\n{bt}", bt=self.0),
+            BacktraceStatus::Disabled => write!(f, "No backtrace captured. Set the `RUST_BACKTRACE=1` env variable to enable."),
+            _ => write!(f, "No backtrace captured. Most likely backtraces are not supported on the current platform."),
         }
     }
 }

@@ -1,8 +1,15 @@
-pub mod samples;
+pub mod from_samples;
+pub mod from_type;
 pub mod tracer;
-pub mod types;
 
 pub use tracer::Tracer;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TracingMode {
+    Unknown,
+    FromType,
+    FromSamples,
+}
 
 /// Configure how the schema is traced
 ///
@@ -19,13 +26,16 @@ pub use tracer::Tracer;
 ///
 /// ```rust
 /// # use serde_arrow::schema::TracingOptions;
-/// let default = TracingOptions::default();
-///
-/// assert_eq!(default.allow_null_fields, false);
-/// assert_eq!(default.map_as_struct, true);
-/// assert_eq!(default.string_dictionary_encoding, false);
-/// assert_eq!(default.coerce_numbers, false);
-/// assert_eq!(default.guess_dates, false);
+/// assert_eq!(
+///     TracingOptions::default(),
+///     TracingOptions::new()
+///         .allow_null_fields(false)
+///         .map_as_struct(true)
+///         .string_dictionary_encoding(false)
+///         .coerce_numbers(false)
+///         .guess_dates(false)
+///         .from_type_budget(100),
+/// );
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -72,6 +82,16 @@ pub struct TracingOptions {
     /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
     /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
     pub guess_dates: bool,
+
+    /// How many tracing iterations to perform in `from_type`.
+    ///
+    /// The default value may be too conservative for deeply nested types or
+    /// enums with many variants.
+    pub from_type_budget: usize,
+
+    /// Internal field to improve error messages for the different tracing
+    /// functions
+    pub(crate) tracing_mode: TracingMode,
 }
 
 impl Default for TracingOptions {
@@ -82,6 +102,8 @@ impl Default for TracingOptions {
             string_dictionary_encoding: false,
             coerce_numbers: false,
             guess_dates: false,
+            from_type_budget: 100,
+            tracing_mode: TracingMode::Unknown,
         }
     }
 }
@@ -118,6 +140,17 @@ impl TracingOptions {
     /// Set [`try_parse_dates`](#structfield.try_parse_dates)
     pub fn guess_dates(mut self, value: bool) -> Self {
         self.guess_dates = value;
+        self
+    }
+
+    /// Set [`from_type_budget`](#structfield.from_type_budget)
+    pub fn from_type_budget(mut self, value: usize) -> Self {
+        self.from_type_budget = value;
+        self
+    }
+
+    pub(crate) fn tracing_mode(mut self, value: TracingMode) -> Self {
+        self.tracing_mode = value;
         self
     }
 }

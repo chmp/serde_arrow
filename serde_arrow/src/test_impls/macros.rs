@@ -269,7 +269,8 @@ macro_rules! test_events {
                 event::Event,
                 schema::{GenericDataType, GenericField},
                 tracing::{Tracer, TracingOptions},
-                sink::{accept_events, StripOuterSequenceSink},
+                tracing::from_samples::StripOuterSequenceSink,
+                sink::accept_events,
             };
 
             #[test]

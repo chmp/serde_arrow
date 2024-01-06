@@ -1,3 +1,7 @@
+//! Support for `from_samples`
+#[cfg(test)]
+mod test_error_messages;
+
 use std::collections::HashMap;
 
 use serde::Serialize;
@@ -7,7 +11,7 @@ use crate::internal::{
     event::Event,
     schema::{GenericDataType, Strategy},
     sink::macros,
-    sink::{serialize_into_sink, EventSink, StripOuterSequenceSink},
+    sink::{serialize_into_sink, EventSink},
     tracing::tracer::{
         ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
         StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
@@ -21,6 +25,132 @@ impl Tracer {
         self.reset()?;
         let mut tracer = StripOuterSequenceSink::new(&mut *self);
         serialize_into_sink(&mut tracer, samples)
+    }
+}
+
+pub(crate) struct StripOuterSequenceSink<E> {
+    wrapped: E,
+    state: StripOuterSequenceState,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum StripOuterSequenceState {
+    WaitForStart,
+    WaitForItem,
+    Item(usize),
+}
+
+impl<E> StripOuterSequenceSink<E> {
+    pub fn new(wrapped: E) -> Self {
+        Self {
+            wrapped,
+            state: StripOuterSequenceState::WaitForStart,
+        }
+    }
+}
+
+impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
+    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+        use Event::*;
+        match event {
+            StartSequence => self.accept_start_sequence(),
+            StartTuple => self.accept_start_tuple(),
+            StartMap => self.accept_start_map(),
+            StartStruct => self.accept_start_struct(),
+            EndSequence => self.accept_end_sequence(),
+            EndTuple => self.accept_end_tuple(),
+            EndMap => self.accept_end_map(),
+            EndStruct => self.accept_end_struct(),
+            Item => self.accept_item(),
+            Null => self.accept_null(),
+            Some => self.accept_some(),
+            Default => self.accept_default(),
+            Bool(val) => self.accept_bool(val),
+            I8(val) => self.accept_i8(val),
+            I16(val) => self.accept_i16(val),
+            I32(val) => self.accept_i32(val),
+            I64(val) => self.accept_i64(val),
+            U8(val) => self.accept_u8(val),
+            U16(val) => self.accept_u16(val),
+            U32(val) => self.accept_u32(val),
+            U64(val) => self.accept_u64(val),
+            F32(val) => self.accept_f32(val),
+            F64(val) => self.accept_f64(val),
+            Str(val) => self.accept_str(val),
+            OwnedStr(val) => self.accept_str(&val),
+            Variant(name, idx) => self.accept_variant(name, idx),
+            OwnedVariant(name, idx) => self.accept_variant(&name, idx),
+        }
+    }
+
+    macros::accept_start!((this, ev, val, next) {
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            WaitForStart => {
+                if !matches!(ev, Event::StartSequence | Event::StartTuple) {
+                    fail!(concat!(
+                        "Cannot trace non-sequences with `from_samples`. ",
+                        "Samples must be given as a sequence. ",
+                        "Consider wrapping the argument in an array. ",
+                        "E.g., `from_samples(&[arg], options)`.",
+                    ));
+                }
+                WaitForItem
+            },
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth + 1)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
+        Ok(())
+    });
+    macros::accept_end!((this, ev, val, next) {
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            Item(1) => {
+                next(&mut this.wrapped, val)?;
+                WaitForItem
+            }
+            Item(depth) if depth > 1 => {
+                next(&mut this.wrapped, val)?;
+                Item(depth - 1)
+            }
+            WaitForItem => WaitForStart,
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
+        Ok(())
+    });
+    macros::accept_value!((this, ev, val, next) {
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            Item(0) => {
+                next(&mut this.wrapped, val)?;
+                WaitForItem
+            }
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
+        Ok(())
+    });
+    macros::accept_marker!((this, ev, val, next) {
+        use StripOuterSequenceState::*;
+        this.state = match this.state {
+            WaitForItem if matches!(ev, Event::Item) => Item(0),
+            Item(depth) => {
+                next(&mut this.wrapped, val)?;
+                Item(depth)
+            }
+            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+        };
+        Ok(())
+    });
+
+    fn finish(&mut self) -> Result<()> {
+        self.wrapped.finish()
     }
 }
 
