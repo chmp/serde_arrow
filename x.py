@@ -248,7 +248,12 @@ def check_cargo_toml():
             )
 
         for component in ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]:
-            expected_dep = {"package": component, "version": version, "optional": True}
+            expected_dep = {
+                "package": component,
+                "version": version,
+                "optional": True,
+                "default-features": False,
+            }
             actual_dep = config["dependencies"].get(f"{component}-{version}")
 
             if actual_dep is None:
@@ -259,6 +264,10 @@ def check_cargo_toml():
                     f"Invalid dependency {component}-{version}. "
                     f"Expected: {expected_dep}, found: {actual_dep}"
                 )
+
+        for name, dep in config["dependencies"].items():
+            if dep.get("default-features", True):
+                raise ValueError(f"Default features for {name} not deactivated")
 
 
 @cmd(help="Run the benchmarks")
