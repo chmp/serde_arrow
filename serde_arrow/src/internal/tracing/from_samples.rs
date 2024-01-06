@@ -1,3 +1,4 @@
+//! Support for `from_samples`
 use std::collections::HashMap;
 
 use serde::Serialize;

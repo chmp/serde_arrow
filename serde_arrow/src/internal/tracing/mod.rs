@@ -1,5 +1,5 @@
+pub mod from_samples;
 pub mod from_type;
-pub mod samples;
 pub mod tracer;
 
 pub use tracer::Tracer;
