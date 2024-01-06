@@ -113,18 +113,15 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     fn from_value<T: Serialize>(value: &T) -> Result<Self>;
 
-    /// Determine the schema from the given record type
+    /// Determine the schema from the given record type. See [`TracingOptions`]
+    /// for customization options.
     ///
     /// This approach requires the type `T` to implement
     /// [`Deserialize`][serde::Deserialize]. As only type information is used,
     /// it is not possible to detect data dependent properties. E.g., it is not
-    /// possible to auto detect date time strings.
-    ///
-    /// Note, the type `T` must encode a single "row" in the resulting data
-    /// frame. When encoding single arrays, use the [`Item`][crate::utils::Item]
-    /// wrapper instead of [`Items`][crate::utils::Items].
-    ///  
-    /// See [`TracingOptions`] for customization options.
+    /// possible to auto detect date time strings or non self describing types
+    /// such as `serde_json::Value`. Consider using
+    /// [`from_samples`][SchemaLike::from_samples] in these cases.
     ///
     /// ```rust
     /// # #[cfg(feature = "has_arrow")]
@@ -152,6 +149,25 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
+    /// Note, the type `T` must encode a single "row" in the resulting data
+    /// frame. When encoding single arrays, consider using the
+    /// [`Item`][crate::utils::Item] wrapper.
+    ///
+    /// ```rust
+    /// # #[cfg(feature = "has_arrow")]
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::{DataType, Field};
+    /// use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
+    ///
+    /// let fields = Vec::<Field>::from_type::<Item<f32>>(TracingOptions::default())?;
+    ///
+    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # fn main() { }
+    /// ```
     fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
 
     /// Determine the schema from the given samples
@@ -211,6 +227,28 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
+    /// Note, the samples must encode "rows" in the resulting data frame. When
+    /// encoding single arrays, consider using the
+    /// [`Items`][crate::utils::Items] wrapper.
+    ///
+    /// ```rust
+    /// # #[cfg(feature = "has_arrow")]
+    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::{DataType, Field};
+    /// use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Items};
+    ///
+    /// let fields = Vec::<Field>::from_samples(
+    ///     &Items(&[1.0_f32, 2.0_f32, 3.0_f32]),
+    ///     TracingOptions::default(),
+    /// )?;
+    ///
+    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # fn main() { }
+    /// ```
     fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self>;
 }
 
