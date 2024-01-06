@@ -4,6 +4,13 @@ pub mod tracer;
 
 pub use tracer::Tracer;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TracingMode {
+    Unknown,
+    FromType,
+    FromSamples,
+}
+
 /// Configure how the schema is traced
 ///
 /// Example:
@@ -19,14 +26,16 @@ pub use tracer::Tracer;
 ///
 /// ```rust
 /// # use serde_arrow::schema::TracingOptions;
-/// let default = TracingOptions::default();
-///
-/// assert_eq!(default.allow_null_fields, false);
-/// assert_eq!(default.map_as_struct, true);
-/// assert_eq!(default.string_dictionary_encoding, false);
-/// assert_eq!(default.coerce_numbers, false);
-/// assert_eq!(default.guess_dates, false);
-/// assert_eq!(default.from_type_budget, 100);
+/// assert_eq!(
+///     TracingOptions::default(),
+///     TracingOptions::new()
+///         .allow_null_fields(false)
+///         .map_as_struct(true)
+///         .string_dictionary_encoding(false)
+///         .coerce_numbers(false)
+///         .guess_dates(false)
+///         .from_type_budget(100),
+/// );
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -79,6 +88,10 @@ pub struct TracingOptions {
     /// The default value may be too conservative for deeply nested types or
     /// enums with many variants.
     pub from_type_budget: usize,
+
+    /// Internal field to improve error messages for the different tracing
+    /// functions
+    pub(crate) tracing_mode: TracingMode,
 }
 
 impl Default for TracingOptions {
@@ -90,6 +103,7 @@ impl Default for TracingOptions {
             coerce_numbers: false,
             guess_dates: false,
             from_type_budget: 100,
+            tracing_mode: TracingMode::Unknown,
         }
     }
 }
@@ -132,6 +146,11 @@ impl TracingOptions {
     /// Set [`from_type_budget`](#structfield.from_type_budget)
     pub fn from_type_budget(mut self, value: usize) -> Self {
         self.from_type_budget = value;
+        self
+    }
+
+    pub(crate) fn tracing_mode(mut self, value: TracingMode) -> Self {
+        self.tracing_mode = value;
         self
     }
 }

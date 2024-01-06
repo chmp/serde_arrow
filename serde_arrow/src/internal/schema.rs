@@ -5,7 +5,7 @@ use std::{
 
 use crate::internal::{
     error::{fail, Error, Result},
-    tracing::{Tracer, TracingOptions},
+    tracing::{Tracer, TracingMode, TracingOptions},
 };
 
 use serde::{Deserialize, Serialize};
@@ -256,12 +256,16 @@ impl SchemaLike for SerdeArrowSchema {
     }
 
     fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        let options = options.tracing_mode(TracingMode::FromType);
+
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_type::<T>()?;
         tracer.to_schema()
     }
 
     fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
+        let options = options.tracing_mode(TracingMode::FromSamples);
+
         let mut tracer = Tracer::new(String::from("$"), options);
         tracer.trace_samples(samples)?;
         tracer.to_schema()

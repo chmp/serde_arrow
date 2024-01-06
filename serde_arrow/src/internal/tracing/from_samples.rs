@@ -1,4 +1,7 @@
 //! Support for `from_samples`
+#[cfg(test)]
+mod test_error_messages;
+
 use std::collections::HashMap;
 
 use serde::Serialize;

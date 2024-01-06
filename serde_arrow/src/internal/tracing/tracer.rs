@@ -6,6 +6,8 @@ use crate::internal::{
     tracing::TracingOptions,
 };
 
+use super::TracingMode;
+
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
@@ -51,10 +53,24 @@ impl Tracer {
             fail!("The root type cannot be nullable");
         }
 
+        let tracing_mode = self.get_options().tracing_mode;
+
         let fields = match root.data_type {
             GenericDataType::Struct => root.children,
             GenericDataType::Null => fail!("No records found to determine schema"),
-            dt => fail!("Unexpected root data type {dt:?}"),
+            dt => fail!(
+                concat!(
+                    "Schema tracing is not directly supported for the root data type {dt}. ",
+                    "Only struct-like types are supported as root types in schema tracing. ",
+                    "{mitigation}",
+                ),
+                dt = dt,
+                mitigation = match tracing_mode {
+                    TracingMode::FromType => "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`.",
+                    TracingMode::FromSamples => "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`.",
+                    TracingMode::Unknown => "Consider using the `Item` / `Items` wrappers.",
+                },
+            ),
         };
 
         Ok(SerdeArrowSchema { fields })
