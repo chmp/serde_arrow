@@ -265,6 +265,10 @@ def check_cargo_toml():
                     f"Expected: {expected_dep}, found: {actual_dep}"
                 )
 
+        for name, dep in config["dependencies"].items():
+            if dep.get("default-features", True):
+                raise ValueError(f"Default features for {name} not deactivated")
+
 
 @cmd(help="Run the benchmarks")
 def bench():
