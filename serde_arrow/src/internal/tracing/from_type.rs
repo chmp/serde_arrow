@@ -1,3 +1,4 @@
+//! Support for SchemaLike::from_type
 use serde::{
     de::{DeserializeSeed, Visitor},
     Deserialize, Deserializer,
