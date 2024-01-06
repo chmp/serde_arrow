@@ -40,11 +40,11 @@ arrow-38 = ["dep:arrow-array-38", "dep:arrow-schema-38", "dep:arrow-data-38", "d
 arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "dep:arrow-data-37", "dep:arrow-buffer-37"]
 
 [dependencies]
-bytemuck = "1"
+bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
-chrono = "0.4"
-half = { version = "2", features = ["bytemuck"] }
-serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", default-features = false }
+half = { version = "2", features = ["bytemuck"], default-features = false }
+serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version = "{version}", optional = true, default-features = false }}
 arrow-array-49 = { package = "arrow-array", version = "49", optional = true, default-features = false }
@@ -111,8 +111,8 @@ arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true, default-f
 
 [dev-dependencies]
 anyhow = "1"
-chrono = { version = "0.4", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"], default-features = false }
+serde = { version = "1", features = ["derive", "std"], default-features = false }
 serde_json = "1"
 rand = "0.8"
 
