@@ -18,12 +18,12 @@ Improvements:
   (`SchemaLike::form_type()`)
 - Allow to build schema objects from serializable objects, e.g.,
   `serde_json::Value` (`SchemaLike::from_value()`)
-- Add support for `arrow=47` and `arrow=48`
+- Add support for `arrow=47`, `arrow=48`, `arrow=49`
+- Improve error messages in schema tracing
 - Fix bug in `arrow2=0.16` support
 - Fix unused warnings without selected arrow versions
-- Add `arrow=49` support
 
-Deprecations (see the documentation of deprecated items for how to migratie):
+Deprecations (see the documentation of deprecated items for how to migrate):
 
 - Rename `serde_arrow::schema::Schema` to
   `serde_arrow::schema::SerdeArrowSchema` to prevent name clashes with the
