@@ -82,10 +82,9 @@ impl BufferExtract for dyn Array {
 
         macro_rules! convert_list {
             ($offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<ListArray<$offset_type>>()
-                    .ok_or_else(|| error!("cannot interpret array as LargeList array"))?;
+                let Some(typed) = self.as_any().downcast_ref::<ListArray<$offset_type>>() else {
+                    fail!("cannot interpret array as LargeList array");
+                };
 
                 let validity = get_validity(typed);
                 let offsets = typed.offsets();
@@ -96,10 +95,9 @@ impl BufferExtract for dyn Array {
                 let offsets = buffers.$push_func(offsets)?;
                 let validity = validity.map(|v| buffers.push_u1(v));
 
-                let item_field = field
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("cannot get first child of list array"))?;
+                let Some(item_field) = field.children.first() else {
+                    fail!("cannot get first child of list array")
+                };
                 let item = typed.values().extract_buffers(item_field, buffers)?;
 
                 Ok(M::$variant {
@@ -182,36 +180,28 @@ impl BufferExtract for dyn Array {
                 })
             }
             T::Map => {
-                let entries_field = field
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("cannot get children of map"))?;
-                let keys_field = entries_field
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("cannot get keys field"))?;
-                let values_field = entries_field
-                    .children
-                    .get(1)
-                    .ok_or_else(|| error!("cannot get values field"))?;
-
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<MapArray>()
-                    .ok_or_else(|| error!("cannot convert array into map array"))?;
-                let typed_entries = typed
-                    .field()
-                    .as_any()
-                    .downcast_ref::<StructArray>()
-                    .ok_or_else(|| error!("cannot convert map field into struct array"))?;
-                let typed_keys = typed_entries
-                    .values()
-                    .get(0)
-                    .ok_or_else(|| error!("cannot get keys array of map entries"))?;
-                let typed_values = typed_entries
-                    .values()
-                    .get(1)
-                    .ok_or_else(|| error!("cannot get keys array of map entries"))?;
+                let Some(entries_field) = field.children.first() else {
+                    fail!("cannot get children of map");
+                };
+                let Some(keys_field) = entries_field.children.first() else {
+                    fail!("cannot get keys field");
+                };
+                let Some(values_field) = entries_field.children.get(1) else {
+                    fail!("cannot get values field");
+                };
+                let Some(typed) = self.as_any().downcast_ref::<MapArray>() else {
+                    fail!("cannot convert array into map array");
+                };
+                let Some(typed_entries) = typed.field().as_any().downcast_ref::<StructArray>()
+                else {
+                    fail!("cannot convert map field into struct array");
+                };
+                let Some(typed_keys) = typed_entries.values().first() else {
+                    fail!("cannot get keys array of map entries");
+                };
+                let Some(typed_values) = typed_entries.values().get(1) else {
+                    fail!("cannot get keys array of map entries");
+                };
 
                 let offsets = typed.offsets().as_slice();
                 let validity = get_validity(typed);
@@ -237,14 +227,12 @@ impl BufferExtract for dyn Array {
                 })
             }
             T::Dictionary => {
-                let keys_field = field
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("cannot get key field of dictionary"))?;
-                let values_field = field
-                    .children
-                    .get(1)
-                    .ok_or_else(|| error!("cannot get values field"))?;
+                let Some(keys_field) = field.children.first() else {
+                    fail!("cannot get key field of dictionary");
+                };
+                let Some(values_field) = field.children.get(1) else {
+                    fail!("cannot get values field");
+                };
 
                 macro_rules! convert_dictionary {
                     ($key_type:ty, $variant:ident) => {{

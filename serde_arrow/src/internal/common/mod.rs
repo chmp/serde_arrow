@@ -6,7 +6,6 @@ mod checks;
 pub use array_mapping::{ArrayMapping, DictionaryIndex, DictionaryValue};
 pub use buffers::{
     BitBuffer, BufferExtract, Buffers, MutableBitBuffer, MutableCountBuffer, MutableOffsetBuffer,
-    Offset,
 };
 pub use checks::check_supported_list_layout;
 

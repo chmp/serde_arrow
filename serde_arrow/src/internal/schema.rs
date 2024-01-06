@@ -34,7 +34,7 @@ pub trait Sealed {}
 /// - [`SerdeArrowSchema`]
 #[cfg_attr(
     has_arrow,
-    doc = "- `Vec<`[`arrow::datatypes::Field`][crate::_impl::arrow::datatypes::Field]`>"
+    doc = "- `Vec<`[`arrow::datatypes::Field`][crate::_impl::arrow::datatypes::Field]`>`"
 )]
 #[cfg_attr(
     has_arrow2,

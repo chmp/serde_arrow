@@ -313,10 +313,9 @@ impl Program {
             fail!("inconsistent arguments");
         }
 
-        let item = field
-            .children
-            .get(0)
-            .ok_or_else(|| error!("invalid list: no child"))?;
+        let Some(item) = field.children.first() else {
+            fail!("invalid list: no child");
+        };
 
         let list_idx = self.structure.lists.len();
         let offsets = self.buffers.num_u32_offsets.next_value();
@@ -358,10 +357,9 @@ impl Program {
             fail!("inconsistent arguments");
         }
 
-        let item = field
-            .children
-            .get(0)
-            .ok_or_else(|| error!("invalid list: no child"))?;
+        let Some(item) = field.children.first() else {
+            fail!("invalid list: no child");
+        };
 
         let list_idx = self.structure.large_lists.len();
         let offsets = self.buffers.num_u64_offsets.next_value();
@@ -711,10 +709,10 @@ impl Program {
         }
         field.validate_map()?;
 
-        let Some(entries) = field.children.get(0) else {
+        let Some(entries) = field.children.first() else {
             fail!("invalid list: no child");
         };
-        let Some(keys) = entries.children.get(0) else {
+        let Some(keys) = entries.children.first() else {
             fail!("entries without key field");
         };
         let Some(values) = entries.children.get(1) else {

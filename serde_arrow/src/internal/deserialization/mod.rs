@@ -330,7 +330,7 @@ impl<'a> Compiler<'a> {
                 else {
                     fail!("cannot extract entries arrays mapping")
                 };
-                let Some(key_field) = entries_fields.get(0) else {
+                let Some(key_field) = entries_fields.first() else {
                     fail!("cannot extract key field")
                 };
                 let Some(values_field) = entries_fields.get(1) else {
@@ -1716,8 +1716,8 @@ impl Instruction for EmitDictionaryStr {
         positions[self.position] += 1;
 
         let index: usize = match self.index {
-            I::U8(buffer) => buffers.get_u8(buffer)[pos].try_into()?,
-            I::U16(buffer) => buffers.get_u16(buffer)[pos].try_into()?,
+            I::U8(buffer) => buffers.get_u8(buffer)[pos].into(),
+            I::U16(buffer) => buffers.get_u16(buffer)[pos].into(),
             I::U32(buffer) => buffers.get_u32(buffer)[pos].try_into()?,
             I::U64(buffer) => buffers.get_u64(buffer)[pos].try_into()?,
             I::I8(buffer) => buffers.get_i8(buffer)[pos].try_into()?,
