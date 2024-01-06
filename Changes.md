@@ -21,6 +21,7 @@ Improvements:
 - Add support for `arrow=47` and `arrow=48`
 - Fix bug in `arrow2=0.16` support
 - Fix unused warnings without selected arrow versions
+- Add `arrow=49` support
 
 Deprecations (see the documentation of deprecated items for how to migratie):
 
