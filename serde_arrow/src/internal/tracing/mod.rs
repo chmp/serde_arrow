@@ -1,6 +1,6 @@
+pub mod from_type;
 pub mod samples;
 pub mod tracer;
-pub mod from_type;
 
 pub use tracer::Tracer;
 
@@ -26,6 +26,7 @@ pub use tracer::Tracer;
 /// assert_eq!(default.string_dictionary_encoding, false);
 /// assert_eq!(default.coerce_numbers, false);
 /// assert_eq!(default.guess_dates, false);
+/// assert_eq!(default.from_type_budget, 100);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -72,6 +73,12 @@ pub struct TracingOptions {
     /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
     /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
     pub guess_dates: bool,
+
+    /// How many tracing iterations to perform in `from_type`.
+    ///
+    /// The default value may be too conservative for deeply nested types or
+    /// enums with many variants.
+    pub from_type_budget: usize,
 }
 
 impl Default for TracingOptions {
@@ -82,6 +89,7 @@ impl Default for TracingOptions {
             string_dictionary_encoding: false,
             coerce_numbers: false,
             guess_dates: false,
+            from_type_budget: 100,
         }
     }
 }
@@ -118,6 +126,12 @@ impl TracingOptions {
     /// Set [`try_parse_dates`](#structfield.try_parse_dates)
     pub fn guess_dates(mut self, value: bool) -> Self {
         self.guess_dates = value;
+        self
+    }
+
+    /// Set [`from_type_budget`](#structfield.from_type_budget)
+    pub fn from_type_budget(mut self, value: usize) -> Self {
+        self.from_type_budget = value;
         self
     }
 }

@@ -1,4 +1,7 @@
-use std::{backtrace::{Backtrace, BacktraceStatus}, convert::Infallible};
+use std::{
+    backtrace::{Backtrace, BacktraceStatus},
+    convert::Infallible,
+};
 
 /// A Result type that defaults to `serde_arrow`'s [Error] type
 ///

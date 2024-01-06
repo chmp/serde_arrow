@@ -1,4 +1,7 @@
 //! Support for SchemaLike::from_type
+#[cfg(test)]
+mod test_error_messages;
+
 use serde::{
     de::{DeserializeSeed, Visitor},
     Deserialize, Deserializer,
@@ -13,14 +16,19 @@ impl Tracer {
     pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
         self.reset()?;
 
-        // TODO: make configurable
-        let mut attempts = 100;
+        let mut budget = self.get_options().from_type_budget;
         while !self.is_complete() {
-            if attempts == 0 {
-                fail!("could not determine ...")
+            if budget == 0 {
+                fail!(
+                    concat!(
+                        "Could not determine schema from the type after {budget} iterations. ",
+                        "Try increasing the budget option or using `from_samples`.",
+                    ),
+                    budget = self.get_options().from_type_budget,
+                );
             }
             T::deserialize(TraceAny(&mut *self))?;
-            attempts -= 1;
+            budget -= 1;
         }
 
         self.finish()?;
