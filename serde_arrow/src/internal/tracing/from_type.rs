@@ -22,7 +22,7 @@ impl Tracer {
                 fail!(
                     concat!(
                         "Could not determine schema from the type after {budget} iterations. ",
-                        "Try increasing the budget option or using `from_samples`.",
+                        "Consider increasing the budget option or using `from_samples`.",
                     ),
                     budget = self.get_options().from_type_budget,
                 );
@@ -42,7 +42,12 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     type Error = Error;
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        fail!("deserialize_any is not supported")
+        fail!(concat!(
+            "Non self describing types cannot be traced with `from_type`. ",
+            "Consider using `from_samples`. ",
+            "One example is `serde_json::Value`. ",
+            "the schema depends on the JSON content and cannot be determined from the type alone."
+        ));
     }
 
     fn deserialize_bool<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -182,7 +187,11 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         if self.0.get_options().map_as_struct {
-            fail!("Cannot trace maps as structs without examples, prefer serialize_into_field(s)");
+            fail!(concat!(
+                "Cannot trace maps as structs with `from_type`. ",
+                "Consider using `from_samples`. ",
+                "The struct fields cannot be known from the type alone."
+            ));
         }
 
         self.0.ensure_map()?;
