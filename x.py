@@ -248,7 +248,12 @@ def check_cargo_toml():
             )
 
         for component in ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]:
-            expected_dep = {"package": component, "version": version, "optional": True, "default-features": False}
+            expected_dep = {
+                "package": component,
+                "version": version,
+                "optional": True,
+                "default-features": False,
+            }
             actual_dep = config["dependencies"].get(f"{component}-{version}")
 
             if actual_dep is None:
