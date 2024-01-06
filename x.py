@@ -1,25 +1,28 @@
 self_path = __import__("pathlib").Path(__file__).parent.resolve()
+python = __import__("shlex").quote(__import__("sys").executable)
 
 __effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
 cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
 all_arrow_features = [
-    "arrow-37",
-    "arrow-38",
-    "arrow-39",
-    "arrow-40",
-    "arrow-41",
-    "arrow-42",
-    "arrow-43",
-    "arrow-44",
-    "arrow-45",
-    "arrow-46",
-    "arrow-47",
+    # arrow-version:insert: "arrow-{version}",
+    "arrow-49",
     "arrow-48",
+    "arrow-47",
+    "arrow-46",
+    "arrow-45",
+    "arrow-44",
+    "arrow-43",
+    "arrow-42",
+    "arrow-41",
+    "arrow-40",
+    "arrow-39",
+    "arrow-38",
+    "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-16", "arrow2-0-17"]
-default_features = f"{all_arrow2_features[-1]},{all_arrow_features[-1]}"
+all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
+default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -85,7 +88,7 @@ workflow_release_template = {
 def precommit(backtrace=False):
     update_workflows()
 
-    fmt()
+    format()
     lint()
     test(backtrace=backtrace)
     example()
@@ -145,31 +148,27 @@ def _generate_workflow_check_steps():
 
 
 @cmd(help="Format the code")
-def fmt():
-    python("-m", "black", __file__)
-    cargo("fmt")
+def format():
+    _sh(f"{python} -m black {_q(__file__)}")
+    _sh("cargo fmt")
 
 
 @cmd(help="Run the linting")
 @arg("--fast", action="store_true")
 def lint(fast=False):
     check_cargo_toml()
-    cargo("check", "--features", default_features)
-    cargo("clippy", "--features", default_features)
+    _sh(f"cargo check --features {default_features}")
+    _sh(f"cargo clippy --features {default_features}")
 
     if not fast:
         for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-            cargo(
-                "check",
-                "--features",
-                arrow2_feature,
-            )
+            _sh(f"cargo check --features {arrow2_feature}")
 
 
 @cmd(help="Run the example")
 def example():
-    cargo("run", "-p", "example")
-    python("-c", 'import polars as pl; print(pl.read_ipc("example.ipc"))')
+    _sh("cargo run -p example")
+    _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
 
 
 @cmd(help="Run the tests")
@@ -179,24 +178,20 @@ def test(backtrace=False, full=False):
     import os
 
     if not full:
-        flag_combinations = [["--features", default_features]]
+        feature_selections = [f"--features {default_features}"]
 
     else:
-        flag_combinations = []
-        for arrow_feature in [[], *([feat] for feat in all_arrow_features)]:
-            for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]:
-                if not arrow_feature and not arrow2_feature:
-                    flag_combinations.append([])
+        feature_selections = [
+            f"--features {', '.join(arrow_feature + arrow2_feature)}"
+            if arrow_feature or arrow2_feature
+            else ""
+            for arrow_feature in [[], *([feat] for feat in all_arrow_features)]
+            for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
+        ]
 
-                else:
-                    flag_combinations.append(
-                        ["--features", ",".join(arrow_feature + arrow2_feature)]
-                    )
-
-    for flags in flag_combinations:
-        cargo(
-            "test",
-            *flags,
+    for feature_selection in feature_selections:
+        _sh(
+            f"cargo test {feature_selection}",
             env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
         )
 
@@ -268,7 +263,7 @@ def check_cargo_toml():
 
 @cmd(help="Run the benchmarks")
 def bench():
-    cargo("bench", "--features", default_features)
+    _sh(f"cargo bench --features {default_features}")
     summarize_bench()
 
 
@@ -483,29 +478,69 @@ def flatten(i):
         yield from ii
 
 
-@cmd()
+@cmd(help="Generate the documentation")
 @arg("--private", action="store_true", default=False)
 def doc(private=False):
-    cargo(
-        "doc",
-        "--features",
-        default_features,
-        *(["--document-private-items"] if private else []),
+    _sh(
+        f"cargo doc --features {default_features} {'--document-private-items' if private else ''}",
         cwd=self_path / "serde_arrow",
     )
 
 
-cargo = lambda *a, **kw: run("cargo", *a, **kw)
-python = lambda *a, **kw: run(__import__("sys").executable, *a, **kw)
-run = lambda *a, **kw: __import__("subprocess").run(
-    [str(aa) for aa in a],
-    executable=print("::", *a),
+@cmd(help="Add a new arrow version")
+@arg("version")
+def add_arrow_version(version):
+    import re
+
+    if _sh("git diff-files --quiet", check=False).returncode != 0:
+        print(
+            "WARNING: potentially destructive changes. "
+            "Please stage or commit the working tree first."
+        )
+        raise SystemExit(1)
+
+    for p in [
+        self_path / "x.py",
+        *self_path.glob("serde_arrow/**/*.rs"),
+        *self_path.glob("serde_arrow/**/*.toml"),
+    ]:
+        content = p.read_text()
+        if "arrow-version" not in content:
+            continue
+
+        print(f"process {p}")
+        new_content = []
+        include_next = True
+        for line in content.splitlines():
+            if (
+                m := re.match(r"^.*(//|#) arrow-version:(replace|insert): (.*)$", line)
+            ) is not None:
+                new_content.append(line)
+                new_content.append(
+                    m.group(3).format_map({"version": version, "\\n": "\n"})
+                )
+                include_next = m.group(2) != "replace"
+
+            else:
+                if include_next:
+                    new_content.append(line)
+
+                include_next = True
+
+        p.write_text("\n".join(new_content))
+
+    format()
+
+
+_sh = lambda c, **kw: __import__("subprocess").run(
+    [args := __import__("shlex").split(c.replace("\n", " ")), print("::", *args)][0],
     **{"check": True, "cwd": self_path, "encoding": "utf-8", **kw},
 )
+_q = lambda arg: __import__("shlex").quote(str(arg))
 
 if __name__ == "__main__":
     _sps = (_p := __import__("argparse").ArgumentParser()).add_subparsers()
-    for _f in (f for f in list(globals().values()) if hasattr(f, "@cmd")):
+    for _f in (f for _, f in sorted(globals().items()) if hasattr(f, "@cmd")):
         _kw = {"name": _f.__name__.replace("_", "-"), **getattr(_f, "@cmd")}
         (_sp := _sps.add_parser(**_kw)).set_defaults(_=_f)
         [_sp.add_argument(*a, **kw) for a, kw in reversed(getattr(_f, "@arg", []))]

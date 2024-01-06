@@ -33,68 +33,72 @@
           "run": "cargo check"
         },
         {
-          "name": "Check arrow2-0-16",
-          "run": "cargo check --features arrow2-0-16"
-        },
-        {
           "name": "Check arrow2-0-17",
           "run": "cargo check --features arrow2-0-17"
         },
         {
-          "name": "Check arrow-37",
-          "run": "cargo check --features arrow-37"
+          "name": "Check arrow2-0-16",
+          "run": "cargo check --features arrow2-0-16"
         },
         {
-          "name": "Check arrow-38",
-          "run": "cargo check --features arrow-38"
-        },
-        {
-          "name": "Check arrow-39",
-          "run": "cargo check --features arrow-39"
-        },
-        {
-          "name": "Check arrow-40",
-          "run": "cargo check --features arrow-40"
-        },
-        {
-          "name": "Check arrow-41",
-          "run": "cargo check --features arrow-41"
-        },
-        {
-          "name": "Check arrow-42",
-          "run": "cargo check --features arrow-42"
-        },
-        {
-          "name": "Check arrow-43",
-          "run": "cargo check --features arrow-43"
-        },
-        {
-          "name": "Check arrow-44",
-          "run": "cargo check --features arrow-44"
-        },
-        {
-          "name": "Check arrow-45",
-          "run": "cargo check --features arrow-45"
-        },
-        {
-          "name": "Check arrow-46",
-          "run": "cargo check --features arrow-46"
-        },
-        {
-          "name": "Check arrow-47",
-          "run": "cargo check --features arrow-47"
+          "name": "Check arrow-49",
+          "run": "cargo check --features arrow-49"
         },
         {
           "name": "Check arrow-48",
           "run": "cargo check --features arrow-48"
         },
         {
+          "name": "Check arrow-47",
+          "run": "cargo check --features arrow-47"
+        },
+        {
+          "name": "Check arrow-46",
+          "run": "cargo check --features arrow-46"
+        },
+        {
+          "name": "Check arrow-45",
+          "run": "cargo check --features arrow-45"
+        },
+        {
+          "name": "Check arrow-44",
+          "run": "cargo check --features arrow-44"
+        },
+        {
+          "name": "Check arrow-43",
+          "run": "cargo check --features arrow-43"
+        },
+        {
+          "name": "Check arrow-42",
+          "run": "cargo check --features arrow-42"
+        },
+        {
+          "name": "Check arrow-41",
+          "run": "cargo check --features arrow-41"
+        },
+        {
+          "name": "Check arrow-40",
+          "run": "cargo check --features arrow-40"
+        },
+        {
+          "name": "Check arrow-39",
+          "run": "cargo check --features arrow-39"
+        },
+        {
+          "name": "Check arrow-38",
+          "run": "cargo check --features arrow-38"
+        },
+        {
+          "name": "Check arrow-37",
+          "run": "cargo check --features arrow-37"
+        },
+        {
           "name": "Build",
-          "run": "cargo build --features arrow2-0-17,arrow-48"
+          "run": "cargo build --features arrow2-0-17,arrow-49"
         },
         {
           "name": "Test",
-          "run": "cargo test --features arrow2-0-17,arrow-48"
+          "run": "cargo test --features arrow2-0-17,arrow-49"
         },
         {
           "name": "Publish to crates.io",

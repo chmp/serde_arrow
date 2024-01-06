@@ -220,14 +220,14 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::List => DataType::List(Box::new(
                 value
                     .children
-                    .get(0)
+                    .first()
                     .ok_or_else(|| error!("List must a single child"))?
                     .try_into()?,
             )),
             GenericDataType::LargeList => DataType::LargeList(Box::new(
                 value
                     .children
-                    .get(0)
+                    .first()
                     .ok_or_else(|| error!("List must a single child"))?
                     .try_into()?,
             )),
@@ -241,7 +241,7 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::Map => {
                 let element_field: Field = value
                     .children
-                    .get(0)
+                    .first()
                     .ok_or_else(|| error!("Map must a two children"))?
                     .try_into()?;
                 DataType::Map(Box::new(element_field), false)
@@ -256,10 +256,9 @@ impl TryFrom<&GenericField> for Field {
                 UnionMode::Dense,
             ),
             GenericDataType::Dictionary => {
-                let key_field = value
-                    .children
-                    .get(0)
-                    .ok_or_else(|| error!("Dictionary must a two children"))?;
+                let Some(key_field) = value.children.first() else {
+                    fail!("Dictionary must a two children");
+                };
                 let val_field: Field = value
                     .children
                     .get(1)
