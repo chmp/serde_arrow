@@ -17,6 +17,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// error is caused by another error, that error can be retrieved with
 /// [`source()`][std::error::Error::source].
 ///
+#[derive(PartialEq)]
 #[non_exhaustive]
 pub enum Error {
     Custom(CustomError),
@@ -61,6 +62,12 @@ pub struct CustomError {
     message: String,
     backtrace: Backtrace,
     cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+}
+
+impl std::cmp::PartialEq for CustomError {
+    fn eq(&self, other: &Self) -> bool {
+        self.message == other.message
+    }
 }
 
 impl std::fmt::Debug for Error {
