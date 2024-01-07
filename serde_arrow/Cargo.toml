@@ -13,13 +13,13 @@ bench = false
 
 [[bench]]
 name = "arrow2"
-# arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
-required-features = ["arrow2-0-17", "arrow-49"]
+# arrow-version:replace: required-features = ["arrow2-0-18", "arrow-{version}"]
+required-features = ["arrow2-0-18", "arrow-49"]
 harness = false
 
 [package.metadata.docs.rs]
-# arrow-version:replace: features = ["arrow2-0-17", "arrow-{version}"]
-features = ["arrow2-0-17", "arrow-49"]
+# arrow-version:replace: features = ["arrow2-0-18", "arrow-{version}"]
+features = ["arrow2-0-18", "arrow-49"]
 
 [features]
 default = []
@@ -106,6 +106,7 @@ arrow-schema-39 = { package = "arrow-schema", version = "39", optional = true, d
 arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true, default-features = false }
 arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true, default-features = false }
 
+arrow2-0-18 = { package = "arrow2", version = "0.18", optional = true, default-features = false }
 arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true, default-features = false }
 arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true, default-features = false }
 

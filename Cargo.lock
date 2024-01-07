@@ -714,6 +714,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c63cf31f1416ed2fab8f91e8488e10129f47bd89c553ec354a06751d5697f3"
 dependencies = [
  "ahash",
+ "bytemuck",
+ "chrono",
+ "dyn-clone",
+ "either",
+ "ethnum",
+ "foreign_vec",
+ "getrandom",
+ "hash_hasher",
+ "num-traits",
+ "rustc_version",
+ "simdutf8",
+]
+
+[[package]]
+name = "arrow2"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "963fef509b757bcbbf9e5ffa23bcb345614d99f4f6f531f97417b27b8604d389"
+dependencies = [
+ "ahash",
  "arrow-format",
  "bytemuck",
  "chrono",
@@ -723,6 +743,7 @@ dependencies = [
  "foreign_vec",
  "getrandom",
  "hash_hasher",
+ "hashbrown 0.14.0",
  "num-traits",
  "rustc_version",
  "simdutf8",
@@ -1103,7 +1124,7 @@ checksum = "0198b9d0078e0f30dedc7acbb21c974e838fc8fae3ee170128658a98cb2c1c04"
 name = "example"
 version = "0.1.0"
 dependencies = [
- "arrow2 0.17.0",
+ "arrow2 0.18.0",
  "chrono",
  "serde",
  "serde_arrow",
@@ -1168,6 +1189,9 @@ name = "hashbrown"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
+dependencies = [
+ "ahash",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -1744,6 +1768,7 @@ dependencies = [
  "arrow-schema 49.0.0",
  "arrow2 0.16.0",
  "arrow2 0.17.0",
+ "arrow2 0.18.0",
  "arrow2_convert",
  "bytemuck",
  "chrono",

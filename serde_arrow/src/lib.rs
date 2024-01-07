@@ -105,7 +105,7 @@
 //! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
 //! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
 //! the highest version is selected, if multiple features are activated. E.g,
-//! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
+//! when selecting  `arrow2-0-17` and `arrow2-0-18`, `arrow2=0.18` will be used.
 //!
 //! Available features:
 //!
@@ -125,6 +125,7 @@
 //! | `arrow-39`    | `arrow=39`    |
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
+//! | `arrow2-0-18` | `arrow2=0.18` |
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 
@@ -149,6 +150,7 @@ pub mod _impl {
         };
     }
 
+    #[cfg(has_arrow2_0_18)] build_arrow2_crate!(arrow2_0_18);
     #[cfg(has_arrow2_0_17)] build_arrow2_crate!(arrow2_0_17);
     #[cfg(has_arrow2_0_16)] build_arrow2_crate!(arrow2_0_16);
 
