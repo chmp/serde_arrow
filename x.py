@@ -21,7 +21,7 @@ all_arrow_features = [
     "arrow-38",
     "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
+all_arrow2_features = ["arrow2-0-18", "arrow2-0-17", "arrow2-0-16"]
 default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
