@@ -1664,7 +1664,9 @@ impl Instruction for EmitDate64NaiveStr {
             i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
         positions[self.position] += 1;
 
-        let Some(val) = NaiveDateTime::from_timestamp_opt(val / 1000, (val % 1000) as u32 * 100_000) else {
+        let Some(val) =
+            NaiveDateTime::from_timestamp_opt(val / 1000, (val % 1000) as u32 * 100_000)
+        else {
             fail!("Unsupported timestamp value: {val}");
         };
 
@@ -1690,7 +1692,10 @@ impl Instruction for EmitDate64UtcStr {
             i64::from_ne_bytes(buffers.u64[self.buffer][positions[self.position]].to_ne_bytes());
         positions[self.position] += 1;
 
-        let Some(val) = Utc.timestamp_opt(val / 1000, (val % 1000) as u32 * 100_000).earliest() else {
+        let Some(val) = Utc
+            .timestamp_opt(val / 1000, (val % 1000) as u32 * 100_000)
+            .earliest()
+        else {
             fail!("Unsupported timestamp value: {val}");
         };
 
