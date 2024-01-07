@@ -125,7 +125,7 @@ def _update_workflow(path, template):
         job["steps"] = steps
 
     print(f":: update {path}")
-    with open(path, "wt", encoding="utf8") as fobj:
+    with open(path, "wt", encoding="utf8", newline="\n") as fobj:
         json.dump(workflow, fobj, indent=2)
 
 
@@ -330,7 +330,7 @@ def update_readme(mean_times):
         lines = [line.rstrip() for line in fobj]
 
     active = False
-    with open(self_path / "Readme.md", "wt", encoding="utf8") as fobj:
+    with open(self_path / "Readme.md", "wt", encoding="utf8", newline="\n") as fobj:
         for line in lines:
             if not active:
                 print(line, file=fobj)

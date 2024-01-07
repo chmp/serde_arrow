@@ -1,5 +1,9 @@
 # Change log
 
+## 0.9.1
+
+- Add support for `arrow2=0.18`
+
 ## 0.9.0
 
 Breaking changes:
