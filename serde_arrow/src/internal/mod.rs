@@ -1,6 +1,7 @@
 pub mod common;
 pub mod config;
 pub mod conversions;
+pub mod decimal;
 pub mod deserialization;
 pub mod error;
 pub mod event;
