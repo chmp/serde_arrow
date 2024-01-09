@@ -158,6 +158,12 @@ impl From<std::num::TryFromIntError> for Error {
     }
 }
 
+impl From<std::num::ParseIntError> for Error {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Self::custom_from(format!("ParseIntError: {err}"), err)
+    }
+}
+
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
         Self::custom_from(format!("std::fmt::Error: {err}"), err)
