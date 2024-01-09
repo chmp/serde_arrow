@@ -6,8 +6,10 @@
 
 use crate::internal::error::{fail, Result};
 
+const BUFFER_SIZE_I128: usize = 64;
+
 pub fn parse_decimal(s: &[u8], scale: u8, precision: i8, truncate: bool) -> Result<i128> {
-    let mut buffer = [0; 64];
+    let mut buffer = [0; BUFFER_SIZE_I128];
     DecimalParser::new(scale, precision, truncate).parse_decimal128(&mut buffer, s)
 }
 
@@ -30,35 +32,29 @@ enum DecimalParser {
 
 impl DecimalParser {
     pub fn new(scale: u8, precision: i8, truncated: bool) -> Self {
-        if precision <= 0 {
-            if !truncated {
-                Self::IntegerOnly(scale as usize, -precision as usize)
-            } else {
-                Self::IntegerOnlyTruncated(scale as usize, -precision as usize)
-            }
+        if precision <= 0 && !truncated {
+            Self::IntegerOnly(scale as usize, -precision as usize)
+        } else if precision < 0 {
+            Self::IntegerOnlyTruncated(scale as usize, -precision as usize)
+        } else if (precision as usize) < (scale as usize) && !truncated {
+            Self::Mixed(scale as usize, precision as usize)
         } else if (precision as usize) < (scale as usize) {
-            if !truncated {
-                Self::Mixed(scale as usize, precision as usize)
-            } else {
-                Self::MixedTruncated(scale as usize, precision as usize)
-            }
+            Self::MixedTruncated(scale as usize, precision as usize)
+        } else if !truncated {
+            Self::FractionOnly(scale as usize, precision as usize)
         } else {
-            if !truncated {
-                Self::FractionOnly(scale as usize, precision as usize)
-            } else {
-                Self::FractionOnlyTruncated(scale as usize, precision as usize)
-            }
+            Self::FractionOnlyTruncated(scale as usize, precision as usize)
         }
     }
 
-    pub fn parse_decimal128(self, buffer: &mut [u8; 64], s: &[u8]) -> Result<i128> {
+    pub fn parse_decimal128(self, buffer: &mut [u8], s: &[u8]) -> Result<i128> {
         let (s, sign) = parse_sign(s);
         let val: i128 = self.copy_digits(buffer, s)?.parse()?;
         let val = sign.apply_i128(val);
         Ok(val)
     }
 
-    pub fn copy_digits<'b>(self, buffer: &'b mut [u8; 64], s: &[u8]) -> Result<&'b str> {
+    pub fn copy_digits<'b>(self, buffer: &'b mut [u8], s: &[u8]) -> Result<&'b str> {
         use DecimalParser::*;
         match self {
             IntegerOnly(scale, precision) => {
@@ -106,7 +102,7 @@ impl Sign {
 }
 
 fn copy_digits_integer_only<'b>(
-    buffer: &'b mut [u8; 64],
+    buffer: &'b mut [u8],
     s: &[u8],
     scale: usize,
     precision: usize,
@@ -132,7 +128,7 @@ fn copy_digits_integer_only<'b>(
 }
 
 fn copy_digits_fraction_only<'b>(
-    buffer: &'b mut [u8; 64],
+    buffer: &'b mut [u8],
     s: &[u8],
     scale: usize,
     precision: usize,
@@ -163,7 +159,7 @@ fn copy_digits_fraction_only<'b>(
 }
 
 fn copy_digits_mixed<'b>(
-    buffer: &'b mut [u8; 64],
+    buffer: &'b mut [u8],
     s: &[u8],
     scale: usize,
     precision: usize,
@@ -352,4 +348,99 @@ fn test_copy_digits() {
     assert_eq!(copy_digits_str("2", 4, 2).unwrap(), "200");
     assert_eq!(copy_digits_str("20", 4, 2).unwrap(), "2000");
     assert_eq!(copy_digits_str("42.00", 4, 2).unwrap(), "4200");
+}
+
+pub fn format_decimal<'b>(buffer: &'b mut [u8], val: i128, precision: i8) -> &'b str {
+    fn write_val(buffer: &mut [u8], val: i128) -> usize {
+        use std::io::Write;
+
+        let initial_length = buffer.len();
+
+        let mut buffer = &mut *buffer;
+        write!(buffer, "{val}").unwrap();
+        initial_length - buffer.len()
+    }
+
+    let res = if precision == 0 {
+        let num_bytes_written = write_val(buffer, val);
+        &buffer[..num_bytes_written]
+    } else if precision < 0 && val == 0 {
+        b"0"
+    } else if precision < 0 {
+        let precision = -precision as usize;
+        let num_bytes_written = write_val(buffer, val);
+
+        buffer[num_bytes_written..][..precision].fill(b'0');
+        &buffer[..num_bytes_written + precision]
+    } else {
+        let precision = precision as usize;
+        let num_bytes_written = write_val(buffer, val);
+        let num_sign_bytes = if val >= 0 { 0 } else { 1 };
+        let num_digits_written = num_bytes_written - num_sign_bytes;
+
+        if num_digits_written <= precision {
+            let num_missing_zeros = precision - num_digits_written;
+            buffer.copy_within(
+                num_sign_bytes..num_bytes_written,
+                num_sign_bytes + 2 + num_missing_zeros,
+            );
+            buffer[num_sign_bytes] = b'0';
+            buffer[num_sign_bytes + 1] = b'.';
+            for i in 0..num_missing_zeros {
+                buffer[num_sign_bytes + 2 + i] = b'0';
+            }
+
+            &buffer[..num_bytes_written + num_missing_zeros + 2]
+        } else {
+            let end_integer = num_sign_bytes + num_digits_written - precision;
+            buffer.copy_within(end_integer..num_bytes_written, end_integer + 1);
+            buffer[end_integer] = b'.';
+
+            &buffer[..num_bytes_written + 1]
+        }
+    };
+
+    // safety only ASCII characters used -> conversion into str is safe
+    std::str::from_utf8(res).unwrap()
+}
+
+#[test]
+fn test_format_decimal() {
+    fn format_decimal_str(val: i128, precision: i8) -> String {
+        let mut buffer = [0; BUFFER_SIZE_I128];
+        format_decimal(&mut buffer, val, precision).to_owned()
+    }
+
+    assert_eq!(format_decimal_str(0, 0), "0");
+    assert_eq!(format_decimal_str(123, 0), "123");
+    assert_eq!(format_decimal_str(13, 0), "13");
+    assert_eq!(format_decimal_str(-47, 0), "-47");
+    assert_eq!(format_decimal_str(-210, 0), "-210");
+
+    assert_eq!(format_decimal_str(0, -2), "0");
+    assert_eq!(format_decimal_str(123, -2), "12300");
+    assert_eq!(format_decimal_str(13, -2), "1300");
+    assert_eq!(format_decimal_str(-47, -2), "-4700");
+    assert_eq!(format_decimal_str(-210, -2), "-21000");
+
+    assert_eq!(format_decimal_str(0, 1), "0.0");
+    assert_eq!(format_decimal_str(0, 2), "0.00");
+    assert_eq!(format_decimal_str(2, 1), "0.2");
+    assert_eq!(format_decimal_str(0, 2), "0.00");
+    assert_eq!(format_decimal_str(2, 2), "0.02");
+    assert_eq!(format_decimal_str(10, 2), "0.10");
+    assert_eq!(format_decimal_str(-123, 4), "-0.0123");
+    assert_eq!(format_decimal_str(-123, 3), "-0.123");
+
+    assert_eq!(format_decimal_str(-123, -4), "-1230000");
+    assert_eq!(format_decimal_str(-123, -3), "-123000");
+    assert_eq!(format_decimal_str(-123, -2), "-12300");
+    assert_eq!(format_decimal_str(-123, -1), "-1230");
+    assert_eq!(format_decimal_str(-123, 0), "-123");
+    assert_eq!(format_decimal_str(-123, 1), "-12.3");
+    assert_eq!(format_decimal_str(-123, 2), "-1.23");
+    assert_eq!(format_decimal_str(-123, 3), "-0.123");
+    assert_eq!(format_decimal_str(-123, 4), "-0.0123");
+
+    assert_eq!(format_decimal_str(12345, 3), "12.345");
 }
