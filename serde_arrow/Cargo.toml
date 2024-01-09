@@ -116,8 +116,18 @@ serde = { version = "1", features = ["derive", "std"], default-features = false 
 serde_json = "1"
 rand = "0.8"
 
+
 # for benchmarks
 # arrow-version:replace: arrow-json-{version} = {{ package = "arrow-json", version = "{version}" }}
 arrow-json-49 = { package = "arrow-json", version = "49" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"
+
+[dev-dependencies.rust_decimal]
+version = "1.33"
+features = [
+    "serde-with-str",
+    "serde-with-float",
+    # NOTE activating this feature breaks JSON -> float processing
+    # "serde-with-arbitrary-precision",
+]
