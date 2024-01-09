@@ -100,6 +100,9 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Utf8 => Ok(GenericDataType::Utf8),
             DataType::LargeUtf8 => Ok(GenericDataType::LargeUtf8),
             DataType::Date64 => Ok(GenericDataType::Date64),
+            DataType::Decimal128(precision, scale) => {
+                Ok(GenericDataType::Decimal128(*precision, *scale))
+            }
             DataType::Timestamp(TimeUnit::Second, tz) => Ok(GenericDataType::Timestamp(
                 GenericTimeUnit::Second,
                 tz.as_ref().map(|s| s.to_string()),
@@ -209,6 +212,9 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
             GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Decimal128(precision, scale) => {
+                DataType::Decimal128(*precision, *scale)
+            }
             GenericDataType::Utf8 => DataType::Utf8,
             GenericDataType::LargeUtf8 => DataType::LargeUtf8,
             GenericDataType::List => DataType::List(

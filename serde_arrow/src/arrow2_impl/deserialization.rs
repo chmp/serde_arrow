@@ -156,6 +156,7 @@ impl BufferExtract for dyn Array {
             T::F64 => convert_primitive!(f64, F64, push_u64_cast),
             T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
             T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
+            T::Decimal128(_, _) => todo!(),
             T::Utf8 => convert_utf8!(i32, Utf8, push_u32_cast),
             T::LargeUtf8 => convert_utf8!(i64, LargeUtf8, push_u64_cast),
             T::List => convert_list!(i32, List, push_u32_cast),

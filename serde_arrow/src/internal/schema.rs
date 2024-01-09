@@ -457,6 +457,7 @@ pub enum GenericDataType {
     Map,
     Dictionary,
     Timestamp(GenericTimeUnit, Option<String>),
+    Decimal128(u8, i8),
 }
 
 impl std::fmt::Display for GenericDataType {
@@ -492,6 +493,7 @@ impl std::fmt::Display for GenericDataType {
                     write!(f, "Timestamp({unit}, None)")
                 }
             }
+            Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
     }
 }
@@ -574,6 +576,17 @@ impl std::str::FromStr for GenericDataType {
             };
 
             Ok(GenericDataType::Timestamp(unit, Some(s.to_string())))
+        } else if let Some(s) = s.strip_prefix("Decimal128(") {
+            let Some(s) = s.strip_suffix(')') else {
+                fail!("invalid Decimal128 data type");
+            };
+            let Some((precision, scale)) = s.split_once(',') else {
+                fail!("invalid Decimal128 data type");
+            };
+            let precision = u8::from_str(precision.trim())?;
+            let scale = i8::from_str(scale.trim())?;
+
+            Ok(GenericDataType::Decimal128(precision, scale))
         } else {
             fail!("cannot parse data type")
         }
@@ -659,6 +672,7 @@ impl GenericField {
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
+            GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
     }
 
@@ -1075,6 +1089,14 @@ mod test_schema_serialization {
         assert_eq!(DT::from_str("Float16").unwrap(), DT::F16);
         assert_eq!(DT::from_str("Float32").unwrap(), DT::F32);
         assert_eq!(DT::from_str("Float64").unwrap(), DT::F64);
+        assert_eq!(
+            DT::from_str("Decimal128(8,-2)").unwrap(),
+            DT::Decimal128(8, -2)
+        );
+        assert_eq!(
+            DT::from_str("Decimal128( 8 , -2 )").unwrap(),
+            DT::Decimal128(8, -2)
+        );
     }
 
     macro_rules! test_data_type {

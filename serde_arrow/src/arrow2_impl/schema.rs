@@ -107,6 +107,12 @@ impl TryFrom<&Field> for GenericField {
             DataType::Utf8 => GenericDataType::Utf8,
             DataType::LargeUtf8 => GenericDataType::LargeUtf8,
             DataType::Date64 => GenericDataType::Date64,
+            DataType::Decimal(precision, scale) => {
+                if *precision > u8::MAX as usize || *scale > i8::MAX as usize {
+                    fail!("cannot represent precision / scale of the decimal");
+                }
+                GenericDataType::Decimal128(*precision as u8, *scale as i8)
+            }
             DataType::Timestamp(TimeUnit::Second, tz) => {
                 GenericDataType::Timestamp(GenericTimeUnit::Second, tz.clone())
             }
@@ -214,6 +220,12 @@ impl TryFrom<&GenericField> for Field {
             }
             GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz) => {
                 DataType::Timestamp(TimeUnit::Nanosecond, tz.clone())
+            }
+            GenericDataType::Decimal128(precision, scale) => {
+                if *scale < 0 {
+                    fail!("arrow2 does not support decimals with negative scale");
+                }
+                DataType::Decimal(*precision as usize, *scale as usize)
             }
             GenericDataType::Utf8 => DataType::Utf8,
             GenericDataType::LargeUtf8 => DataType::LargeUtf8,

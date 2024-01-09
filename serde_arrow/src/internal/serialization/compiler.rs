@@ -563,6 +563,7 @@ impl Program {
             D::F16 => compile_primtive!(self, field, validity, num_u16, PushF16, F16),
             D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
             D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
+            D::Decimal128(_, _) => todo!(),
             D::Utf8 => {
                 let buffer = self.buffers.num_u8.next_value();
                 let offsets = self.buffers.num_u32_offsets.next_value();
