@@ -107,11 +107,11 @@ fn copy_digits_integer_only<'b>(
     let end_copy = before_period.saturating_sub(scale);
     let start_copy = end_copy.saturating_sub(precision);
 
-    check_all_ascii_zero(&s[0..start_copy])?;
+    check_all_ascii_zero(&s[0..start_copy], true)?;
     if !truncate {
         check_all_ascii_digit(&s[start_copy..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..before_period])?;
-        check_all_ascii_zero(&s[after_period..s.len()])?;
+        check_all_ascii_zero(&s[end_copy..before_period], false)?;
+        check_all_ascii_zero(&s[after_period..s.len()], false)?;
     } else {
         check_all_ascii_digit(&s[start_copy..before_period])?;
         check_all_ascii_digit(&s[after_period..s.len()])?;
@@ -136,12 +136,12 @@ fn copy_digits_fraction_only<'b>(
     let end_copy = std::cmp::min(s.len(), after_period + scale);
     let fill = precision - (end_copy - start_copy);
 
-    check_all_ascii_zero(&s[0..before_period])?;
-    check_all_ascii_zero(&s[after_period..start_copy])?;
+    check_all_ascii_zero(&s[0..before_period], true)?;
+    check_all_ascii_zero(&s[after_period..start_copy], true)?;
 
     if !truncate {
         check_all_ascii_digit(&s[start_copy..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..s.len()])?;
+        check_all_ascii_zero(&s[end_copy..s.len()], false)?;
     } else {
         check_all_ascii_digit(&s[start_copy..s.len()])?;
     }
@@ -170,11 +170,11 @@ fn copy_digits_mixed<'b>(
     let copy_2 = after_period..end_copy;
     let fill = scale - (end_copy - after_period);
 
-    check_all_ascii_zero(&s[0..start_copy])?;
+    check_all_ascii_zero(&s[0..start_copy], true)?;
     check_all_ascii_digit(&s[copy_1.clone()])?;
     if !truncate {
         check_all_ascii_digit(&s[after_period..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..s.len()])?;
+        check_all_ascii_zero(&s[end_copy..s.len()], false)?;
     } else {
         check_all_ascii_digit(&s[after_period..s.len()])?;
     }
@@ -195,9 +195,13 @@ fn find_period(s: &[u8]) -> (usize, usize) {
     }
 }
 
-fn check_all_ascii_zero(s: &[u8]) -> Result<()> {
+fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
     if s.iter().any(|c| *c != b'0') {
-        fail!("invalid decimal");
+        if leading {
+            fail!("invalid decimal: not enough precision");
+        } else {
+            fail!("invalid decimal: not enough scale, the given number would be truncated");
+        }
     }
     Ok(())
 }
