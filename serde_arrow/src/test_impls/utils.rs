@@ -19,9 +19,24 @@ pub struct Fields {
     pub arrow2: Option<Vec<arrow2::datatypes::Field>>,
 }
 
+pub struct Impls {
+    arrow: bool,
+    arrow2: bool,
+}
+
+impl std::default::Default for Impls {
+    fn default() -> Self {
+        Self {
+            arrow: true,
+            arrow2: true,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Test {
     schema: Option<SerdeArrowSchema>,
+    impls: Impls,
     pub arrays: Arrays,
     pub fields: Fields,
 }
@@ -34,6 +49,11 @@ impl Test {
     pub fn with_schema<T: Serialize>(mut self, schema: T) -> Self {
         self.schema =
             Some(SerdeArrowSchema::from_value(&schema).expect("Failed conversion of schema"));
+        self
+    }
+
+    pub fn skip_arrow2(mut self) -> Self {
+        self.impls.arrow2 = false;
         self
     }
 }
@@ -107,13 +127,17 @@ impl Test {
     }
 
     pub fn serialize<T: Serialize + ?Sized>(mut self, items: &T) -> Self {
-        let fields = self.get_arrow_fields();
-        self.arrays.arrow =
-            Some(crate::to_arrow(&fields, items).expect("Failed arrow serialization"));
+        if self.impls.arrow {
+            let fields = self.get_arrow_fields();
+            self.arrays.arrow =
+                Some(crate::to_arrow(&fields, items).expect("Failed arrow serialization"));
+        } 
 
-        let fields = self.get_arrow2_fields();
-        self.arrays.arrow2 =
-            Some(crate::to_arrow2(&fields, items).expect("Failed arrow2 serialization"));
+        if self.impls.arrow2 {
+            let fields = self.get_arrow2_fields();
+            self.arrays.arrow2 =
+                Some(crate::to_arrow2(&fields, items).expect("Failed arrow2 serialization"));
+        }
 
         self
     }
@@ -122,33 +146,40 @@ impl Test {
         self,
         items: &[T],
     ) -> Self {
-        let fields = self.get_arrow_fields();
-        let roundtripped: Vec<T> = crate::from_arrow(
-            &fields,
-            self.arrays
+        if self.impls.arrow {
+
+            let fields = self.get_arrow_fields();
+            let roundtripped: Vec<T> = crate::from_arrow(
+                &fields,
+                self.arrays
                 .arrow
                 .as_ref()
                 .expect("Deserialization requires known arrow arrays"),
-        )
-        .expect("Failed arrow deserialization");
-        assert_eq!(roundtripped, items);
+                )
+                .expect("Failed arrow deserialization");
+            assert_eq!(roundtripped, items);
+        }
 
-        let fields = self.get_arrow2_fields();
-        let roundtripped: Vec<T> = crate::from_arrow2(
-            &fields,
-            self.arrays
+        if self.impls.arrow2 {
+
+            let fields = self.get_arrow2_fields();
+            let roundtripped: Vec<T> = crate::from_arrow2(
+                &fields,
+                self.arrays
                 .arrow2
                 .as_ref()
                 .expect("Deserialization requires known arrow2 arrays"),
-        )
-        .expect("Failed arrow2 deserialization");
+            )
+            .expect("Failed arrow2 deserialization");
         assert_eq!(roundtripped, items);
+    }
 
         self
     }
 
     pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {
-        let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
+        if self.impls.arrow {
+            let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
             panic!("cannot check_nulls without arrays");
         };
         let arrow_nulls = arrow_arrays
@@ -160,20 +191,24 @@ impl Test {
             })
             .collect::<Vec<_>>();
         assert_eq!(arrow_nulls, nulls);
+        }
 
-        let Some(arrow2_arrays) = self.arrays.arrow2.as_ref() else {
-            panic!("cannot check_nulls without arrays");
-        };
-        let arrow2_nulls = arrow2_arrays
+        if self.impls.arrow2 {
+
+            let Some(arrow2_arrays) = self.arrays.arrow2.as_ref() else {
+                panic!("cannot check_nulls without arrays");
+            };
+            let arrow2_nulls = arrow2_arrays
             .iter()
             .map(|arr| {
                 (0..arr.len())
-                    .map(|idx| arr.is_null(idx))
-                    .collect::<Vec<_>>()
+                .map(|idx| arr.is_null(idx))
+                .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
         assert_eq!(arrow2_nulls, nulls);
-
+    }
+        
         self
     }
 

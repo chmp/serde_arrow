@@ -84,6 +84,33 @@ fn big_decimal() {
         .deserialize(items);
 }
 
-// TODO: test truncation
-// TODO: test negative scale
+/// Decimals with too many digits are truncated in serialization
+#[test]
+fn big_decimal_truncation() {
+    let items = &[
+        Item(BigDecimal::from_str("0.2012").unwrap()),
+        Item(BigDecimal::from_str("0.4234").unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, 2)"}]))
+        .serialize(items)
+        .also(|it| assert_eq!(get_i128_values(it), &[20, 42]));
+}
+
+#[test]
+fn big_negative_scale() {
+    let items = &[
+        Item(BigDecimal::from_str("1300.00").unwrap()),
+        Item(BigDecimal::from_str("4200.00").unwrap()),
+    ];
+
+    Test::new()
+        // NOTE: arrow2 only supports positive scale
+        .skip_arrow2()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, -2)"}]))
+        .serialize(items)
+        .also(|it| assert_eq!(get_i128_values(it), &[13, 42]));
+}
+
 // TODO: test too large values (too small precision)
