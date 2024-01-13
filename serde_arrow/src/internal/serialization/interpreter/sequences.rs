@@ -4,7 +4,7 @@ use super::super::bytecode::{
     LargeListEnd, LargeListItem, LargeListStart, ListEnd, ListItem, ListStart, OuterSequenceEnd,
     OuterSequenceItem, OuterSequenceStart, TupleStructEnd, TupleStructItem, TupleStructStart,
 };
-use super::{Instruction, MutableBuffers};
+use super::{Instruction, SerializationContext};
 
 impl Instruction for OuterSequenceStart {
     const NAME: &'static str = "OuterSequenceStart";
@@ -13,7 +13,7 @@ impl Instruction for OuterSequenceStart {
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -21,7 +21,7 @@ impl Instruction for OuterSequenceStart {
     fn accept_start_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -34,19 +34,23 @@ impl Instruction for OuterSequenceItem {
     fn accept_end_sequence(
         &self,
         structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_item(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut SerializationContext,
+    ) -> Result<usize> {
         Ok(self.next)
     }
 
     fn accept_end_tuple(
         &self,
         structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(structure.large_lists[self.list_idx].r#return)
     }
@@ -59,19 +63,23 @@ impl Instruction for OuterSequenceEnd {
     fn accept_end_sequence(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
 
-    fn accept_item(&self, structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_item(
+        &self,
+        structure: &Structure,
+        _buffers: &mut SerializationContext,
+    ) -> Result<usize> {
         Ok(structure.large_lists[self.list_idx].item)
     }
 
     fn accept_end_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -84,7 +92,7 @@ impl Instruction for LargeListStart {
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -92,7 +100,7 @@ impl Instruction for LargeListStart {
     fn accept_start_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -105,23 +113,27 @@ impl Instruction for LargeListItem {
     fn accept_end_sequence(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
+        context.buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 
     fn accept_end_tuple(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
+        context.buffers.u64_offsets[self.offsets].push_current_items();
         Ok(structure.large_lists[self.list_idx].r#return)
     }
 
-    fn accept_item(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].inc_current_items()?;
+    fn accept_item(
+        &self,
+        _structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        context.buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 }
@@ -133,23 +145,27 @@ impl Instruction for LargeListEnd {
     fn accept_end_sequence(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
+        context.buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_end_tuple(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].push_current_items();
+        context.buffers.u64_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
-    fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        buffers.u64_offsets[self.offsets].inc_current_items()?;
+    fn accept_item(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        context.buffers.u64_offsets[self.offsets].inc_current_items()?;
         Ok(structure.large_lists[self.list_idx].item)
     }
 }
@@ -161,7 +177,7 @@ impl Instruction for ListStart {
     fn accept_start_sequence(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -169,7 +185,7 @@ impl Instruction for ListStart {
     fn accept_start_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -182,23 +198,27 @@ impl Instruction for ListItem {
     fn accept_end_sequence(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
+        context.buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 
     fn accept_end_tuple(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
+        context.buffers.u32_offsets[self.offsets].push_current_items();
         Ok(structure.lists[self.list_idx].r#return)
     }
 
-    fn accept_item(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].inc_current_items()?;
+    fn accept_item(
+        &self,
+        _structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        context.buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(self.next)
     }
 }
@@ -210,23 +230,27 @@ impl Instruction for ListEnd {
     fn accept_end_sequence(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
+        context.buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
     fn accept_end_tuple(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].push_current_items();
+        context.buffers.u32_offsets[self.offsets].push_current_items();
         Ok(self.next)
     }
 
-    fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        buffers.u32_offsets[self.offsets].inc_current_items()?;
+    fn accept_item(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        context.buffers.u32_offsets[self.offsets].inc_current_items()?;
         Ok(structure.lists[self.list_idx].item)
     }
 }
@@ -238,7 +262,7 @@ impl Instruction for TupleStructStart {
     fn accept_start_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }
@@ -247,7 +271,11 @@ impl Instruction for TupleStructStart {
 impl Instruction for TupleStructItem {
     const NAME: &'static str = "TupleStructItem";
     const EXPECTED: &'static [&'static str] = &["Item"];
-    fn accept_item(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_item(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut SerializationContext,
+    ) -> Result<usize> {
         Ok(self.next)
     }
 }
@@ -259,7 +287,7 @@ impl Instruction for TupleStructEnd {
     fn accept_end_tuple(
         &self,
         _structure: &Structure,
-        _buffers: &mut MutableBuffers,
+        _buffers: &mut SerializationContext,
     ) -> Result<usize> {
         Ok(self.next)
     }

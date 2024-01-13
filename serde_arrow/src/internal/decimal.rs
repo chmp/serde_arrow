@@ -6,12 +6,7 @@
 
 use crate::internal::error::{fail, Result};
 
-const BUFFER_SIZE_I128: usize = 64;
-
-pub fn parse_decimal(s: &[u8], precision: u8, scale: i8, truncate: bool) -> Result<i128> {
-    let mut buffer = [0; BUFFER_SIZE_I128];
-    DecimalParser::new(precision, scale, truncate).parse_decimal128(&mut buffer, s)
-}
+pub const BUFFER_SIZE_I128: usize = 64;
 
 /// Helper to parse decimals
 ///
@@ -20,8 +15,8 @@ pub fn parse_decimal(s: &[u8], precision: u8, scale: i8, truncate: bool) -> Resu
 /// - integer only: ` ----XXX----.----`
 /// - fraction only: `------.---XXX---`
 /// - mixed: `-----XXX.XXX----`
-#[derive(Debug, Clone, Copy)]
-enum DecimalParser {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DecimalParser {
     IntegerOnly(usize, usize),
     IntegerOnlyTruncated(usize, usize),
     Mixed(usize, usize),
@@ -212,6 +207,12 @@ fn check_all_ascii_digit(s: &[u8]) -> Result<()> {
         fail!("invalid decimal");
     }
     Ok(())
+}
+
+#[cfg(test)]
+fn parse_decimal(s: &[u8], precision: u8, scale: i8, truncate: bool) -> Result<i128> {
+    let mut buffer = [0; BUFFER_SIZE_I128];
+    DecimalParser::new(precision, scale, truncate).parse_decimal128(&mut buffer, s)
 }
 
 #[test]

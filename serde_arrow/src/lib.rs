@@ -140,17 +140,13 @@ mod internal;
 ///
 #[rustfmt::skip]
 pub mod _impl {
-    #[allow(unused)]
-    macro_rules! build_arrow2_crate {
-        ($arrow2:ident) => {
-            /// Re-export the used arrow2 crate
-            #[doc(hidden)]
-            pub use $arrow2 as arrow2;
-        };
-    }
 
-    #[cfg(has_arrow2_0_17)] build_arrow2_crate!(arrow2_0_17);
-    #[cfg(has_arrow2_0_16)] build_arrow2_crate!(arrow2_0_16);
+    #[cfg(has_arrow2_0_17)]
+    #[doc(hidden)]
+    pub use arrow2_0_17 as arrow2;
+
+    #[cfg(has_arrow2_0_16)]
+    pub use arrow2_0_16 as arrow2;
 
     #[allow(unused)]
     macro_rules! build_arrow_crate {
@@ -179,7 +175,7 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        ArrowPrimitiveType, Date64Type, Float16Type, Float32Type, Float64Type,
+                        ArrowPrimitiveType, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
                         Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type,
                         UInt64Type, UInt8Type,
                     };

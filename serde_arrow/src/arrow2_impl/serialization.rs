@@ -12,14 +12,14 @@ use crate::{
         offset::OffsetsBuffer,
         types::f16,
     },
-    internal::error::fail,
+    internal::{common::MutableBuffers, error::fail},
 };
 
 use crate::internal::{
     common::{ArrayMapping, DictionaryIndex, DictionaryValue},
     conversions::ToBytes,
     error::Result,
-    serialization::{interpreter::MutableBuffers, Interpreter},
+    serialization::Interpreter,
 };
 
 impl Interpreter {
@@ -27,10 +27,10 @@ impl Interpreter {
     pub fn build_arrow2_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
         let mut res = Vec::new();
         for mapping in &self.structure.array_mapping {
-            let array = build_array(&mut self.buffers, mapping)?;
+            let array = build_array(&mut self.context.buffers, mapping)?;
             res.push(array);
         }
-        self.buffers.clear();
+        self.context.reset();
 
         let max_len = res.iter().map(|a| a.len()).max().unwrap_or_default();
         for (arr, mapping) in res.iter().zip(&self.structure.array_mapping) {
@@ -149,6 +149,21 @@ fn build_array(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<B
             validity,
             ..
         } => build_array_primitive!(buffers, f32, u32, field, *buffer, *validity),
+        M::Decimal128 {
+            field,
+            validity,
+            buffer,
+        } => {
+            let buffer = std::mem::take(&mut buffers.u128[*buffer]);
+            let buffer: Vec<i128> = ToBytes::from_bytes_vec(buffer);
+            let validity = build_validity(buffers, *validity);
+            let array = PrimitiveArray::try_new(
+                Field::try_from(field)?.data_type,
+                Buffer::from(buffer),
+                validity,
+            )?;
+            Ok(Box::new(array))
+        }
         M::F16 {
             buffer, validity, ..
         } => {

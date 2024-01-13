@@ -95,6 +95,9 @@ define_array_mapping!(
     F64 {
         buffer: usize,
     },
+    Decimal128 {
+        buffer: usize,
+    },
     Utf8 {
         buffer: usize,
         offsets: usize,

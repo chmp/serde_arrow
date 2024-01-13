@@ -137,6 +137,18 @@ impl ToBytes for f64 {
     }
 }
 
+impl ToBytes for i128 {
+    type Bytes = u128;
+
+    fn to_bytes(self) -> Self::Bytes {
+        Self::Bytes::from_ne_bytes(self.to_ne_bytes())
+    }
+
+    fn from_bytes(val: Self::Bytes) -> Self {
+        Self::from_ne_bytes(val.to_ne_bytes())
+    }
+}
+
 macro_rules! define_wrapper {
     ($wrapper:ident($wrapped:ty) {  $($tt:tt)* }) => {
         pub struct $wrapper($wrapped);

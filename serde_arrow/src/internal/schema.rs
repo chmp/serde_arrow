@@ -101,6 +101,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - unsigned integers: `"U8"`, `"U16"`, `"U32"`, `"U64"`
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
+    /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
     ///   field named `"element"` that describes the element types
     /// - structs: `"Struct"`. `"children"` must contain the child fields

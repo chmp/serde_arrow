@@ -54,6 +54,7 @@ pub struct Buffers<'a> {
     pub u16: Vec<&'a [u16]>,
     pub u32: Vec<&'a [u32]>,
     pub u64: Vec<&'a [u64]>,
+    pub u128: Vec<&'a [u128]>,
 }
 
 impl<'a> Buffers<'a> {
@@ -90,6 +91,11 @@ impl<'a> Buffers<'a> {
         self.u64.push(val);
         self.u64.len() - 1
     }
+
+    pub fn push_u128(&mut self, val: &'a [u128]) -> usize {
+        self.u128.push(val);
+        self.u128.len() - 1
+    }
 }
 
 impl<'a> Buffers<'a> {
@@ -107,6 +113,10 @@ impl<'a> Buffers<'a> {
 
     pub fn push_u64_cast<T: NoUninit>(&mut self, val: &'a [T]) -> Result<usize> {
         Ok(self.push_u64(bytemuck::try_cast_slice::<T, u64>(val)?))
+    }
+
+    pub fn push_u128_cast<T: NoUninit>(&mut self, val: &'a [T]) -> Result<usize> {
+        Ok(self.push_u128(bytemuck::try_cast_slice::<T, u128>(val)?))
     }
 }
 
@@ -141,6 +151,43 @@ impl<'a> Buffers<'a> {
 
     pub fn get_i64(&self, idx: usize) -> &'a [i64] {
         bytemuck::cast_slice(self.u64[idx])
+    }
+}
+
+/// The mutable variant of [`Buffers`].
+#[derive(Debug, Clone)]
+pub struct MutableBuffers {
+    /// 0 bit buffers
+    pub u0: Vec<MutableCountBuffer>,
+    /// 1 bit buffers
+    pub u1: Vec<MutableBitBuffer>,
+    /// 8 bit buffers
+    pub u8: Vec<Vec<u8>>,
+    /// 16 bit buffers
+    pub u16: Vec<Vec<u16>>,
+    /// 32 bit buffers
+    pub u32: Vec<Vec<u32>>,
+    /// 64 bit buffers
+    pub u64: Vec<Vec<u64>>,
+    /// 128 bit buffers
+    pub u128: Vec<Vec<u128>>,
+    /// 32 bit offsets
+    pub u32_offsets: Vec<MutableOffsetBuffer<i32>>,
+    /// 64 bit offsets
+    pub u64_offsets: Vec<MutableOffsetBuffer<i64>>,
+}
+
+impl MutableBuffers {
+    pub fn reset(&mut self) {
+        self.u0.iter_mut().for_each(|b| b.clear());
+        self.u1.iter_mut().for_each(|b| b.clear());
+        self.u8.iter_mut().for_each(|b| b.clear());
+        self.u16.iter_mut().for_each(|b| b.clear());
+        self.u32.iter_mut().for_each(|b| b.clear());
+        self.u64.iter_mut().for_each(|b| b.clear());
+        self.u128.iter_mut().for_each(|b| b.clear());
+        self.u32_offsets.iter_mut().for_each(|b| b.clear());
+        self.u64_offsets.iter_mut().for_each(|b| b.clear());
     }
 }
 

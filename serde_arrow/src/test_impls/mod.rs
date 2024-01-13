@@ -1,3 +1,5 @@
+mod utils;
+
 mod chrono;
 mod dictionary;
 mod examples;
@@ -11,6 +13,7 @@ mod tuple;
 mod r#union;
 mod wrappers;
 
+mod issue_59_decimals;
 mod issue_74_unknown_fields;
 mod issue_79_declared_but_missing_fields;
 mod issue_90_type_tracing;

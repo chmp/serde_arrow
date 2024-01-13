@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::internal::{
-    common::{ArrayMapping, DictionaryIndex},
+    common::{ArrayMapping, DictionaryIndex, MutableBuffers},
     error::Result,
 };
 
@@ -56,6 +56,7 @@ pub struct NullDefinition {
     pub u16: Vec<usize>,
     pub u32: Vec<usize>,
     pub u64: Vec<usize>,
+    pub u128: Vec<usize>,
     pub u32_offsets: Vec<usize>,
     pub u64_offsets: Vec<usize>,
 }
@@ -211,5 +212,36 @@ impl NullDefinition {
         self.u64.sort();
         self.u32_offsets.sort();
         self.u64_offsets.sort();
+    }
+
+    pub fn apply(&self, buffers: &mut MutableBuffers) -> Result<()> {
+        for &idx in &self.u0 {
+            buffers.u0[idx].push(Default::default());
+        }
+        for &idx in &self.u1 {
+            buffers.u1[idx].push(Default::default());
+        }
+        for &idx in &self.u8 {
+            buffers.u8[idx].push(Default::default());
+        }
+        for &idx in &self.u16 {
+            buffers.u16[idx].push(Default::default());
+        }
+        for &idx in &self.u32 {
+            buffers.u32[idx].push(Default::default());
+        }
+        for &idx in &self.u64 {
+            buffers.u64[idx].push(Default::default());
+        }
+        for &idx in &self.u128 {
+            buffers.u128[idx].push(Default::default());
+        }
+        for &idx in &self.u32_offsets {
+            buffers.u32_offsets[idx].push_current_items();
+        }
+        for &idx in &self.u64_offsets {
+            buffers.u64_offsets[idx].push_current_items();
+        }
+        Ok(())
     }
 }
