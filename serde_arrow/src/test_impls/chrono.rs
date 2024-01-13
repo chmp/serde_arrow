@@ -2,7 +2,6 @@ use super::macros::test_example;
 
 test_example!(
     test_name = utc_as_str,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     ty = DateTime<Utc>,
     values = [
@@ -17,7 +16,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_str,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     ty = NaiveDateTime,
     values = [
@@ -32,7 +30,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -49,7 +46,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::NaiveStrAsDate64),
@@ -66,7 +62,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_as_millis,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::I64, false),
     overwrite_field = GenericField::new("item", GenericDataType::Date64, false),
     ty = T,
@@ -85,7 +80,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_timestamp,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new("item", GenericDataType::Timestamp(GenericTimeUnit::Millisecond, Some("UTC".into())), false)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -102,7 +96,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_timestamp,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     overwrite_field = GenericField::new(
         "item",
@@ -123,7 +116,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_tracing,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -140,7 +132,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64_tracing,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::NaiveStrAsDate64),
@@ -157,7 +148,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_tracing_string_only,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -171,7 +161,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_tracing_string_nullable,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, true)
         .with_strategy(Strategy::UtcStrAsDate64),
@@ -186,7 +175,6 @@ test_example!(
 
 test_example!(
     test_name = utc_as_date64_tracing_string_only_with_invalid,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     ty = String,
@@ -200,7 +188,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64_tracing_string_only,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, false)
         .with_strategy(Strategy::NaiveStrAsDate64),
@@ -214,7 +201,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64_tracing_string_nullable,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::Date64, true)
         .with_strategy(Strategy::NaiveStrAsDate64),
@@ -229,7 +215,6 @@ test_example!(
 
 test_example!(
     test_name = naive_as_date64_tracing_string_only_with_invalid,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     ty = String,
@@ -243,7 +228,6 @@ test_example!(
 
 test_example!(
     test_name = incompatible_date_formats,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().guess_dates(true),
     field = GenericField::new("item", GenericDataType::LargeUtf8, false),
     ty = String,

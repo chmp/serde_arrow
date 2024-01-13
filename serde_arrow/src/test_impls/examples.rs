@@ -2,7 +2,6 @@ use super::macros::*;
 
 test_example!(
     test_name = benchmark_primitives,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, false))
@@ -38,7 +37,6 @@ test_example!(
 
 test_example!(
     test_name = benchmark_complex_1,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
@@ -95,7 +93,6 @@ test_example!(
 
 test_example!(
     test_name = benchmark_complex_2,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
             "string",
@@ -162,7 +159,6 @@ test_example!(
 
 test_example!(
     test_name = nested_options,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("a", GenericDataType::U8, false))
         .with_child(GenericField::new("b", GenericDataType::U16, true))
@@ -217,7 +213,6 @@ test_example!(
 
 test_example!(
     test_name = fieldless_unions_in_a_struct,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new("foo", GenericDataType::U32, false))
@@ -272,7 +267,6 @@ test_example!(
 test_example!(
     // see https://github.com/chmp/serde_arrow/issues/57
     test_name = issue_57,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_child(GenericField::new(
@@ -382,7 +376,6 @@ test_roundtrip_arrays!(
 
 test_example!(
     test_name = new_type_wrappers,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::U64, false),
     ty = U64,
     values = [U64(0), U64(1), U64(2)],
@@ -395,7 +388,6 @@ test_example!(
 
 test_example!(
     test_name = unit,
-    test_bytecode_deserialization = true,
     tracing_options = TracingOptions::default().allow_null_fields(true),
     field = GenericField::new("item", GenericDataType::Null, true),
     ty = (),
