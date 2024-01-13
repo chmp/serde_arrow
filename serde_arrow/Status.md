@@ -8,7 +8,7 @@ Supported arrow data types:
 - [x] `UInt8`, `UInt16`, `UInt32`, `UInt64`
 - [x] `Float16`:  can be serialized / deserialized from Rust `f32`
 - [x] `Float32`, `Float64`
-- [ ] `Timestamp`
+- [x] `Timestamp`
 - [ ] `Date32`
 - [x] `Date64`: either as formatted dates (UTC + Naive) (`Event::Str`) or as
   timestamps (`Event::I64`). Both cases require additional configuration
@@ -31,7 +31,10 @@ Supported arrow data types:
 - [x] `Map`: at the moment only unsorted maps are supported
 - [x] `Dictionary`: at the moment only Utf8 and LargeUtf8 as values are
   supported
-- [ ] `Decimal`
+- [x] `Decimal128(precision, scale)`: decimals that are serialized to string or
+  float are supported. `Decimal128` arrays are always deserialized as string.
+  Values are truncated to the given `(precision, scale)` range. Values too large
+  for this range will result in a serialization error.
 - [ ] `Decimal256`
 - [ ] `Extension`
 
