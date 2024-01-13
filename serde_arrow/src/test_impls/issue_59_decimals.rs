@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use bigdecimal::BigDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -9,7 +10,7 @@ use crate::_impl::arrow;
 use super::utils::Test;
 
 #[test]
-fn example_str_repr() {
+fn rust_decimal_str_repr() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Wrapper {
         #[serde(with = "rust_decimal::serde::str")]
@@ -44,7 +45,7 @@ fn example_str_repr() {
 }
 
 #[test]
-fn example_float_repr() {
+fn rust_decimal_float_repr() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Wrapper {
         #[serde(with = "rust_decimal::serde::float")]
@@ -75,5 +76,27 @@ fn example_float_repr() {
             assert_eq!(arr.value(0), 20);
             assert_eq!(arr.value(1), 42);
         })
+        .deserialize(&items);
+}
+
+#[test]
+fn big_decimal() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct Wrapper {
+        value: BigDecimal,
+    }
+
+    let items = [
+        Wrapper {
+            value: BigDecimal::from_str("0.20").unwrap(),
+        },
+        Wrapper {
+            value: BigDecimal::from_str("0.42").unwrap(),
+        },
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "value", "data_type": "Decimal128(5, 2)"}]))
+        .serialize(&items)
         .deserialize(&items);
 }
