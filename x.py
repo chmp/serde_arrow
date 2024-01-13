@@ -8,6 +8,7 @@ arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw
 all_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
     "arrow-50",
+    "arrow-50",
     "arrow-49",
     "arrow-48",
     "arrow-47",
