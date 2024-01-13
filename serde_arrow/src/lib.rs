@@ -213,9 +213,7 @@ pub mod _impl {
         #[cfg(not(doctest))]
         pub mod implementation {}
 
-        #[doc = include_str!("../Quickstart.md")]
-        #[cfg(not(doctest))]
-        pub mod quickstart {}
+        pub mod quickstart;
 
         #[doc = include_str!("../Status.md")]
         #[cfg(not(doctest))]
