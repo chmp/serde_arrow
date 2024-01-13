@@ -1,11 +1,10 @@
-use std::{borrow::Cow, str::FromStr, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     _impl::{arrow, arrow2},
-    schema::{SchemaLike, SerdeArrowSchema},
+    schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
 };
 
 #[derive(Default)]
@@ -74,6 +73,23 @@ impl Test {
 }
 
 impl Test {
+    pub fn trace_schema_from_samples<T: Serialize + ?Sized>(
+        mut self,
+        items: &T,
+        options: TracingOptions,
+    ) -> Self {
+        let schema_from_samples = SerdeArrowSchema::from_samples(items, options)
+            .expect("Failed to trace the schema from samples");
+
+        if let Some(reference) = self.schema.as_ref() {
+            assert_eq!(schema_from_samples, *reference);
+        } else {
+            self.schema = Some(schema_from_samples);
+        }
+
+        self
+    }
+
     pub fn serialize<T: Serialize + ?Sized>(mut self, items: &T) -> Self {
         let fields = self.get_arrow_fields();
         self.arrays.arrow =

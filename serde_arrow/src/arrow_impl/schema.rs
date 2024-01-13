@@ -61,17 +61,17 @@ impl Sealed for Vec<Field> {}
 /// Schema support for `Vec<arrow::datatype::Field>` (*requires one of the
 /// `arrow-*` features*)
 impl SchemaLike for Vec<Field> {
-    fn from_value<T: serde::Serialize>(value: &T) -> Result<Self> {
+    fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
         SerdeArrowSchema::from_value(value)?.to_arrow_fields()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de>>(
+    fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.to_arrow_fields()
     }
 
-    fn from_samples<T: serde::Serialize>(
+    fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
