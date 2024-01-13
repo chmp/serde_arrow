@@ -3,7 +3,9 @@
 ## 0.9.1
 
 - `Decimal128` support
-- Relax `Sized` requirement for `SchemaLike::from_samples(..)`,  `SchemaLike::from_type(..)`, `SchemaLike::from_value(..)`
+- Relax `Sized` requirement for `SchemaLike::from_samples(..)`,
+  `SchemaLike::from_type(..)`, `SchemaLike::from_value(..)`
+- Derive `Debug`, `PartialEq` for `Item` and `Items`
 
 ## 0.9.0
 
