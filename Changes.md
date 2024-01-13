@@ -1,5 +1,9 @@
 # Change log
 
+## 0.9.1
+
+- Add `arrow=50` support
+
 ## 0.9.0
 
 Breaking changes:

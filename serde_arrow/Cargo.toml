@@ -14,17 +14,18 @@ bench = false
 [[bench]]
 name = "arrow2"
 # arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
-required-features = ["arrow2-0-17", "arrow-49"]
+required-features = ["arrow2-0-17", "arrow-50"]
 harness = false
 
 [package.metadata.docs.rs]
 # arrow-version:replace: features = ["arrow2-0-17", "arrow-{version}"]
-features = ["arrow2-0-17", "arrow-49"]
+features = ["arrow2-0-17", "arrow-50"]
 
 [features]
 default = []
 
 # arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "dep:arrow-data-{version}", "dep:arrow-buffer-{version}"]
+arrow-50 = ["dep:arrow-array-50", "dep:arrow-schema-50", "dep:arrow-data-50", "dep:arrow-buffer-50"]
 arrow-49 = ["dep:arrow-array-49", "dep:arrow-schema-49", "dep:arrow-data-49", "dep:arrow-buffer-49"]
 arrow-48 = ["dep:arrow-array-48", "dep:arrow-schema-48", "dep:arrow-data-48", "dep:arrow-buffer-48"]
 arrow-47 = ["dep:arrow-array-47", "dep:arrow-schema-47", "dep:arrow-data-47", "dep:arrow-buffer-47"]
@@ -47,6 +48,7 @@ half = { version = "2", features = ["bytemuck"], default-features = false }
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version = "{version}", optional = true, default-features = false }}
+arrow-array-50 = { package = "arrow-array", version = "50", optional = true, default-features = false }
 arrow-array-49 = { package = "arrow-array", version = "49", optional = true, default-features = false }
 arrow-array-48 = { package = "arrow-array", version = "48", optional = true, default-features = false }
 arrow-array-47 = { package = "arrow-array", version = "47", optional = true, default-features = false }
@@ -62,6 +64,7 @@ arrow-array-38 = { package = "arrow-array", version = "38", optional = true, def
 arrow-array-37 = { package = "arrow-array", version = "37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-buffer-{version} = {{ package = "arrow-buffer", version = "{version}", optional = true, default-features = false }}
+arrow-buffer-50 = { package = "arrow-buffer", version = "50", optional = true, default-features = false }
 arrow-buffer-49 = { package = "arrow-buffer", version = "49", optional = true, default-features = false }
 arrow-buffer-48 = { package = "arrow-buffer", version = "48", optional = true, default-features = false }
 arrow-buffer-47 = { package = "arrow-buffer", version = "47", optional = true, default-features = false }
@@ -77,6 +80,7 @@ arrow-buffer-38 = { package = "arrow-buffer", version = "38", optional = true, d
 arrow-buffer-37 = { package = "arrow-buffer", version = "37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-data-{version} = {{ package = "arrow-data", version="{version}", optional = true, default-features = false }}
+arrow-data-50 = { package = "arrow-data", version="50", optional = true, default-features = false }
 arrow-data-49 = { package = "arrow-data", version="49", optional = true, default-features = false }
 arrow-data-48 = { package = "arrow-data", version="48", optional = true, default-features = false }
 arrow-data-47 = { package = "arrow-data", version="47", optional = true, default-features = false }
@@ -92,6 +96,8 @@ arrow-data-38 = { package = "arrow-data", version="38", optional = true, default
 arrow-data-37 = { package = "arrow-data", version="37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false }}{\n}
+arrow-schema-50 = { package = "arrow-schema", version = "50", optional = true, default-features = false }
+
 arrow-schema-49 = { package = "arrow-schema", version = "49", optional = true, default-features = false }
 arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true, default-features = false }
 arrow-schema-47 = { package = "arrow-schema", version = "47", optional = true, default-features = false }
@@ -118,6 +124,6 @@ rand = "0.8"
 
 # for benchmarks
 # arrow-version:replace: arrow-json-{version} = {{ package = "arrow-json", version = "{version}" }}
-arrow-json-49 = { package = "arrow-json", version = "49" }
+arrow-json-50 = { package = "arrow-json", version = "50" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"
