@@ -7,6 +7,7 @@ arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw
 
 all_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
+    "arrow-50",
     "arrow-49",
     "arrow-48",
     "arrow-47",
@@ -536,7 +537,8 @@ def add_arrow_version(version):
 
                 include_next = True
 
-        p.write_text("\n".join(new_content))
+        with open(p, "wt", newline="\n", encoding="utf-8") as fobj:
+            fobj.write("\n".join(new_content))
 
     format()
 
