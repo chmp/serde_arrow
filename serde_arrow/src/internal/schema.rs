@@ -112,7 +112,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///   fields, named `"key"` of integer type and named `"value"` of string
     ///   type
     ///
-    fn from_value<T: Serialize>(value: &T) -> Result<Self>;
+    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self>;
 
     /// Determine the schema from the given record type. See [`TracingOptions`]
     /// for customization options.
@@ -169,7 +169,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(not(feature = "has_arrow"))]
     /// # fn main() { }
     /// ```
-    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
+    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
 
     /// Determine the schema from the given samples
     ///
@@ -250,7 +250,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(not(feature = "has_arrow"))]
     /// # fn main() { }
     /// ```
-    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self>;
+    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self>;
 }
 
 /// A collection of fields as understood by `serde_arrow`
@@ -286,7 +286,7 @@ impl SerdeArrowSchema {
 impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
-    fn from_value<T: Serialize>(value: &T) -> Result<Self> {
+    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
         // simple version of serde-transcode
         let mut events = Vec::<crate::internal::event::Event>::new();
         crate::internal::sink::serialize_into_sink(&mut events, value)?;
@@ -294,7 +294,7 @@ impl SchemaLike for SerdeArrowSchema {
         Ok(this)
     }
 
-    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromType);
 
         let mut tracer = Tracer::new(String::from("$"), options);
@@ -302,7 +302,7 @@ impl SchemaLike for SerdeArrowSchema {
         tracer.to_schema()
     }
 
-    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
+    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromSamples);
 
         let mut tracer = Tracer::new(String::from("$"), options);
