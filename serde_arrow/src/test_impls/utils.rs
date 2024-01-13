@@ -5,6 +5,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::{
     _impl::{arrow, arrow2},
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+    Result,
 };
 
 #[derive(Default)]
@@ -126,19 +127,27 @@ impl Test {
         self
     }
 
+    pub fn try_serialize_arrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        let fields = self.get_arrow_fields();
+        self.arrays.arrow = Some(crate::to_arrow(&fields, items)?);
+        Ok(())
+    }
+
+    pub fn try_serialize_arrow2<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        let fields = self.get_arrow2_fields();
+        self.arrays.arrow2 = Some(crate::to_arrow2(&fields, items)?);
+        Ok(())
+    }
+
     pub fn serialize<T: Serialize + ?Sized>(mut self, items: &T) -> Self {
         if self.impls.arrow {
-            let fields = self.get_arrow_fields();
-            self.arrays.arrow =
-                Some(crate::to_arrow(&fields, items).expect("Failed arrow serialization"));
-        } 
-
-        if self.impls.arrow2 {
-            let fields = self.get_arrow2_fields();
-            self.arrays.arrow2 =
-                Some(crate::to_arrow2(&fields, items).expect("Failed arrow2 serialization"));
+            self.try_serialize_arrow(items)
+                .expect("Failed arrow serialization");
         }
-
+        if self.impls.arrow2 {
+            self.try_serialize_arrow2(items)
+                .expect("Failed arrow2 serialization");
+        }
         self
     }
 
@@ -147,32 +156,30 @@ impl Test {
         items: &[T],
     ) -> Self {
         if self.impls.arrow {
-
             let fields = self.get_arrow_fields();
             let roundtripped: Vec<T> = crate::from_arrow(
                 &fields,
                 self.arrays
-                .arrow
-                .as_ref()
-                .expect("Deserialization requires known arrow arrays"),
-                )
-                .expect("Failed arrow deserialization");
+                    .arrow
+                    .as_ref()
+                    .expect("Deserialization requires known arrow arrays"),
+            )
+            .expect("Failed arrow deserialization");
             assert_eq!(roundtripped, items);
         }
 
         if self.impls.arrow2 {
-
             let fields = self.get_arrow2_fields();
             let roundtripped: Vec<T> = crate::from_arrow2(
                 &fields,
                 self.arrays
-                .arrow2
-                .as_ref()
-                .expect("Deserialization requires known arrow2 arrays"),
+                    .arrow2
+                    .as_ref()
+                    .expect("Deserialization requires known arrow2 arrays"),
             )
             .expect("Failed arrow2 deserialization");
-        assert_eq!(roundtripped, items);
-    }
+            assert_eq!(roundtripped, items);
+        }
 
         self
     }
@@ -180,35 +187,34 @@ impl Test {
     pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {
         if self.impls.arrow {
             let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
-            panic!("cannot check_nulls without arrays");
-        };
-        let arrow_nulls = arrow_arrays
-            .iter()
-            .map(|arr| {
-                (0..arr.len())
-                    .map(|idx| arr.is_null(idx))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(arrow_nulls, nulls);
+                panic!("cannot check_nulls without arrays");
+            };
+            let arrow_nulls = arrow_arrays
+                .iter()
+                .map(|arr| {
+                    (0..arr.len())
+                        .map(|idx| arr.is_null(idx))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(arrow_nulls, nulls);
         }
 
         if self.impls.arrow2 {
-
             let Some(arrow2_arrays) = self.arrays.arrow2.as_ref() else {
                 panic!("cannot check_nulls without arrays");
             };
             let arrow2_nulls = arrow2_arrays
-            .iter()
-            .map(|arr| {
-                (0..arr.len())
-                .map(|idx| arr.is_null(idx))
-                .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(arrow2_nulls, nulls);
-    }
-        
+                .iter()
+                .map(|arr| {
+                    (0..arr.len())
+                        .map(|idx| arr.is_null(idx))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(arrow2_nulls, nulls);
+        }
+
         self
     }
 

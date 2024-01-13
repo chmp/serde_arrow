@@ -71,7 +71,7 @@ fn rust_decimal_float_repr() {
 }
 
 #[test]
-fn big_decimal() {
+fn bigdecimal() {
     let items = &[
         Item(BigDecimal::from_str("0.20").unwrap()),
         Item(BigDecimal::from_str("0.42").unwrap()),
@@ -86,7 +86,7 @@ fn big_decimal() {
 
 /// Decimals with too many digits are truncated in serialization
 #[test]
-fn big_decimal_truncation() {
+fn bigdecimal_truncation() {
     let items = &[
         Item(BigDecimal::from_str("0.2012").unwrap()),
         Item(BigDecimal::from_str("0.4234").unwrap()),
@@ -99,7 +99,7 @@ fn big_decimal_truncation() {
 }
 
 #[test]
-fn big_negative_scale() {
+fn bigdecimal_negative_scale() {
     let items = &[
         Item(BigDecimal::from_str("1300.00").unwrap()),
         Item(BigDecimal::from_str("4200.00").unwrap()),
@@ -113,4 +113,21 @@ fn big_negative_scale() {
         .also(|it| assert_eq!(get_i128_values(it), &[13, 42]));
 }
 
-// TODO: test too large values (too small precision)
+#[test]
+fn bigdecimal_too_small_precision() {
+    let items = &[
+        Item(BigDecimal::from_str("1.23").unwrap()),
+        Item(BigDecimal::from_str("4.56").unwrap()),
+    ];
+
+    let mut test =
+        Test::new().with_schema(json!([{"name": "item", "data_type": "Decimal128(2, 2)"}]));
+
+    let err = test.try_serialize_arrow(items).expect_err("Expected error");
+    assert!(err.to_string().contains("invalid decimal"));
+
+    let err = test
+        .try_serialize_arrow2(items)
+        .expect_err("Expected error");
+    assert!(err.to_string().contains("invalid decimal"));
+}
