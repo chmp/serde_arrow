@@ -2,7 +2,8 @@
 
 ## 0.9.1
 
-- `Decimal128` support
+- `Decimal128` support: serialize / deserialize
+  [`rust_decimal`](https://crates.io/crates/rust_decimal) objects
 - Relax `Sized` requirement for `SchemaLike::from_samples(..)`,
   `SchemaLike::from_type(..)`, `SchemaLike::from_value(..)`
 - Derive `Debug`, `PartialEq` for `Item` and `Items`
