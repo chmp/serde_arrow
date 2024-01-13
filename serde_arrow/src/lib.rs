@@ -112,6 +112,7 @@
 //! | Arrow Feature | Arrow Version |
 //! |---------------|---------------|
 // arrow-version:insert: //! | `arrow-{version}`    | `arrow={version}`    |
+//! | `arrow-50`    | `arrow=50`    |
 //! | `arrow-49`    | `arrow=49`    |
 //! | `arrow-48`    | `arrow=48`    |
 //! | `arrow-47`    | `arrow=47`    |
@@ -190,6 +191,7 @@ pub mod _impl {
     }
 
     // arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
+#[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_buffer_50, arrow_data_50, arrow_schema_50);
 #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_buffer_49, arrow_data_49, arrow_schema_49);
     #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_buffer_48, arrow_data_48, arrow_schema_48);
     #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_buffer_47, arrow_data_47, arrow_schema_47);

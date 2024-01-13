@@ -5,6 +5,7 @@
 - `Decimal128` support: serialize / deserialize
   [`rust_decimal`](https://crates.io/crates/rust_decimal) and
   [`bigdecimal`](https://crates.io/crates/bigdecimal) objects
+- Add `arrow=50` support
 - Relax `Sized` requirement for `SchemaLike::from_samples(..)`,
   `SchemaLike::from_type(..)`, `SchemaLike::from_value(..)`
 - Derive `Debug`, `PartialEq` for `Item` and `Items`
