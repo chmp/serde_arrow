@@ -542,6 +542,7 @@ def add_arrow_version(version):
             fobj.write("\n".join(new_content))
 
     format()
+    update_workflows()
 
 
 _sh = lambda c, **kw: __import__("subprocess").run(
