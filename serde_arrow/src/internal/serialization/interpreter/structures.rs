@@ -18,7 +18,7 @@ fn struct_end(
         if !context.seen[seen].contains(field_def.index) {
             let null_definition = field_def
                 .null_definition
-                .ok_or_else(|| error!("missing non-nullable field {name} in struct"))?;
+                .ok_or_else(|| error!("missing non-nullable field {name:?} in struct"))?;
             structure.nulls[null_definition].apply(&mut context.buffers)?;
         }
     }

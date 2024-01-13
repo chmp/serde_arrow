@@ -50,7 +50,7 @@ test_generic!(
         };
         assert!(
             err.to_string()
-                .contains("missing non-nullable field b in struct"),
+                .contains("missing non-nullable field \"b\" in struct"),
             "unexpected error: {err}"
         );
     }
