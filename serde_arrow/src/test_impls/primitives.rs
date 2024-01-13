@@ -1,31 +1,46 @@
-use super::macros::test_example;
+use serde_json::json;
 
-test_example!(
-    test_name = null,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Null, true),
-    ty = (),
-    values = [(), (), ()],
+use crate::{schema::TracingOptions, utils::Item};
+
+use super::{macros::test_example, utils::Test};
+
+#[test]
+fn null() {
+    let items = &[Item(()), Item(()), Item(())];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Null", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default().allow_null_fields(true))
+        .trace_schema_from_type::<Item<()>>(TracingOptions::default().allow_null_fields(true))
+        .serialize(items)
+        .deserialize(items);
+
     // NOTE: arrow2 has an incorrect is_null impl for NullArray
     // nulls = [true, true, true],
-);
+}
 
-test_example!(
-    test_name = bool,
-    field = GenericField::new("item", GenericDataType::Bool, false),
-    ty = bool,
-    values = [true, false],
-    nulls = [false, false],
-);
+#[test]
+fn bool() {
+    let items = &[Item(true), Item(false)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Bool"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<bool>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = nullable_bool,
-
-    field = GenericField::new("item", GenericDataType::Bool, true),
-    ty = Option<bool>,
-    values = [Some(true), None, Some(false)],
-    nulls = [false, true, false],
-);
+#[test]
+fn nullable_bool() {
+    let items = &[Item(Some(true)), Item(None), Item(Some(false))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Bool", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<bool>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false]]);
+}
 
 test_example!(
     test_name = u8,

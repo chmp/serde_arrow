@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     _impl::{arrow, arrow2},
@@ -90,6 +90,22 @@ impl Test {
         self
     }
 
+    pub fn trace_schema_from_type<'de, T: Deserialize<'de>>(
+        mut self,
+        options: TracingOptions,
+    ) -> Self {
+        let schema_from_type = SerdeArrowSchema::from_type::<T>(options)
+            .expect("Failed to trace the schema from type");
+
+        if let Some(reference) = self.schema.as_ref() {
+            assert_eq!(schema_from_type, *reference);
+        } else {
+            self.schema = Some(schema_from_type);
+        }
+
+        self
+    }
+
     pub fn serialize<T: Serialize + ?Sized>(mut self, items: &T) -> Self {
         let fields = self.get_arrow_fields();
         self.arrays.arrow =
@@ -127,6 +143,36 @@ impl Test {
         )
         .expect("Failed arrow2 deserialization");
         assert_eq!(roundtripped, items);
+
+        self
+    }
+
+    pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {
+        let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
+            panic!("cannot check_nulls without arrays");
+        };
+        let arrow_nulls = arrow_arrays
+            .iter()
+            .map(|arr| {
+                (0..arr.len())
+                    .map(|idx| arr.is_null(idx))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(arrow_nulls, nulls);
+
+        let Some(arrow2_arrays) = self.arrays.arrow2.as_ref() else {
+            panic!("cannot check_nulls without arrays");
+        };
+        let arrow2_nulls = arrow2_arrays
+            .iter()
+            .map(|arr| {
+                (0..arr.len())
+                    .map(|idx| arr.is_null(idx))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(arrow2_nulls, nulls);
 
         self
     }
