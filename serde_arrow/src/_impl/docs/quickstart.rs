@@ -17,31 +17,37 @@
 //!
 //! For example
 //!
-//! ```ignore
-//! #[derive(Debug, PartialEq, Serialize, Deserialize)]
-//! struct Record {
-//!     val: NaiveDateTime,
-//! }
+//! ```
+//! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+//! # use serde_arrow::_impl::arrow as arrow;
+//! #
+//! use arrow::datatypes::{DataType, Field};
+//! use chrono::NaiveDateTime;
 //!
-//! let records: &[Record] = &[
-//!     Record {
-//!         val: NaiveDateTime::from_timestamp(12 * 60 * 60 * 24, 0),
-//!     },
-//!     Record {
-//!         val: NaiveDateTime::from_timestamp(9 * 60 * 60 * 24, 0),
-//!     },
+//! use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Items};
+//!
+//! let items: &[NaiveDateTime] = &[
+//!     NaiveDateTime::from_timestamp_opt(12 * 60 * 60 * 24, 0).unwrap(),
+//!     // ...
 //! ];
 //!
-//! let mut fields = serialize_into_fields(records, Default::default()).unwrap();
+//! let fields = Vec::<Field>::from_samples(&Items(items), TracingOptions::default())?;
+//! assert_eq!(fields[0].data_type(), &DataType::LargeUtf8);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! The traced field `val` will be of type `Utf8`. To store it as `Date64`
 //! field, modify the data type as in
 //!
-//! ```ignore
-//! *find_field_mut(&mut fields, "val").unwrap() = Field::new(
-//!     "val", DataType::Date64, false,
-//! ).with_metadata(Strategy::NaiveStrAsDate64.into());
+//! ```rust
+//! # use serde_arrow::_impl::arrow as arrow;
+//! #
+//! use arrow::datatypes::{DataType, Field};
+//! use serde_arrow::schema::Strategy;
+//!
+//! let field =  Field::new("item", DataType::Date64, false,)
+//!     .with_metadata(Strategy::NaiveStrAsDate64.into());
 //! ```
 //!
 //! Integer fields containing timestamps in milliseconds since the epoch can be
