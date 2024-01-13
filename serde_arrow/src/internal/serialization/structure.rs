@@ -216,7 +216,7 @@ impl NullDefinition {
 
     pub fn apply(&self, buffers: &mut MutableBuffers) -> Result<()> {
         for &idx in &self.u0 {
-            buffers.u0[idx].push(Default::default());
+            buffers.u0[idx].push(());
         }
         for &idx in &self.u1 {
             buffers.u1[idx].push(Default::default());

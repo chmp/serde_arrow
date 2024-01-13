@@ -351,7 +351,7 @@ fn test_copy_digits() {
     assert_eq!(copy_digits_str("42.00", 4, 2).unwrap(), "4200");
 }
 
-pub fn format_decimal<'b>(buffer: &'b mut [u8], val: i128, scale: i8) -> &'b str {
+pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
     fn write_val(buffer: &mut [u8], val: i128) -> usize {
         use std::io::Write;
 
