@@ -10,8 +10,6 @@
 | [Development](#development)
 | [License](#license)
 
-**Warning:** this package is in an experiment at the moment.
-
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
 from data frames via [Polars][polars] to query engines via
