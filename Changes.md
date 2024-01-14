@@ -6,6 +6,7 @@
   [`rust_decimal`](https://crates.io/crates/rust_decimal) and
   [`bigdecimal`](https://crates.io/crates/bigdecimal) objects
 - Add `arrow=50` support
+- Improved error messages when deserializing `SchemaLike`
 - Relax `Sized` requirement for `SchemaLike::from_samples(..)`,
   `SchemaLike::from_type(..)`, `SchemaLike::from_value(..)`
 - Derive `Debug`, `PartialEq` for `Item` and `Items`
