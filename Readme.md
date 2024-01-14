@@ -5,7 +5,7 @@
 | [Changes](Changes.md)
 | [Example](#example)
 | [Related packages & performance](#related-packages--performance)
-| [How does it work?](serde_arrow/Implementation.md)
+| [[How does it work?]](https://docs.rs/serde_arrow/latest/serde_arrow/_impl/docs/implementation/index.html)
 | [Status](serde_arrow/Status.md)
 | [Development](#development)
 | [License](#license)

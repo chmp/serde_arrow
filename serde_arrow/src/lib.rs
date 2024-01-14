@@ -209,9 +209,7 @@ pub mod _impl {
 
     /// Documentation
     pub mod docs {
-        #[doc = include_str!("../Implementation.md")]
-        #[cfg(not(doctest))]
-        pub mod implementation {}
+        pub mod implementation;
 
         pub mod quickstart;
 
@@ -222,7 +220,11 @@ pub mod _impl {
 
     // Reexport for tests
     #[doc(hidden)]
-    pub use crate::internal::error::PanicOnError;
+    pub use crate::internal::{
+        error::PanicOnError,
+        event::Event,
+        sink::serialize_into_sink,
+    };
 }
 
 #[cfg(all(test, has_arrow, has_arrow2))]

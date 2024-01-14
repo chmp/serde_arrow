@@ -9,65 +9,81 @@
 //! 5. [Convert from arrow2 to arrow
 //!    arrays](#convert-from-arrow2-to-arrow-arrays)
 //!
+//! The following examples all assume the following items to be in scope:
+//!
+//! ```rust
+//! # #[cfg(has_arrow)]
+//! # fn main() {
+//! # use serde_arrow::_impl::arrow as arrow;
+//! use arrow::datatypes::{DataType, Field};
+//! use serde_arrow::{
+//!     schema::{SchemaLike, Strategy, TracingOptions},
+//!     utils::{Item, Items},
+//! };
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
+//! ```
+//!
 //! ## Working with date time objects
 //!
 //! When using `chrono`'s `DateTime<Utc>` or  `NaiveDateTime`, the values are
 //! per default encoded as strings. To stores them as  `Date64` columns, the
 //! data type has to be modified.
 //!
-//! For example
+//! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime]
+//! objects. The traced field `val` will be of type `Utf8`.
 //!
-//! ```
+//! ```rust
+//! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-//! # use serde_arrow::_impl::arrow as arrow;
-//! #
-//! use arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
 //! use chrono::NaiveDateTime;
 //!
-//! use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Items};
-//!
-//! let items: &[NaiveDateTime] = &[
-//!     NaiveDateTime::from_timestamp_opt(12 * 60 * 60 * 24, 0).unwrap(),
+//! let items: &[Item<NaiveDateTime>] = &[
+//!     Item(NaiveDateTime::from_timestamp_opt(12 * 60 * 60 * 24, 0).unwrap()),
 //!     // ...
 //! ];
 //!
-//! let fields = Vec::<Field>::from_samples(&Items(items), TracingOptions::default())?;
+//! let fields = Vec::<Field>::from_samples(items, TracingOptions::default())?;
 //! assert_eq!(fields[0].data_type(), &DataType::LargeUtf8);
 //! # Ok(())
 //! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! The traced field `val` will be of type `Utf8`. To store it as `Date64`
-//! field, modify the data type as in
+//! To store it as `Date64` field, modify the data type as in
 //!
 //! ```rust
-//! # use serde_arrow::_impl::arrow as arrow;
-//! #
-//! use arrow::datatypes::{DataType, Field};
-//! use serde_arrow::schema::Strategy;
-//!
-//! let field =  Field::new("item", DataType::Date64, false,)
+//! # #[cfg(has_arrow)]
+//! # fn main() {
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::schema::Strategy;
+//! # let mut fields = vec![Field::new("dummy", DataType::Null, true)];
+//! fields[0] =  Field::new("item", DataType::Date64, false,)
 //!     .with_metadata(Strategy::NaiveStrAsDate64.into());
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
 //! Integer fields containing timestamps in milliseconds since the epoch can be
-//! directly stored as `Date64`:
+//! directly stored as `Date64` without any configuration:
 //!
-//! ```ignore
-//! #[derive(Debug, PartialEq, Serialize, Deserialize)]
-//! struct Record {
-//!     timestamp: i64,
-//! }
-//!
-//! let records: &[Record] = &[
-//!     Record { timestamp: 12 * 60 * 60 * 24 * 1000 },
-//!     Record { timestamp: 9 * 60 * 60 * 24 * 1000 },
+//! ```rust
+//! # #[cfg(has_arrow)]
+//! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::utils::Item;
+//! let records: &[Item<i64>] = &[
+//!     Item(12 * 60 * 60 * 24 * 1000),
+//!     Item(9 * 60 * 60 * 24 * 1000),
 //! ];
 //!
-//! let mut fields = serialize_into_fields(records, Default::default()).unwrap();
-//! find_field_mut(&mut fields, "timestmap").unwrap() = Field::new(
-//!     "timestamp", DataType::Date64, false,
-//! );
+//! let fields = vec![Field::new("item", DataType::Date64, false)];
+//! let arrays = serde_arrow::to_arrow(&fields, records)?;
+//! # Ok(())
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
 //! ## Decimals
@@ -75,28 +91,28 @@
 //! To serialize decimals, use the `Decimal128(precision, scale)` data type:
 //!
 //! ```rust
+//! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-//! # use serde_arrow::_impl::arrow as arrow;
+//! # use serde_arrow::_impl::arrow::datatypes::Field;
+//! # use serde_arrow::{schema::SchemaLike, utils::Item};
 //! use std::str::FromStr;
 //!
-//! use arrow::datatypes::Field;
 //! use bigdecimal::BigDecimal;
 //! use serde_json::json;
 //!
-//! use serde_arrow::{schema::SchemaLike, utils::Items};
-//!
-//! let items = [
-//!     BigDecimal::from_str("1.23").unwrap(),
-//!     BigDecimal::from_str("4.56").unwrap(),
+//! let items = &[
+//!     Item(BigDecimal::from_str("1.23").unwrap()),
+//!     Item(BigDecimal::from_str("4.56").unwrap()),
 //! ];
 //!
 //! let fields = Vec::<Field>::from_value(&json!([
 //!     {"name": "item", "data_type": "Decimal128(5, 2)"},
 //! ]))?;
 //!
-//! let arrays = serde_arrow::to_arrow(&fields, &Items(&items))?;
+//! let arrays = serde_arrow::to_arrow(&fields, items)?;
 //! # Ok(())
 //! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
 //! ## Dictionary encoding for strings
@@ -107,25 +123,37 @@
 //!
 //! For an existing field this can be done via:
 //!
-//! ```ignore
-//! field.data_type = DataType::Dictionary(
+//! ```rust
+//! # #[cfg(has_arrow)]
+//! # fn main() {
+//! # use serde_arrow::_impl::arrow::datatypes::{Field, DataType};
+//! let data_type = DataType::Dictionary(
 //!     // the integer type used for the keys
-//!     IntegerType::UInt32,
+//!     Box::new(DataType::UInt32),
 //!     // the data type of the values
 //!     Box::new(DataType::Utf8),
-//!     // serde_arrow does not support sorted dictionaries
-//!     false,
 //! );
+//! let field = Field::new("item", data_type, false);
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
 //! To dictionary encode all string fields, set the `string_dictionary_encoding`
 //! of `TracingOptions`, when tracing the fields:
 //!
-//! ```ignore
-//! let fields = serialize_into_fields(
-//!     &items,
+//! ```rust
+//! # #[cfg(has_arrow)]
+//! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+//! # use serde_arrow::_impl::arrow::datatypes::Field;
+//! # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
+//! let items = &[Item("foo"), Item("bar")];
+//! let fields = Vec::<Field>::from_samples(
+//!     items,
 //!     TracingOptions::default().string_dictionary_encoding(true),
 //! )?;
+//! # Ok(())
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
 //! ## Working with enums
@@ -139,7 +167,7 @@
 //!
 //! For example:
 //!
-//! ```ignore
+//! ```rust
 //! enum MyEnum {
 //!     VariantWithoutData,
 //!     Pair(u32, u32),
