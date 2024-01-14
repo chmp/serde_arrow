@@ -313,14 +313,18 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
         _fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        if !matches!(self.source.next()?, Some(Event::StartStruct)) {
-            fail!("Expected start of struct");
+        match self.source.next()? {
+            Some(Event::StartMap) | Some(Event::StartStruct) => {}
+            Some(ev) => fail!("Expected StartStruct, got Some({ev})"),
+            None => fail!("Expected StartStruct, got None"),
         }
 
         let res = visitor.visit_map(&mut *self)?;
 
-        if !matches!(self.source.next()?, Some(Event::EndStruct)) {
-            fail!("Expected end of struct");
+        match self.source.next()? {
+            Some(Event::EndMap) | Some(Event::EndStruct) => {}
+            Some(ev) => fail!("Expected EndStruct, got Some({ev})"),
+            None => fail!("Expected EndStruct, got None"),
         }
         Ok(res)
     }
