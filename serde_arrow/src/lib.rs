@@ -28,18 +28,23 @@
     doc = r#"
 ## Overview
 
-| Operation        | `arrow` |  `arrow2` |
+| Operation        | [`arrow-*`](#features) | [`arrow2-*`](#features) |
 |------------------|------------------|-------------------|
-| Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
-| | | |
 | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
 | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
 | Array Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
-| | | |
-| Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
-| Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
 "#
 )]
+//!
+//! See also:
+//!
+//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
+//!   to use this package
+//! - the [implementation notes][_impl::docs::implementation] for an explanation
+//!   of how this package works and its underlying data model
+//! - the [status summary][_impl::docs::status] for an overview over the
+//!   supported Arrow and Rust constructs
+//!
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
@@ -87,20 +92,11 @@
 //! )?;
 //! ```
 //!
-//! See also:
-//!
-//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
-//!   to use this package
-//! - the [implementation notes][_impl::docs::implementation] for an explanation
-//!   of how this package works and its underlying data model
-//! - the [status summary][_impl::docs::status] for an overview over the
-//!   supported Arrow and Rust constructs
-//!
 //! # Features:
 //!
-//! Which version of `arrow` or `arrow2` is used can be selected via features.
-//! Per default no arrow implementation is used. In that case only the base
-//! features of `serde_arrow` are available.
+//! The version of `arrow` or `arrow2` used can be selected via features. Per
+//! default no arrow implementation is used. In that case only the base features
+//! of `serde_arrow` are available.
 //!
 //! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
 //! I.e., it is possible to use `arrow` and `arrow2` together. Within each group

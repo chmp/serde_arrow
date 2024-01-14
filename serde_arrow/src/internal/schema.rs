@@ -28,8 +28,8 @@ pub trait Sealed {}
 /// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of the
 ///    data
 ///
-/// The following types implement [`SchemaLike`] and can be constructed in this
-/// way:
+/// The following types implement [`SchemaLike`] and can be constructed with the
+/// methods mentioned above:
 ///
 /// - [`SerdeArrowSchema`]
 #[cfg_attr(
@@ -64,7 +64,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
-    /// `SerdeArrowSchema` can also be directly serialized and deserialized.
+    /// Instances of `SerdeArrowSchema` can also be directly serialized and
+    /// deserialized.
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -141,9 +142,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
-    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
-    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// assert_eq!(fields[0].data_type(), &DataType::Int32);
+    /// assert_eq!(fields[1].data_type(), &DataType::Float64);
+    /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
@@ -163,7 +164,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_type::<Item<f32>>(TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
@@ -171,7 +172,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// ```
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
 
-    /// Determine the schema from the given samples
+    /// Determine the schema from samples. See [`TracingOptions`] for
+    /// customization options.
     ///
     ///
     /// This approach requires the type `T` to implement
@@ -184,9 +186,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - at least one element for sequence fields (e.g., `Vec<..>`)
     /// - at least one example for map types (e.g., `HashMap<.., ..>`). All
     ///   possible keys must be given, if [`options.map_as_struct ==
-    ///   true`][TracingOptions::map_as_struct])
-    ///
-    /// See [`TracingOptions`] for customization options.
+    ///   true`][TracingOptions::map_as_struct]).
     ///
     /// ```rust
     /// # #[cfg(feature = "has_arrow")]
@@ -219,9 +219,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_samples(&samples, TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
-    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
-    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// assert_eq!(fields[0].data_type(), &DataType::Int32);
+    /// assert_eq!(fields[1].data_type(), &DataType::Float64);
+    /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
@@ -244,7 +244,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///     TracingOptions::default(),
     /// )?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]

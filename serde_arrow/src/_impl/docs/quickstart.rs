@@ -9,7 +9,7 @@
 //! 5. [Convert from arrow2 to arrow
 //!    arrays](#convert-from-arrow2-to-arrow-arrays)
 //!
-//! The following examples all assume the following items to be in scope:
+//! The examples assume the following items to be in scope:
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
@@ -60,7 +60,7 @@
 //! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
 //! # use serde_arrow::schema::Strategy;
 //! # let mut fields = vec![Field::new("dummy", DataType::Null, true)];
-//! fields[0] =  Field::new("item", DataType::Date64, false,)
+//! fields[0] = Field::new("item", DataType::Date64, false)
 //!     .with_metadata(Strategy::NaiveStrAsDate64.into());
 //! # }
 //! # #[cfg(not(has_arrow))] fn main() { }
@@ -159,11 +159,12 @@
 //! ## Working with enums
 //!
 //! Rust enums correspond to arrow's union types and are supported by
-//! `serde_arrow`. Both enums with fields and without are supported. Variants
+//! `serde_arrow`. Both enums with and without fields are supported. Variants
 //! without fields are mapped to null arrays. Only variants that are included in
-//! the union field can be serialized or deserialized and the variants must have
-//! the correct index. When using `serialize_to_fields` these requirements will
-//! automatically be met.
+//! schema can be serialized or deserialized and the variants must have the
+//! correct index. When using
+//! [`SchemaLike::from_type`][crate::schema::SchemaLike::from_type] these
+//! requirements will automatically be met.
 //!
 //! For example:
 //!
@@ -188,16 +189,15 @@
 //!
 //! ## Convert from arrow2 to arrow arrays
 //!
-//! Both `arrow` and `arrow2` use the Arrow memory format. Thanks to this fact,
-//! it is possible to convert arrays between both packages with minimal work
-//! using their respective FFI interfaces:
+//! Both `arrow` and `arrow2` use the Arrow memory format. Hence, it is possible
+//! to convert arrays between both packages with minimal work using their
+//! respective FFI interfaces:
 //!
 //! - [`arrow2::ffi::export_field_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
 //! - [`arrow2::ffi_export_array_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
 //! - [`arrow::ffi::ArrowArray::new`](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
 //!
-//! The arrow2 crate includes [a helper trait][arrow2-arrow2arrow] to perform
-//! this conversion when used with the `arrow` feature.
+//! The arrow2 crate includes [a helper
+//! trait](https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html) to
+//! perform this conversion when used with the `arrow` feature.
 //!
-//! [arrow2-arrow2arrow]:
-//!     https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html
