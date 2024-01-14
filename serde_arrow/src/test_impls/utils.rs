@@ -128,14 +128,30 @@ impl Test {
     }
 
     pub fn try_serialize_arrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        let fields = self.get_arrow_fields();
+        let fields = self.get_arrow_fields().to_vec();
         self.arrays.arrow = Some(crate::to_arrow(&fields, items)?);
+
+        let mut builder = crate::ArrowBuilder::new(&fields)?;
+        builder.extend(items)?;
+        let arrays = builder.build_arrays()?;
+        assert_eq!(self.arrays.arrow, Some(arrays));
+
+        // TODO: test push
+
         Ok(())
     }
 
     pub fn try_serialize_arrow2<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        let fields = self.get_arrow2_fields();
+        let fields = self.get_arrow2_fields().to_vec();
         self.arrays.arrow2 = Some(crate::to_arrow2(&fields, items)?);
+
+        let mut builder = crate::Arrow2Builder::new(&fields)?;
+        builder.extend(items)?;
+        let arrays = builder.build_arrays()?;
+        assert_eq!(self.arrays.arrow2, Some(arrays));
+
+        // TODO: test push
+
         Ok(())
     }
 

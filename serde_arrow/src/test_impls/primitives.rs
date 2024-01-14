@@ -42,149 +42,255 @@ fn nullable_bool() {
         .check_nulls(&[&[false, true, false]]);
 }
 
-test_example!(
-    test_name = u8,
-    field = GenericField::new("item", GenericDataType::U8, false),
-    ty = u8,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn u8() {
+    let items: &[Item<u8>] = &[Item(1), Item(2), Item(3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U8"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<u8>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_u8,
+#[test]
+fn nullable_u8() {
+    let items: &[Item<Option<u8>>] = &[Item(Some(1)), Item(None), Item(Some(3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U8", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<u8>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::U8, true),
-    ty = Option<u8>,
-    values = [Some(1), None, Some(3), Some(4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn u16() {
+    let items: &[Item<u16>] = &[Item(1), Item(2), Item(3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U16"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<u16>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = u16,
-    field = GenericField::new("item", GenericDataType::U16, false),
-    ty = u16,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn nullable_u16() {
+    let items: &[Item<Option<u16>>] = &[Item(Some(1)), Item(None), Item(Some(3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U16", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<u16>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_u16,
+#[test]
+fn u32() {
+    let items: &[Item<u32>] = &[Item(1), Item(2), Item(3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U32"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<u32>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::U16, true),
-    ty = Option<u16>,
-    values = [Some(1), None, Some(3), Some(4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn nullable_u32() {
+    let items: &[Item<Option<u32>>] = &[Item(Some(1)), Item(None), Item(Some(3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U32", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<u32>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = u32,
-    field = GenericField::new("item", GenericDataType::U32, false),
-    ty = u32,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn u64() {
+    let items: &[Item<u64>] = &[Item(1), Item(2), Item(3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U64"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<u64>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_u32,
+#[test]
+fn nullable_u64() {
+    let items: &[Item<Option<u64>>] = &[Item(Some(1)), Item(None), Item(Some(3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "U64", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<u64>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::U32, true),
-    ty = Option<u32>,
-    values = [Some(1), None, Some(3), Some(4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn i8() {
+    let items: &[Item<i8>] = &[Item(-1), Item(2), Item(-3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I8"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<i8>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = u64,
-    field = GenericField::new("item", GenericDataType::U64, false),
-    ty = u64,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn nullable_i8() {
+    let items: &[Item<Option<i8>>] = &[Item(Some(-1)), Item(None), Item(Some(-3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I8", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<i8>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_u64,
+#[test]
+fn i16() {
+    let items: &[Item<i16>] = &[Item(-1), Item(2), Item(-3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I16"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<i16>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::U64, true),
-    ty = Option<u64>,
-    values = [Some(1), None, Some(3), Some(4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn nullable_i16() {
+    let items: &[Item<Option<i16>>] = &[Item(Some(-1)), Item(None), Item(Some(-3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I16", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<i16>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = i8,
-    field = GenericField::new("item", GenericDataType::I8, false),
-    ty = i8,
-    values = [-1, 2, -3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn i32() {
+    let items: &[Item<i32>] = &[Item(-1), Item(2), Item(-3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I32"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<i32>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_i8,
+#[test]
+fn nullable_i32() {
+    let items: &[Item<Option<i32>>] = &[Item(Some(-1)), Item(None), Item(Some(-3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I32", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<i32>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::I8, true),
-    ty = Option<i8>,
-    values = [Some(-1), None, Some(3), Some(-4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn i64() {
+    let items: &[Item<i64>] = &[Item(-1), Item(2), Item(-3), Item(4)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I64"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<i64>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = i16,
-    field = GenericField::new("item", GenericDataType::I16, false),
-    ty = i16,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn nullable_i64() {
+    let items: &[Item<Option<i64>>] = &[Item(Some(-1)), Item(None), Item(Some(-3)), Item(Some(4))];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "I64", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<i64>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_i16,
+#[test]
+fn f32() {
+    let items: &[Item<f32>] = &[Item(-1.0), Item(2.0), Item(-3.0), Item(4.0)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F32"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<f32>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-    field = GenericField::new("item", GenericDataType::I16, true),
-    ty = Option<i16>,
-    values = [Some(-1), None, Some(3), Some(-4)],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn nullable_f32() {
+    let items: &[Item<Option<f32>>] = &[
+        Item(Some(-1.0)),
+        Item(None),
+        Item(Some(-3.0)),
+        Item(Some(4.0)),
+    ];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F32", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<f32>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
-test_example!(
-    test_name = i32,
-    field = GenericField::new("item", GenericDataType::I32, false),
-    ty = i32,
-    values = [-1, 2, -3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn f64() {
+    let items: &[Item<f64>] = &[Item(-1.0), Item(2.0), Item(-3.0), Item(4.0)];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F64"}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<f64>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
 
-test_example!(
-    test_name = nullable_i32,
-
-    field = GenericField::new("item", GenericDataType::I32, true),
-    ty = Option<i32>,
-    values = [Some(-1), None, Some(3), Some(-4)],
-    nulls = [false, true, false, false],
-);
-
-test_example!(
-    test_name = i64,
-    field = GenericField::new("item", GenericDataType::I64, false),
-    ty = i64,
-    values = [-1, 2, -3, 4],
-    nulls = [false, false, false, false],
-);
-
-test_example!(
-    test_name = nullable_i64,
-
-    field = GenericField::new("item", GenericDataType::I64, true),
-    ty = Option<i64>,
-    values = [Some(-1), None, Some(3), Some(-4)],
-    nulls = [false, true, false, false],
-);
-
-test_example!(
-    test_name = f32,
-    field = GenericField::new("item", GenericDataType::F32, false),
-    ty = f32,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn nullable_f64() {
+    let items: &[Item<Option<f64>>] = &[
+        Item(Some(-1.0)),
+        Item(None),
+        Item(Some(-3.0)),
+        Item(Some(4.0)),
+    ];
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F64", "nullable": true}]))
+        .trace_schema_from_samples(items, TracingOptions::default())
+        .trace_schema_from_type::<Item<Option<f64>>>(TracingOptions::default())
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, true, false, false]]);
+}
 
 test_example!(
     test_name = f32_from_f64,
@@ -193,32 +299,6 @@ test_example!(
     ty = f64,
     values = [-1.0, 2.0, -3.0, 4.0],
     nulls = [false, false, false, false],
-);
-
-test_example!(
-    test_name = nullable_f32,
-
-    field = GenericField::new("item", GenericDataType::F32, true),
-    ty = Option<f32>,
-    values = [Some(-1.0), None, Some(3.0), Some(-4.0)],
-    nulls = [false, true, false, false],
-);
-
-test_example!(
-    test_name = f64,
-    field = GenericField::new("item", GenericDataType::F64, false),
-    ty = f64,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
-
-test_example!(
-    test_name = nullable_f64,
-
-    field = GenericField::new("item", GenericDataType::F64, true),
-    ty = Option<f64>,
-    values = [Some(-1.0), None, Some(3.0), Some(-4.0)],
-    nulls = [false, true, false, false],
 );
 
 test_example!(
