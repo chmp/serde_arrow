@@ -28,18 +28,23 @@
     doc = r#"
 ## Overview
 
-| Operation        | `arrow` |  `arrow2` |
+| Operation        | [`arrow-*`](#features) | [`arrow2-*`](#features) |
 |------------------|------------------|-------------------|
-| Required features | [`arrow-*`](#features) | [`arrow2-*`](#features) |
-| | | |
 | Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
 | Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
 | Array Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
-| | | |
-| Fields to Schema |  [`SerdeArrowSchema::from_arrow_fields`][schema::SerdeArrowSchema::from_arrow_fields] | [`SerdeArrowSchema::form_arrow2_fields`][schema::SerdeArrowSchema::from_arrow2_fields]  |
-| Schema to fields | [`schema.to_arrow_fields()`][schema::SerdeArrowSchema::to_arrow_fields] | [`schema.to_arrow2_fields()`][schema::SerdeArrowSchema::to_arrow2_fields] |
 "#
 )]
+//!
+//! See also:
+//!
+//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
+//!   to use this package
+//! - the [implementation notes][_impl::docs::implementation] for an explanation
+//!   of how this package works and its underlying data model
+//! - the [status summary][_impl::docs::status] for an overview over the
+//!   supported Arrow and Rust constructs
+//!
 //! ## Example
 //!
 //! Requires one of `arrow2` feature (see below).
@@ -87,20 +92,11 @@
 //! )?;
 //! ```
 //!
-//! See also:
-//!
-//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
-//!   to use this package
-//! - the [implementation notes][_impl::docs::implementation] for an explanation
-//!   of how this package works and its underlying data model
-//! - the [status summary][_impl::docs::status] for an overview over the
-//!   supported Arrow and Rust constructs
-//!
 //! # Features:
 //!
-//! Which version of `arrow` or `arrow2` is used can be selected via features.
-//! Per default no arrow implementation is used. In that case only the base
-//! features of `serde_arrow` are available.
+//! The version of `arrow` or `arrow2` used can be selected via features. Per
+//! default no arrow implementation is used. In that case only the base features
+//! of `serde_arrow` are available.
 //!
 //! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
 //! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
@@ -141,17 +137,13 @@ mod internal;
 ///
 #[rustfmt::skip]
 pub mod _impl {
-    #[allow(unused)]
-    macro_rules! build_arrow2_crate {
-        ($arrow2:ident) => {
-            /// Re-export the used arrow2 crate
-            #[doc(hidden)]
-            pub use $arrow2 as arrow2;
-        };
-    }
 
-    #[cfg(has_arrow2_0_17)] build_arrow2_crate!(arrow2_0_17);
-    #[cfg(has_arrow2_0_16)] build_arrow2_crate!(arrow2_0_16);
+    #[cfg(has_arrow2_0_17)]
+    #[doc(hidden)]
+    pub use arrow2_0_17 as arrow2;
+
+    #[cfg(has_arrow2_0_16)]
+    pub use arrow2_0_16 as arrow2;
 
     #[allow(unused)]
     macro_rules! build_arrow_crate {
@@ -180,7 +172,7 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        ArrowPrimitiveType, Date64Type, Float16Type, Float32Type, Float64Type,
+                        ArrowPrimitiveType, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
                         Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type,
                         UInt64Type, UInt8Type,
                     };
@@ -213,13 +205,9 @@ pub mod _impl {
 
     /// Documentation
     pub mod docs {
-        #[doc = include_str!("../Implementation.md")]
-        #[cfg(not(doctest))]
-        pub mod implementation {}
+        pub mod implementation;
 
-        #[doc = include_str!("../Quickstart.md")]
-        #[cfg(not(doctest))]
-        pub mod quickstart {}
+        pub mod quickstart;
 
         #[doc = include_str!("../Status.md")]
         #[cfg(not(doctest))]
@@ -228,7 +216,11 @@ pub mod _impl {
 
     // Reexport for tests
     #[doc(hidden)]
-    pub use crate::internal::error::PanicOnError;
+    pub use crate::internal::{
+        error::PanicOnError,
+        event::Event,
+        sink::serialize_into_sink,
+    };
 }
 
 #[cfg(all(test, has_arrow, has_arrow2))]

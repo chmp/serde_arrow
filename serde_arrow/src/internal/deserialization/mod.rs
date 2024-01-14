@@ -4,6 +4,7 @@ use crate::{
     internal::{
         error::{error, fail, Result},
         event::Event,
+        schema::GenericDataType,
         source::EventSource,
     },
     schema::Strategy,
@@ -12,6 +13,7 @@ use crate::{
 use super::{
     common::{define_bytecode, ArrayMapping, Buffers, DictionaryIndex, DictionaryValue},
     config::CONFIGURATION,
+    decimal,
 };
 
 use half::f16;
@@ -254,6 +256,18 @@ impl<'a> Compiler<'a> {
                 buffer,
                 position,
             }),
+            M::Decimal128 { field, buffer, .. } => {
+                let scale = match &field.data_type {
+                    GenericDataType::Decimal128(_, scale) => *scale,
+                    _ => fail!("inconsistent state for Decimal128 in compile_deserialzation"),
+                };
+                self.push_instr(EmitDecimal128 {
+                    next: NEXT_INSTR,
+                    buffer: *buffer,
+                    position,
+                    scale,
+                })
+            }
             &M::Utf8 {
                 buffer, offsets, ..
             } => self.push_instr(EmitStr32 {
@@ -837,6 +851,11 @@ define_bytecode!{
         position: usize,
         buffer: usize,
         offsets: usize,
+    },
+    EmitDecimal128 {
+        position: usize,
+        buffer: usize,
+        scale: i8,
     },
     EmitDate64NaiveStr {
         position: usize,
@@ -1644,6 +1663,28 @@ impl Instruction for EmitStr64 {
         let end = usize::try_from(buffers.get_i64(self.offsets)[pos + 1])?;
         let s = std::str::from_utf8(&buffers.u8[self.buffer][start..end])?;
         Ok((self.next, Some(Event::Str(s))))
+    }
+
+    fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {
+        self.next = get_target_update(redirects, self.next);
+        Ok(())
+    }
+}
+
+impl Instruction for EmitDecimal128 {
+    fn emit<'a>(
+        &self,
+        positions: &mut [usize],
+        buffers: &Buffers<'a>,
+    ) -> Result<(usize, Option<Event<'a>>)> {
+        let val =
+            i128::from_ne_bytes(buffers.u128[self.buffer][positions[self.position]].to_ne_bytes());
+        positions[self.position] += 1;
+
+        let mut buffer = [0; decimal::BUFFER_SIZE_I128];
+        let ev = Event::OwnedStr(decimal::format_decimal(&mut buffer, val, self.scale).to_owned());
+
+        Ok((self.next, Some(ev)))
     }
 
     fn update_targets(&mut self, redirects: &HashMap<usize, usize>) -> Result<()> {

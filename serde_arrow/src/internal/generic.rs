@@ -90,6 +90,7 @@ where
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug, PartialEq)]
 pub struct Items<T>(
     /// The wrapped object
     pub T,
@@ -111,6 +112,7 @@ pub struct Items<T>(
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug, PartialEq)]
 pub struct Item<T>(
     /// The wrapped object
     pub T,

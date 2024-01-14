@@ -2,7 +2,6 @@ use super::macros::test_example;
 
 test_example!(
     test_name = tuple_u64_bool,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
@@ -14,7 +13,6 @@ test_example!(
 
 test_example!(
     test_name = tuple_struct_u64_bool,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
@@ -30,7 +28,7 @@ test_example!(
 
 test_example!(
     test_name = nullbale_tuple_u64_bool,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::Struct, true)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
@@ -42,7 +40,7 @@ test_example!(
 
 test_example!(
     test_name = tuple_nullable_u64,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, true)),
@@ -53,7 +51,6 @@ test_example!(
 
 test_example!(
     test_name = tuple_nested,
-    test_bytecode_deserialization = true,
     field = GenericField::new("item", GenericDataType::Struct, false)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(
@@ -68,7 +65,7 @@ test_example!(
 
 test_example!(
     test_name = tuple_nullable,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::Struct, true)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::Bool, false))
@@ -83,7 +80,7 @@ test_example!(
 
 test_example!(
     test_name = tuple_nullable_nested,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::Struct, true)
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::Struct, false)

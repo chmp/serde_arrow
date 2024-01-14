@@ -61,17 +61,17 @@ impl Sealed for Vec<Field> {}
 /// Schema support for `Vec<arrow::datatype::Field>` (*requires one of the
 /// `arrow-*` features*)
 impl SchemaLike for Vec<Field> {
-    fn from_value<T: serde::Serialize>(value: &T) -> Result<Self> {
+    fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
         SerdeArrowSchema::from_value(value)?.to_arrow_fields()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de>>(
+    fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.to_arrow_fields()
     }
 
-    fn from_samples<T: serde::Serialize>(
+    fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
@@ -100,6 +100,9 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Utf8 => Ok(GenericDataType::Utf8),
             DataType::LargeUtf8 => Ok(GenericDataType::LargeUtf8),
             DataType::Date64 => Ok(GenericDataType::Date64),
+            DataType::Decimal128(precision, scale) => {
+                Ok(GenericDataType::Decimal128(*precision, *scale))
+            }
             DataType::Timestamp(TimeUnit::Second, tz) => Ok(GenericDataType::Timestamp(
                 GenericTimeUnit::Second,
                 tz.as_ref().map(|s| s.to_string()),
@@ -209,6 +212,9 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
             GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Decimal128(precision, scale) => {
+                DataType::Decimal128(*precision, *scale)
+            }
             GenericDataType::Utf8 => DataType::Utf8,
             GenericDataType::LargeUtf8 => DataType::LargeUtf8,
             GenericDataType::List => DataType::List(

@@ -7,115 +7,115 @@ use crate::internal::{
 use super::super::bytecode::{
     dispatch_bytecode, Bytecode, OptionMarker, Panic, ProgramEnd, UnionEnd, Variant,
 };
-use super::{Instruction, MutableBuffers};
+use super::{Instruction, SerializationContext};
 
 impl Instruction for Panic {
     const NAME: &'static str = "Panic";
     const EXPECTED: &'static [&'static str] = &[];
 
-    fn accept_start_sequence(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_start_sequence(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_end_sequence(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_end_sequence(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_start_tuple(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_start_tuple(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_end_tuple(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_end_tuple(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_start_struct(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_start_struct(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_end_struct(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_end_struct(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_start_map(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_start_map(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_end_map(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_end_map(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_item(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_item(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_some(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_some(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_default(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_default(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
     fn accept_variant(
         &self,
         _: &Structure,
-        _: &mut MutableBuffers,
+        _: &mut SerializationContext,
         _: &str,
         _: usize,
     ) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_null(&self, _: &Structure, _: &mut MutableBuffers) -> Result<usize> {
+    fn accept_null(&self, _: &Structure, _: &mut SerializationContext) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_bool(&self, _: &Structure, _: &mut MutableBuffers, _: bool) -> Result<usize> {
+    fn accept_bool(&self, _: &Structure, _: &mut SerializationContext, _: bool) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_u8(&self, _: &Structure, _: &mut MutableBuffers, _: u8) -> Result<usize> {
+    fn accept_u8(&self, _: &Structure, _: &mut SerializationContext, _: u8) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_u16(&self, _: &Structure, _: &mut MutableBuffers, _: u16) -> Result<usize> {
+    fn accept_u16(&self, _: &Structure, _: &mut SerializationContext, _: u16) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_u32(&self, _: &Structure, _: &mut MutableBuffers, _: u32) -> Result<usize> {
+    fn accept_u32(&self, _: &Structure, _: &mut SerializationContext, _: u32) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_u64(&self, _: &Structure, _: &mut MutableBuffers, _: u64) -> Result<usize> {
+    fn accept_u64(&self, _: &Structure, _: &mut SerializationContext, _: u64) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_i8(&self, _: &Structure, _: &mut MutableBuffers, _: i8) -> Result<usize> {
+    fn accept_i8(&self, _: &Structure, _: &mut SerializationContext, _: i8) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_i16(&self, _: &Structure, _: &mut MutableBuffers, _: i16) -> Result<usize> {
+    fn accept_i16(&self, _: &Structure, _: &mut SerializationContext, _: i16) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_i32(&self, _: &Structure, _: &mut MutableBuffers, _: i32) -> Result<usize> {
+    fn accept_i32(&self, _: &Structure, _: &mut SerializationContext, _: i32) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_i64(&self, _: &Structure, _: &mut MutableBuffers, _: i64) -> Result<usize> {
+    fn accept_i64(&self, _: &Structure, _: &mut SerializationContext, _: i64) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_f32(&self, _: &Structure, _: &mut MutableBuffers, _: f32) -> Result<usize> {
+    fn accept_f32(&self, _: &Structure, _: &mut SerializationContext, _: f32) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_f64(&self, _: &Structure, _: &mut MutableBuffers, _: f64) -> Result<usize> {
+    fn accept_f64(&self, _: &Structure, _: &mut SerializationContext, _: f64) -> Result<usize> {
         fail!("{}", self.message);
     }
 
-    fn accept_str(&self, _: &Structure, _: &mut MutableBuffers, _: &str) -> Result<usize> {
+    fn accept_str(&self, _: &Structure, _: &mut SerializationContext, _: &str) -> Result<usize> {
         fail!("{}", self.message);
     }
 }
@@ -127,9 +127,9 @@ impl Instruction for ProgramEnd {
 
 macro_rules! option_marker_handle {
     ($name:ident$(, $($val:ident: $ty:ty),*)?) => {
-        fn $name(&self, structure: &Structure, buffers: &mut MutableBuffers $(, $($val: $ty),*)?) -> Result<usize> {
-            buffers.u1[self.validity].push(true);
-            dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, buffers $(, $($val),*)?))
+        fn $name(&self, structure: &Structure, context: &mut SerializationContext $(, $($val: $ty),*)?) -> Result<usize> {
+            context.buffers.u1[self.validity].push(true);
+            dispatch_bytecode!(&structure.program[self.next], instr => instr.$name(structure, context $(, $($val),*)?))
         }
     };
 }
@@ -169,12 +169,20 @@ impl Instruction for OptionMarker {
         "Str",
     ];
 
-    fn accept_some(&self, _structure: &Structure, _buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_some(
+        &self,
+        _structure: &Structure,
+        _buffers: &mut SerializationContext,
+    ) -> Result<usize> {
         Ok(self.self_pos)
     }
 
-    fn accept_null(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        apply_null(structure, buffers, self.null_definition)?;
+    fn accept_null(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        structure.nulls[self.null_definition].apply(&mut context.buffers)?;
         Ok(self.if_none)
     }
 
@@ -210,12 +218,12 @@ impl Instruction for Variant {
     fn accept_variant(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         _name: &str,
         idx: usize,
     ) -> Result<usize> {
         if idx < structure.unions[self.union_idx].fields.len() {
-            buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes());
+            context.buffers.u8[self.type_idx].push(i8::try_from(idx)?.to_bytes());
             Ok(structure.unions[self.union_idx].fields[idx])
         } else {
             fail!(
@@ -233,34 +241,4 @@ impl Instruction for Variant {
 impl Instruction for UnionEnd {
     const NAME: &'static str = "UnionEnd";
     const EXPECTED: &'static [&'static str] = &[];
-}
-
-macro_rules! apply_null {
-    ($structure:expr, $buffers:expr, $null_definition:expr, $name:ident) => {
-        for &idx in &$structure.nulls[$null_definition].$name {
-            $buffers.$name[idx].push(Default::default());
-        }
-    };
-}
-
-pub fn apply_null(
-    structure: &Structure,
-    buffers: &mut MutableBuffers,
-    null_definition: usize,
-) -> Result<()> {
-    apply_null!(structure, buffers, null_definition, u0);
-    apply_null!(structure, buffers, null_definition, u1);
-    apply_null!(structure, buffers, null_definition, u8);
-    apply_null!(structure, buffers, null_definition, u16);
-    apply_null!(structure, buffers, null_definition, u32);
-    apply_null!(structure, buffers, null_definition, u64);
-
-    for &idx in &structure.nulls[null_definition].u32_offsets {
-        buffers.u32_offsets[idx].push_current_items();
-    }
-    for &idx in &structure.nulls[null_definition].u64_offsets {
-        buffers.u64_offsets[idx].push_current_items();
-    }
-
-    Ok(())
 }

@@ -6,7 +6,7 @@ mod structures;
 use std::collections::HashMap;
 
 use crate::internal::{
-    common::{MutableBitBuffer, MutableCountBuffer, MutableOffsetBuffer},
+    common::MutableBuffers,
     error::{fail, Result},
     event::Event,
     serialization::{
@@ -20,58 +20,39 @@ use crate::internal::{
 pub struct Interpreter {
     pub program_counter: usize,
     pub structure: Structure,
-    pub buffers: MutableBuffers,
+    pub context: SerializationContext,
 }
 
 #[derive(Debug, Clone)]
-pub struct MutableBuffers {
-    /// 0 bit buffers
-    pub u0: Vec<MutableCountBuffer>,
-    /// 1 bit buffers
-    pub u1: Vec<MutableBitBuffer>,
-    /// 8 bit buffers
-    pub u8: Vec<Vec<u8>>,
-    /// 16 bit buffers
-    pub u16: Vec<Vec<u16>>,
-    /// 32 bit buffers
-    pub u32: Vec<Vec<u32>>,
-    /// 64 bit buffers
-    pub u64: Vec<Vec<u64>>,
-    /// 32 bit offsets
-    pub u32_offsets: Vec<MutableOffsetBuffer<i32>>,
-    /// 64 bit offsets
-    pub u64_offsets: Vec<MutableOffsetBuffer<i64>>,
+pub struct SerializationContext {
+    pub buffers: MutableBuffers,
     /// markers for which struct fields have been seen
     pub seen: Vec<BitSet>,
     /// mappings from strings to indices for dictionaries
     pub dictionaries: Vec<HashMap<String, usize>>,
 }
 
-impl MutableBuffers {
+impl SerializationContext {
     pub fn from_counts(counts: &BufferCounts) -> Self {
         Self {
-            u0: vec![Default::default(); counts.num_u0],
-            u1: vec![Default::default(); counts.num_u1],
-            u8: vec![Default::default(); counts.num_u8],
-            u16: vec![Default::default(); counts.num_u16],
-            u32: vec![Default::default(); counts.num_u32],
-            u64: vec![Default::default(); counts.num_u64],
-            u32_offsets: vec![Default::default(); counts.num_u32_offsets],
-            u64_offsets: vec![Default::default(); counts.num_u64_offsets],
+            buffers: MutableBuffers {
+                u0: vec![Default::default(); counts.num_u0],
+                u1: vec![Default::default(); counts.num_u1],
+                u8: vec![Default::default(); counts.num_u8],
+                u16: vec![Default::default(); counts.num_u16],
+                u32: vec![Default::default(); counts.num_u32],
+                u64: vec![Default::default(); counts.num_u64],
+                u128: vec![Default::default(); counts.num_u128],
+                u32_offsets: vec![Default::default(); counts.num_u32_offsets],
+                u64_offsets: vec![Default::default(); counts.num_u64_offsets],
+            },
             seen: vec![Default::default(); counts.num_seen],
             dictionaries: vec![Default::default(); counts.num_dictionaries],
         }
     }
 
-    pub fn clear(&mut self) {
-        self.u0.iter_mut().for_each(|b| b.clear());
-        self.u1.iter_mut().for_each(|b| b.clear());
-        self.u8.iter_mut().for_each(|b| b.clear());
-        self.u16.iter_mut().for_each(|b| b.clear());
-        self.u32.iter_mut().for_each(|b| b.clear());
-        self.u64.iter_mut().for_each(|b| b.clear());
-        self.u32_offsets.iter_mut().for_each(|b| b.clear());
-        self.u64_offsets.iter_mut().for_each(|b| b.clear());
+    pub fn reset(&mut self) {
+        self.buffers.reset();
         self.seen.iter_mut().for_each(|b| b.clear());
         self.dictionaries.iter_mut().for_each(|b| b.clear());
     }
@@ -82,7 +63,7 @@ impl Interpreter {
         Self {
             program_counter: 0,
             structure: program.structure,
-            buffers: MutableBuffers::from_counts(&program.buffers),
+            context: SerializationContext::from_counts(&program.buffers),
         }
     }
 }
@@ -96,7 +77,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_start_sequence(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept StartSequence, expected {expected:?}",
@@ -108,7 +89,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_end_sequence(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept EndSequence, expected {expected:?}",
@@ -120,7 +101,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_start_tuple(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept StartTuple, expected {expected:?}",
@@ -132,7 +113,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_end_tuple(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept EndTuple, expected {expected:?}",
@@ -144,7 +125,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_start_struct(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept StartStructure, expected {expected:?}",
@@ -156,7 +137,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_end_struct(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept EndStructure, expected {expected:?}",
@@ -168,7 +149,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_start_map(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
     ) -> Result<usize> {
         fail!(
             "{name} cannot accept StartMap, expected {expected:?}",
@@ -177,7 +158,11 @@ trait Instruction: std::fmt::Debug {
         );
     }
 
-    fn accept_end_map(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_end_map(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
         fail!(
             "{name} cannot accept EndMap, expected {expected:?}",
             name = Self::NAME,
@@ -185,7 +170,11 @@ trait Instruction: std::fmt::Debug {
         );
     }
 
-    fn accept_item(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_item(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
         fail!(
             "{name} cannot accept Item, expected {expected:?}",
             name = Self::NAME,
@@ -193,7 +182,11 @@ trait Instruction: std::fmt::Debug {
         );
     }
 
-    fn accept_some(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_some(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
         fail!(
             "{name} cannot accept Some, expected {expected:?}",
             name = Self::NAME,
@@ -201,7 +194,11 @@ trait Instruction: std::fmt::Debug {
         );
     }
 
-    fn accept_default(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_default(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
         fail!(
             "{name} cannot accept Default, expected {expected:?}",
             name = Self::NAME,
@@ -212,14 +209,18 @@ trait Instruction: std::fmt::Debug {
     fn accept_variant(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         name: &str,
         idx: usize,
     ) -> Result<usize> {
         fail!("{name} cannot accept Variant({name:?}, {idx}")
     }
 
-    fn accept_null(&self, structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
+    fn accept_null(
+        &self,
+        structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
         fail!(
             "{name} cannot accept Null, expected {expected:?}",
             name = Self::NAME,
@@ -230,7 +231,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_bool(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: bool,
     ) -> Result<usize> {
         fail!(
@@ -243,7 +244,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_u8(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: u8,
     ) -> Result<usize> {
         fail!(
@@ -256,7 +257,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_u16(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: u16,
     ) -> Result<usize> {
         fail!(
@@ -269,7 +270,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_u32(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: u32,
     ) -> Result<usize> {
         fail!(
@@ -282,7 +283,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_u64(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: u64,
     ) -> Result<usize> {
         fail!(
@@ -295,7 +296,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_i8(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: i8,
     ) -> Result<usize> {
         fail!(
@@ -308,7 +309,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_i16(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: i16,
     ) -> Result<usize> {
         fail!(
@@ -321,7 +322,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_i32(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: i32,
     ) -> Result<usize> {
         fail!(
@@ -334,7 +335,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_i64(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: i64,
     ) -> Result<usize> {
         fail!(
@@ -347,7 +348,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_f32(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: f32,
     ) -> Result<usize> {
         fail!(
@@ -360,7 +361,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_f64(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: f64,
     ) -> Result<usize> {
         fail!(
@@ -373,7 +374,7 @@ trait Instruction: std::fmt::Debug {
     fn accept_str(
         &self,
         structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
         fail!(
@@ -389,7 +390,7 @@ macro_rules! dispatch_instruction {
         {
             $this.program_counter = dispatch_bytecode!(
                 &$this.structure.program[$this.program_counter],
-                instr => instr.$method(&$this.structure, &mut $this.buffers)?
+                instr => instr.$method(&$this.structure, &mut $this.context)?
             );
             Ok(())
         }
@@ -398,7 +399,7 @@ macro_rules! dispatch_instruction {
         {
             $this.program_counter = dispatch_bytecode!(
                 &$this.structure.program[$this.program_counter],
-                instr => instr.$method(&$this.structure, &mut $this.buffers, $($val),*)?
+                instr => instr.$method(&$this.structure, &mut $this.context, $($val),*)?
             );
             Ok(())
         }

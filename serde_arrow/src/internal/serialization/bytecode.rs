@@ -1,4 +1,7 @@
-use crate::internal::common::{define_bytecode, DictionaryIndex, DictionaryValue};
+use crate::internal::{
+    common::{define_bytecode, DictionaryIndex, DictionaryValue},
+    decimal::DecimalParser,
+};
 
 #[rustfmt::skip]
 define_bytecode!(
@@ -65,6 +68,12 @@ define_bytecode!(
     PushLargeUtf8 {
         buffer: usize,
         offsets: usize,
+    },
+    PushDecimal128 {
+        idx: usize,
+        f32_factor: f32,
+        f64_factor: f64,
+        parser: DecimalParser,
     },
     OuterSequenceStart {},
     OuterSequenceItem {

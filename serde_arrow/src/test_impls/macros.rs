@@ -32,7 +32,6 @@ macro_rules! test_example_impl {
     (
         $(#[ignore = $ignore:literal])?
         test_name = $test_name:ident,
-        $(test_bytecode_deserialization = $test_bytecode_deserialization:expr,)?
         $(test_deserialization = $test_deserialization:expr,)?
         $(tracing_options = $tracing_options:expr,)?
         field = $field:expr,
@@ -304,7 +303,7 @@ macro_rules! test_events {
                 let mut interpreter = Interpreter::new(program);
                 accept_events(&mut interpreter, events.iter().cloned()).unwrap();
 
-                println!("buffers: {:?}", interpreter.buffers);
+                println!("buffers: {:?}", interpreter.context);
 
                 interpreter.build_arrow_arrays().unwrap();
             }

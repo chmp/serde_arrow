@@ -5,12 +5,10 @@
 | [Changes](Changes.md)
 | [Example](#example)
 | [Related packages & performance](#related-packages--performance)
-| [How does it work?](serde_arrow/Implementation.md)
+| [[How does it work?]](https://docs.rs/serde_arrow/latest/serde_arrow/_impl/docs/implementation/index.html)
 | [Status](serde_arrow/Status.md)
 | [Development](#development)
 | [License](#license)
-
-**Warning:** this package is in an experiment at the moment.
 
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
@@ -156,7 +154,7 @@ modules can can be run without installing further packages.
 ## License
 
 ```text
-Copyright (c) 2021 - 2023 Christopher Prohm
+Copyright (c) 2021 - 2024 Christopher Prohm
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

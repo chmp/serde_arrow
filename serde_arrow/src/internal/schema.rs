@@ -28,8 +28,8 @@ pub trait Sealed {}
 /// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of the
 ///    data
 ///
-/// The following types implement [`SchemaLike`] and can be constructed in this
-/// way:
+/// The following types implement [`SchemaLike`] and can be constructed with the
+/// methods mentioned above:
 ///
 /// - [`SerdeArrowSchema`]
 #[cfg_attr(
@@ -64,7 +64,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
-    /// `SerdeArrowSchema` can also be directly serialized and deserialized.
+    /// Instances of `SerdeArrowSchema` can also be directly serialized and
+    /// deserialized.
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -101,6 +102,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - unsigned integers: `"U8"`, `"U16"`, `"U32"`, `"U64"`
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
+    /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
     ///   field named `"element"` that describes the element types
     /// - structs: `"Struct"`. `"children"` must contain the child fields
@@ -111,7 +113,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///   fields, named `"key"` of integer type and named `"value"` of string
     ///   type
     ///
-    fn from_value<T: Serialize>(value: &T) -> Result<Self>;
+    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self>;
 
     /// Determine the schema from the given record type. See [`TracingOptions`]
     /// for customization options.
@@ -140,9 +142,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
-    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
-    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// assert_eq!(fields[0].data_type(), &DataType::Int32);
+    /// assert_eq!(fields[1].data_type(), &DataType::Float64);
+    /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
@@ -162,15 +164,16 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_type::<Item<f32>>(TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
     /// # fn main() { }
     /// ```
-    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
+    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
 
-    /// Determine the schema from the given samples
+    /// Determine the schema from samples. See [`TracingOptions`] for
+    /// customization options.
     ///
     ///
     /// This approach requires the type `T` to implement
@@ -183,9 +186,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - at least one element for sequence fields (e.g., `Vec<..>`)
     /// - at least one example for map types (e.g., `HashMap<.., ..>`). All
     ///   possible keys must be given, if [`options.map_as_struct ==
-    ///   true`][TracingOptions::map_as_struct])
-    ///
-    /// See [`TracingOptions`] for customization options.
+    ///   true`][TracingOptions::map_as_struct]).
     ///
     /// ```rust
     /// # #[cfg(feature = "has_arrow")]
@@ -218,9 +219,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// let fields = Vec::<Field>::from_samples(&samples, TracingOptions::default())?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Int32);
-    /// assert_eq!(*fields[1].data_type(), DataType::Float64);
-    /// assert_eq!(*fields[2].data_type(), DataType::LargeUtf8);
+    /// assert_eq!(fields[0].data_type(), &DataType::Int32);
+    /// assert_eq!(fields[1].data_type(), &DataType::Float64);
+    /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
@@ -243,13 +244,13 @@ pub trait SchemaLike: Sized + Sealed {
     ///     TracingOptions::default(),
     /// )?;
     ///
-    /// assert_eq!(*fields[0].data_type(), DataType::Float32);
+    /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
     /// # fn main() { }
     /// ```
-    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self>;
+    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self>;
 }
 
 /// A collection of fields as understood by `serde_arrow`
@@ -285,7 +286,7 @@ impl SerdeArrowSchema {
 impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
-    fn from_value<T: Serialize>(value: &T) -> Result<Self> {
+    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
         // simple version of serde-transcode
         let mut events = Vec::<crate::internal::event::Event>::new();
         crate::internal::sink::serialize_into_sink(&mut events, value)?;
@@ -293,7 +294,7 @@ impl SchemaLike for SerdeArrowSchema {
         Ok(this)
     }
 
-    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromType);
 
         let mut tracer = Tracer::new(String::from("$"), options);
@@ -301,7 +302,7 @@ impl SchemaLike for SerdeArrowSchema {
         tracer.to_schema()
     }
 
-    fn from_samples<T: Serialize>(samples: &T, options: TracingOptions) -> Result<Self> {
+    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromSamples);
 
         let mut tracer = Tracer::new(String::from("$"), options);
@@ -457,6 +458,7 @@ pub enum GenericDataType {
     Map,
     Dictionary,
     Timestamp(GenericTimeUnit, Option<String>),
+    Decimal128(u8, i8),
 }
 
 impl std::fmt::Display for GenericDataType {
@@ -492,6 +494,7 @@ impl std::fmt::Display for GenericDataType {
                     write!(f, "Timestamp({unit}, None)")
                 }
             }
+            Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
     }
 }
@@ -574,6 +577,17 @@ impl std::str::FromStr for GenericDataType {
             };
 
             Ok(GenericDataType::Timestamp(unit, Some(s.to_string())))
+        } else if let Some(s) = s.strip_prefix("Decimal128(") {
+            let Some(s) = s.strip_suffix(')') else {
+                fail!("invalid Decimal128 data type");
+            };
+            let Some((precision, scale)) = s.split_once(',') else {
+                fail!("invalid Decimal128 data type");
+            };
+            let precision = u8::from_str(precision.trim())?;
+            let scale = i8::from_str(scale.trim())?;
+
+            Ok(GenericDataType::Decimal128(precision, scale))
         } else {
             fail!("cannot parse data type")
         }
@@ -659,6 +673,7 @@ impl GenericField {
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
+            GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
     }
 
@@ -1075,6 +1090,14 @@ mod test_schema_serialization {
         assert_eq!(DT::from_str("Float16").unwrap(), DT::F16);
         assert_eq!(DT::from_str("Float32").unwrap(), DT::F32);
         assert_eq!(DT::from_str("Float64").unwrap(), DT::F64);
+        assert_eq!(
+            DT::from_str("Decimal128(8,-2)").unwrap(),
+            DT::Decimal128(8, -2)
+        );
+        assert_eq!(
+            DT::from_str("Decimal128( 8 , -2 )").unwrap(),
+            DT::Decimal128(8, -2)
+        );
     }
 
     macro_rules! test_data_type {

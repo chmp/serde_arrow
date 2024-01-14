@@ -1,116 +1,83 @@
-use super::macros::test_generic;
+use serde_json::json;
 
-test_generic!(
-    fn serde_json_example() {
-        use serde_json::json;
+use crate::schema::TracingOptions;
 
-        let tracing_options = TracingOptions::default();
+use super::{macros::test_generic, utils::Test};
 
-        let items = vec![json!({ "a": 1, "b": 2 }), json!({ "a": 3, "b": 4 })];
-        let fields = Vec::<Field>::from_samples(&items, tracing_options).unwrap();
-        let arrays = to_arrow(&fields, &items).unwrap();
+#[test]
+fn serde_json_example() {
+    let items = vec![json!({ "a": 1, "b": 2 }), json!({ "a": 3, "b": 4 })];
+    Test::new()
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items);
+}
 
-        drop(arrays);
-    }
-);
+#[test]
+fn serde_json_mixed_ints() {
+    let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
+    Test::new()
+        .trace_schema_from_samples(&items, TracingOptions::default().coerce_numbers(true))
+        .serialize(&items);
+}
 
-test_generic!(
-    fn serde_json_mixed_ints() {
-        use serde_json::json;
+#[test]
+fn serde_json_mixed_fixed_schema() {
+    let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "F64"},
+            {"name": "b", "data_type": "I64"},
+        ]))
+        .serialize(&items);
+}
 
-        let tracing_options = TracingOptions::default().coerce_numbers(true);
+#[test]
+fn serde_json_mixed_fixed_schema_outer_array() {
+    let items = json!([{ "a": 1, "b": -2 }, { "a": 3.0, "b": 4 }]);
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "F64"},
+            {"name": "b", "data_type": "I64"},
+        ]))
+        .serialize(&items);
+}
 
-        let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
-        let fields = Vec::<Field>::from_samples(&items, tracing_options).unwrap();
-        let arrays = to_arrow(&fields, &items).unwrap();
+#[test]
+fn serde_json_strings() {
+    let items = json!([{ "a": "hello", "b": "foo" }, { "a": "world", "b": "bar" }]);
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "Utf8"},
+            {"name": "b", "data_type": "Utf8"},
+        ]))
+        .serialize(&items);
+}
 
-        drop(arrays);
-    }
-);
+#[test]
+fn serde_json_out_of_order() {
+    // Note: if serde_json is compiled with the preserver_order feature, the
+    // keys will be "a", "b" or the keys are sorted, in which keys the key
+    // order is also "a", "b".
+    let items = json!([{ "a": "hello", "b": true }, { "a": "world", "b": false }]);
 
-test_generic!(
-    fn serde_json_mixed_fixed_schema() {
-        use serde_json::json;
-
-        let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
-
-        let fields = vec![
-            Field::try_from(&GenericField::new("a", GenericDataType::F64, false)).unwrap(),
-            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
-        ];
-
-        let arrays = to_arrow(&fields, &items).unwrap();
-
-        drop(arrays);
-    }
-);
-
-test_generic!(
-    fn serde_json_mixed_fixed_schema_outer_array() {
-        use serde_json::json;
-
-        let items = json!([{ "a": 1, "b": -2 }, { "a": 3.0, "b": 4 }]);
-
-        let fields = vec![
-            Field::try_from(&GenericField::new("a", GenericDataType::F64, false)).unwrap(),
-            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
-        ];
-
-        let arrays = to_arrow(&fields, &items).unwrap();
-
-        drop(arrays);
-    }
-);
-
-test_generic!(
-    fn serde_json_strings() {
-        use serde_json::json;
-
-        let items = json!([{ "a": "hello", "b": -2 }, { "a": "world", "b": 4 }]);
-
-        let fields = vec![
-            Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap(),
-            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
-        ];
-
-        let arrays = to_arrow(&fields, &items).unwrap();
-
-        drop(arrays);
-    }
-);
-
-test_generic!(
-    fn serde_json_out_of_order() {
-        use serde_json::json;
-
-        // Note: if serde_json is compiled with the preserver_order feature, the
-        // keys will be "a", "b" or the keys are sorted, in which keys the key
-        // order is alos "a", "b".
-        let items = json!([{ "a": "hello", "b": -2 }, { "a": "world", "b": 4 }]);
-
-        // Here the key "b" is encountered in the OuterRecordEnd state. This was
-        // previously not correctly handled (issue #80).
-        let fields = vec![
-            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
-            Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap(),
-        ];
-
-        let arrays = to_arrow(&fields, &items).unwrap();
-
-        drop(arrays);
-    }
-);
+    // Here the key "b" is encountered in the OuterRecordEnd state. This was
+    // previously not correctly handled (issue #80).
+    Test::new()
+        .with_schema(json!([
+            {"name": "b", "data_type": "Bool"},
+            {"name": "a", "data_type": "Utf8"},
+        ]))
+        .serialize(&items);
+}
 
 test_generic!(
     fn serde_json_nullable_strings_non_nullable_field() {
         use serde_json::json;
 
-        let items = json!([{ "a": "hello", "b": -2 }, { "a": null, "b": 4 }]);
+        let items = json!([{ "a": "hello" }, { "a": null }]);
 
-        let fields = vec![
-            Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap(),
-            Field::try_from(&GenericField::new("b", GenericDataType::I64, false)).unwrap(),
-        ];
+        let fields =
+            vec![Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap()];
 
         let Err(err) = to_arrow(&fields, &items) else {
             panic!("expected an error, but no error was raised");

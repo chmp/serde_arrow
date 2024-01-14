@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
 use crate::internal::{
-    common::{ArrayMapping, DictionaryIndex, DictionaryValue, MutableBitBuffer},
+    common::{ArrayMapping, DictionaryIndex, DictionaryValue, MutableBitBuffer, MutableBuffers},
     conversions::ToBytes,
     error::{fail, Result},
-    serialization::{interpreter::MutableBuffers, Interpreter},
+    serialization::Interpreter,
 };
 
 use crate::_impl::arrow::{
@@ -18,11 +18,11 @@ impl Interpreter {
     pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
         let mut res = Vec::new();
         for mapping in &self.structure.array_mapping {
-            let data = build_array_data(&mut self.buffers, mapping)?;
+            let data = build_array_data(&mut self.context.buffers, mapping)?;
             let array = make_array(data);
             res.push(array);
         }
-        self.buffers.clear();
+        self.context.reset();
 
         let max_len = res.iter().map(|a| a.len()).max().unwrap_or_default();
         for (arr, mapping) in res.iter().zip(&self.structure.array_mapping) {
@@ -139,6 +139,17 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             validity,
             ..
         } => build_primitive_array_data!(buffers, field, f64, u64, *buffer, *validity),
+        M::Decimal128 {
+            field,
+            validity,
+            buffer,
+        } => {
+            let data = std::mem::take(&mut buffers.u128[*buffer]);
+            let data: Vec<i128> = ToBytes::from_bytes_vec(data);
+            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
+            let data_type = Field::try_from(field)?.data_type().clone();
+            build_array_data_primitive(data_type, data.len(), data, validity)
+        }
         M::Date64 {
             field,
             buffer,

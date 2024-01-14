@@ -14,6 +14,7 @@ use crate::internal::{
 ///
 /// This function may be helpful when creating custom formats.
 ///
+#[allow(rustdoc::private_intra_doc_links)]
 pub fn serialize_into_sink<T: Serialize + ?Sized, S: EventSink>(
     sink: &mut S,
     value: &T,

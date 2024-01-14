@@ -2,7 +2,7 @@ use super::macros::test_example;
 
 test_example!(
     test_name = large_list_u32,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U32, false)),
     ty = Vec<u32>,
@@ -12,7 +12,7 @@ test_example!(
 
 test_example!(
     test_name = large_list_nullable_u64,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U64, true)),
     ty = Vec<Option<u64>>,
@@ -22,7 +22,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_large_list_u32,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, true)
         .with_child(GenericField::new("element", GenericDataType::U32, false)),
     ty = Option<Vec<u32>>,
@@ -32,7 +32,7 @@ test_example!(
 
 test_example!(
     test_name = list_u32,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U32, false)),
     overwrite_field = GenericField::new("item", GenericDataType::List, false)
@@ -44,7 +44,7 @@ test_example!(
 
 test_example!(
     test_name = nested_large_list_u32,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::LargeList, false)
             .with_child(GenericField::new("element", GenericDataType::U32, false))),
@@ -55,7 +55,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_vec_bool,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, true)
         .with_child(GenericField::new("element", GenericDataType::Bool, false)),
     ty = Option<Vec<bool>>,
@@ -64,7 +64,7 @@ test_example!(
 
 test_example!(
     test_name = nullable_vec_bool_nested,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, true)
         .with_child(GenericField::new("element", GenericDataType::LargeList, false)
             .with_child(GenericField::new("element", GenericDataType::Bool, false))),
@@ -74,7 +74,7 @@ test_example!(
 
 test_example!(
     test_name = vec_nullable_bool,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::Bool, true)),
     ty = Vec<Option<bool>>,
@@ -83,7 +83,7 @@ test_example!(
 
 test_example!(
     test_name = byte_arrays,
-    test_bytecode_deserialization = true,
+
     field = GenericField::new("item", GenericDataType::LargeList, false)
         .with_child(GenericField::new("element", GenericDataType::U8, false)),
     ty = Vec<u8>,

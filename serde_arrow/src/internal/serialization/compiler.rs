@@ -1,9 +1,11 @@
 use crate::internal::{
     common::{ArrayMapping, DictionaryIndex, DictionaryValue},
     config::CONFIGURATION,
+    decimal::DecimalParser,
     error::Result,
     error::{error, fail},
     schema::{GenericDataType, GenericField, GenericTimeUnit, Strategy},
+    serialization::bytecode::PushDecimal128,
 };
 
 use super::{
@@ -109,6 +111,8 @@ pub struct BufferCounts {
     pub(crate) num_u32: usize,
     /// number of 64-bit buffers (u64, i64, f64)
     pub(crate) num_u64: usize,
+    /// number of 128-bit buffers (Decimal128)
+    pub(crate) num_u128: usize,
     /// number of offsets encoded with 32 bits
     pub(crate) num_u32_offsets: usize,
     /// number of offsets encoded with 64 bits
@@ -563,6 +567,22 @@ impl Program {
             D::F16 => compile_primtive!(self, field, validity, num_u16, PushF16, F16),
             D::F32 => compile_primtive!(self, field, validity, num_u32, PushF32, F32),
             D::F64 => compile_primtive!(self, field, validity, num_u64, PushF64, F64),
+            D::Decimal128(precision, scale) => {
+                let buffer = self.buffers.num_u128.next_value();
+
+                self.push_instr(PushDecimal128 {
+                    next: UNSET_INSTR,
+                    idx: buffer,
+                    f32_factor: (10.0_f32).powi(*scale as i32),
+                    f64_factor: (10.0_f64).powi(*scale as i32),
+                    parser: DecimalParser::new(*precision, *scale, true),
+                });
+                Ok(ArrayMapping::Decimal128 {
+                    field: field.clone(),
+                    buffer,
+                    validity,
+                })
+            }
             D::Utf8 => {
                 let buffer = self.buffers.num_u8.next_value();
                 let offsets = self.buffers.num_u32_offsets.next_value();

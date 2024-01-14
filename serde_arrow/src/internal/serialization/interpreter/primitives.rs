@@ -1,8 +1,9 @@
 use crate::internal::{
     common::{DictionaryIndex, DictionaryValue},
     conversions::{ToBytes, WrappedF16, WrappedF32, WrappedF64},
+    decimal,
     error::Result,
-    serialization::compiler::Structure,
+    serialization::{bytecode::PushDecimal128, compiler::Structure},
 };
 
 use super::super::bytecode::{
@@ -10,14 +11,18 @@ use super::super::bytecode::{
     PushF64, PushI16, PushI32, PushI64, PushI8, PushLargeUtf8, PushNull, PushU16, PushU32, PushU64,
     PushU8, PushUtf8,
 };
-use super::{Instruction, MutableBuffers};
+use super::{Instruction, SerializationContext};
 
 impl Instruction for PushNull {
     const NAME: &'static str = "PushNull";
     const EXPECTED: &'static [&'static str] = &["Null"];
 
-    fn accept_null(&self, _structure: &Structure, buffers: &mut MutableBuffers) -> Result<usize> {
-        buffers.u0[self.idx].push(());
+    fn accept_null(
+        &self,
+        _structure: &Structure,
+        context: &mut SerializationContext,
+    ) -> Result<usize> {
+        context.buffers.u0[self.idx].push(());
         Ok(self.next)
     }
 }
@@ -29,11 +34,11 @@ impl Instruction for PushUtf8 {
     fn accept_str(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
-        buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
-        buffers.u32_offsets[self.offsets].push(val.len())?;
+        context.buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
+        context.buffers.u32_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -45,11 +50,11 @@ impl Instruction for PushLargeUtf8 {
     fn accept_str(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
-        buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
-        buffers.u64_offsets[self.offsets].push(val.len())?;
+        context.buffers.u8[self.buffer].extend(val.as_bytes().iter().copied());
+        context.buffers.u64_offsets[self.offsets].push(val.len())?;
         Ok(self.next)
     }
 }
@@ -61,12 +66,13 @@ impl Instruction for PushDate64FromNaiveStr {
     fn accept_str(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
         use chrono::NaiveDateTime;
 
-        buffers.u64[self.idx].push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes());
+        context.buffers.u64[self.idx]
+            .push(val.parse::<NaiveDateTime>()?.timestamp_millis().to_bytes());
         Ok(self.next)
     }
 }
@@ -78,12 +84,13 @@ impl Instruction for PushDate64FromUtcStr {
     fn accept_str(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
         use chrono::{DateTime, Utc};
 
-        buffers.u64[self.idx].push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes());
+        context.buffers.u64[self.idx]
+            .push(val.parse::<DateTime<Utc>>()?.timestamp_millis().to_bytes());
         Ok(self.next)
     }
 }
@@ -95,39 +102,39 @@ impl Instruction for PushDictionary {
     fn accept_str(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: &str,
     ) -> Result<usize> {
         use {DictionaryIndex as I, DictionaryValue as V};
 
-        let idx = if buffers.dictionaries[self.dictionary].contains_key(val) {
-            buffers.dictionaries[self.dictionary][val]
+        let idx = if context.dictionaries[self.dictionary].contains_key(val) {
+            context.dictionaries[self.dictionary][val]
         } else {
             match self.values {
                 V::Utf8 { buffer, offsets } => {
-                    buffers.u8[buffer].extend(val.as_bytes().iter().copied());
-                    buffers.u32_offsets[offsets].push(val.len())?;
+                    context.buffers.u8[buffer].extend(val.as_bytes().iter().copied());
+                    context.buffers.u32_offsets[offsets].push(val.len())?;
                 }
                 V::LargeUtf8 { buffer, offsets } => {
-                    buffers.u8[buffer].extend(val.as_bytes().iter().copied());
-                    buffers.u64_offsets[offsets].push(val.len())?;
+                    context.buffers.u8[buffer].extend(val.as_bytes().iter().copied());
+                    context.buffers.u64_offsets[offsets].push(val.len())?;
                 }
             }
 
-            let idx = buffers.dictionaries[self.dictionary].len();
-            buffers.dictionaries[self.dictionary].insert(val.to_string(), idx);
+            let idx = context.dictionaries[self.dictionary].len();
+            context.dictionaries[self.dictionary].insert(val.to_string(), idx);
             idx
         };
 
         match self.indices {
-            I::U8(indices) => buffers.u8[indices].push(idx.try_into()?),
-            I::U16(indices) => buffers.u16[indices].push(idx.try_into()?),
-            I::U32(indices) => buffers.u32[indices].push(idx.try_into()?),
-            I::U64(indices) => buffers.u64[indices].push(idx.try_into()?),
-            I::I8(indices) => buffers.u8[indices].push(i8::try_from(idx)?.to_bytes()),
-            I::I16(indices) => buffers.u16[indices].push(u16::try_from(idx)?.to_bytes()),
-            I::I32(indices) => buffers.u32[indices].push(u32::try_from(idx)?.to_bytes()),
-            I::I64(indices) => buffers.u64[indices].push(u64::try_from(idx)?.to_bytes()),
+            I::U8(indices) => context.buffers.u8[indices].push(idx.try_into()?),
+            I::U16(indices) => context.buffers.u16[indices].push(idx.try_into()?),
+            I::U32(indices) => context.buffers.u32[indices].push(idx.try_into()?),
+            I::U64(indices) => context.buffers.u64[indices].push(idx.try_into()?),
+            I::I8(indices) => context.buffers.u8[indices].push(i8::try_from(idx)?.to_bytes()),
+            I::I16(indices) => context.buffers.u16[indices].push(u16::try_from(idx)?.to_bytes()),
+            I::I32(indices) => context.buffers.u32[indices].push(u32::try_from(idx)?.to_bytes()),
+            I::I64(indices) => context.buffers.u64[indices].push(u64::try_from(idx)?.to_bytes()),
         }
         Ok(self.next)
     }
@@ -147,9 +154,9 @@ macro_rules! impl_primitive_instruction {
                 const EXPECTED: &'static [&'static str] = &[$(stringify!($ty)),*];
 
                 $(
-                    fn $func(&self, _structure: &Structure, buffers: &mut MutableBuffers, val: $ty) -> Result<usize> {
+                    fn $func(&self, _structure: &Structure, context: &mut SerializationContext, val: $ty) -> Result<usize> {
                         let val = <$val_type>::try_from(val)?;
-                        buffers.$builder[self.idx].push(ToBytes::to_bytes(val));
+                        context.buffers.$builder[self.idx].push(ToBytes::to_bytes(val));
                         Ok(self.next)
                     }
                 )*
@@ -268,10 +275,49 @@ impl Instruction for PushBool {
     fn accept_bool(
         &self,
         _structure: &Structure,
-        buffers: &mut MutableBuffers,
+        context: &mut SerializationContext,
         val: bool,
     ) -> Result<usize> {
-        buffers.u1[self.idx].push(val);
+        context.buffers.u1[self.idx].push(val);
+        Ok(self.next)
+    }
+}
+
+impl Instruction for PushDecimal128 {
+    const NAME: &'static str = "PushDecimal128";
+    const EXPECTED: &'static [&'static str] = &["F32", "F64", "Str"];
+
+    fn accept_f32(
+        &self,
+        _: &Structure,
+        context: &mut SerializationContext,
+        val: f32,
+    ) -> Result<usize> {
+        let val = (val * self.f32_factor) as i128;
+        context.buffers.u128[self.idx].push(ToBytes::to_bytes(val));
+        Ok(self.next)
+    }
+
+    fn accept_f64(
+        &self,
+        _: &Structure,
+        context: &mut SerializationContext,
+        val: f64,
+    ) -> Result<usize> {
+        let val = (val * self.f64_factor) as i128;
+        context.buffers.u128[self.idx].push(ToBytes::to_bytes(val));
+        Ok(self.next)
+    }
+
+    fn accept_str(
+        &self,
+        _: &Structure,
+        context: &mut SerializationContext,
+        val: &str,
+    ) -> Result<usize> {
+        let mut buffer = [0; decimal::BUFFER_SIZE_I128];
+        let val = self.parser.parse_decimal128(&mut buffer, val.as_bytes())?;
+        context.buffers.u128[self.idx].push(ToBytes::to_bytes(val));
         Ok(self.next)
     }
 }
