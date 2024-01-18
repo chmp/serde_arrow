@@ -3,8 +3,8 @@
 pub mod array_builder;
 pub mod i8_builder;
 pub mod list_builder;
-pub mod not_implemented;
 pub mod struct_builder;
+pub mod utils;
 
 #[cfg(test)]
 mod test;
