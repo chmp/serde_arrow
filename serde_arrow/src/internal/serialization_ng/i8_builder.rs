@@ -9,9 +9,11 @@ pub struct I8Builder {
 }
 
 impl I8Builder {
-    pub fn serialize_default(&mut self) -> Result<()> {
-        self.buffer.push(0);
-        Ok(())
+    pub fn new(is_nullable: bool) -> Self {
+        Self {
+            validity: is_nullable.then(MutableBitBuffer::default),
+            buffer: Default::default(),
+        }
     }
 }
 

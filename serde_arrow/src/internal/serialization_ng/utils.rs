@@ -141,11 +141,11 @@ pub trait SimpleSerializer {
         fail!("serialize_map_start is not implemented for {}", self.name())
     }
 
-    fn serialize_map_key<V: serde::Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
+    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
         fail!("serialize_map_key is not implemented for {}", self.name());
     }
 
-    fn serialize_map_value<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         fail!("serialize_map_value is not implemented for {}", self.name())
     }
 
@@ -463,11 +463,11 @@ impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<V: serde::Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
+    fn serialize_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
         self.0.serialize_map_key(key)
     }
 
-    fn serialize_value<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+    fn serialize_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.0.serialize_map_value(value)
     }
 

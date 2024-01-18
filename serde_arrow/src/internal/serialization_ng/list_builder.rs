@@ -1,10 +1,7 @@
 use serde::Serialize;
 
 use crate::{
-    internal::{
-        common::{MutableBitBuffer, MutableOffsetBuffer},
-        error::fail,
-    },
+    internal::common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
     Result,
 };
 
@@ -15,13 +12,13 @@ use super::{
 
 #[derive(Debug, Clone)]
 
-pub struct ListBuilder {
+pub struct ListBuilder<O> {
     pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<i32>,
+    pub offsets: MutableOffsetBuffer<O>,
     pub element: Box<ArrayBuilder>,
 }
 
-impl ListBuilder {
+impl<O: Offset> ListBuilder<O> {
     pub fn new(element: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
             validity: is_nullable.then(MutableBitBuffer::default),
@@ -31,18 +28,12 @@ impl ListBuilder {
     }
 }
 
-impl ListBuilder {
-    pub fn serialize_default(&mut self) -> Result<()> {
-        fail!("not implemented");
-    }
-}
-
-impl SimpleSerializer for ListBuilder {
+impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     fn name(&self) -> &str {
         "ListBuilder"
     }
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
+    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
         Ok(())
     }
 

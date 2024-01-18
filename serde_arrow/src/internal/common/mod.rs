@@ -7,7 +7,7 @@ pub use array_mapping::{ArrayMapping, DictionaryIndex, DictionaryValue};
 #[allow(unused)]
 pub use buffers::{
     BitBuffer, BufferExtract, Buffers, MutableBitBuffer, MutableBuffers, MutableCountBuffer,
-    MutableOffsetBuffer,
+    MutableOffsetBuffer, Offset,
 };
 pub use checks::check_supported_list_layout;
 

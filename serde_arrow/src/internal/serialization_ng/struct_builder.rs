@@ -47,21 +47,12 @@ impl StructBuilder {
     }
 }
 
-impl StructBuilder {
-    pub fn serialize_default(&mut self) -> Result<()> {
-        for (_, field) in &mut self.named_fields {
-            field.serialize_default()?;
-        }
-        Ok(())
-    }
-}
-
 impl SimpleSerializer for StructBuilder {
     fn name(&self) -> &str {
         "StructBuilder"
     }
 
-    fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
+    fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
         for seen in &mut self.seen {
             *seen = false;
         }
