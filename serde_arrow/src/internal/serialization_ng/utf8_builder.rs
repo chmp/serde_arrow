@@ -20,6 +20,14 @@ impl<O: Offset> Utf8Builder<O> {
             buffer: Vec::new(),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            validity: self.validity.as_mut().map(std::mem::take),
+            offsets: std::mem::take(&mut self.offsets),
+            buffer: std::mem::take(&mut self.buffer),
+        }
+    }
 }
 
 impl<O: Offset> SimpleSerializer for Utf8Builder<O> {

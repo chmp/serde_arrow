@@ -24,6 +24,15 @@ impl MapBuilder {
             value: Box::new(value),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            validity: self.validity.as_mut().map(std::mem::take),
+            offsets: std::mem::take(&mut self.offsets),
+            key: Box::new(self.key.take()),
+            value: Box::new(self.value.take()),
+        }
+    }
 }
 
 impl SimpleSerializer for MapBuilder {

@@ -15,6 +15,13 @@ impl<I> IntBuilder<I> {
             buffer: Default::default(),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            validity: self.validity.as_mut().map(std::mem::take),
+            buffer: std::mem::take(&mut self.buffer),
+        }
+    }
 }
 
 impl<I> SimpleSerializer for IntBuilder<I>
@@ -102,6 +109,12 @@ where
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
         push_validity(&mut self.validity, true)?;
         self.buffer.push(I::try_from(v)?);
+        Ok(())
+    }
+
+    fn serialize_char(&mut self, v: char) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
+        self.buffer.push(I::try_from(u32::from(v))?);
         Ok(())
     }
 }

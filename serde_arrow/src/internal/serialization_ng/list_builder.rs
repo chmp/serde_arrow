@@ -26,6 +26,30 @@ impl<O: Offset> ListBuilder<O> {
             element: Box::new(element),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            validity: self.validity.as_mut().map(std::mem::take),
+            offsets: std::mem::take(&mut self.offsets),
+            element: Box::new(self.element.take()),
+        }
+    }
+}
+
+impl<O: Offset> ListBuilder<O> {
+    fn start(&mut self) -> Result<()> {
+        push_validity(&mut self.validity, true)
+    }
+
+    fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.offsets.inc_current_items()?;
+        value.serialize(Mut(self.element.as_mut()))
+    }
+
+    fn end(&mut self) -> Result<()> {
+        self.offsets.push_current_items();
+        Ok(())
+    }
 }
 
 impl<O: Offset> SimpleSerializer for ListBuilder<O> {
@@ -49,16 +73,38 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        push_validity(&mut self.validity, true)
+        self.start()
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.offsets.inc_current_items()?;
-        value.serialize(Mut(self.element.as_mut()))
+        self.element(value)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        Ok(())
+        self.end()
+    }
+
+    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
+        self.start()
+    }
+
+    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.element(value)
+    }
+
+    fn serialize_tuple_end(&mut self) -> Result<()> {
+        self.end()
+    }
+
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
+        self.start()
+    }
+
+    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.element(value)
+    }
+
+    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
+        self.end()
     }
 }

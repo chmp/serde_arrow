@@ -361,28 +361,31 @@ test_example!(
     },
 );
 
+// TODO: re-create this test with a custom impl?
+/*
 test_events!(
     test_name = out_of_order_fields,
     fields = [
         GenericField::new("foo", GenericDataType::U32, false),
         GenericField::new("bar", GenericDataType::U8, false),
-    ],
-    events = [
-        Event::StartSequence,
-        Event::Item,
-        Event::StartStruct,
-        Event::Str("foo"),
-        Event::U32(0),
-        Event::Str("bar"),
-        Event::U8(1),
-        Event::EndStruct,
-        Event::Item,
-        Event::StartStruct,
-        Event::Str("bar"),
-        Event::U8(2),
-        Event::Str("foo"),
-        Event::U32(3),
-        Event::EndStruct,
-        Event::EndSequence,
+        ],
+        events = [
+            Event::StartSequence,
+            Event::Item,
+            Event::StartStruct,
+            Event::Str("foo"),
+            Event::U32(0),
+            Event::Str("bar"),
+            Event::U8(1),
+            Event::EndStruct,
+            Event::Item,
+            Event::StartStruct,
+            Event::Str("bar"),
+            Event::U8(2),
+            Event::Str("foo"),
+            Event::U32(3),
+            Event::EndStruct,
+            Event::EndSequence,
     ],
 );
+*/

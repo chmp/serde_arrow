@@ -15,6 +15,13 @@ impl BoolBuilder {
             buffer: MutableBitBuffer::default(),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        BoolBuilder {
+            validity: self.validity.as_mut().map(std::mem::take),
+            buffer: std::mem::take(&mut self.buffer),
+        }
+    }
 }
 
 impl SimpleSerializer for BoolBuilder {

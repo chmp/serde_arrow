@@ -4,7 +4,7 @@ use crate::internal::{
     common::{ArrayMapping, DictionaryIndex, DictionaryValue, MutableBitBuffer, MutableBuffers},
     conversions::ToBytes,
     error::{fail, Result},
-    serialization::Interpreter,
+    serialization_ng::ArrayBuilder,
 };
 
 use crate::_impl::arrow::{
@@ -13,51 +13,138 @@ use crate::_impl::arrow::{
     datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type},
 };
 
-impl Interpreter {
-    /// Build the arrow arrays
+impl ArrayBuilder {
     pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
-        let mut res = Vec::new();
-        for mapping in &self.structure.array_mapping {
-            let data = build_array_data(&mut self.context.buffers, mapping)?;
-            let array = make_array(data);
-            res.push(array);
-        }
-        self.context.reset();
-
-        let max_len = res.iter().map(|a| a.len()).max().unwrap_or_default();
-        for (arr, mapping) in res.iter().zip(&self.structure.array_mapping) {
-            if arr.len() != max_len {
-                fail!("
-                    Unbalanced array lengths: array {name} has length {len}, but expected {max_len}",
-                    name = mapping.get_field().name,
-                    len = arr.len(),
-                );
-            }
-        }
-
-        Ok(res)
-    }
-
-    pub fn build_arrow_array(&mut self) -> Result<ArrayRef> {
-        let arrays = self.build_arrow_arrays()?;
-        if arrays.len() != 1 {
-            fail!("Invalid number of result arrays: {}", arrays.len());
-        }
-        Ok(arrays.into_iter().next().unwrap())
+        let fields = self.take_records()?;
+        let arrays = fields
+            .into_iter()
+            .map(build_array)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(arrays)
     }
 }
 
+fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
+    let data = build_array_data(builder)?;
+    Ok(make_array(data))
+}
+
+fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
+    match builder {
+        ArrayBuilder::Bool(builder) => build_array_data_primitive_with_len(
+            DataType::Boolean,
+            builder.buffer.len(),
+            builder.buffer.buffer,
+            builder.validity,
+        ),
+        ArrayBuilder::I8(builder) => {
+            build_array_data_primitive(DataType::Int8, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::I16(builder) => {
+            build_array_data_primitive(DataType::Int16, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::I32(builder) => {
+            build_array_data_primitive(DataType::Int32, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::I64(builder) => {
+            build_array_data_primitive(DataType::Int64, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::U8(builder) => {
+            build_array_data_primitive(DataType::UInt8, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::U16(builder) => {
+            build_array_data_primitive(DataType::UInt16, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::U32(builder) => {
+            build_array_data_primitive(DataType::UInt32, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::U64(builder) => {
+            build_array_data_primitive(DataType::UInt64, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::F32(builder) => {
+            build_array_data_primitive(DataType::Float32, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::F64(builder) => {
+            build_array_data_primitive(DataType::Float64, builder.buffer, builder.validity)
+        }
+        ArrayBuilder::Utf8(builder) => build_array_data_utf8(
+            DataType::Utf8,
+            builder.offsets.offsets,
+            builder.buffer,
+            builder.validity,
+        ),
+        ArrayBuilder::LargeUtf8(builder) => build_array_data_utf8(
+            DataType::LargeUtf8,
+            builder.offsets.offsets,
+            builder.buffer,
+            builder.validity,
+        ),
+        builder => fail!("cannot build arrow array for {}", builder.name()),
+    }
+}
+
+fn build_array_data_primitive<T: ArrowNativeType>(
+    data_type: DataType,
+    data: Vec<T>,
+    validity: Option<MutableBitBuffer>,
+) -> Result<ArrayData> {
+    let len = data.len();
+    build_array_data_primitive_with_len(data_type, len, data, validity)
+}
+
+fn build_array_data_primitive_with_len<T: ArrowNativeType>(
+    data_type: DataType,
+    len: usize,
+    data: Vec<T>,
+    validity: Option<MutableBitBuffer>,
+) -> Result<ArrayData> {
+    Ok(ArrayData::try_new(
+        data_type,
+        len,
+        validity.map(|b| Buffer::from(b.buffer)),
+        0,
+        vec![ScalarBuffer::from(data).into_inner()],
+        vec![],
+    )?)
+}
+
+fn build_array_data_utf8<O: ArrowNativeType>(
+    data_type: DataType,
+    offsets: Vec<O>,
+    data: Vec<u8>,
+    validity: Option<MutableBitBuffer>,
+) -> Result<ArrayData> {
+    let values_len = offsets.len() - 1;
+
+    let offsets = ScalarBuffer::from(offsets).into_inner();
+    let data = ScalarBuffer::from(data).into_inner();
+    let validity = validity.map(|b| Buffer::from(b.buffer));
+
+    Ok(ArrayData::try_new(
+        data_type,
+        values_len,
+        validity,
+        0,
+        vec![offsets, data],
+        vec![],
+    )?)
+}
+
+// Old Code. Delete once reimplemented
 macro_rules! build_primitive_array_data {
     ($buffers:expr, $field:expr, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
         let data = std::mem::take(&mut $buffers.$bytes_ty[$buffer]);
         let data: Vec<$ty> = ToBytes::from_bytes_vec(data);
         let validity = $validity.map(|validity| std::mem::take(&mut $buffers.u1[validity]));
         let data_type = Field::try_from($field)?.data_type().clone();
-        build_array_data_primitive(data_type, data.len(), data, validity)
+        build_array_data_primitive_with_len(data_type, data.len(), data, validity)
     }};
 }
 
-pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<ArrayData> {
+pub fn build_array_data_old(
+    buffers: &mut MutableBuffers,
+    mapping: &ArrayMapping,
+) -> Result<ArrayData> {
     use ArrayMapping as M;
     match mapping {
         &M::Null { buffer, .. } => Ok(NullArray::new(buffers.u0[buffer].len()).into_data()),
@@ -66,7 +153,12 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
         } => {
             let data = std::mem::take(&mut buffers.u1[buffer]);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_primitive(DataType::Boolean, data.len(), data.buffer, validity)
+            build_array_data_primitive_with_len(
+                DataType::Boolean,
+                data.len(),
+                data.buffer,
+                validity,
+            )
         }
         M::U8 {
             field,
@@ -125,7 +217,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
                 .map(<Float16Type as ArrowPrimitiveType>::Native::from_bits)
                 .collect::<Vec<_>>();
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_primitive(DataType::Float16, data.len(), data, validity)
+            build_array_data_primitive_with_len(DataType::Float16, data.len(), data, validity)
         }
         M::F32 {
             field,
@@ -148,7 +240,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             let data: Vec<i128> = ToBytes::from_bytes_vec(data);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             let data_type = Field::try_from(field)?.data_type().clone();
-            build_array_data_primitive(data_type, data.len(), data, validity)
+            build_array_data_primitive_with_len(data_type, data.len(), data, validity)
         }
         M::Date64 {
             field,
@@ -165,7 +257,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             let data = std::mem::take(&mut buffers.u8[buffer]);
             let offsets = std::mem::take(&mut buffers.u32_offsets[offsets]);
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_utf8(data, offsets.offsets, validity)
+            build_array_data_utf8_old(data, offsets.offsets, validity)
         }
         &M::LargeUtf8 {
             buffer,
@@ -185,7 +277,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
         } => {
             let mut data = Vec::new();
             for field in fields {
-                data.push(build_array_data(buffers, field)?);
+                data.push(build_array_data_old(buffers, field)?);
             }
 
             let field: Field = field.try_into()?;
@@ -214,7 +306,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             offsets,
             validity,
         } => {
-            let entries = build_array_data(buffers, entries)?;
+            let entries = build_array_data_old(buffers, entries)?;
             let field: Field = field.try_into()?;
 
             let offset = std::mem::take(&mut buffers.u32_offsets[*offsets]);
@@ -242,7 +334,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             offsets,
             validity,
         } => {
-            let values = build_array_data(buffers, item)?;
+            let values = build_array_data_old(buffers, item)?;
             let field: Field = field.try_into()?;
 
             let offset = std::mem::take(&mut buffers.u32_offsets[*offsets]);
@@ -270,7 +362,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             offsets,
             validity,
         } => {
-            let values = build_array_data(buffers, item)?;
+            let values = build_array_data_old(buffers, item)?;
 
             let offset = std::mem::take(&mut buffers.u64_offsets[*offsets]);
             let len = offset.len();
@@ -310,7 +402,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
 
             let mut children = Vec::new();
             for child in fields {
-                children.push(build_array_data(buffers, child)?);
+                children.push(build_array_data_old(buffers, child)?);
             }
 
             let len = types.len();
@@ -336,39 +428,79 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
             let indices = match indices {
                 I::U8(indices) => {
                     let indices = std::mem::take(&mut buffers.u8[*indices]);
-                    build_array_data_primitive(DataType::UInt8, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::UInt8,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::U16(indices) => {
                     let indices = std::mem::take(&mut buffers.u16[*indices]);
-                    build_array_data_primitive(DataType::UInt16, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::UInt16,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::U32(indices) => {
                     let indices = std::mem::take(&mut buffers.u32[*indices]);
-                    build_array_data_primitive(DataType::UInt32, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::UInt32,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::U64(indices) => {
                     let indices = std::mem::take(&mut buffers.u64[*indices]);
-                    build_array_data_primitive(DataType::UInt64, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::UInt64,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::I8(indices) => {
                     let indices = std::mem::take(&mut buffers.u8[*indices]);
                     let indices: Vec<i8> = ToBytes::from_bytes_vec(indices);
-                    build_array_data_primitive(DataType::Int8, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::Int8,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::I16(indices) => {
                     let indices = std::mem::take(&mut buffers.u16[*indices]);
                     let indices: Vec<i16> = ToBytes::from_bytes_vec(indices);
-                    build_array_data_primitive(DataType::Int16, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::Int16,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::I32(indices) => {
                     let indices = std::mem::take(&mut buffers.u32[*indices]);
                     let indices: Vec<i32> = ToBytes::from_bytes_vec(indices);
-                    build_array_data_primitive(DataType::Int32, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::Int32,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
                 I::I64(indices) => {
                     let indices = std::mem::take(&mut buffers.u64[*indices]);
                     let indices: Vec<i64> = ToBytes::from_bytes_vec(indices);
-                    build_array_data_primitive(DataType::Int64, indices.len(), indices, validity)?
+                    build_array_data_primitive_with_len(
+                        DataType::Int64,
+                        indices.len(),
+                        indices,
+                        validity,
+                    )?
                 }
             };
 
@@ -376,7 +508,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
                 V::Utf8 { buffer, offsets } => {
                     let data = std::mem::take(&mut buffers.u8[*buffer]);
                     let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
-                    build_array_data_utf8(data, offsets.offsets, None)?
+                    build_array_data_utf8_old(data, offsets.offsets, None)?
                 }
                 V::LargeUtf8 { buffer, offsets } => {
                     let data = std::mem::take(&mut buffers.u8[*buffer]);
@@ -396,7 +528,7 @@ pub fn build_array_data(buffers: &mut MutableBuffers, mapping: &ArrayMapping) ->
     }
 }
 
-fn build_array_data_utf8(
+fn build_array_data_utf8_old(
     data: Vec<u8>,
     offsets: Vec<i32>,
     validity: Option<MutableBitBuffer>,
@@ -430,22 +562,6 @@ fn build_array_data_utf8_impl<O: ArrowNativeType>(
         validity,
         0,
         vec![offsets, data],
-        vec![],
-    )?)
-}
-
-fn build_array_data_primitive<T: ArrowNativeType>(
-    data_type: DataType,
-    len: usize,
-    data: Vec<T>,
-    validity: Option<MutableBitBuffer>,
-) -> Result<ArrayData> {
-    Ok(ArrayData::try_new(
-        data_type,
-        len,
-        validity.map(|b| Buffer::from(b.buffer)),
-        0,
-        vec![ScalarBuffer::from(data).into_inner()],
         vec![],
     )?)
 }

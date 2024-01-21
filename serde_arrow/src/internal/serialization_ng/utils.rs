@@ -29,7 +29,7 @@ pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
 }
 
 #[allow(unused_variables)]
-pub trait SimpleSerializer {
+pub trait SimpleSerializer: Sized {
     fn name(&self) -> &str;
 
     fn serialize_default(&mut self) -> Result<()> {
@@ -109,10 +109,7 @@ pub trait SimpleSerializer {
         name: &'static str,
         value: &V,
     ) -> Result<()> {
-        fail!(
-            "serialize_newtype_struct is not implemented for {}",
-            self.name()
-        )
+        value.serialize(Mut(self))
     }
 
     fn serialize_newtype_variant<V: Serialize + ?Sized>(

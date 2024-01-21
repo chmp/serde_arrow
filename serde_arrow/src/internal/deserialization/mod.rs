@@ -21,37 +21,18 @@ use half::f16;
 const UNSET_INSTR: usize = usize::MAX;
 const NEXT_INSTR: usize = usize::MAX - 1;
 
-#[derive(Debug, Clone)]
-pub struct CompilationOptions {
-    pub wrap_with_struct: bool,
-}
-
-impl std::default::Default for CompilationOptions {
-    fn default() -> Self {
-        Self {
-            wrap_with_struct: true,
-        }
-    }
-}
-
-impl CompilationOptions {
-    pub fn wrap_with_struct(mut self, val: bool) -> Self {
-        self.wrap_with_struct = val;
-        self
-    }
-}
+#[derive(Debug, Default, Clone)]
+pub struct CompilationOptions {}
 
 pub fn compile_deserialization<'a>(
     num_items: usize,
     arrays: &'a [ArrayMapping],
     buffers: Buffers<'a>,
-    options: CompilationOptions,
 ) -> Result<Interpreter<'a>> {
     let mut compiler = Compiler {
         num_items,
         arrays,
         buffers,
-        options,
         num_positions: 0,
         program: Vec::new(),
     };
@@ -69,7 +50,6 @@ struct Compiler<'a> {
     num_items: usize,
     arrays: &'a [ArrayMapping],
     buffers: Buffers<'a>,
-    options: CompilationOptions,
     num_positions: usize,
     program: Vec<Bytecode>,
 }
@@ -82,10 +62,6 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_fields(&mut self) -> Result<()> {
-        if !self.options.wrap_with_struct && self.arrays.is_empty() {
-            fail!("cannot compile deserialization without any arrays if not wrapped with struct");
-        }
-
         self.push_instr(EmitOuterStartSequence { next: 1 });
 
         let outer_sequence_count = self.buffers.push_u0(self.num_items);
@@ -100,29 +76,23 @@ impl<'a> Compiler<'a> {
         });
 
         let outer_sequence_content_pos = self.program.len();
-        if self.options.wrap_with_struct {
-            self.push_instr(EmitStartOuterStruct { next: NEXT_INSTR });
-        }
+        self.push_instr(EmitStartOuterStruct { next: NEXT_INSTR });
 
         let mut child_positions = Vec::new();
         for array in self.arrays {
-            if self.options.wrap_with_struct {
-                let field = array.get_field();
-                let name_buffer = self.buffers.push_u8(field.name.as_bytes());
-                self.push_instr(EmitConstantString {
-                    next: NEXT_INSTR,
-                    buffer: name_buffer,
-                });
-            }
+            let field = array.get_field();
+            let name_buffer = self.buffers.push_u8(field.name.as_bytes());
+            self.push_instr(EmitConstantString {
+                next: NEXT_INSTR,
+                buffer: name_buffer,
+            });
 
             self.compile_field(array, &mut child_positions)?;
         }
         // The top-level struct cannot be null
         drop(child_positions);
 
-        if self.options.wrap_with_struct {
-            self.push_instr(EmitEndOuterStruct { next: NEXT_INSTR });
-        }
+        self.push_instr(EmitEndOuterStruct { next: NEXT_INSTR });
 
         self.push_instr(EmitOuterEndSequence {
             next: NEXT_INSTR,

@@ -12,3 +12,5 @@ pub mod utils;
 
 #[cfg(test)]
 mod test;
+
+pub use array_builder::ArrayBuilder;

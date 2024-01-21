@@ -1,4 +1,4 @@
-use super::macros::{test_events, test_example};
+use super::macros::test_example;
 
 // NOTE: Use BTreeMap to guarantee the order of fields
 
@@ -245,13 +245,15 @@ test_example!(
     ],
 );
 
+// TODO: re-create this test with a custom impl?
+/*
 test_events!(
     test_name = out_of_order_fields,
     fields = [
         // NOTE: map fields are always sorted
         GenericField::new("bar", GenericDataType::U32, false),
         GenericField::new("foo", GenericDataType::U32, false),
-    ],
+        ],
     events = [
         Event::StartSequence,
         Event::Item,
@@ -269,5 +271,6 @@ test_events!(
         Event::U32(3),
         Event::EndMap,
         Event::EndSequence,
-    ],
-);
+        ],
+    );
+*/

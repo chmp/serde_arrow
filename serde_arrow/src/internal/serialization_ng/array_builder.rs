@@ -226,6 +226,50 @@ impl ArrayBuilder {
 }
 
 impl ArrayBuilder {
+    /// Try to interpret this builder as `large_list<struct>>` and extract the contained struct fields
+    pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
+        let ArrayBuilder::LargeList(inner) = self else {
+            fail!("cannot take records without an outer LargeList<..>");
+        };
+        let ArrayBuilder::Struct(inner) = inner.element.as_mut() else {
+            fail!("cannot take records without an outer LargeList<Struct>");
+        };
+
+        let builder = inner.take();
+
+        let mut result = Vec::new();
+        for (_, field) in builder.named_fields {
+            result.push(field);
+        }
+
+        Ok(result)
+    }
+
+    /// Take the contained array builder, while leaving structure intact
+    pub fn take(&mut self) -> ArrayBuilder {
+        match self {
+            Self::Bool(builder) => Self::Bool(builder.take()),
+            Self::I8(builder) => Self::I8(builder.take()),
+            Self::I16(builder) => Self::I16(builder.take()),
+            Self::I32(builder) => Self::I32(builder.take()),
+            Self::I64(builder) => Self::I64(builder.take()),
+            Self::U8(builder) => Self::U8(builder.take()),
+            Self::U16(builder) => Self::U16(builder.take()),
+            Self::U32(builder) => Self::U32(builder.take()),
+            Self::U64(builder) => Self::U64(builder.take()),
+            Self::F32(builder) => Self::F32(builder.take()),
+            Self::F64(builder) => Self::F64(builder.take()),
+            Self::Utf8(builder) => Self::Utf8(builder.take()),
+            Self::LargeUtf8(builder) => Self::LargeUtf8(builder.take()),
+            Self::List(builder) => Self::List(builder.take()),
+            Self::LargeList(builder) => Self::LargeList(builder.take()),
+            Self::Struct(builder) => Self::Struct(builder.take()),
+            Self::Map(builder) => Self::Map(builder.take()),
+        }
+    }
+}
+
+impl ArrayBuilder {
     pub fn into_i8(self) -> Result<(Option<MutableBitBuffer>, Vec<i8>)> {
         unwrap!(self, Self::I8(builder) => Ok((builder.validity, builder.buffer)))
     }

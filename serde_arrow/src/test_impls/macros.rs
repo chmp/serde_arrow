@@ -254,65 +254,6 @@ macro_rules! test_example {
 
 pub(crate) use test_example;
 
-macro_rules! test_events {
-    (
-        test_name = $test_name:ident,
-        $(tracing_options = $tracing_options:expr,)?
-        fields = $fields:expr,
-        $(overwrite_fields = $overwrite_fields:expr,)?
-        events = $events:expr,
-    ) => {
-        mod $test_name {
-            use crate::internal::{
-                serialization::{compile_serialization, CompilationOptions, Interpreter},
-                event::Event,
-                schema::{GenericDataType, GenericField},
-                tracing::{Tracer, TracingOptions},
-                tracing::from_samples::StripOuterSequenceSink,
-                sink::accept_events,
-            };
-
-            #[test]
-            fn tracing() {
-                let events = &$events;
-                let fields = &$fields;
-
-                #[allow(unused)]
-                let options = TracingOptions::default();
-                $(let options = $tracing_options;)?
-
-                let mut tracer = Tracer::new(String::from("$"), options);
-                let mut sink = StripOuterSequenceSink::new(&mut tracer);
-                accept_events(&mut sink, events.iter().cloned()).unwrap();
-                let root = tracer.to_field("item").unwrap();
-
-                assert_eq!(root.children, fields);
-            }
-
-            #[test]
-            fn serialize() {
-                let events = &$events;
-
-                #[allow(unused)]
-                let fields = &$fields;
-                $(let fields = &$overwrite_fields;)?
-
-                let program = compile_serialization(fields, CompilationOptions::default()).unwrap();
-                println!("sturcture: {:?}", program.structure);
-
-                let mut interpreter = Interpreter::new(program);
-                accept_events(&mut interpreter, events.iter().cloned()).unwrap();
-
-                println!("buffers: {:?}", interpreter.context);
-
-                interpreter.build_arrow_arrays().unwrap();
-            }
-        }
-    };
-}
-
-pub(crate) use test_events;
-
 macro_rules! test_roundtrip_arrays {
     (
         $name:ident {

@@ -45,6 +45,21 @@ impl StructBuilder {
             index,
         })
     }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            validity: self.validity.as_mut().map(std::mem::take),
+            named_fields: self
+                .named_fields
+                .iter_mut()
+                .map(|(name, builder)| (name.clone(), builder.take()))
+                .collect(),
+            cached_names: vec![None; self.cached_names.len()],
+            seen: vec![false; self.seen.len()],
+            next: 0,
+            index: self.index.clone(),
+        }
+    }
 }
 
 impl StructBuilder {
