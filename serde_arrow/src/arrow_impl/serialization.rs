@@ -105,6 +105,15 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
                 .child_data(data)
                 .build()?)
         }
+        A::Map(builder) => Ok(ArrayData::builder(T::Map(
+            Arc::new(Field::try_from(&builder.entry_field)?),
+            false,
+        ))
+        .len(builder.offsets.offsets.len() - 1)
+        .add_buffer(ScalarBuffer::from(builder.offsets.offsets).into_inner())
+        .add_child_data(build_array_data(*builder.entry)?)
+        .null_bit_buffer(builder.validity.map(|b| Buffer::from(b.buffer)))
+        .build()?),
         builder => fail!("cannot build arrow array for {}", builder.name()),
     }
 }

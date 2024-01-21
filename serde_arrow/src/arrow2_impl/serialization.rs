@@ -95,10 +95,18 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
                 .iter()
                 .map(Field::try_from)
                 .collect::<Result<Vec<_>>>()?;
-            let data_type = T::Struct(fields);
-            let validity = build_validity(builder.validity);
-            Ok(Box::new(StructArray::try_new(data_type, values, validity)?))
+            Ok(Box::new(StructArray::try_new(
+                T::Struct(fields),
+                values,
+                build_validity(builder.validity),
+            )?))
         }
+        A::Map(builder) => Ok(Box::new(MapArray::try_new(
+            T::Map(Box::new(Field::try_from(&builder.entry_field)?), false),
+            OffsetsBuffer::try_from(builder.offsets.offsets)?,
+            build_array(*builder.entry)?,
+            build_validity(builder.validity),
+        )?)),
         builder => fail!("Cannot build arrow2 array for {}", builder.name()),
     }
 }

@@ -195,7 +195,11 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(self.next, value)
+        // ignore extra tuple fields
+        if self.next < self.named_fields.len() {
+            self.element(self.next, value)?;
+        }
+        Ok(())
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {

@@ -1,6 +1,12 @@
 use serde::Serialize;
 
-use crate::internal::common::{MutableBitBuffer, MutableOffsetBuffer};
+use crate::{
+    internal::{
+        common::{MutableBitBuffer, MutableOffsetBuffer},
+        schema::GenericField,
+    },
+    Result,
+};
 
 use super::{
     array_builder::ArrayBuilder,
@@ -9,28 +15,28 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
+    pub entry_field: GenericField,
     pub validity: Option<MutableBitBuffer>,
     pub offsets: MutableOffsetBuffer<i32>,
-    pub key: Box<ArrayBuilder>,
-    pub value: Box<ArrayBuilder>,
+    pub entry: Box<ArrayBuilder>,
 }
 
 impl MapBuilder {
-    pub fn new(key: ArrayBuilder, value: ArrayBuilder, is_nullable: bool) -> Self {
+    pub fn new(entry_field: GenericField, entry: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
+            entry_field,
             validity: is_nullable.then(MutableBitBuffer::default),
             offsets: MutableOffsetBuffer::default(),
-            key: Box::new(key),
-            value: Box::new(value),
+            entry: Box::new(entry),
         }
     }
 
     pub fn take(&mut self) -> Self {
         Self {
+            entry_field: self.entry_field.clone(),
             validity: self.validity.as_mut().map(std::mem::take),
             offsets: std::mem::take(&mut self.offsets),
-            key: Box::new(self.key.take()),
-            value: Box::new(self.value.take()),
+            entry: Box::new(self.entry.take()),
         }
     }
 }
@@ -40,36 +46,38 @@ impl SimpleSerializer for MapBuilder {
         "MapBuilder"
     }
 
-    fn serialize_default(&mut self) -> crate::Result<()> {
+    fn serialize_default(&mut self) -> Result<()> {
         push_validity_default(&mut self.validity);
         self.offsets.push_current_items();
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> crate::Result<()> {
+    fn serialize_none(&mut self) -> Result<()> {
         self.offsets.push_current_items();
         push_validity(&mut self.validity, false)
     }
 
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> crate::Result<()> {
+    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         value.serialize(Mut(self))
     }
 
-    fn serialize_map_start(&mut self, _: Option<usize>) -> crate::Result<()> {
-        push_validity(&mut self.validity, true)
-    }
-
-    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> crate::Result<()> {
-        self.offsets.inc_current_items()?;
-        key.serialize(Mut(self.key.as_mut()))?;
+    fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
         Ok(())
     }
 
-    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> crate::Result<()> {
-        value.serialize(Mut(self.value.as_mut()))
+    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
+        self.offsets.inc_current_items()?;
+        self.entry.serialize_tuple_start(2)?;
+        self.entry.serialize_tuple_element(key)
     }
 
-    fn serialize_map_end(&mut self) -> crate::Result<()> {
+    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.entry.serialize_tuple_element(value)?;
+        self.entry.serialize_tuple_end()
+    }
+
+    fn serialize_map_end(&mut self) -> Result<()> {
         self.offsets.push_current_items();
         Ok(())
     }

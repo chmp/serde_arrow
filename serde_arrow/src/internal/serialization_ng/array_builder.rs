@@ -2,7 +2,6 @@ use serde::Serialize;
 
 use crate::{
     internal::{
-        common::MutableBitBuffer,
         error::fail,
         schema::{GenericDataType, GenericField},
     },
@@ -46,7 +45,7 @@ pub enum ArrayBuilder {
 }
 
 macro_rules! dispatch {
-    ($obj:expr, $wrapper:ident :: *($name:ident) => $expr:expr) => {
+    ($obj:expr, $wrapper:ident($name:ident) => $expr:expr) => {
         match $obj {
             $wrapper::Bool($name) => $expr,
             $wrapper::Null($name) => $expr,
@@ -66,15 +65,6 @@ macro_rules! dispatch {
             $wrapper::LargeList($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Struct($name) => $expr,
-        }
-    };
-}
-
-macro_rules! unwrap {
-    ($obj:expr, $ty:ident :: $variant:ident($name:ident) => $expr:expr) => {
-        match $obj {
-            $ty::$variant($name) => $expr,
-            _ => fail!("cannot unwrap {} as {}", $obj.name(), stringify!($variant)),
         }
     };
 }
@@ -147,16 +137,15 @@ impl ArrayBuilder {
                     ))
                 }
                 T::Map => {
-                    let Some(key) = field.children.first() else {
-                        fail!("Cannot build a map without a key field");
+                    let Some(entry_field) = field.children.first() else {
+                        fail!("Cannot build a map with an entry field");
                     };
-                    let Some(value) = field.children.get(1) else {
-                        fail!("Cannot build a map without a key field");
-                    };
-
+                    if entry_field.data_type != T::Struct && entry_field.children.len() != 2 {
+                        fail!("Invalid child field for map: {entry_field:?}")
+                    }
                     A::Map(MapBuilder::new(
-                        build_builder(key)?,
-                        build_builder(value)?,
+                        entry_field.clone(),
+                        build_builder(entry_field)?,
                         field.nullable,
                     ))
                 }
@@ -239,88 +228,6 @@ impl ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    pub fn into_i8(self) -> Result<(Option<MutableBitBuffer>, Vec<i8>)> {
-        unwrap!(self, Self::I8(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_i16(self) -> Result<(Option<MutableBitBuffer>, Vec<i16>)> {
-        unwrap!(self, Self::I16(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_i32(self) -> Result<(Option<MutableBitBuffer>, Vec<i32>)> {
-        unwrap!(self, Self::I32(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_i64(self) -> Result<(Option<MutableBitBuffer>, Vec<i64>)> {
-        unwrap!(self, Self::I64(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_u8(self) -> Result<(Option<MutableBitBuffer>, Vec<u8>)> {
-        unwrap!(self, Self::U8(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_u16(self) -> Result<(Option<MutableBitBuffer>, Vec<u16>)> {
-        unwrap!(self, Self::U16(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_u32(self) -> Result<(Option<MutableBitBuffer>, Vec<u32>)> {
-        unwrap!(self, Self::U32(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_u64(self) -> Result<(Option<MutableBitBuffer>, Vec<u64>)> {
-        unwrap!(self, Self::U64(builder) => Ok((builder.validity, builder.buffer)))
-    }
-
-    pub fn into_utf8(self) -> Result<(Option<MutableBitBuffer>, Vec<i32>, Vec<u8>)> {
-        unwrap!(self, Self::Utf8(builder) => Ok((builder.validity, builder.offsets.offsets, builder.buffer)))
-    }
-
-    pub fn into_large_utf8(self) -> Result<(Option<MutableBitBuffer>, Vec<i64>, Vec<u8>)> {
-        unwrap!(self, Self::LargeUtf8(builder) => Ok((builder.validity, builder.offsets.offsets, builder.buffer)))
-    }
-
-    pub fn into_list(self) -> Result<(Option<MutableBitBuffer>, Vec<i32>, ArrayBuilder)> {
-        unwrap!(self, Self::List(builder) => Ok((builder.validity, builder.offsets.offsets, *builder.element)))
-    }
-
-    pub fn into_large_list(self) -> Result<(Option<MutableBitBuffer>, Vec<i64>, ArrayBuilder)> {
-        unwrap!(self, Self::LargeList(builder) => {
-            Ok((builder.validity, builder.offsets.offsets, *builder.element))
-        })
-    }
-
-    pub fn into_map(
-        self,
-    ) -> Result<(
-        Option<MutableBitBuffer>,
-        Vec<i32>,
-        ArrayBuilder,
-        ArrayBuilder,
-    )> {
-        unwrap!(self, Self::Map(builder) => Ok((
-            builder.validity,
-            builder.offsets.offsets,
-            *builder.key,
-            *builder.value,
-        )))
-    }
-
-    pub fn into_struct(self) -> Result<(Option<MutableBitBuffer>, Vec<String>, Vec<ArrayBuilder>)> {
-        unwrap!(self, Self::Struct(builder) => {
-            let mut names = Vec::new();
-            let mut fields = Vec::new();
-
-            for (name, field) in builder.named_fields {
-                names.push(name);
-                fields.push(field);
-            }
-
-            Ok((builder.validity, names, fields))
-        })
-    }
-}
-
-impl ArrayBuilder {
     pub fn extend<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         value.serialize(Mut(self))
     }
@@ -333,178 +240,178 @@ impl SimpleSerializer for ArrayBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_default())
+        dispatch!(self, Self(builder) => builder.serialize_default())
     }
 
     fn serialize_unit_struct(&mut self, name: &'static str) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_unit_struct(name))
+        dispatch!(self, Self(builder) => builder.serialize_unit_struct(name))
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_none())
+        dispatch!(self, Self(builder) => builder.serialize_none())
     }
 
     fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_some(value))
+        dispatch!(self, Self(builder) => builder.serialize_some(value))
     }
 
     fn serialize_unit(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_unit())
+        dispatch!(self, Self(builder) => builder.serialize_unit())
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_bool(v))
+        dispatch!(self, Self(builder) => builder.serialize_bool(v))
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_i8(v))
+        dispatch!(self, Self(builder) => builder.serialize_i8(v))
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_i16(v))
+        dispatch!(self, Self(builder) => builder.serialize_i16(v))
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_i32(v))
+        dispatch!(self, Self(builder) => builder.serialize_i32(v))
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_i64(v))
+        dispatch!(self, Self(builder) => builder.serialize_i64(v))
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_u8(v))
+        dispatch!(self, Self(builder) => builder.serialize_u8(v))
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_u16(v))
+        dispatch!(self, Self(builder) => builder.serialize_u16(v))
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_u32(v))
+        dispatch!(self, Self(builder) => builder.serialize_u32(v))
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_u64(v))
+        dispatch!(self, Self(builder) => builder.serialize_u64(v))
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_f32(v))
+        dispatch!(self, Self(builder) => builder.serialize_f32(v))
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_f64(v))
+        dispatch!(self, Self(builder) => builder.serialize_f64(v))
     }
 
     fn serialize_char(&mut self, v: char) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_char(v))
+        dispatch!(self, Self(builder) => builder.serialize_char(v))
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_str(v))
+        dispatch!(self, Self(builder) => builder.serialize_str(v))
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_bytes(v))
+        dispatch!(self, Self(builder) => builder.serialize_bytes(v))
     }
 
     fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_seq_start(len))
+        dispatch!(self, Self(builder) => builder.serialize_seq_start(len))
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_seq_element(value))
+        dispatch!(self, Self(builder) => builder.serialize_seq_element(value))
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_seq_end())
+        dispatch!(self, Self(builder) => builder.serialize_seq_end())
     }
 
     fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_start(name, len))
+        dispatch!(self, Self(builder) => builder.serialize_struct_start(name, len))
     }
 
     fn serialize_struct_field<V: Serialize + ?Sized>(&mut self, key: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_field(key, value))
+        dispatch!(self, Self(builder) => builder.serialize_struct_field(key, value))
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_end())
+        dispatch!(self, Self(builder) => builder.serialize_struct_end())
     }
 
     fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_map_start(len))
+        dispatch!(self, Self(builder) => builder.serialize_map_start(len))
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_map_key(key))
+        dispatch!(self, Self(builder) => builder.serialize_map_key(key))
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_map_value(value))
+        dispatch!(self, Self(builder) => builder.serialize_map_value(value))
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_map_end())
+        dispatch!(self, Self(builder) => builder.serialize_map_end())
     }
 
     fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_start(len))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_start(len))
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_element(value))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_element(value))
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_end())
+        dispatch!(self, Self(builder) => builder.serialize_tuple_end())
     }
 
     fn serialize_tuple_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_struct_start(name, len))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_start(name, len))
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_struct_field(value))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_field(value))
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_struct_end())
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_end())
     }
 
     fn serialize_newtype_struct<V: Serialize + ?Sized>(&mut self, name: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_newtype_struct(name, value))
+        dispatch!(self, Self(builder) => builder.serialize_newtype_struct(name, value))
     }
 
     fn serialize_newtype_variant<V: Serialize + ?Sized>(&mut self, name: &'static str, variant_index: u32, variant: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value))
+        dispatch!(self, Self(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value))
     }
 
     fn serialize_unit_variant(&mut self, name: &'static str, variant_index: u32, variant: &'static str) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_unit_variant(name, variant_index, variant))
+        dispatch!(self, Self(builder) => builder.serialize_unit_variant(name, variant_index, variant))
     }
 
     fn serialize_struct_variant_start(&mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_variant_start(name, variant_index, variant, len))
+        dispatch!(self, Self(builder) => builder.serialize_struct_variant_start(name, variant_index, variant, len))
     }
 
     fn serialize_struct_variant_field<V: Serialize + ?Sized>(&mut self, key: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_variant_field(key, value))
+        dispatch!(self, Self(builder) => builder.serialize_struct_variant_field(key, value))
     }
     
     fn serialize_struct_variant_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_struct_variant_end())
+        dispatch!(self, Self(builder) => builder.serialize_struct_variant_end())
     }
 
     fn serialize_tuple_variant_start(&mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_variant_start(name, variant_index, variant, len))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_start(name, variant_index, variant, len))
     }
 
     fn serialize_tuple_variant_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_variant_field(value))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_field(value))
     }
 
     fn serialize_tuple_variant_end(&mut self) -> Result<()> {
-        dispatch!(self, Self::*(builder) => builder.serialize_tuple_variant_end())
+        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_end())
     }
 }
