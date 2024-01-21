@@ -1,7 +1,10 @@
 use serde::Serialize;
 
 use crate::{
-    internal::common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
+    internal::{
+        common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
+        schema::GenericField,
+    },
     Result,
 };
 
@@ -13,14 +16,16 @@ use super::{
 #[derive(Debug, Clone)]
 
 pub struct ListBuilder<O> {
+    pub field: GenericField,
     pub validity: Option<MutableBitBuffer>,
     pub offsets: MutableOffsetBuffer<O>,
     pub element: Box<ArrayBuilder>,
 }
 
 impl<O: Offset> ListBuilder<O> {
-    pub fn new(element: ArrayBuilder, is_nullable: bool) -> Self {
+    pub fn new(field: GenericField, element: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
+            field,
             validity: is_nullable.then(MutableBitBuffer::default),
             offsets: Default::default(),
             element: Box::new(element),
@@ -29,6 +34,7 @@ impl<O: Offset> ListBuilder<O> {
 
     pub fn take(&mut self) -> Self {
         Self {
+            field: self.field.clone(),
             validity: self.validity.as_mut().map(std::mem::take),
             offsets: std::mem::take(&mut self.offsets),
             element: Box::new(self.element.take()),
@@ -64,7 +70,7 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.serialize_default()?;
+        self.offsets.push_current_items();
         push_validity(&mut self.validity, false)
     }
 

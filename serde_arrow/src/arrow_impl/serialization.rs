@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+use std::sync::Arc;
+
 use crate::internal::{
     common::{ArrayMapping, DictionaryIndex, DictionaryValue, MutableBitBuffer, MutableBuffers},
     conversions::ToBytes,
@@ -59,6 +61,20 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             T::LargeUtf8,
             builder.offsets.offsets,
             builder.buffer,
+            builder.validity,
+        ),
+        A::LargeList(builder) => build_array_data_list(
+            T::LargeList(Arc::new(Field::try_from(&builder.field)?)),
+            builder.offsets.offsets.len() - 1,
+            builder.offsets.offsets,
+            build_array_data(*builder.element)?,
+            builder.validity,
+        ),
+        A::List(builder) => build_array_data_list(
+            T::List(Arc::new(Field::try_from(&builder.field)?)),
+            builder.offsets.offsets.len() - 1,
+            builder.offsets.offsets,
+            build_array_data(*builder.element)?,
             builder.validity,
         ),
         A::Struct(builder) => {
@@ -140,6 +156,24 @@ fn build_array_data_utf8<O: ArrowNativeType>(
     )?)
 }
 
+fn build_array_data_list<O: ArrowNativeType>(
+    data_type: DataType,
+    len: usize,
+    offsets: Vec<O>,
+    child_data: ArrayData,
+    validity: Option<MutableBitBuffer>,
+) -> Result<ArrayData> {
+    let offset_buffer = ScalarBuffer::from(offsets).into_inner();
+    let validity = validity.map(|b| Buffer::from(b.buffer));
+
+    Ok(ArrayData::builder(data_type)
+        .len(len)
+        .add_buffer(offset_buffer)
+        .add_child_data(child_data)
+        .null_bit_buffer(validity)
+        .build()?)
+}
+
 // Old Code. Delete once reimplemented
 macro_rules! build_primitive_array_data {
     ($buffers:expr, $field:expr, $ty:ty, $bytes_ty:ident, $buffer:expr, $validity:expr) => {{
@@ -209,62 +243,6 @@ pub fn build_array_data_old(
                 .len(len)
                 .add_buffer(offset_buffer)
                 .add_child_data(entries)
-                .null_bit_buffer(validity);
-
-            Ok(array_data_builder.build()?)
-        }
-        M::List {
-            field,
-            item,
-            offsets,
-            validity,
-        } => {
-            let values = build_array_data_old(buffers, item)?;
-            let field: Field = field.try_into()?;
-
-            let offset = std::mem::take(&mut buffers.u32_offsets[*offsets]);
-            let len = offset.len();
-            let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
-
-            let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.u1[*validity]);
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            let array_data_builder = ArrayData::builder(field.data_type().clone())
-                .len(len)
-                .add_buffer(offset_buffer)
-                .add_child_data(values)
-                .null_bit_buffer(validity);
-
-            Ok(array_data_builder.build()?)
-        }
-        M::LargeList {
-            field,
-            item,
-            offsets,
-            validity,
-        } => {
-            let values = build_array_data_old(buffers, item)?;
-
-            let offset = std::mem::take(&mut buffers.u64_offsets[*offsets]);
-            let len = offset.len();
-            let offset_buffer = ScalarBuffer::from(offset.offsets).into_inner();
-
-            let validity = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.u1[*validity]);
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            let field: Field = field.try_into()?;
-            let array_data_builder = ArrayData::builder(field.data_type().clone())
-                .len(len)
-                .add_buffer(offset_buffer)
-                .add_child_data(values)
                 .null_bit_buffer(validity);
 
             Ok(array_data_builder.build()?)

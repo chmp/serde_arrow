@@ -81,7 +81,13 @@ macro_rules! unwrap {
 
 impl ArrayBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
+        let mut struct_field = GenericField::new("item", GenericDataType::Struct, false);
+        struct_field.children = schema.fields.clone();
+        let list_field =
+            GenericField::new("outer", GenericDataType::LargeList, false).with_child(struct_field);
+
         return Ok(Self::LargeList(ListBuilder::new(
+            list_field,
             build_struct(&schema.fields, false)?,
             false,
         )));
@@ -124,13 +130,21 @@ impl ArrayBuilder {
                     let Some(child) = field.children.first() else {
                         fail!("cannot build a list without an element field");
                     };
-                    A::List(ListBuilder::new(build_builder(child)?, field.nullable))
+                    A::List(ListBuilder::new(
+                        child.clone(),
+                        build_builder(child)?,
+                        field.nullable,
+                    ))
                 }
                 T::LargeList => {
                     let Some(child) = field.children.first() else {
                         fail!("cannot build list without an element field");
                     };
-                    A::LargeList(ListBuilder::new(build_builder(child)?, field.nullable))
+                    A::LargeList(ListBuilder::new(
+                        child.clone(),
+                        build_builder(child)?,
+                        field.nullable,
+                    ))
                 }
                 T::Map => {
                     let Some(key) = field.children.first() else {

@@ -72,6 +72,18 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
             builder.buffer,
             builder.validity,
         ),
+        A::LargeList(builder) => Ok(Box::new(ListArray::try_new(
+            T::LargeList(Box::new(Field::try_from(&builder.field)?)),
+            OffsetsBuffer::try_from(builder.offsets.offsets)?,
+            build_array(*builder.element)?,
+            build_validity(builder.validity),
+        )?)),
+        A::List(builder) => Ok(Box::new(ListArray::try_new(
+            T::List(Box::new(Field::try_from(&builder.field)?)),
+            OffsetsBuffer::try_from(builder.offsets.offsets)?,
+            build_array(*builder.element)?,
+            build_validity(builder.validity),
+        )?)),
         A::Struct(builder) => {
             let mut values = Vec::new();
             for (_, field) in builder.named_fields {
@@ -238,38 +250,6 @@ fn build_array_old(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Resu
                     buffers, i64, u64, Int64, *indices, data_type, values, validity
                 ),
             }
-        }
-        M::List {
-            field,
-            item,
-            offsets,
-            validity,
-        } => {
-            let data_type = Field::try_from(field)?.data_type;
-            let values = build_array_old(buffers, item)?;
-            let validity = build_validity_old(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.u32_offsets[*offsets]);
-            let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
-
-            Ok(Box::new(ListArray::try_new(
-                data_type, offsets, values, validity,
-            )?))
-        }
-        M::LargeList {
-            field,
-            item,
-            offsets,
-            validity,
-        } => {
-            let data_type = Field::try_from(field)?.data_type;
-            let values = build_array_old(buffers, item)?;
-            let validity = build_validity_old(buffers, *validity);
-            let offsets = std::mem::take(&mut buffers.u64_offsets[*offsets]);
-            let offsets = OffsetsBuffer::try_from(offsets.offsets)?;
-
-            Ok(Box::new(ListArray::try_new(
-                data_type, offsets, values, validity,
-            )?))
         }
         M::Union {
             field,
