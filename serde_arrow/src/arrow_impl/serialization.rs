@@ -30,51 +30,33 @@ fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
 }
 
 fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
+    use {ArrayBuilder as A, DataType as T};
     match builder {
-        ArrayBuilder::Bool(builder) => build_array_data_primitive_with_len(
-            DataType::Boolean,
+        A::Null(builder) => Ok(NullArray::new(builder.count).into_data()),
+        A::Bool(builder) => build_array_data_primitive_with_len(
+            T::Boolean,
             builder.buffer.len(),
             builder.buffer.buffer,
             builder.validity,
         ),
-        ArrayBuilder::I8(builder) => {
-            build_array_data_primitive(DataType::Int8, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I16(builder) => {
-            build_array_data_primitive(DataType::Int16, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I32(builder) => {
-            build_array_data_primitive(DataType::Int32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I64(builder) => {
-            build_array_data_primitive(DataType::Int64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U8(builder) => {
-            build_array_data_primitive(DataType::UInt8, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U16(builder) => {
-            build_array_data_primitive(DataType::UInt16, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U32(builder) => {
-            build_array_data_primitive(DataType::UInt32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U64(builder) => {
-            build_array_data_primitive(DataType::UInt64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::F32(builder) => {
-            build_array_data_primitive(DataType::Float32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::F64(builder) => {
-            build_array_data_primitive(DataType::Float64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::Utf8(builder) => build_array_data_utf8(
-            DataType::Utf8,
+        A::I8(builder) => build_array_data_primitive(T::Int8, builder.buffer, builder.validity),
+        A::I16(builder) => build_array_data_primitive(T::Int16, builder.buffer, builder.validity),
+        A::I32(builder) => build_array_data_primitive(T::Int32, builder.buffer, builder.validity),
+        A::I64(builder) => build_array_data_primitive(T::Int64, builder.buffer, builder.validity),
+        A::U8(builder) => build_array_data_primitive(T::UInt8, builder.buffer, builder.validity),
+        A::U16(builder) => build_array_data_primitive(T::UInt16, builder.buffer, builder.validity),
+        A::U32(builder) => build_array_data_primitive(T::UInt32, builder.buffer, builder.validity),
+        A::U64(builder) => build_array_data_primitive(T::UInt64, builder.buffer, builder.validity),
+        A::F32(builder) => build_array_data_primitive(T::Float32, builder.buffer, builder.validity),
+        A::F64(builder) => build_array_data_primitive(T::Float64, builder.buffer, builder.validity),
+        A::Utf8(builder) => build_array_data_utf8(
+            T::Utf8,
             builder.offsets.offsets,
             builder.buffer,
             builder.validity,
         ),
-        ArrayBuilder::LargeUtf8(builder) => build_array_data_utf8(
-            DataType::LargeUtf8,
+        A::LargeUtf8(builder) => build_array_data_utf8(
+            T::LargeUtf8,
             builder.offsets.offsets,
             builder.buffer,
             builder.validity,

@@ -38,54 +38,36 @@ impl ArrayBuilder {
 }
 
 fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
+    use {ArrayBuilder as A, DataType as T};
     match builder {
-        ArrayBuilder::Bool(builder) => {
+        A::Null(builder) => Ok(Box::new(NullArray::new(T::Null, builder.count))),
+        A::Bool(builder) => {
             let buffer = Bitmap::from_u8_vec(builder.buffer.buffer, builder.buffer.len);
             let validity = build_validity(builder.validity);
             Ok(Box::new(BooleanArray::try_new(
-                DataType::Boolean,
+                T::Boolean,
                 buffer,
                 validity,
             )?))
         }
-        ArrayBuilder::I8(builder) => {
-            build_primitive_array(DataType::Int8, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I16(builder) => {
-            build_primitive_array(DataType::Int16, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I32(builder) => {
-            build_primitive_array(DataType::Int32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::I64(builder) => {
-            build_primitive_array(DataType::Int64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U8(builder) => {
-            build_primitive_array(DataType::UInt8, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U16(builder) => {
-            build_primitive_array(DataType::UInt16, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U32(builder) => {
-            build_primitive_array(DataType::UInt32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::U64(builder) => {
-            build_primitive_array(DataType::UInt64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::F32(builder) => {
-            build_primitive_array(DataType::Float32, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::F64(builder) => {
-            build_primitive_array(DataType::Float64, builder.buffer, builder.validity)
-        }
-        ArrayBuilder::Utf8(builder) => build_array_utf8_array(
-            DataType::Utf8,
+        A::I8(builder) => build_primitive_array(T::Int8, builder.buffer, builder.validity),
+        A::I16(builder) => build_primitive_array(T::Int16, builder.buffer, builder.validity),
+        A::I32(builder) => build_primitive_array(T::Int32, builder.buffer, builder.validity),
+        A::I64(builder) => build_primitive_array(T::Int64, builder.buffer, builder.validity),
+        A::U8(builder) => build_primitive_array(T::UInt8, builder.buffer, builder.validity),
+        A::U16(builder) => build_primitive_array(T::UInt16, builder.buffer, builder.validity),
+        A::U32(builder) => build_primitive_array(T::UInt32, builder.buffer, builder.validity),
+        A::U64(builder) => build_primitive_array(T::UInt64, builder.buffer, builder.validity),
+        A::F32(builder) => build_primitive_array(T::Float32, builder.buffer, builder.validity),
+        A::F64(builder) => build_primitive_array(T::Float64, builder.buffer, builder.validity),
+        A::Utf8(builder) => build_array_utf8_array(
+            T::Utf8,
             builder.offsets.offsets,
             builder.buffer,
             builder.validity,
         ),
-        ArrayBuilder::LargeUtf8(builder) => build_array_utf8_array(
-            DataType::LargeUtf8,
+        A::LargeUtf8(builder) => build_array_utf8_array(
+            T::LargeUtf8,
             builder.offsets.offsets,
             builder.buffer,
             builder.validity,

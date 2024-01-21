@@ -16,6 +16,7 @@ use super::{
     int_builder::IntBuilder,
     list_builder::ListBuilder,
     map_builder::MapBuilder,
+    null_builder::NullBuilder,
     struct_builder::StructBuilder,
     utf8_builder::Utf8Builder,
     utils::{Mut, SimpleSerializer},
@@ -24,6 +25,7 @@ use super::{
 // TODO: add outer sequence builder? (not limited by i64 limits)
 #[derive(Debug, Clone)]
 pub enum ArrayBuilder {
+    Null(NullBuilder),
     Bool(BoolBuilder),
     I8(IntBuilder<i8>),
     I16(IntBuilder<i16>),
@@ -47,6 +49,7 @@ macro_rules! dispatch {
     ($obj:expr, $wrapper:ident :: *($name:ident) => $expr:expr) => {
         match $obj {
             $wrapper::Bool($name) => $expr,
+            $wrapper::Null($name) => $expr,
             $wrapper::I8($name) => $expr,
             $wrapper::I16($name) => $expr,
             $wrapper::I32($name) => $expr,
@@ -78,12 +81,13 @@ macro_rules! unwrap {
 
 impl ArrayBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
-        return Ok(Self::large_list(
+        return Ok(Self::LargeList(ListBuilder::new(
             build_struct(&schema.fields, false)?,
             false,
-        ));
+        )));
 
         fn build_struct(fields: &[GenericField], nullable: bool) -> Result<ArrayBuilder> {
+            use ArrayBuilder as A;
             let mut named_fields = Vec::new();
 
             for field in fields {
@@ -91,37 +95,52 @@ impl ArrayBuilder {
                 named_fields.push((field.name.to_owned(), builder));
             }
 
-            ArrayBuilder::r#struct(named_fields, nullable)
+            Ok(A::Struct(StructBuilder::new(named_fields, nullable)?))
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
-            use GenericDataType as T;
+            use {ArrayBuilder as A, GenericDataType as T};
 
             let builder = match &field.data_type {
-                T::Bool => ArrayBuilder::bool(field.nullable),
-                T::I8 => ArrayBuilder::i8(field.nullable),
-                T::I16 => ArrayBuilder::i16(field.nullable),
-                T::I32 => ArrayBuilder::i32(field.nullable),
-                T::I64 => ArrayBuilder::i64(field.nullable),
-                T::U8 => ArrayBuilder::u8(field.nullable),
-                T::U16 => ArrayBuilder::u16(field.nullable),
-                T::U32 => ArrayBuilder::u32(field.nullable),
-                T::U64 => ArrayBuilder::u64(field.nullable),
-                T::F32 => ArrayBuilder::f32(field.nullable),
-                T::F64 => ArrayBuilder::f64(field.nullable),
-                T::Utf8 => ArrayBuilder::utf8(field.nullable),
-                T::LargeUtf8 => ArrayBuilder::large_utf8(field.nullable),
+                T::Null => A::Null(NullBuilder::new()),
+                T::Bool => A::Bool(BoolBuilder::new(field.nullable)),
+                T::I8 => A::I8(IntBuilder::new(field.nullable)),
+                T::I16 => A::I16(IntBuilder::new(field.nullable)),
+                T::I32 => A::I32(IntBuilder::new(field.nullable)),
+                T::I64 => A::I64(IntBuilder::new(field.nullable)),
+                T::U8 => A::U8(IntBuilder::new(field.nullable)),
+                T::U16 => A::U16(IntBuilder::new(field.nullable)),
+                T::U32 => A::U32(IntBuilder::new(field.nullable)),
+                T::U64 => A::U64(IntBuilder::new(field.nullable)),
+                T::F32 => A::F32(FloatBuilder::new(field.nullable)),
+                T::F64 => A::F64(FloatBuilder::new(field.nullable)),
+                T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
+                T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
                 T::List => {
                     let Some(child) = field.children.first() else {
-                        fail!("cannot build list without an element field");
+                        fail!("cannot build a list without an element field");
                     };
-                    ArrayBuilder::list(build_builder(child)?, field.nullable)
+                    A::List(ListBuilder::new(build_builder(child)?, field.nullable))
                 }
                 T::LargeList => {
                     let Some(child) = field.children.first() else {
                         fail!("cannot build list without an element field");
                     };
-                    ArrayBuilder::large_list(build_builder(child)?, field.nullable)
+                    A::LargeList(ListBuilder::new(build_builder(child)?, field.nullable))
+                }
+                T::Map => {
+                    let Some(key) = field.children.first() else {
+                        fail!("Cannot build a map without a key field");
+                    };
+                    let Some(value) = field.children.get(1) else {
+                        fail!("Cannot build a map without a key field");
+                    };
+
+                    A::Map(MapBuilder::new(
+                        build_builder(key)?,
+                        build_builder(value)?,
+                        field.nullable,
+                    ))
                 }
                 T::Struct => build_struct(&field.children, field.nullable)?,
                 dt => fail!("cannot build ArrayBuilder for {dt}"),
@@ -132,78 +151,9 @@ impl ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    pub fn bool(is_nullable: bool) -> Self {
-        Self::Bool(BoolBuilder::new(is_nullable))
-    }
-
-    pub fn i8(is_nullable: bool) -> Self {
-        Self::I8(IntBuilder::new(is_nullable))
-    }
-
-    pub fn i16(is_nullable: bool) -> Self {
-        Self::I16(IntBuilder::new(is_nullable))
-    }
-
-    pub fn i32(is_nullable: bool) -> Self {
-        Self::I32(IntBuilder::new(is_nullable))
-    }
-
-    pub fn i64(is_nullable: bool) -> Self {
-        Self::I64(IntBuilder::new(is_nullable))
-    }
-
-    pub fn u8(is_nullable: bool) -> Self {
-        Self::U8(IntBuilder::new(is_nullable))
-    }
-
-    pub fn u16(is_nullable: bool) -> Self {
-        Self::U16(IntBuilder::new(is_nullable))
-    }
-
-    pub fn u32(is_nullable: bool) -> Self {
-        Self::U32(IntBuilder::new(is_nullable))
-    }
-
-    pub fn u64(is_nullable: bool) -> Self {
-        Self::U64(IntBuilder::new(is_nullable))
-    }
-
-    pub fn f32(is_nullable: bool) -> Self {
-        Self::F32(FloatBuilder::new(is_nullable))
-    }
-
-    pub fn f64(is_nullable: bool) -> Self {
-        Self::F64(FloatBuilder::new(is_nullable))
-    }
-
-    pub fn utf8(is_nullable: bool) -> Self {
-        Self::Utf8(Utf8Builder::new(is_nullable))
-    }
-
-    pub fn large_utf8(is_nullable: bool) -> Self {
-        Self::LargeUtf8(Utf8Builder::new(is_nullable))
-    }
-
-    pub fn list(element: ArrayBuilder, is_nullable: bool) -> Self {
-        Self::List(ListBuilder::new(element, is_nullable))
-    }
-
-    pub fn large_list(element: ArrayBuilder, is_nullable: bool) -> Self {
-        Self::LargeList(ListBuilder::new(element, is_nullable))
-    }
-
-    pub fn map(key: ArrayBuilder, value: ArrayBuilder, is_nullable: bool) -> Self {
-        Self::Map(MapBuilder::new(key, value, is_nullable))
-    }
-
-    pub fn r#struct(named_fields: Vec<(String, ArrayBuilder)>, is_nullable: bool) -> Result<Self> {
-        Ok(Self::Struct(StructBuilder::new(named_fields, is_nullable)?))
-    }
-}
-
-impl ArrayBuilder {
     pub fn name(&self) -> &'static str {
         match self {
+            Self::Null(_) => "Null",
             Self::Bool(_) => "Bool",
             Self::I8(_) => "I8",
             Self::I16(_) => "I16",
@@ -248,6 +198,7 @@ impl ArrayBuilder {
     /// Take the contained array builder, while leaving structure intact
     pub fn take(&mut self) -> ArrayBuilder {
         match self {
+            Self::Null(builder) => Self::Null(builder.take()),
             Self::Bool(builder) => Self::Bool(builder.take()),
             Self::I8(builder) => Self::I8(builder.take()),
             Self::I16(builder) => Self::I16(builder.take()),

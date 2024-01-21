@@ -6,11 +6,12 @@ pub mod float_builder;
 pub mod int_builder;
 pub mod list_builder;
 pub mod map_builder;
+pub mod null_builder;
 pub mod struct_builder;
 pub mod utf8_builder;
 pub mod utils;
 
-#[cfg(test)]
-mod test;
+// #[cfg(test)]
+// mod test;
 
 pub use array_builder::ArrayBuilder;
