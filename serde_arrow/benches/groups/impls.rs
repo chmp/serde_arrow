@@ -31,6 +31,12 @@ macro_rules! define_benchmark {
                 $($(let bench_serde_arrow = $bench_serde_arrow; )?)?
 
                 if bench_serde_arrow {
+                    group.bench_function("serde_arrow_ng", |b| {
+                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_ng::serialize(&arrow_fields, &items).unwrap()));
+                    });
+                }
+
+                if bench_serde_arrow {
                     group.bench_function("serde_arrow", |b| {
                         b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow::serialize(&arrow_fields, &items).unwrap()));
                     });
@@ -87,6 +93,25 @@ pub mod serde_arrow {
         T: Serialize + ?Sized,
     {
         serde_arrow::to_arrow(&fields, &items)
+    }
+}
+
+pub mod serde_arrow_ng {
+    use serde::Serialize;
+    use serde_arrow::{
+        Result,
+        _impl::{arrow::datatypes::Field, ArrayBuilder},
+        schema::SerdeArrowSchema,
+    };
+
+    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<()>
+    where
+        T: Serialize + ?Sized,
+    {
+        let mut builder = ArrayBuilder::new(&SerdeArrowSchema::from_arrow_fields(fields)?)?;
+        builder.extend(items)?;
+
+        Ok(())
     }
 }
 

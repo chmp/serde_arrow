@@ -11,7 +11,7 @@ use crate::{
     Error, Result,
 };
 
-pub fn push_null(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
+pub fn push_validity(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
     if let Some(buffer) = buffer.as_mut() {
         buffer.push(value);
         Ok(())
@@ -22,9 +22,19 @@ pub fn push_null(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<(
     }
 }
 
+pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
+    if let Some(buffer) = buffer.as_mut() {
+        buffer.push(false);
+    }
+}
+
 #[allow(unused_variables)]
 pub trait SimpleSerializer {
     fn name(&self) -> &str;
+
+    fn serialize_default(&mut self) -> Result<()> {
+        fail!("serialize_default is not supported for {}", self.name());
+    }
 
     fn serialize_unit(&mut self) -> Result<()> {
         fail!("serialize_unit is not supported for {}", self.name());

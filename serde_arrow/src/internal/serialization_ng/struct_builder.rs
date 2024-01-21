@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]
@@ -47,18 +47,71 @@ impl StructBuilder {
     }
 }
 
+impl StructBuilder {
+    fn start(&mut self) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
+        self.reset();
+        Ok(())
+    }
+
+    fn reset(&mut self) {
+        for seen in &mut self.seen {
+            *seen = false;
+        }
+        self.next = 0;
+    }
+
+    fn end(&mut self) -> Result<()> {
+        for (idx, seen) in self.seen.iter_mut().enumerate() {
+            if !*seen {
+                self.named_fields[idx].1.serialize_none()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
+        if self.seen[idx] {
+            fail!("Duplicate field {key}", key = self.named_fields[idx].0);
+        }
+
+        value.serialize(Mut(&mut self.named_fields[idx].1))?;
+        self.seen[idx] = true;
+        self.next = idx + 1;
+        Ok(())
+    }
+}
+
 impl SimpleSerializer for StructBuilder {
     fn name(&self) -> &str {
         "StructBuilder"
     }
 
-    fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        for seen in &mut self.seen {
-            *seen = false;
+    fn serialize_default(&mut self) -> Result<()> {
+        push_validity_default(&mut self.validity);
+        for (_, field) in &mut self.named_fields {
+            field.serialize_default()?;
         }
-        self.next = 0;
 
         Ok(())
+    }
+
+    fn serialize_none(&mut self) -> Result<()> {
+        push_validity(&mut self.validity, false)?;
+
+        for (_, field) in &mut self.named_fields {
+            field.serialize_default()?;
+        }
+
+        Ok(())
+    }
+
+    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        value.serialize(Mut(self))
+    }
+
+    fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
+        self.start()
     }
 
     fn serialize_struct_field<T: Serialize + ?Sized>(
@@ -83,24 +136,34 @@ impl SimpleSerializer for StructBuilder {
             idx
         };
 
-        if self.seen[idx] {
-            fail!("Duplicate field {key}");
-        }
-
-        value.serialize(Mut(&mut self.named_fields[idx].1))?;
-        self.seen[idx] = true;
-        self.next = idx + 1;
-
-        Ok(())
+        self.element(idx, value)
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
-        for (idx, seen) in self.seen.iter_mut().enumerate() {
-            if !*seen {
-                (&mut self.named_fields[idx].1).serialize_none()?;
-            }
-        }
+        self.end()
+    }
 
-        Ok(())
+    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
+        self.start()
+    }
+
+    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.element(self.next, value)
+    }
+
+    fn serialize_tuple_end(&mut self) -> Result<()> {
+        self.end()
+    }
+
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
+        self.start()
+    }
+
+    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        self.element(self.next, value)
+    }
+
+    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
+        self.end()
     }
 }

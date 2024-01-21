@@ -4,7 +4,7 @@ use crate::internal::common::{MutableBitBuffer, MutableOffsetBuffer};
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]
@@ -31,8 +31,23 @@ impl SimpleSerializer for MapBuilder {
         "MapBuilder"
     }
 
-    fn serialize_map_start(&mut self, _: Option<usize>) -> crate::Result<()> {
+    fn serialize_default(&mut self) -> crate::Result<()> {
+        push_validity_default(&mut self.validity);
+        self.offsets.push_current_items();
         Ok(())
+    }
+
+    fn serialize_none(&mut self) -> crate::Result<()> {
+        self.offsets.push_current_items();
+        push_validity(&mut self.validity, false)
+    }
+
+    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> crate::Result<()> {
+        value.serialize(Mut(self))
+    }
+
+    fn serialize_map_start(&mut self, _: Option<usize>) -> crate::Result<()> {
+        push_validity(&mut self.validity, true)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> crate::Result<()> {

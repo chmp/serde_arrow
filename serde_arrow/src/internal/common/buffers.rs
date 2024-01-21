@@ -218,6 +218,15 @@ pub struct MutableBitBuffer {
 }
 
 impl MutableBitBuffer {
+    pub fn as_bool(&self) -> Vec<bool> {
+        (0..self.len())
+            .map(|i| {
+                let flag = 1 << i;
+                (self.buffer[i / 8] & flag) == flag
+            })
+            .collect()
+    }
+
     #[allow(unused)]
     pub fn len(&self) -> usize {
         self.len

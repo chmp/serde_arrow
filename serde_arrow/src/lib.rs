@@ -220,6 +220,7 @@ pub mod _impl {
         error::PanicOnError,
         event::Event,
         sink::serialize_into_sink,
+        serialization_ng::array_builder::ArrayBuilder,
     };
 }
 
