@@ -95,7 +95,11 @@ impl ArrayBuilder {
                 named_fields.push((field.name.to_owned(), builder));
             }
 
-            Ok(A::Struct(StructBuilder::new(named_fields, nullable)?))
+            Ok(A::Struct(StructBuilder::new(
+                fields.to_vec(),
+                named_fields,
+                nullable,
+            )?))
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {

@@ -61,6 +61,34 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             builder.buffer,
             builder.validity,
         ),
+        A::Struct(builder) => {
+            let mut data = Vec::new();
+            for (_, field) in builder.named_fields {
+                data.push(build_array_data(field)?);
+            }
+
+            let (validity, len) = if let Some(validity) = builder.validity {
+                (Some(Buffer::from(validity.buffer)), validity.len)
+            } else {
+                if data.is_empty() {
+                    fail!("cannot built non-nullable structs without fields");
+                }
+                (None, data[0].len())
+            };
+
+            let fields = builder
+                .fields
+                .iter()
+                .map(Field::try_from)
+                .collect::<Result<Vec<_>>>()?;
+            let data_type = T::Struct(fields.into());
+
+            Ok(ArrayData::builder(data_type)
+                .len(len)
+                .null_bit_buffer(validity)
+                .child_data(data)
+                .build()?)
+        }
         builder => fail!("cannot build arrow array for {}", builder.name()),
     }
 }
@@ -129,67 +157,6 @@ pub fn build_array_data_old(
 ) -> Result<ArrayData> {
     use ArrayMapping as M;
     match mapping {
-        &M::Null { buffer, .. } => Ok(NullArray::new(buffers.u0[buffer].len()).into_data()),
-        &M::Bool {
-            buffer, validity, ..
-        } => {
-            let data = std::mem::take(&mut buffers.u1[buffer]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_primitive_with_len(
-                DataType::Boolean,
-                data.len(),
-                data.buffer,
-                validity,
-            )
-        }
-        M::U8 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, u8, u8, *buffer, *validity),
-        M::U16 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, u16, u16, *buffer, *validity),
-        M::U32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, u32, u32, *buffer, *validity),
-        M::U64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, u64, u64, *buffer, *validity),
-        M::I8 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, i8, u8, *buffer, *validity),
-        M::I16 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, i16, u16, *buffer, *validity),
-        M::I32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, i32, u32, *buffer, *validity),
-        M::I64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, i64, u64, *buffer, *validity),
         &M::F16 {
             buffer, validity, ..
         } => {
@@ -201,18 +168,6 @@ pub fn build_array_data_old(
             let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
             build_array_data_primitive_with_len(DataType::Float16, data.len(), data, validity)
         }
-        M::F32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, f32, u32, *buffer, *validity),
-        M::F64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_primitive_array_data!(buffers, field, f64, u64, *buffer, *validity),
         M::Decimal128 {
             field,
             validity,
@@ -230,58 +185,6 @@ pub fn build_array_data_old(
             validity,
             ..
         } => build_primitive_array_data!(buffers, field, i64, u64, *buffer, *validity),
-        &M::Utf8 {
-            buffer,
-            offsets,
-            validity,
-            ..
-        } => {
-            let data = std::mem::take(&mut buffers.u8[buffer]);
-            let offsets = std::mem::take(&mut buffers.u32_offsets[offsets]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_utf8_old(data, offsets.offsets, validity)
-        }
-        &M::LargeUtf8 {
-            buffer,
-            offsets,
-            validity,
-            ..
-        } => {
-            let values = std::mem::take(&mut buffers.u8[buffer]);
-            let offsets = std::mem::take(&mut buffers.u64_offsets[offsets]);
-            let validity = validity.map(|validity| std::mem::take(&mut buffers.u1[validity]));
-            build_array_data_large_utf8(values, offsets.offsets, validity)
-        }
-        M::Struct {
-            field,
-            fields,
-            validity,
-        } => {
-            let mut data = Vec::new();
-            for field in fields {
-                data.push(build_array_data_old(buffers, field)?);
-            }
-
-            let field: Field = field.try_into()?;
-
-            let (validity, len) = if let Some(validity) = validity {
-                let validity = std::mem::take(&mut buffers.u1[*validity]);
-                let len = validity.len();
-                let validity = Buffer::from(validity.buffer);
-                (Some(validity), len)
-            } else {
-                if data.is_empty() {
-                    fail!("cannot built non-nullable structs without fields");
-                }
-                (None, data[0].len())
-            };
-
-            Ok(ArrayData::builder(field.data_type().clone())
-                .len(len)
-                .null_bit_buffer(validity)
-                .child_data(data)
-                .build()?)
-        }
         M::Map {
             field,
             entries,
@@ -507,6 +410,7 @@ pub fn build_array_data_old(
                 .child_data(vec![values])
                 .build()?)
         }
+        _ => todo!(),
     }
 }
 

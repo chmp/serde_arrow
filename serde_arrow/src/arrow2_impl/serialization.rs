@@ -72,6 +72,21 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
             builder.buffer,
             builder.validity,
         ),
+        A::Struct(builder) => {
+            let mut values = Vec::new();
+            for (_, field) in builder.named_fields {
+                values.push(build_array(field)?);
+            }
+
+            let fields = builder
+                .fields
+                .iter()
+                .map(Field::try_from)
+                .collect::<Result<Vec<_>>>()?;
+            let data_type = T::Struct(fields);
+            let validity = build_validity(builder.validity);
+            Ok(Box::new(StructArray::try_new(data_type, values, validity)?))
+        }
         builder => fail!("Cannot build arrow2 array for {}", builder.name()),
     }
 }
@@ -134,74 +149,6 @@ macro_rules! build_dictionary_from_indices {
 fn build_array_old(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Result<Box<dyn Array>> {
     use ArrayMapping as M;
     match mapping {
-        M::Null { buffer, .. } => {
-            let buffer = std::mem::take(&mut buffers.u0[*buffer]);
-            Ok(Box::new(NullArray::new(DataType::Null, buffer.len())))
-        }
-        M::Bool {
-            buffer, validity, ..
-        } => {
-            let buffer = std::mem::take(&mut buffers.u1[*buffer]);
-            let buffer = Bitmap::from_u8_vec(buffer.buffer, buffer.len);
-            let validity = validity.map(|val| std::mem::take(&mut buffers.u1[val]));
-            let validity = validity.map(|val| Bitmap::from_u8_vec(val.buffer, val.len));
-            let array = BooleanArray::try_new(DataType::Boolean, buffer, validity)?;
-            Ok(Box::new(array))
-        }
-        M::U8 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, u8, u8, field, *buffer, *validity),
-        M::U16 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, u16, u16, field, *buffer, *validity),
-        M::U32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, u32, u32, field, *buffer, *validity),
-        M::U64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, u64, u64, field, *buffer, *validity),
-        M::I8 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, i8, u8, field, *buffer, *validity),
-        M::I16 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, i16, u16, field, *buffer, *validity),
-        M::I32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, i32, u32, field, *buffer, *validity),
-        M::I64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, i64, u64, field, *buffer, *validity),
-        M::F32 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, f32, u32, field, *buffer, *validity),
         M::Decimal128 {
             field,
             validity,
@@ -226,30 +173,12 @@ fn build_array_old(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Resu
             let array = PrimitiveArray::try_new(DataType::Float16, Buffer::from(buffer), validity)?;
             Ok(Box::new(array))
         }
-        M::F64 {
-            field,
-            buffer,
-            validity,
-            ..
-        } => build_array_primitive!(buffers, f64, u64, field, *buffer, *validity),
         M::Date64 {
             field,
             buffer,
             validity,
             ..
         } => build_array_primitive!(buffers, i64, u64, field, *buffer, *validity),
-        M::Utf8 {
-            buffer,
-            offsets,
-            validity,
-            ..
-        } => build_array_utf8_old(buffers, *buffer, *offsets, *validity),
-        M::LargeUtf8 {
-            buffer,
-            offsets,
-            validity,
-            ..
-        } => build_array_large_utf8_old(buffers, *buffer, *offsets, *validity),
         M::Dictionary {
             field,
             dictionary,
@@ -309,21 +238,6 @@ fn build_array_old(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Resu
                     buffers, i64, u64, Int64, *indices, data_type, values, validity
                 ),
             }
-        }
-        M::Struct {
-            field,
-            fields,
-            validity,
-        } => {
-            let mut values = Vec::new();
-            for field in fields {
-                values.push(build_array_old(buffers, field)?);
-            }
-
-            let data_type = Field::try_from(field)?.data_type;
-            let validity = build_validity_old(buffers, *validity);
-
-            Ok(Box::new(StructArray::try_new(data_type, values, validity)?))
         }
         M::List {
             field,
@@ -409,6 +323,7 @@ fn build_array_old(buffers: &mut MutableBuffers, mapping: &ArrayMapping) -> Resu
                 data_type, offsets, entries, validity,
             )?))
         }
+        _ => todo!(),
     }
 }
 
