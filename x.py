@@ -84,6 +84,13 @@ workflow_release_template = {
     },
 }
 
+benchmark_renames = {
+    "arrow": "arrow_json::ReaderBuilder",
+    "serde_arrow_arrow": "serde_arrow::to_arrow",
+    "serde_arrow_arrow2": "serde_arrow::to_arrow2",
+    "arrow2_convert": "arrow2_convert::TryIntoArrow",
+}
+
 
 @cmd(help="Run all common development tasks before a commit")
 @arg("--backtrace", action="store_true", default=False)
@@ -305,7 +312,7 @@ def load_times():
         for iterations, time in zip(data["iters"], data["times"]):
             results.append(
                 {
-                    "name": name,
+                    "name": benchmark_renames.get(name, name),
                     "group": group,
                     "iterations": iterations,
                     "time": time,
@@ -365,7 +372,10 @@ def plot_times(mean_times):
                 (
                     pl.col("time")
                     / pl.col("time")
-                    .where(pl.col("impl") == "arrow2_convert")
+                    .where(
+                        pl.col("impl")
+                        == benchmark_renames.get("arrow2_convert", "arrow2_convert")
+                    )
                     .mean()
                     .over("group")
                 ),
