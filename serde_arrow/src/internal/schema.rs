@@ -352,6 +352,7 @@ impl SchemaLike for SerdeArrowSchema {
 /// datetimes).
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(into = "String", try_from = "String")]
 #[non_exhaustive]
 pub enum Strategy {
     /// Marker that the type of the field could not be determined during tracing
@@ -414,10 +415,24 @@ impl std::fmt::Display for Strategy {
     }
 }
 
+impl From<Strategy> for String {
+    fn from(strategy: Strategy) -> String {
+        strategy.to_string()
+    }
+}
+
+impl TryFrom<String> for Strategy {
+    type Error = Error;
+
+    fn try_from(s: String) -> Result<Strategy> {
+        s.parse()
+    }
+}
+
 impl FromStr for Strategy {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         match s {
             "InconsistentTypes" => Ok(Self::InconsistentTypes),
             "UtcStrAsDate64" => Ok(Self::UtcStrAsDate64),
@@ -793,7 +808,7 @@ impl GenericField {
         match &self.strategy {
             None => Ok(()),
             Some(strategy @ Strategy::UtcStrAsDate64) => {
-                if !matches!(&self.data_type, GenericDataType::Timestamp(GenericTimeUnit::Millisecond, Some(tz)) if tz == "UTC")
+                if !matches!(&self.data_type, GenericDataType::Timestamp(GenericTimeUnit::Millisecond, Some(tz)) if tz.to_uppercase() == "UTC")
                 {
                     fail!(
                         "invalid strategy for timestamp field {}: {}",
@@ -1010,7 +1025,7 @@ fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
 mod test_schema_serialization {
     use crate::internal::schema::GenericDataType;
 
-    use super::{GenericField, SerdeArrowSchema};
+    use super::{GenericField, SchemaLike, SerdeArrowSchema, Strategy};
 
     impl SerdeArrowSchema {
         fn with_field(mut self, field: GenericField) -> Self {
@@ -1079,6 +1094,32 @@ mod test_schema_serialization {
             .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn date64_with_strategy() {
+        let schema = SerdeArrowSchema::new().with_field(
+            GenericField::new("item", GenericDataType::Date64, false)
+                .with_strategy(Strategy::NaiveStrAsDate64),
+        );
+
+        let actual = serde_json::to_string(&schema).unwrap();
+        assert_eq!(
+            actual,
+            r#"{"fields":[{"name":"item","data_type":"Date64","strategy":"NaiveStrAsDate64"}]}"#
+        );
+
+        let round_tripped: SerdeArrowSchema = serde_json::from_str(&actual).unwrap();
+        assert_eq!(round_tripped, schema);
+
+        let json = serde_json::json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "NaiveStrAsDate64",
+        }]);
+
+        let from_json = SerdeArrowSchema::from_value(&json).unwrap();
+        assert_eq!(from_json, schema);
     }
 
     #[test]
