@@ -1042,7 +1042,7 @@ impl PrimitiveTracer {
                     Ok(GenericField::new(name, dt.clone(), self.nullable))
                 } else {
                     let field = GenericField::new(name, D::Dictionary, self.nullable)
-                        .with_child(GenericField::new("key", D::U32, false))
+                        .with_child(GenericField::new("key", D::U32, self.nullable))
                         .with_child(GenericField::new("value", dt.clone(), false));
                     Ok(field)
                 }
