@@ -1,5 +1,12 @@
 # Change log
 
+## 0.10.0
+
+- Remove deprecated APIs
+- Use the serde serialization APIs directly, instead of using the bytecode
+  serializer. Serialization will be about `2x` faster
+- Fix bug in `SchemaLike::from_value` with incorrect strategy deserialization
+
 ## 0.9.1
 
 - `Decimal128` support: serialize / deserialize

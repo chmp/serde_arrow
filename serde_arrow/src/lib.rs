@@ -220,6 +220,7 @@ pub mod _impl {
         error::PanicOnError,
         event::Event,
         sink::serialize_into_sink,
+        serialization_ng::array_builder::ArrayBuilder,
     };
 }
 
@@ -240,39 +241,11 @@ mod arrow_impl;
 #[cfg(has_arrow)]
 pub use arrow_impl::api::{from_arrow, to_arrow, ArrowBuilder};
 
-#[cfg(has_arrow)]
-#[deprecated = "The items in serde_arrow::arrow are deprecated. See the individual items for suitable replacements"]
-pub mod arrow {
-    #[allow(deprecated)]
-    pub use crate::arrow_impl::api::{
-        deserialize_from_array, deserialize_from_arrays, serialize_into_array,
-        serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
-    };
-
-    /// Renamed to [`serde_arrow::ArrowBuilder`][crate::ArrowBuilder]
-    #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
-    pub type ArraysBuilder = crate::arrow_impl::api::ArrowBuilder;
-}
-
 #[cfg(has_arrow2)]
 mod arrow2_impl;
 
 #[cfg(has_arrow2)]
 pub use arrow2_impl::api::{from_arrow2, to_arrow2, Arrow2Builder};
-
-#[cfg(has_arrow2)]
-#[deprecated = "The items in serde_arrow::arrow2 are deprecated. See the individual items for suitable replacements"]
-pub mod arrow2 {
-    #[allow(deprecated)]
-    pub use crate::arrow2_impl::api::{
-        deserialize_from_array, deserialize_from_arrays, serialize_into_array,
-        serialize_into_arrays, serialize_into_field, serialize_into_fields, ArrayBuilder,
-    };
-
-    /// Renamed to [`serde_arrow::Arrow2Builder`][crate::Arrow2Builder]
-    #[deprecated = "serde_arrow::arrow2::ArraysBuilder is deprecated. Use serde_arrow::Arrow2Builder instead"]
-    pub type ArraysBuilder = crate::arrow2_impl::api::Arrow2Builder;
-}
 
 #[deny(missing_docs)]
 pub mod schema;

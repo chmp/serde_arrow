@@ -7,7 +7,7 @@ pub mod error;
 pub mod event;
 pub mod generic;
 pub mod schema;
-pub mod serialization;
+pub mod serialization_ng;
 pub mod sink;
 pub mod source;
 pub mod tracing;

@@ -1,151 +1,207 @@
-use super::macros::test_generic;
+use super::utils::Test;
 
-macro_rules! test_missing_field {
-    ($name:ident : $items:expr) => {
-        test_generic!(
-            fn $name() {
-                use serde::Serialize;
+use serde::Serialize;
+use serde_json::json;
 
-                let items = $items;
-                let fields = [
-                    Field::try_from(&GenericField::new("a", GenericDataType::U8, false)).unwrap(),
-                ];
-
-                let res = to_arrow(&fields, &items).unwrap();
-                assert_eq!(res.len(), 1);
-                assert_eq!(res[0].len(), items.len());
-            }
-        );
-    };
-}
-
-test_missing_field!(missing_i8: {
+#[test]
+fn missing_i8() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: i8,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_i16: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_i16() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: i16,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_i32: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_i32() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: i32,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_i64: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_i64() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: i64,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_u8: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_u8() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: u8,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_u16: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_u16() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: u16,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_u32: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_u32() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: u32,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_u64: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_u64() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: u64,
     }
-    [S{a: 1, b: 2}, S{a: 3, b: 4}]
-});
 
-test_missing_field!(missing_f32: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
+}
+
+#[test]
+fn missing_f32() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: f32,
     }
-    [S{a: 1, b: 2.0}, S{a: 3, b: 4.0}]
-});
 
-test_missing_field!(missing_f64: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2.0 }, S { a: 3, b: 4.0 }]);
+}
+
+#[test]
+fn missing_f64() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
-        b: f32,
+        b: f64,
     }
-    [S{a: 1, b: 2.0}, S{a: 3, b: 4.0}]
-});
 
-test_missing_field!(missing_bool: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: 2.0 }, S { a: 3, b: 4.0 }]);
+}
+
+#[test]
+fn missing_bool() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: bool,
     }
-    [S{a: 1, b: true}, S{a: 3, b: false}]
-});
 
-test_missing_field!(missing_str: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: true }, S { a: 3, b: false }]);
+}
+
+#[test]
+fn missing_string() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: String,
     }
-    [S{a: 1, b: String::from("hello")}, S{a: 3, b: String::from("world")}]
-});
 
-test_missing_field!(optional_u32: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[
+            S {
+                a: 1,
+                b: String::from("hello"),
+            },
+            S {
+                a: 3,
+                b: String::from("world"),
+            },
+        ]);
+}
+
+#[test]
+fn missing_optional_u32() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: Option<u32>,
     }
-    [S{a: 1, b: Some(2)}, S{a: 3, b: None}]
-});
 
-test_missing_field!(vec_i64: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[S { a: 1, b: None }, S { a: 3, b: Some(4) }]);
+}
+
+#[test]
+fn missing_optional_veci64() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
         b: Vec<i64>,
     }
-    [S{a: 1, b: vec![]}, S{a: 3, b: vec![1]}, S{a: 3, b: vec![1, 2]}]
-});
 
-test_missing_field!(nested_struct: {
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[
+            S { a: 1, b: vec![] },
+            S {
+                a: 3,
+                b: vec![2, 4],
+            },
+        ]);
+}
+
+#[test]
+fn missing_nested_struct() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
@@ -158,10 +214,25 @@ test_missing_field!(nested_struct: {
         c: bool,
     }
 
-    [S{a: 1, b: T { b: vec![], c: true}}, S{a: 3, b: T { b: vec![1, 2], c: false }}]
-});
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[
+            S {
+                a: 1,
+                b: T { b: vec![], c: true },
+            },
+            S {
+                a: 3,
+                b: T {
+                    b: vec![1, 2],
+                    c: false,
+                },
+            },
+        ]);
+}
 
-test_missing_field!(tuple: {
+#[test]
+fn missing_tuple() {
     #[derive(Serialize, Debug, PartialEq)]
     struct S {
         a: i16,
@@ -174,26 +245,52 @@ test_missing_field!(tuple: {
         c: bool,
     }
 
-    [S{a: 1, b: (0, T { b: vec![], c: true})}, S{a: 3, b: (1, T { b: vec![1, 2], c: false })}]
-});
+    Test::new()
+        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .serialize(&[
+            S {
+                a: 1,
+                b: (0, T { b: vec![], c: true }),
+            },
+            S {
+                a: 3,
+                b: (
+                    1,
+                    T {
+                        b: vec![1, 2],
+                        c: false,
+                    },
+                ),
+            },
+        ]);
+}
 
-test_generic!(
-    fn nested_field() {
-        use serde::Serialize;
+#[test]
+fn missing_nested_field() {
+    #[derive(Serialize, Debug, PartialEq)]
+    struct S {
+        a: i16,
+        b: T,
+    }
 
-        #[derive(Serialize, Debug, PartialEq)]
-        struct S {
-            a: i16,
-            b: T,
-        }
+    #[derive(Serialize, Debug, PartialEq)]
+    struct T {
+        b: i32,
+        c: bool,
+    }
 
-        #[derive(Serialize, Debug, PartialEq)]
-        struct T {
-            b: i32,
-            c: bool,
-        }
-
-        let items = [
+    Test::new()
+        .with_schema(&json!([
+            {"name": "a", "data_type": "I16"},
+            {
+                "name": "b",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "b", "data_type": "I32"},
+                ],
+            },
+        ]))
+        .serialize(&[
             S {
                 a: 1,
                 b: T { b: 0, c: true },
@@ -202,19 +299,5 @@ test_generic!(
                 a: 3,
                 b: T { b: 1, c: false },
             },
-        ];
-        let fields = [
-            Field::try_from(&GenericField::new("a", GenericDataType::U8, false)).unwrap(),
-            Field::try_from(
-                &GenericField::new("b", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("b", GenericDataType::I32, false)),
-            )
-            .unwrap(),
-        ];
-
-        let res = to_arrow(&fields, &items).unwrap();
-        assert_eq!(res.len(), 2);
-        assert_eq!(res[0].len(), items.len());
-        assert_eq!(res[1].len(), items.len());
-    }
-);
+        ]);
+}

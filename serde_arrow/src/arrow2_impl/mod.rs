@@ -8,6 +8,3 @@ pub(crate) mod deserialization;
 pub(crate) mod schema;
 pub(crate) mod serialization;
 mod type_support;
-
-#[cfg(test)]
-mod test_deprecated_api;

@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::schema::TracingOptions;
 
-use super::{macros::test_generic, utils::Test};
+use super::utils::{ResultAsserts, Test};
 
 #[test]
 fn serde_json_example() {
@@ -70,22 +70,16 @@ fn serde_json_out_of_order() {
         .serialize(&items);
 }
 
-test_generic!(
-    fn serde_json_nullable_strings_non_nullable_field() {
-        use serde_json::json;
+#[test]
+fn serde_json_nullable_strings_non_nullable_field() {
+    let items = json!([{ "a": "hello" }, { "a": null }]);
 
-        let items = json!([{ "a": "hello" }, { "a": null }]);
+    let mut test = Test::new().with_schema(json!([
+        {"name": "a", "data_type": "Utf8"},
+    ]));
 
-        let fields =
-            vec![Field::try_from(&GenericField::new("a", GenericDataType::Utf8, false)).unwrap()];
-
-        let Err(err) = to_arrow(&fields, &items) else {
-            panic!("expected an error, but no error was raised");
-        };
-
-        let err = err.to_string();
-        if !err.contains("PushUtf8 cannot accept Null") {
-            panic!("Error did not contain \"PushUtf8 cannot accept Null\". Full error: {err}");
-        }
-    }
-);
+    test.try_serialize_arrow(&items)
+        .assert_error("serialize_unit is not supported for Utf8Builder");
+    test.try_serialize_arrow2(&items)
+        .assert_error("serialize_unit is not supported for Utf8Builder");
+}
