@@ -107,35 +107,39 @@ The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are lis
 <!-- start:benchmarks -->
 ### complex_common_serialize(100000)
 
-| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
-|----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     52.28 |           1.00 |        0.21 |  0.06 |
-| serde_arrow    |    252.35 |           4.83 |        1.00 |  0.29 |
-| arrow          |    877.10 |          16.78 |        3.48 |  1.00 |
+| label              | time [ms] | arrow2_convert | serde_arrow_arr | serde_arrow_arr | arrow |
+|--------------------|-----------|----------------|-----------------|-----------------|-------|
+| arrow2_convert     |     50.41 |           1.00 |            0.33 |            0.31 |  0.13 |
+| serde_arrow_arrow2 |    150.91 |           2.99 |            1.00 |            0.94 |  0.40 |
+| serde_arrow_arrow  |    161.25 |           3.20 |            1.07 |            1.00 |  0.43 |
+| arrow              |    375.00 |           7.44 |            2.48 |            2.33 |  1.00 |
 
 ### complex_common_serialize(1000000)
 
-| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
-|----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    527.58 |           1.00 |        0.22 |  0.06 |
-| serde_arrow    |   2403.99 |           4.56 |        1.00 |  0.27 |
-| arrow          |   8857.78 |          16.79 |        3.68 |  1.00 |
+| label              | time [ms] | arrow2_convert | serde_arrow_arr | serde_arrow_arr | arrow |
+|--------------------|-----------|----------------|-----------------|-----------------|-------|
+| arrow2_convert     |    470.21 |           1.00 |            0.32 |            0.30 |  0.13 |
+| serde_arrow_arrow2 |   1448.66 |           3.08 |            1.00 |            0.92 |  0.40 |
+| serde_arrow_arrow  |   1574.82 |           3.35 |            1.09 |            1.00 |  0.43 |
+| arrow              |   3628.26 |           7.72 |            2.50 |            2.30 |  1.00 |
 
 ### primitives_serialize(100000)
 
-| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
-|----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |     13.05 |           1.00 |        0.21 |  0.06 |
-| serde_arrow    |     62.63 |           4.80 |        1.00 |  0.30 |
-| arrow          |    209.27 |          16.04 |        3.34 |  1.00 |
+| label              | time [ms] | arrow2_convert | serde_arrow_arr | serde_arrow_arr | arrow |
+|--------------------|-----------|----------------|-----------------|-----------------|-------|
+| arrow2_convert     |     14.11 |           1.00 |            0.46 |            0.32 |  0.11 |
+| serde_arrow_arrow2 |     30.85 |           2.19 |            1.00 |            0.70 |  0.25 |
+| serde_arrow_arrow  |     44.02 |           3.12 |            1.43 |            1.00 |  0.35 |
+| arrow              |    125.16 |           8.87 |            4.06 |            2.84 |  1.00 |
 
 ### primitives_serialize(1000000)
 
-| label          | time [ms] | arrow2_convert | serde_arrow | arrow |
-|----------------|-----------|----------------|-------------|-------|
-| arrow2_convert |    144.58 |           1.00 |        0.24 |  0.07 |
-| serde_arrow    |    603.95 |           4.18 |        1.00 |  0.28 |
-| arrow          |   2160.02 |          14.94 |        3.58 |  1.00 |
+| label              | time [ms] | arrow2_convert | serde_arrow_arr | serde_arrow_arr | arrow |
+|--------------------|-----------|----------------|-----------------|-----------------|-------|
+| arrow2_convert     |    144.14 |           1.00 |            0.43 |            0.33 |  0.11 |
+| serde_arrow_arrow2 |    333.09 |           2.31 |            1.00 |            0.75 |  0.24 |
+| serde_arrow_arrow  |    441.65 |           3.06 |            1.33 |            1.00 |  0.32 |
+| arrow              |   1362.27 |           9.45 |            4.09 |            3.08 |  1.00 |
 
 <!-- end:benchmarks -->
 
