@@ -1,239 +1,265 @@
-use super::macros::test_example;
+use super::utils::Test;
+use crate::{schema::TracingOptions, utils::Item};
 
-test_example!(
-    test_name = utc_as_str,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = DateTime<Utc>,
-    values = [
-        Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
-        Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::{DateTime, Utc, TimeZone};
-    },
-);
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-test_example!(
-    test_name = naive_as_str,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = NaiveDateTime,
-    values = [
-        NaiveDateTime::from_timestamp_millis(1662921288000).unwrap(),
-        NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap(),
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::NaiveDateTime;
-    },
-);
+#[test]
+fn utc_as_str() {
+    let items = [
+        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+    ];
 
-test_example!(
-    test_name = utc_as_date64,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::UtcStrAsDate64),
-    ty = DateTime<Utc>,
-    values = [
-        Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
-        Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::{DateTime, Utc, TimeZone};
-    },
-);
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = naive_as_date64,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::NaiveStrAsDate64),
-    ty = NaiveDateTime,
-    values = [
-        NaiveDateTime::from_timestamp_millis(1662921288000).unwrap(),
-        NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap(),
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::NaiveDateTime;
-    },
-);
+#[test]
+fn naive_as_str() {
+    let items = [
+        Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
+        Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
+    ];
 
-test_example!(
-    test_name = utc_as_date64_as_millis,
-    field = GenericField::new("item", GenericDataType::I64, false),
-    overwrite_field = GenericField::new("item", GenericDataType::Date64, false),
-    ty = T,
-    values = [
-        T(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
-        T(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap())
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::{DateTime, TimeZone, Utc};
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct T(#[serde(with = "chrono::serde::ts_milliseconds")] DateTime<Utc>);
-    },
-);
+#[test]
+fn utc_as_date64() {
+    let items = [
+        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+    ];
 
-test_example!(
-    test_name = utc_as_timestamp,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new("item", GenericDataType::Timestamp(GenericTimeUnit::Millisecond, Some("UTC".into())), false)
-        .with_strategy(Strategy::UtcStrAsDate64),
-    ty = DateTime<Utc>,
-    values = [
-        Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
-        Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::{DateTime, Utc, TimeZone};
-    },
-);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = naive_as_timestamp,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new(
-        "item",
-        GenericDataType::Timestamp(GenericTimeUnit::Millisecond, None),
-        false
-    )
-    .with_strategy(Strategy::NaiveStrAsDate64),
-    ty = NaiveDateTime,
-    values = [
-        NaiveDateTime::from_timestamp_millis(1662921288000).unwrap(),
-        NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap(),
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::NaiveDateTime;
-    },
-);
+#[test]
+fn naive_as_date64() {
+    let items = [
+        Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
+        Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
+    ];
 
-test_example!(
-    test_name = utc_as_date64_tracing,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::UtcStrAsDate64),
-    ty = DateTime<Utc>,
-    values = [
-        Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
-        Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::{DateTime, Utc, TimeZone};
-    },
-);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = naive_as_date64_tracing,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::NaiveStrAsDate64),
-    ty = NaiveDateTime,
-    values = [
-        NaiveDateTime::from_timestamp_millis(1662921288000).unwrap(),
-        NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap(),
-    ],
-    nulls = [false, false],
-    define = {
-        use chrono::NaiveDateTime;
-    },
-);
+#[test]
+fn utc_as_date64_as_millis() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        #[serde(with = "chrono::serde::ts_milliseconds")]
+        item: DateTime<Utc>,
+    }
 
-test_example!(
-    test_name = utc_as_date64_tracing_string_only,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::UtcStrAsDate64),
-    ty = String,
-    values = [
-        String::from("2015-09-18T23:56:04Z"),
-        String::from("2023-08-14T17:00:04Z"),
-    ],
-    nulls = [false, false],
-);
+    let items = [
+        T {
+            item: Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
+        },
+        T {
+            item: Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap(),
+        },
+    ];
 
-test_example!(
-    test_name = utc_as_date64_tracing_string_nullable,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, true)
-        .with_strategy(Strategy::UtcStrAsDate64),
-    ty = Option<String>,
-    values = [
-        Some(String::from("2015-09-18T23:56:04Z")),
-        None,
-        Some(String::from("2023-08-14T17:00:04Z")),
-    ],
-    nulls = [false, true, false],
-);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = utc_as_date64_tracing_string_only_with_invalid,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = String,
-    values = [
-        String::from("2015-09-18T23:56:04Z"),
-        String::from("2023-08-14T17:00:04Z"),
-        String::from("not a date")
-    ],
-    nulls = [false, false, false],
-);
+#[test]
+fn utc_str_as_date64_as_timestamp() {
+    let items = [
+        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+    ];
 
-test_example!(
-    test_name = naive_as_date64_tracing_string_only,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, false)
-        .with_strategy(Strategy::NaiveStrAsDate64),
-    ty = String,
-    values = [
-        String::from("2015-09-18T23:56:04"),
-        String::from("2023-08-14T17:00:04"),
-    ],
-    nulls = [false, false],
-);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Timestamp(Millisecond, Some(\"Utc\"))",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = naive_as_date64_tracing_string_nullable,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::Date64, true)
-        .with_strategy(Strategy::NaiveStrAsDate64),
-    ty = Option<String>,
-    values = [
-        Some(String::from("2015-09-18T23:56:04")),
-        None,
-        Some(String::from("2023-08-14T17:00:04")),
-    ],
-    nulls = [false, true, false],
-);
+#[test]
+fn naive_as_timestamp() {
+    let items = [
+        Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
+        Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
+    ];
 
-test_example!(
-    test_name = naive_as_date64_tracing_string_only_with_invalid,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = String,
-    values = [
-        String::from("2015-09-18T23:56:04"),
-        String::from("2023-08-14T17:00:04"),
-        String::from("not a date")
-    ],
-    nulls = [false, false, false],
-);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type":
+            "Timestamp(Millisecond, None)",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = incompatible_date_formats,
-    tracing_options = TracingOptions::default().guess_dates(true),
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = String,
-    values = [
-        String::from("2015-09-18T23:56:04Z"),
-        String::from("2023-08-14T17:00:04"),
-    ],
-    nulls = [false, false],
-);
+#[test]
+fn utc_as_date64_tracing_string_only() {
+    let items = [
+        Item(String::from("2015-09-18T23:56:04Z")),
+        Item(String::from("2023-08-14T17:00:04Z")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
+
+#[test]
+fn utc_as_date64_tracing_string_nullable() {
+    let items = [
+        Item(Some(String::from("2015-09-18T23:56:04Z"))),
+        Item(None),
+        Item(Some(String::from("2023-08-14T17:00:04Z"))),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "UtcStrAsDate64",
+            "nullable": true,
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, true, false]]);
+}
+
+#[test]
+fn utc_as_date64_tracing_string_only_with_invalid() {
+    let items = [
+        Item(String::from("2015-09-18T23:56:04Z")),
+        Item(String::from("2023-08-14T17:00:04Z")),
+        Item(String::from("not a date")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item",  "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+}
+
+#[test]
+fn naive_as_date64_tracing_string_only() {
+    let items = [
+        Item(String::from("2015-09-18T23:56:04")),
+        Item(String::from("2023-08-14T17:00:04")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
+
+#[test]
+fn naive_as_date64_tracing_string_nullable() {
+    let items = [
+        Item(Some(String::from("2015-09-18T23:56:04"))),
+        Item(None),
+        Item(Some(String::from("2023-08-14T17:00:04"))),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+            "strategy": "NaiveStrAsDate64",
+            "nullable": true,
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, true, false]]);
+}
+
+#[test]
+fn naive_as_date64_tracing_string_with_invalid() {
+    let items = [
+        Item(String::from("2015-09-18T23:56:04")),
+        Item(String::from("2023-08-14T17:00:04")),
+        Item(String::from("not a date")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+}
+
+#[test]
+fn incompatible_date_formats_tracing() {
+    let items = [
+        Item(String::from("2015-09-18T23:56:04")),
+        Item(String::from("2023-08-14T17:00:04Z")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}

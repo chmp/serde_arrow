@@ -1,39 +1,49 @@
 use super::macros::*;
 
-test_example!(
-    test_name = benchmark_primitives,
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::U8, false))
-        .with_child(GenericField::new("b", GenericDataType::U16, false))
-        .with_child(GenericField::new("c", GenericDataType::U32, false))
-        .with_child(GenericField::new("d", GenericDataType::U64, false))
-        .with_child(GenericField::new("e", GenericDataType::I8, false))
-        .with_child(GenericField::new("f", GenericDataType::I16, false))
-        .with_child(GenericField::new("g", GenericDataType::I32, false))
-        .with_child(GenericField::new("h", GenericDataType::I64, false))
-        .with_child(GenericField::new("i", GenericDataType::F32, false))
-        .with_child(GenericField::new("j", GenericDataType::F64, false))
-        .with_child(GenericField::new("k", GenericDataType::Bool, false)),
-    ty = Item,
-    values = [Item::default(), Item::default()],
-    nulls = [false, false],
-    define = {
-        #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
-        struct Item {
-            pub a: u8,
-            pub b: u16,
-            pub c: u32,
-            pub d: u64,
-            pub e: i8,
-            pub f: i16,
-            pub g: i32,
-            pub h: i64,
-            pub i: f32,
-            pub j: f64,
-            pub k: bool,
-        }
-    },
-);
+use super::utils::Test;
+use crate::{schema::TracingOptions, utils::Item};
+
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+#[test]
+fn benchmark_primitives() {
+    #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
+    struct Item {
+        pub a: u8,
+        pub b: u16,
+        pub c: u32,
+        pub d: u64,
+        pub e: i8,
+        pub f: i16,
+        pub g: i32,
+        pub h: i64,
+        pub i: f32,
+        pub j: f64,
+        pub k: bool,
+    }
+
+    let items = [Item::default(), Item::default()];
+
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "U8"},
+            {"name": "b", "data_type": "U16"},
+            {"name": "c", "data_type": "U32"},
+            {"name": "d", "data_type": "U64"},
+            {"name": "e", "data_type": "I8"},
+            {"name": "f", "data_type": "I16"},
+            {"name": "g", "data_type": "I32"},
+            {"name": "h", "data_type": "I64"},
+            {"name": "i", "data_type": "F32"},
+            {"name": "j", "data_type": "F64"},
+            {"name": "k", "data_type": "Bool"},
+        ]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .trace_schema_from_type::<Item>(TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
 test_example!(
     test_name = benchmark_complex_1,
@@ -386,10 +396,18 @@ test_example!(
     },
 );
 
-test_example!(
-    test_name = unit,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Null, true),
-    ty = (),
-    values = [(), (), (), ()],
-);
+#[test]
+fn unit() {
+    let items = [Item(()), Item(()), Item(()), Item(())];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Null",
+            "nullable": true,
+        }]))
+        .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
+        .trace_schema_from_type::<Item<()>>(TracingOptions::default().allow_null_fields(true))
+        .serialize(&items)
+        .deserialize(&items);
+}

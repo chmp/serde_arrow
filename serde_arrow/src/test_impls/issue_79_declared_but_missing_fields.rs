@@ -1,9 +1,7 @@
 use serde::Serialize;
 use serde_json::json;
 
-use crate::test_impls::utils::Test;
-
-use super::macros::test_generic;
+use super::utils::{ResultAsserts, Test};
 
 #[test]
 fn declared_but_missing_fields() {
@@ -29,29 +27,24 @@ fn declared_but_missing_fields() {
         });
 }
 
-test_generic!(
-    fn declared_but_missing_fields_non_nullable() {
-        use serde::Serialize;
+#[test]
+fn declared_but_missing_fields_non_nullable() {
+    use serde::Serialize;
 
-        #[derive(Serialize)]
-        struct S {
-            a: u8,
-        }
-
-        let items = [S { a: 0 }, S { a: 1 }];
-
-        let fields = vec![
-            Field::try_from(&GenericField::new("a", GenericDataType::U8, false)).unwrap(),
-            Field::try_from(&GenericField::new("b", GenericDataType::U8, false)).unwrap(),
-        ];
-
-        let Err(err) = to_arrow(&fields, &items) else {
-            panic!("Expected error");
-        };
-        assert!(
-            err.to_string()
-                .contains("missing non-nullable field \"b\" in struct"),
-            "unexpected error: {err}"
-        );
+    #[derive(Serialize)]
+    struct S {
+        a: u8,
     }
-);
+
+    let items = [S { a: 0 }, S { a: 1 }];
+
+    let mut test = Test::new().with_schema(json!([
+        {"name": "a", "data_type": "U8"},
+        {"name": "b", "data_type": "U8"},
+    ]));
+
+    test.try_serialize_arrow(&items)
+        .assert_error("missing non-nullable field \"b\" in struct");
+    test.try_serialize_arrow2(&items)
+        .assert_error("missing non-nullable field \"b\" in struct");
+}
