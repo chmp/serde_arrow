@@ -24,21 +24,21 @@ macro_rules! define_benchmark {
                 let items = (0..n)
                     .map(|_| <$ty>::random(&mut rng))
                     .collect::<Vec<_>>();
-                let arrow_fields = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap().to_arrow_fields().unwrap();
+                let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
+                let arrow_fields = schema.to_arrow_fields().unwrap();
+                let arrow2_fields = schema.to_arrow2_fields().unwrap();
 
                 #[allow(unused)]
                 let bench_serde_arrow = true;
                 $($(let bench_serde_arrow = $bench_serde_arrow; )?)?
 
                 if bench_serde_arrow {
-                    group.bench_function("serde_arrow_ng", |b| {
-                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_ng::serialize(&arrow_fields, &items).unwrap()));
+                    group.bench_function("serde_arrow_arrow", |b| {
+                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_arrow::serialize(&arrow_fields, &items).unwrap()));
                     });
-                }
 
-                if bench_serde_arrow {
-                    group.bench_function("serde_arrow", |b| {
-                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow::serialize(&arrow_fields, &items).unwrap()));
+                    group.bench_function("serde_arrow_arrow2", |b| {
+                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_arrow2::serialize(&arrow2_fields, &items).unwrap()));
                     });
                 }
 
@@ -81,7 +81,7 @@ use rand::{
     Rng,
 };
 
-pub mod serde_arrow {
+pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
         Result,
@@ -96,22 +96,18 @@ pub mod serde_arrow {
     }
 }
 
-pub mod serde_arrow_ng {
+pub mod serde_arrow_arrow2 {
     use serde::Serialize;
     use serde_arrow::{
         Result,
-        _impl::{arrow::datatypes::Field, ArrayBuilder},
-        schema::SerdeArrowSchema,
+        _impl::arrow2::{array::Array, datatypes::Field},
     };
 
-    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<()>
+    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
     where
         T: Serialize + ?Sized,
     {
-        let mut builder = ArrayBuilder::new(&SerdeArrowSchema::from_arrow_fields(fields)?)?;
-        builder.extend(items)?;
-
-        Ok(())
+        serde_arrow::to_arrow2(&fields, &items)
     }
 }
 
