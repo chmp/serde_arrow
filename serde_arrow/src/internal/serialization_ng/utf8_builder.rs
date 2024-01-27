@@ -3,7 +3,7 @@ use crate::{
     Result,
 };
 
-use super::utils::{push_validity, push_validity_default, Mut, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<O> {
@@ -28,6 +28,10 @@ impl<O: Offset> Utf8Builder<O> {
             buffer: std::mem::take(&mut self.buffer),
         }
     }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
 }
 
 impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
@@ -45,10 +49,6 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         push_validity(&mut self.validity, false)?;
         self.offsets.push_current_items();
         Ok(())
-    }
-
-    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {

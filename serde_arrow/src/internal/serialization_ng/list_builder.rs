@@ -40,6 +40,10 @@ impl<O: Offset> ListBuilder<O> {
             element: Box::new(self.element.take()),
         }
     }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
 }
 
 impl<O: Offset> ListBuilder<O> {
@@ -72,10 +76,6 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     fn serialize_none(&mut self) -> Result<()> {
         self.offsets.push_current_items();
         push_validity(&mut self.validity, false)
-    }
-
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {

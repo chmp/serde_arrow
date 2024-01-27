@@ -11,6 +11,14 @@ use crate::{
     Error, Result,
 };
 
+use super::ArrayBuilder;
+
+pub fn take_swap<T>(dst: &mut T, src: T) -> T {
+    let mut src = src;
+    std::mem::swap(&mut src, dst);
+    src
+}
+
 pub fn push_validity(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
     if let Some(buffer) = buffer.as_mut() {
         buffer.push(value);
@@ -28,6 +36,14 @@ pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
     }
 }
 
+/// A simplified serialization trait with default implementations raising an
+/// error
+///
+/// This trait deviates from the serde model of returning new serializers for
+/// (struct, tuple, seq, ..). The only exceptions are struct or tuple variants.
+/// As these two cases can be sped up by returning the child serializer in the
+/// start call.
+///
 #[allow(unused_variables)]
 pub trait SimpleSerializer: Sized {
     fn name(&self) -> &str;
@@ -44,8 +60,8 @@ pub trait SimpleSerializer: Sized {
         fail!("serialize_none is not supported for {}", self.name());
     }
 
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        fail!("serialize_some is not implemented for {}", self.name());
+    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        value.serialize(Mut(self))
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
@@ -218,37 +234,6 @@ pub trait SimpleSerializer: Sized {
         fail!("serialize_tuple_end is not implemented for {}", self.name())
     }
 
-    fn serialize_struct_variant_start(
-        &mut self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<()> {
-        fail!(
-            "serialize_struct_variant_start is not implemented for {}",
-            self.name()
-        )
-    }
-
-    fn serialize_struct_variant_field<V: Serialize + ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &V,
-    ) -> Result<()> {
-        fail!(
-            "serialize_struct_variant_field is not implemented for {}",
-            self.name()
-        );
-    }
-
-    fn serialize_struct_variant_end(&mut self) -> Result<()> {
-        fail!(
-            "serialize_struct_variant_end is not implemented for {}",
-            self.name()
-        );
-    }
-
     fn serialize_tuple_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
         fail!(
             "serialize_tuple_struct_start is not implemented for {}",
@@ -270,31 +255,30 @@ pub trait SimpleSerializer: Sized {
         );
     }
 
-    fn serialize_tuple_variant_start(
-        &mut self,
+    fn serialize_struct_variant_start<'this>(
+        &'this mut self,
         name: &'static str,
         variant_index: u32,
         variant: &'static str,
         len: usize,
-    ) -> Result<()> {
+    ) -> Result<&'this mut ArrayBuilder> {
         fail!(
-            "serialize_tuple_variant_start is not implemented for {}",
+            "serialize_struct_variant_start is not implemented for {}",
             self.name()
         )
     }
 
-    fn serialize_tuple_variant_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+    fn serialize_tuple_variant_start<'this>(
+        &'this mut self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<&'this mut ArrayBuilder> {
         fail!(
-            "serialize_tuple_variant_field is not implemented for {}",
+            "serialize_tuple_variant_start is not implemented for {}",
             self.name()
-        );
-    }
-
-    fn serialize_tuple_variant_end(&mut self) -> Result<()> {
-        fail!(
-            "serialize_tuple_variant_end is not implemented for {}",
-            self.name()
-        );
+        )
     }
 }
 
@@ -308,9 +292,9 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     type SerializeSeq = Mut<'a, T>;
     type SerializeStruct = Mut<'a, T>;
     type SerializeTuple = Mut<'a, T>;
-    type SerializeStructVariant = Mut<'a, T>;
     type SerializeTupleStruct = Mut<'a, T>;
-    type SerializeTupleVariant = Mut<'a, T>;
+    type SerializeStructVariant = Mut<'a, ArrayBuilder>;
+    type SerializeTupleVariant = Mut<'a, ArrayBuilder>;
 
     fn serialize_unit(self) -> Result<()> {
         self.0.serialize_unit()
@@ -432,18 +416,6 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         Ok(Mut(&mut *self.0))
     }
 
-    fn serialize_struct_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        self.0
-            .serialize_struct_variant_start(name, variant_index, variant, len)?;
-        Ok(Mut(&mut *self.0))
-    }
-
     fn serialize_tuple_struct(
         self,
         name: &'static str,
@@ -453,6 +425,19 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         Ok(Mut(&mut *self.0))
     }
 
+    fn serialize_struct_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        let variant_builder =
+            self.0
+                .serialize_struct_variant_start(name, variant_index, variant, len)?;
+        Ok(Mut(variant_builder))
+    }
+
     fn serialize_tuple_variant(
         self,
         name: &'static str,
@@ -460,9 +445,10 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        self.0
-            .serialize_tuple_variant_start(name, variant_index, variant, len)?;
-        Ok(Mut(&mut *self.0))
+        let variant_builder =
+            self.0
+                .serialize_tuple_variant_start(name, variant_index, variant, len)?;
+        Ok(Mut(variant_builder))
     }
 }
 
@@ -526,23 +512,6 @@ impl<'a, T: SimpleSerializer> SerializeTuple for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeStructVariant for Mut<'a, T> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<V: Serialize + ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &V,
-    ) -> Result<()> {
-        self.0.serialize_struct_variant_field(key, value)
-    }
-
-    fn end(self) -> Result<()> {
-        self.0.serialize_struct_variant_end()
-    }
-}
-
 impl<'a, T: SimpleSerializer> SerializeTupleStruct for Mut<'a, T> {
     type Ok = ();
     type Error = Error;
@@ -556,15 +525,32 @@ impl<'a, T: SimpleSerializer> SerializeTupleStruct for Mut<'a, T> {
     }
 }
 
+impl<'a, T: SimpleSerializer> SerializeStructVariant for Mut<'a, T> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<V: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &V,
+    ) -> Result<()> {
+        self.0.serialize_struct_field(key, value)
+    }
+
+    fn end(self) -> Result<()> {
+        self.0.serialize_struct_end()
+    }
+}
+
 impl<'a, T: SimpleSerializer> SerializeTupleVariant for Mut<'a, T> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0.serialize_tuple_variant_field(value)
+        self.0.serialize_tuple_struct_field(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0.serialize_tuple_end()
+        self.0.serialize_tuple_struct_end()
     }
 }

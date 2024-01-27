@@ -1,6 +1,6 @@
 use crate::{internal::common::MutableBitBuffer, Error, Result};
 
-use super::utils::{push_validity, push_validity_default, Mut, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
 #[derive(Debug, Clone, Default)]
 pub struct IntBuilder<I> {
@@ -21,6 +21,10 @@ impl<I> IntBuilder<I> {
             validity: self.validity.as_mut().map(std::mem::take),
             buffer: std::mem::take(&mut self.buffer),
         }
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
     }
 }
 
@@ -58,10 +62,6 @@ where
         push_validity(&mut self.validity, false)?;
         self.buffer.push(I::default());
         Ok(())
-    }
-
-    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {

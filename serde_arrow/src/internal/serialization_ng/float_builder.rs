@@ -1,3 +1,5 @@
+use half::f16;
+
 use crate::{internal::common::MutableBitBuffer, Result};
 
 use super::utils::{push_validity, push_validity_default, Mut, SimpleSerializer};
@@ -22,6 +24,16 @@ impl<I> FloatBuilder<I> {
             buffer: std::mem::take(&mut self.buffer),
         }
     }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
+    fn serialize_value(&mut self, value: I) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
+        self.buffer.push(value);
+        Ok(())
+    }
 }
 
 impl SimpleSerializer for FloatBuilder<f32> {
@@ -44,10 +56,44 @@ impl SimpleSerializer for FloatBuilder<f32> {
         value.serialize(Mut(self))
     }
 
+    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_u8(&mut self, v: u8) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
+    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+        self.serialize_value(v as f32)
+    }
+
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
-        Ok(())
+        self.serialize_value(v)
+    }
+
+    fn serialize_f64(&mut self, v: f64) -> Result<()> {
+        self.serialize_value(v as f32)
     }
 }
 
@@ -68,19 +114,69 @@ impl SimpleSerializer for FloatBuilder<f64> {
         Ok(())
     }
 
-    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
+    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_u8(&mut self, v: u8) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+        self.serialize_value(v as f64)
+    }
+
+    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+        self.serialize_value(v as f64)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v as f64);
-        Ok(())
+        self.serialize_value(v as f64)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
+        self.serialize_value(v)
+    }
+}
+
+impl SimpleSerializer for FloatBuilder<f16> {
+    fn name(&self) -> &str {
+        "FloatBuilder<f16>"
+    }
+
+    fn serialize_default(&mut self) -> Result<()> {
+        push_validity_default(&mut self.validity);
+        self.buffer.push(f16::ZERO);
         Ok(())
+    }
+
+    fn serialize_none(&mut self) -> Result<()> {
+        push_validity(&mut self.validity, false)?;
+        self.buffer.push(f16::ZERO);
+        Ok(())
+    }
+
+    fn serialize_f32(&mut self, v: f32) -> Result<()> {
+        self.serialize_value(f16::from_f32(v))
+    }
+
+    fn serialize_f64(&mut self, v: f64) -> Result<()> {
+        self.serialize_value(f16::from_f64(v))
     }
 }

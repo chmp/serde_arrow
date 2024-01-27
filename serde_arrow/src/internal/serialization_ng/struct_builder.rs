@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, take_swap, Mut, SimpleSerializer},
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;
@@ -73,12 +73,16 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(name, builder)| (name.clone(), builder.take()))
                 .collect(),
-            cached_names: vec![None; self.cached_names.len()],
-            seen: vec![false; self.seen.len()],
-            next: 0,
+            cached_names: take_swap(&mut self.cached_names, vec![None; self.named_fields.len()]),
+            seen: take_swap(&mut self.seen, vec![false; self.named_fields.len()]),
+            next: std::mem::take(&mut self.next),
             index: self.index.clone(),
             key_serializer: self.key_serializer.clone(),
         }
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
     }
 }
 
@@ -99,6 +103,13 @@ impl StructBuilder {
     fn end(&mut self) -> Result<()> {
         for (idx, seen) in self.seen.iter_mut().enumerate() {
             if !*seen {
+                if !self.named_fields[idx].1.is_nullable() {
+                    fail!(
+                        "missing non-nullable field {:?} in struct",
+                        self.named_fields[idx].0
+                    );
+                }
+
                 self.named_fields[idx].1.serialize_none()?;
             }
         }
@@ -139,10 +150,6 @@ impl SimpleSerializer for StructBuilder {
         }
 
         Ok(())
-    }
-
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {

@@ -1,6 +1,6 @@
 use crate::{internal::common::MutableBitBuffer, Result};
 
-use super::utils::{push_validity, push_validity_default, Mut, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder {
@@ -17,10 +17,14 @@ impl BoolBuilder {
     }
 
     pub fn take(&mut self) -> Self {
-        BoolBuilder {
+        Self {
             validity: self.validity.as_mut().map(std::mem::take),
             buffer: std::mem::take(&mut self.buffer),
         }
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
     }
 }
 
@@ -39,10 +43,6 @@ impl SimpleSerializer for BoolBuilder {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(false);
         Ok(())
-    }
-
-    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {

@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]
@@ -39,6 +39,10 @@ impl MapBuilder {
             entry: Box::new(self.entry.take()),
         }
     }
+
+    pub fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
 }
 
 impl SimpleSerializer for MapBuilder {
@@ -55,10 +59,6 @@ impl SimpleSerializer for MapBuilder {
     fn serialize_none(&mut self) -> Result<()> {
         self.offsets.push_current_items();
         push_validity(&mut self.validity, false)
-    }
-
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {

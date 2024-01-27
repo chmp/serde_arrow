@@ -1,21 +1,25 @@
 use crate::Result;
 
-use super::utils::{Mut, SimpleSerializer};
+use super::utils::SimpleSerializer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NullBuilder {
     pub count: usize,
 }
 
 impl NullBuilder {
     pub fn new() -> Self {
-        Self { count: 0 }
+        Self::default()
     }
 
     pub fn take(&mut self) -> Self {
         Self {
             count: std::mem::take(&mut self.count),
         }
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        true
     }
 }
 
@@ -32,10 +36,6 @@ impl SimpleSerializer for NullBuilder {
     fn serialize_none(&mut self) -> Result<()> {
         self.count += 1;
         Ok(())
-    }
-
-    fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
     }
 
     fn serialize_unit(&mut self) -> Result<()> {

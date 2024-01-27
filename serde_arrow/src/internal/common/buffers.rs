@@ -3,10 +3,7 @@ use std::sync::Arc;
 use bytemuck::NoUninit;
 
 use super::array_mapping::ArrayMapping;
-use crate::internal::{
-    error::{fail, Result},
-    schema::GenericField,
-};
+use crate::internal::{error::Result, schema::GenericField};
 
 pub trait BufferExtract {
     fn len(&self) -> usize;
@@ -154,43 +151,6 @@ impl<'a> Buffers<'a> {
     }
 }
 
-/// The mutable variant of [`Buffers`].
-#[derive(Debug, Clone)]
-pub struct MutableBuffers {
-    /// 0 bit buffers
-    pub u0: Vec<MutableCountBuffer>,
-    /// 1 bit buffers
-    pub u1: Vec<MutableBitBuffer>,
-    /// 8 bit buffers
-    pub u8: Vec<Vec<u8>>,
-    /// 16 bit buffers
-    pub u16: Vec<Vec<u16>>,
-    /// 32 bit buffers
-    pub u32: Vec<Vec<u32>>,
-    /// 64 bit buffers
-    pub u64: Vec<Vec<u64>>,
-    /// 128 bit buffers
-    pub u128: Vec<Vec<u128>>,
-    /// 32 bit offsets
-    pub u32_offsets: Vec<MutableOffsetBuffer<i32>>,
-    /// 64 bit offsets
-    pub u64_offsets: Vec<MutableOffsetBuffer<i64>>,
-}
-
-impl MutableBuffers {
-    pub fn reset(&mut self) {
-        self.u0.iter_mut().for_each(|b| b.clear());
-        self.u1.iter_mut().for_each(|b| b.clear());
-        self.u8.iter_mut().for_each(|b| b.clear());
-        self.u16.iter_mut().for_each(|b| b.clear());
-        self.u32.iter_mut().for_each(|b| b.clear());
-        self.u64.iter_mut().for_each(|b| b.clear());
-        self.u128.iter_mut().for_each(|b| b.clear());
-        self.u32_offsets.iter_mut().for_each(|b| b.clear());
-        self.u64_offsets.iter_mut().for_each(|b| b.clear());
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BitBuffer<'a> {
     pub data: &'a [u8],
@@ -244,33 +204,6 @@ impl MutableBitBuffer {
             self.buffer[self.len / 8] |= 1 << (self.len % 8);
         }
         self.len += 1;
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct MutableCountBuffer {
-    len: usize,
-}
-
-impl MutableCountBuffer {
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn push(&mut self, _: ()) {
-        self.len += 1;
-    }
-
-    pub fn pop(&mut self, _: ()) -> Result<()> {
-        if self.len == 0 {
-            fail!("cannot pop from empty count buffer")
-        }
-        self.len -= 1;
-        Ok(())
     }
 
     pub fn clear(&mut self) {
