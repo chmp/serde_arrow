@@ -135,6 +135,34 @@ impl ArrowBuilder {
 /// # }
 /// ```
 ///
+/// The arrays can be used as is to construct a record batch
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow::datatypes::Field;
+/// # use serde::{Serialize, Deserialize};
+/// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+/// # mod arrow {
+/// #   pub mod array { pub use serde_arrow::_impl::arrow::_raw::array::RecordBatch;  }
+/// #   pub mod datatypes { pub use serde_arrow::_impl::arrow::_raw::schema::Schema; }
+/// # }
+/// # #[derive(Serialize, Deserialize)]
+/// # struct Record { a: Option<f32>, b: u64 }
+/// # let items = vec![ Record { a: Some(1.0), b: 2}, ];
+/// # let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+/// # let arrays = serde_arrow::to_arrow(&fields, &items)?;
+/// use arrow::{array::RecordBatch, datatypes::Schema};
+/// use std::sync::Arc;
+///
+/// let schema = Schema::new(fields);
+/// let record_batch = RecordBatch::try_new(Arc::new(schema), arrays)?;
+///
+/// assert_eq!(record_batch.num_columns(), 2);
+/// assert_eq!(record_batch.num_rows(), 1);
+/// # Ok(())
+/// # }
+/// ```
+///
 pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>> {
     let mut builder = ArrowBuilder::new(fields)?;
     builder.extend(items)?;
