@@ -12,7 +12,7 @@ license = "MIT"
 bench = false
 
 [[bench]]
-name = "arrow2"
+name = "serde_arrow_bench"
 # arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
 required-features = ["arrow2-0-17", "arrow-50"]
 harness = false
