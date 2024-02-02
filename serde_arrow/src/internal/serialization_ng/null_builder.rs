@@ -33,11 +33,6 @@ impl SimpleSerializer for NullBuilder {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        self.count += 1;
-        Ok(())
-    }
-
     fn serialize_unit(&mut self) -> Result<()> {
         self.count += 1;
         Ok(())

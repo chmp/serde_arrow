@@ -39,7 +39,7 @@ impl SimpleSerializer for BoolBuilder {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(false);
         Ok(())

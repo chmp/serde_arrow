@@ -45,7 +45,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.offsets.push_current_items();
         Ok(())

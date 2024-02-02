@@ -56,7 +56,7 @@ impl SimpleSerializer for MapBuilder {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         self.offsets.push_current_items();
         push_validity(&mut self.validity, false)
     }

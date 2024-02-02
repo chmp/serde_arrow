@@ -110,7 +110,7 @@ impl StructBuilder {
                     );
                 }
 
-                self.named_fields[idx].1.serialize_none()?;
+                self.named_fields[idx].1.serialize_unit()?;
             }
         }
         Ok(())
@@ -142,7 +142,7 @@ impl SimpleSerializer for StructBuilder {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
 
         for (_, field) in &mut self.named_fields {

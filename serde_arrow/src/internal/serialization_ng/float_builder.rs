@@ -46,7 +46,7 @@ impl SimpleSerializer for FloatBuilder<f32> {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(0.0);
         Ok(())
@@ -108,7 +108,7 @@ impl SimpleSerializer for FloatBuilder<f64> {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(0.0);
         Ok(())
@@ -166,7 +166,7 @@ impl SimpleSerializer for FloatBuilder<f16> {
         Ok(())
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_unit(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(f16::ZERO);
         Ok(())
