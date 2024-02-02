@@ -1,0 +1,101 @@
+use crate::groups::complex_common::Item;
+
+use {
+    serde_arrow::schema::{SchemaLike as _, SerdeArrowSchema},
+    std::sync::Arc,
+};
+
+// arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
+use arrow_json_50::ReaderBuilder;
+
+// arrow-version:replace: use arrow_schema_{version}::Schema as ArrowSchema;
+use arrow_schema_50::Schema as ArrowSchema;
+
+// arrow-version:replace: use arrow_array_{version}::RecordBatch;
+use arrow_array_50::RecordBatch;
+
+fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
+    let rng = &mut rand::thread_rng();
+    let items = (0..10_000)
+        .map(|_| Item::random(rng))
+        .collect::<Vec<Item>>();
+    let jsons_to_deserialize = items
+        .iter()
+        .map(|item| serde_json::to_string(item).expect("Failed to serialize JSON"))
+        .collect::<Vec<_>>();
+    let jsons_to_deserialize_concatenated = jsons_to_deserialize.join("\n");
+    let jsons_to_deserialize: Vec<&str> = {
+        let mut prev = 0;
+        jsons_to_deserialize
+            .iter()
+            .map(|s| {
+                let ret = &jsons_to_deserialize_concatenated[prev..(prev + s.len())];
+                prev += s.len() + 1;
+                ret
+            })
+            .collect::<Vec<_>>()
+    };
+    let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
+    let arrow_fields = schema.to_arrow_fields().unwrap();
+    let mut group = c.benchmark_group(format!("json_to_arrow({})", items.len()));
+
+    // arrow-json direct
+    group.bench_function("arrow-json", |b| {
+        b.iter(|| {
+            let schema = Arc::new(ArrowSchema::new(arrow_fields.to_owned()));
+            let mut decoder = ReaderBuilder::new(schema.clone()).build_decoder().unwrap();
+            decoder
+                .decode(criterion::black_box(
+                    jsons_to_deserialize_concatenated.as_bytes(),
+                ))
+                .unwrap();
+            let arrays = decoder.flush().unwrap().unwrap().columns().to_vec();
+            let record_batch = RecordBatch::try_new(schema, arrays).unwrap();
+            record_batch
+        })
+    });
+
+    // arrow-json via serde
+    group.bench_function("serde_json_transcode_arrow-json", |b| {
+        b.iter(|| {
+            let schema = Arc::new(ArrowSchema::new(arrow_fields.to_owned()));
+            let mut decoder = ReaderBuilder::new(schema.clone()).build_decoder().unwrap();
+            let mut deserializers = jsons_to_deserialize
+                .iter()
+                .map(|json_to_deserialize| {
+                    serde_json::Deserializer::from_slice(criterion::black_box(
+                        json_to_deserialize.as_bytes(),
+                    ))
+                })
+                .collect::<Vec<_>>();
+            let transcoders = deserializers
+                .iter_mut()
+                .map(|deserializer| serde_transcode::Transcoder::new(deserializer))
+                .collect::<Vec<_>>();
+            decoder.serialize(&transcoders).unwrap();
+            let arrays = decoder.flush().unwrap().unwrap().columns().to_vec();
+            let record_batch = RecordBatch::try_new(schema, arrays).unwrap();
+            record_batch
+        })
+    });
+
+    // serde_arrow via serde
+    group.bench_function("serde_json_transcode_serde_arrow", |b| {
+        b.iter(|| {
+            let mut arrow_builder = serde_arrow::ArrowBuilder::new(&arrow_fields).unwrap();
+            for json_to_deserialize in &jsons_to_deserialize {
+                let mut deserializer = serde_json::Deserializer::from_slice(criterion::black_box(
+                    json_to_deserialize.as_bytes(),
+                ));
+                let transcoder = serde_transcode::Transcoder::new(&mut deserializer);
+                arrow_builder.push(&transcoder).unwrap();
+            }
+            let arrays = arrow_builder.build_arrays().unwrap();
+            let schema = ArrowSchema::new(arrow_fields.to_owned());
+            let record_batch = RecordBatch::try_new(Arc::new(schema), arrays).unwrap();
+            record_batch
+        })
+    });
+}
+
+criterion::criterion_group!(benchmark, benchmark_json_to_arrow);
