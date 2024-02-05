@@ -45,7 +45,49 @@
 //! - the [status summary][_impl::docs::status] for an overview over the
 //!   supported Arrow and Rust constructs
 //!
-//! ## Example
+//! ## `arrow` Example
+//! ```rust
+//! # use serde::{Deserialize, Serialize};
+//! # #[cfg(feature = "has_arrow")]
+//! # fn main() -> serde_arrow::Result<()> {
+//! use arrow::datatypes::Schema;
+//! use arrow::record_batch::RecordBatch;
+//! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+//!
+//! ##[derive(Serialize, Deserialize)]
+//! struct Record {
+//!     a: f32,
+//!     b: i32,
+//! }
+//!
+//! let records = vec![
+//!     Record { a: 1.0, b: 1 },
+//!     Record { a: 2.0, b: 2 },
+//!     Record { a: 3.0, b: 3 },
+//! ];
+//!
+//! // Determine Arrow schema
+//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+//!
+//! // Convert Rust records to Arrow arrays
+//! let arrays = serde_arrow::to_arrow(&fields, &records)?;
+//!
+//! // Create RecordBatch
+//! let schema = Schema::new(fields);
+//! let batch = RecordBatch::try_new(schema, arrays)?;
+//! # Ok(())
+//! # }
+//! # #[cfg(not(feature = "has_arrow"))]
+//! # fn main() { }
+//! ```
+//!
+//! The `RecordBatch` can then be written to disk, e.g., as parquet using
+//! the [`ArrowWriter`] from the [`parquet`] crate:
+//!
+//! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+//! [`parquet`]: https://docs.rs/parquet/latest/parquet/
+//!
+//! ## `arrow2` Example
 //!
 //! Requires one of `arrow2` feature (see below).
 //!
