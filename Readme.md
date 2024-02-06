@@ -32,7 +32,53 @@ arrays, and deserialization from arrays to Rust structs.
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
 ## Example
+Given this Rust structure
+```rust
+#[derive(Serialize, Deserialize)]
+struct Record {
+    a: f32,
+    b: i32,
+}
 
+let records = vec![
+    Record { a: 1.0, b: 1 },
+    Record { a: 2.0, b: 2 },
+    Record { a: 3.0, b: 3 },
+];
+```
+
+### Serialize to `arrow` `RecordBatch`
+```rust
+use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+
+// Determine Arrow schema
+let fields =
+  SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
+  .to_arrow_fields()
+
+// Convert to Arrow arrays
+let arrays = serde_arrow::to_arrow(&fields, &records)?;
+
+// Form a RecordBatch
+let schema = Schema::new(&fields);
+let batch = RecordBatch::try_new(schema.into(), arrays)?;
+```
+
+This `RecordBatch` can now be written to disk using [ArrowWriter] from the [parquet] crate.
+
+[ArrowWriter]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+[parquet]: https://docs.rs/parquet/latest/parquet/
+
+
+```rust
+let file = File::create("example.pq");
+let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
+writer.write(&batch)?;
+writer.close()?;
+```
+
+
+### Serialize to `arrow2` arrays
 ```rust
 use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 
@@ -69,16 +115,32 @@ write_chunk(
 )?;
 ```
 
+### Usage from python 
+
 The written file can now be read in Python via
 
 ```python
 # using polars
-import polars as pl
-pl.read_parquet("example.pq")
+>>> import polars as pl
+>>> pl.read_parquet("example.pq")
+shape: (3, 2)
+┌─────┬─────┐
+│ a   ┆ b   │
+│ --- ┆ --- │
+│ f32 ┆ i32 │
+╞═════╪═════╡
+│ 1.0 ┆ 1   │
+│ 2.0 ┆ 2   │
+│ 3.0 ┆ 3   │
+└─────┴─────┘
 
 # using pandas
-import pandas as pd
-pd.read_parquet("example.pq")
+>>> import pandas as pd
+>>> pd.read_parquet("example.pq")
+     a  b
+0  1.0  1
+1  2.0  2
+2  3.0  3
 ```
 
 [arrow2-guide]: https://jorgecarleitao.github.io/arrow2
