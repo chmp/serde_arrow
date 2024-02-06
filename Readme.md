@@ -64,6 +64,20 @@ let schema = Schema::new(&fields);
 let batch = RecordBatch::try_new(schema.into(), arrays)?;
 ```
 
+This `RecordBatch` can now be written to disk using [ArrowWriter] from the [parquet] crate.
+
+[ArrowWriter]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+[parquet]: https://docs.rs/parquet/latest/parquet/
+
+
+```rust
+let file = File::create("example.pq");
+let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
+writer.write(&batch)?;
+writer.close()?;
+```
+
+
 ### Serialize to `arrow2` arrays
 ```rust
 use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
@@ -87,27 +101,7 @@ let fields =
 let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 ```
 
-These arrays can now be written to disk in formats such as Parquet using the 
-appropriate Arrow or Arrow2 APIs.
-
-### Write `arrow` `RecordBatch` to Parquet
-
-You can write the `RecordBatch` to a Parquet file using [ArrowWriter] from the 
-[parquet] crate:
-
-[ArrowWriter]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
-[parquet]: https://docs.rs/parquet/latest/parquet/
-
-
-```rust
-let file = File::create("example.pq");
-let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
-writer.write(&batch)?;
-writer.close()?;
-```
-
-### Write `arrow2` arrays to Parquet
-using the helper method defined in the
+These arrays can now be written to disk using the helper method defined in the
 [arrow2 guide][arrow2-guide]. For parquet:
 
 ```rust,ignore
@@ -121,12 +115,14 @@ write_chunk(
 )?;
 ```
 
+### Usage from python 
+
 The written file can now be read in Python via
 
-### Polars
 ```python
-import polars as pl
-pl.read_parquet("example.pq")
+# using polars
+>>> import polars as pl
+>>> pl.read_parquet("example.pq")
 shape: (3, 2)
 ┌─────┬─────┐
 │ a   ┆ b   │
@@ -137,12 +133,10 @@ shape: (3, 2)
 │ 2.0 ┆ 2   │
 │ 3.0 ┆ 3   │
 └─────┴─────┘
-```
 
-### Pandas
-```python
-import pandas as pd
-pd.read_parquet("example.pq")
+# using pandas
+>>> import pandas as pd
+>>> pd.read_parquet("example.pq")
      a  b
 0  1.0  1
 1  2.0  2
