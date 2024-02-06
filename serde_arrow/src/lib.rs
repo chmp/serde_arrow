@@ -82,7 +82,7 @@
 //! ```
 //!
 //! The `RecordBatch` can then be written to disk, e.g., as parquet using
-//! the [`ArrowWriter`] from the [`parquet`] crate:
+//! the [`ArrowWriter`] from the [`parquet`] crate.
 //!
 //! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
