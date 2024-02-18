@@ -2,13 +2,13 @@
 
 [[Crate info]](https://crates.io/crates/serde_arrow)
 | [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
-| [Changes](Changes.md)
 | [Example](#example)
 | [Related packages & performance](#related-packages--performance)
 | [[How does it work?]](https://docs.rs/serde_arrow/latest/serde_arrow/_impl/docs/implementation/index.html)
 | [Status](serde_arrow/Status.md)
-| [Development](#development)
 | [License](#license)
+| [Changes](Changes.md)
+| [Development](Development.md)
 
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
@@ -204,18 +204,6 @@ The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are lis
 | arrow_json::ReaderBuilder    |   1403.08 |            9.24 |            4.07 |            2.96 |            1.00 |
 
 <!-- end:benchmarks -->
-
-## Development
-
-All common tasks are bundled in the `x.py` script:
-
-```bash
-# format the code and run tests
-python x.py precommit
-```
-
-Run `python x.py --help` for details. The script only uses standard Python
-modules can can be run without installing further packages.
 
 ## License
 

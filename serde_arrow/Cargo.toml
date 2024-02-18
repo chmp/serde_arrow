@@ -1,9 +1,9 @@
 [package]
 name = "serde_arrow"
-version = "0.10.0-rc.1"
+version = "0.10.0"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2021"
-description  = "convert sequences of structs / maps to arrow tables"
+description  = "Convert sequences of Rust objects to Arrow arrays and back again"
 readme = "../Readme.md"
 repository = "https://github.com/chmp/serde_arrow"
 license = "MIT"
