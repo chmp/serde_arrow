@@ -38,11 +38,6 @@ impl SimpleSerializer for NullBuilder {
         Ok(())
     }
 
-    fn serialize_unit(&mut self) -> Result<()> {
-        self.count += 1;
-        Ok(())
-    }
-
     fn serialize_unit_struct(&mut self, _: &'static str) -> Result<()> {
         self.count += 1;
         Ok(())

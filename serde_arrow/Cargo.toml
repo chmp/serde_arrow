@@ -12,7 +12,7 @@ license = "MIT"
 bench = false
 
 [[bench]]
-name = "arrow2"
+name = "serde_arrow_bench"
 # arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
 required-features = ["arrow2-0-17", "arrow-50"]
 harness = false
@@ -128,6 +128,8 @@ bigdecimal = {version = "0.4", features = ["serde"] }
 arrow-json-50 = { package = "arrow-json", version = "50" }
 criterion = "0.4"
 arrow2_convert = "0.5.0"
+serde-transcode = "1"
+simd-json = "0.13.8"
 
 [dev-dependencies.rust_decimal]
 version = "1.33"

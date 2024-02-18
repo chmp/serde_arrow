@@ -22,11 +22,31 @@ fn serde_json_mixed_ints() {
 
 #[test]
 fn serde_json_mixed_fixed_schema() {
-    let items = vec![json!({ "a": 1, "b": -2 }), json!({ "a": 3.0, "b": 4 })];
+    let items = json!([
+        { "a": 1, "b": -2 },
+        { "a": 3.0, "b": 4 },
+    ]);
     Test::new()
         .with_schema(json!([
             {"name": "a", "data_type": "F64"},
             {"name": "b", "data_type": "I64"},
+        ]))
+        .serialize(&items);
+}
+
+#[test]
+fn serde_json_mixed_fixed_schema_nullable() {
+    let items = json!([
+        { "a": 1, "b": -2, "c": "hello", "d": null },
+        { "a": null, "b": 4, "c": null, "d": true },
+        { "a": 3.0, "b": null, "c": "world", "d": false },
+    ]);
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "F64", "nullable": true},
+            {"name": "b", "data_type": "I64", "nullable": true},
+            {"name": "c", "data_type": "Utf8", "nullable": true},
+            {"name": "d", "data_type": "Bool", "nullable": true},
         ]))
         .serialize(&items);
 }
@@ -79,7 +99,7 @@ fn serde_json_nullable_strings_non_nullable_field() {
     ]));
 
     test.try_serialize_arrow(&items)
-        .assert_error("serialize_unit is not supported for Utf8Builder");
+        .assert_error("cannot push null for non-nullable array");
     test.try_serialize_arrow2(&items)
-        .assert_error("serialize_unit is not supported for Utf8Builder");
+        .assert_error("cannot push null for non-nullable array");
 }

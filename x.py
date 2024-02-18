@@ -98,7 +98,7 @@ def precommit(backtrace=False):
     update_workflows()
 
     format()
-    lint()
+    check()
     test(backtrace=backtrace)
     example()
 
@@ -162,9 +162,9 @@ def format():
     _sh("cargo fmt")
 
 
-@cmd(help="Run the linting")
+@cmd(help="Run the linters")
 @arg("--fast", action="store_true")
-def lint(fast=False):
+def check(fast=False):
     check_cargo_toml()
     _sh(f"cargo check --features {default_features}")
     _sh(f"cargo clippy --features {default_features}")
@@ -293,8 +293,8 @@ def summarize_bench(update=False):
     print(format_benchmark(mean_times))
 
     if update:
-        update_readme(mean_times)
-        plot_times(mean_times)
+        update_readme(mean_times, ignore_groups={"json_to_arrow"})
+        plot_times(mean_times, ignore_groups={"json_to_arrow"})
 
 
 def load_times():
@@ -333,7 +333,7 @@ def load_times():
     return mean_times
 
 
-def update_readme(mean_times):
+def update_readme(mean_times, ignore_groups=()):
     print("Update readme")
     with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
         lines = [line.rstrip() for line in fobj]
@@ -348,12 +348,15 @@ def update_readme(mean_times):
 
             else:
                 if line.strip() == "<!-- end:benchmarks -->":
-                    print(format_benchmark(mean_times), file=fobj)
+                    print(
+                        format_benchmark(mean_times, ignore_groups=ignore_groups),
+                        file=fobj,
+                    )
                     print(line, file=fobj)
                     active = False
 
 
-def plot_times(mean_times):
+def plot_times(mean_times, ignore_groups=()):
     print("Plot times")
 
     import matplotlib.pyplot as plt
@@ -363,6 +366,7 @@ def plot_times(mean_times):
         [
             {"group": group, "impl": impl, "time": time}
             for (group, impl), time in mean_times.items()
+            if group not in ignore_groups
         ]
     )
     agg_df = (
@@ -405,9 +409,9 @@ def plot_times(mean_times):
     plt.savefig(self_path / "timings.png")
 
 
-def format_benchmark(mean_times):
+def format_benchmark(mean_times, ignore_groups=()):
     def _parts():
-        for group in sorted({g for g, _ in mean_times}):
+        for group in sorted({g for g, _ in mean_times if g not in ignore_groups}):
             times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
             sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
 
