@@ -48,7 +48,7 @@ impl SimpleSerializer for Date64Builder {
         Ok(())
     }
 
-    fn serialize_unit(&mut self) -> Result<()> {
+    fn serialize_none(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(0);
         Ok(())

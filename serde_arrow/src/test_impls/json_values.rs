@@ -79,7 +79,7 @@ fn serde_json_nullable_strings_non_nullable_field() {
     ]));
 
     test.try_serialize_arrow(&items)
-        .assert_error("serialize_unit is not supported for Utf8Builder");
+        .assert_error("cannot push null for non-nullable array");
     test.try_serialize_arrow2(&items)
-        .assert_error("serialize_unit is not supported for Utf8Builder");
+        .assert_error("cannot push null for non-nullable array");
 }

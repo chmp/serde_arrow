@@ -53,14 +53,14 @@ pub trait SimpleSerializer: Sized {
     }
 
     fn serialize_unit(&mut self) -> Result<()> {
+        self.serialize_none()
+    }
+
+    fn serialize_none(&mut self) -> Result<()> {
         fail!(
             "serialize_unit/serialize_none is not supported for {}",
             self.name()
         );
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        self.serialize_unit()
     }
 
     fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {

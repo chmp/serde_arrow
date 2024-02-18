@@ -47,11 +47,11 @@ impl SimpleSerializer for DictionaryUtf8Builder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        self.indices.serialize_unit()
+        self.indices.serialize_none()
     }
 
-    fn serialize_unit(&mut self) -> Result<()> {
-        self.indices.serialize_unit()
+    fn serialize_none(&mut self) -> Result<()> {
+        self.indices.serialize_none()
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {

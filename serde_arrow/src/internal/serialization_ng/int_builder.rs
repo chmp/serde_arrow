@@ -58,7 +58,7 @@ where
         Ok(())
     }
 
-    fn serialize_unit(&mut self) -> Result<()> {
+    fn serialize_none(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
         self.buffer.push(I::default());
         Ok(())
