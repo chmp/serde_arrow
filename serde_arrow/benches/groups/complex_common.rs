@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_arrow::_impl::arrow2;
 
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
-pub(crate) struct Item {
+pub struct Item {
     string: String,
     points: Vec<Point>,
     child: SubItem,
@@ -30,7 +30,7 @@ struct SubItem {
 }
 
 impl Item {
-    pub(crate) fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         let n_string = Uniform::new(1, 50).sample(rng);
         let n_points = Uniform::new(1, 50).sample(rng);
 

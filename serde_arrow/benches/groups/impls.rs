@@ -16,12 +16,20 @@ macro_rules! define_benchmark {
 
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));
-                group.sample_size(20);
+
                 group.sampling_mode(criterion::SamplingMode::Flat);
-                group.measurement_time(std::time::Duration::from_secs(120));
+                if !crate::groups::impls::is_quick() {
+                    group.sample_size(20);
+                    group.measurement_time(std::time::Duration::from_secs(120));
+                } else {
+                    group.sample_size(10);
+                    group.measurement_time(std::time::Duration::from_secs(5));
+                }
+
+                let n_items = if !crate::groups::impls::is_quick() { n } else { n / 1000 };
 
                 let mut rng = rand::thread_rng();
-                let items = (0..n)
+                let items = (0..n_items)
                     .map(|_| <$ty>::random(&mut rng))
                     .collect::<Vec<_>>();
                 let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
@@ -165,4 +173,8 @@ pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> Stri
     (0..n_string)
         .map(|_| -> char { Standard.sample(rng) })
         .collect()
+}
+
+pub fn is_quick() -> bool {
+    std::env::var("SERDE_ARROW_BENCH_QUICK").is_ok()
 }
