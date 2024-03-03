@@ -1,11 +1,14 @@
 //! Deserialization of SchemaLike objects with explicit support to deserialize
-//! from arrow-rs types 
+//! from arrow-rs types
 
 use std::{collections::HashMap, str::FromStr};
 
 use serde::Deserialize;
 
-use crate::internal::{error::{Error, Result}, schema::{GenericField, GenericDataType, Strategy, SerdeArrowSchema}};
+use crate::internal::{
+    error::{Error, Result},
+    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
+};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct ArrowField {
@@ -14,7 +17,6 @@ pub struct ArrowField {
     nullable: bool,
     metadata: HashMap<String, String>,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum ArrowDataType {
@@ -60,7 +62,10 @@ impl ArrowDataType {
             ArrowDataType::List(field) => (GenericDataType::List, vec![*field]),
             ArrowDataType::LargeList(field) => (GenericDataType::LargeList, vec![*field]),
         };
-        let children = children.into_iter().map(|field| GenericField::try_from(field)).collect::<Result<Vec<_>>>()?;
+        let children = children
+            .into_iter()
+            .map(|field| GenericField::try_from(field))
+            .collect::<Result<Vec<_>>>()?;
         Ok((data_type, children))
     }
 }
@@ -81,7 +86,6 @@ impl TryFrom<ArrowField> for GenericField {
         })
     }
 }
-
 
 #[derive(Debug)]
 enum GenericOrArrowDataType {
@@ -107,7 +111,10 @@ impl<'de> Deserialize<'de> for GenericOrArrowDataType {
                 }
             }
 
-            fn visit_enum<A: serde::de::EnumAccess<'de>>(self, data: A) -> Result<Self::Value, A::Error> {
+            fn visit_enum<A: serde::de::EnumAccess<'de>>(
+                self,
+                data: A,
+            ) -> Result<Self::Value, A::Error> {
                 let field = ArrowDataType::deserialize(EnumDeserializer(data))?;
                 Ok(GenericOrArrowDataType::Arrow(field))
             }
@@ -121,8 +128,11 @@ struct EnumDeserializer<A>(A);
 
 impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDeserializer<A> {
     type Error = A::Error;
-    
-    fn deserialize_any<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+
+    fn deserialize_any<V: serde::de::Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
         visitor.visit_enum(self.0)
     }
 
@@ -131,7 +141,7 @@ impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDe
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
         tuple_struct map struct enum identifier ignored_any
     }
-}  
+}
 
 #[derive(Debug)]
 struct NativeOrArrowField(GenericField);
@@ -147,7 +157,10 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                 write!(f, "a struct with keys 'name', 'data_type', ...")
             }
 
-            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Self::Value, A::Error> {
                 use serde::de::Error;
 
                 let mut name = None;
@@ -175,19 +188,26 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                         }
                         _ => {
                             map.next_value::<serde::de::IgnoredAny>()?;
-                        },
+                        }
                     }
                 }
-                
-                let data_type = data_type.ok_or_else(|| A::Error::custom("missing field `data_type`"))?;
+
+                let data_type =
+                    data_type.ok_or_else(|| A::Error::custom("missing field `data_type`"))?;
                 let (data_type, children) = match data_type {
-                    GenericOrArrowDataType::Generic(data_type) => (data_type, children.unwrap_or_default()),
+                    GenericOrArrowDataType::Generic(data_type) => {
+                        (data_type, children.unwrap_or_default())
+                    }
                     GenericOrArrowDataType::Arrow(data_type) => {
                         if children.is_some() {
-                            return Err(A::Error::custom("cannot mix `children` with arrow-rs-style data types"));
+                            return Err(A::Error::custom(
+                                "cannot mix `children` with arrow-rs-style data types",
+                            ));
                         }
-                        data_type.into_generic().map_err(|err| A::Error::custom(err.to_string()))?
-                    },
+                        data_type
+                            .into_generic()
+                            .map_err(|err| A::Error::custom(err.to_string()))?
+                    }
                 };
 
                 let field = GenericField {
@@ -240,7 +260,12 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
                 while let Some(key) = map.next_key::<String>()? {
                     if key == "fields" {
                         let fields_data = map.next_value::<Vec<NativeOrArrowField>>()?;
-                        fields = Some(fields_data.into_iter().map(|item| item.0).collect::<Vec<_>>());
+                        fields = Some(
+                            fields_data
+                                .into_iter()
+                                .map(|item| item.0)
+                                .collect::<Vec<_>>(),
+                        );
                     } else {
                         map.next_value::<serde::de::IgnoredAny>()?;
                     }

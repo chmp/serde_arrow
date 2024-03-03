@@ -4,7 +4,17 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{self as serde_arrow, _impl::{arrow::{datatypes::Field, _raw::{array::RecordBatch, schema::Schema}}, PanicOnError}, schema::{SchemaLike, TracingOptions}};
+use crate::{
+    self as serde_arrow,
+    _impl::{
+        arrow::{
+            _raw::{array::RecordBatch, schema::Schema},
+            datatypes::Field,
+        },
+        PanicOnError,
+    },
+    schema::{SchemaLike, TracingOptions},
+};
 
 #[test]
 fn example() -> PanicOnError<()> {
@@ -15,8 +25,14 @@ fn example() -> PanicOnError<()> {
     }
 
     let items_input = vec![
-        Record { a: 21, b: String::from("first") },
-        Record { a: 42, b: String::from("second") },
+        Record {
+            a: 21,
+            b: String::from("first"),
+        },
+        Record {
+            a: 42,
+            b: String::from("second"),
+        },
     ];
 
     let fields_from_type = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;

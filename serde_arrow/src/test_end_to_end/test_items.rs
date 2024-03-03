@@ -1,7 +1,14 @@
 use std::sync::Arc;
 
 use crate::{
-    self as serde_arrow, _impl::arrow::_raw::{array::RecordBatch, schema::{Field, Schema}}, internal::error::PanicOnError, schema::{SchemaLike, TracingOptions}, utils::{Item, Items},
+    self as serde_arrow,
+    _impl::arrow::_raw::{
+        array::RecordBatch,
+        schema::{Field, Schema},
+    },
+    internal::error::PanicOnError,
+    schema::{SchemaLike, TracingOptions},
+    utils::{Item, Items},
 };
 
 #[test]
@@ -10,9 +17,11 @@ fn example() -> PanicOnError<()> {
 
     let items: Vec<u64> = vec![1, 2, 3, 4, 5];
 
-    let fields_from_type: Vec<Field> = SerdeArrowSchema::from_type::<Item<u64>>(TracingOptions::default())?.try_into()?;
-    let fields_from_samples: Vec<Field> = SerdeArrowSchema::from_samples(&Items(&items), TracingOptions::default())?.try_into()?;
-    
+    let fields_from_type: Vec<Field> =
+        SerdeArrowSchema::from_type::<Item<u64>>(TracingOptions::default())?.try_into()?;
+    let fields_from_samples: Vec<Field> =
+        SerdeArrowSchema::from_samples(&Items(&items), TracingOptions::default())?.try_into()?;
+
     assert_eq!(fields_from_type, fields_from_samples);
     let fields = fields_from_type;
 
