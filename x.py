@@ -147,6 +147,10 @@ def _generate_workflow_check_steps():
         }
 
     yield {
+        "name": "Check format",
+        "run": "cargo fmt --check",
+    }
+    yield {
         "name": "Build",
         "run": f"cargo build --features {default_features}",
     }
