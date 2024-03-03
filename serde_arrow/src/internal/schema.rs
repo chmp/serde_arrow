@@ -1,3 +1,5 @@
+mod deserialization;
+
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
@@ -10,7 +12,7 @@ use crate::internal::{
 
 use serde::{forward_to_deserialize_any, Deserialize, Serialize};
 
-use super::arrow_schema::ArrowDataType;
+use deserialization::ArrowDataType;
 
 /// The metadata key under which to store the strategy
 ///

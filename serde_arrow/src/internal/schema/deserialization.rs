@@ -1,10 +1,11 @@
-//! Schema format compatible with arrow used in deserialization
+//! Deserialization of SchemaLike objects with explicit support to deserialize
+//! from arrow-rs types 
 
 use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use super::{error::{Error, Result}, schema::{GenericField, GenericDataType}};
+use crate::internal::{error::{Error, Result}, schema::{GenericField, GenericDataType}};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct ArrowField {
