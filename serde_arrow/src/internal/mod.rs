@@ -1,3 +1,4 @@
+pub mod arrow_schema;
 pub mod common;
 pub mod config;
 pub mod conversions;

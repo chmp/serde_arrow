@@ -97,7 +97,6 @@ arrow-data-37 = { package = "arrow-data", version="37", optional = true, default
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false }}{\n}
 arrow-schema-50 = { package = "arrow-schema", version = "50", optional = true, default-features = false }
-
 arrow-schema-49 = { package = "arrow-schema", version = "49", optional = true, default-features = false }
 arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true, default-features = false }
 arrow-schema-47 = { package = "arrow-schema", version = "47", optional = true, default-features = false }
@@ -130,6 +129,21 @@ criterion = "0.4"
 arrow2_convert = "0.5.0"
 serde-transcode = "1"
 simd-json = "0.13.8"
+
+arrow-schema-50 = { package = "arrow-schema", version = "50", default-features = false, features = ["serde"] }
+arrow-schema-49 = { package = "arrow-schema", version = "49", default-features = false, features = ["serde"] }
+arrow-schema-48 = { package = "arrow-schema", version = "48", default-features = false, features = ["serde"] }
+arrow-schema-47 = { package = "arrow-schema", version = "47", default-features = false, features = ["serde"] }
+arrow-schema-46 = { package = "arrow-schema", version = "46", default-features = false, features = ["serde"] }
+arrow-schema-45 = { package = "arrow-schema", version = "45", default-features = false, features = ["serde"] }
+arrow-schema-44 = { package = "arrow-schema", version = "44", default-features = false, features = ["serde"] }
+arrow-schema-43 = { package = "arrow-schema", version = "43", default-features = false, features = ["serde"] }
+arrow-schema-42 = { package = "arrow-schema", version = "42", default-features = false, features = ["serde"] }
+arrow-schema-41 = { package = "arrow-schema", version = "41", default-features = false, features = ["serde"] }
+arrow-schema-40 = { package = "arrow-schema", version = "40", default-features = false, features = ["serde"] }
+arrow-schema-39 = { package = "arrow-schema", version = "39", default-features = false, features = ["serde"] }
+arrow-schema-38 = { package = "arrow-schema", version = "38", default-features = false, features = ["serde"] }
+arrow-schema-37 = { package = "arrow-schema", version = "37", default-features = false, features = ["serde"] }
 
 [dev-dependencies.rust_decimal]
 version = "1.33"

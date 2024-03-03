@@ -8,7 +8,9 @@ use crate::internal::{
     tracing::{Tracer, TracingMode, TracingOptions},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{forward_to_deserialize_any, Deserialize, Serialize};
+
+use super::arrow_schema::ArrowDataType;
 
 /// The metadata key under which to store the strategy
 ///
@@ -259,6 +261,124 @@ pub struct SerdeArrowSchema {
     pub(crate) fields: Vec<GenericField>,
 }
 
+#[derive(Debug)]
+enum GenericOrArrowDataType {
+    Generic(GenericDataType),
+    Arrow(ArrowDataType),
+}
+
+impl<'de> Deserialize<'de> for GenericOrArrowDataType {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = GenericOrArrowDataType;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "string or DataType variant")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                match GenericDataType::from_str(v) {
+                    Ok(res) => Ok(GenericOrArrowDataType::Generic(res)),
+                    Err(err) => Err(E::custom(err.to_string())),
+                }
+            }
+
+            fn visit_enum<A: serde::de::EnumAccess<'de>>(self, data: A) -> Result<Self::Value, A::Error> {
+                let field = ArrowDataType::deserialize(EnumDeserializer(data))?;
+                Ok(GenericOrArrowDataType::Arrow(field))
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
+struct EnumDeserializer<A>(A);
+
+impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDeserializer<A> {
+    type Error = A::Error;
+    
+    fn deserialize_any<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        visitor.visit_enum(self.0)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}  
+
+#[derive(Debug)]
+struct NativeOrArrowField(GenericField);
+
+impl<'de> Deserialize<'de> for NativeOrArrowField {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = NativeOrArrowField;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "a struct with keys 'name', 'data_type', ...")
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                use serde::de::Error;
+
+                let mut name = None;
+                let mut nullable = None;
+                let mut strategy = None;
+                let mut data_type = None;
+                let mut children = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "name" => {
+                            name = Some(map.next_value::<String>()?);
+                        }
+                        "nullable" => {
+                            nullable = Some(map.next_value::<bool>()?);
+                        }
+                        "strategy" => {
+                            strategy = Some(map.next_value::<Option<Strategy>>()?);
+                        }
+                        "data_type" => {
+                            data_type = Some(map.next_value::<GenericOrArrowDataType>()?);
+                        }
+                        "children" => {
+                            children = Some(map.next_value::<Vec<GenericField>>()?);
+                        }
+                        _ => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                        },
+                    }
+                }
+                
+                let data_type = data_type.ok_or_else(|| A::Error::custom("missing field `data_type`"))?;
+                let (data_type, children) = match data_type {
+                    GenericOrArrowDataType::Generic(data_type) => (data_type, children.unwrap_or_default()),
+                    // TODO: test that children is None
+                    GenericOrArrowDataType::Arrow(data_type) => data_type.into_generic().map_err(|err| A::Error::custom(err.to_string()))?,
+                };
+
+                let field = GenericField {
+                    name: name.ok_or_else(|| A::Error::custom("missing field `name`"))?,
+                    data_type,
+                    children,
+                    nullable: nullable.unwrap_or_default(),
+                    strategy: strategy.flatten(),
+                };
+                Ok(NativeOrArrowField(field))
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct Visitor;
@@ -276,8 +396,8 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
             ) -> Result<Self::Value, A::Error> {
                 let mut fields = Vec::new();
 
-                while let Some(item) = seq.next_element::<GenericField>()? {
-                    fields.push(item);
+                while let Some(item) = seq.next_element::<NativeOrArrowField>()? {
+                    fields.push(item.0);
                 }
 
                 Ok(SerdeArrowSchema { fields })
@@ -293,7 +413,10 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
 
                 while let Some(key) = map.next_key::<String>()? {
                     if key == "fields" {
-                        fields = Some(map.next_value::<Vec<GenericField>>()?);
+                        let fields_data = map.next_value::<Vec<NativeOrArrowField>>()?;
+                        fields = Some(fields_data.into_iter().map(|item| item.0).collect::<Vec<_>>());
+                    } else {
+                        map.next_value::<serde::de::IgnoredAny>()?;
                     }
                 }
 
