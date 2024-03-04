@@ -41,7 +41,7 @@ impl OuterSequenceBuilder {
                 named_fields.push((field.name.to_owned(), builder));
             }
 
-            Ok(StructBuilder::new(fields.to_vec(), named_fields, nullable)?)
+            StructBuilder::new(fields.to_vec(), named_fields, nullable)
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
@@ -162,7 +162,7 @@ impl OuterSequenceBuilder {
         }
     }
 
-    /// Try to interpret this builder as `large_list<struct>>` and extract the contained struct fields
+    /// Extract the contained struct fields
     pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
         let builder = self.0.take();
 
@@ -174,10 +174,12 @@ impl OuterSequenceBuilder {
         Ok(result)
     }
 
+    /// Extend the builder with a sequence of items
     pub fn extend<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         value.serialize(Mut(self))
     }
 
+    /// Push a single item into the builder
     pub fn push<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.element(value)
     }
