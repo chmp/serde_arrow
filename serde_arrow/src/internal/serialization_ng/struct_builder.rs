@@ -160,8 +160,7 @@ impl SimpleSerializer for StructBuilder {
         value: &T,
     ) -> Result<()> {
         let fast_key = (key.as_ptr(), key.len());
-        let idx = if self.next < self.cached_names.len()
-            && Some(fast_key) == self.cached_names[self.next]
+        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key))
         {
             self.next
         } else {
