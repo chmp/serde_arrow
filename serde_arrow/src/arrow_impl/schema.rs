@@ -252,7 +252,6 @@ impl TryFrom<&GenericField> for Field {
                     .try_into()?;
                 DataType::Map(Box::new(element_field).into(), false)
             }
-            #[cfg(not(feature = "arrow-36"))]
             GenericDataType::Union => {
                 let mut fields = Vec::new();
                 for (idx, field) in value.children.iter().enumerate() {
@@ -260,19 +259,6 @@ impl TryFrom<&GenericField> for Field {
                 }
                 DataType::Union(fields.into_iter().collect(), UnionMode::Dense)
             }
-            #[cfg(feature = "arrow-36")]
-            GenericDataType::Union => DataType::Union(
-                value
-                    .children
-                    .iter()
-                    .map(Field::try_from)
-                    .collect::<Result<Vec<_>>>()?,
-                (0..value.children.len())
-                    .into_iter()
-                    .map(|v| v as i8)
-                    .collect(),
-                UnionMode::Dense,
-            ),
             GenericDataType::Dictionary => {
                 let Some(key_field) = value.children.first() else {
                     fail!("Dictionary must a two children");
