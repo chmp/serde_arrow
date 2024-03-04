@@ -9,7 +9,7 @@ use crate::{
     internal::{
         error::Result,
         schema::{GenericField, SerdeArrowSchema},
-        serialization_ng::ArrayBuilder,
+        serialization_ng::OuterSequenceBuilder,
         source::deserialize_from_source,
     },
 };
@@ -58,7 +58,7 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
-pub struct ArrowBuilder(ArrayBuilder);
+pub struct ArrowBuilder(OuterSequenceBuilder);
 
 impl std::fmt::Debug for ArrowBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -74,13 +74,13 @@ impl ArrowBuilder {
     ///
     pub fn new(fields: &[Field]) -> Result<Self> {
         let schema = SerdeArrowSchema::from_arrow_fields(fields)?;
-        Ok(Self(ArrayBuilder::new(&schema)?))
+        Ok(Self(OuterSequenceBuilder::new(&schema)?))
     }
 
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.0.extend(&[item])
+        self.0.push(item)
     }
 
     /// Add multiple records to the arrays

@@ -16,11 +16,11 @@ use crate::{
         common::MutableBitBuffer,
         error::{fail, Result},
         schema::GenericField,
-        serialization_ng::ArrayBuilder,
+        serialization_ng::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 
-impl ArrayBuilder {
+impl OuterSequenceBuilder {
     /// Build the arrow2 arrays
     pub fn build_arrow2_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
         let fields = self.take_records()?;
