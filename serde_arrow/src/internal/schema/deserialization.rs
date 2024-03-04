@@ -120,7 +120,22 @@ impl ArrowDataType {
                 ],
             ),
             Self::Timestamp(unit, timezone) => (T::Timestamp(unit.into(), timezone), vec![]),
-            Self::Union(_, _) => fail!("unions are not yet supported"),
+            Self::Union(variants, mode) => {
+                let mut children = Vec::new();
+
+                if !matches!(mode, ArrowUnionMode::Dense) {
+                    fail!("Only dense unions are supported at the moment");
+                }
+
+                for (pos, (idx, variant)) in variants.into_iter().enumerate() {
+                    if pos as i8 != idx {
+                        fail!("Union types with explicit field indices are not supported");
+                    }
+                    children.push(variant);
+                }
+
+                (T::Union, children)
+            }
         };
         let children = children
             .into_iter()

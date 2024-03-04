@@ -80,6 +80,14 @@ fn examples_trace_from_type() {
     assert_schema_eq_from_type::<Item<Struct>>().unwrap();
     assert_schema_eq_from_type::<Item<Vec<Struct>>>().unwrap();
 
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    enum Enum {
+        A(u32),
+        B(String),
+    }
+
+    assert_schema_eq_from_type::<Item<Enum>>().unwrap();
+
     fn assert_schema_eq_from_type<'de, T: Serialize + Deserialize<'de>>() -> Result<()> {
         let fields_from_type = Vec::<Field>::from_type::<T>(TracingOptions::default())?;
 

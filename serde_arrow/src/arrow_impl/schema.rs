@@ -162,7 +162,7 @@ impl TryFrom<&Field> for GenericField {
 
                 for (pos, (idx, field)) in fields.iter().enumerate() {
                     if pos as i8 != idx {
-                        fail!("Union types with explicit field indices are not supported");
+                        fail!("Union types with non-sequential field indices are not supported");
                     }
                     children.push(field.as_ref().try_into()?);
                 }
