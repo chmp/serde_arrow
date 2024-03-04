@@ -23,7 +23,6 @@ pub struct StructBuilder {
     pub seen: Vec<bool>,
     pub next: usize,
     pub index: BTreeMap<String, usize>,
-    pub key_serializer: KeySerializer,
 }
 
 impl StructBuilder {
@@ -41,16 +40,12 @@ impl StructBuilder {
             fail!("mismatched number of fields and builders");
         }
 
-        let mut capacity = 0;
         for (idx, (name, _)) in named_fields.iter().enumerate() {
             if index.contains_key(name) {
                 fail!("Duplicate field {name}");
             }
             index.insert(name.to_owned(), idx);
-            capacity = std::cmp::max(capacity, name.len());
         }
-
-        let key_serializer = KeySerializer::with_capacity(capacity);
 
         Ok(Self {
             fields,
@@ -60,7 +55,6 @@ impl StructBuilder {
             seen,
             next,
             index,
-            key_serializer,
         })
     }
 
@@ -73,11 +67,13 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(name, builder)| (name.clone(), builder.take()))
                 .collect(),
-            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.named_fields.len()]),
+            cached_names: std::mem::replace(
+                &mut self.cached_names,
+                vec![None; self.named_fields.len()],
+            ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.named_fields.len()]),
             next: std::mem::take(&mut self.next),
             index: self.index.clone(),
-            key_serializer: self.key_serializer.clone(),
         }
     }
 
@@ -160,8 +156,7 @@ impl SimpleSerializer for StructBuilder {
         value: &T,
     ) -> Result<()> {
         let fast_key = (key.as_ptr(), key.len());
-        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key))
-        {
+        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key)) {
             self.next
         } else {
             let Some(&idx) = self.index.get(key) else {
@@ -218,12 +213,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        key.serialize(Mut(&mut self.key_serializer))?;
-        self.next = self
-            .index
-            .get(&self.key_serializer.0)
-            .cloned()
-            .unwrap_or(UNKNOWN_KEY);
+        self.next = KeyLookupSerializer::lookup(&self.index, key)?.unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -242,28 +232,32 @@ impl SimpleSerializer for StructBuilder {
 }
 
 #[derive(Debug)]
-pub struct KeySerializer(String);
+pub struct KeyLookupSerializer<'a> {
+    index: &'a BTreeMap<String, usize>,
+    result: Option<usize>,
+}
 
-impl KeySerializer {
-    fn with_capacity(capacity: usize) -> Self {
-        Self(String::with_capacity(capacity))
+impl<'a> KeyLookupSerializer<'a> {
+    pub fn lookup<K: Serialize + ?Sized>(
+        index: &'a BTreeMap<String, usize>,
+        key: &K,
+    ) -> Result<Option<usize>> {
+        let mut this = Self {
+            index,
+            result: None,
+        };
+        key.serialize(Mut(&mut this))?;
+        Ok(this.result)
     }
 }
 
-impl std::clone::Clone for KeySerializer {
-    fn clone(&self) -> Self {
-        Self(String::with_capacity(self.0.capacity()))
-    }
-}
-
-impl SimpleSerializer for KeySerializer {
+impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
     fn name(&self) -> &str {
-        "KeySerializer"
+        "KeyLookupSerializer"
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.0.clear();
-        self.0.push_str(v);
+        self.result = self.index.get(v).copied();
         Ok(())
     }
 }
