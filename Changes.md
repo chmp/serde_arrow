@@ -2,7 +2,8 @@
 
 ## 0.10.1
 
-- Allow to use `arrow` schemas in `SchemaLike::from_values()`
+- Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
+  = Vec::<Field>::from_value(&batch.schema())`.
 
 ## 0.10.0
 
