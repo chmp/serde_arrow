@@ -28,26 +28,20 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct OuterSequenceBuilder(ArrayBuilder);
+pub struct OuterSequenceBuilder(StructBuilder);
 
 impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
         return Ok(Self(build_struct(&schema.fields, false)?));
 
-        fn build_struct(fields: &[GenericField], nullable: bool) -> Result<ArrayBuilder> {
-            use ArrayBuilder as A;
+        fn build_struct(fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
             let mut named_fields = Vec::new();
-
             for field in fields {
                 let builder = build_builder(field)?;
                 named_fields.push((field.name.to_owned(), builder));
             }
 
-            Ok(A::Struct(StructBuilder::new(
-                fields.to_vec(),
-                named_fields,
-                nullable,
-            )?))
+            Ok(StructBuilder::new(fields.to_vec(), named_fields, nullable)?)
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
@@ -134,7 +128,7 @@ impl OuterSequenceBuilder {
                         field.nullable,
                     ))
                 }
-                T::Struct => build_struct(&field.children, field.nullable)?,
+                T::Struct => A::Struct(build_struct(&field.children, field.nullable)?),
                 T::Dictionary => {
                     let Some(indices) = field.children.first() else {
                         fail!("Cannot build a dictionary without index field");
@@ -170,11 +164,7 @@ impl OuterSequenceBuilder {
 
     /// Try to interpret this builder as `large_list<struct>>` and extract the contained struct fields
     pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
-        let ArrayBuilder::Struct(inner) = &mut self.0 else {
-            fail!("cannot take records without an outer LargeList<Struct>");
-        };
-
-        let builder = inner.take();
+        let builder = self.0.take();
 
         let mut result = Vec::new();
         for (_, field) in builder.named_fields {
