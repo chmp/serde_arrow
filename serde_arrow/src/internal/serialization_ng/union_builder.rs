@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    utils::{take_swap, Mut, SimpleSerializer},
+    utils::{Mut, SimpleSerializer},
     ArrayBuilder,
 };
 
@@ -34,7 +34,7 @@ impl UnionBuilder {
             fields: self.fields.iter_mut().map(|field| field.take()).collect(),
             types: std::mem::take(&mut self.types),
             offsets: std::mem::take(&mut self.offsets),
-            current_offset: take_swap(&mut self.current_offset, vec![0; self.fields.len()]),
+            current_offset: std::mem::replace(&mut self.current_offset, vec![0; self.fields.len()]),
         }
     }
 

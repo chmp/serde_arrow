@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, take_swap, Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;
@@ -73,8 +73,8 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(name, builder)| (name.clone(), builder.take()))
                 .collect(),
-            cached_names: take_swap(&mut self.cached_names, vec![None; self.named_fields.len()]),
-            seen: take_swap(&mut self.seen, vec![false; self.named_fields.len()]),
+            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.named_fields.len()]),
+            seen: std::mem::replace(&mut self.seen, vec![false; self.named_fields.len()]),
             next: std::mem::take(&mut self.next),
             index: self.index.clone(),
             key_serializer: self.key_serializer.clone(),
