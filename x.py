@@ -450,61 +450,12 @@ def format_benchmark(mean_times, ignore_groups=()):
     return "\n".join(_parts())
 
 
-@cmd(help="Summarize to-do items and unimplemented tests")
-def summarize_status():
-    import re
-
-    def _extract(pat):
-        return list(
-            m.groups()
-            for p in self_path.glob("serde_arrow/src/test_impls/**/*.rs")
-            for line in p.read_text(encoding="utf8").splitlines()
-            if (m := re.match(pat, line)) is not None
-        )
-
-    def _count_pattern(pat):
-        return len(_extract(pat))
-
-    num_tests = _count_pattern(r"^\s*test_example!\(\s*$")
-    num_ignored_tests = _count_pattern(r"^\s*#[ignore[^\]]*]\s*$")
-    num_no_compilation = _count_pattern(r"^\s*test_compilation\s*=\s*\[\s*\]\s*,\s*$")
-    num_no_deserialization = _count_pattern(
-        r"^\s*test_bytecode_deserialization\s*=\s*false\s*,\s*$"
-    )
-
-    print("tests:                  ", num_tests)
-    print("ignored tests:          ", num_ignored_tests)
-    for label, num_false in [
-        ("compilation support:    ", num_no_compilation),
-        ("bytecode deser. support:", num_no_deserialization),
-    ]:
-        print(
-            label,
-            num_tests - num_false,
-            "/",
-            num_tests,
-            f"({(num_tests - num_false) / num_tests:.0%})",
-        )
-
-    print()
-    print("# Todo comments:")
-    for p in self_path.glob("serde_arrow/**/*.rs"):
-        for line in p.read_text(encoding="utf8").splitlines():
-            if "todo" in line.lower():
-                print(line.strip())
-
-
 def collect(kv_pairs):
     res = {}
     for k, v in kv_pairs:
         res.setdefault(k, []).append(v)
 
     return res
-
-
-def flatten(i):
-    for ii in i:
-        yield from ii
 
 
 @cmd(help="Generate the documentation")
