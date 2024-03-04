@@ -103,6 +103,7 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.source.peek()? {
+            Some(Event::Null) => self.deserialize_unit(visitor),
             Some(Event::Bool(_)) => self.deserialize_bool(visitor),
             Some(Event::I8(_)) => self.deserialize_i8(visitor),
             Some(Event::I16(_)) => self.deserialize_i16(visitor),
@@ -123,7 +124,15 @@ impl<'de, 'a, 'event, S: EventSource<'event>> de::Deserializer<'de>
             Some(Event::Variant(_, _) | Event::OwnedVariant(_, _)) => {
                 self.deserialize_enum("", &[], visitor)
             }
-            Some(ev) => fail!("Invalid event in deserialize_any: Some({ev})"),
+            Some(
+                ev @ (Event::EndMap
+                | Event::EndStruct
+                | Event::EndSequence
+                | Event::EndTuple
+                | Event::Item
+                | Event::Default
+                | Event::Some),
+            ) => fail!("Invalid event in deserialize_any: Some({ev})"),
             None => fail!("Invalid event in deserialize_any: None"),
         }
     }

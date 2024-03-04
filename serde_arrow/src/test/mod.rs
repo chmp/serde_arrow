@@ -1,4 +1,4 @@
 mod api_chrono;
 mod decimal_representations;
 mod error;
-mod schema_like_errors;
+mod schema_like;

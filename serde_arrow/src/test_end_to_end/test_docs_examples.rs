@@ -1,4 +1,3 @@
-use crate::_impl::arrow2::datatypes::{DataType, Field};
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{event::Event, sink::serialize_into_sink, source::deserialize_from_source};

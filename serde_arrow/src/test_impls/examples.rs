@@ -45,88 +45,100 @@ fn benchmark_primitives() {
         .deserialize(&items);
 }
 
-test_example!(
-    test_name = benchmark_complex_1,
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new(
-            "string",
-            GenericDataType::LargeUtf8,
-            false
-        ))
-        .with_child(
-            GenericField::new("points", GenericDataType::LargeList, false).with_child(
-                GenericField::new("element", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("x", GenericDataType::F32, false))
-                    .with_child(GenericField::new("y", GenericDataType::F32, false))
-            )
-        )
-        .with_child(
-            GenericField::new("float", GenericDataType::Union, false)
-                .with_child(GenericField::new("F32", GenericDataType::F32, false))
-                .with_child(GenericField::new("F64", GenericDataType::F64, false))
-        ),
-    ty = Item,
-    values = [
+#[test]
+fn benchmark_complex_1() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Item {
+        string: String,
+        points: Vec<Point>,
+        float: Float,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum Float {
+        F32(f32),
+        F64(f64),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Point {
+        x: f32,
+        y: f32,
+    }
+
+    let items = [
         Item {
             string: "foo".into(),
             points: vec![Point { x: 0.0, y: 0.0 }],
-            float: Float::F32(13.0)
+            float: Float::F32(13.0),
         },
         Item {
             string: "foo".into(),
             points: vec![],
-            float: Float::F64(21.0)
+            float: Float::F64(21.0),
         },
-    ],
-    nulls = [false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct Item {
-            string: String,
-            points: Vec<Point>,
-            float: Float,
-        }
+    ];
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum Float {
-            F32(f32),
-            F64(f64),
-        }
+    Test::new()
+        .with_schema(json!([
+            {"name": "string", "data_type": "LargeUtf8"},
+            {
+                "name": "points",
+                "data_type":
+                "LargeList",
+                "children": [
+                    {
+                        "name": "element",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "x", "data_type": "F32"},
+                            {"name": "y", "data_type": "F32"},
+                        ],
+                    },
+                ],
+            },
+            {
+                "name": "float",
+                "data_type": "Union",
+                "children": [
+                    {"name": "F32", "data_type": "F32"},
+                    {"name": "F64", "data_type": "F64"},
+                ],
+            },
+        ]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .trace_schema_from_type::<Item>(TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false], &[false, false], &[false, false]]);
+}
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct Point {
-            x: f32,
-            y: f32,
-        }
-    },
-);
+#[test]
+fn benchmark_complex_2() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Item {
+        string: String,
+        points: Vec<Point>,
+        child: SubItem,
+    }
 
-test_example!(
-    test_name = benchmark_complex_2,
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new(
-            "string",
-            GenericDataType::LargeUtf8,
-            false
-        ))
-        .with_child(
-            GenericField::new("points", GenericDataType::LargeList, false).with_child(
-                GenericField::new("element", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("x", GenericDataType::F32, false))
-                    .with_child(GenericField::new("y", GenericDataType::F32, false))
-            )
-        )
-        .with_child(
-            GenericField::new("child", GenericDataType::Struct, false)
-                .with_child(GenericField::new("a", GenericDataType::Bool, false))
-                .with_child(GenericField::new("b", GenericDataType::F64, false))
-                .with_child(GenericField::new("c", GenericDataType::F32, true))
-        ),
-    ty = Item,
-    values = [
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Point {
+        x: f32,
+        y: f32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct SubItem {
+        a: bool,
+        b: f64,
+        c: Option<f32>,
+    }
+
+    let items = [
         Item {
             string: "foo".into(),
-            points: vec![Point { x: 0.0, y: 1.0 }, Point { x: 2.0, y: 3.0 },],
+            points: vec![Point { x: 0.0, y: 1.0 }, Point { x: 2.0, y: 3.0 }],
             child: SubItem {
                 a: true,
                 b: 42.0,
@@ -142,39 +154,53 @@ test_example!(
                 c: Some(7.0),
             },
         },
-    ],
-    nulls = [false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct Item {
-            string: String,
-            points: Vec<Point>,
-            child: SubItem,
-        }
+    ];
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct Point {
-            x: f32,
-            y: f32,
-        }
+    Test::new()
+        .with_schema(json!([
+            {"name": "string", "data_type": "LargeUtf8"},
+            {
+                "name": "points",
+                "data_type":
+                "LargeList",
+                "children": [
+                    {
+                        "name": "element",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "x", "data_type": "F32"},
+                            {"name": "y", "data_type": "F32"},
+                        ],
+                    },
+                ],
+            },
+            {
+                "name": "child",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "Bool"},
+                    {"name": "b", "data_type": "F64"},
+                    {"name": "c", "data_type": "F32", "nullable": true},
+                ],
+            },
+        ]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .trace_schema_from_type::<Item>(TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false], &[false, false], &[false, false]]);
+}
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct SubItem {
-            a: bool,
-            b: f64,
-            c: Option<f32>,
-        }
-    },
-);
+#[test]
+fn nested_options() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Item {
+        a: u8,
+        b: Option<u16>,
+        c: Option<Option<u32>>,
+    }
 
-test_example!(
-    test_name = nested_options,
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::U8, false))
-        .with_child(GenericField::new("b", GenericDataType::U16, true))
-        .with_child(GenericField::new("c", GenericDataType::U32, true)),
-    ty = Item,
-    values = [
+    let items = [
         Item {
             a: 0,
             b: Some(1),
@@ -190,8 +216,8 @@ test_example!(
             b: None,
             c: None,
         },
-    ],
-    expected_values = [
+    ];
+    let expected_deserialized = [
         Item {
             a: 0,
             b: Some(1),
@@ -209,17 +235,24 @@ test_example!(
             b: None,
             c: None,
         },
-    ],
-    nulls = [false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct Item {
-            a: u8,
-            b: Option<u16>,
-            c: Option<Option<u32>>,
-        }
-    },
-);
+    ];
+
+    Test::new()
+        .with_schema(json!([
+            {"name": "a", "data_type": "U8"},
+            {"name": "b", "data_type": "U16", "nullable": true},
+            {"name": "c", "data_type": "U32", "nullable": true},
+        ]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .trace_schema_from_type::<Item>(TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&expected_deserialized)
+        .check_nulls(&[
+            &[false, false, false],
+            &[false, true, true],
+            &[false, true, true],
+        ]);
+}
 
 test_example!(
     test_name = fieldless_unions_in_a_struct,
