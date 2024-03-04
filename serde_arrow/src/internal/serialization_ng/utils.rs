@@ -13,12 +13,6 @@ use crate::{
 
 use super::ArrayBuilder;
 
-pub fn take_swap<T>(dst: &mut T, src: T) -> T {
-    let mut src = src;
-    std::mem::swap(&mut src, dst);
-    src
-}
-
 pub fn push_validity(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
     if let Some(buffer) = buffer.as_mut() {
         buffer.push(value);

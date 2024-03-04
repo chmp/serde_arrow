@@ -48,7 +48,7 @@ workflow_test_template = {
         "build": {
             "runs-on": "ubuntu-latest",
             "steps": [
-                {"uses": "actions/checkout@v3"},
+                {"uses": "actions/checkout@v4"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
@@ -70,7 +70,7 @@ workflow_release_template = {
                 "CARGO_REGISTRY_TOKEN": "${{ secrets.CARGO_REGISTRY_TOKEN }}",
             },
             "steps": [
-                {"uses": "actions/checkout@v3"},
+                {"uses": "actions/checkout@v4"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,

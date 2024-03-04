@@ -115,7 +115,7 @@ write_chunk(
 )?;
 ```
 
-### Usage from python 
+### Usage from python
 
 The written file can now be read in Python via
 
@@ -171,37 +171,37 @@ The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are lis
 
 | label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |     50.25 |            1.00 |            0.33 |            0.30 |            0.13 |
-| serde_arrow::to_arrow2       |    152.02 |            3.03 |            1.00 |            0.92 |            0.41 |
-| serde_arrow::to_arrow        |    164.94 |            3.28 |            1.09 |            1.00 |            0.44 |
-| arrow_json::ReaderBuilder    |    375.15 |            7.47 |            2.47 |            2.27 |            1.00 |
+| arrow2_convert::TryIntoArrow |     51.73 |            1.00 |            0.32 |            0.28 |            0.13 |
+| serde_arrow::to_arrow2       |    160.55 |            3.10 |            1.00 |            0.88 |            0.41 |
+| serde_arrow::to_arrow        |    183.29 |            3.54 |            1.14 |            1.00 |            0.47 |
+| arrow_json::ReaderBuilder    |    391.25 |            7.56 |            2.44 |            2.13 |            1.00 |
 
 ### complex_common_serialize(1000000)
 
 | label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |    475.17 |            1.00 |            0.32 |            0.30 |            0.13 |
-| serde_arrow::to_arrow2       |   1464.57 |            3.08 |            1.00 |            0.92 |            0.40 |
-| serde_arrow::to_arrow        |   1584.39 |            3.33 |            1.08 |            1.00 |            0.43 |
-| arrow_json::ReaderBuilder    |   3656.23 |            7.69 |            2.50 |            2.31 |            1.00 |
+| arrow2_convert::TryIntoArrow |    509.11 |            1.00 |            0.33 |            0.26 |            0.14 |
+| serde_arrow::to_arrow2       |   1534.82 |            3.01 |            1.00 |            0.80 |            0.42 |
+| serde_arrow::to_arrow        |   1921.37 |            3.77 |            1.25 |            1.00 |            0.53 |
+| arrow_json::ReaderBuilder    |   3653.99 |            7.18 |            2.38 |            1.90 |            1.00 |
 
 ### primitives_serialize(100000)
 
 | label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |     13.12 |            1.00 |            0.40 |            0.29 |            0.10 |
-| serde_arrow::to_arrow2       |     32.46 |            2.47 |            1.00 |            0.71 |            0.25 |
-| serde_arrow::to_arrow        |     45.47 |            3.47 |            1.40 |            1.00 |            0.35 |
-| arrow_json::ReaderBuilder    |    130.77 |            9.97 |            4.03 |            2.88 |            1.00 |
+| arrow2_convert::TryIntoArrow |     13.96 |            1.00 |            0.47 |            0.33 |            0.11 |
+| serde_arrow::to_arrow2       |     29.42 |            2.11 |            1.00 |            0.70 |            0.23 |
+| serde_arrow::to_arrow        |     41.94 |            3.01 |            1.43 |            1.00 |            0.33 |
+| arrow_json::ReaderBuilder    |    128.67 |            9.22 |            4.37 |            3.07 |            1.00 |
 
 ### primitives_serialize(1000000)
 
 | label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |    151.80 |            1.00 |            0.44 |            0.32 |            0.11 |
-| serde_arrow::to_arrow2       |    344.82 |            2.27 |            1.00 |            0.73 |            0.25 |
-| serde_arrow::to_arrow        |    473.56 |            3.12 |            1.37 |            1.00 |            0.34 |
-| arrow_json::ReaderBuilder    |   1403.08 |            9.24 |            4.07 |            2.96 |            1.00 |
+| arrow2_convert::TryIntoArrow |    133.19 |            1.00 |            0.47 |            0.31 |            0.09 |
+| serde_arrow::to_arrow2       |    284.80 |            2.14 |            1.00 |            0.67 |            0.20 |
+| serde_arrow::to_arrow        |    427.89 |            3.21 |            1.50 |            1.00 |            0.30 |
+| arrow_json::ReaderBuilder    |   1408.58 |           10.58 |            4.95 |            3.29 |            1.00 |
 
 <!-- end:benchmarks -->
 

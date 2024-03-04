@@ -10,11 +10,11 @@ use crate::{
     internal::{
         common::MutableBitBuffer,
         error::{fail, Result},
-        serialization_ng::ArrayBuilder,
+        serialization_ng::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 
-impl ArrayBuilder {
+impl OuterSequenceBuilder {
     pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
         let fields = self.take_records()?;
         let arrays = fields
