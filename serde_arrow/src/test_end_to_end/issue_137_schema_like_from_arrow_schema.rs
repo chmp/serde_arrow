@@ -139,3 +139,19 @@ fn examples_trace_from_value() {
         Ok(())
     }
 }
+
+#[test]
+fn test_different_arrow_schemas() -> Result<()> {
+    let fields_from_type = Vec::<Field>::from_type::<Item<i32>>(TracingOptions::default())?;
+    let items = Vec::<Item<i32>>::new();
+    let arrays = serde_arrow::to_arrow(&fields_from_type, &items)?;
+    let batch = RecordBatch::try_new(Arc::new(Schema::new(fields_from_type.clone())), arrays)?;
+
+    let fields_from_batch = Vec::<Field>::from_value(&batch.schema())?;
+    assert_eq!(fields_from_batch, fields_from_type);
+
+    let fields_from_batch = Vec::<Field>::from_value(&batch.schema().fields())?;
+    assert_eq!(fields_from_batch, fields_from_type);
+
+    Ok(())
+}

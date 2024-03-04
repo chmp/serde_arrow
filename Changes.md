@@ -1,5 +1,9 @@
 # Change log
 
+## 0.10.1
+
+- Allow to use `arrow` schemas in `SchemaLike::from_values()`
+
 ## 0.10.0
 
 - Remove deprecated APIs
