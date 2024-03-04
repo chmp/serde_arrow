@@ -94,9 +94,7 @@ impl StructBuilder {
     }
 
     fn reset(&mut self) {
-        for seen in &mut self.seen {
-            *seen = false;
-        }
+        self.seen.fill(false);
         self.next = 0;
     }
 
