@@ -6,9 +6,11 @@ use std::{collections::HashMap, str::FromStr};
 use serde::Deserialize;
 
 use crate::internal::{
-    error::{Error, Result},
-    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
+    error::{fail, Error, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
 };
+
+use super::STRATEGY_KEY;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct ArrowField {
@@ -18,10 +20,46 @@ pub struct ArrowField {
     metadata: HashMap<String, String>,
 }
 
+impl ArrowField {
+    pub fn new(name: &str, data_type: ArrowDataType, nullable: bool) -> Self {
+        Self {
+            name: name.to_string(),
+            data_type,
+            nullable,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum ArrowTimeUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+}
+
+impl From<ArrowTimeUnit> for GenericTimeUnit {
+    fn from(value: ArrowTimeUnit) -> Self {
+        match value {
+            ArrowTimeUnit::Second => Self::Second,
+            ArrowTimeUnit::Millisecond => Self::Millisecond,
+            ArrowTimeUnit::Microsecond => Self::Microsecond,
+            ArrowTimeUnit::Nanosecond => Self::Nanosecond,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum ArrowUnionMode {
+    Sparse,
+    Dense,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum ArrowDataType {
     Null,
-    Bool,
+    Boolean,
     Int8,
     Int16,
     Int32,
@@ -35,32 +73,54 @@ pub enum ArrowDataType {
     Float64,
     Utf8,
     LargeUtf8,
+    Date64,
     Struct(Vec<ArrowField>),
     List(Box<ArrowField>),
     LargeList(Box<ArrowField>),
+    Map(Box<ArrowField>),
+    // TODO:
+    // Union,
+    Dictionary(Box<ArrowDataType>, Box<ArrowDataType>),
+    Decimal128(u8, i8),
+    Timestamp(ArrowTimeUnit, Option<String>),
+    Union(Vec<(i8, ArrowField)>, ArrowUnionMode),
 }
 
 impl ArrowDataType {
     pub fn into_generic(self) -> Result<(GenericDataType, Vec<GenericField>)> {
+        use GenericDataType as T;
+
         let (data_type, children) = match self {
-            ArrowDataType::Null => (GenericDataType::Null, vec![]),
-            ArrowDataType::Bool => (GenericDataType::Bool, vec![]),
-            ArrowDataType::Int8 => (GenericDataType::I8, vec![]),
-            ArrowDataType::Int16 => (GenericDataType::I16, vec![]),
-            ArrowDataType::Int32 => (GenericDataType::I32, vec![]),
-            ArrowDataType::Int64 => (GenericDataType::I64, vec![]),
-            ArrowDataType::UInt8 => (GenericDataType::U8, vec![]),
-            ArrowDataType::UInt16 => (GenericDataType::U16, vec![]),
-            ArrowDataType::UInt32 => (GenericDataType::U32, vec![]),
-            ArrowDataType::UInt64 => (GenericDataType::U64, vec![]),
-            ArrowDataType::Float16 => (GenericDataType::F16, vec![]),
-            ArrowDataType::Float32 => (GenericDataType::F32, vec![]),
-            ArrowDataType::Float64 => (GenericDataType::F64, vec![]),
-            ArrowDataType::Utf8 => (GenericDataType::Utf8, vec![]),
-            ArrowDataType::LargeUtf8 => (GenericDataType::LargeUtf8, vec![]),
-            ArrowDataType::Struct(fields) => (GenericDataType::Struct, fields),
-            ArrowDataType::List(field) => (GenericDataType::List, vec![*field]),
-            ArrowDataType::LargeList(field) => (GenericDataType::LargeList, vec![*field]),
+            Self::Null => (T::Null, vec![]),
+            Self::Boolean => (T::Bool, vec![]),
+            Self::Int8 => (T::I8, vec![]),
+            Self::Int16 => (T::I16, vec![]),
+            Self::Int32 => (T::I32, vec![]),
+            Self::Int64 => (T::I64, vec![]),
+            Self::UInt8 => (T::U8, vec![]),
+            Self::UInt16 => (T::U16, vec![]),
+            Self::UInt32 => (T::U32, vec![]),
+            Self::UInt64 => (T::U64, vec![]),
+            Self::Float16 => (T::F16, vec![]),
+            Self::Float32 => (T::F32, vec![]),
+            Self::Float64 => (T::F64, vec![]),
+            Self::Utf8 => (T::Utf8, vec![]),
+            Self::LargeUtf8 => (T::LargeUtf8, vec![]),
+            Self::Date64 => (T::Date64, vec![]),
+            Self::Decimal128(precision, scale) => (T::Decimal128(precision, scale), vec![]),
+            Self::Struct(fields) => (T::Struct, fields),
+            Self::List(field) => (T::List, vec![*field]),
+            Self::LargeList(field) => (T::LargeList, vec![*field]),
+            Self::Map(field) => (T::Map, vec![*field]),
+            Self::Dictionary(key, value) => (
+                T::Map,
+                vec![
+                    ArrowField::new("", *key, false),
+                    ArrowField::new("", *value, false),
+                ],
+            ),
+            Self::Timestamp(unit, timezone) => (T::Timestamp(unit.into(), timezone), vec![]),
+            Self::Union(_, _) => fail!("unions are not yet supported"),
         };
         let children = children
             .into_iter()
@@ -76,13 +136,18 @@ impl TryFrom<ArrowField> for GenericField {
     fn try_from(value: ArrowField) -> Result<Self> {
         let (data_type, children) = value.data_type.into_generic()?;
 
+        let strategy = if let Some(strategy) = value.metadata.get(STRATEGY_KEY) {
+            Some(strategy.parse()?)
+        } else {
+            None
+        };
+
         Ok(GenericField {
             name: value.name,
             nullable: value.nullable,
             data_type,
             children: children,
-            // TODO: Fix the strategy
-            strategy: None,
+            strategy,
         })
     }
 }

@@ -589,7 +589,7 @@ impl std::str::FromStr for GenericDataType {
 
             Ok(GenericDataType::Decimal128(precision, scale))
         } else {
-            fail!("cannot parse data type")
+            fail!("cannot parse data type {s}");
         }
     }
 }
