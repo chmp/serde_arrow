@@ -139,7 +139,7 @@ impl ArrowDataType {
         };
         let children = children
             .into_iter()
-            .map(|field| GenericField::try_from(field))
+            .map(GenericField::try_from)
             .collect::<Result<Vec<_>>>()?;
         Ok((data_type, children))
     }
@@ -161,7 +161,7 @@ impl TryFrom<ArrowField> for GenericField {
             name: value.name,
             nullable: value.nullable,
             data_type,
-            children: children,
+            children,
             strategy,
         })
     }
