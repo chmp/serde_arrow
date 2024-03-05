@@ -1,7 +1,11 @@
 use super::macros::*;
 
 use super::utils::Test;
-use crate::{schema::TracingOptions, utils::Item};
+use crate::{
+    internal::schema::{GenericDataType, GenericField},
+    schema::{Strategy, TracingOptions},
+    utils::Item,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -254,20 +258,23 @@ fn nested_options() {
         ]);
 }
 
-test_example!(
-    test_name = fieldless_unions_in_a_struct,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("foo", GenericDataType::U32, false))
-        .with_child(
-            GenericField::new("bar", GenericDataType::Union, false)
-                .with_child(GenericField::new("A", GenericDataType::Null, true))
-                .with_child(GenericField::new("B", GenericDataType::Null, true))
-                .with_child(GenericField::new("C", GenericDataType::Null, true))
-        )
-        .with_child(GenericField::new("baz", GenericDataType::F32, false)),
-    ty = S,
-    values = [
+#[test]
+fn fieldless_unions_in_a_struct() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct S {
+        foo: u32,
+        bar: U,
+        baz: f32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    let items = [
         S {
             foo: 0,
             bar: U::A,
@@ -288,94 +295,93 @@ test_example!(
             bar: U::A,
             baz: 7.0,
         },
-    ],
-    nulls = [false, false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct S {
-            foo: u32,
-            bar: U,
-            baz: f32,
-        }
+    ];
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            A,
-            B,
-            C,
-        }
-    },
-);
+    Test::new()
+        .with_schema(vec![
+            GenericField::new("foo", GenericDataType::U32, false),
+            GenericField::new("bar", GenericDataType::Union, false)
+                .with_child(GenericField::new("A", GenericDataType::Null, true))
+                .with_child(GenericField::new("B", GenericDataType::Null, true))
+                .with_child(GenericField::new("C", GenericDataType::Null, true)),
+            GenericField::new("baz", GenericDataType::F32, false),
+        ])
+        .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
+        .trace_schema_from_type::<S>(TracingOptions::default().allow_null_fields(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[
+            &[false, false, false, false],
+            &[false, false, false, false],
+            &[false, false, false, false],
+        ]);
+}
 
-test_example!(
-    // see https://github.com/chmp/serde_arrow/issues/57
-    test_name = issue_57,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new(
-            "filename",
-            GenericDataType::LargeUtf8,
-            false
-        ))
-        .with_child(
+#[test]
+fn issue_57() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub enum AccountType {
+        PlayByPlay,
+        Deduced,
+        BoxScore,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub enum GameType {
+        SpringTraining,
+        RegularSeason,
+        AllStarGame,
+        WildCardSeries,
+        DivisionSeries,
+        LeagueChampionshipSeries,
+        WorldSeries,
+        NegroLeagues,
+        Other,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub struct FileInfo {
+        pub filename: String,
+        pub game_type: GameType,
+        pub account_type: AccountType,
+        pub file_index: usize,
+    }
+
+    let items = [FileInfo {
+        filename: String::from("test"),
+        game_type: GameType::RegularSeason,
+        account_type: AccountType::Deduced,
+        file_index: 0,
+    }];
+
+    Test::new()
+        .with_schema(vec![
+            GenericField::new("filename", GenericDataType::LargeUtf8, false),
             GenericField::new("game_type", GenericDataType::Union, false)
                 .with_child(
                     GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant)
+                        .with_strategy(Strategy::UnknownVariant),
                 )
                 .with_child(GenericField::new(
                     "RegularSeason",
                     GenericDataType::Null,
-                    true
-                ))
-        )
-        .with_child(
+                    true,
+                )),
             GenericField::new("account_type", GenericDataType::Union, false)
                 .with_child(
                     GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant)
+                        .with_strategy(Strategy::UnknownVariant),
                 )
-                .with_child(GenericField::new("Deduced", GenericDataType::Null, true))
-        )
-        .with_child(GenericField::new("file_index", GenericDataType::U64, false)),
-    ty = FileInfo,
-    values = [FileInfo {
-        filename: String::from("test"),
-        game_type: GameType::RegularSeason,
-        account_type: AccountType::Deduced,
-        file_index: 0
-    },],
-    nulls = [false],
-    define = {
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        pub enum AccountType {
-            PlayByPlay,
-            Deduced,
-            BoxScore,
-        }
-
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        pub enum GameType {
-            SpringTraining,
-            RegularSeason,
-            AllStarGame,
-            WildCardSeries,
-            DivisionSeries,
-            LeagueChampionshipSeries,
-            WorldSeries,
-            NegroLeagues,
-            Other,
-        }
-
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        pub struct FileInfo {
-            pub filename: String,
-            pub game_type: GameType,
-            pub account_type: AccountType,
-            pub file_index: usize,
-        }
-    },
-);
+                .with_child(GenericField::new("Deduced", GenericDataType::Null, true)),
+            GenericField::new("file_index", GenericDataType::U64, false),
+        ])
+        .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
+        // NOTE: trace_from_type discovers all variants
+        // .trace_schema_from_type::<FileInfo>(TracingOptions::default().allow_null_fields(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false], &[false], &[false], &[false]]);
+}
 
 test_roundtrip_arrays!(
     simple_example {
@@ -417,17 +423,21 @@ test_roundtrip_arrays!(
     assert_round_trip(fields, items);
 );
 
-test_example!(
-    test_name = new_type_wrappers,
-    field = GenericField::new("item", GenericDataType::U64, false),
-    ty = U64,
-    values = [U64(0), U64(1), U64(2)],
-    nulls = [false, false, false],
-    define = {
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        struct U64(u64);
-    },
-);
+#[test]
+fn new_type_wrappers() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct U64(u64);
+
+    let items = [Item(U64(0)), Item(U64(1)), Item(U64(2))];
+
+    Test::new()
+        .with_schema(vec![GenericField::new("item", GenericDataType::U64, false)])
+        .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
+        .trace_schema_from_type::<Item<U64>>(TracingOptions::default().allow_null_fields(true))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+}
 
 #[test]
 fn unit() {
