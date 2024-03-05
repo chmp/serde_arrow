@@ -12,17 +12,16 @@ use super::{
     utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
 };
 
-const UNKNOWN_KEY: usize = usize::MAX;
-
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
     pub fields: Vec<GenericField>,
     pub validity: Option<MutableBitBuffer>,
     pub named_fields: Vec<(String, ArrayBuilder)>,
-    pub cached_names: Vec<Option<(*const u8, usize)>>,
     pub seen: Vec<bool>,
     pub next: usize,
-    pub index: BTreeMap<String, usize>,
+    pub key_idx: Option<usize>,
+    pub struct_index: StructKeyIndex,
+    pub map_index: MapKeyIndex,
 }
 
 impl StructBuilder {
@@ -32,7 +31,6 @@ impl StructBuilder {
         is_nullable: bool,
     ) -> Result<Self> {
         let mut index = BTreeMap::new();
-        let cached_names = vec![None; named_fields.len()];
         let seen = vec![false; named_fields.len()];
         let next = 0;
 
@@ -47,14 +45,18 @@ impl StructBuilder {
             index.insert(name.to_owned(), idx);
         }
 
+        let struct_index = StructKeyIndex::new(index.clone());
+        let map_index = MapKeyIndex::new(index)?;
+
         Ok(Self {
             fields,
             validity: is_nullable.then(MutableBitBuffer::default),
             named_fields,
-            cached_names,
             seen,
             next,
-            index,
+            struct_index,
+            map_index,
+            key_idx: None,
         })
     }
 
@@ -67,13 +69,11 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(name, builder)| (name.clone(), builder.take()))
                 .collect(),
-            cached_names: std::mem::replace(
-                &mut self.cached_names,
-                vec![None; self.named_fields.len()],
-            ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.named_fields.len()]),
             next: std::mem::take(&mut self.next),
-            index: self.index.clone(),
+            struct_index: self.struct_index.take(),
+            map_index: self.map_index.take(),
+            key_idx: None,
         }
     }
 
@@ -92,6 +92,7 @@ impl StructBuilder {
     fn reset(&mut self) {
         self.seen.fill(false);
         self.next = 0;
+        self.key_idx = None;
     }
 
     fn end(&mut self) -> Result<()> {
@@ -117,7 +118,7 @@ impl StructBuilder {
 
         value.serialize(Mut(&mut self.named_fields[idx].1))?;
         self.seen[idx] = true;
-        self.next = idx + 1;
+        self.next += 1;
         Ok(())
     }
 }
@@ -155,22 +156,11 @@ impl SimpleSerializer for StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let fast_key = (key.as_ptr(), key.len());
-        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key)) {
-            self.next
-        } else {
-            let Some(&idx) = self.index.get(key) else {
-                // ignore unknown fields
-                return Ok(());
-            };
-
-            if self.cached_names[idx].is_none() {
-                self.cached_names[idx] = Some(fast_key);
-            }
-            idx
-        };
-
-        self.element(idx, value)
+        // NOTE: ignore unknown fields
+        if let Some(idx) = self.struct_index.get(self.next, key) {
+            self.element(idx, value)?;
+        }
+        Ok(())
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
@@ -182,7 +172,11 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(self.next, value)
+        // ignore extra tuple fields
+        if self.next < self.named_fields.len() {
+            self.element(self.next, value)?;
+        }
+        Ok(())
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
@@ -207,22 +201,20 @@ impl SimpleSerializer for StructBuilder {
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
         self.start()?;
-        // always re-set to an invalid field to force that `_key()` is called before `_value()`.
-        self.next = UNKNOWN_KEY;
         Ok(())
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.index, key)?.unwrap_or(UNKNOWN_KEY);
+        self.key_idx = KeyLookupSerializer::lookup(&mut self.map_index, self.next, key)?;
         Ok(())
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        if self.next != UNKNOWN_KEY {
-            self.element(self.next, value)?;
+        if let Some(idx) = self.key_idx {
+            self.element(idx, value)?;
+        } else {
+            self.next += 1;
         }
-        // see serialize_map_start
-        self.next = UNKNOWN_KEY;
         Ok(())
     }
 
@@ -233,17 +225,20 @@ impl SimpleSerializer for StructBuilder {
 
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
-    index: &'a BTreeMap<String, usize>,
+    index: &'a mut MapKeyIndex,
+    guess: usize,
     result: Option<usize>,
 }
 
 impl<'a> KeyLookupSerializer<'a> {
     pub fn lookup<K: Serialize + ?Sized>(
-        index: &'a BTreeMap<String, usize>,
+        index: &'a mut MapKeyIndex,
+        guess: usize,
         key: &K,
     ) -> Result<Option<usize>> {
         let mut this = Self {
             index,
+            guess,
             result: None,
         };
         key.serialize(Mut(&mut this))?;
@@ -256,8 +251,173 @@ impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
         "KeyLookupSerializer"
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.result = self.index.get(v).copied();
+    fn serialize_str(&mut self, key: &str) -> Result<()> {
+        self.result = self.index.get(self.guess, key);
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StructKeyIndex {
+    pub cached_lookup: Vec<Option<CachedLookup>>,
+    pub index: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CachedLookup {
+    ptr: *const u8,
+    len: usize,
+    field_idx: usize,
+}
+
+impl CachedLookup {
+    pub fn matches_ptr(&self, s: &'static str) -> bool {
+        (self.ptr, self.len) == (s.as_ptr(), s.len())
+    }
+}
+
+impl StructKeyIndex {
+    fn new(index: BTreeMap<String, usize>) -> Self {
+        Self {
+            cached_lookup: vec![None; index.len()],
+            index,
+        }
+    }
+
+    fn take(&mut self) -> Self {
+        Self {
+            cached_lookup: std::mem::replace(&mut self.cached_lookup, vec![None; self.index.len()]),
+            index: self.index.clone(),
+        }
+    }
+
+    fn get(&mut self, guess: usize, key: &'static str) -> Option<usize> {
+        if let Some(idx) = self.guess_matches(guess, key) {
+            Some(idx)
+        } else {
+            // ignore unknown fields
+            let idx = *(self.index.get(key)?);
+
+            if guess < self.cached_lookup.len() && self.cached_lookup[guess].is_none() {
+                self.cached_lookup[guess] = Some(CachedLookup {
+                    ptr: key.as_ptr(),
+                    len: key.len(),
+                    field_idx: idx,
+                });
+            }
+            Some(idx)
+        }
+    }
+
+    fn guess_matches(&self, guess: usize, key: &'static str) -> Option<usize> {
+        let cn = self.cached_lookup.get(guess)?.as_ref()?;
+        if cn.matches_ptr(key) {
+            Some(cn.field_idx)
+        } else {
+            None
+        }
+    }
+}
+
+#[test]
+fn struct_key_index() {
+    let index = BTreeMap::from([
+        (String::from("foo"), 0),
+        (String::from("bar"), 1),
+        (String::from("baz"), 2),
+    ]);
+
+    let mut cached_index = StructKeyIndex::new(index.clone());
+
+    let order0 = ["bar", "foo", "baz"];
+    for (guess, key) in order0.into_iter().enumerate() {
+        assert_eq!(cached_index.get(guess, key), index.get(key).copied());
+    }
+
+    // test that the keys are correctly resolved, even if the order changes
+    let order1 = ["foo", "bar", "baz"];
+    for (guess, key) in order1.into_iter().enumerate() {
+        assert_eq!(cached_index.get(guess, key), index.get(key).copied());
+    }
+
+    let order2 = ["baz", "bar", "foo"];
+    for (guess, key) in order2.into_iter().enumerate() {
+        assert_eq!(cached_index.get(guess, key), index.get(key).copied());
+    }
+
+    assert_eq!(cached_index.get(0, "hello"), None);
+
+    // test the internal state
+    for (guess, key) in order0.into_iter().enumerate() {
+        assert_eq!(
+            cached_index.cached_lookup[guess]
+                .as_ref()
+                .unwrap()
+                .field_idx,
+            index.get(key).copied().unwrap()
+        );
+        assert_eq!(
+            cached_index.cached_lookup[guess]
+                .as_ref()
+                .unwrap()
+                .matches_ptr(key),
+            true
+        );
+    }
+
+    drop(index);
+}
+
+#[derive(Debug, Clone)]
+pub struct MapKeyIndex {
+    pub cached_lookup: Vec<Option<usize>>,
+    pub index: BTreeMap<String, usize>,
+    pub names: Vec<String>,
+}
+
+impl MapKeyIndex {
+    pub fn new(index: BTreeMap<String, usize>) -> Result<Self> {
+        let mut names = vec![None; index.len()];
+        for (key, idx) in index.iter() {
+            names[*idx] = Some(key.to_owned());
+        }
+        let Some(names) = names.into_iter().collect::<Option<Vec<_>>>() else {
+            fail!("non sequential names");
+        };
+
+        Ok(Self {
+            cached_lookup: vec![None; index.len()],
+            names,
+            index,
+        })
+    }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            cached_lookup: vec![None; self.index.len()],
+            index: self.index.clone(),
+            names: self.names.clone(),
+        }
+    }
+
+    pub fn get(&mut self, guess: usize, key: &str) -> Option<usize> {
+        if let Some(idx) = self.get_cached(guess, key) {
+            Some(idx)
+        } else {
+            let idx = self.index.get(key).copied()?;
+            if guess < self.cached_lookup.len() && self.cached_lookup[guess].is_none() {
+                self.cached_lookup[guess] = Some(idx);
+            }
+            Some(idx)
+        }
+    }
+
+    pub fn get_cached(&self, guess: usize, key: &str) -> Option<usize> {
+        let idx = self.cached_lookup.get(guess).copied()??;
+        if self.names[idx] == key {
+            Some(idx)
+        } else {
+            None
+        }
     }
 }
