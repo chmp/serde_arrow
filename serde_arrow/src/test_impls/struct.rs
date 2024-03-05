@@ -140,19 +140,6 @@ test_example!(
     },
 );
 
-// arrow2 panics with: OutOfSpec("A StructArray must contain at least one field")
-// test_example!(
-//     test_name = empt_struct,
-//     field = GenericField::new("item", GenericDataType::Struct, false),
-//     ty = S,
-//     values = [S {}, S {}, S {}],
-//     nulls = [false, false, false],
-//     define = {
-//         #[derive(Serialize)]
-//         struct S {}
-//     },
-// );
-
 test_example!(
     test_name = nullable_struct_list_field,
 
