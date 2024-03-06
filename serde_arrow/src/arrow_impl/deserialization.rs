@@ -36,7 +36,7 @@ impl BufferExtract for dyn Array {
                     .downcast_ref::<PrimitiveArray<$arrow_type>>()
                     .ok_or_else(|| {
                         error!(
-                            "Cannot interpret {} array as {}",
+                            "cannot convert {} array into {}",
                             self.data_type(),
                             stringify!($arrow_type)
                         )
