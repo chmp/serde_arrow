@@ -34,7 +34,13 @@ impl BufferExtract for dyn Array {
                 let typed = self
                     .as_any()
                     .downcast_ref::<PrimitiveArray<$arrow_type>>()
-                    .ok_or_else(|| error!("Cannot interpret array as typed array"))?;
+                    .ok_or_else(|| {
+                        error!(
+                            "Cannot interpret {} array as {}",
+                            self.data_type(),
+                            stringify!($arrow_type)
+                        )
+                    })?;
 
                 let buffer = buffers.$push_func(typed.values())?;
                 let validity = get_validity(typed).map(|v| buffers.push_u1(v));
@@ -49,10 +55,9 @@ impl BufferExtract for dyn Array {
 
         macro_rules! convert_utf8 {
             ($array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<$array_type>()
-                    .ok_or_else(|| error!("cannot convert array into string"))?;
+                let typed = self.as_any().downcast_ref::<$array_type>().ok_or_else(|| {
+                    error!("cannot convert {} array into string", self.data_type())
+                })?;
 
                 let buffer = buffers.push_u8(typed.value_data());
                 let offsets = buffers.$push_func(typed.value_offsets())?;
@@ -115,7 +120,7 @@ impl BufferExtract for dyn Array {
                 let typed = self
                     .as_any()
                     .downcast_ref::<BooleanArray>()
-                    .ok_or_else(|| error!("cannot convert array into bool"))?;
+                    .ok_or_else(|| error!("cannot convert {} array into bool", self.data_type()))?;
                 let values = typed.values();
 
                 let buffer = buffers.push_u1(BitBuffer {
@@ -161,10 +166,12 @@ impl BufferExtract for dyn Array {
             T::List => convert_list!(i32, List, push_u32_cast),
             T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
             T::Struct => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<StructArray>()
-                    .ok_or_else(|| error!("cannot convert array into struct array"))?;
+                let typed = self.as_any().downcast_ref::<StructArray>().ok_or_else(|| {
+                    error!(
+                        "cannot convert {} array into struct array",
+                        self.data_type()
+                    )
+                })?;
                 let validity = get_validity(self).map(|v| buffers.push_u1(v));
                 let mut fields = Vec::new();
 
@@ -229,7 +236,7 @@ impl BufferExtract for dyn Array {
                         let typed = self
                             .as_any()
                             .downcast_ref::<DictionaryArray<$key_type>>()
-                            .ok_or_else(|| error!("cannot convert array into u32 dictionary"))?;
+                            .ok_or_else(|| error!("cannot convert {} array into u32 dictionary", self.data_type()))?;
 
                         // NOTE: the array is validity is given by the key validity
                         if typed.values().null_count() != 0 {
@@ -277,10 +284,9 @@ impl BufferExtract for dyn Array {
                 use crate::_impl::arrow::array::UnionArray;
 
                 // TODO: test assumptions
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<UnionArray>()
-                    .ok_or_else(|| error!("cannot convert array to union array"))?;
+                let typed = self.as_any().downcast_ref::<UnionArray>().ok_or_else(|| {
+                    error!("cannot convert {} array to union array", self.data_type())
+                })?;
 
                 let types = buffers.push_u8_cast(typed.type_ids())?;
 
