@@ -54,10 +54,8 @@ impl BufferExtract for dyn Array {
         }
 
         macro_rules! convert_utf8 {
-            ($array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self.as_any().downcast_ref::<$array_type>().ok_or_else(|| {
-                    error!("cannot convert {} array into string", self.data_type())
-                })?;
+            ($typed:expr, $variant:ident, $push_func:ident) => {{
+                let typed = $typed;
 
                 let buffer = buffers.push_u8(typed.value_data());
                 let offsets = buffers.$push_func(typed.value_offsets())?;
@@ -161,8 +159,32 @@ impl BufferExtract for dyn Array {
             T::Timestamp(U::Nanosecond, _) => {
                 convert_primitive!(TimestampNanosecondType, Date64, push_u64_cast)
             }
-            T::Utf8 => convert_utf8!(StringArray, Utf8, push_u32_cast),
-            T::LargeUtf8 => convert_utf8!(LargeStringArray, LargeUtf8, push_u64_cast),
+            T::Utf8 => {
+                let typed = self.as_any().downcast_ref::<StringArray>().ok_or_else(|| {
+                    error!("cannot convert {} array into string", self.data_type())
+                })?;
+
+                convert_utf8!(typed, Utf8, push_u32_cast)
+            }
+            T::LargeUtf8 => {
+                // Try decoding as large strings first
+                match self
+                    .as_any()
+                    .downcast_ref::<LargeStringArray>()
+                    .ok_or_else(|| error!("cannot convert {} array into string", self.data_type()))
+                {
+                    Ok(typed) => convert_utf8!(typed, LargeUtf8, push_u64_cast),
+                    Err(_) => {
+                        // Failed; try decoding as small strings
+                        let typed =
+                            self.as_any().downcast_ref::<StringArray>().ok_or_else(|| {
+                                error!("cannot convert {} array into string", self.data_type())
+                            })?;
+
+                        convert_utf8!(typed, Utf8, push_u32_cast)
+                    }
+                }
+            }
             T::List => convert_list!(i32, List, push_u32_cast),
             T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
             T::Struct => {
