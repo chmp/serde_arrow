@@ -238,7 +238,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         let idx = tracer
             .variants
             .iter()
-            .position(|opt| opt.as_ref().unwrap().tracer.is_unknown())
+            .position(|opt| !opt.as_ref().unwrap().tracer.is_complete())
             .unwrap_or_default();
         if idx >= tracer.variants.len() {
             fail!("invalid variant index");
