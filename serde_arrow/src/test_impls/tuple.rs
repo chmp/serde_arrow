@@ -1,97 +1,174 @@
-use super::macros::test_example;
+use serde::{Deserialize, Serialize};
 
-test_example!(
-    test_name = tuple_u64_bool,
-    field = GenericField::new("item", GenericDataType::Struct, false)
+use crate::{
+    internal::schema::{GenericDataType, GenericField},
+    schema::{Strategy, TracingOptions},
+    utils::Item,
+};
+
+use super::utils::Test;
+
+#[test]
+fn tuple_u64_bool() {
+    let items = [Item((1_u64, true)), Item((2_u64, false))];
+
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            false,
+        )
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false)),
-    ty = (u64, bool),
-    values = [(1, true), (2, false)],
-    nulls = [false, false],
-);
+        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .trace_schema_from_type::<Item<(u64, bool)>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = tuple_struct_u64_bool,
-    field = GenericField::new("item", GenericDataType::Struct, false)
+#[test]
+fn tuple_struct_u64_bool() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct S(u64, bool);
+
+    let items = [Item(S(1_u64, true)), Item(S(2_u64, false))];
+
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            false,
+        )
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false)),
-    ty = S,
-    values = [S(1, true), S(2, false)],
-    nulls = [false, false],
-    define = {
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        struct S(u64, bool);
-    },
-);
+        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .trace_schema_from_type::<Item<S>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = nullbale_tuple_u64_bool,
+#[test]
+fn nullbale_tuple_u64_bool() {
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct S(u64, bool);
 
-    field = GenericField::new("item", GenericDataType::Struct, true)
+    let items = [
+        Item(None),
+        Item(Some(S(1_u64, true))),
+        Item(Some(S(2_u64, false))),
+    ];
+
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            true,
+        )
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false)),
-    ty = Option<(u64, bool)>,
-    values = [None, Some((1, true)), Some((2, false))],
-    nulls = [true, false, false],
-);
+        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .trace_schema_from_type::<Item<Option<S>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[true, false, false]]);
+}
 
-test_example!(
-    test_name = tuple_nullable_u64,
+#[test]
+fn tuple_nullable_u64() {
+    let items = [Item((Some(1_u64),)), Item((Some(2_u64),)), Item((None,))];
 
-    field = GenericField::new("item", GenericDataType::Struct, false)
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            false,
+        )
         .with_strategy(Strategy::TupleAsStruct)
-        .with_child(GenericField::new("0", GenericDataType::U64, true)),
-    ty = (Option<u64>,),
-    values = [(Some(1),), (Some(2),), (None,)],
-    nulls = [false, false, false],
-);
+        .with_child(GenericField::new("0", GenericDataType::U64, true))])
+        .trace_schema_from_type::<Item<(Option<u64>,)>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+}
 
-test_example!(
-    test_name = tuple_nested,
-    field = GenericField::new("item", GenericDataType::Struct, false)
+#[test]
+fn tuple_nested() {
+    let items = [Item(((1_u64,),)), Item(((2_u64,),))];
+
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            false,
+        )
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(
             GenericField::new("0", GenericDataType::Struct, false)
                 .with_strategy(Strategy::TupleAsStruct)
-                .with_child(GenericField::new("0", GenericDataType::U64, false))
-        ),
-    ty = ((u64,),),
-    values = [((1,),), ((2,),)],
-    nulls = [false, false],
-);
+                .with_child(GenericField::new("0", GenericDataType::U64, false)),
+        )])
+        .trace_schema_from_type::<Item<((u64,),)>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
 
-test_example!(
-    test_name = tuple_nullable,
+#[test]
+fn tuple_nullable() {
+    let items = [
+        Item(Some((true, 21_i64))),
+        Item(None),
+        Item(Some((false, 42_i64))),
+    ];
 
-    field = GenericField::new("item", GenericDataType::Struct, true)
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            true,
+        )
         .with_strategy(Strategy::TupleAsStruct)
         .with_child(GenericField::new("0", GenericDataType::Bool, false))
-        .with_child(GenericField::new("1", GenericDataType::I64, false)),
-    ty = Option<(bool, i64)>,
-    values = [
-        Some((true, 21)),
-        None,
-        Some((false, 42)),
-    ],
-);
+        .with_child(GenericField::new("1", GenericDataType::I64, false))])
+        .trace_schema_from_type::<Item<Option<(bool, i64)>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, true, false]]);
+}
 
-test_example!(
-    test_name = tuple_nullable_nested,
+#[test]
+fn tuple_nullable_nested() {
+    let items = [
+        Item(Some(((true, 21_i64), 7_i64))),
+        Item(None),
+        Item(Some(((false, 42_i64), 13_i64))),
+    ];
 
-    field = GenericField::new("item", GenericDataType::Struct, true)
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::Struct,
+            true,
+        )
         .with_strategy(Strategy::TupleAsStruct)
-        .with_child(GenericField::new("0", GenericDataType::Struct, false)
-            .with_strategy(Strategy::TupleAsStruct)
-            .with_child(GenericField::new("0", GenericDataType::Bool, false))
-            .with_child(GenericField::new("1", GenericDataType::I64, false)))
-        .with_child(GenericField::new("1", GenericDataType::I64, false)),
-    ty = Option<((bool, i64), i64)>,
-    values = [
-        Some(((true, 21), 7)),
-        None,
-        Some(((false, 42), 13)),
-    ],
-);
+        .with_child(
+            GenericField::new("0", GenericDataType::Struct, false)
+                .with_strategy(Strategy::TupleAsStruct)
+                .with_child(GenericField::new("0", GenericDataType::Bool, false))
+                .with_child(GenericField::new("1", GenericDataType::I64, false)),
+        )
+        .with_child(GenericField::new("1", GenericDataType::I64, false))])
+        .trace_schema_from_type::<Item<Option<((bool, i64), i64)>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, true, false]]);
+}
