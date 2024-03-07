@@ -1,95 +1,190 @@
-use super::macros::test_example;
+use crate::{
+    internal::schema::{GenericDataType, GenericField},
+    schema::TracingOptions,
+    utils::Item,
+};
 
-test_example!(
-    test_name = large_list_u32,
+use super::utils::Test;
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::U32, false)),
-    ty = Vec<u32>,
-    values = [vec![0, 1, 2], vec![3, 4], vec![]],
-    nulls = [false, false, false],
-);
+#[test]
+fn large_list_u32() {
+    let items = [Item(vec![0_u32, 1, 2]), Item(vec![3, 4]), Item(vec![])];
 
-test_example!(
-    test_name = large_list_nullable_u64,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            false,
+        )
+        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .trace_schema_from_type::<Item<Vec<u32>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::U64, true)),
-    ty = Vec<Option<u64>>,
-    values = [vec![Some(0), None, Some(2)], vec![Some(3)], vec![None], vec![]],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn large_list_nullable_u64() {
+    let items = [
+        Item(vec![Some(0_u64), None, Some(2)]),
+        Item(vec![Some(3)]),
+        Item(vec![None]),
+        Item(vec![]),
+    ];
 
-test_example!(
-    test_name = nullable_large_list_u32,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            false,
+        )
+        .with_child(GenericField::new("element", GenericDataType::U64, true))])
+        .trace_schema_from_type::<Item<Vec<Option<u64>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, true)
-        .with_child(GenericField::new("element", GenericDataType::U32, false)),
-    ty = Option<Vec<u32>>,
-    values = [Some(vec![0, 1, 2]), None, Some(vec![3, 4]), Some(vec![])],
-    nulls = [false, true, false, false],
-);
+#[test]
+fn nullable_large_list_u32() {
+    let items = [
+        Item(Some(vec![0_u32, 1, 2])),
+        Item(None),
+        Item(Some(vec![3, 4])),
+        Item(Some(vec![])),
+    ];
 
-test_example!(
-    test_name = list_u32,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            true,
+        )
+        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .trace_schema_from_type::<Item<Option<Vec<u32>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::U32, false)),
-    overwrite_field = GenericField::new("item", GenericDataType::List, false)
-        .with_child(GenericField::new("element", GenericDataType::U32, false)),
-    ty = Vec<u32>,
-    values = [vec![0, 1, 2], vec![3, 4], vec![]],
-    nulls = [false, false, false],
-);
+#[test]
+fn list_u32() {
+    let items = [Item(vec![0_u32, 1, 2]), Item(vec![3, 4]), Item(vec![])];
 
-test_example!(
-    test_name = nested_large_list_u32,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::List,
+            false,
+        )
+        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::LargeList, false)
-            .with_child(GenericField::new("element", GenericDataType::U32, false))),
-    ty = Vec<Vec<u32>>,
-    values = [vec![vec![0, 1, 2], vec![3, 4]], vec![vec![5, 6], vec![]], vec![]],
-    nulls = [false, false, false],
-);
+#[test]
+fn nested_large_list_u32() {
+    let items = [
+        Item(vec![vec![0_u32, 1, 2], vec![3, 4]]),
+        Item(vec![vec![5, 6], vec![]]),
+        Item(vec![]),
+    ];
 
-test_example!(
-    test_name = nullable_vec_bool,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            false,
+        )
+        .with_child(
+            GenericField::new("element", GenericDataType::LargeList, false)
+                .with_child(GenericField::new("element", GenericDataType::U32, false)),
+        )])
+        .trace_schema_from_type::<Item<Vec<Vec<u32>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, true)
-        .with_child(GenericField::new("element", GenericDataType::Bool, false)),
-    ty = Option<Vec<bool>>,
-    values = [Some(vec![true, false]), None, Some(vec![])],
-);
+#[test]
+fn nullable_vec_bool() {
+    let items = [
+        Item(Some(vec![true, false])),
+        Item(None),
+        Item(Some(vec![])),
+    ];
 
-test_example!(
-    test_name = nullable_vec_bool_nested,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            true,
+        )
+        .with_child(GenericField::new("element", GenericDataType::Bool, false))])
+        .trace_schema_from_type::<Item<Option<Vec<bool>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, true)
-        .with_child(GenericField::new("element", GenericDataType::LargeList, false)
-            .with_child(GenericField::new("element", GenericDataType::Bool, false))),
-    ty = Option<Vec<Vec<bool>>>,
-    values = [Some(vec![vec![true], vec![false, false]]), None, Some(vec![vec![]])],
-);
+#[test]
+fn nullable_vec_bool_nested() {
+    let items = [
+        Item(Some(vec![vec![true], vec![false, false]])),
+        Item(None),
+        Item(Some(vec![vec![]])),
+    ];
 
-test_example!(
-    test_name = vec_nullable_bool,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            true,
+        )
+        .with_child(
+            GenericField::new("element", GenericDataType::LargeList, false)
+                .with_child(GenericField::new("element", GenericDataType::Bool, false)),
+        )])
+        .trace_schema_from_type::<Item<Option<Vec<Vec<bool>>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::Bool, true)),
-    ty = Vec<Option<bool>>,
-    values = [vec![Some(true), Some(false)], vec![], vec![None, Some(false)]],
-);
+#[test]
+fn vec_nullable_bool() {
+    let items = [
+        Item(vec![Some(true), Some(false)]),
+        Item(vec![]),
+        Item(vec![None, Some(false)]),
+    ];
 
-test_example!(
-    test_name = byte_arrays,
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            false,
+        )
+        .with_child(GenericField::new("element", GenericDataType::Bool, true))])
+        .trace_schema_from_type::<Item<Vec<Option<bool>>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeList, false)
-        .with_child(GenericField::new("element", GenericDataType::U8, false)),
-    ty = Vec<u8>,
-    values = [
-        b"hello".to_vec(),
-        b"world!".to_vec(),
-    ],
-    nulls = [false, false],
-);
+#[test]
+fn byte_arrays() {
+    let items = [Item(b"hello".to_vec()), Item(b"world!".to_vec())];
+
+    Test::new()
+        .with_schema(vec![GenericField::new(
+            "item",
+            GenericDataType::LargeList,
+            false,
+        )
+        .with_child(GenericField::new("element", GenericDataType::U8, false))])
+        .trace_schema_from_type::<Item<Vec<u8>>>(TracingOptions::default())
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
