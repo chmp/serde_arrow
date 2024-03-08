@@ -1029,10 +1029,13 @@ impl PrimitiveTracer {
         }
 
         if !self.options.allow_null_fields && matches!(self.item_type, D::Null) {
-            fail!(concat!(
-                "Encountered null only field. This error can be disabled by ",
-                "setting `allow_null_fields` to `true` in `TracingOptions`",
-            ));
+            fail!(
+                concat!(
+                    "Encountered null only field {name}. This error can be disabled by ",
+                    "setting `allow_null_fields` to `true` in `TracingOptions`",
+                ),
+                name = name
+            );
         }
 
         match &self.item_type {

@@ -189,8 +189,8 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         if self.0.get_options().map_as_struct {
             fail!(concat!(
                 "Cannot trace maps as structs with `from_type`. ",
+                "The struct fields cannot be known from the type alone.",
                 "Consider using `from_samples`. ",
-                "The struct fields cannot be known from the type alone."
             ));
         }
 
