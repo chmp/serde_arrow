@@ -122,10 +122,14 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// This approach requires the type `T` to implement
     /// [`Deserialize`][serde::Deserialize]. As only type information is used,
-    /// it is not possible to detect data dependent properties. E.g., it is not
-    /// possible to auto detect date time strings or non self describing types
-    /// such as `serde_json::Value`. Consider using
-    /// [`from_samples`][SchemaLike::from_samples] in these cases.
+    /// it is not possible to detect data dependent properties. Examples of
+    /// unsupported features:
+    ///
+    /// - auto detection of date time strings
+    /// - non self-describing types such as `serde_json::Value`
+    /// - flattened structure (`#[serde(flatten)]`)
+    ///
+    /// Consider using [`from_samples`][SchemaLike::from_samples] in these cases.
     ///
     /// ```rust
     /// # #[cfg(feature = "has_arrow")]
@@ -176,7 +180,6 @@ pub trait SchemaLike: Sized + Sealed {
 
     /// Determine the schema from samples. See [`TracingOptions`] for
     /// customization options.
-    ///
     ///
     /// This approach requires the type `T` to implement
     /// [`Serialize`][serde::Serialize] and the samples to include all relevant

@@ -146,8 +146,16 @@ impl Test {
 
         assert_eq!(fields.len(), arrays.len());
         for (field, array) in std::iter::zip(&fields, &arrays) {
-            assert_eq!(field.data_type(), array.data_type());
-            assert_eq!(field.is_nullable(), array.is_nullable());
+            assert_eq!(
+                field.data_type(),
+                array.data_type(),
+                "Datatype of field {:?} ({}) != datatype of array ({})",
+                field.name(),
+                field.data_type(),
+                array.data_type(),
+            );
+            // NOTE: do not check nullability. Arrow `array.is_nullable()`
+            // checks the number of actual nulls, not the nullability
         }
 
         self.arrays.arrow = Some(arrays);

@@ -1,8 +1,13 @@
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{schema::TracingOptions, utils::Item};
+use crate::{
+    internal::schema::{GenericDataType, GenericField},
+    schema::TracingOptions,
+    utils::Item,
+};
 
-use super::{macros::test_example, utils::Test};
+use super::utils::Test;
 
 #[test]
 fn null() {
@@ -292,122 +297,170 @@ fn nullable_f64() {
         .check_nulls(&[&[false, true, false, false]]);
 }
 
-test_example!(
-    test_name = f32_from_f64,
-    field = GenericField::new("item", GenericDataType::F64, false),
-    overwrite_field = GenericField::new("item", GenericDataType::F32, false),
-    ty = f64,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn f32_from_f64() {
+    let values = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
+    let field = GenericField::new("item", GenericDataType::F32, false);
 
-test_example!(
-    test_name = f64_from_f32,
-    field = GenericField::new("item", GenericDataType::F32, false),
-    overwrite_field = GenericField::new("item", GenericDataType::F64, false),
-    ty = f32,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-test_example!(
-    test_name = f16_from_f32,
-    field = GenericField::new("item", GenericDataType::F32, false),
-    overwrite_field = GenericField::new("item", GenericDataType::F16, false),
-    ty = f32,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn f64_from_f32() {
+    let field = GenericField::new("item", GenericDataType::F64, false);
+    let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
-test_example!(
-    test_name = f16_from_f64,
-    field = GenericField::new("item", GenericDataType::F64, false),
-    overwrite_field = GenericField::new("item", GenericDataType::F16, false),
-    ty = f64,
-    values = [-1.0, 2.0, -3.0, 4.0],
-    nulls = [false, false, false, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-test_example!(
-    test_name = str,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    ty = String,
-    values = [
-        String::from("a"),
-        String::from("b"),
-        String::from("c"),
-        String::from("d")
-    ],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn f16_from_f32() {
+    let field = GenericField::new("item", GenericDataType::F16, false);
+    let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
-test_example!(
-    test_name = nullable_str,
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-    field = GenericField::new("item", GenericDataType::LargeUtf8, true),
-    ty = Option<String>,
-    values = [Some(String::from("a")), None, None, Some(String::from("d"))],
-    nulls = [false, true, true, false],
-);
+#[test]
+fn f16_from_f64() {
+    let field = GenericField::new("item", GenericDataType::F16, false);
+    let values = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
 
-test_example!(
-    test_name = str_u32,
-    field = GenericField::new("item", GenericDataType::LargeUtf8, false),
-    overwrite_field = GenericField::new("item", GenericDataType::Utf8, false),
-    ty = String,
-    values = [
-        String::from("a"),
-        String::from("b"),
-        String::from("c"),
-        String::from("d")
-    ],
-    nulls = [false, false, false, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-test_example!(
-    test_name = nullable_str_u32,
+#[test]
+fn str() {
+    let field = GenericField::new("item", GenericDataType::LargeUtf8, false);
+    type Ty = String;
+    let values = [
+        Item(String::from("a")),
+        Item(String::from("b")),
+        Item(String::from("c")),
+        Item(String::from("d")),
+    ];
 
-    field = GenericField::new("item", GenericDataType::LargeUtf8, true),
-    overwrite_field = GenericField::new("item", GenericDataType::Utf8, true),
-    ty = Option<String>,
-    values = [Some(String::from("a")), None, None, Some(String::from("d"))],
-    nulls = [false, true, true, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-test_example!(
-    test_name = newtype_i64,
-    field = GenericField::new("item", GenericDataType::I64, false),
-    ty = I64,
-    values = [I64(-1), I64(2), I64(3), I64(-4)],
-    nulls = [false, false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct I64(i64);
-    },
-);
+#[test]
+fn nullable_str() {
+    let field = GenericField::new("item", GenericDataType::LargeUtf8, true);
+    type Ty = Option<String>;
+    let values = [
+        Item(Some(String::from("a"))),
+        Item(None),
+        Item(None),
+        Item(Some(String::from("d"))),
+    ];
 
-test_example!(
-    test_name = u8_to_u16,
-    field = GenericField::new("item", GenericDataType::U8, false),
-    overwrite_field = GenericField::new("item", GenericDataType::U16, false),
-    ty = u8,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize(&values);
+}
 
-test_example!(
-    test_name = u32_to_i64,
-    field = GenericField::new("item", GenericDataType::U32, false),
-    overwrite_field = GenericField::new("item", GenericDataType::I64, false),
-    ty = u32,
-    values = [1, 2, 3, 4],
-    nulls = [false, false, false, false],
-);
+#[test]
+fn str_u32() {
+    let field = GenericField::new("item", GenericDataType::Utf8, false);
+    let values = [
+        Item(String::from("a")),
+        Item(String::from("b")),
+        Item(String::from("c")),
+        Item(String::from("d")),
+    ];
 
-test_example!(
-    test_name = chars,
-    field = GenericField::new("item", GenericDataType::U32, false),
-    ty = char,
-    values = ['a', 'b', 'c'],
-    nulls = [false, false, false],
-);
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn nullable_str_u32() {
+    let field = GenericField::new("item", GenericDataType::Utf8, true);
+    let values = [
+        Item(Some(String::from("a"))),
+        Item(None),
+        Item(None),
+        Item(Some(String::from("d"))),
+    ];
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn newtype_i64() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct I64(i64);
+
+    let field = GenericField::new("item", GenericDataType::I64, false);
+    type Ty = I64;
+
+    let values = [Item(I64(-1)), Item(I64(2)), Item(I64(3)), Item(I64(-4))];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn u8_to_u16() {
+    let field = GenericField::new("item", GenericDataType::U16, false);
+    let values = [Item(1_u8), Item(2), Item(3), Item(4)];
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn u32_to_i64() {
+    let field = GenericField::new("item", GenericDataType::I64, false);
+    let values = [Item(1_u32), Item(2), Item(3), Item(4)];
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn chars() {
+    let field = GenericField::new("item", GenericDataType::U32, false);
+    type Ty = char;
+    let values = [Item('a'), Item('b'), Item('c')];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize(&values);
+}

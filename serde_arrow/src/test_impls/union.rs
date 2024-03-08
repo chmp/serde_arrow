@@ -1,224 +1,306 @@
-use super::macros::{test_example, test_generic};
+use serde::{Deserialize, Serialize};
 
-test_example!(
-    test_name = fieldless_unions,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Union, false)
+use crate::{
+    internal::schema::{GenericDataType, GenericField},
+    schema::{Strategy, TracingOptions},
+    test_impls::utils::Test,
+    utils::Item,
+};
+
+use super::macros::test_generic;
+
+#[test]
+fn fieldless_unions() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default().allow_null_fields(true);
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
         .with_child(GenericField::new("B", GenericDataType::Null, true))
-        .with_child(GenericField::new("C", GenericDataType::Null, true)),
-    ty = U,
-    values = [U::A, U::B, U::C, U::A,],
-    nulls = [false, false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            A,
-            B,
-            C,
-        }
-    },
-);
+        .with_child(GenericField::new("C", GenericDataType::Null, true));
 
-test_example!(
-    test_name = fieldless_union_out_of_order,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Union, false)
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn fieldless_union_out_of_order() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default().allow_null_fields(true);
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
         .with_child(GenericField::new("B", GenericDataType::Null, true))
-        .with_child(GenericField::new("C", GenericDataType::Null, true)),
-    ty = U,
-    values = [U::B, U::A, U::C],
-    nulls = [false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            A,
-            B,
-            C,
-        }
-    },
-);
+        .with_child(GenericField::new("C", GenericDataType::Null, true));
 
-test_example!(
-    test_name = union_simple,
-    field = GenericField::new("item", GenericDataType::Union, false)
+    let values = [Item(U::B), Item(U::A), Item(U::C)];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn union_simple() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        U32(u32),
+        Bool(bool),
+        Str(String),
+    }
+
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
-        .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false)),
-    ty = U,
-    values = [
-        U::U32(32),
-        U::Bool(true),
-        U::Str(String::from("hello world")),
-    ],
-    nulls = [false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            U32(u32),
-            Bool(bool),
-            Str(String),
-        }
-    },
-);
+        .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false));
 
-test_example!(
-    test_name = union_mixed,
-    field =
+    let values = [
+        Item(U::U32(32)),
+        Item(U::Bool(true)),
+        Item(U::Str(String::from("hello world"))),
+    ];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn union_mixed() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        V1 { a: u32, b: u64 },
+        Bool(bool),
+        S(S),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct S {
+        s: String,
+    }
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field =
         GenericField::new("item", GenericDataType::Union, false)
             .with_child(
                 GenericField::new("V1", GenericDataType::Struct, false)
                     .with_child(GenericField::new("a", GenericDataType::U32, false))
-                    .with_child(GenericField::new("b", GenericDataType::U64, false))
+                    .with_child(GenericField::new("b", GenericDataType::U64, false)),
             )
             .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
             .with_child(
                 GenericField::new("S", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("s", GenericDataType::LargeUtf8, false))
-            ),
-    ty = U,
-    values = [
-        U::V1 { a: 32, b: 13 },
-        U::Bool(true),
-        U::S(S {
-            s: String::from("hello world")
-        })
-    ],
-    nulls = [false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            V1 { a: u32, b: u64 },
-            Bool(bool),
-            S(S),
-        }
+                    .with_child(GenericField::new("s", GenericDataType::LargeUtf8, false)),
+            );
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct S {
-            s: String,
-        }
-    },
-);
+    let values = [
+        Item(U::V1 { a: 32, b: 13 }),
+        Item(U::Bool(true)),
+        Item(U::S(S {
+            s: String::from("hello world"),
+        })),
+    ];
 
-test_example!(
-    test_name = union_nested,
-    field = GenericField::new("item", GenericDataType::Union, false)
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn union_nested() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        U32(u32),
+        O(O),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum O {
+        Bool(bool),
+        Str(String),
+    }
+
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
         .with_child(
             GenericField::new("O", GenericDataType::Union, false)
                 .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
-                .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false))
-        ),
-    ty = U,
-    values = [
-        U::U32(32),
-        U::O(O::Bool(true)),
-        U::O(O::Str(String::from("hello world"))),
-        U::U32(16)
-    ],
-    nulls = [false, false, false, false],
-    define = {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            U32(u32),
-            O(O),
-        }
+                .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false)),
+        );
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum O {
-            Bool(bool),
-            Str(String),
-        }
-    },
-);
+    let values = [
+        Item(U::U32(32)),
+        Item(U::O(O::Bool(true))),
+        Item(U::O(O::Str(String::from("hello world")))),
+        Item(U::U32(16)),
+    ];
 
-test_example!(
-    test_name = enums,
-    field = GenericField::new("item", GenericDataType::Union, false)
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn enums() {
+    #[derive(Debug, PartialEq, Deserialize, Serialize)]
+    enum U {
+        U8(u8),
+        U16(u16),
+        U32(u32),
+        U64(u64),
+    }
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("U8", GenericDataType::U8, false))
         .with_child(GenericField::new("U16", GenericDataType::U16, false))
         .with_child(GenericField::new("U32", GenericDataType::U32, false))
-        .with_child(GenericField::new("U64", GenericDataType::U64, false)),
-    ty = Item,
-    values = [Item::U32(2), Item::U64(3), Item::U8(0), Item::U16(1),],
-    define = {
-        #[derive(Debug, PartialEq, Deserialize, Serialize)]
-        enum Item {
-            U8(u8),
-            U16(u16),
-            U32(u32),
-            U64(u64),
-        }
-    },
-);
+        .with_child(GenericField::new("U64", GenericDataType::U64, false));
 
-test_example!(
-    test_name = enums_tuple,
-    field = GenericField::new("item", GenericDataType::Union, false)
+    let values = [
+        Item(U::U32(2)),
+        Item(U::U64(3)),
+        Item(U::U8(0)),
+        Item(U::U16(1)),
+    ];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn enums_tuple() {
+    #[derive(Debug, PartialEq, Deserialize, Serialize)]
+    enum U {
+        A(u8, u32),
+        B(u16, u64),
+    }
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(
             GenericField::new("A", GenericDataType::Struct, false)
                 .with_strategy(Strategy::TupleAsStruct)
                 .with_child(GenericField::new("0", GenericDataType::U8, false))
-                .with_child(GenericField::new("1", GenericDataType::U32, false))
+                .with_child(GenericField::new("1", GenericDataType::U32, false)),
         )
         .with_child(
             GenericField::new("B", GenericDataType::Struct, false)
                 .with_strategy(Strategy::TupleAsStruct)
                 .with_child(GenericField::new("0", GenericDataType::U16, false))
-                .with_child(GenericField::new("1", GenericDataType::U64, false))
-        ),
-    ty = Item,
-    values = [Item::A(2, 3), Item::B(0, 1),],
-    define = {
-        #[derive(Debug, PartialEq, Deserialize, Serialize)]
-        enum Item {
-            A(u8, u32),
-            B(u16, u64),
-        }
-    },
-);
+                .with_child(GenericField::new("1", GenericDataType::U64, false)),
+        );
 
-test_example!(
-    test_name = enums_struct,
-    field = GenericField::new("item", GenericDataType::Union, false)
+    let values = [Item(U::A(2, 3)), Item(U::B(0, 1))];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn enums_struct() {
+    #[derive(Debug, PartialEq, Deserialize, Serialize)]
+    enum U {
+        A { a: u8, b: u32 },
+        B { c: u16, d: u64 },
+    }
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default();
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(
             GenericField::new("A", GenericDataType::Struct, false)
                 .with_child(GenericField::new("a", GenericDataType::U8, false))
-                .with_child(GenericField::new("b", GenericDataType::U32, false))
+                .with_child(GenericField::new("b", GenericDataType::U32, false)),
         )
         .with_child(
             GenericField::new("B", GenericDataType::Struct, false)
                 .with_child(GenericField::new("c", GenericDataType::U16, false))
-                .with_child(GenericField::new("d", GenericDataType::U64, false))
-        ),
-    ty = Item,
-    values = [Item::A { a: 2, b: 3 }, Item::B { c: 0, d: 1 },],
-    define = {
-        #[derive(Debug, PartialEq, Deserialize, Serialize)]
-        enum Item {
-            A { a: u8, b: u32 },
-            B { c: u16, d: u64 },
-        }
-    },
-);
+                .with_child(GenericField::new("d", GenericDataType::U64, false)),
+        );
 
-test_example!(
-    test_name = enums_union,
-    tracing_options = TracingOptions::default().allow_null_fields(true),
-    field = GenericField::new("item", GenericDataType::Union, false)
+    let values = [Item(U::A { a: 2, b: 3 }), Item(U::B { c: 0, d: 1 })];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn enums_union() {
+    #[derive(Debug, PartialEq, Deserialize, Serialize)]
+    enum U {
+        A,
+        B,
+    }
+    type Ty = U;
+
+    let tracing_options = TracingOptions::default().allow_null_fields(true);
+    let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(GenericField::new("A", GenericDataType::Null, true))
-        .with_child(GenericField::new("B", GenericDataType::Null, true)),
-    ty = Item,
-    values = [Item::A, Item::B,],
-    define = {
-        #[derive(Debug, PartialEq, Deserialize, Serialize)]
-        enum Item {
-            A,
-            B,
-        }
-    },
-);
+        .with_child(GenericField::new("B", GenericDataType::Null, true));
+
+    let values = [Item(U::A), Item(U::B)];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
 
 test_generic!(
     fn missing_union_variants() {
