@@ -4,6 +4,7 @@
 
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
+- Fix bug in `SchemaLike::from_type()` for nested unions
 
 ## 0.10.0
 
