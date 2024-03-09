@@ -1,0 +1,39 @@
+use serde::Deserialize;
+
+use crate::internal::{deserialization_ng::primitive_deserializer::PrimitiveDeserializer, serialization_ng::utils::Mut};
+
+use super::{
+    outer_sequence_deserializer::OuterSequenceDeserializer,
+    struct_deserializer::StructDeserializer,
+};
+
+
+#[test]
+fn example() {
+    let mut deser = OuterSequenceDeserializer {
+        item: StructDeserializer::new(
+            vec![
+                (String::from("a"), PrimitiveDeserializer::new(&[1, 2, 3]).into()),
+                (String::from("b"), PrimitiveDeserializer::new(&[4, 5, 6]).into()),
+            ],
+            3,
+        ),
+        next: 0,
+        len: 3,
+    };
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct Record {
+        a: i32,
+        b: i32,
+    }
+
+    let actual = Vec::<Record>::deserialize(Mut(&mut deser)).unwrap();
+    let expected = vec![
+        Record { a: 1, b: 4},
+        Record { a: 2, b: 5},
+        Record { a: 3, b: 6},
+    ];
+
+    assert_eq!(actual, expected);
+}
