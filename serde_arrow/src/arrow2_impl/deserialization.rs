@@ -5,9 +5,18 @@ use crate::{
             UnionArray, Utf8Array,
         },
         datatypes::DataType,
-        types::f16,
+        types::{f16, NativeType, Offset},
     },
-    internal::deserialization_ng::outer_sequence_deserializer::OuterSequenceDeserializer,
+    internal::deserialization_ng::{
+        array_deserializer::ArrayDeserializer,
+        bool_deserializer::BoolDeserializer,
+        float_deserializer::{Float, FloatDeserializer},
+        integer_deserializer::{Integer, IntegerDeserializer},
+        list_deserializer::{IntoUsize, ListDeserializer},
+        null_deserializer::NullDeserializer,
+        outer_sequence_deserializer::OuterSequenceDeserializer,
+        string_deserializer::StringDeserializer,
+    },
 };
 use crate::{
     internal::{
@@ -22,7 +31,164 @@ pub fn build_deserializer<'a>(
     fields: &[GenericField],
     arrays: &[&'a dyn Array],
 ) -> Result<OuterSequenceDeserializer<'a>> {
+    let (deserializers, len) = build_struct_fields(fields, arrays)?;
+    Ok(OuterSequenceDeserializer::new(deserializers, len))
+}
+
+pub fn build_array_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+    match &field.data_type {
+        T::Null => Ok(NullDeserializer.into()),
+        T::Bool => build_bool_deserializer(array),
+        T::U8 => build_integer_deserializer::<u8>(field, array),
+        T::U16 => build_integer_deserializer::<u16>(field, array),
+        T::U32 => build_integer_deserializer::<u32>(field, array),
+        T::U64 => build_integer_deserializer::<u64>(field, array),
+        T::I8 => build_integer_deserializer::<i8>(field, array),
+        T::I16 => build_integer_deserializer::<i16>(field, array),
+        T::I32 => build_integer_deserializer::<i32>(field, array),
+        T::I64 => build_integer_deserializer::<i64>(field, array),
+        T::F32 => build_float_deserializer::<f32>(field, array),
+        T::F64 => build_float_deserializer::<f64>(field, array),
+        T::Utf8 => build_string_deserializer::<i32>(array),
+        T::LargeUtf8 => build_string_deserializer::<i64>(array),
+        T::Struct => build_struct_deserializer(field, array),
+        T::List => build_list_deserializer::<i32>(field, array),
+        T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::Map => build_map_deserializer(field, array),
+        dt => fail!("Datatype {dt} is not supported for deserialization"),
+    }
+}
+
+pub fn build_bool_deserializer<'a>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
+        fail!("cannot interpret array as Bool array");
+    };
+
+    let (data, offset, number_of_bits) = array.values().as_slice();
+    let buffer = BitBuffer {
+        data,
+        offset,
+        number_of_bits,
+    };
+    let validity = get_validity(array);
+
+    Ok(BoolDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_integer_deserializer<'a, T>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: Integer + NativeType + 'static,
+    ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(IntegerDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_float_deserializer<'a, T>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: Float + NativeType + 'static,
+    ArrayDeserializer<'a>: From<FloatDeserializer<'a, T>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(FloatDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>
+where
+    O: IntoUsize + Offset,
+    ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<Utf8Array<O>>() else {
+        fail!("cannot interpret array as Utf8 array");
+    };
+
+    let buffer = array.values().as_slice();
+    let offsets = array.offsets().as_slice();
+    let validity = get_validity(array);
+
+    Ok(StringDeserializer::new(buffer, offsets, validity).into())
+}
+
+pub fn build_struct_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
     todo!()
+}
+
+pub fn build_struct_fields<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<(Vec<(String, ArrayDeserializer<'a>)>, usize)> {
+    if fields.len() != arrays.len() {
+        fail!(
+            "different number of fields ({}) and arrays ({})",
+            fields.len(),
+            arrays.len()
+        );
+    }
+    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+    let mut deserializers = Vec::new();
+    for (field, &array) in std::iter::zip(fields, arrays) {
+        if array.len() != len {
+            fail!("arrays of different lengths are not supported");
+        }
+
+        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
+    }
+
+    Ok((deserializers, len))
+}
+
+pub fn build_list_deserializer<'a, O>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    O: Offset + IntoUsize,
+    ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
+{
+    todo!()
+}
+
+pub fn build_map_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    todo!()
+}
+
+fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
+    let validity = arr.validity()?;
+    let (data, offset, number_of_bits) = validity.as_slice();
+    Some(BitBuffer {
+        data,
+        offset,
+        number_of_bits,
+    })
 }
 
 /*
@@ -50,43 +216,6 @@ impl BufferExtract for dyn Array {
         field: &GenericField,
         buffers: &mut Buffers<'a>,
     ) -> Result<ArrayMapping> {
-        macro_rules! convert_primitive {
-            ($array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<$array_type>>()
-                    .ok_or_else(|| error!("cannot interpret array as I32 array"))?;
-
-                let buffer = buffers.$push_func(typed.values().as_slice())?;
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
-
-                Ok(M::$variant {
-                    field: field.clone(),
-                    buffer,
-                    validity,
-                })
-            }};
-        }
-
-        macro_rules! convert_utf8 {
-            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<Utf8Array<$offset_type>>()
-                    .ok_or_else(|| error!("cannot interpret array as Utf8 array"))?;
-
-                let buffer = buffers.push_u8(typed.values().as_slice());
-                let offsets = buffers.$push_func(typed.offsets().as_slice())?;
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
-
-                Ok(M::$variant {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                    offsets,
-                })
-            }};
-        }
 
         macro_rules! convert_list {
             ($offset_type:ty, $variant:ident, $push_func:ident) => {{
@@ -120,53 +249,9 @@ impl BufferExtract for dyn Array {
         use {ArrayMapping as M, GenericDataType as T};
 
         match &field.data_type {
-            T::Null => {
-                if !matches!(self.data_type(), DataType::Null) {
-                    fail!("non-null array with null field");
-                }
-
-                Ok(M::Null {
-                    field: field.clone(),
-                    validity: None,
-                    buffer: usize::MAX,
-                })
-            }
-            T::Bool => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .ok_or_else(|| error!("cannot interpret array as Bool array"))?;
-
-                let (data, offset, number_of_bits) = typed.values().as_slice();
-                let buffer = buffers.push_u1(BitBuffer {
-                    data,
-                    offset,
-                    number_of_bits,
-                });
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
-
-                Ok(M::Bool {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                })
-            }
-            T::U8 => convert_primitive!(u8, U8, push_u8_cast),
-            T::U16 => convert_primitive!(u16, U16, push_u16_cast),
-            T::U32 => convert_primitive!(u32, U32, push_u32_cast),
-            T::U64 => convert_primitive!(u64, U64, push_u64_cast),
-            T::I8 => convert_primitive!(i8, I8, push_u8_cast),
-            T::I16 => convert_primitive!(i16, I16, push_u16_cast),
-            T::I32 => convert_primitive!(i32, I32, push_u32_cast),
-            T::I64 => convert_primitive!(i64, I64, push_u64_cast),
-            T::F16 => convert_primitive!(f16, F16, push_u16_cast),
-            T::F32 => convert_primitive!(f32, F32, push_u32_cast),
-            T::F64 => convert_primitive!(f64, F64, push_u64_cast),
             T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
             T::Decimal128(_, _) => convert_primitive!(i128, Decimal128, push_u128_cast),
             T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Utf8 => convert_utf8!(i32, Utf8, push_u32_cast),
-            T::LargeUtf8 => convert_utf8!(i64, LargeUtf8, push_u64_cast),
             T::List => convert_list!(i32, List, push_u32_cast),
             T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
             T::Struct => {
