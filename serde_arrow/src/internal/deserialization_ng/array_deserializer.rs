@@ -1,3 +1,5 @@
+use serde::de::Visitor;
+
 use crate::Result;
 
 use super::bool_deserializer::BoolDeserializer;
@@ -160,19 +162,23 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
         "ArrayDeserializer"
     }
 
-    fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_any(visitor))
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_ignored_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_ignored_any(visitor))
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_option(visitor))
     }
 
-    fn deserialize_unit<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_unit<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_unit(visitor))
     }
 
-    fn deserialize_unit_struct<V: serde::de::Visitor<'de>>(
+    fn deserialize_unit_struct<V: Visitor<'de>>(
         &mut self,
         name: &'static str,
         visitor: V,
@@ -180,63 +186,63 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_unit_struct(name, visitor))
     }
 
-    fn deserialize_bool<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_bool<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_bool(visitor))
     }
 
-    fn deserialize_char<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_char<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_char(visitor))
     }
 
-    fn deserialize_u8<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_u8(visitor))
     }
 
-    fn deserialize_u16<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_u16(visitor))
     }
 
-    fn deserialize_u32<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_u32(visitor))
     }
 
-    fn deserialize_u64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_u64(visitor))
     }
 
-    fn deserialize_i8<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_i8(visitor))
     }
 
-    fn deserialize_i16<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_i16(visitor))
     }
 
-    fn deserialize_i32<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_i32(visitor))
     }
 
-    fn deserialize_i64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_i64(visitor))
     }
 
-    fn deserialize_f32<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_f32(visitor))
     }
 
-    fn deserialize_f64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_f64(visitor))
     }
 
-    fn deserialize_str<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_str(visitor))
     }
 
-    fn deserialize_string<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_string(visitor))
     }
 
-    fn deserialize_struct<V: serde::de::Visitor<'de>>(
+    fn deserialize_struct<V: Visitor<'de>>(
         &mut self,
         name: &'static str,
         fields: &'static [&'static str],
@@ -245,11 +251,53 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_struct(name, fields, visitor))
     }
 
-    fn deserialize_map<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_map<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_map(visitor))
     }
 
-    fn deserialize_seq<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_seq<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_seq(visitor))
+    }
+
+    fn deserialize_tuple<V: Visitor<'de>>(&mut self, len: usize, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_tuple(len, visitor))
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        &mut self,
+        name: &'static str,
+        len: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_tuple_struct(name, len, visitor))
+    }
+
+    fn deserialize_identifier<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_identifier(visitor))
+    }
+
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        &mut self,
+        name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_newtype_struct(name, visitor))
+    }
+
+    fn deserialize_enum<V: Visitor<'de>>(
+        &mut self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_enum(name, variants, visitor))
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_bytes(visitor))
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_byte_buf(visitor))
     }
 }

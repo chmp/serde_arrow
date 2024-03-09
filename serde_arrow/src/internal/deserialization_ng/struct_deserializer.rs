@@ -1,4 +1,6 @@
-use serde::de::{value::StrDeserializer, IgnoredAny, MapAccess, Visitor};
+use serde::de::{
+    value::StrDeserializer, DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor,
+};
 
 use crate::{
     internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
@@ -85,18 +87,36 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
     ) -> Result<V::Value> {
         visitor.visit_map(self)
     }
+
+    fn deserialize_tuple<V: Visitor<'de>>(&mut self, _: usize, visitor: V) -> Result<V::Value> {
+        let res = visitor.visit_seq(&mut *self)?;
+
+        // tuples do not consume the sequence until none is raised
+        self.consume_next();
+        Ok(res)
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        &mut self,
+        _: &'static str,
+        _: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
+        let res = visitor.visit_seq(&mut *self)?;
+
+        // tuples do not consume the sequence until none is raised
+        self.consume_next();
+        Ok(res)
+    }
 }
 
 impl<'de> MapAccess<'de> for StructDeserializer<'de> {
     type Error = Error;
 
-    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>> {
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         let (item, field) = self.next;
         if item >= self.len {
-            return Ok(None);
+            fail!("Exhausted StructDeserializer");
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);
@@ -107,10 +127,39 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
         Ok(Some(key))
     }
 
-    fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let (item, field) = self.next;
         self.next = (item, field + 1);
 
         seed.deserialize(Mut(&mut self.fields[field].1))
+    }
+}
+
+impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
+    type Error = Error;
+
+    fn next_element_seed<T: DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>, Self::Error> {
+        println!(
+            "next: {:?}, len: {}, fields.len(): {}",
+            self.next,
+            self.len,
+            self.fields.len()
+        );
+        let (item, field) = self.next;
+        if item >= self.len {
+            fail!("Exhausted StructDeserializer");
+        }
+        if field >= self.fields.len() {
+            self.next = (item + 1, 0);
+            return Ok(None);
+        }
+
+        let res = seed.deserialize(Mut(&mut self.fields[field].1))?;
+        self.next = (item, field + 1);
+
+        Ok(Some(res))
     }
 }
