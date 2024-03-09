@@ -41,7 +41,7 @@ struct TraceAny<'a>(&'a mut Tracer);
 impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     type Error = Error;
 
-    fn deserialize_any<V: serde::de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
         fail!(concat!(
             "Non self describing types cannot be traced with `from_type`. ",
             "Consider using `from_samples`. ",
@@ -50,62 +50,62 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         ));
     }
 
-    fn deserialize_bool<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_bool()?;
         visitor.visit_bool(Default::default())
     }
 
-    fn deserialize_i8<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_i8()?;
         visitor.visit_i8(Default::default())
     }
 
-    fn deserialize_i16<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_i16()?;
         visitor.visit_i16(Default::default())
     }
 
-    fn deserialize_i32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_i32()?;
         visitor.visit_i32(Default::default())
     }
 
-    fn deserialize_i64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_i64()?;
         visitor.visit_i64(Default::default())
     }
 
-    fn deserialize_u8<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_u8()?;
         visitor.visit_u8(Default::default())
     }
 
-    fn deserialize_u16<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_u16()?;
         visitor.visit_u16(Default::default())
     }
 
-    fn deserialize_u32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_u32()?;
         visitor.visit_u32(Default::default())
     }
 
-    fn deserialize_u64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_u64()?;
         visitor.visit_u64(Default::default())
     }
 
-    fn deserialize_f32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_f32()?;
         visitor.visit_f32(Default::default())
     }
 
-    fn deserialize_f64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_f64()?;
         visitor.visit_f64(Default::default())
     }
 
-    fn deserialize_char<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.0.ensure_u32()?;
         visitor.visit_char(Default::default())
     }

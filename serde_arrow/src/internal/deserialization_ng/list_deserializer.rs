@@ -1,8 +1,9 @@
 use serde::de::{SeqAccess, Visitor};
 
-use crate::{
-    internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
-    Error, Result,
+use crate::internal::{
+    common::BitBuffer,
+    error::{fail, Error, Result},
+    serialization_ng::utils::Mut,
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};

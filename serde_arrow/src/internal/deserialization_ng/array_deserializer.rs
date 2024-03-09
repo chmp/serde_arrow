@@ -1,16 +1,14 @@
 use serde::de::Visitor;
 
-use crate::Result;
+use crate::internal::error::Result;
 
-use super::bool_deserializer::BoolDeserializer;
-use super::float_deserializer::FloatDeserializer;
-use super::integer_deserializer::IntegerDeserializer;
-use super::list_deserializer::ListDeserializer;
-use super::map_deserializer::MapDeserializer;
-use super::null_deserializer::NullDeserializer;
-use super::simple_deserializer::SimpleDeserializer;
-use super::string_deserializer::StringDeserializer;
-use super::struct_deserializer::StructDeserializer;
+use super::{
+    bool_deserializer::BoolDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer,
+};
 
 pub enum ArrayDeserializer<'a> {
     Null(NullDeserializer),

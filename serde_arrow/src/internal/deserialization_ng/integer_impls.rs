@@ -1,6 +1,6 @@
 use serde::de::Visitor;
 
-use crate::Result;
+use crate::internal::error::Result;
 
 use super::{integer_deserializer::Integer, simple_deserializer::SimpleDeserializer};
 

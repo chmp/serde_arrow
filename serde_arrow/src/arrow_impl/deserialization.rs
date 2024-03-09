@@ -1,19 +1,17 @@
-use crate::_impl::arrow::array::Array;
-use crate::internal::common::BitBuffer;
-use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
-use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
-use crate::internal::deserialization_ng::float_deserializer::{Float, FloatDeserializer};
-use crate::internal::deserialization_ng::integer_deserializer::Integer;
-use crate::internal::deserialization_ng::list_deserializer::{IntoUsize, ListDeserializer};
-use crate::internal::deserialization_ng::map_deserializer::MapDeserializer;
-use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
-use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
-use crate::internal::deserialization_ng::struct_deserializer::StructDeserializer;
 use crate::internal::{
-    common::check_supported_list_layout,
+    common::{check_supported_list_layout, BitBuffer},
     deserialization_ng::{
+        array_deserializer::ArrayDeserializer,
+        bool_deserializer::BoolDeserializer,
+        float_deserializer::{Float, FloatDeserializer},
+        integer_deserializer::Integer,
         integer_deserializer::IntegerDeserializer,
+        list_deserializer::{IntoUsize, ListDeserializer},
+        map_deserializer::MapDeserializer,
+        null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
+        string_deserializer::StringDeserializer,
+        struct_deserializer::StructDeserializer,
     },
     error::{error, fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit},
@@ -21,8 +19,8 @@ use crate::internal::{
 
 use crate::_impl::arrow::{
     array::{
-        BooleanArray, DictionaryArray, GenericListArray, GenericStringArray, LargeStringArray,
-        MapArray, OffsetSizeTrait, PrimitiveArray, StringArray, StructArray,
+        Array, BooleanArray, DictionaryArray, GenericListArray, GenericStringArray,
+        LargeStringArray, MapArray, OffsetSizeTrait, PrimitiveArray, StringArray, StructArray,
     },
     datatypes::{
         ArrowPrimitiveType, DataType, Date64Type, Decimal128Type, Float16Type, Float32Type,

@@ -3,7 +3,7 @@
 
 use std::{collections::HashMap, str::FromStr};
 
-use serde::Deserialize;
+use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
     error::{fail, Error, Result},
@@ -175,9 +175,9 @@ enum GenericOrArrowDataType {
 
 impl<'de> Deserialize<'de> for GenericOrArrowDataType {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visitor;
+        struct VisitorImpl;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl<'de> Visitor<'de> for VisitorImpl {
             type Value = GenericOrArrowDataType;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -200,7 +200,7 @@ impl<'de> Deserialize<'de> for GenericOrArrowDataType {
             }
         }
 
-        deserializer.deserialize_any(Visitor)
+        deserializer.deserialize_any(VisitorImpl)
     }
 }
 
@@ -209,10 +209,7 @@ struct EnumDeserializer<A>(A);
 impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDeserializer<A> {
     type Error = A::Error;
 
-    fn deserialize_any<V: serde::de::Visitor<'de>>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         visitor.visit_enum(self.0)
     }
 
@@ -228,9 +225,9 @@ struct NativeOrArrowField(GenericField);
 
 impl<'de> Deserialize<'de> for NativeOrArrowField {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visitor;
+        struct VisitorImpl;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl<'de> Visitor<'de> for VisitorImpl {
             type Value = NativeOrArrowField;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -301,15 +298,15 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
             }
         }
 
-        deserializer.deserialize_map(Visitor)
+        deserializer.deserialize_map(VisitorImpl)
     }
 }
 
 impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visitor;
+        struct VisitorImpl;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
+        impl<'de> Visitor<'de> for VisitorImpl {
             type Value = SerdeArrowSchema;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -359,6 +356,6 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
             }
         }
 
-        deserializer.deserialize_any(Visitor)
+        deserializer.deserialize_any(VisitorImpl)
     }
 }

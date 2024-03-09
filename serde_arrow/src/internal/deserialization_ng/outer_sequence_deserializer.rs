@@ -1,6 +1,9 @@
-use serde::de::SeqAccess;
+use serde::de::{SeqAccess, Visitor};
 
-use crate::{internal::serialization_ng::utils::Mut, Error, Result};
+use crate::internal::{
+    error::{Error, Result},
+    serialization_ng::utils::Mut,
+};
 
 use super::{
     array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
@@ -28,11 +31,11 @@ impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
         "OuterSequenceDeserializer"
     }
 
-    fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_seq<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_seq<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_seq(self)
     }
 }

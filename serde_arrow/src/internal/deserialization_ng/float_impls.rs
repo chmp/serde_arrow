@@ -1,9 +1,11 @@
-use crate::Result;
+use serde::de::Visitor;
+
+use crate::internal::error::Result;
 
 use super::{float_deserializer::Float, simple_deserializer::SimpleDeserializer};
 
 impl Float for f32 {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: serde::de::Visitor<'de>>(
+    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
     ) -> Result<V::Value> {
@@ -20,7 +22,7 @@ impl Float for f32 {
 }
 
 impl Float for f64 {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: serde::de::Visitor<'de>>(
+    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
     ) -> Result<V::Value> {

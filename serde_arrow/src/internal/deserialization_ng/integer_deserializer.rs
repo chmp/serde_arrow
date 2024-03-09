@@ -1,8 +1,9 @@
 use serde::de::Visitor;
 
-use crate::{
-    internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
-    Result,
+use crate::internal::{
+    common::BitBuffer,
+    error::{fail, Result},
+    serialization_ng::utils::Mut,
 };
 
 use super::simple_deserializer::SimpleDeserializer;
@@ -85,7 +86,7 @@ impl<'de, T: Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
         "IntegerDeserializer"
     }
 
-    fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             T::deserialize_any(self, visitor)
         } else {
@@ -94,7 +95,7 @@ impl<'de, T: Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
         }
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
@@ -103,43 +104,43 @@ impl<'de, T: Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
         }
     }
 
-    fn deserialize_bool<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_bool<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_bool(self.next_required()?.into_bool()?)
     }
 
-    fn deserialize_char<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_char<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_char(self.next_required()?.into_u32()?.try_into()?)
     }
 
-    fn deserialize_u8<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_u8(self.next_required()?.into_u8()?)
     }
 
-    fn deserialize_u16<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_u16(self.next_required()?.into_u16()?)
     }
 
-    fn deserialize_u32<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_u32(self.next_required()?.into_u32()?)
     }
 
-    fn deserialize_u64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_u64(self.next_required()?.into_u64()?)
     }
 
-    fn deserialize_i8<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_i8(self.next_required()?.into_i8()?)
     }
 
-    fn deserialize_i16<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_i16(self.next_required()?.into_i16()?)
     }
 
-    fn deserialize_i32<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_i32(self.next_required()?.into_i32()?)
     }
 
-    fn deserialize_i64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_i64(self.next_required()?.into_i64()?)
     }
 }
