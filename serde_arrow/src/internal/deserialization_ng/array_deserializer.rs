@@ -6,6 +6,7 @@ use super::bool_deserializer::BoolDeserializer;
 use super::float_deserializer::FloatDeserializer;
 use super::integer_deserializer::IntegerDeserializer;
 use super::list_deserializer::ListDeserializer;
+use super::map_deserializer::MapDeserializer;
 use super::null_deserializer::NullDeserializer;
 use super::simple_deserializer::SimpleDeserializer;
 use super::string_deserializer::StringDeserializer;
@@ -29,6 +30,7 @@ pub enum ArrayDeserializer<'a> {
     Struct(StructDeserializer<'a>),
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
+    Map(MapDeserializer<'a>),
 }
 
 impl<'a> From<NullDeserializer> for ArrayDeserializer<'a> {
@@ -133,6 +135,12 @@ impl<'a> From<StringDeserializer<'a, i64>> for ArrayDeserializer<'a> {
     }
 }
 
+impl<'a> From<MapDeserializer<'a>> for ArrayDeserializer<'a> {
+    fn from(value: MapDeserializer<'a>) -> Self {
+        Self::Map(value)
+    }
+}
+
 macro_rules! dispatch {
     ($obj:expr, $wrapper:ident($name:ident) => $expr:expr) => {
         match $obj {
@@ -153,6 +161,7 @@ macro_rules! dispatch {
             $wrapper::Struct($name) => $expr,
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
+            $wrapper::Map($name) => $expr,
         }
     };
 }

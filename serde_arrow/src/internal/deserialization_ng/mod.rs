@@ -5,6 +5,7 @@ pub mod float_impls;
 pub mod integer_deserializer;
 pub mod integer_impls;
 pub mod list_deserializer;
+pub mod map_deserializer;
 pub mod null_deserializer;
 pub mod outer_sequence_deserializer;
 pub mod simple_deserializer;

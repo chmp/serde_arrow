@@ -5,6 +5,7 @@ use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
 use crate::internal::deserialization_ng::float_deserializer::{Float, FloatDeserializer};
 use crate::internal::deserialization_ng::integer_deserializer::Integer;
 use crate::internal::deserialization_ng::list_deserializer::{IntoUsize, ListDeserializer};
+use crate::internal::deserialization_ng::map_deserializer::MapDeserializer;
 use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
 use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
 use crate::internal::deserialization_ng::struct_deserializer::StructDeserializer;
@@ -62,6 +63,7 @@ pub fn build_array_deserializer<'a>(
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::Map => build_map_deserializer(field, array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
@@ -210,6 +212,34 @@ where
     let validity = get_validity(array);
 
     Ok(ListDeserializer::new(item, offsets, validity).into())
+}
+
+pub fn build_map_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(entries_field) = field.children.first() else {
+        fail!("cannot get children of map");
+    };
+    let Some(keys_field) = entries_field.children.first() else {
+        fail!("cannot get keys field");
+    };
+    let Some(values_field) = entries_field.children.get(1) else {
+        fail!("cannot get values field");
+    };
+    let Some(array) = array.as_any().downcast_ref::<MapArray>() else {
+        fail!("cannot convert {} array into map array", array.data_type());
+    };
+
+    let offsets = array.value_offsets();
+    let validity = get_validity(array);
+
+    check_supported_list_layout(validity, offsets)?;
+
+    let key = build_array_deserializer(keys_field, array.keys())?;
+    let value = build_array_deserializer(values_field, array.values())?;
+
+    Ok(MapDeserializer::new(key, value, offsets, validity).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
