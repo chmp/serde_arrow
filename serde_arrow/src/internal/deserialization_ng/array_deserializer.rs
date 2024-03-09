@@ -1,9 +1,10 @@
 use crate::Result;
 
 use super::bool_deserializer::BoolDeserializer;
+use super::float_deserializer::FloatDeserializer;
+use super::integer_deserializer::IntegerDeserializer;
 use super::list_deserializer::ListDeserializer;
 use super::null_deserializer::NullDeserializer;
-use super::primitive_deserializer::PrimitiveDeserializer;
 use super::simple_deserializer::SimpleDeserializer;
 use super::string_deserializer::StringDeserializer;
 use super::struct_deserializer::StructDeserializer;
@@ -11,14 +12,16 @@ use super::struct_deserializer::StructDeserializer;
 pub enum ArrayDeserializer<'a> {
     Null(NullDeserializer),
     Bool(BoolDeserializer<'a>),
-    U8(PrimitiveDeserializer<'a, u8>),
-    U16(PrimitiveDeserializer<'a, u16>),
-    U32(PrimitiveDeserializer<'a, u32>),
-    U64(PrimitiveDeserializer<'a, u64>),
-    I8(PrimitiveDeserializer<'a, i8>),
-    I16(PrimitiveDeserializer<'a, i16>),
-    I32(PrimitiveDeserializer<'a, i32>),
-    I64(PrimitiveDeserializer<'a, i64>),
+    U8(IntegerDeserializer<'a, u8>),
+    U16(IntegerDeserializer<'a, u16>),
+    U32(IntegerDeserializer<'a, u32>),
+    U64(IntegerDeserializer<'a, u64>),
+    I8(IntegerDeserializer<'a, i8>),
+    I16(IntegerDeserializer<'a, i16>),
+    I32(IntegerDeserializer<'a, i32>),
+    I64(IntegerDeserializer<'a, i64>),
+    F32(FloatDeserializer<'a, f32>),
+    F64(FloatDeserializer<'a, f64>),
     Utf8(StringDeserializer<'a, i32>),
     LargeUtf8(StringDeserializer<'a, i64>),
     Struct(StructDeserializer<'a>),
@@ -38,51 +41,63 @@ impl<'a> From<BoolDeserializer<'a>> for ArrayDeserializer<'a> {
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, i8>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, i8>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, i8>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, i8>) -> Self {
         Self::I8(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, i16>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, i16>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, i16>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, i16>) -> Self {
         Self::I16(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, i32>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, i32>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, i32>) -> Self {
         Self::I32(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, i64>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, i64>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, i64>) -> Self {
         Self::I64(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, u8>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, u8>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, u8>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, u8>) -> Self {
         Self::U8(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, u16>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, u16>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, u16>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, u16>) -> Self {
         Self::U16(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, u32>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, u32>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, u32>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, u32>) -> Self {
         Self::U32(value)
     }
 }
 
-impl<'a> From<PrimitiveDeserializer<'a, u64>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, u64>) -> Self {
+impl<'a> From<IntegerDeserializer<'a, u64>> for ArrayDeserializer<'a> {
+    fn from(value: IntegerDeserializer<'a, u64>) -> Self {
         Self::U64(value)
+    }
+}
+
+impl<'a> From<FloatDeserializer<'a, f32>> for ArrayDeserializer<'a> {
+    fn from(value: FloatDeserializer<'a, f32>) -> Self {
+        Self::F32(value)
+    }
+}
+
+impl<'a> From<FloatDeserializer<'a, f64>> for ArrayDeserializer<'a> {
+    fn from(value: FloatDeserializer<'a, f64>) -> Self {
+        Self::F64(value)
     }
 }
 
@@ -129,6 +144,8 @@ macro_rules! dispatch {
             $wrapper::I16($name) => $expr,
             $wrapper::I32($name) => $expr,
             $wrapper::I64($name) => $expr,
+            $wrapper::F32($name) => $expr,
+            $wrapper::F64($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
             $wrapper::Struct($name) => $expr,

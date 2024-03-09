@@ -22,7 +22,7 @@ impl<'a> BoolDeserializer<'a> {
 
     fn next(&mut self) -> Result<Option<bool>> {
         if self.next >= self.buffer.len() {
-            fail!("Exhausted PrimitiveDeserializer");
+            fail!("Exhausted BoolDeserializer");
         }
         if let Some(validty) = &self.validity {
             if !validty.is_set(self.next) {
@@ -44,13 +44,13 @@ impl<'a> BoolDeserializer<'a> {
         }
     }
 
-    fn next_is_present(&self) -> bool {
+    fn peek_next(&self) -> Result<bool> {
         if self.next >= self.buffer.len() {
-            false
+            fail!("Exhausted BoolDeserializer");
         } else if let Some(validity) = &self.validity {
-            validity.is_set(self.next)
+            Ok(validity.is_set(self.next))
         } else {
-            true
+            Ok(true)
         }
     }
 
@@ -65,7 +65,7 @@ impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
     }
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.next_is_present() {
+        if self.peek_next()? {
             self.deserialize_bool(visitor)
         } else {
             self.consume_next();
@@ -74,7 +74,7 @@ impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
     }
 
     fn deserialize_option<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.next_is_present() {
+        if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
             self.consume_next();

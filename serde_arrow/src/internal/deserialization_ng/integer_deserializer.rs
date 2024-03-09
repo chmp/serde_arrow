@@ -7,7 +7,7 @@ use crate::{
 
 use super::simple_deserializer::SimpleDeserializer;
 
-pub trait Primitive: Sized {
+pub trait Integer: Sized {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -26,13 +26,13 @@ pub trait Primitive: Sized {
     fn into_u64(&self) -> Result<u64>;
 }
 
-pub struct PrimitiveDeserializer<'a, T: Primitive> {
+pub struct IntegerDeserializer<'a, T: Integer> {
     pub buffer: &'a [T],
     pub validity: Option<BitBuffer<'a>>,
     pub next: usize,
 }
 
-impl<'a, T: Primitive> PrimitiveDeserializer<'a, T> {
+impl<'a, T: Integer> IntegerDeserializer<'a, T> {
     pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>) -> Self {
         Self {
             buffer,
@@ -65,13 +65,13 @@ impl<'a, T: Primitive> PrimitiveDeserializer<'a, T> {
         }
     }
 
-    fn next_is_present(&self) -> bool {
+    fn peek_next(&self) -> Result<bool> {
         if self.next >= self.buffer.len() {
-            false
+            fail!("Exhausted PrimitiveDeserializer");
         } else if let Some(validity) = &self.validity {
-            validity.is_set(self.next)
+            Ok(validity.is_set(self.next))
         } else {
-            true
+            Ok(true)
         }
     }
 
@@ -80,13 +80,13 @@ impl<'a, T: Primitive> PrimitiveDeserializer<'a, T> {
     }
 }
 
-impl<'de, T: Primitive> SimpleDeserializer<'de> for PrimitiveDeserializer<'de, T> {
+impl<'de, T: Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
     fn name() -> &'static str {
-        "PrimitiveDeserializer"
+        "IntegerDeserializer"
     }
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.next_is_present() {
+        if self.peek_next()? {
             T::deserialize_any(self, visitor)
         } else {
             self.consume_next();
@@ -95,7 +95,7 @@ impl<'de, T: Primitive> SimpleDeserializer<'de> for PrimitiveDeserializer<'de, T
     }
 
     fn deserialize_option<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.next_is_present() {
+        if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
             self.consume_next();

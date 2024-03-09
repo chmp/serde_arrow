@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::Result;
 
-use super::{primitive_deserializer::Primitive, simple_deserializer::SimpleDeserializer};
+use super::{integer_deserializer::Integer, simple_deserializer::SimpleDeserializer};
 
 macro_rules! implement_integer_into {
     () => {
@@ -44,7 +44,7 @@ macro_rules! implement_integer_into {
     };
 }
 
-impl Primitive for i8 {
+impl Integer for i8 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -55,7 +55,7 @@ impl Primitive for i8 {
     implement_integer_into!();
 }
 
-impl Primitive for i16 {
+impl Integer for i16 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -66,7 +66,7 @@ impl Primitive for i16 {
     implement_integer_into!();
 }
 
-impl Primitive for i32 {
+impl Integer for i32 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -77,7 +77,7 @@ impl Primitive for i32 {
     implement_integer_into!();
 }
 
-impl Primitive for i64 {
+impl Integer for i64 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -88,7 +88,7 @@ impl Primitive for i64 {
     implement_integer_into!();
 }
 
-impl Primitive for u8 {
+impl Integer for u8 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -99,7 +99,7 @@ impl Primitive for u8 {
     implement_integer_into!();
 }
 
-impl Primitive for u16 {
+impl Integer for u16 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -110,7 +110,7 @@ impl Primitive for u16 {
     implement_integer_into!();
 }
 
-impl Primitive for u32 {
+impl Integer for u32 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -121,7 +121,7 @@ impl Primitive for u32 {
     implement_integer_into!();
 }
 
-impl Primitive for u64 {
+impl Integer for u64 {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,

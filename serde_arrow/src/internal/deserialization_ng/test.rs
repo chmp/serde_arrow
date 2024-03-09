@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::internal::{
-    deserialization_ng::primitive_deserializer::PrimitiveDeserializer, serialization_ng::utils::Mut,
+    deserialization_ng::integer_deserializer::IntegerDeserializer, serialization_ng::utils::Mut,
 };
 
 use super::outer_sequence_deserializer::OuterSequenceDeserializer;
@@ -12,11 +12,11 @@ fn example() {
         vec![
             (
                 String::from("a"),
-                PrimitiveDeserializer::new(&[1, 2, 3], None).into(),
+                IntegerDeserializer::new(&[1, 2, 3], None).into(),
             ),
             (
                 String::from("b"),
-                PrimitiveDeserializer::new(&[4, 5, 6], None).into(),
+                IntegerDeserializer::new(&[4, 5, 6], None).into(),
             ),
         ],
         3,

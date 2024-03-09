@@ -2,15 +2,16 @@ use crate::_impl::arrow::array::Array;
 use crate::internal::common::BitBuffer;
 use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
 use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
+use crate::internal::deserialization_ng::float_deserializer::{Float, FloatDeserializer};
+use crate::internal::deserialization_ng::integer_deserializer::Integer;
 use crate::internal::deserialization_ng::list_deserializer::IntoUsize;
 use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
-use crate::internal::deserialization_ng::primitive_deserializer::Primitive;
 use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
 use crate::internal::{
     common::check_supported_list_layout,
     deserialization_ng::{
+        integer_deserializer::IntegerDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
-        primitive_deserializer::PrimitiveDeserializer,
     },
     error::{error, fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit},
@@ -76,28 +77,30 @@ pub fn build_array_deserializer<'a>(
 
             Ok(BoolDeserializer::new(buffer, validity).into())
         }
-        T::U8 => build_primitive_deserializer::<UInt8Type>(field, array),
-        T::U16 => build_primitive_deserializer::<UInt16Type>(field, array),
-        T::U32 => build_primitive_deserializer::<UInt32Type>(field, array),
-        T::U64 => build_primitive_deserializer::<UInt64Type>(field, array),
-        T::I8 => build_primitive_deserializer::<Int8Type>(field, array),
-        T::I16 => build_primitive_deserializer::<Int16Type>(field, array),
-        T::I32 => build_primitive_deserializer::<Int32Type>(field, array),
-        T::I64 => build_primitive_deserializer::<Int64Type>(field, array),
+        T::U8 => build_integer_deserializer::<UInt8Type>(field, array),
+        T::U16 => build_integer_deserializer::<UInt16Type>(field, array),
+        T::U32 => build_integer_deserializer::<UInt32Type>(field, array),
+        T::U64 => build_integer_deserializer::<UInt64Type>(field, array),
+        T::I8 => build_integer_deserializer::<Int8Type>(field, array),
+        T::I16 => build_integer_deserializer::<Int16Type>(field, array),
+        T::I32 => build_integer_deserializer::<Int32Type>(field, array),
+        T::I64 => build_integer_deserializer::<Int64Type>(field, array),
+        T::F32 => build_float_deserializer::<Float32Type>(field, array),
+        T::F64 => build_float_deserializer::<Float64Type>(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
 
-pub fn build_primitive_deserializer<'a, T>(
+pub fn build_integer_deserializer<'a, T>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
     T: ArrowPrimitiveType,
-    T::Native: Primitive,
-    ArrayDeserializer<'a>: From<PrimitiveDeserializer<'a, T::Native>>,
+    T::Native: Integer,
+    ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T::Native>>,
 {
     let array = array
         .as_any()
@@ -110,7 +113,30 @@ where
             )
         })?;
     let validity = get_validity(array);
-    Ok(PrimitiveDeserializer::new(array.values(), validity).into())
+    Ok(IntegerDeserializer::new(array.values(), validity).into())
+}
+
+pub fn build_float_deserializer<'a, T>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: ArrowPrimitiveType,
+    T::Native: Float,
+    ArrayDeserializer<'a>: From<FloatDeserializer<'a, T::Native>>,
+{
+    let array = array
+        .as_any()
+        .downcast_ref::<PrimitiveArray<T>>()
+        .ok_or_else(|| {
+            error!(
+                "cannot convert {} array into {}",
+                array.data_type(),
+                field.data_type,
+            )
+        })?;
+    let validity = get_validity(array);
+    Ok(FloatDeserializer::new(array.values(), validity).into())
 }
 
 pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>

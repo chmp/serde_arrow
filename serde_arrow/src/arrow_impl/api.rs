@@ -10,7 +10,6 @@ use crate::{
         error::Result,
         schema::{GenericField, SerdeArrowSchema},
         serialization_ng::{utils::Mut, OuterSequenceBuilder},
-        source::deserialize_from_source,
     },
 };
 

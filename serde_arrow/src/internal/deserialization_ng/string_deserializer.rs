@@ -1,5 +1,9 @@
 use crate::{
-    internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
+    internal::{
+        common::BitBuffer,
+        error::{error, fail},
+        serialization_ng::utils::Mut,
+    },
     Result,
 };
 
@@ -40,6 +44,12 @@ impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
         self.next += 1;
 
         Ok(Some(s))
+    }
+
+    pub fn next_required(&mut self) -> Result<&str> {
+        self.next()?.ok_or_else(|| {
+            error!("Tried to deserialize a value from StringDeserializer, but value is missing")
+        })
     }
 
     pub fn peek_next(&self) -> Result<bool> {
@@ -84,16 +94,10 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     }
 
     fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        let Some(s) = self.next()? else {
-            fail!("Tried to deserialize a value from StringDeserializer, but value is missing");
-        };
-        visitor.visit_str(s)
+        visitor.visit_str(self.next_required()?)
     }
 
     fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        let Some(s) = self.next()? else {
-            fail!("Tried to deserialize a value from StringDeserializer, but value is missing");
-        };
-        visitor.visit_string(s.to_owned())
+        visitor.visit_string(self.next_required()?.to_owned())
     }
 }
