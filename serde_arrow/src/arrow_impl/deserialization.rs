@@ -1,6 +1,7 @@
 use crate::_impl::arrow::array::Array;
 use crate::internal::common::{BitBuffer, DictionaryIndex, DictionaryValue};
 use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
+use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
 use crate::internal::deserialization_ng::primitive_deserializer::Primitive;
 use crate::internal::{
     common::{check_supported_list_layout, ArrayMapping},
@@ -56,6 +57,21 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
+        T::Bool => {
+            let array = array
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .ok_or_else(|| error!("cannot convert {} array into bool", array.data_type()))?;
+
+            let buffer = BitBuffer {
+                data: array.values().values(),
+                offset: array.values().offset(),
+                number_of_bits: array.values().len(),
+            };
+            let validity = get_validity(array);
+
+            Ok(BoolDeserializer::new(buffer, validity).into())
+        }
         T::U8 => build_primitive_deserializer::<UInt8Type>(field, array),
         T::U16 => build_primitive_deserializer::<UInt16Type>(field, array),
         T::U32 => build_primitive_deserializer::<UInt32Type>(field, array),

@@ -41,6 +41,10 @@ macro_rules! implement_integer_into {
         fn into_u64(&self) -> Result<u64> {
             Ok((*self).try_into()?)
         }
+
+        fn into_bool(&self) -> Result<bool> {
+            Ok((*self) != 0)
+        }
     };
 }
 
