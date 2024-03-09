@@ -3,6 +3,7 @@ use crate::internal::common::BitBuffer;
 use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
 use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
 use crate::internal::deserialization_ng::list_deserializer::IntoUsize;
+use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
 use crate::internal::deserialization_ng::primitive_deserializer::Primitive;
 use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
 use crate::internal::{
@@ -59,6 +60,7 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
+        T::Null => Ok(NullDeserializer.into()),
         T::Bool => {
             let array = array
                 .as_any()

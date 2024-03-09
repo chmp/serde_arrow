@@ -5,7 +5,7 @@ use crate::{
     Result,
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::simple_deserializer::SimpleDeserializer;
 
 pub trait Primitive: Sized {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(

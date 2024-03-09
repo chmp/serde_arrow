@@ -2,11 +2,7 @@ use serde::de::Visitor;
 
 use crate::Result;
 
-use super::{
-    array_deserializer::ArrayDeserializer,
-    primitive_deserializer::{Primitive, PrimitiveDeserializer},
-    simple_deserializer::SimpleDeserializer,
-};
+use super::{primitive_deserializer::Primitive, simple_deserializer::SimpleDeserializer};
 
 macro_rules! implement_integer_into {
     () => {

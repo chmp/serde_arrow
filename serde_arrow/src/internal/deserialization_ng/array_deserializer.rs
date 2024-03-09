@@ -2,12 +2,14 @@ use crate::Result;
 
 use super::bool_deserializer::BoolDeserializer;
 use super::list_deserializer::ListDeserializer;
-use super::primitive_deserializer::{Primitive, PrimitiveDeserializer};
+use super::null_deserializer::NullDeserializer;
+use super::primitive_deserializer::PrimitiveDeserializer;
 use super::simple_deserializer::SimpleDeserializer;
 use super::string_deserializer::StringDeserializer;
 use super::struct_deserializer::StructDeserializer;
 
 pub enum ArrayDeserializer<'a> {
+    Null(NullDeserializer),
     Bool(BoolDeserializer<'a>),
     U8(PrimitiveDeserializer<'a, u8>),
     U16(PrimitiveDeserializer<'a, u16>),
@@ -22,6 +24,12 @@ pub enum ArrayDeserializer<'a> {
     Struct(StructDeserializer<'a>),
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
+}
+
+impl<'a> From<NullDeserializer> for ArrayDeserializer<'a> {
+    fn from(value: NullDeserializer) -> Self {
+        Self::Null(value)
+    }
 }
 
 impl<'a> From<BoolDeserializer<'a>> for ArrayDeserializer<'a> {
@@ -111,6 +119,7 @@ impl<'a> From<StringDeserializer<'a, i64>> for ArrayDeserializer<'a> {
 macro_rules! dispatch {
     ($obj:expr, $wrapper:ident($name:ident) => $expr:expr) => {
         match $obj {
+            $wrapper::Null($name) => $expr,
             $wrapper::Bool($name) => $expr,
             $wrapper::U8($name) => $expr,
             $wrapper::U16($name) => $expr,
@@ -140,6 +149,18 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
 
     fn deserialize_option<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_option(visitor))
+    }
+
+    fn deserialize_unit<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_unit(visitor))
+    }
+
+    fn deserialize_unit_struct<V: serde::de::Visitor<'de>>(
+        &mut self,
+        name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_unit_struct(name, visitor))
     }
 
     fn deserialize_bool<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
