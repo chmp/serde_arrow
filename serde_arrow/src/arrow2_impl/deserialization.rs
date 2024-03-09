@@ -13,6 +13,7 @@ use crate::{
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::{IntoUsize, ListDeserializer},
+        map_deserializer::MapDeserializer,
         null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
@@ -204,7 +205,35 @@ pub fn build_map_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    todo!()
+    let Some(entries_field) = field.children.first() else {
+        fail!("cannot get children of map");
+    };
+    let Some(keys_field) = entries_field.children.first() else {
+        fail!("cannot get keys field");
+    };
+    let Some(values_field) = entries_field.children.get(1) else {
+        fail!("cannot get values field");
+    };
+    let Some(array) = array.as_any().downcast_ref::<MapArray>() else {
+        fail!("cannot convert array into map array");
+    };
+    let Some(entries) = array.field().as_any().downcast_ref::<StructArray>() else {
+        fail!("cannot convert map field into struct array");
+    };
+    let Some(keys) = entries.values().first() else {
+        fail!("cannot get keys array of map entries");
+    };
+    let Some(values) = entries.values().get(1) else {
+        fail!("cannot get values array of map entries");
+    };
+
+    let offsets = array.offsets().as_slice();
+    let validity = get_validity(array);
+
+    let keys = build_array_deserializer(keys_field, keys.as_ref())?;
+    let values = build_array_deserializer(values_field, values.as_ref())?;
+
+    Ok(MapDeserializer::new(keys, values, offsets, validity).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
@@ -249,53 +278,6 @@ impl BufferExtract for dyn Array {
             T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
             T::Decimal128(_, _) => convert_primitive!(i128, Decimal128, push_u128_cast),
             T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Map => {
-                let Some(entries_field) = field.children.first() else {
-                    fail!("cannot get children of map");
-                };
-                let Some(keys_field) = entries_field.children.first() else {
-                    fail!("cannot get keys field");
-                };
-                let Some(values_field) = entries_field.children.get(1) else {
-                    fail!("cannot get values field");
-                };
-                let Some(typed) = self.as_any().downcast_ref::<MapArray>() else {
-                    fail!("cannot convert array into map array");
-                };
-                let Some(typed_entries) = typed.field().as_any().downcast_ref::<StructArray>()
-                else {
-                    fail!("cannot convert map field into struct array");
-                };
-                let Some(typed_keys) = typed_entries.values().first() else {
-                    fail!("cannot get keys array of map entries");
-                };
-                let Some(typed_values) = typed_entries.values().get(1) else {
-                    fail!("cannot get keys array of map entries");
-                };
-
-                let offsets = typed.offsets().as_slice();
-                let validity = get_validity(typed);
-
-                check_supported_list_layout(validity, offsets)?;
-                let offsets = buffers.push_u32_cast(offsets)?;
-                let validity = validity.map(|b| buffers.push_u1(b));
-
-                let keys = typed_keys.extract_buffers(keys_field, buffers)?;
-                let values = typed_values.extract_buffers(values_field, buffers)?;
-
-                let entries = Box::new(M::Struct {
-                    field: entries_field.clone(),
-                    validity: None,
-                    fields: vec![keys, values],
-                });
-
-                Ok(M::Map {
-                    field: field.clone(),
-                    validity,
-                    offsets,
-                    entries,
-                })
-            }
             T::Dictionary => {
                 let Some(keys_field) = field.children.first() else {
                     fail!("cannot get key field of dictionary");
@@ -374,15 +356,5 @@ impl BufferExtract for dyn Array {
             }
         }
     }
-}
-
-fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
-    let validity = arr.validity()?;
-    let (data, offset, number_of_bits) = validity.as_slice();
-    Some(BitBuffer {
-        data,
-        offset,
-        number_of_bits,
-    })
 }
  */
