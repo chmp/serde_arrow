@@ -4,7 +4,7 @@ use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeseria
 use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
 use crate::internal::deserialization_ng::float_deserializer::{Float, FloatDeserializer};
 use crate::internal::deserialization_ng::integer_deserializer::Integer;
-use crate::internal::deserialization_ng::list_deserializer::IntoUsize;
+use crate::internal::deserialization_ng::list_deserializer::{IntoUsize, ListDeserializer};
 use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
 use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
 use crate::internal::deserialization_ng::struct_deserializer::StructDeserializer;
@@ -46,21 +46,7 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Null => Ok(NullDeserializer.into()),
-        T::Bool => {
-            let array = array
-                .as_any()
-                .downcast_ref::<BooleanArray>()
-                .ok_or_else(|| error!("cannot convert {} array into bool", array.data_type()))?;
-
-            let buffer = BitBuffer {
-                data: array.values().values(),
-                offset: array.values().offset(),
-                number_of_bits: array.values().len(),
-            };
-            let validity = get_validity(array);
-
-            Ok(BoolDeserializer::new(buffer, validity).into())
-        }
+        T::Bool => build_bool_deserializer(array),
         T::U8 => build_integer_deserializer::<UInt8Type>(field, array),
         T::U16 => build_integer_deserializer::<UInt16Type>(field, array),
         T::U32 => build_integer_deserializer::<UInt32Type>(field, array),
@@ -74,8 +60,26 @@ pub fn build_array_deserializer<'a>(
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         T::Struct => build_struct_deserializer(field, array),
+        T::List => build_list_deserializer::<i32>(field, array),
+        T::LargeList => build_list_deserializer::<i64>(field, array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
+}
+
+pub fn build_bool_deserializer<'a>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>> {
+    let array = array
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .ok_or_else(|| error!("cannot convert {} array into bool", array.data_type()))?;
+
+    let buffer = BitBuffer {
+        data: array.values().values(),
+        offset: array.values().offset(),
+        number_of_bits: array.values().len(),
+    };
+    let validity = get_validity(array);
+
+    Ok(BoolDeserializer::new(buffer, validity).into())
 }
 
 pub fn build_integer_deserializer<'a, T>(
@@ -184,6 +188,28 @@ pub fn build_struct_fields<'a>(
     }
 
     Ok((deserializers, len))
+}
+
+pub fn build_list_deserializer<'a, O>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    O: OffsetSizeTrait + IntoUsize,
+    ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<GenericListArray<O>>() else {
+        fail!(
+            "Cannot interpret {} array as GenericListArray",
+            array.data_type()
+        );
+    };
+
+    let item = build_array_deserializer(&field.children[0], array.values())?;
+    let offsets = array.offsets();
+    let validity = get_validity(array);
+
+    Ok(ListDeserializer::new(item, offsets, validity).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

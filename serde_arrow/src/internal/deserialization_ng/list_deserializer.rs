@@ -1,6 +1,9 @@
 use serde::de::SeqAccess;
 
-use crate::{internal::serialization_ng::utils::Mut, Error, Result};
+use crate::{
+    internal::{common::BitBuffer, serialization_ng::utils::Mut},
+    Error, Result,
+};
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
@@ -23,7 +26,25 @@ impl IntoUsize for i64 {
 pub struct ListDeserializer<'a, O: IntoUsize> {
     pub item: Box<ArrayDeserializer<'a>>,
     pub offsets: &'a [O],
+    pub validity: Option<BitBuffer<'a>>,
     pub next: (usize, usize),
+}
+
+impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
+    pub fn new(
+        item: ArrayDeserializer<'a>,
+        offsets: &'a [O],
+        validity: Option<BitBuffer<'a>>,
+    ) -> Self {
+        assert!(validity.is_none());
+
+        Self {
+            item: Box::new(item),
+            offsets,
+            validity,
+            next: (0, 0),
+        }
+    }
 }
 
 impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
