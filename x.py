@@ -185,9 +185,25 @@ def example():
 
 
 @cmd(help="Run the tests")
-@arg("--backtrace", action="store_true", default=False)
-@arg("--full", action="store_true", default=False)
-def test(backtrace=False, full=False):
+@arg(
+    "--backtrace",
+    action="store_true",
+    default=False,
+    help="If given, print a backtrace on error",
+)
+@arg(
+    "--full",
+    action="store_true",
+    default=False,
+    help="If given, run all feature combinations",
+)
+@arg(
+    "--skip-arrow2",
+    action="store_true",
+    help="If given, skip arrow2 implementations in tests",
+)
+@arg("test_name", nargs="?", help="Filter of test names")
+def test(test_name, backtrace=False, full=False, skip_arrow2=False):
     import os
 
     if not full:
@@ -202,10 +218,19 @@ def test(backtrace=False, full=False):
             for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]
 
+    env = {
+        **os.environ,
+        **({"RUST_BACKTRACE": "1"} if backtrace else {}),
+        **({"SERDE_ARROW_SKIP_ARROW2_TESTS": "1"} if skip_arrow2 else {}),
+    }
     for feature_selection in feature_selections:
         _sh(
-            f"cargo test {feature_selection}",
-            env=dict(os.environ, RUST_BACKTRACE="1" if backtrace else "0"),
+            f"""
+                cargo test 
+                    {feature_selection} 
+                    {_q(test_name) if test_name else ''}    
+            """,
+            env=env,
         )
 
 

@@ -9,10 +9,12 @@ use crate::{
     internal::{
         error::Result,
         schema::{GenericField, SerdeArrowSchema},
-        serialization_ng::OuterSequenceBuilder,
+        serialization_ng::{utils::Mut, OuterSequenceBuilder},
         source::deserialize_from_source,
     },
 };
+
+use super::deserialization::build_deserializer;
 
 /// Build arrow arrays record by record (*requires one of the `arrow-*`
 /// features*)
@@ -203,28 +205,16 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    use crate::internal::{
-        common::{BufferExtract, Buffers},
-        deserialization,
-    };
-
     let fields = fields
         .iter()
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
-
-    let num_items = arrays
+    let arrays = arrays
         .iter()
-        .map(|a| a.as_ref().len())
-        .min()
-        .unwrap_or_default();
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
 
-    let mut buffers = Buffers::new();
-    let mut mappings = Vec::new();
-    for (field, array) in fields.iter().zip(arrays.iter()) {
-        mappings.push(array.as_ref().extract_buffers(field, &mut buffers)?);
-    }
-
-    let interpreter = deserialization::compile_deserialization(num_items, &mappings, buffers)?;
-    deserialize_from_source(interpreter)
+    let mut deserializer = build_deserializer(&fields, &arrays)?;
+    let res = T::deserialize(Mut(&mut deserializer))?;
+    Ok(res)
 }

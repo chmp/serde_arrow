@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, env, sync::Arc};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -27,9 +27,12 @@ pub struct Impls {
 
 impl std::default::Default for Impls {
     fn default() -> Self {
+        let skip_arrow_tests = env::var("SERDE_ARROW_SKIP_ARROW_TESTS").is_ok();
+        let skip_arrow2_tests = env::var("SERDE_ARROW_SKIP_ARROW2_TESTS").is_ok();
+
         Self {
-            arrow: true,
-            arrow2: true,
+            arrow: !skip_arrow_tests,
+            arrow2: !skip_arrow2_tests,
         }
     }
 }

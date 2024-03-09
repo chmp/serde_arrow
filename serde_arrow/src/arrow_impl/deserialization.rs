@@ -1,7 +1,13 @@
 use crate::_impl::arrow::array::Array;
 use crate::internal::common::{BitBuffer, DictionaryIndex, DictionaryValue};
+use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
+use crate::internal::deserialization_ng::primitive_deserializer::Primitive;
 use crate::internal::{
-    common::{check_supported_list_layout, ArrayMapping, BufferExtract, Buffers},
+    common::{check_supported_list_layout, ArrayMapping},
+    deserialization_ng::{
+        outer_sequence_deserializer::OuterSequenceDeserializer,
+        primitive_deserializer::PrimitiveDeserializer,
+    },
     error::{error, fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit},
 };
@@ -12,13 +18,91 @@ use crate::_impl::arrow::{
         PrimitiveArray, StringArray, StructArray,
     },
     datatypes::{
-        DataType, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type, Int16Type,
-        Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
-        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
-        UInt8Type,
+        ArrowPrimitiveType, DataType, Date64Type, Decimal128Type, Float16Type, Float32Type,
+        Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType,
+        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
+        UInt32Type, UInt64Type, UInt8Type,
     },
 };
 
+pub fn build_deserializer<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<OuterSequenceDeserializer<'a>> {
+    if fields.len() != arrays.len() {
+        fail!(
+            "different number of fields ({}) and arrays ({})",
+            fields.len(),
+            arrays.len()
+        );
+    }
+    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+    let mut deserializers = Vec::new();
+    for (field, &array) in std::iter::zip(fields, arrays) {
+        if array.len() != len {
+            fail!("arrays of different lengths are not supported");
+        }
+
+        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
+    }
+
+    Ok(OuterSequenceDeserializer::new(deserializers, len))
+}
+
+pub fn build_array_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+    match &field.data_type {
+        T::U8 => build_primitive_deserializer::<UInt8Type>(field, array),
+        T::U16 => build_primitive_deserializer::<UInt16Type>(field, array),
+        T::U32 => build_primitive_deserializer::<UInt32Type>(field, array),
+        T::U64 => build_primitive_deserializer::<UInt64Type>(field, array),
+        T::I8 => build_primitive_deserializer::<Int8Type>(field, array),
+        T::I16 => build_primitive_deserializer::<Int16Type>(field, array),
+        T::I32 => build_primitive_deserializer::<Int32Type>(field, array),
+        T::I64 => build_primitive_deserializer::<Int64Type>(field, array),
+        dt => fail!("Datatype {dt} is not supported for deserialization"),
+    }
+}
+
+pub fn build_primitive_deserializer<'a, T>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: ArrowPrimitiveType,
+    T::Native: Primitive,
+{
+    let array = array
+        .as_any()
+        .downcast_ref::<PrimitiveArray<T>>()
+        .ok_or_else(|| {
+            error!(
+                "cannot convert {} array into {}",
+                array.data_type(),
+                field.data_type,
+            )
+        })?;
+    let validity = get_validity(array);
+    Ok(PrimitiveDeserializer::new(array.values(), validity).into())
+}
+
+fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
+    let validity = arr.nulls()?;
+    let data = validity.validity();
+    let offset = validity.offset();
+    let number_of_bits = validity.len();
+    Some(BitBuffer {
+        data,
+        offset,
+        number_of_bits,
+    })
+}
+
+/*
 impl BufferExtract for dyn Array {
     fn len(&self) -> usize {
         Array::len(self)
@@ -306,15 +390,4 @@ impl BufferExtract for dyn Array {
         }
     }
 }
-
-fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
-    let validity = arr.nulls()?;
-    let data = validity.validity();
-    let offset = validity.offset();
-    let number_of_bits = validity.len();
-    Some(BitBuffer {
-        data,
-        offset,
-        number_of_bits,
-    })
-}
+ */

@@ -7,17 +7,28 @@ use crate::{
         datatypes::DataType,
         types::f16,
     },
-    internal::common::{DictionaryIndex, DictionaryValue},
+    internal::{
+        common::{DictionaryIndex, DictionaryValue},
+        deserialization_ng::outer_sequence_deserializer::OuterSequenceDeserializer,
+    },
 };
 use crate::{
     internal::{
-        common::{check_supported_list_layout, ArrayMapping, BitBuffer, BufferExtract, Buffers},
+        common::{check_supported_list_layout, ArrayMapping, BitBuffer},
         error::{error, fail},
         schema::{GenericDataType, GenericField},
     },
     Result,
 };
 
+pub fn build_deserializer<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<OuterSequenceDeserializer<'a>> {
+    todo!()
+}
+
+/*
 impl BufferExtract for &dyn Array {
     fn len(&self) -> usize {
         (*self).len()
@@ -316,3 +327,4 @@ fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
         number_of_bits,
     })
 }
+ */

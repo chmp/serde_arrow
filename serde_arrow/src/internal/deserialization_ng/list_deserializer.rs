@@ -20,11 +20,10 @@ impl IntoUsize for i64 {
     }
 }
 
-
 pub struct ListDeserializer<'a, O: IntoUsize> {
     pub item: Box<ArrayDeserializer<'a>>,
     pub offsets: &'a [O],
-    pub next: (usize, usize), 
+    pub next: (usize, usize),
 }
 
 impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
@@ -37,14 +36,17 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     }
 
     fn deserialize_seq<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)        
+        visitor.visit_seq(self)
     }
 }
 
 impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
     type Error = Error;
 
-    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
+    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>> {
         let (item, offset) = self.next;
         if item + 1 >= self.offsets.len() {
             return Ok(None);
@@ -57,7 +59,7 @@ impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
             return Ok(None);
         }
         self.next = (item, offset + 1);
-        
+
         let item = seed.deserialize(Mut(self.item.as_mut()))?;
         Ok(Some(item))
     }

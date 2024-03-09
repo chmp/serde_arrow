@@ -4,7 +4,6 @@ use crate::{internal::serialization_ng::utils::Mut, Error, Result};
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
-
 pub struct StructDeserializer<'a> {
     pub fields: Vec<(String, ArrayDeserializer<'a>)>,
     pub next: (usize, usize),
@@ -47,14 +46,17 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
 impl<'de> MapAccess<'de> for StructDeserializer<'de> {
     type Error = Error;
 
-    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
+    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<K::Value>> {
         let (item, field) = self.next;
-        if item >= self.len  {
-            return Ok(None)
+        if item >= self.len {
+            return Ok(None);
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);
-            return Ok(None)
+            return Ok(None);
         }
 
         let key = seed.deserialize(StrDeserializer::<Error>::new(&self.fields[field].0))?;
@@ -63,8 +65,8 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
 
     fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let (item, field) = self.next;
-        self.next =  (item, field + 1);
-        
+        self.next = (item, field + 1);
+
         seed.deserialize(Mut(&mut self.fields[field].1))
     }
 }

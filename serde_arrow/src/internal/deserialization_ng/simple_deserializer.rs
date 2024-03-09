@@ -1,7 +1,9 @@
 use serde::Deserializer;
 
-use crate::{internal::{error::fail, serialization_ng::utils::Mut}, Error, Result};
-
+use crate::{
+    internal::{error::fail, serialization_ng::utils::Mut},
+    Error, Result,
+};
 
 #[allow(unused)]
 pub trait SimpleDeserializer<'de> {
@@ -11,8 +13,14 @@ pub trait SimpleDeserializer<'de> {
         fail!("{} does not implement deserialize_any", Self::name());
     }
 
-    fn deserialize_ignored_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        fail!("{} does not implement deserialize_ignored_any", Self::name());
+    fn deserialize_ignored_any<V: serde::de::Visitor<'de>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
+        fail!(
+            "{} does not implement deserialize_ignored_any",
+            Self::name()
+        );
     }
 
     fn deserialize_bool<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
@@ -101,7 +109,10 @@ pub trait SimpleDeserializer<'de> {
         fail!("{} does not implement deserialize_enum", Self::name());
     }
 
-    fn deserialize_identifier<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_identifier<V: serde::de::Visitor<'de>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
         fail!("{} does not implement deserialize_identifier", Self::name());
     }
 
@@ -114,7 +125,10 @@ pub trait SimpleDeserializer<'de> {
         name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        fail!("{} does not implement deserialize_newtype_struct", Self::name());
+        fail!(
+            "{} does not implement deserialize_newtype_struct",
+            Self::name()
+        );
     }
 
     fn deserialize_tuple<V: serde::de::Visitor<'de>>(
@@ -135,7 +149,10 @@ pub trait SimpleDeserializer<'de> {
         len: usize,
         visitor: V,
     ) -> Result<V::Value> {
-        fail!("{} does not implement deserialize_tuple_struct", Self::name());
+        fail!(
+            "{} does not implement deserialize_tuple_struct",
+            Self::name()
+        );
     }
 
     fn deserialize_unit<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
@@ -147,9 +164,11 @@ pub trait SimpleDeserializer<'de> {
         name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        fail!("{} does not implement deserialize_unit_struct", Self::name());
+        fail!(
+            "{} does not implement deserialize_unit_struct",
+            Self::name()
+        );
     }
-
 }
 
 impl<'a, 'de, D: SimpleDeserializer<'de>> Deserializer<'de> for Mut<'a, D> {
@@ -298,4 +317,3 @@ impl<'a, 'de, D: SimpleDeserializer<'de>> Deserializer<'de> for Mut<'a, D> {
         self.0.deserialize_unit_struct(name, visitor)
     }
 }
-
