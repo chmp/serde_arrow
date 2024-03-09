@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[allow(unused)]
-pub trait SimpleDeserializer<'de> {
+pub trait SimpleDeserializer<'de>: Sized {
     fn name() -> &'static str;
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
@@ -17,10 +17,7 @@ pub trait SimpleDeserializer<'de> {
         &mut self,
         visitor: V,
     ) -> Result<V::Value> {
-        fail!(
-            "{} does not implement deserialize_ignored_any",
-            Self::name()
-        );
+        self.deserialize_any(visitor)
     }
 
     fn deserialize_bool<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
@@ -125,10 +122,7 @@ pub trait SimpleDeserializer<'de> {
         name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        fail!(
-            "{} does not implement deserialize_newtype_struct",
-            Self::name()
-        );
+        visitor.visit_newtype_struct(Mut(self))
     }
 
     fn deserialize_tuple<V: serde::de::Visitor<'de>>(

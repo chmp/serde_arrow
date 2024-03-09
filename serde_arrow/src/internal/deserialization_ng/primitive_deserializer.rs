@@ -8,10 +8,6 @@ use crate::{
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
 pub trait Primitive: Sized {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a>;
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,

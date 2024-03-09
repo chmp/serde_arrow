@@ -7,14 +7,11 @@ use crate::{
         datatypes::DataType,
         types::f16,
     },
-    internal::{
-        common::{DictionaryIndex, DictionaryValue},
-        deserialization_ng::outer_sequence_deserializer::OuterSequenceDeserializer,
-    },
+    internal::deserialization_ng::outer_sequence_deserializer::OuterSequenceDeserializer,
 };
 use crate::{
     internal::{
-        common::{check_supported_list_layout, ArrayMapping, BitBuffer},
+        common::{check_supported_list_layout, BitBuffer},
         error::{error, fail},
         schema::{GenericDataType, GenericField},
     },

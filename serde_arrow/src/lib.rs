@@ -206,6 +206,7 @@ pub mod _impl {
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
                         DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
                         OffsetSizeTrait, PrimitiveArray, StringArray, StructArray, UnionArray,
+                        GenericStringArray,
                     };
                     pub use $arrow_data::ArrayData;
                 }

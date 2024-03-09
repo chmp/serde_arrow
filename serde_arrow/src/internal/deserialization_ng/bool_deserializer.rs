@@ -1,5 +1,3 @@
-use serde::de::Visitor;
-
 use crate::{
     internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
     Result,
@@ -63,7 +61,7 @@ impl<'a> BoolDeserializer<'a> {
 
 impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
     fn name() -> &'static str {
-        "PrimitiveDeserializer"
+        "BoolDeserializer"
     }
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {

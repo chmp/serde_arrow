@@ -1,10 +1,12 @@
 use crate::_impl::arrow::array::Array;
-use crate::internal::common::{BitBuffer, DictionaryIndex, DictionaryValue};
+use crate::internal::common::BitBuffer;
 use crate::internal::deserialization_ng::array_deserializer::{self, ArrayDeserializer};
 use crate::internal::deserialization_ng::bool_deserializer::BoolDeserializer;
+use crate::internal::deserialization_ng::list_deserializer::IntoUsize;
 use crate::internal::deserialization_ng::primitive_deserializer::Primitive;
+use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
 use crate::internal::{
-    common::{check_supported_list_layout, ArrayMapping},
+    common::check_supported_list_layout,
     deserialization_ng::{
         outer_sequence_deserializer::OuterSequenceDeserializer,
         primitive_deserializer::PrimitiveDeserializer,
@@ -15,8 +17,8 @@ use crate::internal::{
 
 use crate::_impl::arrow::{
     array::{
-        BooleanArray, DictionaryArray, GenericListArray, LargeStringArray, MapArray,
-        PrimitiveArray, StringArray, StructArray,
+        BooleanArray, DictionaryArray, GenericListArray, GenericStringArray, LargeStringArray,
+        MapArray, OffsetSizeTrait, PrimitiveArray, StringArray, StructArray,
     },
     datatypes::{
         ArrowPrimitiveType, DataType, Date64Type, Decimal128Type, Float16Type, Float32Type,
@@ -80,6 +82,8 @@ pub fn build_array_deserializer<'a>(
         T::I16 => build_primitive_deserializer::<Int16Type>(field, array),
         T::I32 => build_primitive_deserializer::<Int32Type>(field, array),
         T::I64 => build_primitive_deserializer::<Int64Type>(field, array),
+        T::Utf8 => build_string_deserializer::<i32>(array),
+        T::LargeUtf8 => build_string_deserializer::<i64>(array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
@@ -91,6 +95,7 @@ pub fn build_primitive_deserializer<'a, T>(
 where
     T: ArrowPrimitiveType,
     T::Native: Primitive,
+    ArrayDeserializer<'a>: From<PrimitiveDeserializer<'a, T::Native>>,
 {
     let array = array
         .as_any()
@@ -104,6 +109,23 @@ where
         })?;
     let validity = get_validity(array);
     Ok(PrimitiveDeserializer::new(array.values(), validity).into())
+}
+
+pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>
+where
+    O: OffsetSizeTrait + IntoUsize,
+    ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
+{
+    let array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<O>>()
+        .ok_or_else(|| error!("cannot convert {} array into string", array.data_type()))?;
+
+    let buffer = array.value_data();
+    let offsets = array.value_offsets();
+    let validity = get_validity(array);
+
+    Ok(StringDeserializer::new(buffer, offsets, validity).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
@@ -149,25 +171,6 @@ impl BufferExtract for dyn Array {
                     field: field.clone(),
                     buffer,
                     validity,
-                })
-            }};
-        }
-
-        macro_rules! convert_utf8 {
-            ($array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self.as_any().downcast_ref::<$array_type>().ok_or_else(|| {
-                    error!("cannot convert {} array into string", self.data_type())
-                })?;
-
-                let buffer = buffers.push_u8(typed.value_data());
-                let offsets = buffers.$push_func(typed.value_offsets())?;
-                let validity = get_validity(self).map(|v| buffers.push_u1(v));
-
-                Ok(M::$variant {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                    offsets,
                 })
             }};
         }

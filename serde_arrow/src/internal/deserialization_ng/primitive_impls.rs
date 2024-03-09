@@ -49,12 +49,6 @@ macro_rules! implement_integer_into {
 }
 
 impl Primitive for i8 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::I8(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -66,12 +60,6 @@ impl Primitive for i8 {
 }
 
 impl Primitive for i16 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::I16(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -83,12 +71,6 @@ impl Primitive for i16 {
 }
 
 impl Primitive for i32 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::I32(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -100,12 +82,6 @@ impl Primitive for i32 {
 }
 
 impl Primitive for i64 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::I64(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -117,12 +93,6 @@ impl Primitive for i64 {
 }
 
 impl Primitive for u8 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::U8(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -134,12 +104,6 @@ impl Primitive for u8 {
 }
 
 impl Primitive for u16 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::U16(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -151,12 +115,6 @@ impl Primitive for u16 {
 }
 
 impl Primitive for u32 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::U32(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -168,12 +126,6 @@ impl Primitive for u32 {
 }
 
 impl Primitive for u64 {
-    fn build_array_deserializer<'a>(
-        deser: PrimitiveDeserializer<'a, Self>,
-    ) -> ArrayDeserializer<'a> {
-        ArrayDeserializer::U64(deser)
-    }
-
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,

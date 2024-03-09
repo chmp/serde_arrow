@@ -4,6 +4,7 @@ use super::bool_deserializer::BoolDeserializer;
 use super::list_deserializer::ListDeserializer;
 use super::primitive_deserializer::{Primitive, PrimitiveDeserializer};
 use super::simple_deserializer::SimpleDeserializer;
+use super::string_deserializer::StringDeserializer;
 use super::struct_deserializer::StructDeserializer;
 
 pub enum ArrayDeserializer<'a> {
@@ -16,6 +17,8 @@ pub enum ArrayDeserializer<'a> {
     I16(PrimitiveDeserializer<'a, i16>),
     I32(PrimitiveDeserializer<'a, i32>),
     I64(PrimitiveDeserializer<'a, i64>),
+    Utf8(StringDeserializer<'a, i32>),
+    LargeUtf8(StringDeserializer<'a, i64>),
     Struct(StructDeserializer<'a>),
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
@@ -27,9 +30,51 @@ impl<'a> From<BoolDeserializer<'a>> for ArrayDeserializer<'a> {
     }
 }
 
-impl<'a, T: Primitive> From<PrimitiveDeserializer<'a, T>> for ArrayDeserializer<'a> {
-    fn from(value: PrimitiveDeserializer<'a, T>) -> Self {
-        T::build_array_deserializer(value)
+impl<'a> From<PrimitiveDeserializer<'a, i8>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, i8>) -> Self {
+        Self::I8(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, i16>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, i16>) -> Self {
+        Self::I16(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, i32>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, i32>) -> Self {
+        Self::I32(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, i64>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, i64>) -> Self {
+        Self::I64(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, u8>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, u8>) -> Self {
+        Self::U8(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, u16>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, u16>) -> Self {
+        Self::U16(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, u32>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, u32>) -> Self {
+        Self::U32(value)
+    }
+}
+
+impl<'a> From<PrimitiveDeserializer<'a, u64>> for ArrayDeserializer<'a> {
+    fn from(value: PrimitiveDeserializer<'a, u64>) -> Self {
+        Self::U64(value)
     }
 }
 
@@ -51,6 +96,18 @@ impl<'a> From<ListDeserializer<'a, i64>> for ArrayDeserializer<'a> {
     }
 }
 
+impl<'a> From<StringDeserializer<'a, i32>> for ArrayDeserializer<'a> {
+    fn from(value: StringDeserializer<'a, i32>) -> Self {
+        Self::Utf8(value)
+    }
+}
+
+impl<'a> From<StringDeserializer<'a, i64>> for ArrayDeserializer<'a> {
+    fn from(value: StringDeserializer<'a, i64>) -> Self {
+        Self::LargeUtf8(value)
+    }
+}
+
 macro_rules! dispatch {
     ($obj:expr, $wrapper:ident($name:ident) => $expr:expr) => {
         match $obj {
@@ -63,6 +120,8 @@ macro_rules! dispatch {
             $wrapper::I16($name) => $expr,
             $wrapper::I32($name) => $expr,
             $wrapper::I64($name) => $expr,
+            $wrapper::Utf8($name) => $expr,
+            $wrapper::LargeUtf8($name) => $expr,
             $wrapper::Struct($name) => $expr,
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
@@ -129,6 +188,14 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
 
     fn deserialize_f64<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_f64(visitor))
+    }
+
+    fn deserialize_str<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_str(visitor))
+    }
+
+    fn deserialize_string<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_string(visitor))
     }
 
     fn deserialize_struct<V: serde::de::Visitor<'de>>(
