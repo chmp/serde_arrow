@@ -16,6 +16,7 @@ use crate::{
         null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
+        struct_deserializer::StructDeserializer,
     },
 };
 use crate::{
@@ -135,7 +136,20 @@ pub fn build_struct_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    todo!()
+    let Some(array) = array.as_any().downcast_ref::<StructArray>() else {
+        fail!("Cannot convert array into struct");
+    };
+
+    let fields = &field.children;
+    let arrays = array
+        .values()
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+    let validity = get_validity(array);
+
+    let (deserializers, len) = build_struct_fields(fields, &arrays)?;
+    Ok(StructDeserializer::new(deserializers, validity, len).into())
 }
 
 pub fn build_struct_fields<'a>(
@@ -171,7 +185,19 @@ where
     O: Offset + IntoUsize,
     ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
 {
-    todo!()
+    let Some(array) = array.as_any().downcast_ref::<ListArray<O>>() else {
+        fail!("cannot interpret array as LargeList array");
+    };
+
+    let validity = get_validity(array);
+    let offsets = array.offsets().as_slice();
+
+    let Some(item_field) = field.children.first() else {
+        fail!("cannot get first child of list array")
+    };
+    let item = build_array_deserializer(item_field, array.values().as_ref())?;
+
+    Ok(ListDeserializer::new(item, offsets, validity).into())
 }
 
 pub fn build_map_deserializer<'a>(
@@ -217,62 +243,12 @@ impl BufferExtract for dyn Array {
         buffers: &mut Buffers<'a>,
     ) -> Result<ArrayMapping> {
 
-        macro_rules! convert_list {
-            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let Some(typed) = self.as_any().downcast_ref::<ListArray<$offset_type>>() else {
-                    fail!("cannot interpret array as LargeList array");
-                };
-
-                let validity = get_validity(typed);
-                let offsets = typed.offsets();
-                let offsets = offsets.as_slice();
-
-                check_supported_list_layout(validity, offsets)?;
-
-                let offsets = buffers.$push_func(offsets)?;
-                let validity = validity.map(|v| buffers.push_u1(v));
-
-                let Some(item_field) = field.children.first() else {
-                    fail!("cannot get first child of list array")
-                };
-                let item = typed.values().extract_buffers(item_field, buffers)?;
-
-                Ok(M::$variant {
-                    field: field.clone(),
-                    item: Box::new(item),
-                    validity,
-                    offsets,
-                })
-            }};
-        }
-
         use {ArrayMapping as M, GenericDataType as T};
 
         match &field.data_type {
             T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
             T::Decimal128(_, _) => convert_primitive!(i128, Decimal128, push_u128_cast),
             T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
-            T::List => convert_list!(i32, List, push_u32_cast),
-            T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
-            T::Struct => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<StructArray>()
-                    .ok_or_else(|| error!("cannot interpret array as Bool array"))?;
-
-                let validity = get_validity(self).map(|v| buffers.push_u1(v));
-                let mut fields = Vec::new();
-
-                for (field, col) in field.children.iter().zip(typed.values()) {
-                    fields.push(col.extract_buffers(field, buffers)?);
-                }
-
-                Ok(M::Struct {
-                    field: field.clone(),
-                    validity,
-                    fields,
-                })
-            }
             T::Map => {
                 let Some(entries_field) = field.children.first() else {
                     fail!("cannot get children of map");
