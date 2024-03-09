@@ -1,7 +1,7 @@
-use serde::de::SeqAccess;
+use serde::de::{SeqAccess, Visitor};
 
 use crate::{
-    internal::{common::BitBuffer, serialization_ng::utils::Mut},
+    internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
     Error, Result,
 };
 
@@ -36,14 +36,27 @@ impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
         offsets: &'a [O],
         validity: Option<BitBuffer<'a>>,
     ) -> Self {
-        assert!(validity.is_none());
-
         Self {
             item: Box::new(item),
             offsets,
             validity,
             next: (0, 0),
         }
+    }
+
+    pub fn peek_next(&self) -> Result<bool> {
+        if self.next.0 + 1 >= self.offsets.len() {
+            fail!("Exhausted ListDeserializer")
+        }
+        if let Some(validity) = &self.validity {
+            Ok(validity.is_set(self.next.0))
+        } else {
+            Ok(true)
+        }
+    }
+
+    pub fn consume_next(&mut self) {
+        self.next = (self.next.0 + 1, 0);
     }
 }
 
@@ -52,11 +65,25 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
         "ListDeserializer"
     }
 
-    fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_seq(visitor)
+    fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        if self.peek_next()? {
+            self.deserialize_seq(visitor)
+        } else {
+            self.consume_next();
+            visitor.visit_none()
+        }
     }
 
-    fn deserialize_seq<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        if self.peek_next()? {
+            visitor.visit_some(Mut(self))
+        } else {
+            self.consume_next();
+            visitor.visit_none()
+        }
+    }
+
+    fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_seq(self)
     }
 }
