@@ -67,10 +67,9 @@ pub fn build_array_deserializer<'a>(
 }
 
 pub fn build_bool_deserializer<'a>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>> {
-    let array = array
-        .as_any()
-        .downcast_ref::<BooleanArray>()
-        .ok_or_else(|| error!("cannot convert {} array into bool", array.data_type()))?;
+    let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
+        fail!("cannot convert {} array into bool", array.data_type());
+    };
 
     let buffer = BitBuffer {
         data: array.values().values(),
@@ -91,16 +90,14 @@ where
     T::Native: Integer,
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T::Native>>,
 {
-    let array = array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<T>>()
-        .ok_or_else(|| {
-            error!(
-                "cannot convert {} array into {}",
-                array.data_type(),
-                field.data_type,
-            )
-        })?;
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!(
+            "cannot convert {} array into {}",
+            array.data_type(),
+            field.data_type,
+        );
+    };
+
     let validity = get_validity(array);
     Ok(IntegerDeserializer::new(array.values(), validity).into())
 }
@@ -114,16 +111,14 @@ where
     T::Native: Float,
     ArrayDeserializer<'a>: From<FloatDeserializer<'a, T::Native>>,
 {
-    let array = array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<T>>()
-        .ok_or_else(|| {
-            error!(
-                "cannot convert {} array into {}",
-                array.data_type(),
-                field.data_type,
-            )
-        })?;
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!(
+            "cannot convert {} array into {}",
+            array.data_type(),
+            field.data_type,
+        );
+    };
+
     let validity = get_validity(array);
     Ok(FloatDeserializer::new(array.values(), validity).into())
 }
@@ -133,10 +128,9 @@ where
     O: OffsetSizeTrait + IntoUsize,
     ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
 {
-    let array = array
-        .as_any()
-        .downcast_ref::<GenericStringArray<O>>()
-        .ok_or_else(|| error!("cannot convert {} array into string", array.data_type()))?;
+    let Some(array) = array.as_any().downcast_ref::<GenericStringArray<O>>() else {
+        fail!("cannot convert {} array into string", array.data_type());
+    };
 
     let buffer = array.value_data();
     let offsets = array.value_offsets();
