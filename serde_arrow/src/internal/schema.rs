@@ -453,7 +453,9 @@ pub enum GenericDataType {
     F64,
     Utf8,
     LargeUtf8,
+    Date32,
     Date64,
+    Time64(GenericTimeUnit),
     Struct,
     List,
     LargeList,
@@ -483,6 +485,7 @@ impl std::fmt::Display for GenericDataType {
             F16 => write!(f, "F16"),
             F32 => write!(f, "F32"),
             F64 => write!(f, "F64"),
+            Date32 => write!(f, "Date32"),
             Date64 => write!(f, "Date64"),
             Struct => write!(f, "Struct"),
             List => write!(f, "List"),
@@ -497,6 +500,7 @@ impl std::fmt::Display for GenericDataType {
                     write!(f, "Timestamp({unit}, None)")
                 }
             }
+            Time64(unit) => write!(f, "Time({unit}))"),
             Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
     }
@@ -540,6 +544,8 @@ impl std::str::FromStr for GenericDataType {
             Ok(GenericDataType::F64)
         } else if s == "Date64" {
             Ok(GenericDataType::Date64)
+        } else if s == "Date32" {
+            Ok(GenericDataType::Date32)
         } else if s == "Struct" {
             Ok(GenericDataType::Struct)
         } else if s == "List" {
@@ -580,6 +586,19 @@ impl std::str::FromStr for GenericDataType {
             };
 
             Ok(GenericDataType::Timestamp(unit, Some(s.to_string())))
+        } else if let Some(s) = s.strip_prefix("Time(") {
+            let unit = if s.strip_prefix("Second, ").is_some() {
+                GenericTimeUnit::Second
+            } else if s.strip_prefix("Millisecond, ").is_some() {
+                GenericTimeUnit::Millisecond
+            } else if s.strip_prefix("Microsecond, ").is_some() {
+                GenericTimeUnit::Microsecond
+            } else if s.strip_prefix("Nanosecond, ").is_some() {
+                GenericTimeUnit::Nanosecond
+            } else {
+                fail!("expected valid time unit");
+            };
+            Ok(GenericDataType::Time64(unit))
         } else if let Some(s) = s.strip_prefix("Decimal128(") {
             let Some(s) = s.strip_suffix(')') else {
                 fail!("invalid Decimal128 data type");
@@ -668,6 +687,7 @@ impl GenericField {
             GenericDataType::F64 => self.validate_primitive(),
             GenericDataType::Utf8 => self.validate_primitive(),
             GenericDataType::LargeUtf8 => self.validate_primitive(),
+            GenericDataType::Date32 => self.validate_date32(),
             GenericDataType::Date64 => self.validate_date64(),
             GenericDataType::Struct => self.validate_struct(),
             GenericDataType::Map => self.validate_map(),
@@ -676,6 +696,7 @@ impl GenericField {
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
+            GenericDataType::Time64(_) => self.validate_time(),
             GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
     }
@@ -746,6 +767,20 @@ impl GenericField {
         Ok(())
     }
 
+    pub(crate) fn validate_date32(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for {}: {}",
+                self.data_type,
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_date64(&self) -> Result<()> {
         if !matches!(
             self.strategy,
@@ -792,6 +827,20 @@ impl GenericField {
                 strategy
             ),
         }
+    }
+
+    pub(crate) fn validate_time(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for {}: {}",
+                self.data_type,
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
+        Ok(())
     }
 
     pub(crate) fn validate_struct(&self) -> Result<()> {

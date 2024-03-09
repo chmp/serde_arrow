@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     bool_builder::BoolBuilder,
+    date32_builder::Date32Builder,
     date64_builder::Date64Builder,
     decimal_builder::DecimalBuilder,
     dictionary_utf8_builder::DictionaryUtf8Builder,
@@ -20,6 +21,7 @@ use super::{
     map_builder::MapBuilder,
     null_builder::NullBuilder,
     struct_builder::StructBuilder,
+    time64_builder::Time64Builder,
     union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder,
     utf8_builder::Utf8Builder,
@@ -67,6 +69,7 @@ impl OuterSequenceBuilder {
                 T::F16 => A::F16(FloatBuilder::new(field.nullable)),
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
+                T::Date32 => A::Date32(Date32Builder::new(field.clone(), field.nullable)),
                 T::Date64 => match field.strategy.as_ref() {
                     Some(Strategy::NaiveStrAsDate64) => {
                         A::Date64(Date64Builder::new(field.clone(), false, field.nullable))
@@ -89,6 +92,12 @@ impl OuterSequenceBuilder {
                         }
                         Some(tz) => fail!("Timezone {tz} is not supported"),
                     }
+                }
+                T::Time64(unit) => {
+                    if !matches!(unit, GenericTimeUnit::Nanosecond) {
+                        fail!("Only timestamps with nanosecond unit are supported");
+                    }
+                    A::Time64(Time64Builder::new(field.clone(), field.nullable))
                 }
                 T::Decimal128(precision, scale) => {
                     A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))

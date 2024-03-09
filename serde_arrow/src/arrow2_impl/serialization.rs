@@ -65,7 +65,17 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
         ),
         A::F32(builder) => build_primitive_array(T::Float32, builder.buffer, builder.validity),
         A::F64(builder) => build_primitive_array(T::Float64, builder.buffer, builder.validity),
+        A::Date32(builder) => build_primitive_array(
+            Field::try_from(&builder.field)?.data_type,
+            builder.buffer,
+            builder.validity,
+        ),
         A::Date64(builder) => build_primitive_array(
+            Field::try_from(&builder.field)?.data_type,
+            builder.buffer,
+            builder.validity,
+        ),
+        A::Time64(builder) => build_primitive_array(
             Field::try_from(&builder.field)?.data_type,
             builder.buffer,
             builder.validity,

@@ -208,7 +208,18 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F16 => DataType::Float16,
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
+            GenericDataType::Date32 => DataType::Date32,
             GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Time64(GenericTimeUnit::Second) => DataType::Time64(TimeUnit::Second),
+            GenericDataType::Time64(GenericTimeUnit::Millisecond) => {
+                DataType::Time64(TimeUnit::Millisecond)
+            }
+            GenericDataType::Time64(GenericTimeUnit::Microsecond) => {
+                DataType::Time64(TimeUnit::Microsecond)
+            }
+            GenericDataType::Time64(GenericTimeUnit::Nanosecond) => {
+                DataType::Time64(TimeUnit::Nanosecond)
+            }
             GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
                 DataType::Timestamp(TimeUnit::Second, tz.clone())
             }

@@ -99,9 +99,22 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Float64 => Ok(GenericDataType::F64),
             DataType::Utf8 => Ok(GenericDataType::Utf8),
             DataType::LargeUtf8 => Ok(GenericDataType::LargeUtf8),
+            DataType::Date32 => Ok(GenericDataType::Date32),
             DataType::Date64 => Ok(GenericDataType::Date64),
             DataType::Decimal128(precision, scale) => {
                 Ok(GenericDataType::Decimal128(*precision, *scale))
+            }
+            DataType::Time64(TimeUnit::Second) => {
+                Ok(GenericDataType::Time64(GenericTimeUnit::Second))
+            }
+            DataType::Time64(TimeUnit::Millisecond) => {
+                Ok(GenericDataType::Time64(GenericTimeUnit::Millisecond))
+            }
+            DataType::Time64(TimeUnit::Microsecond) => {
+                Ok(GenericDataType::Time64(GenericTimeUnit::Microsecond))
+            }
+            DataType::Time64(TimeUnit::Nanosecond) => {
+                Ok(GenericDataType::Time64(GenericTimeUnit::Nanosecond))
             }
             DataType::Timestamp(TimeUnit::Second, tz) => Ok(GenericDataType::Timestamp(
                 GenericTimeUnit::Second,
@@ -211,6 +224,7 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F16 => DataType::Float16,
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
+            GenericDataType::Date32 => DataType::Date32,
             GenericDataType::Date64 => DataType::Date64,
             GenericDataType::Decimal128(precision, scale) => {
                 DataType::Decimal128(*precision, *scale)
@@ -282,6 +296,16 @@ impl TryFrom<&GenericField> for Field {
                 };
 
                 DataType::Dictionary(Box::new(key_type), Box::new(val_field.data_type().clone()))
+            }
+            GenericDataType::Time64(GenericTimeUnit::Second) => DataType::Time64(TimeUnit::Second),
+            GenericDataType::Time64(GenericTimeUnit::Millisecond) => {
+                DataType::Time64(TimeUnit::Millisecond)
+            }
+            GenericDataType::Time64(GenericTimeUnit::Microsecond) => {
+                DataType::Time64(TimeUnit::Microsecond)
+            }
+            GenericDataType::Time64(GenericTimeUnit::Nanosecond) => {
+                DataType::Time64(TimeUnit::Nanosecond)
             }
             GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
                 DataType::Timestamp(TimeUnit::Second, tz.clone().map(|s| s.into()))
