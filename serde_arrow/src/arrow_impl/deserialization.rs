@@ -7,6 +7,7 @@ use crate::internal::deserialization_ng::integer_deserializer::Integer;
 use crate::internal::deserialization_ng::list_deserializer::IntoUsize;
 use crate::internal::deserialization_ng::null_deserializer::NullDeserializer;
 use crate::internal::deserialization_ng::string_deserializer::StringDeserializer;
+use crate::internal::deserialization_ng::struct_deserializer::StructDeserializer;
 use crate::internal::{
     common::check_supported_list_layout,
     deserialization_ng::{
@@ -34,24 +35,7 @@ pub fn build_deserializer<'a>(
     fields: &[GenericField],
     arrays: &[&'a dyn Array],
 ) -> Result<OuterSequenceDeserializer<'a>> {
-    if fields.len() != arrays.len() {
-        fail!(
-            "different number of fields ({}) and arrays ({})",
-            fields.len(),
-            arrays.len()
-        );
-    }
-    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
-
-    let mut deserializers = Vec::new();
-    for (field, &array) in std::iter::zip(fields, arrays) {
-        if array.len() != len {
-            fail!("arrays of different lengths are not supported");
-        }
-
-        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
-    }
-
+    let (deserializers, len) = build_struct_fields(fields, arrays)?;
     Ok(OuterSequenceDeserializer::new(deserializers, len))
 }
 
@@ -89,6 +73,7 @@ pub fn build_array_deserializer<'a>(
         T::F64 => build_float_deserializer::<Float64Type>(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
+        T::Struct => build_struct_deserializer(field, array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
@@ -154,6 +139,51 @@ where
     let validity = get_validity(array);
 
     Ok(StringDeserializer::new(buffer, offsets, validity).into())
+}
+
+pub fn build_struct_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<StructArray>() else {
+        fail!("Cannot convert {} array into struct", array.data_type());
+    };
+
+    let fields = &field.children;
+    let arrays = array
+        .columns()
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+    let validity = get_validity(array);
+
+    let (deserializers, len) = build_struct_fields(fields, &arrays)?;
+    Ok(StructDeserializer::new(deserializers, validity, len).into())
+}
+
+pub fn build_struct_fields<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<(Vec<(String, ArrayDeserializer<'a>)>, usize)> {
+    if fields.len() != arrays.len() {
+        fail!(
+            "different number of fields ({}) and arrays ({})",
+            fields.len(),
+            arrays.len()
+        );
+    }
+    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+    let mut deserializers = Vec::new();
+    for (field, &array) in std::iter::zip(fields, arrays) {
+        if array.len() != len {
+            fail!("arrays of different lengths are not supported");
+        }
+
+        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
+    }
+
+    Ok((deserializers, len))
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

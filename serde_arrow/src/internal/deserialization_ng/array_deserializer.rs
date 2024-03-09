@@ -245,6 +245,10 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_struct(name, fields, visitor))
     }
 
+    fn deserialize_map<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_map(visitor))
+    }
+
     fn deserialize_seq<V: serde::de::Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_seq(visitor))
     }

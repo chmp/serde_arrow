@@ -16,7 +16,7 @@ pub struct OuterSequenceDeserializer<'a> {
 impl<'a> OuterSequenceDeserializer<'a> {
     pub fn new(fields: Vec<(String, ArrayDeserializer<'a>)>, len: usize) -> Self {
         Self {
-            item: StructDeserializer::new(fields, len),
+            item: StructDeserializer::new(fields, None, len),
             next: 0,
             len,
         }
