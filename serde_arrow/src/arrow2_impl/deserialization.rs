@@ -10,6 +10,7 @@ use crate::{
     internal::deserialization_ng::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
+        date64_deserializer::Date64Deserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::{IntoUsize, ListDeserializer},
@@ -19,6 +20,7 @@ use crate::{
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
     },
+    schema::Strategy,
 };
 use crate::{
     internal::{
@@ -55,6 +57,7 @@ pub fn build_array_deserializer<'a>(
         T::I64 => build_integer_deserializer::<i64>(field, array),
         T::F32 => build_float_deserializer::<f32>(field, array),
         T::F64 => build_float_deserializer::<f64>(field, array),
+        T::Date64 => build_date64_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         T::Struct => build_struct_deserializer(field, array),
@@ -115,6 +118,21 @@ where
     let validity = get_validity(array);
 
     Ok(FloatDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_date64_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+    let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
+
+    Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
 }
 
 pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>

@@ -1,20 +1,23 @@
-use crate::internal::{
-    common::{check_supported_list_layout, BitBuffer},
-    deserialization_ng::{
-        array_deserializer::ArrayDeserializer,
-        bool_deserializer::BoolDeserializer,
-        float_deserializer::{Float, FloatDeserializer},
-        integer_deserializer::Integer,
-        integer_deserializer::IntegerDeserializer,
-        list_deserializer::{IntoUsize, ListDeserializer},
-        map_deserializer::MapDeserializer,
-        null_deserializer::NullDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer,
-        string_deserializer::StringDeserializer,
-        struct_deserializer::StructDeserializer,
+use crate::{
+    internal::{
+        common::{check_supported_list_layout, BitBuffer},
+        deserialization_ng::{
+            array_deserializer::ArrayDeserializer,
+            bool_deserializer::BoolDeserializer,
+            date64_deserializer::Date64Deserializer,
+            float_deserializer::{Float, FloatDeserializer},
+            integer_deserializer::{Integer, IntegerDeserializer},
+            list_deserializer::{IntoUsize, ListDeserializer},
+            map_deserializer::MapDeserializer,
+            null_deserializer::NullDeserializer,
+            outer_sequence_deserializer::OuterSequenceDeserializer,
+            string_deserializer::StringDeserializer,
+            struct_deserializer::StructDeserializer,
+        },
+        error::{error, fail, Result},
+        schema::{GenericDataType, GenericField, GenericTimeUnit},
     },
-    error::{error, fail, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit},
+    schema::Strategy,
 };
 
 use crate::_impl::arrow::{
@@ -56,6 +59,7 @@ pub fn build_array_deserializer<'a>(
         T::I64 => build_integer_deserializer::<Int64Type>(field, array),
         T::F32 => build_float_deserializer::<Float32Type>(field, array),
         T::F64 => build_float_deserializer::<Float64Type>(field, array),
+        T::Date64 => build_date64_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         T::Struct => build_struct_deserializer(field, array),
@@ -121,6 +125,23 @@ where
 
     let validity = get_validity(array);
     Ok(FloatDeserializer::new(array.values(), validity).into())
+}
+
+pub fn build_date64_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<Date64Type>>() else {
+        fail!(
+            "canont convert {} array into Date64 array",
+            array.data_type()
+        );
+    };
+
+    let validity = get_validity(array);
+    let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
+
+    Ok(Date64Deserializer::new(array.values(), validity, is_utc).into())
 }
 
 pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>

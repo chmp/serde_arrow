@@ -1,14 +1,10 @@
 use serde::de::Visitor;
 
-use crate::internal::{
-    common::BitBuffer,
-    error::{fail, Result},
-    serialization_ng::utils::Mut,
-};
+use crate::internal::{common::BitBuffer, error::Result, serialization_ng::utils::Mut};
 
-use super::simple_deserializer::SimpleDeserializer;
+use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
-pub trait Integer: Sized {
+pub trait Integer: Sized + Copy {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
@@ -27,57 +23,11 @@ pub trait Integer: Sized {
     fn into_u64(&self) -> Result<u64>;
 }
 
-pub struct IntegerDeserializer<'a, T: Integer> {
-    pub buffer: &'a [T],
-    pub validity: Option<BitBuffer<'a>>,
-    pub next: usize,
-}
+pub struct IntegerDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>);
 
 impl<'a, T: Integer> IntegerDeserializer<'a, T> {
     pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>) -> Self {
-        Self {
-            buffer,
-            validity,
-            next: 0,
-        }
-    }
-
-    fn next(&mut self) -> Result<Option<&T>> {
-        if self.next >= self.buffer.len() {
-            fail!("Exhausted PrimitiveDeserializer");
-        }
-        if let Some(validty) = &self.validity {
-            if !validty.is_set(self.next) {
-                self.next += 1;
-                return Ok(None);
-            }
-        }
-
-        let val = &self.buffer[self.next];
-        self.next += 1;
-        Ok(Some(val))
-    }
-
-    fn next_required(&mut self) -> Result<&T> {
-        if let Some(val) = self.next()? {
-            Ok(val)
-        } else {
-            fail!("Missing value");
-        }
-    }
-
-    fn peek_next(&self) -> Result<bool> {
-        if self.next >= self.buffer.len() {
-            fail!("Exhausted PrimitiveDeserializer");
-        } else if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next))
-        } else {
-            Ok(true)
-        }
-    }
-
-    fn consume_next(&mut self) {
-        self.next += 1;
+        Self(ArrayBufferIterator::new(buffer, validity))
     }
 }
 
@@ -87,60 +37,60 @@ impl<'de, T: Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
     }
 
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.0.peek_next()? {
             T::deserialize_any(self, visitor)
         } else {
-            self.consume_next();
+            self.0.consume_next();
             visitor.visit_none()
         }
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.0.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
-            self.consume_next();
+            self.0.consume_next();
             visitor.visit_none()
         }
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_bool(self.next_required()?.into_bool()?)
+        visitor.visit_bool(self.0.next_required()?.into_bool()?)
     }
 
     fn deserialize_char<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_char(self.next_required()?.into_u32()?.try_into()?)
+        visitor.visit_char(self.0.next_required()?.into_u32()?.try_into()?)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.next_required()?.into_u8()?)
+        visitor.visit_u8(self.0.next_required()?.into_u8()?)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.next_required()?.into_u16()?)
+        visitor.visit_u16(self.0.next_required()?.into_u16()?)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.next_required()?.into_u32()?)
+        visitor.visit_u32(self.0.next_required()?.into_u32()?)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.next_required()?.into_u64()?)
+        visitor.visit_u64(self.0.next_required()?.into_u64()?)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.next_required()?.into_i8()?)
+        visitor.visit_i8(self.0.next_required()?.into_i8()?)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.next_required()?.into_i16()?)
+        visitor.visit_i16(self.0.next_required()?.into_i16()?)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.next_required()?.into_i32()?)
+        visitor.visit_i32(self.0.next_required()?.into_i32()?)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.next_required()?.into_i64()?)
+        visitor.visit_i64(self.0.next_required()?.into_i64()?)
     }
 }
