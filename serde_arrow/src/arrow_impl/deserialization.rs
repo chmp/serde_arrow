@@ -5,6 +5,7 @@ use crate::{
             array_deserializer::ArrayDeserializer,
             bool_deserializer::BoolDeserializer,
             date64_deserializer::Date64Deserializer,
+            enum_deserializer::EnumDeserializer,
             float_deserializer::{Float, FloatDeserializer},
             integer_deserializer::{Integer, IntegerDeserializer},
             list_deserializer::{IntoUsize, ListDeserializer},
@@ -24,12 +25,13 @@ use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, GenericListArray, GenericStringArray,
         LargeStringArray, MapArray, OffsetSizeTrait, PrimitiveArray, StringArray, StructArray,
+        UnionArray,
     },
     datatypes::{
         ArrowPrimitiveType, DataType, Date64Type, Decimal128Type, Float16Type, Float32Type,
         Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType,
         TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        UInt32Type, UInt64Type, UInt8Type, UnionMode,
     },
 };
 
@@ -66,6 +68,7 @@ pub fn build_array_deserializer<'a>(
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
         T::Map => build_map_deserializer(field, array),
+        T::Union => build_union_deserializer(field, array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
@@ -253,6 +256,35 @@ pub fn build_map_deserializer<'a>(
     let value = build_array_deserializer(values_field, array.values())?;
 
     Ok(MapDeserializer::new(key, value, offsets, validity).into())
+}
+
+pub fn build_union_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<UnionArray>() else {
+        fail!(
+            "Cannot interpret {} array as a union array",
+            array.data_type()
+        );
+    };
+
+    if !matches!(array.data_type(), DataType::Union(_, UnionMode::Dense)) {
+        fail!("Invalid data type: only dense unions are supported");
+    }
+
+    let type_ids = array.type_ids();
+
+    let mut variants = Vec::new();
+    for (type_id, field) in field.children.iter().enumerate() {
+        // TODO: how to prevent a panic? + validate the order / type_ids
+        let name = field.name.to_owned();
+        let deser = build_array_deserializer(field, array.child(type_id.try_into()?).as_ref())?;
+
+        variants.push((name, deser));
+    }
+
+    Ok(EnumDeserializer::new(type_ids, variants).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

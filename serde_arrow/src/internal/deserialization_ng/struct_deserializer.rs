@@ -143,12 +143,6 @@ impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
         &mut self,
         seed: T,
     ) -> Result<Option<T::Value>, Self::Error> {
-        println!(
-            "next: {:?}, len: {}, fields.len(): {}",
-            self.next,
-            self.len,
-            self.fields.len()
-        );
         let (item, field) = self.next;
         if item >= self.len {
             fail!("Exhausted StructDeserializer");

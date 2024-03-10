@@ -4,13 +4,14 @@ use crate::{
             Array, BooleanArray, DictionaryArray, ListArray, MapArray, PrimitiveArray, StructArray,
             UnionArray, Utf8Array,
         },
-        datatypes::DataType,
+        datatypes::{DataType, UnionMode},
         types::{f16, NativeType, Offset},
     },
     internal::deserialization_ng::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
         date64_deserializer::Date64Deserializer,
+        enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::{IntoUsize, ListDeserializer},
@@ -64,6 +65,7 @@ pub fn build_array_deserializer<'a>(
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
         T::Map => build_map_deserializer(field, array),
+        T::Union => build_union_deserializer(field, array),
         dt => fail!("Datatype {dt} is not supported for deserialization"),
     }
 }
@@ -252,6 +254,34 @@ pub fn build_map_deserializer<'a>(
     let values = build_array_deserializer(values_field, values.as_ref())?;
 
     Ok(MapDeserializer::new(keys, values, offsets, validity).into())
+}
+
+pub fn build_union_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<UnionArray>() else {
+        fail!("Cannot interpret array as a union array");
+    };
+
+    if !matches!(array.data_type(), DataType::Union(_, _, UnionMode::Dense)) {
+        fail!("Invalid data type: only dense unions are supported");
+    }
+
+    let type_ids = array.types().as_slice();
+
+    let mut variants = Vec::new();
+    for (type_id, field) in field.children.iter().enumerate() {
+        let name = field.name.to_owned();
+        let Some(child) = array.fields().get(type_id) else {
+            fail!("Cannot get variant");
+        };
+        let deser = build_array_deserializer(field, child.as_ref())?;
+
+        variants.push((name, deser));
+    }
+
+    Ok(EnumDeserializer::new(type_ids, variants).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

@@ -1,13 +1,17 @@
-use serde::de::Visitor;
+use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
-use crate::internal::error::Result;
+use crate::internal::{
+    error::{Error, Result},
+    serialization_ng::utils::Mut,
+};
 
 use super::{
     bool_deserializer::BoolDeserializer, date64_deserializer::Date64Deserializer,
-    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
-    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
-    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
-    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
+    enum_deserializer::EnumDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -30,6 +34,7 @@ pub enum ArrayDeserializer<'a> {
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
     Map(MapDeserializer<'a>),
+    Enum(EnumDeserializer<'a>),
 }
 
 impl<'a> From<NullDeserializer> for ArrayDeserializer<'a> {
@@ -146,6 +151,12 @@ impl<'a> From<MapDeserializer<'a>> for ArrayDeserializer<'a> {
     }
 }
 
+impl<'a> From<EnumDeserializer<'a>> for ArrayDeserializer<'a> {
+    fn from(value: EnumDeserializer<'a>) -> Self {
+        Self::Enum(value)
+    }
+}
+
 macro_rules! dispatch {
     ($obj:expr, $wrapper:ident($name:ident) => $expr:expr) => {
         match $obj {
@@ -168,6 +179,7 @@ macro_rules! dispatch {
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::Map($name) => $expr,
+            $wrapper::Enum($name) => $expr,
         }
     };
 }
@@ -314,5 +326,30 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
 
     fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_byte_buf(visitor))
+    }
+}
+
+impl<'a, 'de> VariantAccess<'de> for Mut<'a, ArrayDeserializer<'de>> {
+    type Error = Error;
+
+    fn newtype_variant_seed<T: DeserializeSeed<'de>>(self, seed: T) -> Result<T::Value> {
+        seed.deserialize(self)
+    }
+
+    fn struct_variant<V: Visitor<'de>>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.0
+            .deserialize_struct("UNUSED_ENUM_STRUCT_NAME", fields, visitor)
+    }
+
+    fn tuple_variant<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
+        self.0.deserialize_tuple(len, visitor)
+    }
+
+    fn unit_variant(self) -> Result<()> {
+        <()>::deserialize(self)
     }
 }
