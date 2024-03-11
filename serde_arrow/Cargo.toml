@@ -43,7 +43,7 @@ arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "dep:arrow-data-37", "d
 [dependencies]
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
-chrono = { version = "0.4.35", features = ["std"], default-features = false }
+chrono = { version = "0.4", features = ["std"], default-features = false }
 half = { version = "2", features = ["bytemuck"], default-features = false }
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 
