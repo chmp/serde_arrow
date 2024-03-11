@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
-pub trait IntoUsize {
+pub trait IntoUsize: Copy {
     fn into_usize(&self) -> Result<usize>;
 }
 

@@ -8,11 +8,12 @@ use crate::internal::{
 
 use super::{
     bool_deserializer::BoolDeserializer, date64_deserializer::Date64Deserializer,
-    decimal_deserializer::DecimalDeserializer, enum_deserializer::EnumDeserializer,
-    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
-    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
-    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
-    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
+    decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
+    enum_deserializer::EnumDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -33,6 +34,22 @@ pub enum ArrayDeserializer<'a> {
     Date64(Date64Deserializer<'a>),
     Utf8(StringDeserializer<'a, i32>),
     LargeUtf8(StringDeserializer<'a, i64>),
+    DictionaryU8I32(DictionaryDeserializer<'a, u8, i32>),
+    DictionaryU16I32(DictionaryDeserializer<'a, u16, i32>),
+    DictionaryU32I32(DictionaryDeserializer<'a, u32, i32>),
+    DictionaryU64I32(DictionaryDeserializer<'a, u64, i32>),
+    DictionaryI8I32(DictionaryDeserializer<'a, i8, i32>),
+    DictionaryI16I32(DictionaryDeserializer<'a, i16, i32>),
+    DictionaryI32I32(DictionaryDeserializer<'a, i32, i32>),
+    DictionaryI64I32(DictionaryDeserializer<'a, i64, i32>),
+    DictionaryU8I64(DictionaryDeserializer<'a, u8, i64>),
+    DictionaryU16I64(DictionaryDeserializer<'a, u16, i64>),
+    DictionaryU32I64(DictionaryDeserializer<'a, u32, i64>),
+    DictionaryU64I64(DictionaryDeserializer<'a, u64, i64>),
+    DictionaryI8I64(DictionaryDeserializer<'a, i8, i64>),
+    DictionaryI16I64(DictionaryDeserializer<'a, i16, i64>),
+    DictionaryI32I64(DictionaryDeserializer<'a, i32, i64>),
+    DictionaryI64I64(DictionaryDeserializer<'a, i64, i64>),
     Struct(StructDeserializer<'a>),
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
@@ -160,6 +177,102 @@ impl<'a> From<StringDeserializer<'a, i64>> for ArrayDeserializer<'a> {
     }
 }
 
+impl<'a> From<DictionaryDeserializer<'a, u8, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u8, i32>) -> Self {
+        Self::DictionaryU8I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u16, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u16, i32>) -> Self {
+        Self::DictionaryU16I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u32, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u32, i32>) -> Self {
+        Self::DictionaryU32I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u64, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u64, i32>) -> Self {
+        Self::DictionaryU64I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i8, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i8, i32>) -> Self {
+        Self::DictionaryI8I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i16, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i16, i32>) -> Self {
+        Self::DictionaryI16I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i32, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i32, i32>) -> Self {
+        Self::DictionaryI32I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i64, i32>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i64, i32>) -> Self {
+        Self::DictionaryI64I32(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u8, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u8, i64>) -> Self {
+        Self::DictionaryU8I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u16, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u16, i64>) -> Self {
+        Self::DictionaryU16I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u32, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u32, i64>) -> Self {
+        Self::DictionaryU32I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, u64, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, u64, i64>) -> Self {
+        Self::DictionaryU64I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i8, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i8, i64>) -> Self {
+        Self::DictionaryI8I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i16, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i16, i64>) -> Self {
+        Self::DictionaryI16I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i32, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i32, i64>) -> Self {
+        Self::DictionaryI32I64(value)
+    }
+}
+
+impl<'a> From<DictionaryDeserializer<'a, i64, i64>> for ArrayDeserializer<'a> {
+    fn from(value: DictionaryDeserializer<'a, i64, i64>) -> Self {
+        Self::DictionaryI64I64(value)
+    }
+}
+
 impl<'a> From<MapDeserializer<'a>> for ArrayDeserializer<'a> {
     fn from(value: MapDeserializer<'a>) -> Self {
         Self::Map(value)
@@ -197,6 +310,22 @@ macro_rules! dispatch {
             $wrapper::LargeList($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Enum($name) => $expr,
+            $wrapper::DictionaryU8I32($name) => $expr,
+            $wrapper::DictionaryU16I32($name) => $expr,
+            $wrapper::DictionaryU32I32($name) => $expr,
+            $wrapper::DictionaryU64I32($name) => $expr,
+            $wrapper::DictionaryI8I32($name) => $expr,
+            $wrapper::DictionaryI16I32($name) => $expr,
+            $wrapper::DictionaryI32I32($name) => $expr,
+            $wrapper::DictionaryI64I32($name) => $expr,
+            $wrapper::DictionaryU8I64($name) => $expr,
+            $wrapper::DictionaryU16I64($name) => $expr,
+            $wrapper::DictionaryU32I64($name) => $expr,
+            $wrapper::DictionaryU64I64($name) => $expr,
+            $wrapper::DictionaryI8I64($name) => $expr,
+            $wrapper::DictionaryI16I64($name) => $expr,
+            $wrapper::DictionaryI32I64($name) => $expr,
+            $wrapper::DictionaryI64I64($name) => $expr,
         }
     };
 }

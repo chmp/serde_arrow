@@ -6,6 +6,7 @@ use crate::{
             bool_deserializer::BoolDeserializer,
             date64_deserializer::Date64Deserializer,
             decimal_deserializer::DecimalDeserializer,
+            dictionary_deserializer::DictionaryDeserializer,
             enum_deserializer::EnumDeserializer,
             float_deserializer::{Float, FloatDeserializer},
             integer_deserializer::{Integer, IntegerDeserializer},
@@ -28,9 +29,9 @@ use crate::_impl::arrow::{
         OffsetSizeTrait, PrimitiveArray, StructArray, UnionArray,
     },
     datatypes::{
-        ArrowPrimitiveType, DataType, Date64Type, Decimal128Type, Float16Type, Float32Type,
-        Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, TimestampMillisecondType,
-        UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date64Type, Decimal128Type,
+        Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+        TimestampMillisecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
     },
 };
 
@@ -71,7 +72,7 @@ pub fn build_array_deserializer<'a>(
         T::LargeList => build_list_deserializer::<i64>(field, array),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
-        dt => fail!("Datatype {dt} is not supported for deserialization"),
+        T::Dictionary => build_dictionary_deserializer(field, array),
     }
 }
 
@@ -239,6 +240,76 @@ where
     let validity = get_validity(array);
 
     Ok(StringDeserializer::new(buffer, offsets, validity).into())
+}
+
+pub fn build_dictionary_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+
+    let Some(key_field) = field.children.first() else {
+        fail!("Missing key field");
+    };
+    let Some(value_field) = field.children.get(1) else {
+        fail!("Missing key field");
+    };
+
+    return match (&key_field.data_type, &value_field.data_type) {
+        (T::U8, T::Utf8) => typed::<UInt8Type, i32>(field, array),
+        (T::U16, T::Utf8) => typed::<UInt16Type, i32>(field, array),
+        (T::U32, T::Utf8) => typed::<UInt32Type, i32>(field, array),
+        (T::U64, T::Utf8) => typed::<UInt64Type, i32>(field, array),
+        (T::I8, T::Utf8) => typed::<Int8Type, i32>(field, array),
+        (T::I16, T::Utf8) => typed::<Int16Type, i32>(field, array),
+        (T::I32, T::Utf8) => typed::<Int32Type, i32>(field, array),
+        (T::I64, T::Utf8) => typed::<Int64Type, i32>(field, array),
+        (T::U8, T::LargeUtf8) => typed::<UInt8Type, i64>(field, array),
+        (T::U16, T::LargeUtf8) => typed::<UInt16Type, i64>(field, array),
+        (T::U32, T::LargeUtf8) => typed::<UInt32Type, i64>(field, array),
+        (T::U64, T::LargeUtf8) => typed::<UInt64Type, i64>(field, array),
+        (T::I8, T::LargeUtf8) => typed::<Int8Type, i64>(field, array),
+        (T::I16, T::LargeUtf8) => typed::<Int16Type, i64>(field, array),
+        (T::I32, T::LargeUtf8) => typed::<Int32Type, i64>(field, array),
+        (T::I64, T::LargeUtf8) => typed::<Int64Type, i64>(field, array),
+        _ => fail!("invalid dicitonary key / value data type"),
+    };
+
+    pub fn typed<'a, K, V>(
+        _field: &GenericField,
+        array: &'a dyn Array,
+    ) -> Result<ArrayDeserializer<'a>>
+    where
+        K: ArrowDictionaryKeyType,
+        K::Native: Integer,
+        V: OffsetSizeTrait + IntoUsize,
+        DictionaryDeserializer<'a, K::Native, V>: Into<ArrayDeserializer<'a>>,
+    {
+        let Some(array) = array.as_any().downcast_ref::<DictionaryArray<K>>() else {
+            fail!(
+                "cannot convert {} array into dictionary array",
+                array.data_type()
+            );
+        };
+        let Some(values) = array
+            .values()
+            .as_any()
+            .downcast_ref::<GenericStringArray<V>>()
+        else {
+            fail!("invalid values");
+        };
+
+        let keys_buffer = array.keys().values();
+        let keys_validity = get_validity(array);
+
+        let values_data = values.value_data();
+        let values_offsets = values.value_offsets();
+
+        Ok(
+            DictionaryDeserializer::new(keys_buffer, keys_validity, values_data, values_offsets)
+                .into(),
+        )
+    }
 }
 
 pub fn build_struct_deserializer<'a>(
