@@ -152,7 +152,7 @@ impl BufferExtract for dyn Array {
             T::Decimal128(_, _) => convert_primitive!(Decimal128Type, Decimal128, push_u128_cast),
             T::Time64(unit) => {
                 if !matches!(unit, GenericTimeUnit::Nanosecond) {
-                    fail!("Only nano second time is supported for Time64 type.");
+                    fail!("Only nanosecond time is supported for Time64 type.");
                 }
                 convert_primitive!(Time64NanosecondType, Time64, push_u64_cast)
             }
