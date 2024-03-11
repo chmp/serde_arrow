@@ -1,3 +1,4 @@
+use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
@@ -25,6 +26,7 @@ pub enum ArrayDeserializer<'a> {
     I16(IntegerDeserializer<'a, i16>),
     I32(IntegerDeserializer<'a, i32>),
     I64(IntegerDeserializer<'a, i64>),
+    F16(FloatDeserializer<'a, f16>),
     F32(FloatDeserializer<'a, f32>),
     F64(FloatDeserializer<'a, f64>),
     Decimal128(DecimalDeserializer<'a>),
@@ -95,6 +97,12 @@ impl<'a> From<IntegerDeserializer<'a, u32>> for ArrayDeserializer<'a> {
 impl<'a> From<IntegerDeserializer<'a, u64>> for ArrayDeserializer<'a> {
     fn from(value: IntegerDeserializer<'a, u64>) -> Self {
         Self::U64(value)
+    }
+}
+
+impl<'a> From<FloatDeserializer<'a, f16>> for ArrayDeserializer<'a> {
+    fn from(value: FloatDeserializer<'a, f16>) -> Self {
+        Self::F16(value)
     }
 }
 
@@ -177,6 +185,7 @@ macro_rules! dispatch {
             $wrapper::I16($name) => $expr,
             $wrapper::I32($name) => $expr,
             $wrapper::I64($name) => $expr,
+            $wrapper::F16($name) => $expr,
             $wrapper::F32($name) => $expr,
             $wrapper::F64($name) => $expr,
             $wrapper::Decimal128($name) => $expr,

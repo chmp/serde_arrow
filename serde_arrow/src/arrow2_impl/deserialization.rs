@@ -57,6 +57,7 @@ pub fn build_array_deserializer<'a>(
         T::I16 => build_integer_deserializer::<i16>(field, array),
         T::I32 => build_integer_deserializer::<i32>(field, array),
         T::I64 => build_integer_deserializer::<i64>(field, array),
+        T::F16 => build_float16_deserializer(field, array),
         T::F32 => build_float_deserializer::<f32>(field, array),
         T::F64 => build_float_deserializer::<f64>(field, array),
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
@@ -108,6 +109,20 @@ where
     let validity = get_validity(array);
 
     Ok(IntegerDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_float16_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<f16>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(FloatDeserializer::new(bytemuck::cast_slice::<f16, half::f16>(buffer), validity).into())
 }
 
 pub fn build_float_deserializer<'a, T>(
