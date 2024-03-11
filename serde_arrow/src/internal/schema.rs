@@ -586,14 +586,14 @@ impl std::str::FromStr for GenericDataType {
             };
 
             Ok(GenericDataType::Timestamp(unit, Some(s.to_string())))
-        } else if let Some(s) = s.strip_prefix("Time(") {
-            let unit = if s.strip_prefix("Second, ").is_some() {
+        } else if let Some(s) = s.strip_prefix("Time64(") {
+            let unit = if s.starts_with("Seconds") {
                 GenericTimeUnit::Second
-            } else if s.strip_prefix("Millisecond, ").is_some() {
+            } else if s.starts_with("Millisecond") {
                 GenericTimeUnit::Millisecond
-            } else if s.strip_prefix("Microsecond, ").is_some() {
+            } else if s.starts_with("Microsecond") {
                 GenericTimeUnit::Microsecond
-            } else if s.strip_prefix("Nanosecond, ").is_some() {
+            } else if s.starts_with("Nanosecond") {
                 GenericTimeUnit::Nanosecond
             } else {
                 fail!("expected valid time unit");
