@@ -98,7 +98,7 @@ fn i32_as_date32() {
 }
 
 #[test]
-fn i64_as_time64() {
+fn i64_as_time64_nanoseconds() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct T {
         item: i64,
@@ -115,6 +115,82 @@ fn i64_as_time64() {
         .with_schema(json!([{
             "name": "item",
             "data_type": "Time64(Nanosecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+
+#[test]
+#[should_panic]
+fn i64_as_time64_microseconds() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i64,
+    }
+
+    let items = [
+        T { item: i64::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i64::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Microseconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+#[should_panic]
+fn i64_as_time64_second() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i64,
+    }
+
+    let items = [
+        T { item: i64::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i64::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Second)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+#[should_panic]
+fn i64_as_time64_millisecond() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i64,
+    }
+
+    let items = [
+        T { item: i64::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i64::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Millisecond)",
         }]))
         .serialize(&items)
         .deserialize(&items)
