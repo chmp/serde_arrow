@@ -277,7 +277,7 @@ pub fn build_dictionary_deserializer<'a>(
         let keys_validity = get_validity(array);
 
         let values_data = values.values().as_slice();
-        let values_offsets = values.offsets();
+        let values_offsets = values.offsets().as_slice();
 
         Ok(
             DictionaryDeserializer::new(keys_buffer, keys_validity, values_data, values_offsets)
