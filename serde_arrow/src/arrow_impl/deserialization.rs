@@ -373,7 +373,7 @@ where
     };
 
     let item = build_array_deserializer(&field.children[0], array.values())?;
-    let offsets = array.offsets();
+    let offsets = array.value_offsets();
     let validity = get_validity(array);
 
     Ok(ListDeserializer::new(item, offsets, validity).into())
