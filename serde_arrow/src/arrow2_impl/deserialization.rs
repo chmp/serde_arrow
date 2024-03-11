@@ -11,6 +11,7 @@ use crate::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
         date64_deserializer::Date64Deserializer,
+        decimal_deserializer::DecimalDeserializer,
         enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
@@ -47,7 +48,7 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Null => Ok(NullDeserializer.into()),
-        T::Bool => build_bool_deserializer(array),
+        T::Bool => build_bool_deserializer(field, array),
         T::U8 => build_integer_deserializer::<u8>(field, array),
         T::U16 => build_integer_deserializer::<u16>(field, array),
         T::U32 => build_integer_deserializer::<u32>(field, array),
@@ -58,10 +59,11 @@ pub fn build_array_deserializer<'a>(
         T::I64 => build_integer_deserializer::<i64>(field, array),
         T::F32 => build_float_deserializer::<f32>(field, array),
         T::F64 => build_float_deserializer::<f64>(field, array),
+        T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
         T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
-        T::Utf8 => build_string_deserializer::<i32>(array),
-        T::LargeUtf8 => build_string_deserializer::<i64>(array),
+        T::Utf8 => build_string_deserializer::<i32>(field, array),
+        T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
@@ -71,7 +73,10 @@ pub fn build_array_deserializer<'a>(
     }
 }
 
-pub fn build_bool_deserializer<'a>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>> {
+pub fn build_bool_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
     let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
         fail!("cannot interpret array as Bool array");
     };
@@ -123,6 +128,26 @@ where
     Ok(FloatDeserializer::new(buffer, validity).into())
 }
 
+pub fn build_decimal128_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+
+    let T::Decimal128(_, scale) = field.data_type else {
+        fail!("Invalid data type for Decimal128Deserializer");
+    };
+
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i128>>() else {
+        fail!("Cannot convert array into Decimal128 array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(DecimalDeserializer::new(buffer, validity, scale).into())
+}
+
 pub fn build_date64_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
@@ -164,7 +189,10 @@ pub fn build_timestamp_deserializer<'a>(
     Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
 }
 
-pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>
+pub fn build_string_deserializer<'a, O>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
 where
     O: IntoUsize + Offset,
     ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,

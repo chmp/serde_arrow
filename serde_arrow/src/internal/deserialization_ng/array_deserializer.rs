@@ -7,11 +7,11 @@ use crate::internal::{
 
 use super::{
     bool_deserializer::BoolDeserializer, date64_deserializer::Date64Deserializer,
-    enum_deserializer::EnumDeserializer, float_deserializer::FloatDeserializer,
-    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
-    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
-    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer,
+    decimal_deserializer::DecimalDeserializer, enum_deserializer::EnumDeserializer,
+    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
+    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
+    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
+    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -27,6 +27,7 @@ pub enum ArrayDeserializer<'a> {
     I64(IntegerDeserializer<'a, i64>),
     F32(FloatDeserializer<'a, f32>),
     F64(FloatDeserializer<'a, f64>),
+    Decimal128(DecimalDeserializer<'a>),
     Date64(Date64Deserializer<'a>),
     Utf8(StringDeserializer<'a, i32>),
     LargeUtf8(StringDeserializer<'a, i64>),
@@ -109,6 +110,12 @@ impl<'a> From<FloatDeserializer<'a, f64>> for ArrayDeserializer<'a> {
     }
 }
 
+impl<'a> From<DecimalDeserializer<'a>> for ArrayDeserializer<'a> {
+    fn from(value: DecimalDeserializer<'a>) -> Self {
+        Self::Decimal128(value)
+    }
+}
+
 impl<'a> From<Date64Deserializer<'a>> for ArrayDeserializer<'a> {
     fn from(value: Date64Deserializer<'a>) -> Self {
         Self::Date64(value)
@@ -172,6 +179,7 @@ macro_rules! dispatch {
             $wrapper::I64($name) => $expr,
             $wrapper::F32($name) => $expr,
             $wrapper::F64($name) => $expr,
+            $wrapper::Decimal128($name) => $expr,
             $wrapper::Date64($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,

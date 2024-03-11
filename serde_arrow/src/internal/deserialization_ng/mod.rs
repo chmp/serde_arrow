@@ -1,6 +1,7 @@
 pub mod array_deserializer;
 pub mod bool_deserializer;
 pub mod date64_deserializer;
+pub mod decimal_deserializer;
 pub mod enum_deserializer;
 pub mod float_deserializer;
 pub mod float_impls;
