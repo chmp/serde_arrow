@@ -53,10 +53,10 @@ impl SimpleSerializer for Date32Builder {
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         let days_since_unix = {
-            use chrono::NaiveDate;
-            const UNIX_EPOCH: Option<NaiveDate> = NaiveDate::from_ymd_opt(1970, 1, 1);
+            use chrono::{NaiveDate, NaiveDateTime};
+            const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
             let ndt = v.parse::<NaiveDate>()?;
-            let duration_since_epoch = ndt.signed_duration_since(UNIX_EPOCH.unwrap());
+            let duration_since_epoch = ndt.signed_duration_since(UNIX_EPOCH);
             duration_since_epoch.num_days().try_into()?
         };
         push_validity(&mut self.validity, true)?;
