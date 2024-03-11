@@ -10,7 +10,7 @@ use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 pub struct Time64Builder {
     pub field: GenericField,
     pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<u64>,
+    pub buffer: Vec<i64>,
 }
 
 impl Time64Builder {
@@ -56,14 +56,14 @@ impl SimpleSerializer for Time64Builder {
         let timestamp = {
             use chrono::naive::NaiveTime;
             let time = v.parse::<NaiveTime>()?;
-            time.num_seconds_from_midnight() as u64 * 1_000_000_000u64 + time.nanosecond() as u64
+            time.num_seconds_from_midnight() as i64 * 1_000_000_000i64 + time.nanosecond() as i64
         };
         push_validity(&mut self.validity, true)?;
         self.buffer.push(timestamp);
         Ok(())
     }
 
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+    fn serialize_i64(&mut self, v: i64) -> Result<()> {
         push_validity(&mut self.validity, true)?;
         self.buffer.push(v);
         Ok(())

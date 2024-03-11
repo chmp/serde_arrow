@@ -74,6 +74,54 @@ fn naive_as_date64() {
 }
 
 #[test]
+fn i32_as_date32() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i32,
+    }
+
+    let items = [
+        T { item: i32::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i32::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date32",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+fn i64_as_time64() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i64,
+    }
+
+    let items = [
+        T { item: i64::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i64::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Nanosecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
 fn utc_as_date64_as_millis() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct T {
