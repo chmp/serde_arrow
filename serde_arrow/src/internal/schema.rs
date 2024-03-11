@@ -500,7 +500,7 @@ impl std::fmt::Display for GenericDataType {
                     write!(f, "Timestamp({unit}, None)")
                 }
             }
-            Time64(unit) => write!(f, "Time({unit}))"),
+            Time64(unit) => write!(f, "Time64({unit})"),
             Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
     }
