@@ -62,6 +62,7 @@ pub fn build_array_deserializer<'a>(
         T::F32 => build_float_deserializer::<Float32Type>(field, array),
         T::F64 => build_float_deserializer::<Float64Type>(field, array),
         T::Date64 => build_date64_deserializer(field, array),
+        T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         T::Struct => build_struct_deserializer(field, array),
@@ -145,6 +146,34 @@ pub fn build_date64_deserializer<'a>(
     let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
 
     Ok(Date64Deserializer::new(array.values(), validity, is_utc).into())
+}
+
+pub fn build_timestamp_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use {GenericDataType as T, GenericTimeUnit as U};
+
+    let T::Timestamp(U::Millisecond, tz) = &field.data_type else {
+        fail!("Invalid data type {} for timestamp array", field.data_type);
+    };
+
+    let Some(array) = array
+        .as_any()
+        .downcast_ref::<PrimitiveArray<TimestampMillisecondType>>()
+    else {
+        fail!("Cannot cast {} array to timestamp", array.data_type());
+    };
+
+    let values = array.values();
+    let validity = get_validity(array);
+    let is_utc = match tz.as_deref() {
+        Some(tz) if tz.to_lowercase() == "utc" => true,
+        None => false,
+        Some(tz) => fail!("Invalid timezone {tz}"),
+    };
+
+    Ok(Date64Deserializer::new(values, validity, is_utc).into())
 }
 
 pub fn build_string_deserializer<'a, O>(array: &'a dyn Array) -> Result<ArrayDeserializer<'a>>

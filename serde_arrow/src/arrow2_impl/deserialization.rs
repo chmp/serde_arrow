@@ -25,9 +25,9 @@ use crate::{
 };
 use crate::{
     internal::{
-        common::{check_supported_list_layout, BitBuffer},
-        error::{error, fail},
-        schema::{GenericDataType, GenericField},
+        common::BitBuffer,
+        error::fail,
+        schema::{GenericDataType, GenericField, GenericTimeUnit},
     },
     Result,
 };
@@ -59,6 +59,7 @@ pub fn build_array_deserializer<'a>(
         T::F32 => build_float_deserializer::<f32>(field, array),
         T::F64 => build_float_deserializer::<f64>(field, array),
         T::Date64 => build_date64_deserializer(field, array),
+        T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(array),
         T::LargeUtf8 => build_string_deserializer::<i64>(array),
         T::Struct => build_struct_deserializer(field, array),
@@ -87,7 +88,7 @@ pub fn build_bool_deserializer<'a>(array: &'a dyn Array) -> Result<ArrayDeserial
 }
 
 pub fn build_integer_deserializer<'a, T>(
-    field: &GenericField,
+    _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
@@ -105,7 +106,7 @@ where
 }
 
 pub fn build_float_deserializer<'a, T>(
-    field: &GenericField,
+    _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
@@ -133,6 +134,32 @@ pub fn build_date64_deserializer<'a>(
     let buffer = array.values().as_slice();
     let validity = get_validity(array);
     let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
+
+    Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
+}
+
+pub fn build_timestamp_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use {GenericDataType as T, GenericTimeUnit as U};
+
+    let T::Timestamp(U::Millisecond, tz) = &field.data_type else {
+        fail!("Invalid data type {} for timestamp array", field.data_type);
+    };
+
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    let is_utc = match tz.as_deref() {
+        Some(tz) if tz.to_lowercase() == "utc" => true,
+        None => false,
+        Some(tz) => fail!("Invalid timezone {tz}"),
+    };
 
     Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
 }
@@ -293,116 +320,3 @@ fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
         number_of_bits,
     })
 }
-
-/*
-impl BufferExtract for &dyn Array {
-    fn len(&self) -> usize {
-        (*self).len()
-    }
-
-    fn extract_buffers<'a>(
-        &'a self,
-        field: &GenericField,
-        buffers: &mut Buffers<'a>,
-    ) -> Result<ArrayMapping> {
-        (*self).extract_buffers(field, buffers)
-    }
-}
-
-impl BufferExtract for dyn Array {
-    fn len(&self) -> usize {
-        Array::len(self)
-    }
-
-    fn extract_buffers<'a>(
-        &'a self,
-        field: &GenericField,
-        buffers: &mut Buffers<'a>,
-    ) -> Result<ArrayMapping> {
-
-        use {ArrayMapping as M, GenericDataType as T};
-
-        match &field.data_type {
-            T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Decimal128(_, _) => convert_primitive!(i128, Decimal128, push_u128_cast),
-            T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Dictionary => {
-                let Some(keys_field) = field.children.first() else {
-                    fail!("cannot get key field of dictionary");
-                };
-                let Some(values_field) = field.children.get(1) else {
-                    fail!("cannot get values field");
-                };
-
-                macro_rules! convert_dictionary {
-                    ($key_type:ty, $variant:ident) => {{
-                        let typed = self
-                            .as_any()
-                            .downcast_ref::<DictionaryArray<$key_type>>()
-                            .ok_or_else(|| error!("cannot convert array into u32 dictionary"))?;
-
-                        // NOTE: the array is validity is given by the key validity
-                        if typed.values().null_count() != 0 {
-                            fail!("dictionaries with nullable values are not supported");
-                        }
-
-                        let validity = get_validity(typed).map(|b| buffers.push_u1(b));
-                        let keys =
-                            (typed.keys() as &dyn Array).extract_buffers(keys_field, buffers)?;
-
-                        let M::$variant { buffer: index_buffer, .. } = keys else {
-                            fail!("internal error unexpected array mapping for keys")
-                        };
-
-                        let values = typed.values().extract_buffers(values_field, buffers)?;
-
-                        let dictionary = match values {
-                            M::Utf8 { buffer, offsets, .. } => DictionaryValue::Utf8{ buffer, offsets },
-                            M::LargeUtf8 { buffer, offsets, .. } => DictionaryValue::LargeUtf8{ buffer, offsets },
-                            m => fail!("BufferExtract for dictionaries with values of type {m:?} is not implemented"),
-                        };
-                        Ok(M::Dictionary {
-                            field: field.clone(),
-                            validity,
-                            dictionary,
-                            indices: DictionaryIndex::$variant(index_buffer),
-                        })
-                    }};
-                }
-
-                match &keys_field.data_type {
-                    T::U8 => convert_dictionary!(u8, U8),
-                    T::U16 => convert_dictionary!(u16, U16),
-                    T::U32 => convert_dictionary!(u32, U32),
-                    T::U64 => convert_dictionary!(u64, U64),
-                    T::I8 => convert_dictionary!(i8, I8),
-                    T::I16 => convert_dictionary!(i16, I16),
-                    T::I32 => convert_dictionary!(i32, I32),
-                    T::I64 => convert_dictionary!(i64, I64),
-                    dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
-                }
-            }
-            T::Union => {
-                // TODO: test assumptions
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<UnionArray>()
-                    .ok_or_else(|| error!("cannot convert array to union array"))?;
-
-                let types = buffers.push_u8_cast(typed.types().as_slice())?;
-                let mut fields = Vec::new();
-                for (field, array) in field.children.iter().zip(typed.fields()) {
-                    fields.push(array.extract_buffers(field, buffers)?);
-                }
-
-                Ok(M::Union {
-                    field: field.clone(),
-                    validity: None,
-                    fields,
-                    types,
-                })
-            }
-        }
-    }
-}
- */
