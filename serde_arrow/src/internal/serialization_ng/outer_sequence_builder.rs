@@ -94,8 +94,8 @@ impl OuterSequenceBuilder {
                     }
                 }
                 T::Time64(unit) => {
-                    if !matches!(unit, GenericTimeUnit::Nanosecond) {
-                        fail!("Only timestamps with nanosecond unit are supported");
+                    if !matches!(unit, GenericTimeUnit::Nanosecond | GenericTimeUnit::Microsecond) {
+                        fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
                     A::Time64(Time64Builder::new(field.clone(), field.nullable))
                 }

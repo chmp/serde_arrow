@@ -214,7 +214,7 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        ArrowPrimitiveType, Date32Type, Date64Type, Time64NanosecondType, Decimal128Type, Float16Type, Float32Type, Float64Type,
+                        ArrowPrimitiveType, Date32Type, Date64Type, Time64NanosecondType, Time64MicrosecondType, Decimal128Type, Float16Type, Float32Type, Float64Type,
                         Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type,
                         UInt64Type, UInt8Type,
                     };
