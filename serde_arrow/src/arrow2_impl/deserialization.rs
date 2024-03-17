@@ -62,7 +62,9 @@ pub fn build_array_deserializer<'a>(
         T::F32 => build_float_deserializer::<f32>(field, array),
         T::F64 => build_float_deserializer::<f64>(field, array),
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
+        T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
+        T::Time64(_) => build_time64_deserializer(field, array),
         T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
@@ -164,6 +166,13 @@ pub fn build_decimal128_deserializer<'a>(
     Ok(DecimalDeserializer::new(buffer, validity, scale).into())
 }
 
+pub fn build_date32_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    todo!()
+}
+
 pub fn build_date64_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
@@ -177,6 +186,13 @@ pub fn build_date64_deserializer<'a>(
     let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
 
     Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
+}
+
+pub fn build_time64_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    todo!()
 }
 
 pub fn build_timestamp_deserializer<'a>(
