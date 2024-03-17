@@ -14,7 +14,7 @@ impl<'a> Date32Deserializer<'a> {
         Self(ArrayBufferIterator::new(buffer, validity))
     }
 
-    pub fn get_string_repr(&self, ts: i32) -> Result<String> {
+    pub fn get_string_repr(&self, _ts: i32) -> Result<String> {
         todo!()
     }
 }

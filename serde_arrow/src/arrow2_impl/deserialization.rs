@@ -23,6 +23,7 @@ use crate::{
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
+        time64_deserializer::Time64Deserializer,
     },
     schema::Strategy,
 };
@@ -200,7 +201,17 @@ pub fn build_time64_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    todo!()
+    let GenericDataType::Time64(unit) = &field.data_type else {
+        fail!("invalid data type for time64");
+    };
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(Time64Deserializer::new(buffer, validity, unit.clone()).into())
 }
 
 pub fn build_timestamp_deserializer<'a>(
