@@ -121,7 +121,6 @@ fn i64_as_time64_nanoseconds() {
         .check_nulls(&[&[false, false, false, false]]);
 }
 
-
 #[test]
 fn i64_as_time64_microseconds() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -146,6 +145,7 @@ fn i64_as_time64_microseconds() {
         .check_nulls(&[&[false, false, false, false]]);
 }
 
+// TODO: remove the restriction (if it's only i64 <-> i64 there is no need to restrict the impl)
 #[test]
 #[should_panic]
 fn i64_as_time64_millisecond() {
@@ -171,6 +171,7 @@ fn i64_as_time64_millisecond() {
         .check_nulls(&[&[false, false, false, false]]);
 }
 
+// TODO: remove the restriction (if it's only i64 <-> i64 there is no need to restrict the impl)
 #[test]
 #[should_panic]
 fn i64_as_time64_second() {
