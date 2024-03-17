@@ -106,7 +106,13 @@ define_array_mapping!(
         buffer: usize,
         offsets: usize,
     },
+    Date32 {
+        buffer: usize,
+    },
     Date64 {
+        buffer: usize,
+    },
+    Time64 {
         buffer: usize,
     },
     List {

@@ -106,6 +106,7 @@ impl TryFrom<&Field> for GenericField {
             DataType::Float64 => GenericDataType::F64,
             DataType::Utf8 => GenericDataType::Utf8,
             DataType::LargeUtf8 => GenericDataType::LargeUtf8,
+            DataType::Date32 => GenericDataType::Date32,
             DataType::Date64 => GenericDataType::Date64,
             DataType::Decimal(precision, scale) => {
                 if *precision > u8::MAX as usize || *scale > i8::MAX as usize {
@@ -113,6 +114,13 @@ impl TryFrom<&Field> for GenericField {
                 }
                 GenericDataType::Decimal128(*precision as u8, *scale as i8)
             }
+            DataType::Time64(TimeUnit::Microsecond) => {
+                GenericDataType::Time64(GenericTimeUnit::Microsecond)
+            }
+            DataType::Time64(TimeUnit::Nanosecond) => {
+                GenericDataType::Time64(GenericTimeUnit::Nanosecond)
+            }
+            DataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
             DataType::Timestamp(TimeUnit::Second, tz) => {
                 GenericDataType::Timestamp(GenericTimeUnit::Second, tz.clone())
             }
@@ -208,7 +216,15 @@ impl TryFrom<&GenericField> for Field {
             GenericDataType::F16 => DataType::Float16,
             GenericDataType::F32 => DataType::Float32,
             GenericDataType::F64 => DataType::Float64,
+            GenericDataType::Date32 => DataType::Date32,
             GenericDataType::Date64 => DataType::Date64,
+            GenericDataType::Time64(GenericTimeUnit::Microsecond) => {
+                DataType::Time64(TimeUnit::Microsecond)
+            }
+            GenericDataType::Time64(GenericTimeUnit::Nanosecond) => {
+                DataType::Time64(TimeUnit::Nanosecond)
+            }
+            GenericDataType::Time64(unit) => fail!("Invalid time unit {unit} for Time64"),
             GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
                 DataType::Timestamp(TimeUnit::Second, tz.clone())
             }

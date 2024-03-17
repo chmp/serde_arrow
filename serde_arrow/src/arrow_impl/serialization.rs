@@ -60,7 +60,17 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         ),
         A::F32(builder) => build_array_data_primitive(T::Float32, builder.buffer, builder.validity),
         A::F64(builder) => build_array_data_primitive(T::Float64, builder.buffer, builder.validity),
+        A::Date32(builder) => build_array_data_primitive(
+            Field::try_from(&builder.field)?.data_type().clone(),
+            builder.buffer,
+            builder.validity,
+        ),
         A::Date64(builder) => build_array_data_primitive(
+            Field::try_from(&builder.field)?.data_type().clone(),
+            builder.buffer,
+            builder.validity,
+        ),
+        A::Time64(builder) => build_array_data_primitive(
             Field::try_from(&builder.field)?.data_type().clone(),
             builder.buffer,
             builder.validity,

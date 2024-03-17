@@ -12,10 +12,10 @@ use crate::_impl::arrow::{
         PrimitiveArray, StringArray, StructArray,
     },
     datatypes::{
-        DataType, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type, Int16Type,
-        Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
-        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
-        UInt8Type,
+        DataType, Date32Type, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
+        Int16Type, Int32Type, Int64Type, Int8Type, Time64MicrosecondType, Time64NanosecondType,
+        TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
+        TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
 };
 
@@ -147,8 +147,18 @@ impl BufferExtract for dyn Array {
             T::F16 => convert_primitive!(Float16Type, F16, push_u16_cast),
             T::F32 => convert_primitive!(Float32Type, F32, push_u32_cast),
             T::F64 => convert_primitive!(Float64Type, F64, push_u64_cast),
+            T::Date32 => convert_primitive!(Date32Type, Date32, push_u32_cast),
             T::Date64 => convert_primitive!(Date64Type, Date64, push_u64_cast),
             T::Decimal128(_, _) => convert_primitive!(Decimal128Type, Decimal128, push_u128_cast),
+            T::Time64(U::Nanosecond) => {
+                convert_primitive!(Time64NanosecondType, Time64, push_u64_cast)
+            }
+            T::Time64(U::Microsecond) => {
+                convert_primitive!(Time64MicrosecondType, Time64, push_u64_cast)
+            }
+            T::Time64(_) => {
+                fail!("Only nanosecond and microsecond time units are supported for Time64");
+            }
             T::Timestamp(U::Second, _) => {
                 convert_primitive!(TimestampSecondType, Date64, push_u64_cast)
             }

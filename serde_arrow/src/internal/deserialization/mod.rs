@@ -264,6 +264,11 @@ impl<'a> Compiler<'a> {
                 value: dictionary,
                 index: indices,
             }),
+            M::Date32 { buffer, .. } => self.push_instr(EmitI32 {
+                next: NEXT_INSTR,
+                buffer: *buffer,
+                position,
+            }),
             M::Date64 { field, buffer, .. } => match field.strategy.as_ref() {
                 Some(Strategy::NaiveStrAsDate64) => self.push_instr(EmitDate64NaiveStr {
                     next: NEXT_INSTR,
@@ -284,6 +289,11 @@ impl<'a> Compiler<'a> {
                     fail!("compilation of date64 with strategy {strategy} is not yet supported")
                 }
             },
+            M::Time64 { buffer, .. } => self.push_instr(EmitI64 {
+                next: NEXT_INSTR,
+                buffer: *buffer,
+                position,
+            }),
             M::List { item, offsets, .. } => self
                 .compile_list(item, position, *offsets, false)
                 .map(|_| 0)?,
