@@ -58,6 +58,23 @@ fn utc_as_date64() {
 }
 
 #[test]
+fn utc_as_date64_without_strategy() {
+    let items = [
+        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
+
+#[test]
 fn naive_as_date64() {
     let items = [
         Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),

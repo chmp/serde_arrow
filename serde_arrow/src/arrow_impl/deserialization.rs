@@ -214,7 +214,11 @@ pub fn build_date64_deserializer<'a>(
     };
 
     let validity = get_validity(array);
-    let is_utc = matches!(field.strategy, Some(Strategy::UtcStrAsDate64));
+    let is_utc = match &field.strategy {
+        None | Some(Strategy::UtcStrAsDate64) => true,
+        Some(Strategy::NaiveStrAsDate64) => false,
+        Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
+    };
 
     Ok(Date64Deserializer::new(array.values(), validity, is_utc).into())
 }

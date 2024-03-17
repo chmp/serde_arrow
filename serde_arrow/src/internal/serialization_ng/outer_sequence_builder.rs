@@ -70,15 +70,13 @@ impl OuterSequenceBuilder {
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
                 T::Date32 => A::Date32(Date32Builder::new(field.clone(), field.nullable)),
-                T::Date64 => match field.strategy.as_ref() {
-                    Some(Strategy::NaiveStrAsDate64) => {
-                        A::Date64(Date64Builder::new(field.clone(), false, field.nullable))
-                    }
-                    Some(Strategy::UtcStrAsDate64) => {
-                        A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
-                    }
-                    None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
-                    Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
+                T::Date64 => {
+                    let is_utc = match field.strategy.as_ref() {
+                        Some(Strategy::UtcStrAsDate64) | None => true,
+                        Some(Strategy::NaiveStrAsDate64) => false,
+                        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
+                    };
+                    A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
                 },
                 T::Timestamp(unit, tz) => {
                     if !matches!(unit, GenericTimeUnit::Millisecond) {
