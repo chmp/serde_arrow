@@ -1148,6 +1148,27 @@ mod test_schema_serialization {
     }
 
     #[test]
+    fn test_date32() {
+        use super::GenericDataType as DT;
+
+        assert_eq!(DT::Date32.to_string(), "Date32");
+        assert_eq!("Date32".parse::<DT>().unwrap(), DT::Date32);
+    }
+
+    #[test]
+    fn time64_data_type_format() {
+        use super::{GenericDataType as DT, GenericTimeUnit as TU};
+
+        for (dt, s) in [
+            (DT::Time64(TU::Microsecond), "Time64(Microsecond)"),
+            (DT::Time64(TU::Nanosecond), "Time64(Nanosecond)"),
+        ] {
+            assert_eq!(dt.to_string(), s);
+            assert_eq!(s.parse::<DT>().unwrap(), dt);
+        }
+    }
+
+    #[test]
     fn test_long_form_types() {
         use super::GenericDataType as DT;
         use std::str::FromStr;
