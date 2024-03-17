@@ -695,7 +695,7 @@ impl GenericField {
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
-            GenericDataType::Time64(_) => self.validate_time(),
+            GenericDataType::Time64(_) => self.validate_time64(),
             GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
     }
@@ -828,7 +828,7 @@ impl GenericField {
         }
     }
 
-    pub(crate) fn validate_time(&self) -> Result<()> {
+    pub(crate) fn validate_time64(&self) -> Result<()> {
         if self.strategy.is_some() {
             fail!(
                 "invalid strategy for {}: {}",
@@ -836,6 +836,7 @@ impl GenericField {
                 self.strategy.as_ref().unwrap()
             );
         }
+        // TODO: check supported units (Microseconds, Nanoseconds)
         if !self.children.is_empty() {
             fail!("{} field must not have children", self.data_type);
         }
