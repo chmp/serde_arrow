@@ -4,6 +4,7 @@ use crate::{
         deserialization_ng::{
             array_deserializer::ArrayDeserializer,
             bool_deserializer::BoolDeserializer,
+            date32_deserializer::Date32Deserializer,
             date64_deserializer::Date64Deserializer,
             decimal_deserializer::DecimalDeserializer,
             dictionary_deserializer::DictionaryDeserializer,
@@ -29,9 +30,10 @@ use crate::_impl::arrow::{
         OffsetSizeTrait, PrimitiveArray, StructArray, UnionArray,
     },
     datatypes::{
-        ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date64Type, Decimal128Type,
-        Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-        TimestampMillisecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
+        Decimal128Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+        Int8Type, Time64MicrosecondType, Time64NanosecondType, TimestampMillisecondType,
+        UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
     },
 };
 
@@ -181,10 +183,18 @@ pub fn build_decimal128_deserializer<'a>(
 }
 
 pub fn build_date32_deserializer<'a>(
-    field: &GenericField,
+    _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    todo!()
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<Date32Type>>() else {
+        fail!(
+            "Cannot convert {} array into Date64 array",
+            array.data_type()
+        );
+    };
+
+    let validity = get_validity(array);
+    Ok(Date32Deserializer::new(array.values(), validity).into())
 }
 
 pub fn build_date64_deserializer<'a>(

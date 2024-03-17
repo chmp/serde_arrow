@@ -10,6 +10,7 @@ use crate::{
     internal::deserialization_ng::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
+        date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
@@ -167,10 +168,17 @@ pub fn build_decimal128_deserializer<'a>(
 }
 
 pub fn build_date32_deserializer<'a>(
-    field: &GenericField,
+    _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    todo!()
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i32>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    let validity = get_validity(array);
+
+    Ok(Date32Deserializer::new(buffer, validity).into())
 }
 
 pub fn build_date64_deserializer<'a>(
