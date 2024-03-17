@@ -13,9 +13,9 @@ use crate::_impl::arrow::{
     },
     datatypes::{
         DataType, Date32Type, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
-        Int16Type, Int32Type, Int64Type, Int8Type, Time64NanosecondType, Time64MicrosecondType, TimestampMicrosecondType,
-        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        Int16Type, Int32Type, Int64Type, Int8Type, Time64MicrosecondType, Time64NanosecondType,
+        TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
+        TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
 };
 
