@@ -2,7 +2,6 @@ use crate::{
     internal::{common::MutableBitBuffer, schema::GenericField},
     Result,
 };
-use chrono::Timelike;
 
 use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
@@ -52,6 +51,8 @@ impl SimpleSerializer for Time64Builder {
         Ok(())
     }
 
+    // TODO: implement the corresponding deserializer / and use the correct unit
+    /*
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         let timestamp = {
             use chrono::naive::NaiveTime;
@@ -62,6 +63,7 @@ impl SimpleSerializer for Time64Builder {
         self.buffer.push(timestamp);
         Ok(())
     }
+    */
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
         push_validity(&mut self.validity, true)?;
