@@ -66,8 +66,9 @@
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! Integer fields containing timestamps in milliseconds since the epoch can be
-//! directly stored as `Date64` without any configuration:
+//! Integer fields containing timestamps in milliseconds since the epoch or
+//! `DateTime<Utc>` objects can be directly stored as `Date64` without any
+//! configuration:
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
