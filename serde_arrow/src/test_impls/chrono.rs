@@ -1,5 +1,8 @@
 use super::utils::Test;
-use crate::{schema::TracingOptions, utils::Item};
+use crate::{
+    schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+    utils::Item,
+};
 
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
@@ -145,56 +148,34 @@ fn i64_as_time64_microseconds() {
         .check_nulls(&[&[false, false, false, false]]);
 }
 
-// TODO: remove the restriction (if it's only i64 <-> i64 there is no need to restrict the impl)
 #[test]
-#[should_panic]
-fn i64_as_time64_millisecond() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i64,
-    }
+fn time64_type_invalid_units() {
+    // Note: the arrow docs state: that the time unit "[m]ust be either
+    // microseconds or nanoseconds."
 
-    let items = [
-        T { item: i64::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i64::MAX },
-    ];
+    let Err(err) = SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time64(Millisecond)",
+    }])) else {
+        panic!("Expected error");
+    };
+    assert!(
+        err.to_string()
+            .contains("Error: expected valid time unit (Microsecond or Nanosecond)"),
+        "Unexpected error: {err}",
+    );
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Millisecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
-}
-
-// TODO: remove the restriction (if it's only i64 <-> i64 there is no need to restrict the impl)
-#[test]
-#[should_panic]
-fn i64_as_time64_second() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i64,
-    }
-
-    let items = [
-        T { item: i64::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i64::MAX },
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Second)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
+    let Err(err) = SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time64(Second)",
+    }])) else {
+        panic!("Expected error");
+    };
+    assert!(
+        err.to_string()
+            .contains("Error: expected valid time unit (Microsecond or Nanosecond)"),
+        "Unexpected error: {err}",
+    );
 }
 
 #[test]
