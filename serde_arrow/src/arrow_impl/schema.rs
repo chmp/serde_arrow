@@ -104,18 +104,13 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Decimal128(precision, scale) => {
                 Ok(GenericDataType::Decimal128(*precision, *scale))
             }
-            DataType::Time64(TimeUnit::Second) => {
-                Ok(GenericDataType::Time64(GenericTimeUnit::Second))
-            }
-            DataType::Time64(TimeUnit::Millisecond) => {
-                Ok(GenericDataType::Time64(GenericTimeUnit::Millisecond))
-            }
             DataType::Time64(TimeUnit::Microsecond) => {
                 Ok(GenericDataType::Time64(GenericTimeUnit::Microsecond))
             }
             DataType::Time64(TimeUnit::Nanosecond) => {
                 Ok(GenericDataType::Time64(GenericTimeUnit::Nanosecond))
             }
+            DataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
             DataType::Timestamp(TimeUnit::Second, tz) => Ok(GenericDataType::Timestamp(
                 GenericTimeUnit::Second,
                 tz.as_ref().map(|s| s.to_string()),
@@ -297,16 +292,13 @@ impl TryFrom<&GenericField> for Field {
 
                 DataType::Dictionary(Box::new(key_type), Box::new(val_field.data_type().clone()))
             }
-            GenericDataType::Time64(GenericTimeUnit::Second) => DataType::Time64(TimeUnit::Second),
-            GenericDataType::Time64(GenericTimeUnit::Millisecond) => {
-                DataType::Time64(TimeUnit::Millisecond)
-            }
             GenericDataType::Time64(GenericTimeUnit::Microsecond) => {
                 DataType::Time64(TimeUnit::Microsecond)
             }
             GenericDataType::Time64(GenericTimeUnit::Nanosecond) => {
                 DataType::Time64(TimeUnit::Nanosecond)
             }
+            GenericDataType::Time64(unit) => fail!("invalid time unit {unit} for Time64"),
             GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
                 DataType::Timestamp(TimeUnit::Second, tz.clone().map(|s| s.into()))
             }
