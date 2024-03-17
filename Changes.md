@@ -1,7 +1,18 @@
 # Change log
 
-## 0.10.1
+## 0.11.0
 
+`0.11.0` does contain any anticipated breaking changes. However it's a major
+refactoring and may change some untested behavior.
+
+- Remove the bytecode deserializer and use the serde API directly
+  - Easier to understand and extend
+  - The `Deserialization` implementation can ask for its expected type, e.g.,
+    `chrono::DateTime<Utc>` can now be used with  `serde_arrow` without
+    explicitly specifying the strategy
+- Add `Date32` and `Time64` support
+  ([PR](https://github.com/chmp/serde_arrow/pull/147) by
+  [@gz](https://github.com/gz))
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
 - Fix bug in `SchemaLike::from_type()` for nested unions
