@@ -11,11 +11,18 @@ refactoring and may change some untested behavior.
     `chrono::DateTime<Utc>` can now be used with  `serde_arrow` without
     explicitly specifying the strategy
 - Add `Date32` and `Time64` support
-  ([PR](https://github.com/chmp/serde_arrow/pull/147) by
-  [@gz](https://github.com/gz))
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
 - Fix bug in `SchemaLike::from_type()` for nested unions
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@gz](https://github.com/gz) added `Date32` and `Time64` support
+  ([PR](https://github.com/chmp/serde_arrow/pull/147))
+- [@progval](https://github.com/progval) added additional error messages
+  ([PR](https://github.com/chmp/serde_arrow/pull/142))
 
 ## 0.10.0
 
@@ -23,6 +30,17 @@ refactoring and may change some untested behavior.
 - Use the serde serialization APIs directly, instead of using the bytecode
   serializer. Serialization will be about `2x` faster
 - Fix bug in `SchemaLike::from_value` with incorrect strategy deserialization
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@Ten0](https://github.com/Ten0) motivated the rewrite to use the serde API
+  directly and contributed additional benchmarks for JSON transcoding
+  ([PR](https://github.com/chmp/serde_arrow/pull/130))
+- [@alamb](https://github.com/alamb) added improved documentation on how to use
+  `serde_arrow` with the `arrow` crate
+  ([PR](https://github.com/chmp/serde_arrow/pull/131))
 
 ## 0.9.1
 
@@ -142,6 +160,13 @@ Bug fixes:
 
   - nested options (`Option<Option<T>>`)
   - creating `float16` arrays
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@elbaro](https://github.com/elbaro) updated the readme example
+  ([PR](https://github.com/chmp/serde_arrow/pull/33))
 
 ## 0.6.1
 
