@@ -427,6 +427,17 @@ pub enum GenericTimeUnit {
     Nanosecond,
 }
 
+impl GenericTimeUnit {
+    pub fn get_factors(&self) -> (i64, i64) {
+        match self {
+            GenericTimeUnit::Nanosecond => (1_000_000_000, 1),
+            GenericTimeUnit::Microsecond => (1_000_000, 1_000),
+            GenericTimeUnit::Millisecond => (1_000, 1_000_000),
+            GenericTimeUnit::Second => (1, 1_000_000_000),
+        }
+    }
+}
+
 impl std::fmt::Display for GenericTimeUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -1,5 +1,10 @@
+use chrono::Timelike;
+
 use crate::{
-    internal::{common::MutableBitBuffer, schema::GenericField},
+    internal::{
+        common::MutableBitBuffer,
+        schema::{GenericField, GenericTimeUnit},
+    },
     Result,
 };
 
@@ -10,14 +15,20 @@ pub struct Time64Builder {
     pub field: GenericField,
     pub validity: Option<MutableBitBuffer>,
     pub buffer: Vec<i64>,
+    pub seconds_factor: i64,
+    pub nanoseconds_factor: i64,
 }
 
 impl Time64Builder {
-    pub fn new(field: GenericField, nullable: bool) -> Self {
+    pub fn new(field: GenericField, nullable: bool, unit: GenericTimeUnit) -> Self {
+        let (seconds_factor, nanoseconds_factor) = unit.get_factors();
+
         Self {
             field,
             validity: nullable.then(MutableBitBuffer::default),
             buffer: Vec::new(),
+            seconds_factor,
+            nanoseconds_factor,
         }
     }
 
@@ -26,6 +37,8 @@ impl Time64Builder {
             field: self.field.clone(),
             validity: self.validity.as_mut().map(std::mem::take),
             buffer: std::mem::take(&mut self.buffer),
+            seconds_factor: self.seconds_factor,
+            nanoseconds_factor: self.nanoseconds_factor,
         }
     }
 
@@ -51,19 +64,16 @@ impl SimpleSerializer for Time64Builder {
         Ok(())
     }
 
-    // TODO: implement the corresponding deserializer / and use the correct unit
-    /*
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let timestamp = {
-            use chrono::naive::NaiveTime;
-            let time = v.parse::<NaiveTime>()?;
-            time.num_seconds_from_midnight() as i64 * 1_000_000_000i64 + time.nanosecond() as i64
-        };
+        use chrono::naive::NaiveTime;
+        let time = v.parse::<NaiveTime>()?;
+        let timestamp = time.num_seconds_from_midnight() as i64 * self.seconds_factor
+            + time.nanosecond() as i64 / self.nanoseconds_factor;
+
         push_validity(&mut self.validity, true)?;
         self.buffer.push(timestamp);
         Ok(())
     }
-    */
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
         push_validity(&mut self.validity, true)?;

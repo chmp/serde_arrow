@@ -4,7 +4,7 @@ use crate::{
     utils::Item,
 };
 
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -101,6 +101,24 @@ fn i32_as_date32() {
 }
 
 #[test]
+fn date32_chrono() {
+    let items = [
+        Item(NaiveDate::from_ymd_opt(2024, 3, 17).unwrap()),
+        Item(NaiveDate::from_ymd_opt(1700, 12, 24).unwrap()),
+        Item(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date32",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+}
+
+#[test]
 fn i64_as_time64_nanoseconds() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct T {
@@ -146,6 +164,24 @@ fn i64_as_time64_microseconds() {
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+fn time64_chrono_microseconds() {
+    let items = [
+        Item(NaiveTime::from_hms_opt(12, 0, 0).unwrap()),
+        Item(NaiveTime::from_hms_opt(23, 31, 12).unwrap()),
+        Item(NaiveTime::from_hms_opt(3, 2, 58).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Microseconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
 }
 
 #[test]

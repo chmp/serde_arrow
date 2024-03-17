@@ -100,7 +100,11 @@ impl OuterSequenceBuilder {
                     ) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(Time64Builder::new(field.clone(), field.nullable))
+                    A::Time64(Time64Builder::new(
+                        field.clone(),
+                        field.nullable,
+                        unit.clone(),
+                    ))
                 }
                 T::Decimal128(precision, scale) => {
                     A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))

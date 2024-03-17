@@ -1,21 +1,36 @@
+use chrono::NaiveTime;
 use serde::de::Visitor;
 
 use crate::{
-    internal::{common::BitBuffer, schema::GenericTimeUnit, serialization_ng::utils::Mut},
+    internal::{
+        common::BitBuffer, error::fail, schema::GenericTimeUnit, serialization_ng::utils::Mut,
+    },
     Result,
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
-pub struct Time64Deserializer<'a>(ArrayBufferIterator<'a, i64>, GenericTimeUnit);
+pub struct Time64Deserializer<'a>(ArrayBufferIterator<'a, i64>, i64, i64);
 
 impl<'a> Time64Deserializer<'a> {
     pub fn new(buffer: &'a [i64], validity: Option<BitBuffer<'a>>, unit: GenericTimeUnit) -> Self {
-        Self(ArrayBufferIterator::new(buffer, validity), unit)
+        let (seconds_factor, nanoseconds_factor) = unit.get_factors();
+
+        Self(
+            ArrayBufferIterator::new(buffer, validity),
+            seconds_factor,
+            nanoseconds_factor,
+        )
     }
 
-    pub fn get_string_repr(&self, _ts: i64) -> Result<String> {
-        todo!()
+    pub fn get_string_repr(&self, ts: i64) -> Result<String> {
+        let seconds = (ts / self.1) as u32;
+        let nanoseconds = ((ts % self.1) / self.2) as u32;
+
+        let Some(res) = NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds) else {
+            fail!("Invalid timestamp");
+        };
+        Ok(res.to_string())
     }
 }
 

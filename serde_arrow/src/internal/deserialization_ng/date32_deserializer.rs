@@ -1,3 +1,4 @@
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use serde::de::Visitor;
 
 use crate::{
@@ -14,8 +15,11 @@ impl<'a> Date32Deserializer<'a> {
         Self(ArrayBufferIterator::new(buffer, validity))
     }
 
-    pub fn get_string_repr(&self, _ts: i32) -> Result<String> {
-        todo!()
+    pub fn get_string_repr(&self, ts: i32) -> Result<String> {
+        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+        let delta = Duration::days(ts as i64);
+        let date = UNIX_EPOCH + delta;
+        Ok(date.to_string())
     }
 }
 
