@@ -105,6 +105,9 @@ pub trait SchemaLike: Sized + Sealed {
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
+    /// - date time objects: `"Date32"`, `"Date64"`, `"Timestamp(unit)"`,
+    ///   `"Time64(unit)"` with unit being one of `Second`, `Millisecond`,
+    ///   `Microsecond`, `Nanosecond`. E.g., `"Time64(Microsecond)"`.
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
     ///   field named `"element"` that describes the element types
     /// - structs: `"Struct"`. `"children"` must contain the child fields
