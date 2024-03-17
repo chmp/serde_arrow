@@ -77,7 +77,7 @@ impl OuterSequenceBuilder {
                         Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
                     };
                     A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
-                },
+                }
                 T::Timestamp(unit, tz) => {
                     if !matches!(unit, GenericTimeUnit::Millisecond) {
                         fail!("Only timestamps with millisecond unit are supported");
