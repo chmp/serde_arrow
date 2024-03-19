@@ -1,5 +1,5 @@
 use crate::internal::{
-    common::BitBuffer,
+    common::{check_supported_list_layout, BitBuffer},
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
@@ -366,6 +366,8 @@ pub fn build_map_deserializer<'a>(
 
     let offsets = array.offsets().as_slice();
     let validity = get_validity(array);
+
+    check_supported_list_layout(validity, offsets)?;
 
     let keys = build_array_deserializer(keys_field, keys.as_ref())?;
     let values = build_array_deserializer(values_field, values.as_ref())?;

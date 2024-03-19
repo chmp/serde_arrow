@@ -8,18 +8,18 @@ use crate::internal::{
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
 pub trait IntoUsize: Copy {
-    fn into_usize(&self) -> Result<usize>;
+    fn into_usize(self) -> Result<usize>;
 }
 
 impl IntoUsize for i32 {
-    fn into_usize(&self) -> Result<usize> {
-        Ok((*self).try_into()?)
+    fn into_usize(self) -> Result<usize> {
+        Ok(self.try_into()?)
     }
 }
 
 impl IntoUsize for i64 {
-    fn into_usize(&self) -> Result<usize> {
-        Ok((*self).try_into()?)
+    fn into_usize(self) -> Result<usize> {
+        Ok(self.try_into()?)
     }
 }
 

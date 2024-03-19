@@ -13,11 +13,11 @@ impl Float for f16 {
         deser.deserialize_f32(visitor)
     }
 
-    fn into_f32(&self) -> Result<f32> {
+    fn into_f32(self) -> Result<f32> {
         Ok(self.to_f32())
     }
 
-    fn into_f64(&self) -> Result<f64> {
+    fn into_f64(self) -> Result<f64> {
         Ok(self.to_f64())
     }
 }
@@ -30,12 +30,12 @@ impl Float for f32 {
         deser.deserialize_f32(visitor)
     }
 
-    fn into_f32(&self) -> Result<f32> {
-        Ok(*self)
+    fn into_f32(self) -> Result<f32> {
+        Ok(self)
     }
 
-    fn into_f64(&self) -> Result<f64> {
-        Ok(*self as f64)
+    fn into_f64(self) -> Result<f64> {
+        Ok(self as f64)
     }
 }
 
@@ -47,11 +47,11 @@ impl Float for f64 {
         deser.deserialize_f64(visitor)
     }
 
-    fn into_f32(&self) -> Result<f32> {
-        Ok(*self as f32)
+    fn into_f32(self) -> Result<f32> {
+        Ok(self as f32)
     }
 
-    fn into_f64(&self) -> Result<f64> {
-        Ok(*self)
+    fn into_f64(self) -> Result<f64> {
+        Ok(self)
     }
 }

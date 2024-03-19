@@ -13,17 +13,17 @@ pub trait Integer: Sized + Copy {
         visitor: V,
     ) -> Result<V::Value>;
 
-    fn into_bool(&self) -> Result<bool>;
+    fn into_bool(self) -> Result<bool>;
 
-    fn into_i8(&self) -> Result<i8>;
-    fn into_i16(&self) -> Result<i16>;
-    fn into_i32(&self) -> Result<i32>;
-    fn into_i64(&self) -> Result<i64>;
+    fn into_i8(self) -> Result<i8>;
+    fn into_i16(self) -> Result<i16>;
+    fn into_i32(self) -> Result<i32>;
+    fn into_i64(self) -> Result<i64>;
 
-    fn into_u8(&self) -> Result<u8>;
-    fn into_u16(&self) -> Result<u16>;
-    fn into_u32(&self) -> Result<u32>;
-    fn into_u64(&self) -> Result<u64>;
+    fn into_u8(self) -> Result<u8>;
+    fn into_u16(self) -> Result<u16>;
+    fn into_u32(self) -> Result<u32>;
+    fn into_u64(self) -> Result<u64>;
 }
 
 pub struct IntegerDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>);

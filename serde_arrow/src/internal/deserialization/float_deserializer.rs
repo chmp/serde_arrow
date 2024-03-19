@@ -13,8 +13,8 @@ pub trait Float: Copy {
         visitor: V,
     ) -> Result<V::Value>;
 
-    fn into_f32(&self) -> Result<f32>;
-    fn into_f64(&self) -> Result<f64>;
+    fn into_f32(self) -> Result<f32>;
+    fn into_f64(self) -> Result<f64>;
 }
 
 pub struct FloatDeserializer<'a, F: Float>(ArrayBufferIterator<'a, F>);
