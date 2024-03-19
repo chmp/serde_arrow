@@ -21,8 +21,8 @@ pub struct Fields {
 }
 
 pub struct Impls {
-    arrow: bool,
-    arrow2: bool,
+    pub arrow: bool,
+    pub arrow2: bool,
 }
 
 impl std::default::Default for Impls {
@@ -53,7 +53,7 @@ impl<T> ResultAsserts for Result<T> {
 #[derive(Default)]
 pub struct Test {
     schema: Option<SerdeArrowSchema>,
-    impls: Impls,
+    pub impls: Impls,
     pub arrays: Arrays,
     pub fields: Fields,
 }
@@ -76,7 +76,7 @@ impl Test {
 }
 
 impl Test {
-    fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::Field>> {
+    pub fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
                 schema
@@ -92,7 +92,7 @@ impl Test {
         }
     }
 
-    fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
+    pub fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
                 schema
