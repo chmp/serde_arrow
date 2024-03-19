@@ -1,13 +1,6 @@
-use crate::{
-    _impl::arrow2::{
-        array::{
-            Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray,
-            PrimitiveArray, StructArray, UnionArray, Utf8Array,
-        },
-        datatypes::{DataType, UnionMode},
-        types::{f16, NativeType, Offset},
-    },
-    internal::deserialization::{
+use crate::internal::{
+    common::BitBuffer,
+    deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
         date32_deserializer::Date32Deserializer,
@@ -25,15 +18,17 @@ use crate::{
         struct_deserializer::StructDeserializer,
         time64_deserializer::Time64Deserializer,
     },
-    schema::Strategy,
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit},
 };
-use crate::{
-    internal::{
-        common::BitBuffer,
-        error::fail,
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
+
+use crate::_impl::arrow2::{
+    array::{
+        Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
+        StructArray, UnionArray, Utf8Array,
     },
-    Result,
+    datatypes::{DataType, UnionMode},
+    types::{f16, NativeType, Offset},
 };
 
 pub fn build_deserializer<'a>(
@@ -106,25 +101,14 @@ where
     T: Integer + NativeType + 'static,
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
 {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    Ok(IntegerDeserializer::new(buffer, validity).into())
+    Ok(IntegerDeserializer::new(as_primitive_values(array)?, get_validity(array)).into())
 }
 
 pub fn build_float16_deserializer<'a>(
     _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<f16>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
+    let buffer = as_primitive_values(array)?;
     let validity = get_validity(array);
 
     Ok(FloatDeserializer::new(bytemuck::cast_slice::<f16, half::f16>(buffer), validity).into())
@@ -138,67 +122,41 @@ where
     T: Float + NativeType + 'static,
     ArrayDeserializer<'a>: From<FloatDeserializer<'a, T>>,
 {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    Ok(FloatDeserializer::new(buffer, validity).into())
+    Ok(FloatDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
 }
 
 pub fn build_decimal128_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    use GenericDataType as T;
-
-    let T::Decimal128(_, scale) = field.data_type else {
+    let GenericDataType::Decimal128(_, scale) = field.data_type else {
         fail!("Invalid data type for Decimal128Deserializer");
     };
-
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i128>>() else {
-        fail!("Cannot convert array into Decimal128 array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    Ok(DecimalDeserializer::new(buffer, validity, scale).into())
+    Ok(DecimalDeserializer::new(
+        as_primitive_values::<i128>(array)?,
+        get_validity(array),
+        scale,
+    )
+    .into())
 }
 
 pub fn build_date32_deserializer<'a>(
     _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i32>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    Ok(Date32Deserializer::new(buffer, validity).into())
+    Ok(Date32Deserializer::new(as_primitive_values::<i32>(array)?, get_validity(array)).into())
 }
 
 pub fn build_date64_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-    let is_utc = match &field.strategy {
-        None | Some(Strategy::UtcStrAsDate64) => true,
-        Some(Strategy::NaiveStrAsDate64) => false,
-        Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
-    };
-
-    Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
+    Ok(Date64Deserializer::new(
+        as_primitive_values(array)?,
+        get_validity(array),
+        field.is_utc()?,
+    )
+    .into())
 }
 
 pub fn build_time64_deserializer<'a>(
@@ -208,40 +166,27 @@ pub fn build_time64_deserializer<'a>(
     let GenericDataType::Time64(unit) = &field.data_type else {
         fail!("invalid data type for time64");
     };
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    Ok(Time64Deserializer::new(buffer, validity, unit.clone()).into())
+    Ok(Time64Deserializer::new(
+        as_primitive_values::<i64>(array)?,
+        get_validity(array),
+        unit.clone(),
+    )
+    .into())
 }
 
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    use {GenericDataType as T, GenericTimeUnit as U};
-
-    let T::Timestamp(U::Millisecond, tz) = &field.data_type else {
+    let GenericDataType::Timestamp(GenericTimeUnit::Millisecond, _) = &field.data_type else {
         fail!("Invalid data type {} for timestamp array", field.data_type);
     };
-
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<i64>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    let validity = get_validity(array);
-
-    let is_utc = match tz.as_deref() {
-        Some(tz) if tz.to_lowercase() == "utc" => true,
-        None => false,
-        Some(tz) => fail!("Invalid timezone {tz}"),
-    };
-
-    Ok(Date64Deserializer::new(buffer, validity, is_utc).into())
+    Ok(Date64Deserializer::new(
+        as_primitive_values::<i64>(array)?,
+        get_validity(array),
+        field.is_utc()?,
+    )
+    .into())
 }
 
 pub fn build_string_deserializer<'a, O>(
@@ -454,6 +399,15 @@ pub fn build_union_deserializer<'a>(
     }
 
     Ok(EnumDeserializer::new(type_ids, variants).into())
+}
+
+fn as_primitive_values<T: NativeType>(array: &dyn Array) -> Result<&[T]> {
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    Ok(buffer)
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

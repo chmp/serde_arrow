@@ -711,6 +711,21 @@ impl GenericField {
         }
     }
 
+    pub fn is_utc(&self) -> Result<bool> {
+        match &self.data_type {
+            GenericDataType::Date64 => match &self.strategy {
+                None | Some(Strategy::UtcStrAsDate64) => Ok(true),
+                Some(Strategy::NaiveStrAsDate64) => Ok(false),
+                Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
+            },
+            GenericDataType::Timestamp(_, tz) => match tz {
+                Some(tz) => Ok(tz.to_lowercase() == "utc"),
+                None => Ok(false),
+            },
+            _ => fail!("non date time type {}", self.data_type),
+        }
+    }
+
     /// Test that the other field is compatible with the current one
     ///
     pub fn is_compatible(&self, other: &GenericField) -> bool {
