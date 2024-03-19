@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, env, sync::Arc};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -21,15 +21,18 @@ pub struct Fields {
 }
 
 pub struct Impls {
-    arrow: bool,
-    arrow2: bool,
+    pub arrow: bool,
+    pub arrow2: bool,
 }
 
 impl std::default::Default for Impls {
     fn default() -> Self {
+        let skip_arrow_tests = env::var("SERDE_ARROW_SKIP_ARROW_TESTS").is_ok();
+        let skip_arrow2_tests = env::var("SERDE_ARROW_SKIP_ARROW2_TESTS").is_ok();
+
         Self {
-            arrow: true,
-            arrow2: true,
+            arrow: !skip_arrow_tests,
+            arrow2: !skip_arrow2_tests,
         }
     }
 }
@@ -50,7 +53,7 @@ impl<T> ResultAsserts for Result<T> {
 #[derive(Default)]
 pub struct Test {
     schema: Option<SerdeArrowSchema>,
-    impls: Impls,
+    pub impls: Impls,
     pub arrays: Arrays,
     pub fields: Fields,
 }
@@ -73,7 +76,7 @@ impl Test {
 }
 
 impl Test {
-    fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::Field>> {
+    pub fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
                 schema
@@ -89,7 +92,7 @@ impl Test {
         }
     }
 
-    fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
+    pub fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
                 schema

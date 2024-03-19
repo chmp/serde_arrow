@@ -1,32 +1,19 @@
 use serde::Serialize;
 
-use crate::{
-    internal::{
-        error::fail,
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
-    },
-    schema::{SerdeArrowSchema, Strategy},
-    Result,
+use crate::internal::{
+    common::Mut,
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
 };
 
 use super::{
-    bool_builder::BoolBuilder,
-    date32_builder::Date32Builder,
-    date64_builder::Date64Builder,
-    decimal_builder::DecimalBuilder,
-    dictionary_utf8_builder::DictionaryUtf8Builder,
-    float_builder::FloatBuilder,
-    int_builder::IntBuilder,
-    list_builder::ListBuilder,
-    map_builder::MapBuilder,
-    null_builder::NullBuilder,
-    struct_builder::StructBuilder,
-    time64_builder::Time64Builder,
-    union_builder::UnionBuilder,
-    unknown_variant_builder::UnknownVariantBuilder,
-    utf8_builder::Utf8Builder,
-    utils::{Mut, SimpleSerializer},
-    ArrayBuilder,
+    bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
+    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
+    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
+    time64_builder::Time64Builder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
+    utils::SimpleSerializer, ArrayBuilder,
 };
 
 #[derive(Debug, Clone)]
@@ -70,16 +57,14 @@ impl OuterSequenceBuilder {
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
                 T::Date32 => A::Date32(Date32Builder::new(field.clone(), field.nullable)),
-                T::Date64 => match field.strategy.as_ref() {
-                    Some(Strategy::NaiveStrAsDate64) => {
-                        A::Date64(Date64Builder::new(field.clone(), false, field.nullable))
-                    }
-                    Some(Strategy::UtcStrAsDate64) => {
-                        A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
-                    }
-                    None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
-                    Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-                },
+                T::Date64 => {
+                    let is_utc = match field.strategy.as_ref() {
+                        Some(Strategy::UtcStrAsDate64) | None => true,
+                        Some(Strategy::NaiveStrAsDate64) => false,
+                        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
+                    };
+                    A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
+                }
                 T::Timestamp(unit, tz) => {
                     if !matches!(unit, GenericTimeUnit::Millisecond) {
                         fail!("Only timestamps with millisecond unit are supported");
@@ -100,7 +85,11 @@ impl OuterSequenceBuilder {
                     ) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(Time64Builder::new(field.clone(), field.nullable))
+                    A::Time64(Time64Builder::new(
+                        field.clone(),
+                        field.nullable,
+                        unit.clone(),
+                    ))
                 }
                 T::Decimal128(precision, scale) => {
                     A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))

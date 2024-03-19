@@ -4,7 +4,7 @@ use crate::{
     utils::Item,
 };
 
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -58,6 +58,23 @@ fn utc_as_date64() {
 }
 
 #[test]
+fn utc_as_date64_without_strategy() {
+    let items = [
+        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
+
+#[test]
 fn naive_as_date64() {
     let items = [
         Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
@@ -98,6 +115,24 @@ fn i32_as_date32() {
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+fn date32_chrono() {
+    let items = [
+        Item(NaiveDate::from_ymd_opt(2024, 3, 17).unwrap()),
+        Item(NaiveDate::from_ymd_opt(1700, 12, 24).unwrap()),
+        Item(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date32",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
 }
 
 #[test]
@@ -146,6 +181,24 @@ fn i64_as_time64_microseconds() {
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+fn time64_chrono_microseconds() {
+    let items = [
+        Item(NaiveTime::from_hms_opt(12, 0, 0).unwrap()),
+        Item(NaiveTime::from_hms_opt(23, 31, 12).unwrap()),
+        Item(NaiveTime::from_hms_opt(3, 2, 58).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Microseconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
 }
 
 #[test]

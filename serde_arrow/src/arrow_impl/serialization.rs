@@ -10,7 +10,7 @@ use crate::{
     internal::{
         common::MutableBitBuffer,
         error::{fail, Result},
-        serialization_ng::{ArrayBuilder, OuterSequenceBuilder},
+        serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 

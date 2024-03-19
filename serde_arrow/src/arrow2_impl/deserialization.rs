@@ -1,312 +1,415 @@
-use crate::{
-    _impl::arrow2::{
-        array::{
-            Array, BooleanArray, DictionaryArray, ListArray, MapArray, PrimitiveArray, StructArray,
-            UnionArray, Utf8Array,
-        },
-        datatypes::DataType,
-        types::f16,
+use crate::internal::{
+    common::{check_supported_list_layout, BitBuffer},
+    deserialization::{
+        array_deserializer::ArrayDeserializer,
+        bool_deserializer::BoolDeserializer,
+        date32_deserializer::Date32Deserializer,
+        date64_deserializer::Date64Deserializer,
+        decimal_deserializer::DecimalDeserializer,
+        dictionary_deserializer::DictionaryDeserializer,
+        enum_deserializer::EnumDeserializer,
+        float_deserializer::{Float, FloatDeserializer},
+        integer_deserializer::{Integer, IntegerDeserializer},
+        list_deserializer::{IntoUsize, ListDeserializer},
+        map_deserializer::MapDeserializer,
+        null_deserializer::NullDeserializer,
+        outer_sequence_deserializer::OuterSequenceDeserializer,
+        string_deserializer::StringDeserializer,
+        struct_deserializer::StructDeserializer,
+        time64_deserializer::Time64Deserializer,
     },
-    internal::common::{DictionaryIndex, DictionaryValue},
-};
-use crate::{
-    internal::{
-        common::{check_supported_list_layout, ArrayMapping, BitBuffer, BufferExtract, Buffers},
-        error::{error, fail},
-        schema::{GenericDataType, GenericField},
-    },
-    Result,
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit},
 };
 
-impl BufferExtract for &dyn Array {
-    fn len(&self) -> usize {
-        (*self).len()
-    }
+use crate::_impl::arrow2::{
+    array::{
+        Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
+        StructArray, UnionArray, Utf8Array,
+    },
+    datatypes::{DataType, UnionMode},
+    types::{f16, NativeType, Offset},
+};
 
-    fn extract_buffers<'a>(
-        &'a self,
-        field: &GenericField,
-        buffers: &mut Buffers<'a>,
-    ) -> Result<ArrayMapping> {
-        (*self).extract_buffers(field, buffers)
+pub fn build_deserializer<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<OuterSequenceDeserializer<'a>> {
+    let (deserializers, len) = build_struct_fields(fields, arrays)?;
+    Ok(OuterSequenceDeserializer::new(deserializers, len))
+}
+
+pub fn build_array_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+    match &field.data_type {
+        T::Null => Ok(NullDeserializer.into()),
+        T::Bool => build_bool_deserializer(field, array),
+        T::U8 => build_integer_deserializer::<u8>(field, array),
+        T::U16 => build_integer_deserializer::<u16>(field, array),
+        T::U32 => build_integer_deserializer::<u32>(field, array),
+        T::U64 => build_integer_deserializer::<u64>(field, array),
+        T::I8 => build_integer_deserializer::<i8>(field, array),
+        T::I16 => build_integer_deserializer::<i16>(field, array),
+        T::I32 => build_integer_deserializer::<i32>(field, array),
+        T::I64 => build_integer_deserializer::<i64>(field, array),
+        T::F16 => build_float16_deserializer(field, array),
+        T::F32 => build_float_deserializer::<f32>(field, array),
+        T::F64 => build_float_deserializer::<f64>(field, array),
+        T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
+        T::Date32 => build_date32_deserializer(field, array),
+        T::Date64 => build_date64_deserializer(field, array),
+        T::Time64(_) => build_time64_deserializer(field, array),
+        T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
+        T::Utf8 => build_string_deserializer::<i32>(field, array),
+        T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
+        T::Dictionary => build_dictionary_deserializer(field, array),
+        T::Struct => build_struct_deserializer(field, array),
+        T::List => build_list_deserializer::<i32>(field, array),
+        T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::Map => build_map_deserializer(field, array),
+        T::Union => build_union_deserializer(field, array),
     }
 }
 
-impl BufferExtract for dyn Array {
-    fn len(&self) -> usize {
-        Array::len(self)
+pub fn build_bool_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
+        fail!("cannot interpret array as Bool array");
+    };
+
+    let (data, offset, number_of_bits) = array.values().as_slice();
+    let buffer = BitBuffer {
+        data,
+        offset,
+        number_of_bits,
+    };
+    let validity = get_validity(array);
+
+    Ok(BoolDeserializer::new(buffer, validity).into())
+}
+
+pub fn build_integer_deserializer<'a, T>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: Integer + NativeType + 'static,
+    ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
+{
+    Ok(IntegerDeserializer::new(as_primitive_values(array)?, get_validity(array)).into())
+}
+
+pub fn build_float16_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let buffer = as_primitive_values(array)?;
+    let validity = get_validity(array);
+
+    Ok(FloatDeserializer::new(bytemuck::cast_slice::<f16, half::f16>(buffer), validity).into())
+}
+
+pub fn build_float_deserializer<'a, T>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    T: Float + NativeType + 'static,
+    ArrayDeserializer<'a>: From<FloatDeserializer<'a, T>>,
+{
+    Ok(FloatDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
+}
+
+pub fn build_decimal128_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let GenericDataType::Decimal128(_, scale) = field.data_type else {
+        fail!("Invalid data type for Decimal128Deserializer");
+    };
+    Ok(DecimalDeserializer::new(
+        as_primitive_values::<i128>(array)?,
+        get_validity(array),
+        scale,
+    )
+    .into())
+}
+
+pub fn build_date32_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    Ok(Date32Deserializer::new(as_primitive_values::<i32>(array)?, get_validity(array)).into())
+}
+
+pub fn build_date64_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    Ok(Date64Deserializer::new(
+        as_primitive_values(array)?,
+        get_validity(array),
+        field.is_utc()?,
+    )
+    .into())
+}
+
+pub fn build_time64_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let GenericDataType::Time64(unit) = &field.data_type else {
+        fail!("invalid data type for time64");
+    };
+    Ok(Time64Deserializer::new(
+        as_primitive_values::<i64>(array)?,
+        get_validity(array),
+        unit.clone(),
+    )
+    .into())
+}
+
+pub fn build_timestamp_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let GenericDataType::Timestamp(GenericTimeUnit::Millisecond, _) = &field.data_type else {
+        fail!("Invalid data type {} for timestamp array", field.data_type);
+    };
+    Ok(Date64Deserializer::new(
+        as_primitive_values::<i64>(array)?,
+        get_validity(array),
+        field.is_utc()?,
+    )
+    .into())
+}
+
+pub fn build_string_deserializer<'a, O>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    O: IntoUsize + Offset,
+    ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<Utf8Array<O>>() else {
+        fail!("cannot interpret array as Utf8 array");
+    };
+
+    let buffer = array.values().as_slice();
+    let offsets = array.offsets().as_slice();
+    let validity = get_validity(array);
+
+    Ok(StringDeserializer::new(buffer, offsets, validity).into())
+}
+
+pub fn build_dictionary_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    use GenericDataType as T;
+
+    let Some(key_field) = field.children.first() else {
+        fail!("Missing key field");
+    };
+    let Some(value_field) = field.children.get(1) else {
+        fail!("Missing key field");
+    };
+
+    return match (&key_field.data_type, &value_field.data_type) {
+        (T::U8, T::Utf8) => typed::<u8, i32>(field, array),
+        (T::U16, T::Utf8) => typed::<u16, i32>(field, array),
+        (T::U32, T::Utf8) => typed::<u32, i32>(field, array),
+        (T::U64, T::Utf8) => typed::<u64, i32>(field, array),
+        (T::I8, T::Utf8) => typed::<i8, i32>(field, array),
+        (T::I16, T::Utf8) => typed::<i16, i32>(field, array),
+        (T::I32, T::Utf8) => typed::<i32, i32>(field, array),
+        (T::I64, T::Utf8) => typed::<i64, i32>(field, array),
+        (T::U8, T::LargeUtf8) => typed::<u8, i64>(field, array),
+        (T::U16, T::LargeUtf8) => typed::<u16, i64>(field, array),
+        (T::U32, T::LargeUtf8) => typed::<u32, i64>(field, array),
+        (T::U64, T::LargeUtf8) => typed::<u64, i64>(field, array),
+        (T::I8, T::LargeUtf8) => typed::<i8, i64>(field, array),
+        (T::I16, T::LargeUtf8) => typed::<i16, i64>(field, array),
+        (T::I32, T::LargeUtf8) => typed::<i32, i64>(field, array),
+        (T::I64, T::LargeUtf8) => typed::<i64, i64>(field, array),
+        _ => fail!("invalid dicitonary key / value data type"),
+    };
+
+    pub fn typed<'a, K, V>(
+        _field: &GenericField,
+        array: &'a dyn Array,
+    ) -> Result<ArrayDeserializer<'a>>
+    where
+        K: DictionaryKey + Integer,
+        V: Offset + IntoUsize,
+        DictionaryDeserializer<'a, K, V>: Into<ArrayDeserializer<'a>>,
+    {
+        let Some(array) = array.as_any().downcast_ref::<DictionaryArray<K>>() else {
+            fail!("cannot convert array into dictionary array");
+        };
+        let Some(values) = array.values().as_any().downcast_ref::<Utf8Array<V>>() else {
+            fail!("invalid values");
+        };
+
+        let keys_buffer = array.keys().values();
+        let keys_validity = get_validity(array);
+
+        let values_data = values.values().as_slice();
+        let values_offsets = values.offsets().as_slice();
+
+        Ok(
+            DictionaryDeserializer::new(keys_buffer, keys_validity, values_data, values_offsets)
+                .into(),
+        )
+    }
+}
+
+pub fn build_struct_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<StructArray>() else {
+        fail!("Cannot convert array into struct");
+    };
+
+    let fields = &field.children;
+    let arrays = array
+        .values()
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+    let validity = get_validity(array);
+
+    let (deserializers, len) = build_struct_fields(fields, &arrays)?;
+    Ok(StructDeserializer::new(deserializers, validity, len).into())
+}
+
+pub fn build_struct_fields<'a>(
+    fields: &[GenericField],
+    arrays: &[&'a dyn Array],
+) -> Result<(Vec<(String, ArrayDeserializer<'a>)>, usize)> {
+    if fields.len() != arrays.len() {
+        fail!(
+            "different number of fields ({}) and arrays ({})",
+            fields.len(),
+            arrays.len()
+        );
+    }
+    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+    let mut deserializers = Vec::new();
+    for (field, &array) in std::iter::zip(fields, arrays) {
+        if array.len() != len {
+            fail!("arrays of different lengths are not supported");
+        }
+
+        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
     }
 
-    fn extract_buffers<'a>(
-        &'a self,
-        field: &GenericField,
-        buffers: &mut Buffers<'a>,
-    ) -> Result<ArrayMapping> {
-        macro_rules! convert_primitive {
-            ($array_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<$array_type>>()
-                    .ok_or_else(|| error!("cannot interpret array as I32 array"))?;
+    Ok((deserializers, len))
+}
 
-                let buffer = buffers.$push_func(typed.values().as_slice())?;
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
+pub fn build_list_deserializer<'a, O>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    O: Offset + IntoUsize,
+    ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<ListArray<O>>() else {
+        fail!("cannot interpret array as LargeList array");
+    };
 
-                Ok(M::$variant {
-                    field: field.clone(),
-                    buffer,
-                    validity,
-                })
-            }};
-        }
+    let validity = get_validity(array);
+    let offsets = array.offsets().as_slice();
 
-        macro_rules! convert_utf8 {
-            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<Utf8Array<$offset_type>>()
-                    .ok_or_else(|| error!("cannot interpret array as Utf8 array"))?;
+    let Some(item_field) = field.children.first() else {
+        fail!("cannot get first child of list array")
+    };
+    let item = build_array_deserializer(item_field, array.values().as_ref())?;
 
-                let buffer = buffers.push_u8(typed.values().as_slice());
-                let offsets = buffers.$push_func(typed.offsets().as_slice())?;
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
+    Ok(ListDeserializer::new(item, offsets, validity).into())
+}
 
-                Ok(M::$variant {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                    offsets,
-                })
-            }};
-        }
+pub fn build_map_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(entries_field) = field.children.first() else {
+        fail!("cannot get children of map");
+    };
+    let Some(keys_field) = entries_field.children.first() else {
+        fail!("cannot get keys field");
+    };
+    let Some(values_field) = entries_field.children.get(1) else {
+        fail!("cannot get values field");
+    };
+    let Some(array) = array.as_any().downcast_ref::<MapArray>() else {
+        fail!("cannot convert array into map array");
+    };
+    let Some(entries) = array.field().as_any().downcast_ref::<StructArray>() else {
+        fail!("cannot convert map field into struct array");
+    };
+    let Some(keys) = entries.values().first() else {
+        fail!("cannot get keys array of map entries");
+    };
+    let Some(values) = entries.values().get(1) else {
+        fail!("cannot get values array of map entries");
+    };
 
-        macro_rules! convert_list {
-            ($offset_type:ty, $variant:ident, $push_func:ident) => {{
-                let Some(typed) = self.as_any().downcast_ref::<ListArray<$offset_type>>() else {
-                    fail!("cannot interpret array as LargeList array");
-                };
+    let offsets = array.offsets().as_slice();
+    let validity = get_validity(array);
 
-                let validity = get_validity(typed);
-                let offsets = typed.offsets();
-                let offsets = offsets.as_slice();
+    check_supported_list_layout(validity, offsets)?;
 
-                check_supported_list_layout(validity, offsets)?;
+    let keys = build_array_deserializer(keys_field, keys.as_ref())?;
+    let values = build_array_deserializer(values_field, values.as_ref())?;
 
-                let offsets = buffers.$push_func(offsets)?;
-                let validity = validity.map(|v| buffers.push_u1(v));
+    Ok(MapDeserializer::new(keys, values, offsets, validity).into())
+}
 
-                let Some(item_field) = field.children.first() else {
-                    fail!("cannot get first child of list array")
-                };
-                let item = typed.values().extract_buffers(item_field, buffers)?;
+pub fn build_union_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<UnionArray>() else {
+        fail!("Cannot interpret array as a union array");
+    };
 
-                Ok(M::$variant {
-                    field: field.clone(),
-                    item: Box::new(item),
-                    validity,
-                    offsets,
-                })
-            }};
-        }
-
-        use {ArrayMapping as M, GenericDataType as T};
-
-        match &field.data_type {
-            T::Null => {
-                if !matches!(self.data_type(), DataType::Null) {
-                    fail!("non-null array with null field");
-                }
-
-                Ok(M::Null {
-                    field: field.clone(),
-                    validity: None,
-                    buffer: usize::MAX,
-                })
-            }
-            T::Bool => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .ok_or_else(|| error!("cannot interpret array as Bool array"))?;
-
-                let (data, offset, number_of_bits) = typed.values().as_slice();
-                let buffer = buffers.push_u1(BitBuffer {
-                    data,
-                    offset,
-                    number_of_bits,
-                });
-                let validity = get_validity(typed).map(|v| buffers.push_u1(v));
-
-                Ok(M::Bool {
-                    field: field.clone(),
-                    validity,
-                    buffer,
-                })
-            }
-            T::U8 => convert_primitive!(u8, U8, push_u8_cast),
-            T::U16 => convert_primitive!(u16, U16, push_u16_cast),
-            T::U32 => convert_primitive!(u32, U32, push_u32_cast),
-            T::U64 => convert_primitive!(u64, U64, push_u64_cast),
-            T::I8 => convert_primitive!(i8, I8, push_u8_cast),
-            T::I16 => convert_primitive!(i16, I16, push_u16_cast),
-            T::I32 => convert_primitive!(i32, I32, push_u32_cast),
-            T::I64 => convert_primitive!(i64, I64, push_u64_cast),
-            T::F16 => convert_primitive!(f16, F16, push_u16_cast),
-            T::F32 => convert_primitive!(f32, F32, push_u32_cast),
-            T::F64 => convert_primitive!(f64, F64, push_u64_cast),
-            T::Date32 => convert_primitive!(i32, Date32, push_u32_cast),
-            T::Date64 => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Time64(_) => convert_primitive!(i64, Time64, push_u64_cast),
-            T::Decimal128(_, _) => convert_primitive!(i128, Decimal128, push_u128_cast),
-            T::Timestamp(_, _) => convert_primitive!(i64, Date64, push_u64_cast),
-            T::Utf8 => convert_utf8!(i32, Utf8, push_u32_cast),
-            T::LargeUtf8 => convert_utf8!(i64, LargeUtf8, push_u64_cast),
-            T::List => convert_list!(i32, List, push_u32_cast),
-            T::LargeList => convert_list!(i64, LargeList, push_u64_cast),
-            T::Struct => {
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<StructArray>()
-                    .ok_or_else(|| error!("cannot interpret array as Bool array"))?;
-
-                let validity = get_validity(self).map(|v| buffers.push_u1(v));
-                let mut fields = Vec::new();
-
-                for (field, col) in field.children.iter().zip(typed.values()) {
-                    fields.push(col.extract_buffers(field, buffers)?);
-                }
-
-                Ok(M::Struct {
-                    field: field.clone(),
-                    validity,
-                    fields,
-                })
-            }
-            T::Map => {
-                let Some(entries_field) = field.children.first() else {
-                    fail!("cannot get children of map");
-                };
-                let Some(keys_field) = entries_field.children.first() else {
-                    fail!("cannot get keys field");
-                };
-                let Some(values_field) = entries_field.children.get(1) else {
-                    fail!("cannot get values field");
-                };
-                let Some(typed) = self.as_any().downcast_ref::<MapArray>() else {
-                    fail!("cannot convert array into map array");
-                };
-                let Some(typed_entries) = typed.field().as_any().downcast_ref::<StructArray>()
-                else {
-                    fail!("cannot convert map field into struct array");
-                };
-                let Some(typed_keys) = typed_entries.values().first() else {
-                    fail!("cannot get keys array of map entries");
-                };
-                let Some(typed_values) = typed_entries.values().get(1) else {
-                    fail!("cannot get keys array of map entries");
-                };
-
-                let offsets = typed.offsets().as_slice();
-                let validity = get_validity(typed);
-
-                check_supported_list_layout(validity, offsets)?;
-                let offsets = buffers.push_u32_cast(offsets)?;
-                let validity = validity.map(|b| buffers.push_u1(b));
-
-                let keys = typed_keys.extract_buffers(keys_field, buffers)?;
-                let values = typed_values.extract_buffers(values_field, buffers)?;
-
-                let entries = Box::new(M::Struct {
-                    field: entries_field.clone(),
-                    validity: None,
-                    fields: vec![keys, values],
-                });
-
-                Ok(M::Map {
-                    field: field.clone(),
-                    validity,
-                    offsets,
-                    entries,
-                })
-            }
-            T::Dictionary => {
-                let Some(keys_field) = field.children.first() else {
-                    fail!("cannot get key field of dictionary");
-                };
-                let Some(values_field) = field.children.get(1) else {
-                    fail!("cannot get values field");
-                };
-
-                macro_rules! convert_dictionary {
-                    ($key_type:ty, $variant:ident) => {{
-                        let typed = self
-                            .as_any()
-                            .downcast_ref::<DictionaryArray<$key_type>>()
-                            .ok_or_else(|| error!("cannot convert array into u32 dictionary"))?;
-
-                        // NOTE: the array is validity is given by the key validity
-                        if typed.values().null_count() != 0 {
-                            fail!("dictionaries with nullable values are not supported");
-                        }
-
-                        let validity = get_validity(typed).map(|b| buffers.push_u1(b));
-                        let keys =
-                            (typed.keys() as &dyn Array).extract_buffers(keys_field, buffers)?;
-
-                        let M::$variant { buffer: index_buffer, .. } = keys else {
-                            fail!("internal error unexpected array mapping for keys")
-                        };
-
-                        let values = typed.values().extract_buffers(values_field, buffers)?;
-
-                        let dictionary = match values {
-                            M::Utf8 { buffer, offsets, .. } => DictionaryValue::Utf8{ buffer, offsets },
-                            M::LargeUtf8 { buffer, offsets, .. } => DictionaryValue::LargeUtf8{ buffer, offsets },
-                            m => fail!("BufferExtract for dictionaries with values of type {m:?} is not implemented"),
-                        };
-                        Ok(M::Dictionary {
-                            field: field.clone(),
-                            validity,
-                            dictionary,
-                            indices: DictionaryIndex::$variant(index_buffer),
-                        })
-                    }};
-                }
-
-                match &keys_field.data_type {
-                    T::U8 => convert_dictionary!(u8, U8),
-                    T::U16 => convert_dictionary!(u16, U16),
-                    T::U32 => convert_dictionary!(u32, U32),
-                    T::U64 => convert_dictionary!(u64, U64),
-                    T::I8 => convert_dictionary!(i8, I8),
-                    T::I16 => convert_dictionary!(i16, I16),
-                    T::I32 => convert_dictionary!(i32, I32),
-                    T::I64 => convert_dictionary!(i64, I64),
-                    dt => fail!("BufferExtract for dictionaries with key {dt} is not implemented"),
-                }
-            }
-            T::Union => {
-                // TODO: test assumptions
-                let typed = self
-                    .as_any()
-                    .downcast_ref::<UnionArray>()
-                    .ok_or_else(|| error!("cannot convert array to union array"))?;
-
-                let types = buffers.push_u8_cast(typed.types().as_slice())?;
-                let mut fields = Vec::new();
-                for (field, array) in field.children.iter().zip(typed.fields()) {
-                    fields.push(array.extract_buffers(field, buffers)?);
-                }
-
-                Ok(M::Union {
-                    field: field.clone(),
-                    validity: None,
-                    fields,
-                    types,
-                })
-            }
-        }
+    if !matches!(array.data_type(), DataType::Union(_, _, UnionMode::Dense)) {
+        fail!("Invalid data type: only dense unions are supported");
     }
+
+    let type_ids = array.types().as_slice();
+
+    let mut variants = Vec::new();
+    for (type_id, field) in field.children.iter().enumerate() {
+        let name = field.name.to_owned();
+        let Some(child) = array.fields().get(type_id) else {
+            fail!("Cannot get variant");
+        };
+        let deser = build_array_deserializer(field, child.as_ref())?;
+
+        variants.push((name, deser));
+    }
+
+    Ok(EnumDeserializer::new(type_ids, variants).into())
+}
+
+fn as_primitive_values<T: NativeType>(array: &dyn Array) -> Result<&[T]> {
+    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
+        fail!("cannot interpret array as integer array");
+    };
+
+    let buffer = array.values().as_slice();
+    Ok(buffer)
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

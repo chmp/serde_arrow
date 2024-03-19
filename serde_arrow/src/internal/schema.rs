@@ -427,6 +427,17 @@ pub enum GenericTimeUnit {
     Nanosecond,
 }
 
+impl GenericTimeUnit {
+    pub fn get_factors(&self) -> (i64, i64) {
+        match self {
+            GenericTimeUnit::Nanosecond => (1_000_000_000, 1),
+            GenericTimeUnit::Microsecond => (1_000_000, 1_000),
+            GenericTimeUnit::Millisecond => (1_000, 1_000_000),
+            GenericTimeUnit::Second => (1, 1_000_000_000),
+        }
+    }
+}
+
 impl std::fmt::Display for GenericTimeUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -697,6 +708,21 @@ impl GenericField {
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
             GenericDataType::Time64(_) => self.validate_time64(),
             GenericDataType::Decimal128(_, _) => self.validate_primitive(),
+        }
+    }
+
+    pub fn is_utc(&self) -> Result<bool> {
+        match &self.data_type {
+            GenericDataType::Date64 => match &self.strategy {
+                None | Some(Strategy::UtcStrAsDate64) => Ok(true),
+                Some(Strategy::NaiveStrAsDate64) => Ok(false),
+                Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
+            },
+            GenericDataType::Timestamp(_, tz) => match tz {
+                Some(tz) => Ok(tz.to_lowercase() == "utc"),
+                None => Ok(false),
+            },
+            _ => fail!("non date time type {}", self.data_type),
         }
     }
 

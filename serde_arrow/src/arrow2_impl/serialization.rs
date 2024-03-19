@@ -16,7 +16,7 @@ use crate::{
         common::MutableBitBuffer,
         error::{fail, Result},
         schema::GenericField,
-        serialization_ng::{ArrayBuilder, OuterSequenceBuilder},
+        serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 

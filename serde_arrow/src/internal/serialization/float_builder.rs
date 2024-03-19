@@ -1,8 +1,11 @@
 use half::f16;
 
-use crate::{internal::common::MutableBitBuffer, Result};
+use crate::internal::{
+    common::{Mut, MutableBitBuffer},
+    error::Result,
+};
 
-use super::utils::{push_validity, push_validity_default, Mut, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
 #[derive(Debug, Clone, Default)]
 pub struct FloatBuilder<I> {

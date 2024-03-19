@@ -152,6 +152,18 @@ impl From<chrono::format::ParseError> for Error {
     }
 }
 
+impl From<std::char::CharTryFromError> for Error {
+    fn from(err: std::char::CharTryFromError) -> Error {
+        Self::custom_from(format!("CharTryFromError: {err}"), err)
+    }
+}
+
+impl From<std::char::TryFromCharError> for Error {
+    fn from(err: std::char::TryFromCharError) -> Error {
+        Self::custom_from(format!("TryFromCharError: {err}"), err)
+    }
+}
+
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
         Self::custom_from(format!("TryFromIntError: {err}"), err)

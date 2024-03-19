@@ -1,3 +1,5 @@
+use chrono::{NaiveDate, NaiveDateTime};
+
 use crate::{
     internal::{common::MutableBitBuffer, schema::GenericField},
     Result,
@@ -52,15 +54,14 @@ impl SimpleSerializer for Date32Builder {
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let days_since_unix = {
-            use chrono::{NaiveDate, NaiveDateTime};
-            const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
-            let ndt = v.parse::<NaiveDate>()?;
-            let duration_since_epoch = ndt.signed_duration_since(UNIX_EPOCH);
-            duration_since_epoch.num_days().try_into()?
-        };
+        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+
+        let date = v.parse::<NaiveDate>()?;
+        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
+        let days_since_epoch = duration_since_epoch.num_days().try_into()?;
+
         push_validity(&mut self.validity, true)?;
-        self.buffer.push(days_since_unix);
+        self.buffer.push(days_since_epoch);
         Ok(())
     }
 

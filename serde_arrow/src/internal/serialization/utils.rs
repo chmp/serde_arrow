@@ -7,7 +7,10 @@ use serde::{
 };
 
 use crate::{
-    internal::{common::MutableBitBuffer, error::fail},
+    internal::{
+        common::{Mut, MutableBitBuffer},
+        error::fail,
+    },
     Error, Result,
 };
 
@@ -278,8 +281,6 @@ pub trait SimpleSerializer: Sized {
         )
     }
 }
-
-pub struct Mut<'a, T>(pub &'a mut T);
 
 impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     type Error = Error;

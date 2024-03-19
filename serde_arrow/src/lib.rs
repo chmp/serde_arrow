@@ -206,6 +206,7 @@ pub mod _impl {
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
                         DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
                         OffsetSizeTrait, PrimitiveArray, StringArray, StructArray, UnionArray,
+                        GenericStringArray,
                     };
                     pub use $arrow_data::ArrayData;
                 }
@@ -214,9 +215,10 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        ArrowPrimitiveType, Date32Type, Date64Type, Time64NanosecondType, Time64MicrosecondType, Decimal128Type, Float16Type, Float32Type, Float64Type,
-                        Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type,
-                        UInt64Type, UInt8Type,
+                        ArrowPrimitiveType, Date32Type, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
+                        Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
+                        TimestampNanosecondType, TimestampSecondType, Time64MicrosecondType, Time64NanosecondType, UInt16Type, UInt32Type,
+                        UInt64Type, UInt8Type, ArrowDictionaryKeyType,
                     };
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, TimeUnit, UnionMode};
@@ -262,7 +264,7 @@ pub mod _impl {
         error::PanicOnError,
         event::Event,
         sink::serialize_into_sink,
-        serialization_ng::array_builder::ArrayBuilder,
+        serialization::array_builder::ArrayBuilder,
     };
 }
 
