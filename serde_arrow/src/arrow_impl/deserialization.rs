@@ -1,7 +1,7 @@
 use crate::{
     internal::{
         common::{check_supported_list_layout, BitBuffer},
-        deserialization_ng::{
+        deserialization::{
             array_deserializer::ArrayDeserializer,
             bool_deserializer::BoolDeserializer,
             date32_deserializer::Date32Deserializer,

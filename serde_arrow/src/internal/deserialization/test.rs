@@ -1,8 +1,6 @@
 use serde::Deserialize;
 
-use crate::internal::{
-    deserialization_ng::integer_deserializer::IntegerDeserializer, serialization_ng::utils::Mut,
-};
+use crate::internal::{common::Mut, deserialization::integer_deserializer::IntegerDeserializer};
 
 use super::outer_sequence_deserializer::OuterSequenceDeserializer;
 

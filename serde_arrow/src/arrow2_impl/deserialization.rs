@@ -7,7 +7,7 @@ use crate::{
         datatypes::{DataType, UnionMode},
         types::{f16, NativeType, Offset},
     },
-    internal::deserialization_ng::{
+    internal::deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
         date32_deserializer::Date32Deserializer,

@@ -7,9 +7,10 @@ use crate::{
         datatypes::Field,
     },
     internal::{
+        common::Mut,
         error::Result,
         schema::{GenericField, SerdeArrowSchema},
-        serialization_ng::{utils::Mut, OuterSequenceBuilder},
+        serialization::OuterSequenceBuilder,
     },
 };
 

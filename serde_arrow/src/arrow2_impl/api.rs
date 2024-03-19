@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
+        common::Mut,
         error::Result,
         schema::{GenericField, SerdeArrowSchema},
-        serialization_ng::{utils::Mut, OuterSequenceBuilder},
+        serialization::OuterSequenceBuilder,
     },
 };
 

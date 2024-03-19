@@ -2,12 +2,9 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{common::Mut, error::Result, schema::GenericField};
 
-use super::{
-    array_builder::ArrayBuilder,
-    utils::{Mut, SimpleSerializer},
-};
+use super::{array_builder::ArrayBuilder, utils::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {

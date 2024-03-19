@@ -2,7 +2,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 use serde::de::Visitor;
 
 use crate::{
-    internal::{common::BitBuffer, serialization_ng::utils::Mut},
+    internal::common::{BitBuffer, Mut},
     Result,
 };
 

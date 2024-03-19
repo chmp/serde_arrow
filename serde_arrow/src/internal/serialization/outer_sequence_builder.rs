@@ -1,32 +1,19 @@
 use serde::Serialize;
 
-use crate::{
-    internal::{
-        error::fail,
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
-    },
-    schema::{SerdeArrowSchema, Strategy},
-    Result,
+use crate::internal::{
+    common::Mut,
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
 };
 
 use super::{
-    bool_builder::BoolBuilder,
-    date32_builder::Date32Builder,
-    date64_builder::Date64Builder,
-    decimal_builder::DecimalBuilder,
-    dictionary_utf8_builder::DictionaryUtf8Builder,
-    float_builder::FloatBuilder,
-    int_builder::IntBuilder,
-    list_builder::ListBuilder,
-    map_builder::MapBuilder,
-    null_builder::NullBuilder,
-    struct_builder::StructBuilder,
-    time64_builder::Time64Builder,
-    union_builder::UnionBuilder,
-    unknown_variant_builder::UnknownVariantBuilder,
-    utf8_builder::Utf8Builder,
-    utils::{Mut, SimpleSerializer},
-    ArrayBuilder,
+    bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
+    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
+    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
+    time64_builder::Time64Builder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
+    utils::SimpleSerializer, ArrayBuilder,
 };
 
 #[derive(Debug, Clone)]

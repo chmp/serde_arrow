@@ -1,12 +1,10 @@
-use crate::{
-    internal::{error::fail, schema::GenericField},
-    Result,
+use crate::internal::{
+    common::Mut,
+    error::{fail, Result},
+    schema::GenericField,
 };
 
-use super::{
-    utils::{Mut, SimpleSerializer},
-    ArrayBuilder,
-};
+use super::{utils::SimpleSerializer, ArrayBuilder};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {

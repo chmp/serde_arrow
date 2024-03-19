@@ -1,8 +1,8 @@
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
+    common::Mut,
     error::{fail, Error, Result},
-    serialization_ng::utils::Mut,
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};

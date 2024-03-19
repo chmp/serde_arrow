@@ -2,14 +2,15 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::{
-    internal::{common::MutableBitBuffer, error::fail, schema::GenericField},
-    Result,
+use crate::internal::{
+    common::{Mut, MutableBitBuffer},
+    error::{fail, Result},
+    schema::GenericField,
 };
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, SimpleSerializer},
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;

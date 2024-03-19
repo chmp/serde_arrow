@@ -1,8 +1,8 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
+    common::Mut,
     error::{Error, Result},
-    serialization_ng::utils::Mut,
 };
 
 use super::{

@@ -1,6 +1,9 @@
 use serde::de::Visitor;
 
-use crate::internal::{common::BitBuffer, error::Result, serialization_ng::utils::Mut};
+use crate::internal::{
+    common::{BitBuffer, Mut},
+    error::Result,
+};
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 

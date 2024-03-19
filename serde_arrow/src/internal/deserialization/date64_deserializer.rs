@@ -1,7 +1,10 @@
 use serde::de::Visitor;
 
 use crate::{
-    internal::{common::BitBuffer, error::fail, serialization_ng::utils::Mut},
+    internal::{
+        common::{BitBuffer, Mut},
+        error::fail,
+    },
     Result,
 };
 

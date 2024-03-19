@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::{
     internal::{
-        common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
+        common::{Mut, MutableBitBuffer, MutableOffsetBuffer, Offset},
         schema::GenericField,
     },
     Result,
@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, Mut, SimpleSerializer},
+    utils::{push_validity, push_validity_default, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]

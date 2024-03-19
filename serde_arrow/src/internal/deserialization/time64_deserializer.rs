@@ -1,11 +1,10 @@
 use chrono::NaiveTime;
 use serde::de::Visitor;
 
-use crate::{
-    internal::{
-        common::BitBuffer, error::fail, schema::GenericTimeUnit, serialization_ng::utils::Mut,
-    },
-    Result,
+use crate::internal::{
+    common::{BitBuffer, Mut},
+    error::{fail, Result},
+    schema::GenericTimeUnit,
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};

@@ -1,10 +1,9 @@
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
-    common::BitBuffer,
-    deserialization_ng::list_deserializer::IntoUsize,
+    common::{BitBuffer, Mut},
+    deserialization::list_deserializer::IntoUsize,
     error::{fail, Error, Result},
-    serialization_ng::utils::Mut,
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
