@@ -1,6 +1,6 @@
 use std::{borrow::Cow, env, sync::Arc};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::{arrow, arrow2},
@@ -66,6 +66,7 @@ impl Test {
     pub fn with_schema<T: Serialize>(mut self, schema: T) -> Self {
         self.schema =
             Some(SerdeArrowSchema::from_value(&schema).expect("Failed conversion of schema"));
+
         self
     }
 
@@ -204,10 +205,10 @@ impl Test {
         self
     }
 
-    pub fn deserialize<T: DeserializeOwned + std::fmt::Debug + PartialEq>(
-        self,
+    pub fn deserialize<'a, T: Deserialize<'a> + std::fmt::Debug + PartialEq>(
+        &'a self,
         items: &[T],
-    ) -> Self {
+    ) -> &Self {
         if self.impls.arrow {
             let fields = self.get_arrow_fields();
             let roundtripped: Vec<T> = crate::from_arrow(
@@ -237,7 +238,7 @@ impl Test {
         self
     }
 
-    pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {
+    pub fn check_nulls(&self, nulls: &[&[bool]]) -> &Self {
         if self.impls.arrow {
             let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
                 panic!("cannot check_nulls without arrays");

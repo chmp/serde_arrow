@@ -200,7 +200,7 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 /// # }
 /// ```
 ///
-pub fn from_arrow<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
+pub fn from_arrow<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
