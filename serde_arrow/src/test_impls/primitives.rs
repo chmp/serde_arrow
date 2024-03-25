@@ -412,6 +412,62 @@ fn nullable_str_u32() {
 }
 
 #[test]
+fn borrowed_str() {
+    let field = GenericField::new("item", GenericDataType::LargeUtf8, false);
+
+    type Ty<'a> = &'a str;
+
+    let values = [Item("a"), Item("b"), Item("c"), Item("d")];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize_borrowed(&values);
+}
+
+#[test]
+fn nullabe_borrowed_str() {
+    let field = GenericField::new("item", GenericDataType::LargeUtf8, true);
+
+    type Ty<'a> = Option<&'a str>;
+
+    let values = [Item(Some("a")), Item(None), Item(None), Item(Some("d"))];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(&values, TracingOptions::default())
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
+        .serialize(&values)
+        .deserialize_borrowed(&values);
+}
+
+#[test]
+fn borrowed_str_u32() {
+    let field = GenericField::new("item", GenericDataType::Utf8, false);
+
+    let values = [Item("a"), Item("b"), Item("c"), Item("d")];
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize_borrowed(&values);
+}
+
+#[test]
+fn nullabe_borrowed_str_u32() {
+    let field = GenericField::new("item", GenericDataType::Utf8, true);
+
+    let values = [Item(Some("a")), Item(None), Item(None), Item(Some("d"))];
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&values)
+        .deserialize_borrowed(&values);
+}
+
+#[test]
 fn newtype_i64() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct I64(i64);

@@ -22,7 +22,7 @@ impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
         }
     }
 
-    pub fn next(&mut self) -> Result<Option<&str>> {
+    pub fn next(&mut self) -> Result<Option<&'a str>> {
         if self.next + 1 > self.offsets.len() {
             fail!("Tried to deserialize a value from an exhausted StringDeserializer");
         }
@@ -42,7 +42,7 @@ impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
         Ok(Some(s))
     }
 
-    pub fn next_required(&mut self) -> Result<&str> {
+    pub fn next_required(&mut self) -> Result<&'a str> {
         self.next()?.ok_or_else(|| {
             error!("Tried to deserialize a value from StringDeserializer, but value is missing")
         })
@@ -90,7 +90,7 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     }
 
     fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_str(self.next_required()?)
+        visitor.visit_borrowed_str(self.next_required()?)
     }
 
     fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {

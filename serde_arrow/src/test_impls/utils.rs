@@ -1,6 +1,6 @@
 use std::{borrow::Cow, env, sync::Arc};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::{arrow, arrow2},
@@ -66,6 +66,7 @@ impl Test {
     pub fn with_schema<T: Serialize>(mut self, schema: T) -> Self {
         self.schema =
             Some(SerdeArrowSchema::from_value(&schema).expect("Failed conversion of schema"));
+
         self
     }
 
@@ -204,10 +205,20 @@ impl Test {
         self
     }
 
-    pub fn deserialize<T: DeserializeOwned + std::fmt::Debug + PartialEq>(
-        self,
-        items: &[T],
-    ) -> Self {
+    /// Test deserializing into an owned type
+    pub fn deserialize<T>(self, items: &[T]) -> Self
+    where
+        T: for<'a> Deserialize<'a> + std::fmt::Debug + PartialEq,
+    {
+        self.deserialize_borrowed(items);
+        self
+    }
+
+    /// Test deserializing by borrowing from the previously serialized arrays
+    pub fn deserialize_borrowed<'a, T>(&'a self, items: &[T])
+    where
+        T: Deserialize<'a> + std::fmt::Debug + PartialEq,
+    {
         if self.impls.arrow {
             let fields = self.get_arrow_fields();
             let roundtripped: Vec<T> = crate::from_arrow(
@@ -233,8 +244,6 @@ impl Test {
             .expect("Failed arrow2 deserialization");
             assert_eq!(roundtripped, items);
         }
-
-        self
     }
 
     pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {

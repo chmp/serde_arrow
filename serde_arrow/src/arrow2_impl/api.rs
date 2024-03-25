@@ -173,7 +173,7 @@ where
 /// # }
 /// ```
 ///
-pub fn from_arrow2<'de, T, A>(fields: &'de [Field], arrays: &'de [A]) -> Result<T>
+pub fn from_arrow2<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,

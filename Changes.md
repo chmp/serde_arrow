@@ -3,7 +3,7 @@
 ## 0.11.0
 
 `0.11.0` does contain any anticipated breaking changes. However it's a major
-refactoring and may change some untested behavior.
+refactoring and may change untested behavior.
 
 - Remove the bytecode deserializer and use the serde API directly
   - Easier to understand and extend
@@ -13,6 +13,7 @@ refactoring and may change some untested behavior.
 - Add `Date32` and `Time64` support
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
+- Allow to perform zero-copy deserialization from arrow arrays
 - Fix bug in `SchemaLike::from_type()` for nested unions
 
 ### Thanks
@@ -23,6 +24,8 @@ The following people contributed to this release:
   ([PR](https://github.com/chmp/serde_arrow/pull/147))
 - [@progval](https://github.com/progval) added additional error messages
   ([PR](https://github.com/chmp/serde_arrow/pull/142))
+- [@](https://github.com/gstvg) contributed zero-copy deserialization
+  ([PR](https://github.com/chmp/serde_arrow/pull/151))
 
 ## 0.10.0
 
