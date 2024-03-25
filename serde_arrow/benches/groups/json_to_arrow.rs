@@ -6,13 +6,13 @@ use {
 };
 
 // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-use arrow_json_50::ReaderBuilder;
+use arrow_json_51::ReaderBuilder;
 
 // arrow-version:replace: use arrow_schema_{version}::Schema as ArrowSchema;
-use arrow_schema_50::Schema as ArrowSchema;
+use arrow_schema_51::Schema as ArrowSchema;
 
 // arrow-version:replace: use arrow_array_{version}::RecordBatch;
-use arrow_array_50::RecordBatch;
+use arrow_array_51::RecordBatch;
 use serde_json::Value;
 
 fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
