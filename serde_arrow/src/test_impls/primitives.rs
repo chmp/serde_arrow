@@ -424,7 +424,7 @@ fn borrowed_str() {
         .trace_schema_from_samples(&values, TracingOptions::default())
         .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
         .serialize(&values)
-        .deserialize(&values);
+        .deserialize_borrowed(&values);
 }
 
 #[test]
@@ -440,7 +440,7 @@ fn nullabe_borrowed_str() {
         .trace_schema_from_samples(&values, TracingOptions::default())
         .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
         .serialize(&values)
-        .deserialize(&values);
+        .deserialize_borrowed(&values);
 }
 
 #[test]
@@ -452,7 +452,7 @@ fn borrowed_str_u32() {
     Test::new()
         .with_schema(vec![field])
         .serialize(&values)
-        .deserialize(&values);
+        .deserialize_borrowed(&values);
 }
 
 #[test]
@@ -464,7 +464,7 @@ fn nullabe_borrowed_str_u32() {
     Test::new()
         .with_schema(vec![field])
         .serialize(&values)
-        .deserialize(&values);
+        .deserialize_borrowed(&values);
 }
 
 #[test]

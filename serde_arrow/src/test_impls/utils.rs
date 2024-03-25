@@ -205,10 +205,20 @@ impl Test {
         self
     }
 
-    pub fn deserialize<'a, T: Deserialize<'a> + std::fmt::Debug + PartialEq>(
-        &'a self,
-        items: &[T],
-    ) -> &Self {
+    /// Test deserializing into an owned type
+    pub fn deserialize<T>(self, items: &[T]) -> Self
+    where
+        T: for<'a> Deserialize<'a> + std::fmt::Debug + PartialEq,
+    {
+        self.deserialize_borrowed(items);
+        self
+    }
+
+    /// Test deserializing by borrowing from the previously serialized arrays
+    pub fn deserialize_borrowed<'a, T>(&'a self, items: &[T])
+    where
+        T: Deserialize<'a> + std::fmt::Debug + PartialEq,
+    {
         if self.impls.arrow {
             let fields = self.get_arrow_fields();
             let roundtripped: Vec<T> = crate::from_arrow(
@@ -234,11 +244,9 @@ impl Test {
             .expect("Failed arrow2 deserialization");
             assert_eq!(roundtripped, items);
         }
-
-        self
     }
 
-    pub fn check_nulls(&self, nulls: &[&[bool]]) -> &Self {
+    pub fn check_nulls(self, nulls: &[&[bool]]) -> Self {
         if self.impls.arrow {
             let Some(arrow_arrays) = self.arrays.arrow.as_ref() else {
                 panic!("cannot check_nulls without arrays");
