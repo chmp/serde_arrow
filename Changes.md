@@ -10,6 +10,7 @@ refactoring and may change untested behavior.
   - The `Deserialization` implementation can ask for its expected type, e.g.,
     `chrono::DateTime<Utc>` can now be used with  `serde_arrow` without
     explicitly specifying the strategy
+- Add `arrow=51` support
 - Add `Date32` and `Time64` support
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
