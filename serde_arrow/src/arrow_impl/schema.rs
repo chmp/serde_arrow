@@ -1,6 +1,7 @@
-use super::type_support::FieldRef;
+use std::sync::Arc;
+
 use crate::{
-    _impl::arrow::datatypes::{DataType, Field, TimeUnit, UnionMode},
+    _impl::arrow::datatypes::{DataType, Field, FieldRef, TimeUnit, UnionMode},
     internal::{
         error::{error, fail, Error, Result},
         schema::{
@@ -76,6 +77,41 @@ impl SchemaLike for Vec<Field> {
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
         SerdeArrowSchema::from_samples(samples, options)?.to_arrow_fields()
+    }
+}
+
+impl Sealed for Vec<FieldRef> {}
+
+/// Schema support for `Vec<arrow::datatype::FieldRef>` (*requires one of the
+/// `arrow-*` features*)
+impl SchemaLike for Vec<FieldRef> {
+    fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_value(value)?
+            .to_arrow_fields()?
+            .into_iter()
+            .map(|f| Arc::new(f))
+            .collect())
+    }
+
+    fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
+        options: crate::schema::TracingOptions,
+    ) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_type::<T>(options)?
+            .to_arrow_fields()?
+            .into_iter()
+            .map(|f| Arc::new(f))
+            .collect())
+    }
+
+    fn from_samples<T: serde::Serialize + ?Sized>(
+        samples: &T,
+        options: crate::schema::TracingOptions,
+    ) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_samples(samples, options)?
+            .to_arrow_fields()?
+            .into_iter()
+            .map(|f| Arc::new(f))
+            .collect())
     }
 }
 
@@ -155,7 +191,7 @@ impl TryFrom<&Field> for GenericField {
             }
             DataType::Struct(fields) => {
                 for field in fields {
-                    children.push(field.as_field_ref().try_into()?);
+                    children.push(field.as_ref().try_into()?);
                 }
                 GenericDataType::Struct
             }

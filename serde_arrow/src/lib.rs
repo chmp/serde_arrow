@@ -203,6 +203,7 @@ pub mod _impl {
                     pub use $arrow_schema as schema;
                 }
                 pub mod array {
+                    pub use $arrow_array::RecordBatch;
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
                         DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
@@ -222,7 +223,7 @@ pub mod _impl {
                         UInt64Type, UInt8Type, ArrowDictionaryKeyType,
                     };
                     pub use $arrow_buffer::ArrowNativeType;
-                    pub use $arrow_schema::{DataType, Field, TimeUnit, UnionMode};
+                    pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit, UnionMode};
                 }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
@@ -285,7 +286,7 @@ pub use crate::internal::error::{Error, Result};
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::api::{from_arrow, to_arrow, ArrowBuilder};
+pub use arrow_impl::api::{from_arrow, to_arrow, to_record_batch, ArrowBuilder};
 
 #[cfg(has_arrow2)]
 mod arrow2_impl;

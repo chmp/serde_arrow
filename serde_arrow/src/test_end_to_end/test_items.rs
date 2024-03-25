@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     self as serde_arrow,
-    _impl::arrow::_raw::{
-        array::RecordBatch,
-        schema::{Field, Schema},
-    },
+    _impl::arrow::{_raw::schema::Schema, array::RecordBatch, datatypes::Field},
     internal::error::PanicOnError,
     schema::{SchemaLike, TracingOptions},
     utils::{Item, Items},
