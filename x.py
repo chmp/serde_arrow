@@ -203,7 +203,7 @@ def example():
     help="If given, skip arrow2 implementations in tests",
 )
 @arg("test_name", nargs="?", help="Filter of test names")
-def test(test_name, backtrace=False, full=False, skip_arrow2=False):
+def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
     import os
 
     if not full:
