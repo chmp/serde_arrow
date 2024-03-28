@@ -28,11 +28,11 @@
     doc = r#"
 ## Overview
 
-| Operation        | [`arrow-*`](#features) | [`arrow2-*`](#features) |
-|------------------|------------------|-------------------|
-| Rust to Arrow    | [`to_arrow`]     | [`to_arrow2`]     |
-| Arrow to Rust    | [`from_arrow`]   | [`from_arrow2`]   |
-| Array Builder    | [`ArrowBuilder`] | [`Arrow2Builder`] |
+| Operation        | [`arrow-*`](#features)                | [`arrow2-*`](#features) |
+|:-----------------|:--------------------------------------|:------------------------|
+| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]     | [`to_arrow2`]           |
+| Arrow to Rust    | [`from_record_batch`], [`from_arrow`] | [`from_arrow2`]         |
+| Array Builder    | [`ArrowBuilder`]                      | [`Arrow2Builder`]       |
 "#
 )]
 //!
@@ -50,8 +50,7 @@
 //! # use serde::{Deserialize, Serialize};
 //! # #[cfg(feature = "has_arrow")]
 //! # fn main() -> serde_arrow::Result<()> {
-//! use arrow::datatypes::Schema;
-//! use arrow::record_batch::RecordBatch;
+//! use arrow::datatypes::FieldRef;
 //! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 //!
 //! ##[derive(Serialize, Deserialize)]
@@ -67,14 +66,10 @@
 //! ];
 //!
 //! // Determine Arrow schema
-//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+//! let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 //!
-//! // Convert Rust records to Arrow arrays
-//! let arrays = serde_arrow::to_arrow(&fields, &records)?;
-//!
-//! // Create RecordBatch
-//! let schema = Schema::new(fields);
-//! let batch = RecordBatch::try_new(schema, arrays)?;
+//! // Build the record batch
+//! let batch = serde_arrow::to_record_batch(&fields, &records)?;
 //! # Ok(())
 //! # }
 //! # #[cfg(not(feature = "has_arrow"))]
@@ -203,6 +198,7 @@ pub mod _impl {
                     pub use $arrow_schema as schema;
                 }
                 pub mod array {
+                    pub use $arrow_array::RecordBatch;
                     pub use $arrow_array::array::{
                         make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
                         DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
@@ -222,7 +218,7 @@ pub mod _impl {
                         UInt64Type, UInt8Type, ArrowDictionaryKeyType,
                     };
                     pub use $arrow_buffer::ArrowNativeType;
-                    pub use $arrow_schema::{DataType, Field, TimeUnit, UnionMode};
+                    pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit, UnionMode};
                 }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
@@ -285,7 +281,7 @@ pub use crate::internal::error::{Error, Result};
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::api::{from_arrow, to_arrow, ArrowBuilder};
+pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch, ArrowBuilder};
 
 #[cfg(has_arrow2)]
 mod arrow2_impl;

@@ -60,6 +60,7 @@ impl SimpleSerializer for Date64Builder {
             v.parse::<DateTime<Utc>>()?.timestamp_millis()
         } else {
             use chrono::NaiveDateTime;
+            #[allow(deprecated)]
             v.parse::<NaiveDateTime>()?.timestamp_millis()
         };
         push_validity(&mut self.validity, true)?;

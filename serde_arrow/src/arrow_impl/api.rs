@@ -1,10 +1,12 @@
 #![deny(missing_docs)]
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow::{
-        array::{Array, ArrayRef},
-        datatypes::Field,
+        array::{Array, ArrayRef, RecordBatch},
+        datatypes::{Field, Schema},
     },
     internal::{
         common::Mut,
@@ -210,6 +212,109 @@ where
         .map(GenericField::try_from)
         .collect::<Result<Vec<_>>>()?;
     let arrays = arrays
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+
+    let mut deserializer = build_deserializer(&fields, &arrays)?;
+    let res = T::deserialize(Mut(&mut deserializer))?;
+    Ok(res)
+}
+
+/// Build a record batch from the given items  (*requires one of the `arrow-*`
+/// features*))
+///
+/// `items` should be given in the form a list of records (e.g., a vector of
+/// structs). To serialize items encoding single values consider the
+/// [`Items`][crate::utils::Items] wrapper.
+///
+/// To build arrays record by record use [`ArrowBuilder`].
+///
+/// Example:
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow;
+/// use arrow::datatypes::FieldRef;
+/// use serde::{Serialize, Deserialize};
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
+///
+/// ##[derive(Serialize, Deserialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let items = vec![
+///     Record { a: Some(1.0), b: 2},
+///     // ...
+/// ];
+///
+/// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
+/// let record_batch = serde_arrow::to_record_batch(&fields, &items)?;
+///
+/// assert_eq!(record_batch.num_columns(), 2);
+/// assert_eq!(record_batch.num_rows(), 1);
+/// # Ok(())
+/// # }
+/// ```
+pub fn to_record_batch<T: Serialize + ?Sized>(
+    fields: &[Arc<Field>],
+    items: &T,
+) -> Result<RecordBatch> {
+    let field_refs = fields
+        .iter()
+        .map(|f| f.as_ref().clone())
+        .collect::<Vec<_>>();
+    let arrays = to_arrow(&field_refs, items)?;
+
+    let schema = Schema::new(fields);
+    Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
+}
+
+/// Deserialize items from a record batch (*requires one of the `arrow-*`
+/// features*)
+///
+/// The type should be a list of records (e.g., a vector of structs). To
+/// deserialize items encoding single values consider the
+/// [`Items`][crate::utils::Items] wrapper.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow;
+/// # use arrow::datatypes::FieldRef;
+/// # use serde::Serialize;
+/// use serde::Deserialize;
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
+///
+/// ##[derive(Deserialize)]
+/// # #[derive(Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// # let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
+/// # let items = &[Record { a: Some(1.0), b: 2}];
+/// # let record_batch = serde_arrow::to_record_batch(&fields, &items)?;
+/// #
+/// let items: Vec<Record> = serde_arrow::from_record_batch(&record_batch)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+pub fn from_record_batch<'de, T>(record_batch: &'de RecordBatch) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    let fields = record_batch
+        .schema()
+        .fields()
+        .iter()
+        .map(|f| GenericField::try_from(f.as_ref()))
+        .collect::<Result<Vec<_>>>()?;
+    let arrays = record_batch
+        .columns()
         .iter()
         .map(|array| array.as_ref())
         .collect::<Vec<_>>();

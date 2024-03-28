@@ -14,6 +14,9 @@ refactoring and may change untested behavior.
 - Add `Date32` and `Time64` support
 - Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
+- Implement `SchemaLike` for `arrow::datatypes::FieldRef`s
+- Add `to_record_batch`, `from_record_batch` to offer more streamlined APIs for
+  working with record batches
 - Allow to perform zero-copy deserialization from arrow arrays
 - Fix bug in `SchemaLike::from_type()` for nested unions
 

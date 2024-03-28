@@ -17,6 +17,7 @@ impl<'a> Date32Deserializer<'a> {
 
     pub fn get_string_repr(&self, ts: i32) -> Result<String> {
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+        #[allow(deprecated)]
         let delta = Duration::days(ts as i64);
         let date = UNIX_EPOCH + delta;
         Ok(date.to_string())

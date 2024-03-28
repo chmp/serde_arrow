@@ -8,10 +8,7 @@ use serde_json::json;
 use crate::{
     self as serde_arrow,
     _impl::{
-        arrow::{
-            _raw::{array::RecordBatch, schema::Schema},
-            datatypes::Field,
-        },
+        arrow::{_raw::schema::Schema, array::RecordBatch, datatypes::Field},
         PanicOnError,
     },
     schema::{SchemaLike, TracingOptions},

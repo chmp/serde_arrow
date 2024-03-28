@@ -33,6 +33,7 @@ impl<'a> Date64Deserializer<'a> {
         } else {
             use chrono::NaiveDateTime;
 
+            #[allow(deprecated)]
             let Some(val) =
                 NaiveDateTime::from_timestamp_opt(ts / 1000, (ts % 1000) as u32 * 100_000)
             else {
