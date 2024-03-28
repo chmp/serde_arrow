@@ -25,6 +25,7 @@ fn utc_as_str() {
 
 #[test]
 fn naive_as_str() {
+    #[allow(deprecated)]
     let items = [
         Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
         Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
@@ -76,6 +77,7 @@ fn utc_as_date64_without_strategy() {
 
 #[test]
 fn naive_as_date64() {
+    #[allow(deprecated)]
     let items = [
         Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
         Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
@@ -278,6 +280,7 @@ fn utc_str_as_date64_as_timestamp() {
 
 #[test]
 fn naive_as_timestamp() {
+    #[allow(deprecated)]
     let items = [
         Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
         Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
