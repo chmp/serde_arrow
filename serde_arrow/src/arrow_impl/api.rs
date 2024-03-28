@@ -173,6 +173,54 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
     builder.build_arrays()
 }
 
+/// Deserialize items from arrow arrays (*requires one of the `arrow-*`
+/// features*)
+///
+/// The type should be a list of records (e.g., a vector of structs). To
+/// deserialize items encoding single values consider the
+/// [`Items`][crate::utils::Items] wrapper.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// # use serde_arrow::_impl::arrow;
+/// use arrow::datatypes::Field;
+/// use serde::{Deserialize, Serialize};
+/// use serde_arrow::schema::{SchemaLike, TracingOptions};
+///
+/// ##[derive(Deserialize, Serialize)]
+/// struct Record {
+///     a: Option<f32>,
+///     b: u64,
+/// }
+///
+/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+/// # let items = &[Record { a: Some(1.0), b: 2}];
+/// # let arrays = serde_arrow::to_arrow(&fields, &items)?;
+/// #
+/// let items: Vec<Record> = serde_arrow::from_arrow(&fields, &arrays)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+pub fn from_arrow<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array>,
+{
+    let fields = fields
+        .iter()
+        .map(GenericField::try_from)
+        .collect::<Result<Vec<_>>>()?;
+    let arrays = arrays
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+
+    let mut deserializer = build_deserializer(&fields, &arrays)?;
+    let res = T::deserialize(Mut(&mut deserializer))?;
+    Ok(res)
+}
+
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
 /// features*))
 ///
@@ -224,7 +272,7 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
     Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
 }
 
-/// Deserialize items from arrow arrays (*requires one of the `arrow-*`
+/// Deserialize items from a record batch (*requires one of the `arrow-*`
 /// features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
@@ -234,35 +282,39 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow;
-/// use arrow::datatypes::Field;
-/// use serde::{Deserialize, Serialize};
+/// # use arrow::datatypes::FieldRef;
+/// # use serde::Serialize;
+/// use serde::Deserialize;
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
-/// ##[derive(Deserialize, Serialize)]
+/// ##[derive(Deserialize)]
+/// # #[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
 ///     b: u64,
 /// }
 ///
-/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+/// # let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 /// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serde_arrow::to_arrow(&fields, &items)?;
+/// # let record_batch = serde_arrow::to_record_batch(&fields, &items)?;
 /// #
-/// let items: Vec<Record> = serde_arrow::from_arrow(&fields, &arrays)?;
+/// let items: Vec<Record> = serde_arrow::from_record_batch(&record_batch)?;
 /// # Ok(())
 /// # }
 /// ```
 ///
-pub fn from_arrow<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+pub fn from_record_batch<'de, T>(record_batch: &'de RecordBatch) -> Result<T>
 where
     T: Deserialize<'de>,
-    A: AsRef<dyn Array>,
 {
-    let fields = fields
+    let fields = record_batch
+        .schema()
+        .fields()
         .iter()
-        .map(GenericField::try_from)
+        .map(|f| GenericField::try_from(f.as_ref()))
         .collect::<Result<Vec<_>>>()?;
-    let arrays = arrays
+    let arrays = record_batch
+        .columns()
         .iter()
         .map(|array| array.as_ref())
         .collect::<Vec<_>>();
