@@ -2,41 +2,52 @@
 
 Supported arrow data types:
 
-- [x] `Null`
-- [x] `Boolean`
-- [x] `Int8`, `Int16`, `Int32`, `Int64`
-- [x] `UInt8`, `UInt16`, `UInt32`, `UInt64`
-- [x] `Float16`:  can be serialized / deserialized from Rust `f32`
-- [x] `Float32`, `Float64`
-- [x] `Timestamp`
-- [ ] `Date32`
-- [x] `Date64`: either as formatted dates (UTC + Naive) (`Event::Str`) or as
-  timestamps (`Event::I64`). Both cases require additional configuration
-- [ ] `Time32`
-- [ ] `Time64`
-- [ ] `Duration`
-- [ ] `Interval`
-- [x] `Timestamp(Second, None | Some("UTC"))`: at the moment only second are
-  supported and either no timezone or UTC
-- [ ] `Binary`
-- [ ] `FixedSizeBinary`
-- [ ] `LargeBinary`
-- [x] `Utf8`
-- [x] `LargeUtf8`
-- [x] `List`
-- [ ] `FixedSizeList`
-- [x] `LargeList`
-- [x] `Struct`
-- [x] `Union`: at the moment only dense unions are supported
-- [x] `Map`: at the moment only unsorted maps are supported
-- [x] `Dictionary`: at the moment only Utf8 and LargeUtf8 as values are
-  supported
-- [x] `Decimal128(precision, scale)`: decimals that are serialized to string or
-  float are supported. `Decimal128` arrays are always deserialized as string.
-  Values are truncated to the given `(precision, scale)` range. Values too large
-  for this range will result in a serialization error.
-- [ ] `Decimal256(precision, scale)`
-- [ ] `Extension`
+- [x] [`Null`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Null)
+- [x] [`Boolean`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Boolean)
+- [x] [`Int8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Int8),
+  [`Int16`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Int16),
+  [`Int32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Int32),
+  [`Int64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Int64)
+- [x] [`UInt8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.UInt8),
+  [`UInt16`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.UInt16),
+  [`UInt32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.UInt32),
+  [`UInt64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.UInt64)
+- [x] [`Float16`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Float16):
+  can be serialized / deserialized from Rust `f32`
+- [x] [`Float32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Float32),
+  [`Float64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Float64)
+- [x] [`Timestamp`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp)
+- [x] [`Date32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date32)
+- [x] [`Date64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date64):
+  either as formatted dates (UTC + Naive) (serialized / deserialized as strings) or as timestamps
+  (serialized / deserialized as `i64`). Both cases require additional configuration
+- [ ] [`Time32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time32)
+- [x] [`Time64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time64)
+- [ ] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
+- [ ] [`Interval`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Interval)
+- [x] [`Timestamp(Second, None | Some("UTC"))`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp):
+  at the moment only seconds are supported and either no timezone or UTC
+- [ ] [`Binary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Binary)
+- [ ] [`FixedSizeBinary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.FixedSizedBinary)
+- [ ] [`LargeBinary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeBinary)
+- [x] [`Utf8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Utf8)
+- [x] [`LargeUtf8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeUtf8)
+- [x] [`List`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.List)
+- [ ] [`FixedSizeList`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.FixedSizeList)
+- [x] [`LargeList`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeList)
+- [x] [`Struct`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Struct)
+- [x] [`Union`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Union):
+  at the moment only dense unions are supported
+- [x] [`Map`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Map):
+  at the moment only unsorted maps are supported
+- [x] [`Dictionary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Dictionary):
+  at the moment only Utf8 and LargeUtf8 as values are supported
+- [x] [`Decimal128(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal128):
+  decimals that are serialized to string or float are supported. `Decimal128`
+  arrays are always deserialized as string. Values are truncated to the given
+  `(precision, scale)` range. Values too large for this range will result in a
+  serialization error.
+- [ ] [`Decimal256(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal256)
 
 Supported Serde / Rust types:
 
