@@ -40,8 +40,6 @@
 //!
 //! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
 //!   to use this package
-//! - the [implementation notes][_impl::docs::implementation] for an explanation
-//!   of how this package works and its underlying data model
 //! - the [status summary][_impl::docs::status] for an overview over the
 //!   supported Arrow and Rust constructs
 //!
@@ -247,9 +245,8 @@ pub mod _impl {
 
     /// Documentation
     pub mod docs {
-        pub mod implementation;
-
-        pub mod quickstart;
+        #[doc = include_str!("../Quickstart.md")]
+        pub mod quickstart {}
 
         #[doc = include_str!("../Status.md")]
         #[cfg(not(doctest))]
