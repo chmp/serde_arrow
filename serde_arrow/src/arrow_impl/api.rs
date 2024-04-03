@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow::{
         array::{Array, ArrayRef, RecordBatch},
-        datatypes::{Field, Schema},
+        datatypes::{Field, FieldRef, Schema},
     },
     internal::{
         common::Mut,
@@ -109,7 +109,8 @@ impl ArrowBuilder {
 /// structs). To serialize items encoding single values consider the
 /// [`Items`][crate::utils::Items] wrapper.
 ///
-/// To build arrays record by record use [`ArrowBuilder`].
+/// To build arrays record by record use [`ArrowBuilder`]. To construct a record
+/// batch, consider using [`to_record_batch`].
 ///
 /// Example:
 ///
@@ -135,34 +136,6 @@ impl ArrowBuilder {
 /// let arrays = serde_arrow::to_arrow(&fields, &items)?;
 /// #
 /// # assert_eq!(arrays.len(), 2);
-/// # Ok(())
-/// # }
-/// ```
-///
-/// The arrays can be used as is to construct a record batch
-///
-/// ```rust
-/// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::_impl::arrow::datatypes::Field;
-/// # use serde::{Serialize, Deserialize};
-/// # use serde_arrow::schema::{SchemaLike, TracingOptions};
-/// # mod arrow {
-/// #   pub mod array { pub use serde_arrow::_impl::arrow::_raw::array::RecordBatch;  }
-/// #   pub mod datatypes { pub use serde_arrow::_impl::arrow::_raw::schema::Schema; }
-/// # }
-/// # #[derive(Serialize, Deserialize)]
-/// # struct Record { a: Option<f32>, b: u64 }
-/// # let items = vec![ Record { a: Some(1.0), b: 2}, ];
-/// # let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-/// # let arrays = serde_arrow::to_arrow(&fields, &items)?;
-/// use arrow::{array::RecordBatch, datatypes::Schema};
-/// use std::sync::Arc;
-///
-/// let schema = Schema::new(fields);
-/// let record_batch = RecordBatch::try_new(Arc::new(schema), arrays)?;
-///
-/// assert_eq!(record_batch.num_columns(), 2);
-/// assert_eq!(record_batch.num_rows(), 1);
 /// # Ok(())
 /// # }
 /// ```
@@ -259,7 +232,7 @@ where
 /// # }
 /// ```
 pub fn to_record_batch<T: Serialize + ?Sized>(
-    fields: &[Arc<Field>],
+    fields: &[FieldRef],
     items: &T,
 ) -> Result<RecordBatch> {
     let field_refs = fields

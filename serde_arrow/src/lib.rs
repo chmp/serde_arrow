@@ -15,8 +15,8 @@
 //! [features](#features).
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as
-//! their type system are not directly translatable. The schema is expressed as
-//! a collection of Arrow fields with additional metadata describing the arrays.
+//! their type systems do not directly match. The schema is expressed as a
+//! collection of Arrow fields with additional metadata describing the arrays.
 //! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
 //! schema should contain a  `Date64`. `serde_arrow` supports to derive the
 //! schema from the data itself via schema tracing, but does not require it. It
