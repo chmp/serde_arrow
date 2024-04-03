@@ -1,3 +1,4 @@
+// NOTE: This file is a Rust file to doctest the code examples
 //! # Quickstart guide
 //!
 //! **Contents**

@@ -245,8 +245,7 @@ pub mod _impl {
 
     /// Documentation
     pub mod docs {
-        #[doc = include_str!("../Quickstart.md")]
-        pub mod quickstart {}
+        pub mod quickstart;
 
         #[doc = include_str!("../Status.md")]
         #[cfg(not(doctest))]
