@@ -36,12 +36,31 @@ pub trait Sealed {}
 /// - [`SerdeArrowSchema`]
 #[cfg_attr(
     has_arrow,
+    doc = "- `Vec<`[`arrow::datatypes::FieldRef`][crate::_impl::arrow::datatypes::FieldRef]`>`"
+)]
+#[cfg_attr(
+    has_arrow,
     doc = "- `Vec<`[`arrow::datatypes::Field`][crate::_impl::arrow::datatypes::Field]`>`"
 )]
 #[cfg_attr(
     has_arrow2,
     doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
 )]
+///
+/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized.
+/// The format is that described in [`SchemaLike::from_value`].
+///
+/// ```rust
+/// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+/// # let json_schema_str = "[]";
+/// #
+/// use serde_arrow::schema::SerdeArrowSchema;
+///
+/// let schema: SerdeArrowSchema = serde_json::from_str(json_schema_str)?;
+/// serde_json::to_string(&schema)?;
+/// # Ok(())
+/// # }
+/// ```
 ///
 pub trait SchemaLike: Sized + Sealed {
     /// Build the schema from an object that implements serialize (e.g.,
@@ -51,7 +70,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::Field;
+    /// use arrow::datatypes::FieldRef;
     /// use serde_arrow::schema::SchemaLike;
     ///
     /// let schema = serde_json::json!([
@@ -59,26 +78,11 @@ pub trait SchemaLike: Sized + Sealed {
     ///     {"name": "bar", "data_type": "Utf8"},
     /// ]);
     ///
-    /// let fields = Vec::<Field>::from_value(&schema)?;
+    /// let fields = Vec::<FieldRef>::from_value(&schema)?;
     /// # Ok(())
     /// # }
     /// # #[cfg(not(feature = "has_arrow"))]
     /// # fn main() { }
-    /// ```
-    ///
-    /// Instances of `SerdeArrowSchema` can also be directly serialized and
-    /// deserialized.
-    ///
-    /// ```rust
-    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-    /// # let json_schema_str = "[]";
-    /// #
-    /// use serde_arrow::schema::SerdeArrowSchema;
-    ///
-    /// let schema: SerdeArrowSchema = serde_json::from_str(json_schema_str)?;
-    /// serde_json::to_string(&schema)?;
-    /// # Ok(())
-    /// # }
     /// ```
     ///
     /// The schema can be given in two ways:
@@ -132,13 +136,14 @@ pub trait SchemaLike: Sized + Sealed {
     /// - non self-describing types such as `serde_json::Value`
     /// - flattened structure (`#[serde(flatten)]`)
     ///
-    /// Consider using [`from_samples`][SchemaLike::from_samples] in these cases.
+    /// Consider using [`from_samples`][SchemaLike::from_samples] in these
+    /// cases.
     ///
     /// ```rust
     /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::{DataType, Field};
+    /// use arrow::datatypes::{DataType, FieldRef};
     /// use serde::Deserialize;
     /// use serde_arrow::schema::{SchemaLike, TracingOptions};
     ///
@@ -149,7 +154,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///     string: String,
     /// }
     ///
-    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+    /// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
     ///
     /// assert_eq!(fields[0].data_type(), &DataType::Int32);
     /// assert_eq!(fields[1].data_type(), &DataType::Float64);
@@ -168,10 +173,10 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::{DataType, Field};
+    /// use arrow::datatypes::{DataType, FieldRef};
     /// use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
     ///
-    /// let fields = Vec::<Field>::from_type::<Item<f32>>(TracingOptions::default())?;
+    /// let fields = Vec::<FieldRef>::from_type::<Item<f32>>(TracingOptions::default())?;
     ///
     /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
@@ -200,7 +205,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::{DataType, Field};
+    /// use arrow::datatypes::{DataType, FieldRef};
     /// use serde::Serialize;
     /// use serde_arrow::schema::{SchemaLike, TracingOptions};
     ///
@@ -225,7 +230,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///     // ...
     /// ];
     ///
-    /// let fields = Vec::<Field>::from_samples(&samples, TracingOptions::default())?;
+    /// let fields = Vec::<FieldRef>::from_samples(&samples, TracingOptions::default())?;
     ///
     /// assert_eq!(fields[0].data_type(), &DataType::Int32);
     /// assert_eq!(fields[1].data_type(), &DataType::Float64);
@@ -244,10 +249,10 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(feature = "has_arrow")]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::{DataType, Field};
+    /// use arrow::datatypes::{DataType, FieldRef};
     /// use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Items};
     ///
-    /// let fields = Vec::<Field>::from_samples(
+    /// let fields = Vec::<FieldRef>::from_samples(
     ///     &Items(&[1.0_f32, 2.0_f32, 3.0_f32]),
     ///     TracingOptions::default(),
     /// )?;

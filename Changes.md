@@ -2,22 +2,26 @@
 
 ## 0.11.0
 
-`0.11.0` does contain any anticipated breaking changes. However it's a major
-refactoring and may change untested behavior.
+`0.11.0` does not contain any known breaking changes. However it's a major
+refactoring and untested behavior may change.
 
-- Remove the bytecode deserializer and use the serde API directly
-  - Easier to understand and extend
-  - The `Deserialization` implementation can ask for its expected type, e.g.,
-    `chrono::DateTime<Utc>` can now be used with  `serde_arrow` without
-    explicitly specifying the strategy
+The biggest feature is the removal of the bytecode deserializer and use of the
+Serde API directly. With this change, the code is easier to understand and
+extend. Further `Deserialization` implementations can request specific types and
+`serde_arrow` is able to supply them. As a consequence deserialization of
+`chrono::DateTime<Utc>` is supported by `serde_arrow` without an explicit
+strategy.
+
+Further changes:
+
 - Add `arrow=51` support
 - Add `Date32` and `Time64` support
-- Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
-  = Vec::<Field>::from_value(&batch.schema())`.
-- Implement `SchemaLike` for `arrow::datatypes::FieldRef`s
 - Add `to_record_batch`, `from_record_batch` to offer more streamlined APIs for
   working with record batches
 - Allow to perform zero-copy deserialization from arrow arrays
+- Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
+  = Vec::<Field>::from_value(&batch.schema())`.
+- Implement `SchemaLike` for `arrow::datatypes::FieldRef`s
 - Fix bug in `SchemaLike::from_type()` for nested unions
 
 ### Thanks

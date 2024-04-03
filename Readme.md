@@ -12,7 +12,7 @@
 
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
-from data frames via [Polars][polars] to query engines via
+from data frames such as [Polars][polars] to query engines such as
 [DataFusion][datafusion]. However, the API of the underlying Rust crates can be
 at times cumbersome to use due to the statically typed nature of Rust.
 
@@ -32,7 +32,9 @@ arrays, and deserialization from arrays to Rust structs.
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
 ## Example
-Given this Rust structure
+
+Given a Rust structure
+
 ```rust
 #[derive(Serialize, Deserialize)]
 struct Record {
@@ -48,20 +50,16 @@ let records = vec![
 ```
 
 ### Serialize to `arrow` `RecordBatch`
+
 ```rust
+use arrow::datatypes::FieldRef;
 use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 
 // Determine Arrow schema
-let fields =
-  SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
-  .to_arrow_fields()
+let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 
-// Convert to Arrow arrays
-let arrays = serde_arrow::to_arrow(&fields, &records)?;
-
-// Form a RecordBatch
-let schema = Schema::new(&fields);
-let batch = RecordBatch::try_new(schema.into(), arrays)?;
+// Build a record batch
+let batch = serde_arrow::to_record_batch(&fields, &records)?;
 ```
 
 This `RecordBatch` can now be written to disk using [ArrowWriter] from the [parquet] crate.
@@ -77,27 +75,13 @@ writer.write(&batch)?;
 writer.close()?;
 ```
 
-
 ### Serialize to `arrow2` arrays
+
 ```rust
+use arrow2::datatypes::Field;
 use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
 
-#[derive(Serialize, Deserialize)]
-struct Record {
-    a: f32,
-    b: i32,
-}
-
-let records = vec![
-    Record { a: 1.0, b: 1 },
-    Record { a: 2.0, b: 2 },
-    Record { a: 3.0, b: 3 },
-];
-
-let fields =
-    SerdeArrowSchema::from_type::<Record>(TracingOptions::default())?
-    .to_arrow2_fields()?;
-
+let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 let arrays = serde_arrow::to_arrow2(&fields, &records)?;
 ```
 
@@ -117,7 +101,7 @@ write_chunk(
 
 ### Usage from python
 
-The written file can now be read in Python via
+The written files can be read in Python via
 
 ```python
 # using polars
@@ -148,7 +132,7 @@ shape: (3, 2)
 ## Related packages & Performance
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports
-   serializing objects that support serialize via the [RawDecoder][raw-decoder]
+   serializing objects that support serialize via the [Decoder][serde-decoder]
    object. It supports primitives types, structs and lists
 - [`arrow2-convert`][arrow2-convert]: adds derive macros to convert objects from
   and to arrow2 arrays. It supports primitive types, structs, lists, and
@@ -156,7 +140,7 @@ shape: (3, 2)
   Readme. If performance is the main objective, `arrow2-convert` is a good
   choice as it has no or minimal overhead over building the arrays manually.
 
-[raw-decoder]: https://docs.rs/arrow-json/37.0.0/arrow_json/struct.RawDecoder.html#method.serialize
+[serde-decoder]: https://docs.rs/arrow-json/latest/arrow_json/reader/struct.Decoder.html
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
 
 The different implementation have the following performance differences, when
