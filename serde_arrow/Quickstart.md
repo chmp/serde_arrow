@@ -118,9 +118,8 @@ let arrays = serde_arrow::to_arrow(&fields, items)?;
 
 ## Dictionary encoding for strings
 
-To encode strings with repeated values via a dictionary, the data type of
-the corresponding field must be changed from `Utf8` or `LargeUtf8` to
-`Dictionary`.
+Strings with repeated values can be encoded as dictionaries. The data type of
+the corresponding field must be changed to `Dictionary`.
 
 For an existing field this can be done via:
 
