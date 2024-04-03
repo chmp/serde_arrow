@@ -5,11 +5,11 @@
 `0.11.0` does not contain any known breaking changes. However it's a major
 refactoring and untested behavior may change.
 
-The biggest feature is the removal of the bytecode deserializer and use the
+The biggest feature is the removal of the bytecode deserializer and use of the
 Serde API directly. With this change, the code is easier to understand and
 extend. Further `Deserialization` implementations can request specific types and
 `serde_arrow` is able to supply them. As a consequence deserialization of
-`chrono::DateTime<Utc>` is supported by  `serde_arrow` without an explicit
+`chrono::DateTime<Utc>` is supported by `serde_arrow` without an explicit
 strategy.
 
 Further changes:
