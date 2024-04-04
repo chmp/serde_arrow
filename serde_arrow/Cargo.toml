@@ -130,7 +130,7 @@ bigdecimal = {version = "0.4", features = ["serde"] }
 # for benchmarks
 # arrow-version:replace: arrow-json-{version} = {{ package = "arrow-json", version = "{version}" }}
 arrow-json-51 = { package = "arrow-json", version = "51" }
-criterion = "0.4"
+criterion = "0.5"
 arrow2_convert = "0.5.0"
 serde-transcode = "1"
 simd-json = "0.13.8"
