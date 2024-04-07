@@ -21,6 +21,10 @@ impl NullBuilder {
     pub fn is_nullable(&self) -> bool {
         true
     }
+
+    pub fn reserve(&mut self, _: usize) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl SimpleSerializer for NullBuilder {

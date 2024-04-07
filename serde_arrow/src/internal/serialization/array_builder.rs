@@ -146,6 +146,10 @@ impl ArrayBuilder {
             Self::UnknownVariant(builder) => Self::UnknownVariant(builder.take()),
         }
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        dispatch!(self, Self(builder) => builder.reserve(num_elements))
+    }
 }
 
 #[rustfmt::skip]

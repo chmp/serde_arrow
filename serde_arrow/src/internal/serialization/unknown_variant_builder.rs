@@ -15,6 +15,10 @@ impl UnknownVariantBuilder {
     pub fn is_nullable(&self) -> bool {
         false
     }
+
+    pub fn reserve(&mut self, _num_elements: usize) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl SimpleSerializer for UnknownVariantBuilder {

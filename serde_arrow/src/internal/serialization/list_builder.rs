@@ -44,11 +44,23 @@ impl<O: Offset> ListBuilder<O> {
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        if let Some(validity) = self.validity.as_mut() {
+            validity.reserve(num_elements);
+        }
+        self.offsets.reserve(num_elements);
+        Ok(())
+    }
 }
 
 impl<O: Offset> ListBuilder<O> {
-    fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)
+    fn start(&mut self, num_elements: Option<usize>) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
+        if let Some(num_elements) = num_elements {
+            self.element.reserve(num_elements)?;
+        }
+        Ok(())
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -78,8 +90,8 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
         push_validity(&mut self.validity, false)
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start()
+    fn serialize_seq_start(&mut self, num_elements: Option<usize>) -> Result<()> {
+        self.start(num_elements)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -90,8 +102,8 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
         self.end()
     }
 
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start()
+    fn serialize_tuple_start(&mut self, num_elements: usize) -> Result<()> {
+        self.start(Some(num_elements))
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -102,8 +114,8 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
         self.end()
     }
 
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, num_elements: usize) -> Result<()> {
+        self.start(Some(num_elements))
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {

@@ -43,6 +43,14 @@ impl MapBuilder {
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        if let Some(validity) = self.validity.as_mut() {
+            validity.reserve(num_elements);
+        }
+        self.offsets.reserve(num_elements);
+        Ok(())
+    }
 }
 
 impl SimpleSerializer for MapBuilder {
@@ -61,8 +69,11 @@ impl SimpleSerializer for MapBuilder {
         push_validity(&mut self.validity, false)
     }
 
-    fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
+    fn serialize_map_start(&mut self, num_elements: Option<usize>) -> Result<()> {
         push_validity(&mut self.validity, true)?;
+        if let Some(num_elements) = num_elements {
+            self.entry.reserve(num_elements)?;
+        }
         Ok(())
     }
 

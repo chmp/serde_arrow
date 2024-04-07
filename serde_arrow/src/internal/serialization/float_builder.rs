@@ -37,6 +37,15 @@ impl<I> FloatBuilder<I> {
         self.buffer.push(value);
         Ok(())
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        if let Some(validity) = self.validity.as_mut() {
+            validity.reserve(num_elements);
+        }
+        self.buffer.reserve(num_elements);
+
+        Ok(())
+    }
 }
 
 impl SimpleSerializer for FloatBuilder<f32> {

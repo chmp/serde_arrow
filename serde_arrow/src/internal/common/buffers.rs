@@ -55,6 +55,10 @@ impl MutableBitBuffer {
         self.len += 1;
     }
 
+    pub fn reserve(&mut self, num_elements: usize) {
+        self.buffer.reserve(num_elements / 8);
+    }
+
     pub fn clear(&mut self) {
         *self = Self::default();
     }
@@ -96,6 +100,10 @@ impl<O: Offset> MutableOffsetBuffer<O> {
     #[allow(unused)]
     pub fn len(&self) -> usize {
         self.offsets.len() - 1
+    }
+
+    pub fn reserve(&mut self, num_elements: usize) {
+        self.offsets.reserve(num_elements);
     }
 
     // push a new item with the given number of children
