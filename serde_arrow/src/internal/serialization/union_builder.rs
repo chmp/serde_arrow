@@ -39,6 +39,11 @@ impl UnionBuilder {
     pub fn is_nullable(&self) -> bool {
         false
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        self.types.reserve(num_elements);
+        Ok(())
+    }
 }
 
 impl UnionBuilder {

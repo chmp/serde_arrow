@@ -36,6 +36,10 @@ impl DictionaryUtf8Builder {
     pub fn is_nullable(&self) -> bool {
         self.indices.is_nullable()
     }
+
+    pub fn reserve(&mut self, num_elements: usize) -> Result<()> {
+        self.indices.reserve(num_elements)
+    }
 }
 
 impl SimpleSerializer for DictionaryUtf8Builder {

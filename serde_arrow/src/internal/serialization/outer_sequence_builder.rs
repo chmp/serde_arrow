@@ -201,7 +201,10 @@ impl SimpleSerializer for OuterSequenceBuilder {
         self.0.serialize_none()
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
+    fn serialize_seq_start(&mut self, num_elements: Option<usize>) -> Result<()> {
+        if let Some(num_elements) = num_elements {
+            self.0.reserve(num_elements)?;
+        }
         Ok(())
     }
 
@@ -213,8 +216,8 @@ impl SimpleSerializer for OuterSequenceBuilder {
         Ok(())
     }
 
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        Ok(())
+    fn serialize_tuple_start(&mut self, num_elements: usize) -> Result<()> {
+        self.0.reserve(num_elements)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -225,8 +228,8 @@ impl SimpleSerializer for OuterSequenceBuilder {
         Ok(())
     }
 
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        Ok(())
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, num_elements: usize) -> Result<()> {
+        self.0.reserve(num_elements)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
