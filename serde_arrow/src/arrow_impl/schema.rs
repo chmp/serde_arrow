@@ -89,7 +89,7 @@ impl SchemaLike for Vec<FieldRef> {
         Ok(SerdeArrowSchema::from_value(value)?
             .to_arrow_fields()?
             .into_iter()
-            .map(|f| Arc::new(f))
+            .map(Arc::new)
             .collect())
     }
 
@@ -99,7 +99,7 @@ impl SchemaLike for Vec<FieldRef> {
         Ok(SerdeArrowSchema::from_type::<T>(options)?
             .to_arrow_fields()?
             .into_iter()
-            .map(|f| Arc::new(f))
+            .map(Arc::new)
             .collect())
     }
 
@@ -110,7 +110,7 @@ impl SchemaLike for Vec<FieldRef> {
         Ok(SerdeArrowSchema::from_samples(samples, options)?
             .to_arrow_fields()?
             .into_iter()
-            .map(|f| Arc::new(f))
+            .map(Arc::new)
             .collect())
     }
 }
