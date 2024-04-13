@@ -1,3 +1,17 @@
+macro_rules! assert_error {
+    ($res:expr, $expected:expr $(,)?) => {
+        let Err(err) = $res else {
+            panic!("Expected error");
+        };
+        assert!(
+            err.to_string().contains($expected),
+            "Unexpected error: {err}",
+        );
+    };
+}
+
+pub(crate) use assert_error;
+
 macro_rules! btree_map {
     () => {
         ::std::collections::BTreeMap::new()

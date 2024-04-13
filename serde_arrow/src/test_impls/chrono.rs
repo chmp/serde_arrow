@@ -1,6 +1,7 @@
 use super::utils::Test;
 use crate::{
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+    test_impls::macros::assert_error,
     utils::Item,
 };
 
@@ -253,28 +254,34 @@ fn time64_type_invalid_units() {
     // Note: the arrow docs state: that the time unit "[m]ust be either
     // microseconds or nanoseconds."
 
-    let Err(err) = SerdeArrowSchema::from_value(&json!([{
-        "name": "item",
-        "data_type": "Time64(Millisecond)",
-    }])) else {
-        panic!("Expected error");
-    };
-    assert!(
-        err.to_string()
-            .contains("Error: expected valid time unit (Microsecond or Nanosecond)"),
-        "Unexpected error: {err}",
+    assert_error!(
+        SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time64(Millisecond)",
+        }])),
+        "Error: Time64 field must have Microsecond or Nanosecond unit",
+    );
+    assert_error!(
+        SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time64(Second)",
+        }])),
+        "Error: Time64 field must have Microsecond or Nanosecond unit",
     );
 
-    let Err(err) = SerdeArrowSchema::from_value(&json!([{
-        "name": "item",
-        "data_type": "Time64(Second)",
-    }])) else {
-        panic!("Expected error");
-    };
-    assert!(
-        err.to_string()
-            .contains("Error: expected valid time unit (Microsecond or Nanosecond)"),
-        "Unexpected error: {err}",
+    assert_error!(
+        SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time32(Microsecond)",
+        }])),
+        "Error: Time32 field must have Second or Millisecond unit",
+    );
+    assert_error!(
+        SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time32(Nanosecond)",
+        }])),
+        "Error: Time32 field must have Second or Millisecond unit",
     );
 }
 

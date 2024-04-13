@@ -229,6 +229,8 @@ struct NativeOrArrowField(GenericField);
 
 impl<'de> Deserialize<'de> for NativeOrArrowField {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+
         struct VisitorImpl;
 
         impl<'de> Visitor<'de> for VisitorImpl {
@@ -242,8 +244,6 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                 self,
                 mut map: A,
             ) -> Result<Self::Value, A::Error> {
-                use serde::de::Error;
-
                 let mut name = None;
                 let mut nullable = None;
                 let mut strategy = None;
@@ -302,7 +302,9 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
             }
         }
 
-        deserializer.deserialize_map(VisitorImpl)
+        let res = deserializer.deserialize_map(VisitorImpl)?;
+        res.0.validate().map_err(D::Error::custom)?;
+        Ok(res)
     }
 }
 
