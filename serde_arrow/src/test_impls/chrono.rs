@@ -138,7 +138,7 @@ fn date32_chrono() {
 }
 
 #[test]
-fn i64_as_time64_nanoseconds() {
+fn time_i64() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct T {
         item: i64,
@@ -159,21 +159,6 @@ fn i64_as_time64_nanoseconds() {
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false, false, false]]);
-}
-
-#[test]
-fn i64_as_time64_microseconds() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i64,
-    }
-
-    let items = [
-        T { item: i64::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i64::MAX },
-    ];
 
     Test::new()
         .with_schema(json!([{
@@ -186,7 +171,40 @@ fn i64_as_time64_microseconds() {
 }
 
 #[test]
-fn time64_chrono_microseconds() {
+fn time_i32() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct T {
+        item: i32,
+    }
+
+    let items = [
+        T { item: i32::MIN },
+        T { item: 0 },
+        T { item: 100 },
+        T { item: i32::MAX },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time32(Second)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time32(Millisecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false, false]]);
+}
+
+#[test]
+fn time_chrono() {
     let items = [
         Item(NaiveTime::from_hms_opt(12, 0, 0).unwrap()),
         Item(NaiveTime::from_hms_opt(23, 31, 12).unwrap()),
@@ -196,7 +214,34 @@ fn time64_chrono_microseconds() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
+            "data_type": "Time32(Seconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time32(Milliseconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
             "data_type": "Time64(Microseconds)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Time64(Nanoseconds)",
         }]))
         .serialize(&items)
         .deserialize(&items)

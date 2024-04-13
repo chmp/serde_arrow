@@ -14,7 +14,7 @@ use super::{
     list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
     null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
     string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
-    time64_deserializer::Time64Deserializer,
+    time_deserializer::TimeDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -34,7 +34,8 @@ pub enum ArrayDeserializer<'a> {
     Decimal128(DecimalDeserializer<'a>),
     Date32(Date32Deserializer<'a>),
     Date64(Date64Deserializer<'a>),
-    Time64(Time64Deserializer<'a>),
+    Time32(TimeDeserializer<'a, i32>),
+    Time64(TimeDeserializer<'a, i64>),
     Utf8(StringDeserializer<'a, i32>),
     LargeUtf8(StringDeserializer<'a, i64>),
     DictionaryU8I32(DictionaryDeserializer<'a, u8, i32>),
@@ -156,8 +157,14 @@ impl<'a> From<Date64Deserializer<'a>> for ArrayDeserializer<'a> {
     }
 }
 
-impl<'a> From<Time64Deserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: Time64Deserializer<'a>) -> Self {
+impl<'a> From<TimeDeserializer<'a, i32>> for ArrayDeserializer<'a> {
+    fn from(value: TimeDeserializer<'a, i32>) -> Self {
+        Self::Time32(value)
+    }
+}
+
+impl<'a> From<TimeDeserializer<'a, i64>> for ArrayDeserializer<'a> {
+    fn from(value: TimeDeserializer<'a, i64>) -> Self {
         Self::Time64(value)
     }
 }
@@ -319,6 +326,7 @@ macro_rules! dispatch {
             $wrapper::Decimal128($name) => $expr,
             $wrapper::Date32($name) => $expr,
             $wrapper::Date64($name) => $expr,
+            $wrapper::Time32($name) => $expr,
             $wrapper::Time64($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,

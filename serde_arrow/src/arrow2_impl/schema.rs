@@ -82,6 +82,8 @@ impl TryFrom<&Field> for GenericField {
     type Error = Error;
 
     fn try_from(field: &Field) -> Result<Self> {
+        use {GenericDataType as T, GenericTimeUnit as U};
+
         let strategy: Option<Strategy> = match field.metadata.get(STRATEGY_KEY) {
             Some(strategy_str) => Some(strategy_str.parse::<Strategy>()?),
             None => None,
@@ -91,65 +93,62 @@ impl TryFrom<&Field> for GenericField {
 
         let mut children = Vec::<GenericField>::new();
         let data_type = match &field.data_type {
-            DataType::Boolean => GenericDataType::Bool,
-            DataType::Null => GenericDataType::Null,
-            DataType::Int8 => GenericDataType::I8,
-            DataType::Int16 => GenericDataType::I16,
-            DataType::Int32 => GenericDataType::I32,
-            DataType::Int64 => GenericDataType::I64,
-            DataType::UInt8 => GenericDataType::U8,
-            DataType::UInt16 => GenericDataType::U16,
-            DataType::UInt32 => GenericDataType::U32,
-            DataType::UInt64 => GenericDataType::U64,
-            DataType::Float16 => GenericDataType::F16,
-            DataType::Float32 => GenericDataType::F32,
-            DataType::Float64 => GenericDataType::F64,
-            DataType::Utf8 => GenericDataType::Utf8,
-            DataType::LargeUtf8 => GenericDataType::LargeUtf8,
-            DataType::Date32 => GenericDataType::Date32,
-            DataType::Date64 => GenericDataType::Date64,
+            DataType::Boolean => T::Bool,
+            DataType::Null => T::Null,
+            DataType::Int8 => T::I8,
+            DataType::Int16 => T::I16,
+            DataType::Int32 => T::I32,
+            DataType::Int64 => T::I64,
+            DataType::UInt8 => T::U8,
+            DataType::UInt16 => T::U16,
+            DataType::UInt32 => T::U32,
+            DataType::UInt64 => T::U64,
+            DataType::Float16 => T::F16,
+            DataType::Float32 => T::F32,
+            DataType::Float64 => T::F64,
+            DataType::Utf8 => T::Utf8,
+            DataType::LargeUtf8 => T::LargeUtf8,
+            DataType::Date32 => T::Date32,
+            DataType::Date64 => T::Date64,
             DataType::Decimal(precision, scale) => {
                 if *precision > u8::MAX as usize || *scale > i8::MAX as usize {
                     fail!("cannot represent precision / scale of the decimal");
                 }
-                GenericDataType::Decimal128(*precision as u8, *scale as i8)
+                T::Decimal128(*precision as u8, *scale as i8)
             }
-            DataType::Time64(TimeUnit::Microsecond) => {
-                GenericDataType::Time64(GenericTimeUnit::Microsecond)
-            }
-            DataType::Time64(TimeUnit::Nanosecond) => {
-                GenericDataType::Time64(GenericTimeUnit::Nanosecond)
-            }
+            DataType::Time32(TimeUnit::Second) => T::Time32(U::Second),
+            DataType::Time32(TimeUnit::Millisecond) => T::Time32(U::Millisecond),
+            DataType::Time32(unit) => fail!("Invalid time unit {unit:?} for Time32"),
+            DataType::Time64(TimeUnit::Microsecond) => T::Time64(U::Microsecond),
+            DataType::Time64(TimeUnit::Nanosecond) => T::Time64(U::Nanosecond),
             DataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
-            DataType::Timestamp(TimeUnit::Second, tz) => {
-                GenericDataType::Timestamp(GenericTimeUnit::Second, tz.clone())
-            }
+            DataType::Timestamp(TimeUnit::Second, tz) => T::Timestamp(U::Second, tz.clone()),
             DataType::Timestamp(TimeUnit::Millisecond, tz) => {
-                GenericDataType::Timestamp(GenericTimeUnit::Millisecond, tz.clone())
+                T::Timestamp(U::Millisecond, tz.clone())
             }
             DataType::Timestamp(TimeUnit::Microsecond, tz) => {
-                GenericDataType::Timestamp(GenericTimeUnit::Microsecond, tz.clone())
+                T::Timestamp(U::Microsecond, tz.clone())
             }
             DataType::Timestamp(TimeUnit::Nanosecond, tz) => {
-                GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz.clone())
+                T::Timestamp(U::Nanosecond, tz.clone())
             }
             DataType::List(field) => {
                 children.push(GenericField::try_from(field.as_ref())?);
-                GenericDataType::List
+                T::List
             }
             DataType::LargeList(field) => {
                 children.push(field.as_ref().try_into()?);
-                GenericDataType::LargeList
+                T::LargeList
             }
             DataType::Struct(fields) => {
                 for field in fields {
                     children.push(field.try_into()?);
                 }
-                GenericDataType::Struct
+                T::Struct
             }
             DataType::Map(field, _) => {
                 children.push(field.as_ref().try_into()?);
-                GenericDataType::Map
+                T::Map
             }
             DataType::Union(fields, field_indices, mode) => {
                 if field_indices.is_some() {
@@ -162,7 +161,7 @@ impl TryFrom<&Field> for GenericField {
                 for field in fields {
                     children.push(field.try_into()?);
                 }
-                GenericDataType::Union
+                T::Union
             }
             DataType::Dictionary(int_type, data_type, sorted) => {
                 if *sorted {
@@ -180,7 +179,7 @@ impl TryFrom<&Field> for GenericField {
                 };
                 children.push((&Field::new("", key_type, false)).try_into()?);
                 children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
-                GenericDataType::Dictionary
+                T::Dictionary
             }
             dt => fail!("Cannot convert data type {dt:?}"),
         };
@@ -202,71 +201,70 @@ impl TryFrom<&GenericField> for Field {
     type Error = Error;
 
     fn try_from(value: &GenericField) -> Result<Self> {
+        use {GenericDataType as T, GenericTimeUnit as U};
+
         let data_type = match &value.data_type {
-            GenericDataType::Null => DataType::Null,
-            GenericDataType::Bool => DataType::Boolean,
-            GenericDataType::I8 => DataType::Int8,
-            GenericDataType::I16 => DataType::Int16,
-            GenericDataType::I32 => DataType::Int32,
-            GenericDataType::I64 => DataType::Int64,
-            GenericDataType::U8 => DataType::UInt8,
-            GenericDataType::U16 => DataType::UInt16,
-            GenericDataType::U32 => DataType::UInt32,
-            GenericDataType::U64 => DataType::UInt64,
-            GenericDataType::F16 => DataType::Float16,
-            GenericDataType::F32 => DataType::Float32,
-            GenericDataType::F64 => DataType::Float64,
-            GenericDataType::Date32 => DataType::Date32,
-            GenericDataType::Date64 => DataType::Date64,
-            GenericDataType::Time64(GenericTimeUnit::Microsecond) => {
-                DataType::Time64(TimeUnit::Microsecond)
-            }
-            GenericDataType::Time64(GenericTimeUnit::Nanosecond) => {
-                DataType::Time64(TimeUnit::Nanosecond)
-            }
-            GenericDataType::Time64(unit) => fail!("Invalid time unit {unit} for Time64"),
-            GenericDataType::Timestamp(GenericTimeUnit::Second, tz) => {
-                DataType::Timestamp(TimeUnit::Second, tz.clone())
-            }
-            GenericDataType::Timestamp(GenericTimeUnit::Millisecond, tz) => {
+            T::Null => DataType::Null,
+            T::Bool => DataType::Boolean,
+            T::I8 => DataType::Int8,
+            T::I16 => DataType::Int16,
+            T::I32 => DataType::Int32,
+            T::I64 => DataType::Int64,
+            T::U8 => DataType::UInt8,
+            T::U16 => DataType::UInt16,
+            T::U32 => DataType::UInt32,
+            T::U64 => DataType::UInt64,
+            T::F16 => DataType::Float16,
+            T::F32 => DataType::Float32,
+            T::F64 => DataType::Float64,
+            T::Date32 => DataType::Date32,
+            T::Date64 => DataType::Date64,
+            T::Time32(U::Second) => DataType::Time32(TimeUnit::Second),
+            T::Time32(U::Millisecond) => DataType::Time32(TimeUnit::Millisecond),
+            T::Time32(unit) => fail!("Invalid time unit {unit} for Time32"),
+            T::Time64(U::Microsecond) => DataType::Time64(TimeUnit::Microsecond),
+            T::Time64(U::Nanosecond) => DataType::Time64(TimeUnit::Nanosecond),
+            T::Time64(unit) => fail!("Invalid time unit {unit} for Time64"),
+            T::Timestamp(U::Second, tz) => DataType::Timestamp(TimeUnit::Second, tz.clone()),
+            T::Timestamp(U::Millisecond, tz) => {
                 DataType::Timestamp(TimeUnit::Millisecond, tz.clone())
             }
-            GenericDataType::Timestamp(GenericTimeUnit::Microsecond, tz) => {
+            T::Timestamp(U::Microsecond, tz) => {
                 DataType::Timestamp(TimeUnit::Microsecond, tz.clone())
             }
-            GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, tz) => {
+            T::Timestamp(U::Nanosecond, tz) => {
                 DataType::Timestamp(TimeUnit::Nanosecond, tz.clone())
             }
-            GenericDataType::Decimal128(precision, scale) => {
+            T::Decimal128(precision, scale) => {
                 if *scale < 0 {
                     fail!("arrow2 does not support decimals with negative scale");
                 }
                 DataType::Decimal(*precision as usize, *scale as usize)
             }
-            GenericDataType::Utf8 => DataType::Utf8,
-            GenericDataType::LargeUtf8 => DataType::LargeUtf8,
-            GenericDataType::List => DataType::List(Box::new(
+            T::Utf8 => DataType::Utf8,
+            T::LargeUtf8 => DataType::LargeUtf8,
+            T::List => DataType::List(Box::new(
                 value
                     .children
                     .first()
                     .ok_or_else(|| error!("List must a single child"))?
                     .try_into()?,
             )),
-            GenericDataType::LargeList => DataType::LargeList(Box::new(
+            T::LargeList => DataType::LargeList(Box::new(
                 value
                     .children
                     .first()
                     .ok_or_else(|| error!("List must a single child"))?
                     .try_into()?,
             )),
-            GenericDataType::Struct => DataType::Struct(
+            T::Struct => DataType::Struct(
                 value
                     .children
                     .iter()
                     .map(Field::try_from)
                     .collect::<Result<Vec<_>>>()?,
             ),
-            GenericDataType::Map => {
+            T::Map => {
                 let element_field: Field = value
                     .children
                     .first()
@@ -274,7 +272,7 @@ impl TryFrom<&GenericField> for Field {
                     .try_into()?;
                 DataType::Map(Box::new(element_field), false)
             }
-            GenericDataType::Union => DataType::Union(
+            T::Union => DataType::Union(
                 value
                     .children
                     .iter()
@@ -283,7 +281,7 @@ impl TryFrom<&GenericField> for Field {
                 None,
                 UnionMode::Dense,
             ),
-            GenericDataType::Dictionary => {
+            T::Dictionary => {
                 let Some(key_field) = value.children.first() else {
                     fail!("Dictionary must a two children");
                 };
@@ -294,14 +292,14 @@ impl TryFrom<&GenericField> for Field {
                     .try_into()?;
 
                 let key_type = match &key_field.data_type {
-                    GenericDataType::U8 => IntegerType::UInt8,
-                    GenericDataType::U16 => IntegerType::UInt16,
-                    GenericDataType::U32 => IntegerType::UInt32,
-                    GenericDataType::U64 => IntegerType::UInt64,
-                    GenericDataType::I8 => IntegerType::Int8,
-                    GenericDataType::I16 => IntegerType::Int16,
-                    GenericDataType::I32 => IntegerType::Int32,
-                    GenericDataType::I64 => IntegerType::Int64,
+                    T::U8 => IntegerType::UInt8,
+                    T::U16 => IntegerType::UInt16,
+                    T::U32 => IntegerType::UInt32,
+                    T::U64 => IntegerType::UInt64,
+                    T::I8 => IntegerType::Int8,
+                    T::I16 => IntegerType::Int16,
+                    T::I32 => IntegerType::Int32,
+                    T::I64 => IntegerType::Int64,
                     _ => fail!("Invalid key type for dictionary"),
                 };
 

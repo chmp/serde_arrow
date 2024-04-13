@@ -1,5 +1,12 @@
 # Change log
 
+## 0.11.1
+
+- Support `Timestamp(Second, tz)`, `Timestamp(Millisecond, tz)`,
+  `Timestamp(Nanosecond, tz)`. At the moment only (de)serialization from / to
+  integers is supported for non-microsecond units
+- Support `Time32(unit)`
+
 ## 0.11.0
 
 `0.11.0` does not contain any known breaking changes. However it's a major

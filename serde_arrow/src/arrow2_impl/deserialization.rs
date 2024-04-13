@@ -3,6 +3,7 @@ use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
+        construction,
         date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
         decimal_deserializer::DecimalDeserializer,
@@ -16,10 +17,9 @@ use crate::internal::{
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
-        time64_deserializer::Time64Deserializer,
     },
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit},
+    schema::{GenericDataType, GenericField},
 };
 
 use crate::_impl::arrow2::{
@@ -61,8 +61,21 @@ pub fn build_array_deserializer<'a>(
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
-        T::Time64(_) => build_time64_deserializer(field, array),
-        T::Timestamp(_, _) => build_timestamp_deserializer(field, array),
+        T::Time32(_) => construction::build_time32_deserializer(
+            field,
+            as_primitive_values::<i32>(array)?,
+            get_validity(array),
+        ),
+        T::Time64(_) => construction::build_time64_deserializer(
+            field,
+            as_primitive_values::<i64>(array)?,
+            get_validity(array),
+        ),
+        T::Timestamp(_, _) => construction::build_timestamp_deserializer(
+            field,
+            as_primitive_values::<i64>(array)?,
+            get_validity(array),
+        ),
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -153,36 +166,6 @@ pub fn build_date64_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     Ok(Date64Deserializer::new(
         as_primitive_values(array)?,
-        get_validity(array),
-        field.is_utc()?,
-    )
-    .into())
-}
-
-pub fn build_time64_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Time64(unit) = &field.data_type else {
-        fail!("invalid data type for time64");
-    };
-    Ok(Time64Deserializer::new(
-        as_primitive_values::<i64>(array)?,
-        get_validity(array),
-        unit.clone(),
-    )
-    .into())
-}
-
-pub fn build_timestamp_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Timestamp(GenericTimeUnit::Millisecond, _) = &field.data_type else {
-        fail!("Invalid data type {} for timestamp array", field.data_type);
-    };
-    Ok(Date64Deserializer::new(
-        as_primitive_values::<i64>(array)?,
         get_validity(array),
         field.is_utc()?,
     )

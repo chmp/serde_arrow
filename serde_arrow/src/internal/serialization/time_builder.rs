@@ -1,25 +1,23 @@
 use chrono::Timelike;
 
-use crate::{
-    internal::{
-        common::MutableBitBuffer,
-        schema::{GenericField, GenericTimeUnit},
-    },
-    Result,
+use crate::internal::{
+    common::MutableBitBuffer,
+    error::{Error, Result},
+    schema::{GenericField, GenericTimeUnit},
 };
 
 use super::utils::{push_validity, push_validity_default, SimpleSerializer};
 
 #[derive(Debug, Clone)]
-pub struct Time64Builder {
+pub struct TimeBuilder<I> {
     pub field: GenericField,
     pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<i64>,
+    pub buffer: Vec<I>,
     pub seconds_factor: i64,
     pub nanoseconds_factor: i64,
 }
 
-impl Time64Builder {
+impl<I> TimeBuilder<I> {
     pub fn new(field: GenericField, nullable: bool, unit: GenericTimeUnit) -> Self {
         let (seconds_factor, nanoseconds_factor) = unit.get_factors();
 
@@ -47,20 +45,25 @@ impl Time64Builder {
     }
 }
 
-impl SimpleSerializer for Time64Builder {
+impl<I> SimpleSerializer for TimeBuilder<I>
+where
+    I: TryFrom<i64> + TryFrom<i32> + Default,
+    Error: From<<I as TryFrom<i32>>::Error>,
+    Error: From<<I as TryFrom<i64>>::Error>,
+{
     fn name(&self) -> &str {
         "Time64Builder"
     }
 
     fn serialize_default(&mut self) -> Result<()> {
         push_validity_default(&mut self.validity);
-        self.buffer.push(0);
+        self.buffer.push(I::default());
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
         push_validity(&mut self.validity, false)?;
-        self.buffer.push(0);
+        self.buffer.push(I::default());
         Ok(())
     }
 
@@ -71,13 +74,19 @@ impl SimpleSerializer for Time64Builder {
             + time.nanosecond() as i64 / self.nanoseconds_factor;
 
         push_validity(&mut self.validity, true)?;
-        self.buffer.push(timestamp);
+        self.buffer.push(timestamp.try_into()?);
+        Ok(())
+    }
+
+    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+        push_validity(&mut self.validity, true)?;
+        self.buffer.push(v.try_into()?);
         Ok(())
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
         push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
+        self.buffer.push(v.try_into()?);
         Ok(())
     }
 }

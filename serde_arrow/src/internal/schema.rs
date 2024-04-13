@@ -109,9 +109,12 @@ pub trait SchemaLike: Sized + Sealed {
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
-    /// - date time objects: `"Date32"`, `"Date64"`, `"Timestamp(unit)"`,
-    ///   `"Time64(unit)"` with unit being one of `Second`, `Millisecond`,
-    ///   `Microsecond`, `Nanosecond`. E.g., `"Time64(Microsecond)"`.
+    /// - date objects: `"Date32"`
+    /// - date time objects: , `"Date64"`, `"Timestamp(unit, timezone)"` with
+    ///   unit being one of `Second`, `Millisecond`, `Microsecond`,
+    ///   `Nanosecond`.
+    /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one
+    ///   of `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
     ///   field named `"element"` that describes the element types
     /// - structs: `"Struct"`. `"children"` must contain the child fields
@@ -474,6 +477,7 @@ pub enum GenericDataType {
     LargeUtf8,
     Date32,
     Date64,
+    Time32(GenericTimeUnit),
     Time64(GenericTimeUnit),
     Struct,
     List,
@@ -519,6 +523,7 @@ impl std::fmt::Display for GenericDataType {
                     write!(f, "Timestamp({unit}, None)")
                 }
             }
+            Time32(unit) => write!(f, "Time32({unit})"),
             Time64(unit) => write!(f, "Time64({unit})"),
             Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
@@ -605,6 +610,15 @@ impl std::str::FromStr for GenericDataType {
             };
 
             Ok(GenericDataType::Timestamp(unit, Some(s.to_string())))
+        } else if let Some(s) = s.strip_prefix("Time32(") {
+            let unit = if s.starts_with("Second") {
+                GenericTimeUnit::Second
+            } else if s.starts_with("Millisecond") {
+                GenericTimeUnit::Millisecond
+            } else {
+                fail!("expected valid time unit (Second or Millisecond)");
+            };
+            Ok(GenericDataType::Time32(unit))
         } else if let Some(s) = s.strip_prefix("Time64(") {
             let unit = if s.starts_with("Microsecond") {
                 GenericTimeUnit::Microsecond
@@ -711,6 +725,7 @@ impl GenericField {
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
+            GenericDataType::Time32(_) => self.validate_time32(),
             GenericDataType::Time64(_) => self.validate_time64(),
             GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
@@ -859,6 +874,30 @@ impl GenericField {
         }
     }
 
+    pub(crate) fn validate_time32(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for {}: {}",
+                self.data_type,
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
+        if !matches!(
+            self.data_type,
+            GenericDataType::Time32(GenericTimeUnit::Second | GenericTimeUnit::Millisecond)
+        ) {
+            fail!(
+                "{} field must have Second or Millisecond unit",
+                self.data_type
+            );
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn validate_time64(&self) -> Result<()> {
         if self.strategy.is_some() {
             fail!(
@@ -867,10 +906,19 @@ impl GenericField {
                 self.strategy.as_ref().unwrap()
             );
         }
-        // TODO: check supported units (Microseconds, Nanoseconds)
         if !self.children.is_empty() {
             fail!("{} field must not have children", self.data_type);
         }
+        if !matches!(
+            self.data_type,
+            GenericDataType::Time64(GenericTimeUnit::Microsecond | GenericTimeUnit::Nanosecond)
+        ) {
+            fail!(
+                "{} field must have Microsecond or Nanosecond unit",
+                self.data_type
+            );
+        }
+
         Ok(())
     }
 
