@@ -61,6 +61,11 @@ pub fn build_array_deserializer<'a>(
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
+        T::Time32(_) => construction::build_time32_deserializer(
+            field,
+            as_primitive_values::<i32>(array)?,
+            get_validity(array),
+        ),
         T::Time64(_) => construction::build_time64_deserializer(
             field,
             as_primitive_values::<i64>(array)?,

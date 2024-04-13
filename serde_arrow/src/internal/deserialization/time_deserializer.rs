@@ -7,12 +7,15 @@ use crate::internal::{
     schema::GenericTimeUnit,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    integer_deserializer::Integer, simple_deserializer::SimpleDeserializer,
+    utils::ArrayBufferIterator,
+};
 
-pub struct Time64Deserializer<'a>(ArrayBufferIterator<'a, i64>, i64, i64);
+pub struct TimeDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>, i64, i64);
 
-impl<'a> Time64Deserializer<'a> {
-    pub fn new(buffer: &'a [i64], validity: Option<BitBuffer<'a>>, unit: GenericTimeUnit) -> Self {
+impl<'a, T: Integer> TimeDeserializer<'a, T> {
+    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>, unit: GenericTimeUnit) -> Self {
         let (seconds_factor, nanoseconds_factor) = unit.get_factors();
 
         Self(
@@ -33,14 +36,14 @@ impl<'a> Time64Deserializer<'a> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for Time64Deserializer<'de> {
+impl<'de, T: Integer> SimpleDeserializer<'de> for TimeDeserializer<'de, T> {
     fn name() -> &'static str {
         "Time64Deserializer"
     }
 
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.0.peek_next()? {
-            self.deserialize_i64(visitor)
+            T::deserialize_any(self, visitor)
         } else {
             self.0.consume_next();
             visitor.visit_none()
@@ -56,8 +59,12 @@ impl<'de> SimpleDeserializer<'de> for Time64Deserializer<'de> {
         }
     }
 
+    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i32(self.0.next_required()?.into_i32()?)
+    }
+
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.0.next_required()?)
+        visitor.visit_i64(self.0.next_required()?.into_i64()?)
     }
 
     fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
@@ -65,7 +72,7 @@ impl<'de> SimpleDeserializer<'de> for Time64Deserializer<'de> {
     }
 
     fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        let ts = self.0.next_required()?;
+        let ts = self.0.next_required()?.into_i64()?;
         visitor.visit_string(self.get_string_repr(ts)?)
     }
 }

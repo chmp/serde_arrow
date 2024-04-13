@@ -30,9 +30,10 @@ use crate::_impl::arrow::{
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
         Decimal128Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
-        Int8Type, Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
-        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
+        Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
+        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
+        UInt8Type, UnionMode,
     },
 };
 
@@ -66,6 +67,16 @@ pub fn build_array_deserializer<'a>(
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
+        T::Time32(unit) => construction::build_time32_deserializer(
+            field,
+            match unit {
+                U::Second => as_primitive_values::<Time32SecondType>(array)?,
+                U::Millisecond => as_primitive_values::<Time32MillisecondType>(array)?,
+                // Not supported according to the arrow docs
+                unit => fail!("cannot build deserializer for Time64({unit})"),
+            },
+            get_validity(array),
+        ),
         T::Time64(unit) => construction::build_time64_deserializer(
             field,
             match unit {

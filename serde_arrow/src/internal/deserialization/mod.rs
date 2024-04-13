@@ -17,7 +17,7 @@ pub mod outer_sequence_deserializer;
 pub mod simple_deserializer;
 pub mod string_deserializer;
 pub mod struct_deserializer;
-pub mod time64_deserializer;
+pub mod time_deserializer;
 pub mod utils;
 
 #[cfg(test)]

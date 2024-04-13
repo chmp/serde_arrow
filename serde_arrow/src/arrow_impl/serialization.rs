@@ -70,6 +70,11 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             builder.buffer,
             builder.validity,
         ),
+        A::Time32(builder) => build_array_data_primitive(
+            Field::try_from(&builder.field)?.data_type().clone(),
+            builder.buffer,
+            builder.validity,
+        ),
         A::Time64(builder) => build_array_data_primitive(
             Field::try_from(&builder.field)?.data_type().clone(),
             builder.buffer,

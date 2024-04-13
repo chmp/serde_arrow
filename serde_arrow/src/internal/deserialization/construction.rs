@@ -10,7 +10,7 @@ use crate::{
     schema::Strategy,
 };
 
-use super::{array_deserializer::ArrayDeserializer, time64_deserializer::Time64Deserializer};
+use super::{array_deserializer::ArrayDeserializer, time_deserializer::TimeDeserializer};
 
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,
@@ -51,6 +51,18 @@ pub fn build_timestamp_deserializer<'a>(
     }
 }
 
+pub fn build_time32_deserializer<'a>(
+    field: &GenericField,
+    values: &'a [i32],
+    validity: Option<BitBuffer<'a>>,
+) -> Result<ArrayDeserializer<'a>> {
+    let GenericDataType::Time32(unit) = &field.data_type else {
+        fail!("invalid data type for time64");
+    };
+
+    Ok(TimeDeserializer::<i32>::new(values, validity, unit.clone()).into())
+}
+
 pub fn build_time64_deserializer<'a>(
     field: &GenericField,
     values: &'a [i64],
@@ -60,5 +72,5 @@ pub fn build_time64_deserializer<'a>(
         fail!("invalid data type for time64");
     };
 
-    Ok(Time64Deserializer::new(values, validity, unit.clone()).into())
+    Ok(TimeDeserializer::<i64>::new(values, validity, unit.clone()).into())
 }

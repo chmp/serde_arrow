@@ -13,7 +13,7 @@ pub mod map_builder;
 pub mod null_builder;
 pub mod outer_sequence_builder;
 pub mod struct_builder;
-pub mod time64_builder;
+pub mod time_builder;
 pub mod union_builder;
 pub mod unknown_variant_builder;
 pub mod utf8_builder;

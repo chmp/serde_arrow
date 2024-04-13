@@ -11,7 +11,7 @@ use super::{
     decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
     float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
     map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
-    time64_builder::Time64Builder, union_builder::UnionBuilder,
+    time_builder::TimeBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
     utils::SimpleSerializer, ArrayBuilder,
 };
@@ -78,6 +78,16 @@ impl OuterSequenceBuilder {
                         Some(tz) => fail!("Timezone {tz} is not supported"),
                     }
                 }
+                T::Time32(unit) => {
+                    if !matches!(unit, GenericTimeUnit::Second | GenericTimeUnit::Millisecond) {
+                        fail!("Only timestamps with second or millisecond unit are supported");
+                    }
+                    A::Time32(TimeBuilder::new(
+                        field.clone(),
+                        field.nullable,
+                        unit.clone(),
+                    ))
+                }
                 T::Time64(unit) => {
                     if !matches!(
                         unit,
@@ -85,7 +95,7 @@ impl OuterSequenceBuilder {
                     ) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(Time64Builder::new(
+                    A::Time64(TimeBuilder::new(
                         field.clone(),
                         field.nullable,
                         unit.clone(),
