@@ -172,7 +172,7 @@ fn time_i64() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
-            "data_type": "Time64(Microseconds)",
+            "data_type": "Time64(Microsecond)",
         }]))
         .serialize(&items)
         .deserialize(&items)
@@ -255,7 +255,7 @@ fn time_chrono() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
-            "data_type": "Time32(Seconds)",
+            "data_type": "Time32(Second)",
         }]))
         .serialize(&items)
         .deserialize(&items)
@@ -264,7 +264,7 @@ fn time_chrono() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
-            "data_type": "Time32(Milliseconds)",
+            "data_type": "Time32(Millisecond)",
         }]))
         .serialize(&items)
         .deserialize(&items)
@@ -273,7 +273,7 @@ fn time_chrono() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
-            "data_type": "Time64(Microseconds)",
+            "data_type": "Time64(Microsecond)",
         }]))
         .serialize(&items)
         .deserialize(&items)
@@ -282,7 +282,7 @@ fn time_chrono() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
-            "data_type": "Time64(Nanoseconds)",
+            "data_type": "Time64(Nanosecond)",
         }]))
         .serialize(&items)
         .deserialize(&items)
