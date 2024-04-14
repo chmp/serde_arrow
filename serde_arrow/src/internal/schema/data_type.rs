@@ -27,6 +27,7 @@ pub enum GenericDataType {
     Date64,
     Time32(GenericTimeUnit),
     Time64(GenericTimeUnit),
+    Duration(GenericTimeUnit),
     Struct,
     List,
     LargeList,
@@ -73,6 +74,7 @@ impl std::fmt::Display for GenericDataType {
             }
             Time32(unit) => write!(f, "Time32({unit})"),
             Time64(unit) => write!(f, "Time64({unit})"),
+            Duration(unit) => write!(f, "Duration({unit})"),
             Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale})"),
         }
     }
@@ -118,6 +120,7 @@ impl std::str::FromStr for GenericDataType {
             }
             ("Time32", [unit]) => T::Time32(unit.as_ident()?.parse()?),
             ("Time64", [unit]) => T::Time64(unit.as_ident()?.parse()?),
+            ("Duration", [unit]) => T::Duration(unit.as_ident()?.parse()?),
             ("Decimal128", [precision, scale]) => {
                 T::Decimal128(precision.as_ident()?.parse()?, scale.as_ident()?.parse()?)
             }
@@ -144,7 +147,7 @@ impl From<GenericDataType> for GenericDataTypeString {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum GenericTimeUnit {
     Second,
     Millisecond,

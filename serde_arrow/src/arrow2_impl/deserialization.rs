@@ -76,6 +76,7 @@ pub fn build_array_deserializer<'a>(
             as_primitive_values::<i64>(array)?,
             get_validity(array),
         ),
+        T::Duration(_) => build_integer_deserializer::<i64>(field, array),
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),

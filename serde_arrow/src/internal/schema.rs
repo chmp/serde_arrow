@@ -411,6 +411,7 @@ impl GenericField {
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
             GenericDataType::Time32(_) => self.validate_time32(),
             GenericDataType::Time64(_) => self.validate_time64(),
+            GenericDataType::Duration(_) => self.validate_duration(),
             GenericDataType::Decimal128(_, _) => self.validate_primitive(),
         }
     }
@@ -575,7 +576,6 @@ impl GenericField {
         ) {
             fail!("Time32 field must have Second or Millisecond unit");
         }
-
         Ok(())
     }
 
@@ -596,7 +596,20 @@ impl GenericField {
         ) {
             fail!("Time64 field must have Microsecond or Nanosecond unit");
         }
+        Ok(())
+    }
 
+    pub(crate) fn validate_duration(&self) -> Result<()> {
+        if self.strategy.is_some() {
+            fail!(
+                "invalid strategy for {}: {}",
+                self.data_type,
+                self.strategy.as_ref().unwrap()
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
         Ok(())
     }
 
@@ -611,11 +624,9 @@ impl GenericField {
                 self.strategy.as_ref().unwrap()
             );
         }
-
         for child in &self.children {
             child.validate()?;
         }
-
         Ok(())
     }
 

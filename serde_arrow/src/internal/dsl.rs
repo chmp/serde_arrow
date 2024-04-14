@@ -11,8 +11,12 @@ pub struct Term {
 }
 
 impl Term {
+    fn as_parts(&self) -> (&str, bool, &[Term]) {
+        (self.name.as_str(), self.quoted, self.arguments.as_slice())
+    }
+
     pub fn as_ident(&self) -> Result<&str> {
-        match (self.name.as_str(), self.quoted, self.arguments.as_slice()) {
+        match self.as_parts() {
             (name, false, []) => Ok(name),
             (_, true, _) => fail!("expected identifier, found quoted string"),
             (_, _, [_, ..]) => fail!("expected identifier, found call"),
@@ -20,7 +24,7 @@ impl Term {
     }
 
     pub fn as_string(&self) -> Result<&str> {
-        match (self.name.as_str(), self.quoted, self.arguments.as_slice()) {
+        match self.as_parts() {
             (name, true, []) => Ok(name),
             (_, false, _) => fail!("expected string, found identifier"),
             (_, _, [_, ..]) => fail!("expected identifier, found call"),
@@ -28,7 +32,7 @@ impl Term {
     }
 
     pub fn as_option(&self) -> Result<Option<&Term>> {
-        match (self.name.as_str(), self.quoted, self.arguments.as_slice()) {
+        match self.as_parts() {
             ("None", false, []) => Ok(None),
             ("Some", false, [arg]) => Ok(Some(arg)),
             _ => fail!("expected Some(arg) or None found quoted string"),
@@ -36,7 +40,7 @@ impl Term {
     }
 
     pub fn as_call(&self) -> Result<(&str, &[Term])> {
-        match (self.name.as_str(), self.quoted, self.arguments.as_slice()) {
+        match self.as_parts() {
             (name, false, args) => Ok((name, args)),
             (_, true, _) => fail!("expected call, found quoted string"),
         }

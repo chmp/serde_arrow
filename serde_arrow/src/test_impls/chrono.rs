@@ -151,7 +151,16 @@ fn time_i64() {
         T { item: 100 },
         T { item: i64::MAX },
     ];
+    let nulls: &[&[bool]] = &[&[false, false, false, false]];
 
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Date64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(nulls);
     Test::new()
         .with_schema(json!([{
             "name": "item",
@@ -159,8 +168,7 @@ fn time_i64() {
         }]))
         .serialize(&items)
         .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
-
+        .check_nulls(nulls);
     Test::new()
         .with_schema(json!([{
             "name": "item",
@@ -168,7 +176,39 @@ fn time_i64() {
         }]))
         .serialize(&items)
         .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
+        .check_nulls(nulls);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Duration(Second)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(nulls);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Duration(Millisecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(nulls);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Duration(Microsecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(nulls);
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Duration(Nanosecond)",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(nulls);
 }
 
 #[test]
