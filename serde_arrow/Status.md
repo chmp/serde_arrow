@@ -23,7 +23,7 @@ Supported arrow data types:
   (serialized / deserialized as `i64`). Both cases require additional configuration
 - [x] [`Time32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time32)
 - [x] [`Time64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time64)
-- [ ] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
+- [x] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
 - [ ] [`Interval`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Interval)
 - [x] [`Timestamp(Second | Millisecond | Microsecond | Nanosecond, None | Some("UTC"))`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp):
   at the moment only no timezone or UTC is supported
