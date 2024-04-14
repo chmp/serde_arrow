@@ -1,5 +1,10 @@
 # Change log
 
+## 0.11.2
+
+- Support `Duration(unit)`
+- Rewrite data type parsing with stricter parsing
+
 ## 0.11.1
 
 - Support `Timestamp(Second, tz)`, `Timestamp(Millisecond, tz)`,
