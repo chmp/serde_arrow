@@ -4,6 +4,7 @@ use crate::internal::{
     common::Mut,
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
+    serialization::duration_builder::DurationBuilder,
 };
 
 use super::{
@@ -82,11 +83,7 @@ impl OuterSequenceBuilder {
                     if !matches!(unit, GenericTimeUnit::Second | GenericTimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");
                     }
-                    A::Time32(TimeBuilder::new(
-                        field.clone(),
-                        field.nullable,
-                        unit.clone(),
-                    ))
+                    A::Time32(TimeBuilder::new(field.clone(), field.nullable, *unit))
                 }
                 T::Time64(unit) => {
                     if !matches!(
@@ -95,12 +92,9 @@ impl OuterSequenceBuilder {
                     ) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(TimeBuilder::new(
-                        field.clone(),
-                        field.nullable,
-                        unit.clone(),
-                    ))
+                    A::Time64(TimeBuilder::new(field.clone(), field.nullable, *unit))
                 }
+                T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
                 T::Decimal128(precision, scale) => {
                     A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))
                 }

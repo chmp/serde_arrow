@@ -198,10 +198,22 @@ pub mod _impl {
                 pub mod array {
                     pub use $arrow_array::RecordBatch;
                     pub use $arrow_array::array::{
-                        make_array, Array, ArrayRef, ArrowPrimitiveType, BooleanArray,
-                        DictionaryArray, GenericListArray, LargeStringArray, MapArray, NullArray,
-                        OffsetSizeTrait, PrimitiveArray, StringArray, StructArray, UnionArray,
+                        Array,
+                        ArrayRef,
+                        ArrowPrimitiveType,
+                        BooleanArray,
+                        DictionaryArray,
+                        GenericListArray,
                         GenericStringArray,
+                        LargeStringArray,
+                        make_array,
+                        MapArray,
+                        NullArray,
+                        OffsetSizeTrait,
+                        PrimitiveArray,
+                        StringArray,
+                        StructArray,
+                        UnionArray,
                     };
                     pub use $arrow_data::ArrayData;
                 }
@@ -210,11 +222,34 @@ pub mod _impl {
                 }
                 pub mod datatypes {
                     pub use $arrow_array::types::{
-                        ArrowPrimitiveType, Date32Type, Date64Type, Decimal128Type, Float16Type, Float32Type, Float64Type,
-                        Int16Type, Int32Type, Int64Type, Int8Type, TimestampMicrosecondType, TimestampMillisecondType,
-                        TimestampNanosecondType, TimestampSecondType, Time32MillisecondType, Time32SecondType, 
-                        Time64MicrosecondType, Time64NanosecondType, UInt16Type, UInt32Type,
-                        UInt64Type, UInt8Type, ArrowDictionaryKeyType,
+                        ArrowDictionaryKeyType,
+                        ArrowPrimitiveType,
+                        Date32Type,
+                        Date64Type,
+                        Decimal128Type,
+                        DurationMicrosecondType,
+                        DurationMillisecondType,
+                        DurationNanosecondType,
+                        DurationSecondType,
+                        Float16Type,
+                        Float32Type,
+                        Float64Type,
+                        Int16Type,
+                        Int32Type,
+                        Int64Type,
+                        Int8Type,
+                        Time32MillisecondType,
+                        Time32SecondType,
+                        Time64MicrosecondType,
+                        Time64NanosecondType,
+                        TimestampMicrosecondType,
+                        TimestampMillisecondType,
+                        TimestampNanosecondType,
+                        TimestampSecondType,
+                        UInt16Type,
+                        UInt32Type,
+                        UInt64Type,
+                        UInt8Type,
                     };
                     pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit, UnionMode};

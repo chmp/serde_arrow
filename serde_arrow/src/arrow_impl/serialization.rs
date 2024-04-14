@@ -80,6 +80,11 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             builder.buffer,
             builder.validity,
         ),
+        A::Duration(builder) => build_array_data_primitive(
+            T::Duration(builder.unit.into()),
+            builder.buffer,
+            builder.validity,
+        ),
         A::Decimal128(builder) => build_array_data_primitive(
             T::Decimal128(builder.precision, builder.scale),
             builder.buffer,

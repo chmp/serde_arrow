@@ -60,7 +60,7 @@ pub fn build_time32_deserializer<'a>(
         fail!("invalid data type for time64");
     };
 
-    Ok(TimeDeserializer::<i32>::new(values, validity, unit.clone()).into())
+    Ok(TimeDeserializer::<i32>::new(values, validity, *unit).into())
 }
 
 pub fn build_time64_deserializer<'a>(
@@ -72,5 +72,5 @@ pub fn build_time64_deserializer<'a>(
         fail!("invalid data type for time64");
     };
 
-    Ok(TimeDeserializer::<i64>::new(values, validity, unit.clone()).into())
+    Ok(TimeDeserializer::<i64>::new(values, validity, *unit).into())
 }

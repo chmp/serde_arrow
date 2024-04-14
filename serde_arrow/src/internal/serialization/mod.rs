@@ -6,6 +6,7 @@ pub mod date32_builder;
 pub mod date64_builder;
 pub mod decimal_builder;
 pub mod dictionary_utf8_builder;
+pub mod duration_builder;
 pub mod float_builder;
 pub mod int_builder;
 pub mod list_builder;

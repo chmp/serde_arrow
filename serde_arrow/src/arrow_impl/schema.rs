@@ -160,6 +160,10 @@ impl TryFrom<&DataType> for GenericDataType {
                 U::Nanosecond,
                 tz.as_ref().map(|s| s.to_string()),
             )),
+            DataType::Duration(TimeUnit::Second) => Ok(T::Duration(U::Second)),
+            DataType::Duration(TimeUnit::Millisecond) => Ok(T::Duration(U::Millisecond)),
+            DataType::Duration(TimeUnit::Microsecond) => Ok(T::Duration(U::Microsecond)),
+            DataType::Duration(TimeUnit::Nanosecond) => Ok(T::Duration(U::Nanosecond)),
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
@@ -331,18 +335,10 @@ impl TryFrom<&GenericField> for Field {
             T::Time64(U::Microsecond) => DataType::Time64(TimeUnit::Microsecond),
             T::Time64(U::Nanosecond) => DataType::Time64(TimeUnit::Nanosecond),
             T::Time64(unit) => fail!("invalid time unit {unit} for Time64"),
-            T::Timestamp(U::Second, tz) => {
-                DataType::Timestamp(TimeUnit::Second, tz.clone().map(|s| s.into()))
+            T::Timestamp(unit, tz) => {
+                DataType::Timestamp((*unit).into(), tz.clone().map(|s| s.into()))
             }
-            T::Timestamp(U::Millisecond, tz) => {
-                DataType::Timestamp(TimeUnit::Millisecond, tz.clone().map(|s| s.into()))
-            }
-            T::Timestamp(U::Microsecond, tz) => {
-                DataType::Timestamp(TimeUnit::Microsecond, tz.clone().map(|s| s.into()))
-            }
-            T::Timestamp(U::Nanosecond, tz) => {
-                DataType::Timestamp(TimeUnit::Nanosecond, tz.clone().map(|s| s.into()))
-            }
+            T::Duration(unit) => DataType::Duration((*unit).into()),
         };
 
         let mut field = Field::new(&value.name, data_type, value.nullable);
@@ -351,5 +347,16 @@ impl TryFrom<&GenericField> for Field {
         }
 
         Ok(field)
+    }
+}
+
+impl From<GenericTimeUnit> for TimeUnit {
+    fn from(value: GenericTimeUnit) -> Self {
+        match value {
+            GenericTimeUnit::Second => Self::Second,
+            GenericTimeUnit::Millisecond => Self::Millisecond,
+            GenericTimeUnit::Microsecond => Self::Microsecond,
+            GenericTimeUnit::Nanosecond => Self::Nanosecond,
+        }
     }
 }

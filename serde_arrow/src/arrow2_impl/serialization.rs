@@ -85,6 +85,11 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
             builder.buffer,
             builder.validity,
         ),
+        A::Duration(builder) => build_primitive_array(
+            T::Duration(builder.unit.into()),
+            builder.buffer,
+            builder.validity,
+        ),
         A::Decimal128(builder) => build_primitive_array(
             T::Decimal(builder.precision as usize, usize::try_from(builder.scale)?),
             builder.buffer,

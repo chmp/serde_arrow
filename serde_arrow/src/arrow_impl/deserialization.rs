@@ -29,7 +29,8 @@ use crate::_impl::arrow::{
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
-        Decimal128Type, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+        Decimal128Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
+        DurationSecondType, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
         Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
         Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
         TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
@@ -97,6 +98,16 @@ pub fn build_array_deserializer<'a>(
             },
             get_validity(array),
         ),
+        T::Duration(U::Second) => build_integer_deserializer::<DurationSecondType>(field, array),
+        T::Duration(U::Millisecond) => {
+            build_integer_deserializer::<DurationMillisecondType>(field, array)
+        }
+        T::Duration(U::Microsecond) => {
+            build_integer_deserializer::<DurationMicrosecondType>(field, array)
+        }
+        T::Duration(U::Nanosecond) => {
+            build_integer_deserializer::<DurationNanosecondType>(field, array)
+        }
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Struct => build_struct_deserializer(field, array),
