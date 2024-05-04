@@ -66,19 +66,13 @@ impl OuterSequenceBuilder {
                     };
                     A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
                 }
-                T::Timestamp(unit, tz) => {
-                    if !matches!(unit, GenericTimeUnit::Millisecond) {
-                        fail!("Only timestamps with millisecond unit are supported");
+                T::Timestamp(_, tz) => match tz.as_deref() {
+                    None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
+                    Some(tz) if tz.to_uppercase() == "UTC" => {
+                        A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
                     }
-
-                    match tz.as_deref() {
-                        None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
-                        Some(tz) if tz.to_uppercase() == "UTC" => {
-                            A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
-                        }
-                        Some(tz) => fail!("Timezone {tz} is not supported"),
-                    }
-                }
+                    Some(tz) => fail!("Timezone {tz} is not supported"),
+                },
                 T::Time32(unit) => {
                     if !matches!(unit, GenericTimeUnit::Second | GenericTimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");

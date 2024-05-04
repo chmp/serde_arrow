@@ -1,5 +1,7 @@
+use chrono::DateTime;
 use serde::de::Visitor;
 
+use crate::internal::schema::GenericTimeUnit;
 use crate::{
     internal::{
         common::{BitBuffer, Mut},
@@ -10,38 +12,34 @@ use crate::{
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
-pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, bool);
+pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, GenericTimeUnit, bool);
 
 impl<'a> Date64Deserializer<'a> {
-    pub fn new(buffer: &'a [i64], validity: Option<BitBuffer<'a>>, is_utc: bool) -> Self {
-        Self(ArrayBufferIterator::new(buffer, validity), is_utc)
+    pub fn new(
+        buffer: &'a [i64],
+        validity: Option<BitBuffer<'a>>,
+        unit: GenericTimeUnit,
+        is_utc: bool,
+    ) -> Self {
+        Self(ArrayBufferIterator::new(buffer, validity), unit, is_utc)
     }
 
     pub fn get_string_repr(&self, ts: i64) -> Result<String> {
-        if self.1 {
-            use chrono::{TimeZone, Utc};
+        let Some(date_time) = (match self.1 {
+            GenericTimeUnit::Second => DateTime::from_timestamp(ts, 0),
+            GenericTimeUnit::Millisecond => DateTime::from_timestamp_millis(ts),
+            GenericTimeUnit::Microsecond => DateTime::from_timestamp_micros(ts),
+            GenericTimeUnit::Nanosecond => Some(DateTime::from_timestamp_nanos(ts)),
+        }) else {
+            fail!("Unsupported timestamp value: {ts}");
+        };
 
-            let Some(val) = Utc
-                .timestamp_opt(ts / 1000, (ts % 1000) as u32 * 100_000)
-                .earliest()
-            else {
-                fail!("Unsupported timestamp value: {ts}");
-            };
-
+        if self.2 {
             // NOTE: chrono documents that Debug, not Display, can be parsed
-            Ok(format!("{:?}", val))
+            Ok(format!("{:?}", date_time))
         } else {
-            use chrono::NaiveDateTime;
-
-            #[allow(deprecated)]
-            let Some(val) =
-                NaiveDateTime::from_timestamp_opt(ts / 1000, (ts % 1000) as u32 * 100_000)
-            else {
-                fail!("Unsupported timestamp value: {ts}");
-            };
-
             // NOTE: chrono documents that Debug, not Display, can be parsed
-            Ok(format!("{:?}", val))
+            Ok(format!("{:?}", date_time.naive_utc()))
         }
     }
 }

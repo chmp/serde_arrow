@@ -1,5 +1,11 @@
 # Change log
 
+## Unreleased
+
+- Support for serializing/deserializing timestamps with second, microsecond, and
+  nanosecond encoding.
+- Fixed (de)serialization of fractional seconds.
+
 ## 0.11.2
 
 - Support `Duration(unit)`

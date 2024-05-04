@@ -30,6 +30,7 @@ use crate::_impl::arrow2::{
     datatypes::{DataType, UnionMode},
     types::{f16, NativeType, Offset},
 };
+use crate::internal::schema::GenericTimeUnit;
 
 pub fn build_deserializer<'a>(
     fields: &[GenericField],
@@ -168,6 +169,7 @@ pub fn build_date64_deserializer<'a>(
     Ok(Date64Deserializer::new(
         as_primitive_values(array)?,
         get_validity(array),
+        GenericTimeUnit::Millisecond,
         field.is_utc()?,
     )
     .into())

@@ -362,7 +362,37 @@ fn utc_str_as_date64_as_timestamp() {
     Test::new()
         .with_schema(json!([{
             "name": "item",
+            "data_type": "Timestamp(Second, Some(\"Utc\"))",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
             "data_type": "Timestamp(Millisecond, Some(\"Utc\"))",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Timestamp(Microsecond, Some(\"Utc\"))",
+            "strategy": "UtcStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Timestamp(Nanosecond, Some(\"Utc\"))",
             "strategy": "UtcStrAsDate64",
         }]))
         .serialize(&items)
@@ -372,10 +402,19 @@ fn utc_str_as_date64_as_timestamp() {
 
 #[test]
 fn naive_as_timestamp() {
-    #[allow(deprecated)]
+    // The 001 in the end makes sure that we handle fractional seconds correctly
+    // in both positive and negative timestamps.
     let items = [
-        Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
-        Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
+        Item(
+            DateTime::from_timestamp_millis(1662921288001)
+                .unwrap()
+                .naive_utc(),
+        ),
+        Item(
+            DateTime::from_timestamp_millis(-2208936075001)
+                .unwrap()
+                .naive_utc(),
+        ),
     ];
 
     Test::new()
@@ -383,6 +422,57 @@ fn naive_as_timestamp() {
             "name": "item",
             "data_type":
             "Timestamp(Millisecond, None)",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type":
+            "Timestamp(Microsecond, None)",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type":
+            "Timestamp(Nanosecond, None)",
+            "strategy": "NaiveStrAsDate64",
+        }]))
+        .serialize(&items)
+        .deserialize(&items)
+        .check_nulls(&[&[false, false]]);
+}
+
+// Handle seconds as a special case, since this encoding does not support
+// fractional seconds.
+#[test]
+fn naive_as_timestamp_seconds() {
+    let items = [
+        Item(
+            DateTime::from_timestamp_millis(1662921288000)
+                .unwrap()
+                .naive_utc(),
+        ),
+        Item(
+            DateTime::from_timestamp_millis(-2208936075000)
+                .unwrap()
+                .naive_utc(),
+        ),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type":
+            "Timestamp(Second, None)",
             "strategy": "NaiveStrAsDate64",
         }]))
         .serialize(&items)
