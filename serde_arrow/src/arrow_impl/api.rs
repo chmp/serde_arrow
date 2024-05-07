@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::internal::deserialization::outer_sequence_deserializer::OuterSequenceDeserializer;
 use crate::{
     _impl::arrow::{
         array::{Array, ArrayRef, RecordBatch},
@@ -295,4 +296,23 @@ where
     let mut deserializer = build_deserializer(&fields, &arrays)?;
     let res = T::deserialize(Mut(&mut deserializer))?;
     Ok(res)
+}
+
+/// Create a deserializer.
+pub fn deserializer_from_record_batch<'de>(
+    record_batch: &'de RecordBatch,
+) -> Result<OuterSequenceDeserializer<'de>> {
+    let fields = record_batch
+        .schema()
+        .fields()
+        .iter()
+        .map(|f| GenericField::try_from(f.as_ref()))
+        .collect::<Result<Vec<_>>>()?;
+    let arrays = record_batch
+        .columns()
+        .iter()
+        .map(|array| array.as_ref())
+        .collect::<Vec<_>>();
+
+    build_deserializer(&fields, &arrays)
 }

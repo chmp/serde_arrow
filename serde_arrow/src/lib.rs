@@ -164,6 +164,7 @@
 // be more forgiving without any active implementation
 #[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
 mod internal;
+pub use internal::common::Mut;
 
 /// *Internal. Do not use*
 ///
@@ -313,7 +314,10 @@ pub use crate::internal::error::{Error, Result};
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch, ArrowBuilder};
+pub use arrow_impl::api::{
+    deserializer_from_record_batch, from_arrow, from_record_batch, to_arrow, to_record_batch,
+    ArrowBuilder,
+};
 
 #[cfg(has_arrow2)]
 mod arrow2_impl;
