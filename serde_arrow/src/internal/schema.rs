@@ -530,7 +530,7 @@ impl GenericField {
         match &self.strategy {
             None => Ok(()),
             Some(strategy @ Strategy::UtcStrAsDate64) => {
-                if !matches!(&self.data_type, GenericDataType::Timestamp(GenericTimeUnit::Millisecond, Some(tz)) if tz.to_uppercase() == "UTC")
+                if !matches!(&self.data_type, GenericDataType::Timestamp(_, Some(tz)) if tz.to_uppercase() == "UTC")
                 {
                     fail!(
                         "invalid strategy for timestamp field {}: {}",
@@ -541,10 +541,7 @@ impl GenericField {
                 Ok(())
             }
             Some(strategy @ Strategy::NaiveStrAsDate64) => {
-                if !matches!(
-                    &self.data_type,
-                    GenericDataType::Timestamp(GenericTimeUnit::Millisecond, None)
-                ) {
+                if !matches!(&self.data_type, GenericDataType::Timestamp(_, None)) {
                     fail!(
                         "invalid strategy for timestamp field {}: {}",
                         self.data_type,

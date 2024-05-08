@@ -1,5 +1,19 @@
 # Change log
 
+## Unreleased
+
+- Support for serializing/deserializing timestamps with second, microsecond, and
+  nanosecond encoding.
+- Fixed (de)serialization of fractional seconds.
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@ryzhyk](https://github.com/ryzhyk) added string support for timestamps with
+  non-millisecond units, fixed the handling of fractional seconds  
+  ([PR](https://github.com/chmp/serde_arrow/pull/168))
+
 ## 0.11.2
 
 - Support `Duration(unit)`

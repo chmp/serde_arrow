@@ -1,11 +1,9 @@
 use crate::{
     internal::{
         common::BitBuffer,
-        deserialization::{
-            date64_deserializer::Date64Deserializer, integer_deserializer::IntegerDeserializer,
-        },
+        deserialization::date64_deserializer::Date64Deserializer,
         error::{fail, Result},
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
+        schema::{GenericDataType, GenericField},
     },
     schema::Strategy,
 };
@@ -29,26 +27,14 @@ pub fn build_timestamp_deserializer<'a>(
         strategy,
         Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64)
     ) {
-        if !matches!(unit, GenericTimeUnit::Millisecond) {
-            let strategy = strategy.unwrap();
-            fail!(
-                "invalid unit {unit} for timestamp with strategy {strategy}, must be Millisecond"
-            );
-        }
-
-        return Ok(Date64Deserializer::new(values, validity, field.is_utc()?).into());
+        return Ok(Date64Deserializer::new(values, validity, *unit, field.is_utc()?).into());
     }
 
     if let Some(strategy) = strategy {
         fail!("invalid strategy {strategy} for timestamp field");
     }
 
-    match unit {
-        GenericTimeUnit::Millisecond => {
-            Ok(Date64Deserializer::new(values, validity, field.is_utc()?).into())
-        }
-        _ => Ok(IntegerDeserializer::new(values, validity).into()),
-    }
+    Ok(Date64Deserializer::new(values, validity, *unit, field.is_utc()?).into())
 }
 
 pub fn build_time32_deserializer<'a>(

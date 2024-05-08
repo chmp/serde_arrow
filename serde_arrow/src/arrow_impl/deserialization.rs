@@ -206,6 +206,7 @@ pub fn build_date64_deserializer<'a>(
     Ok(Date64Deserializer::new(
         as_primitive_values::<Date64Type>(array)?,
         get_validity(array),
+        GenericTimeUnit::Millisecond,
         field.is_utc()?,
     )
     .into())
