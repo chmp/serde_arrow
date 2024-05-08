@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## 0.11.3
 
 - Support for serializing/deserializing timestamps with second, microsecond, and
   nanosecond encoding.
