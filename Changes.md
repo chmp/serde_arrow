@@ -44,7 +44,7 @@ The following people contributed to this release:
   ([PR](https://github.com/chmp/serde_arrow/pull/147))
 - [@progval](https://github.com/progval) added additional error messages
   ([PR](https://github.com/chmp/serde_arrow/pull/142))
-- [@](https://github.com/gstvg) contributed zero-copy deserialization
+- [@gstvg](https://github.com/gstvg) contributed zero-copy deserialization
   ([PR](https://github.com/chmp/serde_arrow/pull/151))
 
 ## 0.10.0
