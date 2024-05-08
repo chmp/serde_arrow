@@ -33,7 +33,15 @@ arrays, and deserialization from arrays to Rust structs.
 
 ## Example
 
-Given a Rust structure
+The following examples assume that `serde_arrow` is added to the `Cargo.toml`
+file and its features are configured. `serde_arrow` supports different `arrow`
+and `arrow2` versions. The relevant one can be selected by specifying the
+correct feature (e.g., `arrow-51` to support `arrow=51`). See
+[here][feature-docs] for more details.
+
+[feature-docs]: https://docs.rs/serde_arrow/latest/serde_arrow/#features
+
+The following examples use the following Rust structure and example records
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -53,7 +61,7 @@ let records = vec![
 
 ```rust
 use arrow::datatypes::FieldRef;
-use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+use serde_arrow::schema::{SchemaLike, TracingOptions};
 
 // Determine Arrow schema
 let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
@@ -79,7 +87,7 @@ writer.close()?;
 
 ```rust
 use arrow2::datatypes::Field;
-use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+use serde_arrow::schema::{SchemaLike, TracingOptions};
 
 let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 let arrays = serde_arrow::to_arrow2(&fields, &records)?;

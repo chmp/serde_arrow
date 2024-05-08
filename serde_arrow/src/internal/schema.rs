@@ -64,7 +64,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// `serde_json::Value`)
     ///
     /// ```rust
-    /// # #[cfg(feature = "has_arrow")]
+    /// # #[cfg(has_arrow)]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::FieldRef;
@@ -78,7 +78,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// let fields = Vec::<FieldRef>::from_value(&schema)?;
     /// # Ok(())
     /// # }
-    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
     ///
@@ -142,7 +142,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// cases.
     ///
     /// ```rust
-    /// # #[cfg(feature = "has_arrow")]
+    /// # #[cfg(has_arrow)]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, FieldRef};
@@ -163,7 +163,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
-    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
     ///
@@ -172,7 +172,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// [`Item`][crate::utils::Item] wrapper.
     ///
     /// ```rust
-    /// # #[cfg(feature = "has_arrow")]
+    /// # #[cfg(has_arrow)]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, FieldRef};
@@ -183,7 +183,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
-    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
@@ -204,7 +204,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///   true`][TracingOptions::map_as_struct]).
     ///
     /// ```rust
-    /// # #[cfg(feature = "has_arrow")]
+    /// # #[cfg(has_arrow)]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, FieldRef};
@@ -239,7 +239,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(fields[2].data_type(), &DataType::LargeUtf8);
     /// # Ok(())
     /// # }
-    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
     ///
@@ -248,7 +248,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// [`Items`][crate::utils::Items] wrapper.
     ///
     /// ```rust
-    /// # #[cfg(feature = "has_arrow")]
+    /// # #[cfg(has_arrow)]
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::{DataType, FieldRef};
@@ -262,7 +262,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// assert_eq!(fields[0].data_type(), &DataType::Float32);
     /// # Ok(())
     /// # }
-    /// # #[cfg(not(feature = "has_arrow"))]
+    /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
     fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self>;

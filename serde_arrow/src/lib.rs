@@ -44,12 +44,14 @@
 //!   supported Arrow and Rust constructs
 //!
 //! ## `arrow` Example
+//!
 //! ```rust
 //! # use serde::{Deserialize, Serialize};
-//! # #[cfg(feature = "has_arrow")]
+//! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::Result<()> {
+//! # use serde_arrow::_impl::arrow;
 //! use arrow::datatypes::FieldRef;
-//! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+//! use serde_arrow::schema::{SchemaLike, TracingOptions};
 //!
 //! ##[derive(Serialize, Deserialize)]
 //! struct Record {
@@ -70,7 +72,7 @@
 //! let batch = serde_arrow::to_record_batch(&fields, &records)?;
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "has_arrow"))]
+//! # #[cfg(not(has_arrow))]
 //! # fn main() { }
 //! ```
 //!
@@ -86,11 +88,11 @@
 //!
 //! ```rust
 //! # use serde::{Deserialize, Serialize};
-//! # #[cfg(feature = "has_arrow2")]
+//! # #[cfg(has_arrow2)]
 //! # fn main() -> serde_arrow::Result<()> {
 //! # use serde_arrow::_impl::arrow2;
 //! use arrow2::datatypes::Field;
-//! use serde_arrow::schema::{TracingOptions, SerdeArrowSchema};
+//! use serde_arrow::schema::{SchemaLike, TracingOptions};
 //!
 //! ##[derive(Serialize, Deserialize)]
 //! struct Record {
@@ -110,7 +112,7 @@
 //! # drop(arrays);
 //! # Ok(())
 //! # }
-//! # #[cfg(not(feature = "has_arrow2"))]
+//! # #[cfg(not(has_arrow2))]
 //! # fn main() { }
 //! ```
 //!
