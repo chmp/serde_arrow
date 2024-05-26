@@ -4,6 +4,7 @@ pub mod construction;
 pub mod date32_deserializer;
 pub mod date64_deserializer;
 pub mod decimal_deserializer;
+pub mod deserializer;
 pub mod dictionary_deserializer;
 pub mod enum_deserializer;
 pub mod float_deserializer;
