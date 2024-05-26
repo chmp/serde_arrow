@@ -5,8 +5,8 @@ use crate::internal::{
     error::{fail, Error, Result},
 };
 
-/// Deserializer for the data contained in a number of arrays
-pub struct Deserializer<'de>(OuterSequenceDeserializer<'de>);
+/// A structure to deserialize Arrow arrays into Rust objects
+pub struct Deserializer<'de>(pub(crate) OuterSequenceDeserializer<'de>);
 
 impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
     type Error = Error;

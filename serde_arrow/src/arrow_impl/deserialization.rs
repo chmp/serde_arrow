@@ -7,6 +7,7 @@ use crate::internal::{
         date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
         decimal_deserializer::DecimalDeserializer,
+        deserializer::Deserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
@@ -30,20 +31,37 @@ use crate::_impl::arrow::{
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
         Decimal128Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
-        DurationSecondType, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
-        Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
+        DurationSecondType, Field, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
+        Int64Type, Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
         Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
         TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
         UInt8Type, UnionMode,
     },
 };
 
-pub fn build_deserializer<'a>(
-    fields: &[GenericField],
-    arrays: &[&'a dyn Array],
-) -> Result<OuterSequenceDeserializer<'a>> {
-    let (deserializers, len) = build_struct_fields(fields, arrays)?;
-    Ok(OuterSequenceDeserializer::new(deserializers, len))
+impl<'de> Deserializer<'de> {
+    /// Construct a new deserializer from Arrow arrays
+    pub fn from_arrow<F, A>(fields: &[F], arrays: &'de [A]) -> Result<Self>
+    where
+        F: AsRef<Field>,
+        A: AsRef<dyn Array>,
+    {
+        let fields = fields
+            .iter()
+            .map(|field| GenericField::try_from(field.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
+        let arrays = arrays
+            .iter()
+            .map(|array| array.as_ref())
+            .collect::<Vec<_>>();
+
+        let (deserializers, len) = build_struct_fields(&fields, &arrays)?;
+
+        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
+        let deserializer = Deserializer(deserializer);
+
+        Ok(deserializer)
+    }
 }
 
 pub fn build_array_deserializer<'a>(

@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,14 +9,10 @@ use crate::{
         datatypes::{Field, FieldRef, Schema},
     },
     internal::{
-        common::Mut,
-        error::Result,
-        schema::{GenericField, SerdeArrowSchema},
+        deserialization::deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
         serialization::OuterSequenceBuilder,
     },
 };
-
-use super::deserialization::build_deserializer;
 
 /// Build arrow arrays record by record (*requires one of the `arrow-*`
 /// features*)
@@ -180,18 +176,9 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    let fields = fields
-        .iter()
-        .map(GenericField::try_from)
-        .collect::<Result<Vec<_>>>()?;
-    let arrays = arrays
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-
-    let mut deserializer = build_deserializer(&fields, &arrays)?;
-    let res = T::deserialize(Mut(&mut deserializer))?;
-    Ok(res)
+    let fields = fields.iter().map(Cow::Borrowed).collect::<Vec<_>>();
+    let deserializer = Deserializer::from_arrow(&fields, arrays)?;
+    Ok(T::deserialize(deserializer)?)
 }
 
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
@@ -280,19 +267,7 @@ pub fn from_record_batch<'de, T>(record_batch: &'de RecordBatch) -> Result<T>
 where
     T: Deserialize<'de>,
 {
-    let fields = record_batch
-        .schema()
-        .fields()
-        .iter()
-        .map(|f| GenericField::try_from(f.as_ref()))
-        .collect::<Result<Vec<_>>>()?;
-    let arrays = record_batch
-        .columns()
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-
-    let mut deserializer = build_deserializer(&fields, &arrays)?;
-    let res = T::deserialize(Mut(&mut deserializer))?;
-    Ok(res)
+    let schema = record_batch.schema();
+    let deserializer = Deserializer::from_arrow(&schema.fields(), record_batch.columns())?;
+    Ok(T::deserialize(deserializer)?)
 }

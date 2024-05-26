@@ -311,6 +311,8 @@ mod test;
 
 pub use crate::internal::error::{Error, Result};
 
+pub use crate::internal::deserialization::deserializer::Deserializer;
+
 #[cfg(has_arrow)]
 mod arrow_impl;
 
