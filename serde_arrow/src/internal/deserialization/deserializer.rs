@@ -23,7 +23,7 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_seq(self.0)
     }
 
-    /// TODO: support tuples?
+    // TODO: support tuples?
     fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, _visitor: V) -> Result<V::Value> {
         fail!("cannot deserialize single tuples")
     }
