@@ -178,7 +178,7 @@ where
 {
     let fields = fields.iter().map(Cow::Borrowed).collect::<Vec<_>>();
     let deserializer = Deserializer::from_arrow(&fields, arrays)?;
-    Ok(T::deserialize(deserializer)?)
+    T::deserialize(deserializer)
 }
 
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
@@ -268,6 +268,6 @@ where
     T: Deserialize<'de>,
 {
     let schema = record_batch.schema();
-    let deserializer = Deserializer::from_arrow(&schema.fields(), record_batch.columns())?;
-    Ok(T::deserialize(deserializer)?)
+    let deserializer = Deserializer::from_arrow(schema.fields(), record_batch.columns())?;
+    T::deserialize(deserializer)
 }

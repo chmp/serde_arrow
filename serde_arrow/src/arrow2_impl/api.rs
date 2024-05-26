@@ -175,5 +175,5 @@ where
     A: AsRef<dyn Array>,
 {
     let deserializer = Deserializer::from_arrow2(fields, arrays)?;
-    Ok(T::deserialize(deserializer)?)
+    T::deserialize(deserializer)
 }
