@@ -7,14 +7,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        common::Mut,
-        error::Result,
-        schema::{GenericField, SerdeArrowSchema},
+        deserialization::deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
         serialization::OuterSequenceBuilder,
     },
 };
-
-use super::deserialization::build_deserializer;
 
 /// Build arrow2 arrays record by record (*requires one of the `arrow2-*`
 /// features*)
@@ -178,16 +174,6 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    let fields = fields
-        .iter()
-        .map(GenericField::try_from)
-        .collect::<Result<Vec<_>>>()?;
-    let arrays = arrays
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-
-    let mut deserializer = build_deserializer(&fields, &arrays)?;
-    let res = T::deserialize(Mut(&mut deserializer))?;
-    Ok(res)
+    let deserializer = Deserializer::from_arrow2(fields, arrays)?;
+    Ok(T::deserialize(deserializer)?)
 }

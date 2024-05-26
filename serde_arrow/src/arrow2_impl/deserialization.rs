@@ -7,6 +7,7 @@ use crate::internal::{
         date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
         decimal_deserializer::DecimalDeserializer,
+        deserializer::Deserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
@@ -27,17 +28,32 @@ use crate::_impl::arrow2::{
         Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
         StructArray, UnionArray, Utf8Array,
     },
-    datatypes::{DataType, UnionMode},
+    datatypes::{DataType, Field, UnionMode},
     types::{f16, NativeType, Offset},
 };
 use crate::internal::schema::GenericTimeUnit;
 
-pub fn build_deserializer<'a>(
-    fields: &[GenericField],
-    arrays: &[&'a dyn Array],
-) -> Result<OuterSequenceDeserializer<'a>> {
-    let (deserializers, len) = build_struct_fields(fields, arrays)?;
-    Ok(OuterSequenceDeserializer::new(deserializers, len))
+impl<'de> Deserializer<'de> {
+    /// Build a deserializer from `arrow2` arrays
+    pub fn from_arrow2<A>(fields: &[Field], arrays: &'de [A]) -> Result<Self>
+    where
+        A: AsRef<dyn Array>,
+    {
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let arrays = arrays
+            .iter()
+            .map(|array| array.as_ref())
+            .collect::<Vec<_>>();
+
+        let (deserializers, len) = build_struct_fields(&fields, &arrays)?;
+        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
+        let deserializer = Deserializer(deserializer);
+
+        Ok(deserializer)
+    }
 }
 
 pub fn build_array_deserializer<'a>(
