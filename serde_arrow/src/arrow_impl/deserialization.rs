@@ -40,7 +40,7 @@ use crate::_impl::arrow::{
 };
 
 impl<'de> Deserializer<'de> {
-    /// Construct a new deserializer from Arrow arrays
+    /// Construct a new deserializer from `arrow` arrays
     pub fn from_arrow<F, A>(fields: &[F], arrays: &'de [A]) -> Result<Self>
     where
         F: AsRef<Field>,
