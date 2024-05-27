@@ -2,7 +2,7 @@
 
 ## 0.11.4
 
-- Support building a `Deserializer` directly
+- Add `serde_arrow::Deserializer`
 
 ## 0.11.3
 
