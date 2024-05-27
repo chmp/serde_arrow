@@ -99,7 +99,7 @@ impl ArrowBuilder {
 }
 
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
-/// features*))
+/// features*)
 ///
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs). To serialize items encoding single values consider the
@@ -181,7 +181,7 @@ where
 }
 
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
-/// features*))
+/// features*)
 ///
 /// `items` should be given in the form a list of records (e.g., a vector of
 /// structs). To serialize items encoding single values consider the

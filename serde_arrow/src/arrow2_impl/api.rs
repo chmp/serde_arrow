@@ -140,8 +140,8 @@ where
     builder.build_arrays()
 }
 
-/// Deserialize items from the given arrow2 arrays  (*requires* one of the
-/// `arrow2-*` features)
+/// Deserialize items from the given arrow2 arrays  (*requires one of the
+/// `arrow2-*` features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
 /// deserialize items encoding single values consider the
