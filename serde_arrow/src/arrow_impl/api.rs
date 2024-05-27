@@ -94,7 +94,7 @@ impl ArrowBuilder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
-        self.0.build_arrow_arrays()
+        self.0.build_arrow()
     }
 }
 
@@ -156,6 +156,8 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
+/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
+/// #
 /// ##[derive(Deserialize, Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
@@ -163,9 +165,6 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 /// }
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-/// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serde_arrow::to_arrow(&fields, &items)?;
-/// #
 /// let items: Vec<Record> = serde_arrow::from_arrow(&fields, &arrays)?;
 /// # Ok(())
 /// # }
@@ -241,23 +240,16 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::_impl::arrow;
-/// # use arrow::datatypes::FieldRef;
-/// # use serde::Serialize;
+/// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
+/// #
 /// use serde::Deserialize;
-/// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
 /// ##[derive(Deserialize)]
-/// # #[derive(Serialize)]
 /// struct Record {
 ///     a: Option<f32>,
 ///     b: u64,
 /// }
 ///
-/// # let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
-/// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let record_batch = serde_arrow::to_record_batch(&fields, &items)?;
-/// #
 /// let items: Vec<Record> = serde_arrow::from_record_batch(&record_batch)?;
 /// # Ok(())
 /// # }
@@ -267,7 +259,5 @@ pub fn from_record_batch<'de, T>(record_batch: &'de RecordBatch) -> Result<T>
 where
     T: Deserialize<'de>,
 {
-    let schema = record_batch.schema();
-    let deserializer = Deserializer::from_arrow(schema.fields(), record_batch.columns())?;
-    T::deserialize(deserializer)
+    T::deserialize(Deserializer::from_record_batch(record_batch)?)
 }

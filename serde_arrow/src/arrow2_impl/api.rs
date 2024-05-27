@@ -92,7 +92,7 @@ impl Arrow2Builder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.0.build_arrow2_arrays()
+        self.0.build_arrow2()
     }
 }
 
@@ -150,6 +150,7 @@ where
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow2;
+/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
 /// use arrow2::datatypes::Field;
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
@@ -161,9 +162,6 @@ where
 /// }
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-/// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serde_arrow::to_arrow2(&fields, &items)?;
-/// #
 /// let items: Vec<Record> = serde_arrow::from_arrow2(&fields, &arrays)?;
 /// # Ok(())
 /// # }

@@ -35,6 +35,30 @@ use crate::internal::schema::GenericTimeUnit;
 
 impl<'de> Deserializer<'de> {
     /// Build a deserializer from `arrow2` arrays
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow2;
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+    /// use arrow2::datatypes::Field;
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
+    ///
+    /// ##[derive(Deserialize, Serialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+    ///
+    /// let deserializer = Deserializer::from_arrow2(&fields, &arrays)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_arrow2<A>(fields: &[Field], arrays: &'de [A]) -> Result<Self>
     where
         A: AsRef<dyn Array>,

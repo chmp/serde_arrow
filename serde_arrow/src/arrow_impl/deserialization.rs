@@ -26,7 +26,7 @@ use crate::internal::{
 use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, GenericListArray, GenericStringArray, MapArray,
-        OffsetSizeTrait, PrimitiveArray, StructArray, UnionArray,
+        OffsetSizeTrait, PrimitiveArray, RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
@@ -41,6 +41,29 @@ use crate::_impl::arrow::{
 
 impl<'de> Deserializer<'de> {
     /// Construct a new deserializer from `arrow` arrays
+    ///
+    /// Usage
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
+    /// # use serde_arrow::_impl::arrow;
+    /// use arrow::datatypes::FieldRef;
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
+    ///
+    /// ##[derive(Deserialize, Serialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
+    ///
+    /// let deserializer = Deserializer::from_arrow(&fields, &arrays)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_arrow<F, A>(fields: &[F], arrays: &'de [A]) -> Result<Self>
     where
         F: AsRef<Field>,
@@ -61,6 +84,34 @@ impl<'de> Deserializer<'de> {
         let deserializer = Deserializer(deserializer);
 
         Ok(deserializer)
+    }
+
+    /// Construct a new deserializer from a record batch
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
+    /// #
+    /// use serde::Deserialize;
+    /// use serde_arrow::Deserializer;
+    ///
+    /// ##[derive(Deserialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let deserializer = Deserializer::from_record_batch(&record_batch)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    pub fn from_record_batch(record_batch: &'de RecordBatch) -> Result<Self> {
+        let schema = record_batch.schema();
+        Deserializer::from_arrow(schema.fields(), record_batch.columns())
     }
 }
 

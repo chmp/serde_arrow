@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl OuterSequenceBuilder {
-    pub fn build_arrow_arrays(&mut self) -> Result<Vec<ArrayRef>> {
+    pub fn build_arrow(&mut self) -> Result<Vec<ArrayRef>> {
         let fields = self.take_records()?;
         let arrays = fields
             .into_iter()
