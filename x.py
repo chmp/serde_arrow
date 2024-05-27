@@ -227,9 +227,9 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
     for feature_selection in feature_selections:
         _sh(
             f"""
-                cargo test 
-                    {feature_selection} 
-                    {_q(test_name) if test_name else ''}    
+                cargo test
+                    {feature_selection}
+                    {_q(test_name) if test_name else ''}
             """,
             env=env,
         )
@@ -486,9 +486,15 @@ def collect(kv_pairs):
 
 @cmd(help="Generate the documentation")
 @arg("--private", action="store_true", default=False)
-def doc(private=False):
+@arg("--open", action="store_true", default=False)
+def doc(private=False, open=False):
     _sh(
-        f"cargo doc --features {default_features} {'--document-private-items' if private else ''}",
+        f"""
+            cargo doc
+                --features {default_features}
+                {'--document-private-items' if private else ''}
+                {'--open' if open else ''}
+        """,
         cwd=self_path / "serde_arrow",
     )
 

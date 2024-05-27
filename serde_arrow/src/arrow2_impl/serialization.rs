@@ -22,7 +22,7 @@ use crate::{
 
 impl OuterSequenceBuilder {
     /// Build the arrow2 arrays
-    pub fn build_arrow2_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
+    pub fn build_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
         let fields = self.take_records()?;
         let arrays = fields
             .into_iter()

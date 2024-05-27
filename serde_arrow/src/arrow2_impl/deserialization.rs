@@ -18,6 +18,7 @@ use crate::internal::{
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
     },
+    deserializer::Deserializer,
     error::{fail, Result},
     schema::{GenericDataType, GenericField},
 };
@@ -27,17 +28,57 @@ use crate::_impl::arrow2::{
         Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
         StructArray, UnionArray, Utf8Array,
     },
-    datatypes::{DataType, UnionMode},
+    datatypes::{DataType, Field, UnionMode},
     types::{f16, NativeType, Offset},
 };
 use crate::internal::schema::GenericTimeUnit;
 
-pub fn build_deserializer<'a>(
-    fields: &[GenericField],
-    arrays: &[&'a dyn Array],
-) -> Result<OuterSequenceDeserializer<'a>> {
-    let (deserializers, len) = build_struct_fields(fields, arrays)?;
-    Ok(OuterSequenceDeserializer::new(deserializers, len))
+impl<'de> Deserializer<'de> {
+    /// Build a deserializer from `arrow2` arrays (*requires one of the
+    /// `arrow2-*` features*)
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow2;
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+    /// use arrow2::datatypes::Field;
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
+    ///
+    /// ##[derive(Deserialize, Serialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+    ///
+    /// let deserializer = Deserializer::from_arrow2(&fields, &arrays)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_arrow2<A>(fields: &[Field], arrays: &'de [A]) -> Result<Self>
+    where
+        A: AsRef<dyn Array>,
+    {
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let arrays = arrays
+            .iter()
+            .map(|array| array.as_ref())
+            .collect::<Vec<_>>();
+
+        let (deserializers, len) = build_struct_fields(&fields, &arrays)?;
+        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
+        let deserializer = Deserializer(deserializer);
+
+        Ok(deserializer)
+    }
 }
 
 pub fn build_array_deserializer<'a>(

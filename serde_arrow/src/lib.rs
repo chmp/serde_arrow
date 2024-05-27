@@ -28,11 +28,12 @@
     doc = r#"
 ## Overview
 
-| Operation        | [`arrow-*`](#features)                | [`arrow2-*`](#features) |
-|:-----------------|:--------------------------------------|:------------------------|
-| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]     | [`to_arrow2`]           |
-| Arrow to Rust    | [`from_record_batch`], [`from_arrow`] | [`from_arrow2`]         |
-| Array Builder    | [`ArrowBuilder`]                      | [`Arrow2Builder`]       |
+| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)       |
+|:--------------|:------------------------------------------------------------------|:------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                 |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]               |
+| Array Builder | [`ArrowBuilder`]                                                  | [`Arrow2Builder`]             |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`] |
 "#
 )]
 //!
@@ -108,8 +109,6 @@
 //!
 //! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 //! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-//! #
-//! # drop(arrays);
 //! # Ok(())
 //! # }
 //! # #[cfg(not(has_arrow2))]
@@ -283,6 +282,9 @@ pub mod _impl {
 
     /// Documentation
     pub mod docs {
+        #[doc(hidden)]
+        pub mod defs;
+
         pub mod quickstart;
 
         #[doc = include_str!("../Status.md")]
@@ -310,6 +312,8 @@ mod test_end_to_end;
 mod test;
 
 pub use crate::internal::error::{Error, Result};
+
+pub use crate::internal::deserializer::Deserializer;
 
 #[cfg(has_arrow)]
 mod arrow_impl;

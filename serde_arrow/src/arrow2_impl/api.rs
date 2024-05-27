@@ -7,14 +7,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        common::Mut,
-        error::Result,
-        schema::{GenericField, SerdeArrowSchema},
+        deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
         serialization::OuterSequenceBuilder,
     },
 };
-
-use super::deserialization::build_deserializer;
 
 /// Build arrow2 arrays record by record (*requires one of the `arrow2-*`
 /// features*)
@@ -96,7 +92,7 @@ impl Arrow2Builder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.0.build_arrow2_arrays()
+        self.0.build_arrow2()
     }
 }
 
@@ -144,8 +140,8 @@ where
     builder.build_arrays()
 }
 
-/// Deserialize items from the given arrow2 arrays  (*requires* one of the
-/// `arrow2-*` features)
+/// Deserialize items from the given arrow2 arrays  (*requires one of the
+/// `arrow2-*` features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
 /// deserialize items encoding single values consider the
@@ -154,6 +150,7 @@ where
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow2;
+/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
 /// use arrow2::datatypes::Field;
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
@@ -165,9 +162,6 @@ where
 /// }
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-/// # let items = &[Record { a: Some(1.0), b: 2}];
-/// # let arrays = serde_arrow::to_arrow2(&fields, &items)?;
-/// #
 /// let items: Vec<Record> = serde_arrow::from_arrow2(&fields, &arrays)?;
 /// # Ok(())
 /// # }
@@ -178,16 +172,6 @@ where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    let fields = fields
-        .iter()
-        .map(GenericField::try_from)
-        .collect::<Result<Vec<_>>>()?;
-    let arrays = arrays
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-
-    let mut deserializer = build_deserializer(&fields, &arrays)?;
-    let res = T::deserialize(Mut(&mut deserializer))?;
-    Ok(res)
+    let deserializer = Deserializer::from_arrow2(fields, arrays)?;
+    T::deserialize(deserializer)
 }
