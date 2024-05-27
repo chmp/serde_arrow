@@ -7,7 +7,7 @@ use crate::internal::{
 
 /// A structure to deserialize Arrow arrays into Rust objects
 ///
-/// Deserializer can be constructed via
+/// It can be constructed via
 ///
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]

@@ -34,7 +34,8 @@ use crate::_impl::arrow2::{
 use crate::internal::schema::GenericTimeUnit;
 
 impl<'de> Deserializer<'de> {
-    /// Build a deserializer from `arrow2` arrays
+    /// Build a deserializer from `arrow2` arrays (*requires one of the
+    /// `arrow2-*` features*)
     ///
     /// Usage:
     ///

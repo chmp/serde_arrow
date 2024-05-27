@@ -40,7 +40,8 @@ use crate::_impl::arrow::{
 };
 
 impl<'de> Deserializer<'de> {
-    /// Construct a new deserializer from `arrow` arrays
+    /// Construct a new deserializer from `arrow` arrays (*requires one of the
+    /// `arrow-*` features*)
     ///
     /// Usage
     /// ```rust
@@ -86,7 +87,8 @@ impl<'de> Deserializer<'de> {
         Ok(deserializer)
     }
 
-    /// Construct a new deserializer from a record batch
+    /// Construct a new deserializer from a record batch (*requires one of the
+    /// `arrow-*` features*)
     ///
     /// Usage:
     ///
