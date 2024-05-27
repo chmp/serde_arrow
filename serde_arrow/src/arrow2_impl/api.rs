@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        deserialization::deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
+        deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
         serialization::OuterSequenceBuilder,
     },
 };

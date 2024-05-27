@@ -9,7 +9,7 @@ use crate::{
         datatypes::{Field, FieldRef, Schema},
     },
     internal::{
-        deserialization::deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
+        deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
         serialization::OuterSequenceBuilder,
     },
 };

@@ -7,7 +7,6 @@ use crate::internal::{
         date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
         decimal_deserializer::DecimalDeserializer,
-        deserializer::Deserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
@@ -19,6 +18,7 @@ use crate::internal::{
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
     },
+    deserializer::Deserializer,
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit},
 };
