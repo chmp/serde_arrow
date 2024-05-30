@@ -5,14 +5,26 @@ use crate::{
     _impl::arrow::{
         array::{make_array, Array, ArrayData, ArrayRef, NullArray},
         buffer::{Buffer, ScalarBuffer},
-        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type},
+        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type},
     },
     internal::{
-        common::MutableBitBuffer,
-        error::{fail, Result},
-        serialization::{ArrayBuilder, OuterSequenceBuilder},
+        common::MutableBitBuffer, error::{fail, Result}, schema::{GenericField, SerdeArrowSchema}, serialization::{ArrayBuilder, OuterSequenceBuilder}
     },
 };
+
+impl crate::internal::array_builder::ArrayBuilder {
+    /// TODO: document me
+    pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
+        let fields = fields.iter().map(|f| GenericField::try_from(f.as_ref())).collect::<Result<Vec<_>>>()?;
+        let schema = SerdeArrowSchema { fields };
+        Ok(Self(OuterSequenceBuilder::new(&schema)?))
+    }
+
+    /// TODO: document me
+    pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
+        self.0.build_arrow()
+    }
+}
 
 impl OuterSequenceBuilder {
     pub fn build_arrow(&mut self) -> Result<Vec<ArrayRef>> {

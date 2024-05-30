@@ -315,6 +315,8 @@ pub use crate::internal::error::{Error, Result};
 
 pub use crate::internal::deserializer::Deserializer;
 
+pub use crate::internal::array_builder::ArrayBuilder;
+
 #[cfg(has_arrow)]
 mod arrow_impl;
 
