@@ -331,4 +331,7 @@ pub use arrow2_impl::api::{from_arrow2, to_arrow2, Arrow2Builder};
 pub mod schema;
 
 #[deny(missing_docs)]
-pub mod utils;
+/// Helpers that may be useful when using `serde_arrow`
+pub mod utils {
+    pub use crate::internal::utils::{Item, Items};
+}

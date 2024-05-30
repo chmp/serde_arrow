@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::macros::expect_error;
 use crate::internal::{
-    generic::{Item, Items},
+    utils::{Item, Items},
     schema::{GenericDataType as T, GenericField as F, Strategy},
     tracing::{Tracer, TracingOptions},
 };
@@ -276,7 +276,7 @@ mod mixed_tracing_dates {
 
 mod mixed_tracing_unions {
     use crate::internal::{
-        generic::{Item, Items},
+        utils::{Item, Items},
         tracing,
     };
 

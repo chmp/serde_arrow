@@ -5,7 +5,7 @@ pub mod deserializer;
 pub mod dsl;
 pub mod error;
 pub mod event;
-pub mod generic;
+pub mod utils;
 pub mod schema;
 pub mod serialization;
 pub mod sink;
