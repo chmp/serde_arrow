@@ -15,12 +15,7 @@ use crate::{
 impl SerdeArrowSchema {
     /// Build a new Schema object from fields
     pub fn from_arrow_fields(fields: &[Field]) -> Result<Self> {
-        Ok(Self {
-            fields: fields
-                .iter()
-                .map(GenericField::try_from)
-                .collect::<Result<_>>()?,
-        })
+        Self::try_from(fields)
     }
 
     /// This method is deprecated. Use
@@ -54,6 +49,32 @@ impl TryFrom<SerdeArrowSchema> for Vec<Field> {
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
         value.to_arrow_fields()
+    }
+}
+
+impl<'a> TryFrom<&'a [Field]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [Field]) -> Result<Self> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(GenericField::try_from)
+                .collect::<Result<_>>()?,
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a [FieldRef]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [FieldRef]) -> Result<Self, Self::Error> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(|f| GenericField::try_from(f.as_ref()))
+                .collect::<Result<_>>()?,
+        })
     }
 }
 

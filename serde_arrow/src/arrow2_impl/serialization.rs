@@ -25,18 +25,13 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
     /// `arrow2-*` features*)
     pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
-        let fields = fields
-            .iter()
-            .map(GenericField::try_from)
-            .collect::<Result<Vec<_>>>()?;
-        let schema = SerdeArrowSchema { fields };
-        Ok(Self(OuterSequenceBuilder::new(&schema)?))
+        Self::new(SerdeArrowSchema::try_from(fields)?)
     }
 
     /// Construct `arrow2` arrays and reset the builder (*requires one of the
     /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.0.build_arrow2()
+        self.builder.build_arrow2()
     }
 }
 

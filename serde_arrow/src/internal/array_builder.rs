@@ -1,11 +1,14 @@
 use serde::Serialize;
 
-use crate::internal::{error::Result, serialization::OuterSequenceBuilder};
+use crate::internal::{
+    error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
+};
 
 /// Construct arrays by pushing individual records
 ///
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"It can be constructed via")]
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+/// It can be constructed via
+///
+/// - [`ArrayBuilder::new`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::from_arrow2`]")]
 ///
@@ -14,6 +17,7 @@ use crate::internal::{error::Result, serialization::OuterSequenceBuilder};
     doc = r"It supports to construct arrays via"
 )]
 #[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+#[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::to_arrow2`]")]
 ///
@@ -44,19 +48,39 @@ use crate::internal::{error::Result, serialization::OuterSequenceBuilder};
 /// # #[cfg(not(has_arrow))]
 /// # fn main() {}
 /// ```
-pub struct ArrayBuilder(pub(crate) OuterSequenceBuilder);
+pub struct ArrayBuilder {
+    pub(crate) builder: OuterSequenceBuilder,
+    #[allow(unused)]
+    pub(crate) schema: SerdeArrowSchema,
+}
+
+impl ArrayBuilder {
+    /// Construct an array build from an [`SerdeArrowSchema`]
+    pub fn new(schema: SerdeArrowSchema) -> Result<Self> {
+        Ok(Self {
+            builder: OuterSequenceBuilder::new(&schema)?,
+            schema,
+        })
+    }
+}
+
+impl std::fmt::Debug for ArrayBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ArrayBuilder {{ .. }}")
+    }
+}
 
 impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.0.push(item)
+        self.builder.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.0.extend(items)
+        self.builder.extend(items)
     }
 }
 

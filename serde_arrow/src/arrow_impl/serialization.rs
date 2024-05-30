@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use crate::{
     _impl::arrow::{
-        array::{make_array, Array, ArrayData, ArrayRef, NullArray},
+        array::{make_array, Array, ArrayData, ArrayRef, NullArray, RecordBatch},
         buffer::{Buffer, ScalarBuffer},
-        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type},
+        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type, Schema},
     },
     internal::{
         common::MutableBitBuffer,
@@ -24,14 +24,22 @@ impl crate::internal::array_builder::ArrayBuilder {
             .iter()
             .map(|f| GenericField::try_from(f.as_ref()))
             .collect::<Result<Vec<_>>>()?;
-        let schema = SerdeArrowSchema { fields };
-        Ok(Self(OuterSequenceBuilder::new(&schema)?))
+        Self::new(SerdeArrowSchema { fields })
     }
 
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        self.0.build_arrow()
+        self.builder.build_arrow()
+    }
+
+    /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
+    /// `arrow-*` features*)
+    pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
+        let arrays = self.builder.build_arrow()?;
+        let fields = self.schema.to_arrow_fields()?;
+        let schema = Schema::new(fields);
+        Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
     }
 }
 

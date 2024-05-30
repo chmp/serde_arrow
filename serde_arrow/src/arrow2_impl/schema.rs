@@ -13,12 +13,7 @@ use crate::{
 impl SerdeArrowSchema {
     /// Build a new Schema object from fields
     pub fn from_arrow2_fields(fields: &[Field]) -> Result<Self> {
-        Ok(Self {
-            fields: fields
-                .iter()
-                .map(GenericField::try_from)
-                .collect::<Result<_>>()?,
-        })
+        Self::try_from(fields)
     }
 
     /// This method is deprecated. Use
@@ -38,12 +33,12 @@ impl SerdeArrowSchema {
     /// ```
     #[deprecated = "The method `get_arrow2_fields` is deprecated. Use `to_arrow2_fields` instead"]
     pub fn get_arrow2_fields(&self) -> Result<Vec<Field>> {
-        self.to_arrow2_fields()
+        Vec::<Field>::try_from(self)
     }
 
     /// Build a vec of fields from a  Schema object
     pub fn to_arrow2_fields(&self) -> Result<Vec<Field>> {
-        self.fields.iter().map(Field::try_from).collect()
+        Vec::<Field>::try_from(self)
     }
 }
 
@@ -51,7 +46,28 @@ impl TryFrom<SerdeArrowSchema> for Vec<Field> {
     type Error = Error;
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
-        value.to_arrow2_fields()
+        Vec::<Field>::try_from(&value)
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<Field> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        value.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+impl<'a> TryFrom<&'a [Field]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [Field]) -> std::prelude::v1::Result<Self, Self::Error> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(GenericField::try_from)
+                .collect::<Result<_>>()?,
+        })
     }
 }
 
