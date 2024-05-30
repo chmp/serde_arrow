@@ -108,23 +108,17 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         fail!("not supported")
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(self, _: &'static str, _: &T) -> Result<()>
-    where
-        T: Serialize,
-    {
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, _: &T) -> Result<()> {
         fail!("not supported")
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
         _: &'static str,
         _: u32,
         _: &'static str,
         _: &T,
-    ) -> Result<()>
-    where
-        T: Serialize,
-    {
+    ) -> Result<()> {
         fail!("not supported")
     }
 
@@ -132,10 +126,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         fail!("not supported")
     }
 
-    fn serialize_some<T: ?Sized>(self, _: &T) -> Result<()>
-    where
-        T: Serialize,
-    {
+    fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<()> {
         fail!("not supported")
     }
 
@@ -290,10 +281,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for Serializer<A> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()>
-    where
-        T: Serialize,
-    {
+    fn serialize_field<T: ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()> {
         fail!("not supported")
     }
 
