@@ -5,7 +5,7 @@ use crate::{
     _impl::arrow::{
         array::{make_array, Array, ArrayData, ArrayRef, NullArray},
         buffer::{Buffer, ScalarBuffer},
-        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type},
+        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type},
     },
     internal::{
         common::MutableBitBuffer,
@@ -15,9 +15,11 @@ use crate::{
     },
 };
 
+/// Support `arrow` (*requires one of the `arrow-*` features*)
 impl crate::internal::array_builder::ArrayBuilder {
-    /// TODO: document me
-    pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
+    /// Build an ArrayBuilder from `arrow` fields (*requires one of the
+    /// `arrow-*` features*)
+    pub fn from_arrow<F: AsRef<Field>>(fields: &[F]) -> Result<Self> {
         let fields = fields
             .iter()
             .map(|f| GenericField::try_from(f.as_ref()))
@@ -26,7 +28,8 @@ impl crate::internal::array_builder::ArrayBuilder {
         Ok(Self(OuterSequenceBuilder::new(&schema)?))
     }
 
-    /// TODO: document me
+    /// Construct `arrow` arrays and reset the builder (*requires one of the
+    /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
         self.0.build_arrow()
     }

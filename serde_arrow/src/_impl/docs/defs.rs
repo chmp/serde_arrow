@@ -1,7 +1,7 @@
 //! Common definitions for doc tests
 use serde::{Serialize, Deserialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Record {
     pub a: Option<f32>,
     pub b: u64,

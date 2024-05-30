@@ -7,6 +7,10 @@ use crate::internal::{
 
 /// Wrap an [`ArrayBuilder`] with as a Serializer
 ///
+/// To support serialization, the wrapped `ArrayBuilder` must implement
+/// `AsMut<ArrayBuilder>`. This requirement is covered in particular by mutable
+/// references to `ArrayBuilder`s
+///
 /// Usage:
 ///
 /// ```rust

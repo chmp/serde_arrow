@@ -20,8 +20,10 @@ use crate::{
     },
 };
 
+/// Support `arrow2` (*requires one of the `arrow2-*` features*)
 impl crate::internal::array_builder::ArrayBuilder {
-    /// TODO: document me
+    /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
+    /// `arrow2-*` features*)
     pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
         let fields = fields
             .iter()
@@ -31,7 +33,8 @@ impl crate::internal::array_builder::ArrayBuilder {
         Ok(Self(OuterSequenceBuilder::new(&schema)?))
     }
 
-    /// TODO: document me
+    /// Construct `arrow2` arrays and reset the builder (*requires one of the
+    /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
         self.0.build_arrow2()
     }
