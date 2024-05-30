@@ -31,11 +31,32 @@ impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
         "OuterSequenceDeserializer"
     }
 
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        &mut self,
+        _: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        visitor.visit_newtype_struct(Mut(self))
+    }
+
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         self.deserialize_seq(visitor)
     }
 
     fn deserialize_seq<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(self)
+    }
+
+    fn deserialize_tuple<V: Visitor<'de>>(&mut self, _: usize, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(self)
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        &mut self,
+        _: &'static str,
+        _: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
         visitor.visit_seq(self)
     }
 }

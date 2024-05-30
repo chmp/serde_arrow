@@ -64,6 +64,36 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         Ok(self)
     }
 
+    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple> {
+        Ok(self)
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        Ok(self)
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        Ok(self)
+    }
+
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(
+        self,
+        _: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        value.serialize(self)
+    }
+
     fn serialize_bool(self, _: bool) -> Result<()> {
         fail!("not supported")
     }
@@ -108,10 +138,6 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         fail!("not supported")
     }
 
-    fn serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, _: &T) -> Result<()> {
-        fail!("not supported")
-    }
-
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
         _: &'static str,
@@ -145,28 +171,6 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!("not supported")
-    }
-
-    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple> {
-        fail!("not supported")
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        fail!("not supported")
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
         fail!("not supported")
     }
 
@@ -220,7 +224,45 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeSeq for Serializer<A> {
     }
 }
 
-// TODO: support tuples?
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for Serializer<A> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.0.as_mut().push(value)
+    }
+
+    fn end(self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for Serializer<A> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.0.as_mut().push(value)
+    }
+
+    fn end(self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for Serializer<A> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.0.as_mut().push(value)
+    }
+
+    fn end(self) -> Result<()> {
+        Ok(())
+    }
+}
+
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for Serializer<A> {
     type Ok = ();
     type Error = Error;
@@ -230,45 +272,6 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for Serializer<A> {
     }
 
     fn serialize_value<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
-        fail!("not supported")
-    }
-
-    fn end(self) -> Result<()> {
-        fail!("not supported")
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for Serializer<A> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_element<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
-        fail!("not supported")
-    }
-
-    fn end(self) -> Result<()> {
-        fail!("not supported")
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for Serializer<A> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
-        fail!("not supported")
-    }
-
-    fn end(self) -> Result<()> {
-        fail!("not supported")
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for Serializer<A> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
         fail!("not supported")
     }
 
