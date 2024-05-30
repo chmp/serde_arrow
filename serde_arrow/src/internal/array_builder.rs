@@ -6,7 +6,7 @@ use crate::internal::{
 };
 
 /// Construct arrays by pushing individual items
-pub struct ArrayBuilder(pub OuterSequenceBuilder);
+pub struct ArrayBuilder(pub(crate) OuterSequenceBuilder);
 
 impl ArrayBuilder {
     /// Add a single record to the arrays

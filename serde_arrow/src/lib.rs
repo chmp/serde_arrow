@@ -28,12 +28,12 @@
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)       |
-|:--------------|:------------------------------------------------------------------|:------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                 |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]               |
-| Array Builder | [`ArrowBuilder`]                                                  | [`Arrow2Builder`]             |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`] |
+| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                          |
+|:--------------|:------------------------------------------------------------------|:-------------------------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                    |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                  |
+| Array Builder | [`ArrowBuilder`], [`ArrayBuilder::from_arrow`]                    | [`Arrow2Builder`], [`ArrayBuilder::from_arrow2`] |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                    |
 "#
 )]
 //!
@@ -314,6 +314,7 @@ mod test;
 pub use crate::internal::error::{Error, Result};
 
 pub use crate::internal::deserializer::Deserializer;
+pub use crate::internal::serializer::Serializer;
 
 pub use crate::internal::array_builder::ArrayBuilder;
 
