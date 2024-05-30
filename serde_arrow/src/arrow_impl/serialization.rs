@@ -8,14 +8,20 @@ use crate::{
         datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type},
     },
     internal::{
-        common::MutableBitBuffer, error::{fail, Result}, schema::{GenericField, SerdeArrowSchema}, serialization::{ArrayBuilder, OuterSequenceBuilder}
+        common::MutableBitBuffer,
+        error::{fail, Result},
+        schema::{GenericField, SerdeArrowSchema},
+        serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 
 impl crate::internal::array_builder::ArrayBuilder {
     /// TODO: document me
     pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
-        let fields = fields.iter().map(|f| GenericField::try_from(f.as_ref())).collect::<Result<Vec<_>>>()?;
+        let fields = fields
+            .iter()
+            .map(|f| GenericField::try_from(f.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
         let schema = SerdeArrowSchema { fields };
         Ok(Self(OuterSequenceBuilder::new(&schema)?))
     }

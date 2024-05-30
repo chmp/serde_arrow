@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::internal::{
-    error::Result,
-    serialization::OuterSequenceBuilder,
-};
+use crate::internal::{error::Result, serialization::OuterSequenceBuilder};
 
 /// Construct arrays by pushing individual items
 pub struct ArrayBuilder(pub(crate) OuterSequenceBuilder);

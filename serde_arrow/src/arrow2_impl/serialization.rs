@@ -23,7 +23,10 @@ use crate::{
 impl crate::internal::array_builder::ArrayBuilder {
     /// TODO: document me
     pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
-        let fields = fields.iter().map(GenericField::try_from).collect::<Result<Vec<_>>>()?;
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
         let schema = SerdeArrowSchema { fields };
         Ok(Self(OuterSequenceBuilder::new(&schema)?))
     }
