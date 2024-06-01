@@ -32,7 +32,8 @@
 |:--------------|:------------------------------------------------------------------|:-------------------------------------------------|
 | Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                    |
 | Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                  |
-| Array Builder | [`ArrowBuilder`], [`ArrayBuilder::from_arrow`]                    | [`Arrow2Builder`], [`ArrayBuilder::from_arrow2`] |
+| Array Builder | [`ArrayBuilder::from_arrow`], [`ArrowBuilder`]                    | [`ArrayBuilder::from_arrow2`], [`Arrow2Builder`] |
+| Serializer    | [`Serializer::new`]                                               | [`Serializer::new`]                              |
 | Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                    |
 "#
 )]

@@ -14,7 +14,7 @@ use crate::internal::{
 ///
 #[cfg_attr(
     any(has_arrow, has_arrow2),
-    doc = r"It supports to construct arrays via"
+    doc = r"It supports array construction via"
 )]
 #[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]

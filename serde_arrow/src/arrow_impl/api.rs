@@ -251,9 +251,6 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
 /// # }
 /// ```
 ///
-pub fn from_record_batch<'de, T>(record_batch: &'de RecordBatch) -> Result<T>
-where
-    T: Deserialize<'de>,
-{
+pub fn from_record_batch<'de, T: Deserialize<'de>>(record_batch: &'de RecordBatch) -> Result<T> {
     T::deserialize(Deserializer::from_record_batch(record_batch)?)
 }
