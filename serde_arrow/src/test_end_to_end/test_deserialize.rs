@@ -19,11 +19,13 @@ struct Record {
 struct StructWrapper(Record, Record);
 
 fn serialize<I: Serialize + ?Sized>(fields: &[impl AsRef<Field>], items: &I) -> Vec<ArrayRef> {
-    let mut builder = ArrayBuilder::from_arrow(&fields).unwrap();
+    let builder = ArrayBuilder::from_arrow(&fields).unwrap();
     items
-        .serialize(crate::Serializer::new(&mut builder))
-        .unwrap();
-    builder.to_arrow().unwrap()
+        .serialize(crate::Serializer::new(builder))
+        .unwrap()
+        .into_inner()
+        .to_arrow()
+        .unwrap()
 }
 
 fn deserialize<'de, I: Deserialize<'de>>(

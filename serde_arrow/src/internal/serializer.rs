@@ -8,26 +8,40 @@ use crate::internal::{
 /// Wrap an [`ArrayBuilder`] with as a Serializer
 ///
 /// To support serialization, the wrapped object must implement
-/// `AsMut<ArrayBuilder>`. This requirement is covered in particular by mutable
-/// references to `ArrayBuilder`s
+/// `AsMut<ArrayBuilder>`. This requirement is covered by [`ArrayBuilder`] and
+/// mutable references to an [`ArrayBuilder`].
+///
+/// Calls to `serialize` will return the Serializer itself on success. Therefore
+/// the the underlying ArrayBuilder passed to [`Serializer::new`] and be
+/// retrieved and be used to construct the arrays.
 ///
 /// Usage:
 ///
 /// ```rust
 /// # #[cfg(has_arrow)]
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-/// # use serde_arrow::_impl::docs::defs::{Record, example_records};
-/// # use serde_arrow::schema::{TracingOptions, SchemaLike};
+/// # use serde_arrow::{
+/// #     _impl::docs::defs::{Record, example_records},
+/// #     _impl::arrow::datatypes::FieldRef,
+/// #     schema::{TracingOptions, SchemaLike},
+/// # };
 /// # use serde::Serialize;
-/// # let items = example_records();
-/// # let fields = Vec::<serde_arrow::_impl::arrow::datatypes::FieldRef>::from_type::<Record>(TracingOptions::default())?;
+/// #
+/// # let items1 = example_records();
+/// # let items2 = items1.clone();
+/// # let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
+/// #
 /// use serde_arrow::{ArrayBuilder, Serializer};
 ///
 /// let mut builder = ArrayBuilder::from_arrow(&fields)?;
 ///
-/// items.serialize(Serializer::new(&mut builder))?;
+/// // note: when constructing the serialize with a mutable reference,
+/// // different item sequences can be pushed into the same builder
+/// items1.serialize(Serializer::new(&mut builder))?;
+/// items2.serialize(Serializer::new(&mut builder))?;
 ///
 /// let arrays = builder.to_arrow()?;
+/// assert_eq!(arrays[0].len(), items1.len() + items2.len());
 /// #
 /// # Ok(()) }
 /// # #[cfg(not(has_arrow))]
@@ -52,7 +66,7 @@ pub struct CollectionSerializer<A>(A);
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
     type Error = Error;
-    type Ok = ();
+    type Ok = Self;
 
     type SerializeSeq = CollectionSerializer<A>;
     type SerializeTuple = CollectionSerializer<A>;
@@ -92,47 +106,47 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         self,
         _: &'static str,
         value: &T,
-    ) -> Result<()> {
+    ) -> Result<Self::Ok> {
         value.serialize(self)
     }
 
-    fn serialize_bool(self, _: bool) -> Result<()> {
+    fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_bytes(self, _: &[u8]) -> Result<()> {
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_char(self, _: char) -> Result<()> {
+    fn serialize_char(self, _: char) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_f32(self, _: f32) -> Result<()> {
+    fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_f64(self, _: f64) -> Result<()> {
+    fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_i128(self, _: i128) -> Result<(), Self::Error> {
+    fn serialize_i128(self, _: i128) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_i16(self, _: i16) -> Result<()> {
+    fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_i32(self, _: i32) -> Result<()> {
+    fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_i64(self, _: i64) -> Result<()> {
+    fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_i8(self, _: i8) -> Result<()> {
+    fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
@@ -146,19 +160,19 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         _: u32,
         _: &'static str,
         _: &T,
-    ) -> Result<()> {
+    ) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_none(self) -> Result<()> {
+    fn serialize_none(self) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<()> {
+    fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_str(self, _: &str) -> Result<()> {
+    fn serialize_str(self, _: &str) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
@@ -176,35 +190,35 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         fail!("not supported")
     }
 
-    fn serialize_u128(self, _: u128) -> Result<(), Self::Error> {
+    fn serialize_u128(self, _: u128) -> Result<Self::Ok, Self::Error> {
         fail!("not supported")
     }
 
-    fn serialize_u16(self, _: u16) -> Result<()> {
+    fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_u32(self, _: u32) -> Result<()> {
+    fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_u64(self, _: u64) -> Result<()> {
+    fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_u8(self, _: u8) -> Result<()> {
+    fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_unit(self) -> Result<()> {
+    fn serialize_unit(self) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_unit_struct(self, _: &'static str) -> Result<()> {
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
-    fn serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<()> {
+    fn serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<Self::Ok> {
         fail!("not supported")
     }
 
@@ -214,59 +228,59 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeSeq for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.0.as_mut().push(value)
     }
 
-    fn end(self) -> Result<()> {
-        Ok(())
+    fn end(self) -> Result<Self::Ok> {
+        Ok(Serializer(self.0))
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.0.as_mut().push(value)
     }
 
-    fn end(self) -> Result<()> {
-        Ok(())
+    fn end(self) -> Result<Self::Ok> {
+        Ok(Serializer(self.0))
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.0.as_mut().push(value)
     }
 
-    fn end(self) -> Result<()> {
-        Ok(())
+    fn end(self) -> Result<Self::Ok> {
+        Ok(Serializer(self.0))
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.0.as_mut().push(value)
     }
 
-    fn end(self) -> Result<()> {
-        Ok(())
+    fn end(self) -> Result<Self::Ok> {
+        Ok(Serializer(self.0))
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_key<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
@@ -277,33 +291,33 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for CollectionSerializer<A
         fail!("not supported")
     }
 
-    fn end(self) -> Result<()> {
+    fn end(self) -> Result<Self::Ok> {
         fail!("not supported")
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()> {
         fail!("not supported")
     }
 
-    fn end(self) -> Result<()> {
+    fn end(self) -> Result<Self::Ok> {
         fail!("not supported")
     }
 }
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStructVariant for CollectionSerializer<A> {
-    type Ok = ();
+    type Ok = Serializer<A>;
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()> {
         fail!("Not supported")
     }
 
-    fn end(self) -> Result<()> {
+    fn end(self) -> Result<Self::Ok> {
         fail!("not supported")
     }
 }

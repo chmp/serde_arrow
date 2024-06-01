@@ -138,9 +138,11 @@ pub fn to_arrow2<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
 {
-    let mut builder = ArrayBuilder::from_arrow2(fields)?;
-    items.serialize(Serializer::new(&mut builder))?;
-    builder.to_arrow2()
+    let builder = ArrayBuilder::from_arrow2(fields)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .to_arrow2()
 }
 
 /// Deserialize items from the given arrow2 arrays  (*requires one of the

@@ -141,9 +141,11 @@ impl ArrowBuilder {
 /// ```
 ///
 pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>> {
-    let mut builder = ArrayBuilder::new(SerdeArrowSchema::try_from(fields)?)?;
-    items.serialize(Serializer::new(&mut builder))?;
-    builder.to_arrow()
+    let builder = ArrayBuilder::new(SerdeArrowSchema::try_from(fields)?)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .to_arrow()
 }
 
 /// Deserialize items from arrow arrays (*requires one of the `arrow-*`
@@ -225,9 +227,11 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
     fields: &[FieldRef],
     items: &T,
 ) -> Result<RecordBatch> {
-    let mut builder = ArrayBuilder::from_arrow(fields)?;
-    items.serialize(Serializer::new(&mut builder))?;
-    builder.to_record_batch()
+    let builder = ArrayBuilder::from_arrow(fields)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .to_record_batch()
 }
 
 /// Deserialize items from a record batch (*requires one of the `arrow-*`
