@@ -3,13 +3,14 @@
 ## 0.11.5
 
 - Add `serde_arrow::Serializer`
+- Add support for new type wrappers, tuples and tuple structs to
+  `serde_arrow::Deserializer`
 - Add a generic `serde_arrow::ArrayBuilder` that can be built and build both
   `arrow` and `arrow2` arrays
 - Implement `TryFrom<&[Field]>` (`arrow` and `arrow2`) and
   `TryFrom<&[FieldRef]>` (`arrow` only) for `SerdeArrowSchema`
 - Implement `TryFrom<&SerdeArrowSchema>` for `Vec<Field>` and `Vec<FieldRef>`
   for `arrow`
-- Add support to deserialize tuples and tuple structs from arrays
 
 ## 0.11.4
 

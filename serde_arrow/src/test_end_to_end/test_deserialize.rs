@@ -18,6 +18,9 @@ struct Record {
 #[derive(Debug, Deserialize, Serialize)]
 struct StructWrapper(Record, Record);
 
+#[derive(Debug, Deserialize, Serialize)]
+struct NewTypeWrapper<I>(I);
+
 fn serialize<I: Serialize + ?Sized>(fields: &[impl AsRef<Field>], items: &I) -> Vec<ArrayRef> {
     let builder = ArrayBuilder::from_arrow(&fields).unwrap();
     items
@@ -44,10 +47,11 @@ fn serialize_tuples() {
         b: Some(true),
     };
 
-    let _ = serialize(&fields, &(item, item));
-    let _ = serialize(&fields, &StructWrapper(item, item));
+    let _ = serialize::<(Record, Record)>(&fields, &(item, item));
+    let _ = serialize::<StructWrapper>(&fields, &StructWrapper(item, item));
     let _ = serialize::<[Record]>(&fields, &[item, item]);
     let _ = serialize::<[Record; 2]>(&fields, &[item, item]);
+    let _ = serialize::<NewTypeWrapper<&[Record]>>(&fields, &NewTypeWrapper(&[item, item]));
 }
 
 #[test]
@@ -69,4 +73,5 @@ fn deserialize_tuples() {
     let _ = deserialize::<[Record; 2]>(&fields, &arrays);
     let _ = deserialize::<StructWrapper>(&fields, &arrays);
     let _ = deserialize::<Vec<Record>>(&fields, &arrays);
+    let _ = deserialize::<NewTypeWrapper<Vec<Record>>>(&fields, &arrays);
 }
