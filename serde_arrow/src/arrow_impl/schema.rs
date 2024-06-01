@@ -35,12 +35,12 @@ impl SerdeArrowSchema {
     /// ```
     #[deprecated = "The method `get_arrow_fields` is deprecated. Use `to_arrow_fields` instead"]
     pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
-        self.to_arrow_fields()
+        Vec::<Field>::try_from(self)
     }
 
     /// Build a vec of fields from a Schema object
     pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
-        self.fields.iter().map(Field::try_from).collect()
+        Vec::<Field>::try_from(self)
     }
 }
 
@@ -48,7 +48,23 @@ impl TryFrom<SerdeArrowSchema> for Vec<Field> {
     type Error = Error;
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
-        value.to_arrow_fields()
+        value.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<Field> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        value.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<FieldRef> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        value.fields.iter().map(|f| Ok(Arc::new(Field::try_from(f)?))).collect()
     }
 }
 

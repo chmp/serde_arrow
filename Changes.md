@@ -7,6 +7,8 @@
   `arrow` and `arrow2` arrays
 - Implement `TryFrom<&[Field]>` (`arrow` and `arrow2`) and
   `TryFrom<&[FieldRef]>` (`arrow` only) for `SerdeArrowSchema`
+- Implement `TryFrom<&SerdeArrowSchema>` for `Vec<Field>` and `Vec<FieldRef>`
+  for `arrow`
 - Add support to deserialize tuples and tuple structs from arrays
 
 ## 0.11.4
