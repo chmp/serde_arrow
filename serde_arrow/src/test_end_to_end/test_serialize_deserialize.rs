@@ -21,6 +21,12 @@ struct StructWrapper(Record, Record);
 #[derive(Debug, Deserialize, Serialize)]
 struct NewTypeWrapper<I>(I);
 
+#[derive(Debug, Serialize)]
+enum Enum<'a> {
+    NewTypeVariant(&'a [Record]),
+    TupleVariant(Record, Record),
+}
+
 fn serialize<I: Serialize + ?Sized>(fields: &[impl AsRef<Field>], items: &I) -> Vec<ArrayRef> {
     let builder = ArrayBuilder::from_arrow(&fields).unwrap();
     items
@@ -52,6 +58,8 @@ fn serialize_tuples() {
     let _ = serialize::<[Record]>(&fields, &[item, item]);
     let _ = serialize::<[Record; 2]>(&fields, &[item, item]);
     let _ = serialize::<NewTypeWrapper<&[Record]>>(&fields, &NewTypeWrapper(&[item, item]));
+    let _ = serialize::<Enum>(&fields, &Enum::NewTypeVariant(&[item, item]));
+    let _ = serialize::<Enum>(&fields, &Enum::TupleVariant(item, item));
 }
 
 #[test]
