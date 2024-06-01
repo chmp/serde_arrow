@@ -52,6 +52,9 @@ pub struct Serializer<A>(A);
 
 impl<A> Serializer<A> {
     /// Construct a new serializer from an array builder
+    ///
+    /// See the [`Serializer`] docs for details
+    ///
     pub fn new(inner: A) -> Self {
         Self(inner)
     }
