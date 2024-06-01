@@ -7,7 +7,7 @@ use crate::internal::{
 
 /// Wrap an [`ArrayBuilder`] with as a Serializer
 ///
-/// To support serialization, the wrapped `ArrayBuilder` must implement
+/// To support serialization, the wrapped object must implement
 /// `AsMut<ArrayBuilder>`. This requirement is covered in particular by mutable
 /// references to `ArrayBuilder`s
 ///
@@ -48,24 +48,26 @@ impl<A> Serializer<A> {
     }
 }
 
+pub struct CollectionSerializer<A>(A);
+
 impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
     type Error = Error;
     type Ok = ();
 
-    type SerializeSeq = Self;
-    type SerializeTuple = Self;
-    type SerializeMap = Self;
-    type SerializeStruct = Self;
-    type SerializeStructVariant = Self;
-    type SerializeTupleStruct = Self;
-    type SerializeTupleVariant = Self;
+    type SerializeSeq = CollectionSerializer<A>;
+    type SerializeTuple = CollectionSerializer<A>;
+    type SerializeMap = CollectionSerializer<A>;
+    type SerializeStruct = CollectionSerializer<A>;
+    type SerializeStructVariant = CollectionSerializer<A>;
+    type SerializeTupleStruct = CollectionSerializer<A>;
+    type SerializeTupleVariant = CollectionSerializer<A>;
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Ok(self)
+        Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple> {
-        Ok(self)
+        Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_tuple_struct(
@@ -73,7 +75,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        Ok(self)
+        Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_tuple_variant(
@@ -83,7 +85,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Ok(self)
+        Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_newtype_struct<T: Serialize + ?Sized>(
@@ -211,7 +213,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeSeq for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeSeq for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -224,7 +226,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeSeq for Serializer<A> {
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -237,7 +239,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTuple for Serializer<A> {
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -250,7 +252,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleStruct for Serializer<A> 
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -263,7 +265,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for Serializer<A>
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -280,7 +282,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for Serializer<A> {
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
@@ -293,7 +295,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for Serializer<A> {
     }
 }
 
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStructVariant for Serializer<A> {
+impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStructVariant for CollectionSerializer<A> {
     type Ok = ();
     type Error = Error;
 
