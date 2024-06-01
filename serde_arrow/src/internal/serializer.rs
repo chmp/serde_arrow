@@ -40,8 +40,8 @@ use crate::internal::{
 /// items1.serialize(Serializer::new(&mut builder))?;
 /// items2.serialize(Serializer::new(&mut builder))?;
 ///
-/// let arrays = builder.to_arrow()?;
-/// assert_eq!(arrays[0].len(), items1.len() + items2.len());
+/// let batch = builder.to_record_batch()?;
+/// assert_eq!(batch.num_rows(), items1.len() + items2.len());
 /// #
 /// # Ok(()) }
 /// # #[cfg(not(has_arrow))]
