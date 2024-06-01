@@ -56,14 +56,17 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated = "`Arrow2Builder` is deprecated. Use `ArrayBuilder` instead"]
 pub struct Arrow2Builder(ArrayBuilder);
 
+#[allow(deprecated)]
 impl std::fmt::Debug for Arrow2Builder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Arrow2Builder<...>")
     }
 }
 
+#[allow(deprecated)]
 impl Arrow2Builder {
     /// Build a new Arrow2Builder for the given fields
     ///

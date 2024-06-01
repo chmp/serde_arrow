@@ -64,7 +64,11 @@ impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<FieldRef> {
     type Error = Error;
 
     fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
-        value.fields.iter().map(|f| Ok(Arc::new(Field::try_from(f)?))).collect()
+        value
+            .fields
+            .iter()
+            .map(|f| Ok(Arc::new(Field::try_from(f)?)))
+            .collect()
     }
 }
 
