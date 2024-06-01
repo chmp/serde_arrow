@@ -3,8 +3,8 @@
 ## 0.11.5
 
 - Add `serde_arrow::Serializer`
-- Add a generic `serde_arrow::ArrayBuilder` that can build both `arrow` and
-  `arrow2` arrays
+- Add a generic `serde_arrow::ArrayBuilder` that can be built and build both
+  `arrow` and `arrow2` arrays
 - Implement `TryFrom<&[Field]>` (`arrow` and `arrow2`) and
   `TryFrom<&[FieldRef]>` (`arrow` only) for `SerdeArrowSchema`
 - Add support to deserialize tuples and tuple structs from arrays
