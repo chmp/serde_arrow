@@ -8,7 +8,7 @@ use {
 // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
 use arrow_json_51::ReaderBuilder;
 
-// arrow-version:replace: use arrow_schema_{version}::{Schema as ArrowSchema, FieldRef};
+// arrow-version:replace: use arrow_schema_{version}::{FieldRef, Schema as ArrowSchema};
 use arrow_schema_51::{FieldRef, Schema as ArrowSchema};
 
 // arrow-version:replace: use arrow_array_{version}::RecordBatch;
