@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
-    schema::{GenericDataType as T, GenericField as F, Strategy, Tracer, TracingOptions},
+    schema::{tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions},
     testing::assert_error,
     utils::{Item, Items},
 };
@@ -275,8 +275,8 @@ mod mixed_tracing_dates {
 
 mod mixed_tracing_unions {
     use crate::internal::{
+        schema::tracer::Tracer,
         utils::{Item, Items},
-        schema::Tracer,
     };
 
     use super::*;

@@ -342,7 +342,6 @@ pub mod utils {
     pub use crate::internal::utils::{Item, Items};
 }
 
-
 /// The mapping between Rust and Arrow types
 ///
 /// To convert between Rust objects and Arrow types, `serde_arrows` requires
@@ -389,8 +388,10 @@ pub mod utils {
 
 #[deny(missing_docs)]
 pub mod schema {
-    pub use crate::internal::schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY, TracingOptions};
-    
+    pub use crate::internal::schema::{
+        SchemaLike, SerdeArrowSchema, Strategy, TracingOptions, STRATEGY_KEY,
+    };
+
     /// Renamed to [`SerdeArrowSchema`]
     #[deprecated = "serde_arrow::schema::Schema is deprecated. Use serde_arrow::schema::SerdeArrowSchema instead"]
     pub type Schema = SerdeArrowSchema;

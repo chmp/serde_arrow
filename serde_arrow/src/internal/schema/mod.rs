@@ -1,9 +1,10 @@
 mod data_type;
 mod deserialization;
-pub mod from_samples;
-pub mod from_type;
+mod from_samples;
+mod from_type;
+mod from_value;
 mod strategy;
-mod tracer;
+pub mod tracer;
 mod tracing_options;
 
 #[cfg(test)]
@@ -12,8 +13,6 @@ mod test;
 use std::collections::HashMap;
 
 use crate::internal::error::{fail, Error, Result};
-
-pub use tracer::Tracer;
 
 use serde::{Deserialize, Serialize};
 
@@ -293,27 +292,15 @@ impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
     fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
-        // simple version of serde-transmute
-        let mut events = Vec::<crate::internal::event::Event>::new();
-        crate::internal::sink::serialize_into_sink(&mut events, value)?;
-        let this: Self = crate::internal::source::deserialize_from_source(&events)?;
-        Ok(this)
+        from_value::schema_from_value(value)
     }
 
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {
-        let options = options.tracing_mode(TracingMode::FromType);
-
-        let mut tracer = Tracer::new(String::from("$"), options);
-        tracer.trace_type::<T>()?;
-        tracer.to_schema()
+        from_type::schema_from_type::<T>(options)
     }
 
     fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
-        let options = options.tracing_mode(TracingMode::FromSamples);
-
-        let mut tracer = Tracer::new(String::from("$"), options);
-        tracer.trace_samples(samples)?;
-        tracer.to_schema()
+        from_samples::schema_from_samples(samples, options)
     }
 }
 

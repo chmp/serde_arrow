@@ -5,7 +5,6 @@ pub enum TracingMode {
     FromSamples,
 }
 
-
 /// Configure how the schema is traced
 ///
 /// Example:
