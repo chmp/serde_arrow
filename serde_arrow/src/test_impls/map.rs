@@ -2,12 +2,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
+    internal::testing::{btree_map, hash_map},
     schema::{Strategy, TracingOptions},
     test_impls::utils::Test,
     utils::Item,
 };
-
-use super::macros::{btree_map, hash_map};
 
 // NOTE: Use BTreeMap to guarantee the order of fields
 

@@ -1,7 +1,7 @@
 use super::utils::Test;
 use crate::{
+    internal::testing::assert_error,
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
-    test_impls::macros::assert_error,
     utils::Item,
 };
 
