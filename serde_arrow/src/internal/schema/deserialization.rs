@@ -160,11 +160,15 @@ impl TryFrom<ArrowField> for GenericField {
         } else {
             None
         };
+        let metadata = HashMap::new();
+
+        // TODO: merge metadata strategy
 
         Ok(GenericField {
             name: value.name,
             nullable: value.nullable,
             data_type,
+            metadata,
             children,
             strategy,
         })
@@ -247,6 +251,7 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                 let mut name = None;
                 let mut nullable = None;
                 let mut strategy = None;
+                let mut metadata = None;
                 let mut data_type = None;
                 let mut children = None;
 
@@ -257,6 +262,9 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                         }
                         "nullable" => {
                             nullable = Some(map.next_value::<bool>()?);
+                        }
+                        "metadata" => {
+                            metadata = Some(map.next_value::<HashMap<String, String>>()?);
                         }
                         "strategy" => {
                             strategy = Some(map.next_value::<Option<Strategy>>()?);
@@ -291,11 +299,14 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                     }
                 };
 
+                // TODO: merge metadata strategy
+
                 let field = GenericField {
                     name: name.ok_or_else(|| A::Error::custom("missing field `name`"))?,
                     data_type,
                     children,
                     nullable: nullable.unwrap_or_default(),
+                    metadata: metadata.unwrap_or_default(),
                     strategy: strategy.flatten(),
                 };
                 Ok(NativeOrArrowField(field))

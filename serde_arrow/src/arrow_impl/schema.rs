@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     _impl::arrow::datatypes::{DataType, Field, FieldRef, TimeUnit, UnionMode},
@@ -218,6 +218,8 @@ impl TryFrom<&Field> for GenericField {
             Some(strategy_str) => Some(strategy_str.parse::<Strategy>()?),
             None => None,
         };
+        // TODO: merge metadata strategy
+        let metadata = HashMap::new();
         let name = field.name().to_owned();
         let nullable = field.is_nullable();
 
@@ -267,8 +269,9 @@ impl TryFrom<&Field> for GenericField {
         };
 
         let field = GenericField {
-            data_type,
             name,
+            data_type,
+            metadata,
             strategy,
             children,
             nullable,
@@ -383,6 +386,7 @@ impl TryFrom<&GenericField> for Field {
         };
 
         let mut field = Field::new(&value.name, data_type, value.nullable);
+        // TODO: merge metadata strategy
         if let Some(strategy) = value.strategy.as_ref() {
             field.set_metadata(strategy.clone().into());
         }
