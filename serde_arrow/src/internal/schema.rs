@@ -289,7 +289,7 @@ impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
     fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
-        // simple version of serde-transcode
+        // simple version of serde-transmute
         let mut events = Vec::<crate::internal::event::Event>::new();
         crate::internal::sink::serialize_into_sink(&mut events, value)?;
         let this: Self = crate::internal::source::deserialize_from_source(&events)?;
