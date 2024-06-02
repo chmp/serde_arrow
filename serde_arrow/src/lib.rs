@@ -263,10 +263,10 @@ pub mod _impl {
         };
     }
 
-    // arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
-#[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_buffer_51, arrow_data_51, arrow_schema_51);
-#[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_buffer_50, arrow_data_50, arrow_schema_50);
-#[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_buffer_49, arrow_data_49, arrow_schema_49);
+    //     arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
+    #[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_buffer_51, arrow_data_51, arrow_schema_51);
+    #[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_buffer_50, arrow_data_50, arrow_schema_50);
+    #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_buffer_49, arrow_data_49, arrow_schema_49);
     #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_buffer_48, arrow_data_48, arrow_schema_48);
     #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_buffer_47, arrow_data_47, arrow_schema_47);
     #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_buffer_46, arrow_data_46, arrow_schema_46);
@@ -340,10 +340,61 @@ pub use arrow2_impl::api::{from_arrow2, to_arrow2};
 pub use arrow2_impl::api::Arrow2Builder;
 
 #[deny(missing_docs)]
-pub mod schema;
-
-#[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`
 pub mod utils {
     pub use crate::internal::utils::{Item, Items};
+}
+
+
+/// The mapping between Rust and Arrow types
+///
+/// To convert between Rust objects and Arrow types, `serde_arrows` requires
+/// schema information as a list of Arrow fields with additional meta data. See
+/// [`SchemaLike`][crate::schema::SchemaLike] for details on how to specify the
+/// schema.
+///
+/// The default mapping of Rust types to [Arrow types][arrow-types] is as
+/// follows:
+///
+/// [arrow-types]:
+///     https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html
+///
+/// - Unit (`()`): `Null`
+/// - Booleans (`bool`): `Boolean`
+/// - Integers (`u8`, .., `u64`, `i8`, .., `i64`): `UInt8`, .., `Uint64`,
+///   `Int8`, .. `UInt64`
+/// - Floats (`f32`, `f64`): `Float32`, `Float64`
+/// - Strings (`str`, `String`, ..): `LargeUtf8` with i64 offsets
+/// - Sequences: `LargeList` with i64 offsets
+/// - Structs / Map / Tuples: `Struct` type
+/// - Enums: dense Unions. Each variant is mapped to a separate field. Its type
+///   depends on the union type: Field-less variants are mapped to `NULL`. New
+///   type variants are mapped according to their inner type. Other variant
+///   types are mapped to struct types.
+///
+/// All customization of the types happens by including a suitable
+/// [`Strategy`][crate::schema::Strategy] in the metadata of the fields. For
+/// example, to let `serde_arrow` handle date time objects that are serialized
+/// to strings (chrono's default), use
+///
+/// ```rust
+/// # #[cfg(feature="has_arrow2")]
+/// # fn main() {
+/// # use arrow2::datatypes::{DataType, Field};
+/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
+/// # let mut field = Field::new("my_field", DataType::Null, false);
+/// field.data_type = DataType::Date64;
+/// field.metadata = Strategy::UtcStrAsDate64.into();
+/// # }
+/// # #[cfg(not(feature="has_arrow2"))]
+/// # fn main() {}
+/// ```
+
+#[deny(missing_docs)]
+pub mod schema {
+    pub use crate::internal::schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY, TracingOptions};
+    
+    /// Renamed to [`SerdeArrowSchema`]
+    #[deprecated = "serde_arrow::schema::Schema is deprecated. Use serde_arrow::schema::SerdeArrowSchema instead"]
+    pub type Schema = SerdeArrowSchema;
 }

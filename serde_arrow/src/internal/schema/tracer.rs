@@ -3,10 +3,9 @@ use std::collections::HashMap;
 use crate::internal::{
     error::{fail, Result},
     schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
-    tracing::TracingOptions,
 };
 
-use super::TracingMode;
+use super::tracing_options::{TracingMode, TracingOptions};
 
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;

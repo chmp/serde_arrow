@@ -7,10 +7,9 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::internal::{
-    error::{fail, Error, Result},
-    tracing::tracer::{StructField, Tracer},
-};
+use crate::internal::error::{fail, Error, Result};
+
+use super::tracer::{StructField, Tracer};
 
 impl Tracer {
     pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {

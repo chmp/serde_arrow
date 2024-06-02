@@ -12,13 +12,14 @@ use crate::internal::{
     schema::{GenericDataType, Strategy},
     sink::macros,
     sink::{serialize_into_sink, EventSink},
-    tracing::tracer::{
-        ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
-        StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
-        UnionTracer, UnionTracerState,
-    },
-    tracing::TracingOptions,
 };
+
+use super::tracer::{
+    ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
+    StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
+    UnionTracer, UnionTracerState,
+};
+use super::tracing_options::TracingOptions;
 
 impl Tracer {
     pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {

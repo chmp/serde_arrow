@@ -1,16 +1,19 @@
 mod data_type;
 mod deserialization;
+pub mod from_samples;
+pub mod from_type;
 mod strategy;
+mod tracer;
+mod tracing_options;
 
 #[cfg(test)]
 mod test;
 
 use std::collections::HashMap;
 
-use crate::internal::{
-    error::{fail, Error, Result},
-    tracing::{Tracer, TracingMode, TracingOptions},
-};
+use crate::internal::error::{fail, Error, Result};
+
+pub use tracer::Tracer;
 
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +21,7 @@ pub use data_type::{GenericDataType, GenericTimeUnit};
 pub use strategy::{
     merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
 };
+pub use tracing_options::{TracingMode, TracingOptions};
 
 pub trait Sealed {}
 

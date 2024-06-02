@@ -1,15 +1,10 @@
-pub mod from_samples;
-pub mod from_type;
-pub mod tracer;
-
-pub use tracer::Tracer;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {
     Unknown,
     FromType,
     FromSamples,
 }
+
 
 /// Configure how the schema is traced
 ///

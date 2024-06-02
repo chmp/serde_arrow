@@ -11,7 +11,6 @@ pub mod serialization;
 pub mod serializer;
 pub mod sink;
 pub mod source;
-pub mod tracing;
 pub mod utils;
 
 #[cfg(test)]
