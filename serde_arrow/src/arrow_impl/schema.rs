@@ -5,8 +5,8 @@ use crate::{
     internal::{
         error::{error, fail, Error, Result},
         schema::{
-            GenericDataType, GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
-            Strategy, STRATEGY_KEY,
+            merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType,
+            GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
         },
     },
 };
@@ -214,10 +214,9 @@ impl TryFrom<&Field> for GenericField {
     type Error = Error;
 
     fn try_from(field: &Field) -> Result<Self> {
-        let strategy: Option<Strategy> = match field.metadata().get(STRATEGY_KEY) {
-            Some(strategy_str) => Some(strategy_str.parse::<Strategy>()?),
-            None => None,
-        };
+        let metadata = field.metadata().clone();
+        let (metadata, strategy) = split_strategy_from_metadata(metadata)?;
+
         let name = field.name().to_owned();
         let nullable = field.is_nullable();
 
@@ -267,8 +266,9 @@ impl TryFrom<&Field> for GenericField {
         };
 
         let field = GenericField {
-            data_type,
             name,
+            data_type,
+            metadata,
             strategy,
             children,
             nullable,
@@ -382,10 +382,11 @@ impl TryFrom<&GenericField> for Field {
             T::Duration(unit) => DataType::Duration((*unit).into()),
         };
 
+        let metadata =
+            merge_strategy_with_metadata(value.metadata.clone(), value.strategy.clone())?;
+
         let mut field = Field::new(&value.name, data_type, value.nullable);
-        if let Some(strategy) = value.strategy.as_ref() {
-            field.set_metadata(strategy.clone().into());
-        }
+        field.set_metadata(metadata);
 
         Ok(field)
     }

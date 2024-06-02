@@ -13,3 +13,6 @@ pub mod sink;
 pub mod source;
 pub mod tracing;
 pub mod utils;
+
+#[cfg(test)]
+pub mod testing;

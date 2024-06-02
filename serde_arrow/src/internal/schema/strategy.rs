@@ -129,3 +129,77 @@ impl From<Strategy> for HashMap<String, String> {
         res
     }
 }
+
+pub fn split_strategy_from_metadata(
+    mut metadata: HashMap<String, String>,
+) -> Result<(HashMap<String, String>, Option<Strategy>)> {
+    let strategy = if let Some(strategy_str) = metadata.remove(STRATEGY_KEY) {
+        Some(strategy_str.parse::<Strategy>()?)
+    } else {
+        None
+    };
+
+    Ok((metadata, strategy))
+}
+
+pub fn merge_strategy_with_metadata(
+    mut metadata: HashMap<String, String>,
+    strategy: Option<Strategy>,
+) -> Result<HashMap<String, String>> {
+    if metadata.contains_key(STRATEGY_KEY) && strategy.is_some() {
+        fail!("Duplicate strategy: metadata map contains {STRATEGY_KEY} and strategy given");
+    }
+    if let Some(strategy) = strategy {
+        metadata.insert(STRATEGY_KEY.to_owned(), strategy.to_string());
+    }
+    Ok(metadata)
+}
+
+#[test]
+fn test_split_strategy_from_metadata_with_metadata() {
+    use crate::internal::testing::hash_map;
+
+    let input: HashMap<String, String> = hash_map!(
+        "SERDE_ARROW:strategy" => "TupleAsStruct",
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+
+    let expected_metadata: HashMap<String, String> = hash_map!(
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+    let expected_strategy: Option<Strategy> = Some(Strategy::TupleAsStruct);
+
+    let (actual_metadata, actual_strategy) = split_strategy_from_metadata(input.clone()).unwrap();
+    let roundtripped =
+        merge_strategy_with_metadata(actual_metadata.clone(), actual_strategy.clone()).unwrap();
+
+    assert_eq!(actual_metadata, expected_metadata);
+    assert_eq!(actual_strategy, expected_strategy);
+    assert_eq!(roundtripped, input);
+}
+
+#[test]
+fn test_split_strategy_from_metadata_without_metadata() {
+    use crate::internal::testing::hash_map;
+
+    let input: HashMap<String, String> = hash_map!(
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+
+    let expected_metadata: HashMap<String, String> = hash_map!(
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+    let expected_strategy: Option<Strategy> = None;
+
+    let (actual_metadata, actual_strategy) = split_strategy_from_metadata(input.clone()).unwrap();
+    let roundtripped =
+        merge_strategy_with_metadata(actual_metadata.clone(), actual_strategy.clone()).unwrap();
+
+    assert_eq!(actual_metadata, expected_metadata);
+    assert_eq!(actual_strategy, expected_strategy);
+    assert_eq!(roundtripped, input);
+}

@@ -5,6 +5,8 @@ mod strategy;
 #[cfg(test)]
 mod test;
 
+use std::collections::HashMap;
+
 use crate::internal::{
     error::{fail, Error, Result},
     tracing::{Tracer, TracingMode, TracingOptions},
@@ -13,7 +15,9 @@ use crate::internal::{
 use serde::{Deserialize, Serialize};
 
 pub use data_type::{GenericDataType, GenericTimeUnit};
-pub use strategy::{Strategy, STRATEGY_KEY};
+pub use strategy::{
+    merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
+};
 
 pub trait Sealed {}
 
@@ -285,7 +289,7 @@ impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
     fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
-        // simple version of serde-transcode
+        // simple version of serde-transmute
         let mut events = Vec::<crate::internal::event::Event>::new();
         crate::internal::sink::serialize_into_sink(&mut events, value)?;
         let this: Self = crate::internal::source::deserialize_from_source(&events)?;
@@ -314,16 +318,16 @@ pub struct GenericField {
     pub name: String,
     pub data_type: GenericDataType,
 
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub metadata: HashMap<String, String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy: Option<Strategy>,
 
-    #[serde(default)]
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub nullable: bool,
 
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<GenericField>,
 }
 
@@ -335,6 +339,9 @@ impl<'de> Deserialize<'de> for GenericField {
         struct Helper {
             pub name: String,
             pub data_type: GenericDataType,
+
+            #[serde(default)]
+            pub metadata: HashMap<String, String>,
 
             #[serde(default)]
             pub strategy: Option<Strategy>,
@@ -349,6 +356,7 @@ impl<'de> Deserialize<'de> for GenericField {
         let Helper {
             name,
             data_type,
+            metadata,
             strategy,
             nullable,
             children,
@@ -357,6 +365,7 @@ impl<'de> Deserialize<'de> for GenericField {
         let result = GenericField {
             name,
             data_type,
+            metadata,
             strategy,
             nullable,
             children,
@@ -375,6 +384,7 @@ impl GenericField {
         Self {
             name: name.to_string(),
             data_type,
+            metadata: HashMap::new(),
             nullable,
             children: Vec::new(),
             strategy: None,

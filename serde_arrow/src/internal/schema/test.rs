@@ -1,6 +1,9 @@
-use crate::internal::schema::GenericDataType;
+use serde_json::json;
 
-use super::{GenericField, SchemaLike, SerdeArrowSchema, Strategy};
+use crate::internal::{
+    schema::{GenericDataType, GenericField, SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    testing::{assert_error, hash_map},
+};
 
 impl SerdeArrowSchema {
     fn with_field(mut self, field: GenericField) -> Self {
@@ -196,3 +199,99 @@ test_data_type!(
     Null, Bool, I8, I16, I32, I64, U8, U16, U32, U64, F16, F32, F64, Utf8, LargeUtf8, List,
     LargeList, Struct, Dictionary, Union, Map, Date64,
 );
+
+#[test]
+fn test_metadata_strategy_from_explicit() {
+    let schema = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "example",
+            "data_type": "Date64",
+            "strategy": "UtcStrAsDate64",
+            "metadata": {
+                "foo": "bar",
+                "hello": "world",
+            },
+        },
+    ]))
+    .unwrap();
+
+    assert_eq!(schema.fields[0].strategy, Some(Strategy::UtcStrAsDate64));
+    assert_eq!(
+        schema.fields[0].metadata,
+        hash_map!("foo" => "bar", "hello" => "world")
+    );
+
+    let schema_value = serde_json::to_value(&schema).unwrap();
+    let expected_schema_value = json!({
+        "fields": [
+            {
+                "name": "example",
+                "data_type": "Date64",
+                "strategy": "UtcStrAsDate64",
+                "metadata": {
+                    "foo": "bar",
+                    "hello": "world",
+                },
+            },
+        ],
+    });
+
+    assert_eq!(schema_value, expected_schema_value);
+}
+
+#[test]
+fn test_metadata_strategy_from_metadata() {
+    let schema = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "example",
+            "data_type": "Date64",
+            "metadata": {
+                STRATEGY_KEY: "UtcStrAsDate64",
+                "foo": "bar",
+                "hello": "world",
+            },
+        },
+    ]))
+    .unwrap();
+
+    assert_eq!(schema.fields[0].strategy, Some(Strategy::UtcStrAsDate64));
+    assert_eq!(
+        schema.fields[0].metadata,
+        hash_map!("foo" => "bar", "hello" => "world")
+    );
+
+    // NOTE: the strategy is always normalized to be an extra field
+    let schema_value = serde_json::to_value(&schema).unwrap();
+    let expected_schema_value = json!({
+        "fields": [
+            {
+                "name": "example",
+                "data_type": "Date64",
+                "strategy": "UtcStrAsDate64",
+                "metadata": {
+                    "foo": "bar",
+                    "hello": "world",
+                },
+            },
+        ],
+    });
+
+    assert_eq!(schema_value, expected_schema_value);
+}
+
+#[test]
+fn test_invalid_metadata() {
+    // strategies cannot be given both in metadata and strategy field
+    let res = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "example",
+            "data_type": "Date64",
+            "strategy": "UtcStrAsDate64",
+            "metadata": {
+                STRATEGY_KEY: "UtcStrAsDate64"
+            },
+        },
+    ]));
+
+    assert_error(&res, "Duplicate strategy");
+}

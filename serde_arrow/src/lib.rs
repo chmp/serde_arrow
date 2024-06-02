@@ -307,7 +307,7 @@ pub mod _impl {
 mod test_impls;
 
 #[cfg(all(test, has_arrow, has_arrow2))]
-mod test_end_to_end;
+mod test_with_arrow;
 
 #[cfg(test)]
 mod test;

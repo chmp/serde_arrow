@@ -13,7 +13,6 @@ use super::{
     utils::SimpleSerializer,
 };
 
-// TODO: add outer sequence builder? (not limited by i64 limits)
 #[derive(Debug, Clone)]
 pub enum ArrayBuilder {
     Null(NullBuilder),
