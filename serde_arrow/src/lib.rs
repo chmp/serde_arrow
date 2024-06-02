@@ -28,12 +28,13 @@
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)       |
-|:--------------|:------------------------------------------------------------------|:------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                 |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]               |
-| Array Builder | [`ArrowBuilder`]                                                  | [`Arrow2Builder`]             |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`] |
+| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             |
+|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     |
+| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       |
+| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       |
 "#
 )]
 //!
@@ -314,21 +315,35 @@ mod test;
 pub use crate::internal::error::{Error, Result};
 
 pub use crate::internal::deserializer::Deserializer;
+pub use crate::internal::serializer::Serializer;
+
+pub use crate::internal::array_builder::ArrayBuilder;
 
 #[cfg(has_arrow)]
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch, ArrowBuilder};
+pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch};
+
+#[cfg(has_arrow)]
+#[allow(deprecated)]
+pub use arrow_impl::api::ArrowBuilder;
 
 #[cfg(has_arrow2)]
 mod arrow2_impl;
 
 #[cfg(has_arrow2)]
-pub use arrow2_impl::api::{from_arrow2, to_arrow2, Arrow2Builder};
+pub use arrow2_impl::api::{from_arrow2, to_arrow2};
+
+#[cfg(has_arrow2)]
+#[allow(deprecated)]
+pub use arrow2_impl::api::Arrow2Builder;
 
 #[deny(missing_docs)]
 pub mod schema;
 
 #[deny(missing_docs)]
-pub mod utils;
+/// Helpers that may be useful when using `serde_arrow`
+pub mod utils {
+    pub use crate::internal::utils::{Item, Items};
+}

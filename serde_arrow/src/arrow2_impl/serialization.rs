@@ -15,10 +15,25 @@ use crate::{
     internal::{
         common::MutableBitBuffer,
         error::{fail, Result},
-        schema::GenericField,
+        schema::{GenericField, SerdeArrowSchema},
         serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
+
+/// Support `arrow2` (*requires one of the `arrow2-*` features*)
+impl crate::internal::array_builder::ArrayBuilder {
+    /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
+        Self::new(SerdeArrowSchema::try_from(fields)?)
+    }
+
+    /// Construct `arrow2` arrays and reset the builder (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
+        self.builder.build_arrow2()
+    }
+}
 
 impl OuterSequenceBuilder {
     /// Build the arrow2 arrays

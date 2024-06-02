@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        deserializer::Deserializer, error::Result, schema::SerdeArrowSchema,
-        serialization::OuterSequenceBuilder,
+        array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
+        schema::SerdeArrowSchema, serializer::Serializer,
     },
 };
 
@@ -56,14 +56,17 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
-pub struct Arrow2Builder(OuterSequenceBuilder);
+#[deprecated = "`Arrow2Builder` is deprecated. Use `ArrayBuilder` instead"]
+pub struct Arrow2Builder(ArrayBuilder);
 
+#[allow(deprecated)]
 impl std::fmt::Debug for Arrow2Builder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Arrow2Builder<...>")
     }
 }
 
+#[allow(deprecated)]
 impl Arrow2Builder {
     /// Build a new Arrow2Builder for the given fields
     ///
@@ -72,7 +75,7 @@ impl Arrow2Builder {
     ///
     pub fn new(fields: &[Field]) -> Result<Self> {
         let schema = SerdeArrowSchema::from_arrow2_fields(fields)?;
-        Ok(Self(OuterSequenceBuilder::new(&schema)?))
+        Ok(Self(ArrayBuilder::new(schema)?))
     }
 
     /// Add a single record to the arrays
@@ -92,7 +95,7 @@ impl Arrow2Builder {
     /// This operation will reset the underlying buffers and start a new batch.
     ///
     pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.0.build_arrow2()
+        self.0.to_arrow2()
     }
 }
 
@@ -135,9 +138,11 @@ pub fn to_arrow2<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
 {
-    let mut builder = Arrow2Builder::new(fields)?;
-    builder.extend(items)?;
-    builder.build_arrays()
+    let builder = ArrayBuilder::from_arrow2(fields)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .to_arrow2()
 }
 
 /// Deserialize items from the given arrow2 arrays  (*requires one of the

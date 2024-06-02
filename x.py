@@ -310,8 +310,17 @@ def check_cargo_toml():
 
 
 @cmd(help="Run the benchmarks")
-def bench():
-    _sh(f"cargo bench --features {default_features}")
+@arg("--quick", action="store_true", default=False)
+def bench(quick=False):
+    import os
+
+    _sh(
+        f"cargo bench --features {default_features}",
+        env={
+            **os.environ,
+            **({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
+        },
+    )
     summarize_bench()
 
 

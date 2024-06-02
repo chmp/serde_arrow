@@ -146,6 +146,10 @@ impl Test {
 
     pub fn try_serialize_arrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         let fields = self.get_arrow_fields().to_vec();
+        let field_refs = fields
+            .iter()
+            .map(|f| Arc::new(f.clone()))
+            .collect::<Vec<_>>();
         let arrays = crate::to_arrow(&fields, items)?;
 
         assert_eq!(fields.len(), arrays.len());
@@ -164,9 +168,9 @@ impl Test {
 
         self.arrays.arrow = Some(arrays);
 
-        let mut builder = crate::ArrowBuilder::new(&fields)?;
+        let mut builder = crate::ArrayBuilder::from_arrow(&field_refs)?;
         builder.extend(items)?;
-        let arrays = builder.build_arrays()?;
+        let arrays = builder.to_arrow()?;
         assert_eq!(self.arrays.arrow, Some(arrays));
 
         Ok(())
@@ -183,9 +187,9 @@ impl Test {
 
         self.arrays.arrow2 = Some(arrays);
 
-        let mut builder = crate::Arrow2Builder::new(&fields)?;
+        let mut builder = crate::ArrayBuilder::from_arrow2(&fields)?;
         builder.extend(items)?;
-        let arrays = builder.build_arrays()?;
+        let arrays = builder.to_arrow2()?;
         assert_eq!(self.arrays.arrow2, Some(arrays));
 
         // TODO: test that the result arrays has the fields as the schema

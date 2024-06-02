@@ -1,16 +1,10 @@
-//! Test arrow integration
-
-use std::sync::Arc;
-
+//! Test tracing schemas from an Arrow schema directly
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
     self as serde_arrow,
-    _impl::{
-        arrow::{_raw::schema::Schema, array::RecordBatch, datatypes::Field},
-        PanicOnError,
-    },
+    _impl::{arrow::datatypes::FieldRef, PanicOnError},
     schema::{SchemaLike, TracingOptions},
     utils::Item,
     Result,
@@ -35,15 +29,13 @@ fn example() -> PanicOnError<()> {
         },
     ];
 
-    let fields_from_type = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-    let arrays = serde_arrow::to_arrow(&fields_from_type, &items_input)?;
+    let fields_from_type = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
+    let batch = serde_arrow::to_record_batch(&fields_from_type, &items_input)?;
 
-    let batch = RecordBatch::try_new(Arc::new(Schema::new(fields_from_type.clone())), arrays)?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
+    let items: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
 
-    let fields = Vec::<Field>::from_value(&batch.schema())?;
-    let items: Vec<Record> = serde_arrow::from_arrow(&fields, batch.columns())?;
-
-    assert_eq!(fields, fields_from_type);
+    assert_eq!(fields_from_batch, fields_from_type);
     assert_eq!(items, items_input);
 
     Ok(())
@@ -86,12 +78,11 @@ fn examples_trace_from_type() {
     assert_schema_eq_from_type::<Item<Enum>>().unwrap();
 
     fn assert_schema_eq_from_type<'de, T: Serialize + Deserialize<'de>>() -> Result<()> {
-        let fields_from_type = Vec::<Field>::from_type::<T>(TracingOptions::default())?;
+        let fields_from_type = Vec::<FieldRef>::from_type::<T>(TracingOptions::default())?;
 
         let items = Vec::<T>::new();
-        let arrays = serde_arrow::to_arrow(&fields_from_type, &items)?;
-        let batch = RecordBatch::try_new(Arc::new(Schema::new(fields_from_type.clone())), arrays)?;
-        let fields_from_batch = Vec::<Field>::from_value(&batch.schema())?;
+        let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
+        let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
 
         assert_eq!(fields_from_batch, fields_from_type);
         Ok(())
@@ -122,15 +113,14 @@ fn examples_trace_from_value() {
     .unwrap();
 
     fn assert_schema_eq_from_value<'de, T: Serialize + Deserialize<'de>>(value: &T) -> Result<()> {
-        let fields_from_type = Vec::<Field>::from_value(value)?;
+        let fields_from_type = Vec::<FieldRef>::from_value(value)?;
 
         #[derive(Debug, Serialize, Deserialize)]
         pub struct Record {}
 
         let items = Vec::<Record>::new();
-        let arrays = serde_arrow::to_arrow(&fields_from_type, &items)?;
-        let batch = RecordBatch::try_new(Arc::new(Schema::new(fields_from_type.clone())), arrays)?;
-        let fields_from_batch = Vec::<Field>::from_value(&batch.schema())?;
+        let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
+        let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
 
         assert_eq!(fields_from_batch, fields_from_type);
         Ok(())
@@ -138,16 +128,15 @@ fn examples_trace_from_value() {
 }
 
 #[test]
-fn test_different_arrow_schemas() -> Result<()> {
-    let fields_from_type = Vec::<Field>::from_type::<Item<i32>>(TracingOptions::default())?;
+fn test_different_arrow_schema_accessors() -> Result<()> {
+    let fields_from_type = Vec::<FieldRef>::from_type::<Item<i32>>(TracingOptions::default())?;
     let items = Vec::<Item<i32>>::new();
-    let arrays = serde_arrow::to_arrow(&fields_from_type, &items)?;
-    let batch = RecordBatch::try_new(Arc::new(Schema::new(fields_from_type.clone())), arrays)?;
+    let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
 
-    let fields_from_batch = Vec::<Field>::from_value(&batch.schema())?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
     assert_eq!(fields_from_batch, fields_from_type);
 
-    let fields_from_batch = Vec::<Field>::from_value(&batch.schema().fields())?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema().fields())?;
     assert_eq!(fields_from_batch, fields_from_type);
 
     Ok(())

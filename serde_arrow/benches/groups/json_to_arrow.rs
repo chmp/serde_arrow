@@ -8,8 +8,8 @@ use {
 // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
 use arrow_json_51::ReaderBuilder;
 
-// arrow-version:replace: use arrow_schema_{version}::Schema as ArrowSchema;
-use arrow_schema_51::Schema as ArrowSchema;
+// arrow-version:replace: use arrow_schema_{version}::{FieldRef, Schema as ArrowSchema};
+use arrow_schema_51::{FieldRef, Schema as ArrowSchema};
 
 // arrow-version:replace: use arrow_array_{version}::RecordBatch;
 use arrow_array_51::RecordBatch;
@@ -38,7 +38,7 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
     };
 
     let schema = SerdeArrowSchema::from_type::<Item>(Default::default()).unwrap();
-    let arrow_fields = schema.to_arrow_fields().unwrap();
+    let arrow_fields = Vec::<FieldRef>::try_from(&schema).unwrap();
     let mut group = c.benchmark_group("json_to_arrow");
 
     // arrow-json direct
@@ -80,7 +80,7 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
     // serde_arrow via serde
     group.bench_function("serde_arrow (serde_json,transcode)", |b| {
         b.iter(|| {
-            let mut arrow_builder = serde_arrow::ArrowBuilder::new(&arrow_fields).unwrap();
+            let mut arrow_builder = serde_arrow::ArrayBuilder::from_arrow(&arrow_fields).unwrap();
             for json_to_deserialize in jsons_to_deserialize_concatenated
                 .as_bytes()
                 .split(|c| *c == b'\n')
@@ -91,16 +91,14 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
                 arrow_builder.push(&transcoder).unwrap();
             }
 
-            let arrays = arrow_builder.build_arrays().unwrap();
-            let schema = ArrowSchema::new(arrow_fields.to_owned());
-            let record_batch = RecordBatch::try_new(Arc::new(schema), arrays).unwrap();
+            let record_batch = arrow_builder.to_record_batch().unwrap();
             criterion::black_box(record_batch)
         })
     });
 
     group.bench_function("serde_arrow (serde_json,value)", |b| {
         b.iter(|| {
-            let mut arrow_builder = serde_arrow::ArrowBuilder::new(&arrow_fields).unwrap();
+            let mut arrow_builder = serde_arrow::ArrayBuilder::from_arrow(&arrow_fields).unwrap();
             for json_to_deserialize in jsons_to_deserialize_concatenated
                 .as_bytes()
                 .split(|c| *c == b'\n')
@@ -110,17 +108,14 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
                 arrow_builder.push(&item).unwrap();
             }
 
-            let arrays = arrow_builder.build_arrays().unwrap();
-            let schema = ArrowSchema::new(arrow_fields.to_owned());
-
-            let record_batch = RecordBatch::try_new(Arc::new(schema), arrays).unwrap();
+            let record_batch = arrow_builder.to_record_batch().unwrap();
             criterion::black_box(record_batch)
         });
     });
 
     group.bench_function("serde_arrow (simd_json,transcode)", |b| {
         b.iter(|| {
-            let mut arrow_builder = serde_arrow::ArrowBuilder::new(&arrow_fields).unwrap();
+            let mut arrow_builder = serde_arrow::ArrayBuilder::from_arrow(&arrow_fields).unwrap();
             let mut jsons_to_deserialize_concatenated =
                 jsons_to_deserialize_concatenated.as_bytes().to_vec();
 
@@ -134,9 +129,7 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
                 arrow_builder.push(&transcoder).unwrap();
             }
 
-            let arrays = arrow_builder.build_arrays().unwrap();
-            let schema = ArrowSchema::new(arrow_fields.to_owned());
-            let record_batch = RecordBatch::try_new(Arc::new(schema), arrays).unwrap();
+            let record_batch = arrow_builder.to_record_batch().unwrap();
             criterion::black_box(record_batch)
         })
     });

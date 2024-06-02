@@ -29,18 +29,25 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_seq(self.0)
     }
 
-    // TODO: support tuples?
-    fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, _visitor: V) -> Result<V::Value> {
-        fail!("cannot deserialize single tuples")
+    fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(self.0)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
         self,
         _name: &'static str,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value> {
-        fail!("cannot deserialize single tuples")
+        visitor.visit_seq(self.0)
+    }
+
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
@@ -102,14 +109,6 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
 
     fn deserialize_map<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
         fail!("cannot deserialize single maps")
-    }
-
-    fn deserialize_newtype_struct<V: Visitor<'de>>(
-        self,
-        _: &'static str,
-        _: V,
-    ) -> Result<V::Value> {
-        fail!("cannot deserialize single structs")
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {

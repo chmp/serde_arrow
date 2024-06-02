@@ -121,11 +121,11 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+        fail!("Cannot trace bytes")
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        todo!()
+        fail!("Cannot trace byte bufs")
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
