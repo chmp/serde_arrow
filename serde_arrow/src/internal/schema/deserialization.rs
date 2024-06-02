@@ -7,10 +7,11 @@ use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
     error::{fail, Error, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
+    schema::{
+        merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType, GenericField,
+        GenericTimeUnit, SerdeArrowSchema, Strategy,
+    },
 };
-
-use super::STRATEGY_KEY;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct ArrowField {
@@ -155,14 +156,7 @@ impl TryFrom<ArrowField> for GenericField {
     fn try_from(value: ArrowField) -> Result<Self> {
         let (data_type, children) = value.data_type.into_generic()?;
 
-        let strategy = if let Some(strategy) = value.metadata.get(STRATEGY_KEY) {
-            Some(strategy.parse()?)
-        } else {
-            None
-        };
-        let metadata = HashMap::new();
-
-        // TODO: merge metadata strategy
+        let (metadata, strategy) = split_strategy_from_metadata(value.metadata)?;
 
         Ok(GenericField {
             name: value.name,
@@ -281,8 +275,9 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                     }
                 }
 
-                let data_type =
-                    data_type.ok_or_else(|| A::Error::custom("missing field `data_type`"))?;
+                let Some(data_type) = data_type else {
+                    return Err(A::Error::custom("missing field `data_type`"));
+                };
                 let (data_type, children) = match data_type {
                     GenericOrArrowDataType::Generic(data_type) => {
                         (data_type, children.unwrap_or_default())
@@ -299,15 +294,19 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                     }
                 };
 
-                // TODO: merge metadata strategy
+                let metadata =
+                    merge_strategy_with_metadata(metadata.unwrap_or_default(), strategy.flatten())
+                        .map_err(A::Error::custom)?;
+                let (metadata, strategy) =
+                    split_strategy_from_metadata(metadata).map_err(A::Error::custom)?;
 
                 let field = GenericField {
                     name: name.ok_or_else(|| A::Error::custom("missing field `name`"))?,
                     data_type,
                     children,
                     nullable: nullable.unwrap_or_default(),
-                    metadata: metadata.unwrap_or_default(),
-                    strategy: strategy.flatten(),
+                    metadata,
+                    strategy,
                 };
                 Ok(NativeOrArrowField(field))
             }

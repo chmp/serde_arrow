@@ -147,7 +147,7 @@ pub fn merge_strategy_with_metadata(
     strategy: Option<Strategy>,
 ) -> Result<HashMap<String, String>> {
     if metadata.contains_key(STRATEGY_KEY) && strategy.is_some() {
-        fail!("duplicate strategy: metadata map contains {STRATEGY_KEY} and strategy given");
+        fail!("Duplicate strategy: metadata map contains {STRATEGY_KEY} and strategy given");
     }
     if let Some(strategy) = strategy {
         metadata.insert(STRATEGY_KEY.to_owned(), strategy.to_string());
