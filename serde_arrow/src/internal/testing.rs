@@ -1,17 +1,14 @@
 //! Support for tests
-macro_rules! assert_error {
-    ($res:expr, $expected:expr $(,)?) => {
-        let Err(err) = $res else {
-            panic!("Expected error");
-        };
-        assert!(
-            err.to_string().contains($expected),
-            "Unexpected error: {err}",
-        );
+pub fn assert_error<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
+    let Err(actual) = actual else {
+        panic!("expected an error, but no error was raised");
     };
-}
 
-pub(crate) use assert_error;
+    let actual = actual.to_string();
+    if !actual.contains(expected) {
+        panic!("Error did not contain {expected:?}. Full error: {actual}");
+    }
+}
 
 macro_rules! btree_map {
     () => {

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::macros::expect_error;
 use crate::internal::{
     schema::{GenericDataType as T, GenericField as F, Strategy},
+    testing::assert_error,
     tracing::{Tracer, TracingOptions},
     utils::{Item, Items},
 };
@@ -320,5 +320,5 @@ fn unsupported_recursive_types() {
 
     let mut tracer = Tracer::new(String::from("$"), TracingOptions::default());
     let res = tracer.trace_type::<Tree>();
-    expect_error(&res, "too deeply nested type detected");
+    assert_error(&res, "too deeply nested type detected");
 }

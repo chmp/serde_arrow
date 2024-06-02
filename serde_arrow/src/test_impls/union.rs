@@ -7,8 +7,6 @@ use crate::{
     utils::Item,
 };
 
-use super::macros::test_generic;
-
 #[test]
 fn fieldless_unions() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -302,8 +300,50 @@ fn enums_union() {
         .deserialize(&values);
 }
 
+macro_rules! test_generic {
+    (
+        $(#[ignore = $ignore:literal])?
+        fn $name:ident() {
+            $($stmt:stmt)*
+        }
+    ) => {
+        #[allow(unused)]
+        mod $name {
+            use crate::{
+                schema::{SchemaLike, TracingOptions},
+                utils::{Items, Item}
+            };
+            use crate::internal::schema::{GenericField, GenericDataType};
+
+            mod arrow {
+                use super::*;
+                use crate::{to_arrow, from_arrow};
+                use crate::_impl::arrow::datatypes::Field;
+
+                $(#[ignore = $ignore])?
+                #[test]
+                fn test() {
+                    $($stmt)*
+                }
+            }
+            mod arrow2 {
+                use super::*;
+                use crate::{to_arrow2 as to_arrow, from_arrow2 as from_arrow};
+                use crate::_impl::arrow2::datatypes::Field;
+
+                $(#[ignore = $ignore])?
+                #[test]
+                fn test() {
+                    $($stmt)*
+                }
+            }
+        }
+    };
+}
+
 test_generic!(
     fn missing_union_variants() {
+        use crate::internal::testing::assert_error;
         use crate::schema::TracingOptions;
         use serde::{Deserialize, Serialize};
 
@@ -319,6 +359,6 @@ test_generic!(
 
         // NOTE: variant B was never encountered during tracing
         let res = to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
-        crate::test_impls::macros::expect_error(&res, "Serialization failed: an unknown variant");
+        assert_error(&res, "Serialization failed: an unknown variant");
     }
 );
