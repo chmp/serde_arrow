@@ -15,7 +15,9 @@ use crate::internal::{
 use serde::{Deserialize, Serialize};
 
 pub use data_type::{GenericDataType, GenericTimeUnit};
-pub use strategy::{Strategy, STRATEGY_KEY};
+pub use strategy::{
+    merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
+};
 
 pub trait Sealed {}
 

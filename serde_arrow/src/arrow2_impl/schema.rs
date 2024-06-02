@@ -5,8 +5,8 @@ use crate::{
     internal::{
         error::{error, fail, Error, Result},
         schema::{
-            GenericDataType, GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
-            Strategy, STRATEGY_KEY,
+            merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType,
+            GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
         },
     },
 };
@@ -102,12 +102,12 @@ impl TryFrom<&Field> for GenericField {
     fn try_from(field: &Field) -> Result<Self> {
         use {GenericDataType as T, GenericTimeUnit as U};
 
-        let strategy: Option<Strategy> = match field.metadata.get(STRATEGY_KEY) {
-            Some(strategy_str) => Some(strategy_str.parse::<Strategy>()?),
-            None => None,
-        };
-        // TODO: merge metadata strategy
-        let metadata = HashMap::new();
+        let metadata = field
+            .metadata
+            .clone()
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        let (metadata, strategy) = split_strategy_from_metadata(metadata)?;
 
         let name = field.name.to_owned();
         let nullable = field.is_nullable;
@@ -325,11 +325,11 @@ impl TryFrom<&GenericField> for Field {
             }
         };
 
+        let metadata =
+            merge_strategy_with_metadata(value.metadata.clone(), value.strategy.clone())?;
+
         let mut field = Field::new(&value.name, data_type, value.nullable);
-        // TODO: merge metadata strategy
-        if let Some(strategy) = value.strategy.as_ref() {
-            field.metadata = strategy.clone().into();
-        }
+        field.metadata = metadata.into_iter().collect();
 
         Ok(field)
     }
