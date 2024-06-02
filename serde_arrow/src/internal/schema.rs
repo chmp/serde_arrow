@@ -316,13 +316,13 @@ pub struct GenericField {
     pub name: String,
     pub data_type: GenericDataType,
 
-    #[serde(default, skip_serializing_if="HashMap::is_empty")]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub metadata: HashMap<String, String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy: Option<Strategy>,
 
-    #[serde(default,skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub nullable: bool,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
