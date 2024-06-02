@@ -4,9 +4,10 @@ use crate::{
     internal::schema::{GenericDataType, GenericField},
     internal::testing::{btree_map, hash_map},
     schema::{Strategy, TracingOptions},
-    test_impls::utils::Test,
     utils::Item,
 };
+
+use super::utils::Test;
 
 // NOTE: Use BTreeMap to guarantee the order of fields
 

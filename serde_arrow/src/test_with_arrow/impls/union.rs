@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     internal::schema::{GenericDataType, GenericField},
     schema::{Strategy, TracingOptions},
-    test_impls::utils::Test,
     utils::Item,
 };
+
+use super::utils::Test;
 
 #[test]
 fn fieldless_unions() {
