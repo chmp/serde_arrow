@@ -342,7 +342,6 @@ impl EventSink for StructTracer {
 
                     // field was missing in previous samples
                     if self.seen_samples != 0 {
-                        println!("{key}");
                         field.tracer.mark_nullable();
                     }
 
