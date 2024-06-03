@@ -1,6 +1,6 @@
-use crate::{
-    internal::common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
-    Result,
+use crate::internal::{
+    common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
+    error::{fail, Result},
 };
 
 use super::utils::{push_validity, push_validity_default, SimpleSerializer};
@@ -66,5 +66,35 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         variant: &'static str,
     ) -> Result<()> {
         self.serialize_str(variant)
+    }
+
+    fn serialize_tuple_variant_start<'this>(
+        &'this mut self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<&'this mut super::ArrayBuilder> {
+        fail!("Cannot serialize enum with data as string");
+    }
+
+    fn serialize_struct_variant_start<'this>(
+        &'this mut self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<&'this mut super::ArrayBuilder> {
+        fail!("Cannot serialize enum with data as string");
+    }
+
+    fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
+        &mut self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: &V,
+    ) -> Result<()> {
+        fail!("Cannot serialize enum with data as string");
     }
 }
