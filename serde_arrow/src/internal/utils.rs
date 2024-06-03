@@ -1,5 +1,7 @@
-#[allow(unused)]
-mod value;
+pub mod value;
+
+#[cfg(test)]
+mod test_value;
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 

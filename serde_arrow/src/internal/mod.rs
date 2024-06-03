@@ -10,7 +10,6 @@ pub mod schema;
 pub mod serialization;
 pub mod serializer;
 pub mod sink;
-pub mod source;
 pub mod utils;
 
 #[cfg(test)]
