@@ -87,6 +87,35 @@ pub struct TracingOptions {
     ///
     /// If `false` enums without data are encoded as Union arrays with Null
     /// fields. If `true` enums without data are encoded as dictionaries.
+    ///
+    /// Example:
+    ///
+    /// ```rust
+    /// # use serde::{Deserialize, Serialize};
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::FieldRef;
+    /// # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
+    /// #
+    /// ##[derive(Serialize, Deserialize)]
+    /// enum U {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// }
+    ///
+    /// let items = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+    ///
+    /// let tracing_options = TracingOptions::default().enums_without_data_as_strings(true);
+    /// let fields = Vec::<FieldRef>::from_type::<Item<U>>(tracing_options)?;
+    /// let batch = serde_arrow::to_record_batch(&fields, &items)?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
     pub enums_without_data_as_strings: bool,
 
     /// Internal field to improve error messages for the different tracing
