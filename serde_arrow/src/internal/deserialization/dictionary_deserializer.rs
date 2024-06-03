@@ -6,6 +6,7 @@ use crate::internal::{
 };
 
 use super::{
+    enums_as_string_impl::EnumAccess,
     integer_deserializer::Integer, list_deserializer::IntoUsize,
     simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
 };
@@ -76,5 +77,16 @@ impl<'de, K: Integer, V: IntoUsize> SimpleDeserializer<'de> for DictionaryDeseri
 
     fn deserialize_string<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
         visitor.visit_string(self.next_str()?.to_owned())
+    }
+
+    fn deserialize_enum<VV: Visitor<'de>>(
+        &mut self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: VV,
+    ) -> Result<VV::Value> {
+        let variant = self.next_str()?;
+        visitor.visit_enum(EnumAccess(variant))
+
     }
 }

@@ -63,4 +63,13 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         };
         idx.serialize(Mut(self.indices.as_mut()))
     }
+
+    fn serialize_unit_variant(
+        &mut self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+    ) -> Result<()> {
+        self.serialize_str(variant)
+    }
 }
