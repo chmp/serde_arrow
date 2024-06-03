@@ -1,5 +1,13 @@
 # Change log
 
+## 0.11.6
+
+- Add support to serialize enums without data (e.g., `enum E { A, B, C}`) as
+  strings by setting the corresponding field to a string value (`Utf`,
+  `LargeUtf`, `Dictionary(_, Utf8)`, `Dictionary(_, LargeUtf8`)
+- Allow to trace enums without data as dictionary encoded strings by setting
+  `enums_without_data_as_strings` to `true` in `TracingOptions`
+
 ## 0.11.5
 
 - Add `serde_arrow::Serializer`
