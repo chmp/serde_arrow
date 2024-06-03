@@ -7,10 +7,22 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::internal::{
-    error::{fail, Error, Result},
-    tracing::tracer::{StructField, Tracer},
+use crate::internal::error::{fail, Error, Result};
+
+use super::{
+    tracer::{StructField, Tracer},
+    SerdeArrowSchema, TracingMode, TracingOptions,
 };
+
+pub fn schema_from_type<'de, T: Deserialize<'de> + ?Sized>(
+    options: TracingOptions,
+) -> Result<SerdeArrowSchema> {
+    let options = options.tracing_mode(TracingMode::FromType);
+
+    let mut tracer = Tracer::new(String::from("$"), options);
+    tracer.trace_type::<T>()?;
+    tracer.to_schema()
+}
 
 impl Tracer {
     pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {

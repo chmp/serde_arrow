@@ -182,6 +182,13 @@ impl<'de> Deserialize<'de> for GenericOrArrowDataType {
         impl<'de> Visitor<'de> for VisitorImpl {
             type Value = GenericOrArrowDataType;
 
+            fn visit_newtype_struct<D: serde::Deserializer<'de>>(
+                self,
+                deserializer: D,
+            ) -> Result<Self::Value, D::Error> {
+                GenericOrArrowDataType::deserialize(deserializer)
+            }
+
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "string or DataType variant")
             }

@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
-    schema::{GenericDataType as T, GenericField as F, Strategy},
+    schema::{tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions},
     testing::assert_error,
-    tracing::{Tracer, TracingOptions},
     utils::{Item, Items},
 };
 
@@ -276,7 +275,7 @@ mod mixed_tracing_dates {
 
 mod mixed_tracing_unions {
     use crate::internal::{
-        tracing,
+        schema::tracer::Tracer,
         utils::{Item, Items},
     };
 
@@ -291,7 +290,7 @@ mod mixed_tracing_unions {
             C(u32),
         }
 
-        let mut tracer = tracing::Tracer::new(
+        let mut tracer = Tracer::new(
             String::from("$"),
             TracingOptions::default().allow_null_fields(true),
         );

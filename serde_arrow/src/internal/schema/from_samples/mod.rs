@@ -12,13 +12,28 @@ use crate::internal::{
     schema::{GenericDataType, Strategy},
     sink::macros,
     sink::{serialize_into_sink, EventSink},
-    tracing::tracer::{
+};
+
+use super::tracing_options::TracingOptions;
+use super::{
+    tracer::{
         ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
         StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
         UnionTracer, UnionTracerState,
     },
-    tracing::TracingOptions,
+    SerdeArrowSchema, TracingMode,
 };
+
+pub fn schema_from_samples<T: Serialize + ?Sized>(
+    samples: &T,
+    options: TracingOptions,
+) -> Result<SerdeArrowSchema> {
+    let options = options.tracing_mode(TracingMode::FromSamples);
+
+    let mut tracer = Tracer::new(String::from("$"), options);
+    tracer.trace_samples(samples)?;
+    tracer.to_schema()
+}
 
 impl Tracer {
     pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
