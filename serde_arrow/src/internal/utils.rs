@@ -1,3 +1,6 @@
+#[allow(unused)]
+mod value;
+
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 /// A wrapper around a sequence of items
