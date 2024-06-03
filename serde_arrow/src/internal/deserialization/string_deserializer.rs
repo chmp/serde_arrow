@@ -3,7 +3,10 @@ use crate::internal::{
     error::{error, fail, Result},
 };
 
-use super::{enums_as_string_impl::EnumAccess, list_deserializer::IntoUsize, simple_deserializer::SimpleDeserializer};
+use super::{
+    enums_as_string_impl::EnumAccess, list_deserializer::IntoUsize,
+    simple_deserializer::SimpleDeserializer,
+};
 
 pub struct StringDeserializer<'a, O: IntoUsize> {
     pub data: &'a [u8],

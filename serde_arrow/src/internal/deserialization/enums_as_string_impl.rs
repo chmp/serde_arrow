@@ -1,6 +1,6 @@
 use serde::de::Visitor;
 
-use crate::internal::error::{fail, Error,Result};
+use crate::internal::error::{fail, Error, Result};
 
 pub struct EnumAccess<'de>(pub &'de str);
 
@@ -8,7 +8,10 @@ impl<'a, 'de> serde::de::EnumAccess<'de> for EnumAccess<'a> {
     type Error = Error;
     type Variant = UnitVariant;
 
-    fn variant_seed<V: serde::de::DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error> {
+    fn variant_seed<V: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: V,
+    ) -> Result<(V::Value, Self::Variant), Self::Error> {
         struct SeedDeserializer<'a>(&'a str);
 
         macro_rules! unimplemented {
@@ -78,11 +81,7 @@ impl<'de> serde::de::VariantAccess<'de> for UnitVariant {
         fail!("cannot deserialize enums with data from strings")
     }
 
-    fn struct_variant<V: Visitor<'de>>(
-        self,
-        _: &'static [&'static str],
-        _: V,
-    ) -> Result<V::Value> {
+    fn struct_variant<V: Visitor<'de>>(self, _: &'static [&'static str], _: V) -> Result<V::Value> {
         fail!("cannot deserialize enums with data from strings")
     }
 

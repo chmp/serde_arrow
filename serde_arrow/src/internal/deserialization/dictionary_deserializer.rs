@@ -6,8 +6,7 @@ use crate::internal::{
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess,
-    integer_deserializer::Integer, list_deserializer::IntoUsize,
+    enums_as_string_impl::EnumAccess, integer_deserializer::Integer, list_deserializer::IntoUsize,
     simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
 };
 
@@ -87,6 +86,5 @@ impl<'de, K: Integer, V: IntoUsize> SimpleDeserializer<'de> for DictionaryDeseri
     ) -> Result<VV::Value> {
         let variant = self.next_str()?;
         visitor.visit_enum(EnumAccess(variant))
-
     }
 }
