@@ -58,4 +58,13 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
 
         Ok(())
     }
+
+    fn serialize_unit_variant(
+        &mut self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+    ) -> Result<()> {
+        self.serialize_str(variant)
+    }
 }

@@ -394,3 +394,49 @@ fn fieldless_unions_as_dictionary() {
         .serialize(&values)
         .deserialize(&values);
 }
+
+#[test]
+fn fieldless_unions_as_utf8() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    // type Ty = U;
+
+    // let tracing_options = TracingOptions::default().allow_null_fields(true);
+
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+        // .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        // .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn fieldless_unions_as_large_utf8() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    // type Ty = U;
+
+    // let tracing_options = TracingOptions::default().allow_null_fields(true);
+
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        // .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        // .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}

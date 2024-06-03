@@ -3,7 +3,7 @@ use crate::internal::{
     error::{error, fail, Result},
 };
 
-use super::{list_deserializer::IntoUsize, simple_deserializer::SimpleDeserializer};
+use super::{enums_as_string_impl::EnumAccess, list_deserializer::IntoUsize, simple_deserializer::SimpleDeserializer};
 
 pub struct StringDeserializer<'a, O: IntoUsize> {
     pub data: &'a [u8],
@@ -95,5 +95,15 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
 
     fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_string(self.next_required()?.to_owned())
+    }
+
+    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+        &mut self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        let variant = self.next_required()?;
+        visitor.visit_enum(EnumAccess(variant))
     }
 }
