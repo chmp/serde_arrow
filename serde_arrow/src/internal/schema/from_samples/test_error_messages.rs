@@ -1,16 +1,18 @@
-use crate::schema::{SchemaLike, SerdeArrowSchema, TracingOptions};
+use serde::Serialize;
+
+use crate::{
+    internal::testing::assert_error,
+    schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+};
 
 #[test]
 fn outer_struct() {
     let res = SerdeArrowSchema::from_samples(&[1_u32, 2_u32, 3_u32], TracingOptions::default());
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
-
-    println!("Error message: {err}");
-    assert!(err.contains("Only struct-like types are supported as root types in schema tracing."));
-    assert!(err.contains("Consider using the `Items` wrapper,"));
+    assert_error(
+        &res,
+        "Only struct-like types are supported as root types in schema tracing.",
+    );
+    assert_error(&res, "Consider using the `Items` wrapper,");
 }
 
 /// See: https://github.com/chmp/serde_arrow/issues/97
@@ -29,12 +31,18 @@ fn outer_sequence_issue_97() {
     };
 
     let res = SerdeArrowSchema::from_samples(&b, TracingOptions::default());
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
+    assert_error(&res, "Cannot trace non-sequences with `from_samples`.");
+    assert_error(&res, "Consider wrapping the argument in an array.");
+}
 
-    println!("Error message: {err}");
-    assert!(err.contains("Cannot trace non-sequences with `from_samples`."));
-    assert!(err.contains("Consider wrapping the argument in an array."));
+#[test]
+fn enums_without_data() {
+    #[derive(Debug, Serialize)]
+    pub enum E {
+        A,
+        B,
+    }
+
+    let res = SerdeArrowSchema::from_samples(&[E::A, E::B], TracingOptions::default());
+    assert_error(&res, "by setting `enums_without_data_as_strings` to `true`");
 }

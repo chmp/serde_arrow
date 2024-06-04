@@ -83,6 +83,41 @@ pub struct TracingOptions {
     /// enums with many variants.
     pub from_type_budget: usize,
 
+    /// Whether to encode enums without data as strings
+    ///
+    /// If `false` enums without data are encoded as Union arrays with Null
+    /// fields. If `true` enums without data are encoded as dictionaries.
+    ///
+    /// Example:
+    ///
+    /// ```rust
+    /// # use serde::{Deserialize, Serialize};
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::FieldRef;
+    /// # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
+    /// #
+    /// ##[derive(Serialize, Deserialize)]
+    /// enum U {
+    ///     A,
+    ///     B,
+    ///     C,
+    /// }
+    ///
+    /// let items = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+    ///
+    /// let tracing_options = TracingOptions::default().enums_without_data_as_strings(true);
+    /// let fields = Vec::<FieldRef>::from_type::<Item<U>>(tracing_options)?;
+    /// let batch = serde_arrow::to_record_batch(&fields, &items)?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    pub enums_without_data_as_strings: bool,
+
     /// Internal field to improve error messages for the different tracing
     /// functions
     pub(crate) tracing_mode: TracingMode,
@@ -98,6 +133,7 @@ impl Default for TracingOptions {
             guess_dates: false,
             from_type_budget: 100,
             tracing_mode: TracingMode::Unknown,
+            enums_without_data_as_strings: false,
         }
     }
 }
@@ -140,6 +176,12 @@ impl TracingOptions {
     /// Set [`from_type_budget`](#structfield.from_type_budget)
     pub fn from_type_budget(mut self, value: usize) -> Self {
         self.from_type_budget = value;
+        self
+    }
+
+    /// Set [`enums_without_data_as_strings`](#structfield.enums_without_data_as_strings)
+    pub fn enums_without_data_as_strings(mut self, value: bool) -> Self {
+        self.enums_without_data_as_strings = value;
         self
     }
 

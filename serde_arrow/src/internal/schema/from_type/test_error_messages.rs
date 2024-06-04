@@ -2,30 +2,34 @@
 
 use std::collections::HashMap;
 
-use crate::schema::{SchemaLike, SerdeArrowSchema, TracingOptions};
+use serde::Deserialize;
+
+use crate::{
+    internal::testing::assert_error,
+    schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+};
 
 #[test]
 fn from_type_budget() {
     let res = SerdeArrowSchema::from_type::<f32>(TracingOptions::default().from_type_budget(0));
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
-
-    assert!(err.contains("Could not determine schema from the type after 0 iterations."));
-    assert!(err.contains("Consider increasing the budget option or using `from_samples`."));
+    assert_error(
+        &res,
+        "Could not determine schema from the type after 0 iterations.",
+    );
+    assert_error(
+        &res,
+        "Consider increasing the budget option or using `from_samples`.",
+    );
 }
 
 #[test]
 fn non_self_describing_types() {
     let res = SerdeArrowSchema::from_type::<serde_json::Value>(TracingOptions::default());
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
-
-    assert!(err.contains("Non self describing types cannot be traced with `from_type`."));
-    assert!(err.contains("Consider using `from_samples`."));
+    assert_error(
+        &res,
+        "Non self describing types cannot be traced with `from_type`.",
+    );
+    assert_error(&res, "Consider using `from_samples`.");
 }
 
 #[test]
@@ -33,23 +37,28 @@ fn map_as_struct() {
     let res = SerdeArrowSchema::from_type::<HashMap<String, usize>>(
         TracingOptions::default().map_as_struct(true),
     );
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
-
-    assert!(err.contains("Cannot trace maps as structs with `from_type`"));
-    assert!(err.contains("Consider using `from_samples`."))
+    assert_error(&res, "Cannot trace maps as structs with `from_type`");
+    assert_error(&res, "Consider using `from_samples`.");
 }
 
 #[test]
 fn outer_struct() {
     let res = SerdeArrowSchema::from_type::<i32>(TracingOptions::default());
-    let Err(err) = res else {
-        panic!("Expected error, got: {res:?}");
-    };
-    let err = err.to_string();
+    assert_error(
+        &res,
+        "Only struct-like types are supported as root types in schema tracing.",
+    );
+    assert_error(&res, "Consider using the `Item` wrapper,");
+}
 
-    assert!(err.contains("Only struct-like types are supported as root types in schema tracing."));
-    assert!(err.contains("Consider using the `Item` wrapper,"));
+#[test]
+fn enums_without_data() {
+    #[derive(Debug, Deserialize)]
+    pub enum E {
+        A,
+        B,
+    }
+
+    let res = SerdeArrowSchema::from_type::<E>(TracingOptions::default());
+    assert_error(&res, "by setting `enums_without_data_as_strings` to `true`");
 }

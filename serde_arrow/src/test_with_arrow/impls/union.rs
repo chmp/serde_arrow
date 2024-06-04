@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
@@ -363,3 +364,64 @@ test_generic!(
         assert_error(&res, "Serialization failed: an unknown variant");
     }
 );
+
+#[test]
+fn fieldless_unions_as_dictionary() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    let tracing_options = TracingOptions::default().enums_without_data_as_strings(true);
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "Dictionary",
+            "children": [
+                {"name": "key", "data_type": "U32"},
+                {"name": "value", "data_type": "LargeUtf8"},
+            ]
+        }]))
+        .trace_schema_from_type::<Item<U>>(tracing_options.clone())
+        .trace_schema_from_samples(&values, tracing_options.clone())
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn fieldless_unions_as_utf8() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
+fn fieldless_unions_as_large_utf8() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
+    }
+
+    let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .serialize(&values)
+        .deserialize(&values);
+}
