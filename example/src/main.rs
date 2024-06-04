@@ -1,14 +1,9 @@
-use std::{collections::HashMap, convert::TryInto, fs::File, path::Path};
+use std::{collections::HashMap, fs::File};
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use arrow2::{
-    array::Array,
-    chunk::Chunk,
-    datatypes::{Field, Schema},
-    io::ipc::write,
-};
+use arrow::datatypes::FieldRef;
 
 macro_rules! hashmap {
     () => {
@@ -25,6 +20,7 @@ macro_rules! hashmap {
 
 #[derive(Serialize)]
 struct Example {
+    r#type: SampleType,
     int8: i8,
     int32: i32,
     float32: f32,
@@ -32,6 +28,13 @@ struct Example {
     boolean: bool,
     map: HashMap<String, i32>,
     nested: Nested,
+}
+
+#[derive(Serialize)]
+enum SampleType {
+    A,
+    B,
+    C,
 }
 
 #[derive(Serialize)]
@@ -49,6 +52,7 @@ struct Nested2 {
 fn main() -> Result<(), PanicOnError> {
     let examples = vec![
         Example {
+            r#type: SampleType::A,
             float32: 1.0,
             int8: 1,
             int32: 4,
@@ -63,6 +67,7 @@ fn main() -> Result<(), PanicOnError> {
             },
         },
         Example {
+            r#type: SampleType::B,
             float32: 2.0,
             int8: 2,
             int32: 5,
@@ -76,38 +81,38 @@ fn main() -> Result<(), PanicOnError> {
                 },
             },
         },
+        Example {
+            r#type: SampleType::C,
+            float32: 12.0,
+            int8: -5,
+            int32: 50,
+            date64: NaiveDateTime::from_timestamp(5 * 24 * 60 * 60, 0),
+            boolean: true,
+            map: hashmap! { "a" => 3, "b" => 4 },
+            nested: Nested {
+                a: Some(2.0),
+                b: Nested2 {
+                    foo: String::from("world"),
+                },
+            },
+        },
     ];
 
-    use serde_arrow::schema::{SchemaLike, SerdeArrowSchema, TracingOptions};
+    use serde_arrow::schema::{SchemaLike, TracingOptions};
 
-    let fields: Vec<Field> =
-        SerdeArrowSchema::from_samples(&examples, TracingOptions::default().guess_dates(true))?
-            .try_into()?;
-    let arrays = serde_arrow::to_arrow2(&fields, &examples)?;
+    let tracing_options = TracingOptions::default()
+        .guess_dates(true)
+        .enums_without_data_as_strings(true);
 
-    let schema = Schema::from(fields);
-    let chunk = Chunk::new(arrays);
+    let fields = Vec::<FieldRef>::from_samples(&examples, tracing_options)?;
+    let batch = serde_arrow::to_record_batch(&fields, &examples)?;
 
-    write_batches("example.ipc", schema, &[chunk])?;
+    let file = File::create("example.ipc")?;
 
-    Ok(())
-}
-
-fn write_batches<P: AsRef<Path>>(
-    path: P,
-    schema: Schema,
-    chunks: &[Chunk<Box<dyn Array>>],
-) -> Result<(), PanicOnError> {
-    let file = File::create(path)?;
-
-    let options = write::WriteOptions { compression: None };
-    let mut writer = write::FileWriter::new(file, schema, None, options);
-
-    writer.start()?;
-    for chunk in chunks {
-        writer.write(chunk, None)?
-    }
+    let mut writer = arrow::ipc::writer::FileWriter::try_new(file, &batch.schema())?;
+    writer.write(&batch)?;
     writer.finish()?;
+
     Ok(())
 }
 

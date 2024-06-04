@@ -119,8 +119,8 @@
 //!
 //! ## Dictionary encoding for strings
 //!
-//! Strings with repeated values can be encoded as dictionaries. The data type of
-//! the corresponding field must be changed to `Dictionary`.
+//! Strings with repeated values can be encoded as dictionaries. The data type
+//! of the corresponding field must be changed to `Dictionary`.
 //!
 //! For an existing field this can be done via:
 //!
@@ -187,6 +187,65 @@
 //! - `type = 0`: `Null`
 //! - `type = 1`: `Struct { 0: u32, 1: u32 }`
 //! - `type = 2`: `Struct { a: f32, b: f32 }`
+//!
+//! Enums without data can also be serialized to and deserialized from strings,
+//! both dictionary encoded or non-dictionary encoded. To select this encoding,
+//! either set the field data type manually to a string data type or trace the
+//! field with `enums_without_data_as_strings(true)`. E.g.,
+//!
+//! ```rust
+//! # use serde::{Deserialize, Serialize};
+//! # #[cfg(has_arrow)]
+//! # fn main() -> serde_arrow::Result<()> {
+//! # use std::sync::Arc;
+//! # use serde_arrow::_impl::arrow;
+//! # use arrow::datatypes::{DataType, FieldRef};
+//! # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
+//! #
+//! ##[derive(Serialize, Deserialize)]
+//! enum U {
+//!     A,
+//!     B,
+//!     C,
+//! }
+//!
+//! // Option 1: trace the type with enums_without_data_as_strings
+//! let tracing_options = TracingOptions::default().enums_without_data_as_strings(true);
+//! let fields_v1 = Vec::<FieldRef>::from_type::<Item<U>>(tracing_options)?;
+//!
+//! // Option 2: overwrite the field
+//! let tracing_options = TracingOptions::default().allow_null_fields(true);
+//! let mut fields_v2 =  Vec::<FieldRef>::from_type::<Item<U>>(tracing_options)?;
+//! fields_v2[0] = fields_v2[0].as_ref()
+//!     .clone()
+//!     .with_data_type(DataType::Dictionary(
+//!         Box::new(DataType::UInt32),
+//!         Box::new(DataType::LargeUtf8),
+//!     ))
+//!     .into();
+//!
+//! assert_eq!(fields_v1, fields_v2);
+//!
+//! // Option 3: create the schema directly with the relevant type
+//! use serde_json::json;
+//!
+//! let fields_v3 = Vec::<FieldRef>::from_value(&json!([
+//!     {
+//!         "name": "item",
+//!         "data_type": "Dictionary",
+//!         "children": [
+//!             {"name": "key", "data_type": "U32"},
+//!             {"name": "value", "data_type": "LargeUtf8"},
+//!         ],
+//!     },
+//! ]))?;
+//!
+//! assert_eq!(fields_v1, fields_v3);
+//! #
+//! # Ok(())
+//! # }
+//! # #[cfg(not(has_arrow))] fn main() { }
+//! ```
 //!
 //! ## Convert from arrow2 to arrow arrays
 //!

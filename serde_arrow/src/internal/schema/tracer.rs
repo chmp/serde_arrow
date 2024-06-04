@@ -12,6 +12,48 @@ const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
     "too deeply nested type detected. Recursive types are not supported in schema tracing";
 
+fn default_dictionary_field(name: &str, nullable: bool) -> GenericField {
+    GenericField::new(name, GenericDataType::Dictionary, nullable)
+        .with_child(GenericField::new("key", GenericDataType::U32, nullable))
+        .with_child(GenericField::new(
+            "value",
+            GenericDataType::LargeUtf8,
+            false,
+        ))
+}
+
+struct NullFieldMessage<'a>(&'a str);
+
+impl<'a> std::fmt::Display for NullFieldMessage<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            concat!(
+                "Encountered null only field {name}. ",
+                "This error can be disabled by setting `allow_null_fields` to `true` in `TracingOptions`.",
+            ),
+            name = self.0
+        )
+    }
+}
+
+struct EnumWithoutDataMessage<'a>(&'a str);
+
+impl<'a> std::fmt::Display for EnumWithoutDataMessage<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,
+            concat!(
+                "Encountered enums without data {name}. ",
+                "This error can be disabled by setting `enums_without_data_as_strings` to `true` in `TracingOptions`. ",
+                "In this case the enum will be encoded as strings. ",
+                "Alternatively, this error can be disabled by setting `allow_null_fields` to `true` in `TracingOptions`. ",
+                "In this case the enum will encoded as a Union with Null children.",
+            ),
+            name=self.0,
+        )
+    }
+}
+
 macro_rules! defined_tracer {
     ($($variant:ident($impl:ident)),* $(,)? ) => {
         #[derive(Debug, PartialEq, Clone)]
@@ -429,11 +471,7 @@ impl UnknownTracer {
             fail!("Cannot build field {name} from unfinished tracer");
         }
         if !self.options.allow_null_fields {
-            fail!(concat!(
-                "Encountered null only or unknown field. This error can be ",
-                "disabled by setting `allow_null_fields` to `true` in ",
-                "`TracingOptions`",
-            ));
+            fail!("{}", NullFieldMessage(name));
         }
 
         Ok(GenericField::new(
@@ -853,6 +891,13 @@ pub struct UnionVariant {
     pub tracer: Tracer,
 }
 
+impl UnionVariant {
+    fn is_null_variant(&self) -> bool {
+        // Note: unknown tracers are treated as Null tracers
+        matches!(self.tracer.get_type(), None | Some(GenericDataType::Null))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnionTracerState {
     /// Wait for the next variant
@@ -927,6 +972,15 @@ impl UnionTracer {
             fail!("Cannot build field {name} from unfinished tracer");
         }
 
+        if self.is_without_data() {
+            if self.options.enums_without_data_as_strings {
+                return Ok(default_dictionary_field(name, self.nullable));
+            }
+            if !self.options.allow_null_fields {
+                fail!("{}", EnumWithoutDataMessage(name));
+            }
+        }
+
         let mut field = GenericField::new(name, GenericDataType::Union, self.nullable);
         for variant in &self.variants {
             if let Some(variant) = variant {
@@ -940,6 +994,15 @@ impl UnionTracer {
         }
 
         Ok(field)
+    }
+
+    pub fn is_without_data(&self) -> bool {
+        self.variants.iter().all(|v| {
+            let Some(v) = v else {
+                return false;
+            };
+            v.is_null_variant()
+        })
     }
 
     pub fn reset(&mut self) -> Result<()> {
@@ -1028,13 +1091,7 @@ impl PrimitiveTracer {
         }
 
         if !self.options.allow_null_fields && matches!(self.item_type, D::Null) {
-            fail!(
-                concat!(
-                    "Encountered null only field {name}. This error can be disabled by ",
-                    "setting `allow_null_fields` to `true` in `TracingOptions`",
-                ),
-                name = name
-            );
+            fail!("{}", NullFieldMessage(name));
         }
 
         match &self.item_type {
@@ -1043,10 +1100,7 @@ impl PrimitiveTracer {
                 if !self.options.string_dictionary_encoding {
                     Ok(GenericField::new(name, dt.clone(), self.nullable))
                 } else {
-                    let field = GenericField::new(name, D::Dictionary, self.nullable)
-                        .with_child(GenericField::new("key", D::U32, self.nullable))
-                        .with_child(GenericField::new("value", dt.clone(), false));
-                    Ok(field)
+                    Ok(default_dictionary_field(name, self.nullable))
                 }
             }
             dt => Ok(GenericField::new(name, dt.clone(), self.nullable)
