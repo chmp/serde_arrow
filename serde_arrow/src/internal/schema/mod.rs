@@ -2,7 +2,6 @@ mod data_type;
 mod deserialization;
 mod from_samples;
 mod from_type;
-mod from_value;
 mod strategy;
 pub mod tracer;
 mod tracing_options;
@@ -12,7 +11,10 @@ mod test;
 
 use std::collections::HashMap;
 
-use crate::internal::error::{fail, Error, Result};
+use crate::internal::{
+    error::{fail, Error, Result},
+    utils::value,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -293,7 +295,7 @@ impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
     fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
-        from_value::schema_from_value(value)
+        value::transmute(value)
     }
 
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {

@@ -208,17 +208,15 @@ impl Tracer {
                     seen_samples: 0,
                 };
                 *this = Self::Struct(tracer);
-                Ok(())
             }
-            Self::Struct(_tracer) => {
-                // TODO: check fields are equal
-                Ok(())
-            }
+            // TODO: check fields are equal
+            Self::Struct(_tracer) => {}
             _ => fail!(
                 "mismatched types, previous {:?}, current struct",
                 self.get_type()
             ),
         }
+        Ok(())
     }
 
     pub fn ensure_tuple(&mut self, num_fields: usize) -> Result<()> {
@@ -240,17 +238,15 @@ impl Tracer {
                     nullable: this.get_nullable(),
                 };
                 *this = Self::Tuple(tracer);
-                Ok(())
             }
-            Self::Tuple(_tracer) => {
-                // TODO: check fields are equal
-                Ok(())
-            }
+            // TODO: check fields are equal
+            Self::Tuple(_tracer) => {}
             _ => fail!(
                 "mismatched types, previous {:?}, current struct",
                 self.get_type()
             ),
         }
+        Ok(())
     }
 
     pub fn ensure_union(&mut self, variants: &[&str]) -> Result<()> {
@@ -276,17 +272,15 @@ impl Tracer {
                     nullable: this.get_nullable(),
                 };
                 *this = Self::Union(tracer);
-                Ok(())
             }
-            Self::Union(_tracer) => {
-                // TODO: check fields are equal or fill missing fields
-                Ok(())
-            }
+            // TODO: check fields are equal or fill missing fields
+            Self::Union(_tracer) => {}
             _ => fail!(
                 "mismatched types, previous {:?}, current union",
                 self.get_type()
             ),
         }
+        Ok(())
     }
 
     pub fn ensure_list(&mut self) -> Result<()> {
@@ -304,14 +298,14 @@ impl Tracer {
                     )),
                 };
                 *this = Self::List(tracer);
-                Ok(())
             }
-            Self::List(_tracer) => Ok(()),
+            Self::List(_tracer) => {}
             _ => fail!(
                 "mismatched types, previous {:?}, current list",
                 self.get_type()
             ),
         }
+        Ok(())
     }
 
     pub fn ensure_map(&mut self) -> Result<()> {
@@ -333,18 +327,16 @@ impl Tracer {
                     )),
                 };
                 *this = Self::Map(tracer);
-                Ok(())
             }
-            Self::Map(_tracer) => Ok(()),
+            Self::Map(_tracer) => {}
             _ => fail!(
                 "mismatched types, previous {:?}, current list",
                 self.get_type()
             ),
         }
+        Ok(())
     }
-}
 
-impl Tracer {
     pub fn ensure_utf8(
         &mut self,
         item_type: GenericDataType,
@@ -359,7 +351,6 @@ impl Tracer {
             )
             .with_strategy(strategy);
             *self = Self::Primitive(tracer);
-            Ok(())
         } else if let Tracer::Primitive(tracer) = self {
             use {
                 GenericDataType::Date64, GenericDataType::LargeUtf8, Strategy::NaiveStrAsDate64,
@@ -381,64 +372,36 @@ impl Tracer {
             };
             tracer.item_type = item_type;
             tracer.strategy = strategy;
-            Ok(())
         } else {
             let Some(ty) = self.get_type() else {
                 unreachable!("tracer cannot be unknown");
             };
             fail!("mismatched types, previous {ty}, current {item_type}");
         }
+        Ok(())
     }
-}
 
-macro_rules! impl_primitive_ensures {
-    (
-        $(
-            ($func:ident, $variant:ident)
-        ),*
-        $(,)?
-    ) => {
-        impl Tracer {
-            $(
-                pub fn $func(&mut self) -> Result<()> {
-                    match self {
-                        this @ Self::Unknown(_) => {
-                            let tracer = PrimitiveTracer::new(
-                                this.get_path().to_owned(),
-                                this.get_options().clone(),
-                                GenericDataType::$variant,
-                                this.get_nullable(),
-                            );
-                            *this = Self::Primitive(tracer);
-                            Ok(())
-                        }
-                        Self::Primitive(tracer) if tracer.item_type == GenericDataType::$variant => {
-                             Ok(())
-                        }
-                        _ => fail!("mismatched types, previous {:?}, current {:?}", self.get_type(), GenericDataType::$variant),
-                    }
-                }
-            )*
+    pub fn ensure_primitive(&mut self, item_type: GenericDataType) -> Result<()> {
+        match self {
+            this @ Self::Unknown(_) => {
+                let tracer = PrimitiveTracer::new(
+                    this.get_path().to_owned(),
+                    this.get_options().clone(),
+                    item_type,
+                    this.get_nullable(),
+                );
+                *this = Self::Primitive(tracer);
+            }
+            Self::Primitive(tracer) if tracer.item_type == item_type => {}
+            _ => fail!(
+                "mismatched types, previous {:?}, current {:?}",
+                self.get_type(),
+                item_type
+            ),
         }
-    };
-}
+        Ok(())
+    }
 
-impl_primitive_ensures!(
-    (ensure_null, Null),
-    (ensure_bool, Bool),
-    (ensure_i8, I8),
-    (ensure_i16, I16),
-    (ensure_i32, I32),
-    (ensure_i64, I64),
-    (ensure_u8, U8),
-    (ensure_u16, U16),
-    (ensure_u32, U32),
-    (ensure_u64, U64),
-    (ensure_f32, F32),
-    (ensure_f64, F64),
-);
-
-impl Tracer {
     pub fn ensure_number(&mut self, item_type: GenericDataType) -> Result<()> {
         match self {
             this @ Self::Unknown(_) => {
@@ -673,6 +636,51 @@ pub enum StructMode {
 }
 
 impl StructTracer {
+    pub fn get_field_tracer_mut(&mut self, idx: usize) -> Option<&mut Tracer> {
+        Some(&mut self.fields.get_mut(idx)?.tracer)
+    }
+
+    pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
+        if let Some(&field_idx) = self.index.get(key) {
+            let Some(field) = self.fields.get_mut(field_idx) else {
+                fail!("invalid state");
+            };
+            field.last_seen_in_sample = self.seen_samples;
+
+            Ok(field_idx)
+        } else {
+            let mut field = StructField {
+                tracer: Tracer::new(
+                    format!("{path}.{key}", path = self.path),
+                    self.options.clone(),
+                ),
+                name: key.to_owned(),
+                last_seen_in_sample: self.seen_samples,
+            };
+
+            // field was missing in previous samples
+            if self.seen_samples != 0 {
+                field.tracer.mark_nullable();
+            }
+
+            let field_idx = self.fields.len();
+            self.fields.push(field);
+            self.index.insert(key.to_owned(), field_idx);
+            Ok(field_idx)
+        }
+    }
+
+    pub fn end(&mut self) -> Result<()> {
+        for field in &mut self.fields {
+            // field. was not seen in this sample
+            if field.last_seen_in_sample != self.seen_samples {
+                field.tracer.mark_nullable();
+            }
+        }
+        self.seen_samples += 1;
+        Ok(())
+    }
+
     pub fn get_path(&self) -> &str {
         &self.path
     }
