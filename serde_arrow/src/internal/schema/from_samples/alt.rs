@@ -203,7 +203,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         self.0.ensure_f64()
     }
 
-    fn serialize_char(self, v: char) -> Result<Self::Ok> {
+    fn serialize_char(self, _: char) -> Result<Self::Ok> {
         self.0.ensure_u32()
     }
 
@@ -211,11 +211,11 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         self.0.ensure_null()
     }
 
-    fn serialize_str(self, v: &str) -> Result<Self::Ok> {
+    fn serialize_str(self, _: &str) -> Result<Self::Ok> {
         self.0.ensure_utf8()
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
         fail!("cannot trace bytes")
     }
 
@@ -257,7 +257,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         }
     }
 
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq> {
         self.0.ensure_list()?;
         let Tracer::List(tracer) = self.0 else {
             unreachable!();
@@ -283,7 +283,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
+        _: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
         self.0.ensure_tuple(len)?;
