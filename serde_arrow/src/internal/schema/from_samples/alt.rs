@@ -29,7 +29,7 @@ mod impl_outer_sequence_serializer {
     macro_rules! unimplemented_fn {
         ($name:ident $($args:tt)* ) => {
             fn $name $($args)* {
-                fail!("Invalid argument: from_sample expects a sequence of records as its argument");
+                fail!("Cannot trace non-sequences with `from_samples`. Consider wrapping the argument in an array.");
             }
         };
     }
