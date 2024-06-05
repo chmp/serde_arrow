@@ -10,7 +10,7 @@ use serde::{
 use crate::internal::error::{fail, Error, Result};
 
 use super::{
-    tracer::{StructField, Tracer},
+    tracer::{StructField, StructMode, Tracer},
     TracingMode, TracingOptions,
 };
 
@@ -215,7 +215,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.0.ensure_struct(fields)?;
+        self.0.ensure_struct(fields, StructMode::Struct)?;
         let Tracer::Struct(tracer) = self.0 else {
             unreachable!()
         };

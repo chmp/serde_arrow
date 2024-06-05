@@ -173,7 +173,11 @@ impl Tracer {
         Ok(())
     }
 
-    pub fn ensure_struct<S: std::fmt::Display>(&mut self, fields: &[S]) -> Result<()> {
+    pub fn ensure_struct<S: std::fmt::Display>(
+        &mut self,
+        fields: &[S],
+        mode: StructMode,
+    ) -> Result<()> {
         self.enforce_depth_limit()?;
 
         match self {
@@ -204,7 +208,7 @@ impl Tracer {
                         .collect(),
                     index,
                     nullable: this.get_nullable(),
-                    mode: StructMode::Struct,
+                    mode,
                     seen_samples: 0,
                 };
                 *this = Self::Struct(tracer);
