@@ -1,4 +1,6 @@
 //! Support for `from_samples`
+mod alt;
+
 #[cfg(test)]
 mod test_error_messages;
 
@@ -307,6 +309,53 @@ impl StructTracer {
     }
 }
 
+impl StructTracer {
+    pub fn get_field_tracer_mut(&mut self, idx: usize) -> Option<&mut Tracer> {
+        Some(&mut self.fields.get_mut(idx)?.tracer)
+    }
+
+    pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
+        if let Some(&field_idx) = self.index.get(key) {
+            let Some(field) = self.fields.get_mut(field_idx) else {
+                fail!("invalid state");
+            };
+            field.last_seen_in_sample = self.seen_samples;
+
+            Ok(field_idx)
+        } else {
+            let mut field = StructField {
+                tracer: Tracer::new(
+                    format!("{path}.{key}", path = self.path),
+                    self.options.clone(),
+                ),
+                name: key.to_owned(),
+                last_seen_in_sample: self.seen_samples,
+            };
+
+            // field was missing in previous samples
+            if self.seen_samples != 0 {
+                field.tracer.mark_nullable();
+            }
+
+            let field_idx = self.fields.len();
+            self.fields.push(field);
+            self.index.insert(key.to_owned(), field_idx);
+            Ok(field_idx)
+        }
+    }
+
+    pub fn end(&mut self) -> Result<()> {
+        for field in &mut self.fields {
+            // field. was not seen in this sample
+            if field.last_seen_in_sample != self.seen_samples {
+                field.tracer.mark_nullable();
+            }
+        }
+        self.seen_samples += 1;
+        Ok(())
+    }
+}
+
 impl EventSink for StructTracer {
     macros::forward_specialized_to_generic!();
 
@@ -323,42 +372,11 @@ impl EventSink for StructTracer {
             (WaitForKey, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
             (InKey, E::Item) => InKey,
             (InKey, E::Str(key)) => {
-                if let Some(&field_idx) = self.index.get(key) {
-                    let Some(field) = self.fields.get_mut(field_idx) else {
-                        fail!("invalid state");
-                    };
-                    field.last_seen_in_sample = self.seen_samples;
-
-                    InValue(field_idx, 0)
-                } else {
-                    let mut field = StructField {
-                        tracer: Tracer::new(
-                            format!("{path}.{key}", path = self.path),
-                            self.options.clone(),
-                        ),
-                        name: key.to_owned(),
-                        last_seen_in_sample: self.seen_samples,
-                    };
-
-                    // field was missing in previous samples
-                    if self.seen_samples != 0 {
-                        field.tracer.mark_nullable();
-                    }
-
-                    let field_idx = self.fields.len();
-                    self.fields.push(field);
-                    self.index.insert(key.to_owned(), field_idx);
-                    InValue(field_idx, 0)
-                }
+                let field_idx = self.ensure_field(key)?;
+                InValue(field_idx, 0)
             }
             (InKey, E::EndStruct | E::EndMap) => {
-                for field in &mut self.fields {
-                    // field. was not seen in this sample
-                    if field.last_seen_in_sample != self.seen_samples {
-                        field.tracer.mark_nullable();
-                    }
-                }
-                self.seen_samples += 1;
+                self.end()?;
 
                 WaitForKey
             }
