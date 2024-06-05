@@ -131,7 +131,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
     type SerializeSeq = ListSerializer<'a>;
     type SerializeStructVariant = Impossible<(), Error>;
     type SerializeTuple = TupleSerializer<'a>;
-    type SerializeTupleStruct = Impossible<(), Error>;
+    type SerializeTupleStruct = TupleSerializer<'a>;
     type SerializeTupleVariant = Impossible<(), Error>;
 
     fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
@@ -204,6 +204,18 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         value.serialize(self)
     }
 
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
+        self.serialize_unit()
+    }
+
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(
+        self,
+        _: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
+        value.serialize(self)
+    }
+
     fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         if self.0.get_options().map_as_struct {
             self.0.ensure_struct::<&str>(&[], StructMode::Map)?;
@@ -218,24 +230,6 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
             };
             Ok(MapSerializer::AsMap(tracer))
         }
-    }
-
-    fn serialize_newtype_struct<T: Serialize + ?Sized>(
-        self,
-        _: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok> {
-        value.serialize(self)
-    }
-
-    fn serialize_newtype_variant<T: Serialize + ?Sized>(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok> {
-        fail!("serialize_newtype_variant is not implemented")
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -254,16 +248,6 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         Ok(StructSerializer(tracer))
     }
 
-    fn serialize_struct_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        fail!("serialize_struct_variant is not implemented")
-    }
-
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.0.ensure_tuple(len)?;
         let Tracer::Tuple(tracer) = self.0 else {
@@ -277,7 +261,21 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        fail!("serialize_tuple_struct is not implemented")
+        self.0.ensure_tuple(len)?;
+        let Tracer::Tuple(tracer) = self.0 else {
+            unreachable!();
+        };
+        Ok(TupleSerializer::new(tracer))
+    }
+
+    fn serialize_struct_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        fail!("serialize_struct_variant is not implemented")
     }
 
     fn serialize_tuple_variant(
@@ -290,8 +288,14 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         fail!("serialize_tuple_variant is not implemented")
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
-        fail!("serialize_unit_struct is not implemented")
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
+        fail!("serialize_newtype_variant is not implemented")
     }
 
     fn serialize_unit_variant(
@@ -355,6 +359,22 @@ impl<'a> serde::ser::SerializeTuple for TupleSerializer<'a> {
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        let pos = self.1;
+        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+        self.1 += 1;
+        Ok(())
+    }
+
+    fn end(self) -> std::prelude::v1::Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleStruct for TupleSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         let pos = self.1;
         value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
         self.1 += 1;
