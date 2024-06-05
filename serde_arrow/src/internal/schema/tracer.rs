@@ -5,10 +5,7 @@ use crate::internal::{
     schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
 };
 
-use super::{
-    strategy,
-    tracing_options::{TracingMode, TracingOptions},
-};
+use super::tracing_options::{TracingMode, TracingOptions};
 
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
@@ -136,10 +133,6 @@ impl Tracer {
 
     pub fn get_type(&self) -> Option<&GenericDataType> {
         dispatch_tracer!(self, tracer => tracer.get_type())
-    }
-
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        dispatch_tracer!(self, tracer => tracer.get_strategy())
     }
 
     pub fn get_nullable(&self) -> bool {
@@ -445,6 +438,50 @@ impl_primitive_ensures!(
     (ensure_f64, F64),
 );
 
+impl Tracer {
+    pub fn ensure_number(&mut self, item_type: GenericDataType) -> Result<()> {
+        match self {
+            this @ Self::Unknown(_) => {
+                let tracer = PrimitiveTracer::new(
+                    this.get_path().to_owned(),
+                    this.get_options().clone(),
+                    item_type,
+                    this.get_nullable(),
+                );
+                *this = Self::Primitive(tracer);
+            }
+            Self::Primitive(tracer) if tracer.options.coerce_numbers => {
+                use GenericDataType::{F32, F64, I16, I32, I64, I8, U16, U32, U64, U8};
+                let item_type = match (&tracer.item_type, item_type) {
+                    // unsigned x unsigned -> u64
+                    (U8 | U16 | U32 | U64, U8 | U16 | U32 | U64) => U64,
+                    // signed x signed -> i64
+                    (I8 | I16 | I32 | I64, I8 | I16 | I32 | I64) => I64,
+                    // signed x unsigned -> i64
+                    (I8 | I16 | I32 | I64, U8 | U16 | U32 | U64) => I64,
+                    // unsigned x signed -> i64
+                    (U8 | U16 | U32 | U64, I8 | I16 | I32 | I64) => I64,
+                    // float x float -> f64
+                    (F32 | F64, F32 | F64) => F64,
+                    // int x float -> f64
+                    (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, F32 | F64) => F64,
+                    // float x int -> f64
+                    (F32 | F64, I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64) => F64,
+                    (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
+                };
+                tracer.item_type = item_type;
+            }
+            Self::Primitive(tracer) if tracer.item_type == item_type => {}
+            _ => fail!(
+                "mismatched types, previous {:?}, current {:?}",
+                self.get_type(),
+                item_type
+            ),
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnknownTracer {
     pub path: String,
@@ -476,10 +513,6 @@ impl UnknownTracer {
         Ok(())
     }
 
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        None
-    }
-
     pub fn get_path(&self) -> &str {
         &self.path
     }
@@ -503,10 +536,6 @@ pub struct MapTracer {
 }
 
 impl MapTracer {
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        None
-    }
-
     pub fn get_path(&self) -> &str {
         &self.path
     }
@@ -546,10 +575,6 @@ pub struct ListTracer {
 }
 
 impl ListTracer {
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        None
-    }
-
     pub fn get_path(&self) -> &str {
         &self.path
     }
@@ -604,10 +629,6 @@ impl TupleTracer {
         Some(&GenericDataType::Struct)
     }
 
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        Some(&Strategy::TupleAsStruct)
-    }
-
     pub fn finish(&mut self) -> Result<()> {
         for tracer in &mut self.field_tracers {
             tracer.finish()?;
@@ -654,13 +675,6 @@ pub enum StructMode {
 impl StructTracer {
     pub fn get_path(&self) -> &str {
         &self.path
-    }
-
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        match self.mode {
-            StructMode::Struct => None,
-            StructMode::Map => Some(&Strategy::MapAsStruct),
-        }
     }
 
     pub fn is_complete(&self) -> bool {
@@ -758,10 +772,6 @@ impl UnionTracer {
 
     pub fn get_type(&self) -> Option<&GenericDataType> {
         Some(&GenericDataType::Union)
-    }
-
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        None
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
@@ -880,9 +890,5 @@ impl PrimitiveTracer {
 
     pub fn get_type(&self) -> Option<&GenericDataType> {
         Some(&self.item_type)
-    }
-
-    pub fn get_strategy(&self) -> Option<&Strategy> {
-        self.strategy.as_ref()
     }
 }

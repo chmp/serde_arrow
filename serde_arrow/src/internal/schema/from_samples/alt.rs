@@ -9,7 +9,7 @@ use crate::internal::{
         tracer::{
             ListTracer, MapTracer, StructMode, StructTracer, Tracer, TupleTracer, UnionVariant,
         },
-        TracingMode, TracingOptions,
+        GenericDataType, TracingMode, TracingOptions,
     },
 };
 
@@ -166,43 +166,43 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
     }
 
     fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        self.0.ensure_i8()
+        self.0.ensure_number(GenericDataType::I8)
     }
 
     fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        self.0.ensure_i16()
+        self.0.ensure_number(GenericDataType::I16)
     }
 
     fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        self.0.ensure_i32()
+        self.0.ensure_number(GenericDataType::I32)
     }
 
     fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        self.0.ensure_i64()
+        self.0.ensure_number(GenericDataType::I64)
     }
 
     fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        self.0.ensure_u8()
+        self.0.ensure_number(GenericDataType::U8)
     }
 
     fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        self.0.ensure_u16()
+        self.0.ensure_number(GenericDataType::U16)
     }
 
     fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        self.0.ensure_u32()
+        self.0.ensure_number(GenericDataType::U32)
     }
 
     fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        self.0.ensure_u64()
+        self.0.ensure_number(GenericDataType::U64)
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        self.0.ensure_f32()
+        self.0.ensure_number(GenericDataType::F32)
     }
 
     fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        self.0.ensure_f64()
+        self.0.ensure_number(GenericDataType::F64)
     }
 
     fn serialize_char(self, _: char) -> Result<Self::Ok> {

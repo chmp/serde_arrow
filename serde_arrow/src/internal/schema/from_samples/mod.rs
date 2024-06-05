@@ -11,7 +11,7 @@ use crate::internal::{
     schema::{GenericDataType, Strategy},
 };
 
-use super::tracer::{PrimitiveTracer, StructField, StructTracer, Tracer};
+use super::tracer::{StructField, StructTracer, Tracer};
 use super::tracing_options::TracingOptions;
 
 impl Tracer {
