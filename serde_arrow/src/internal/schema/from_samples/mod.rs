@@ -69,15 +69,17 @@ impl StructTracer {
         Ok(())
     }
 }
-impl PrimitiveTracer {
-    fn get_string_type_and_strategy(&self, s: &str) -> (GenericDataType, Option<Strategy>) {
-        if self.options.guess_dates && matches_naive_datetime(s) {
-            (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
-        } else if self.options.guess_dates && matches_utc_datetime(s) {
-            (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
-        } else {
-            (GenericDataType::LargeUtf8, None)
-        }
+
+pub fn get_string_type_and_strategy(
+    s: &str,
+    options: &TracingOptions,
+) -> (GenericDataType, Option<Strategy>) {
+    if options.guess_dates && matches_naive_datetime(s) {
+        (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
+    } else if options.guess_dates && matches_utc_datetime(s) {
+        (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
+    } else {
+        (GenericDataType::LargeUtf8, None)
     }
 }
 

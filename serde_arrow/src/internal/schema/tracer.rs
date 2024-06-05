@@ -5,7 +5,10 @@ use crate::internal::{
     schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
 };
 
-use super::tracing_options::{TracingMode, TracingOptions};
+use super::{
+    strategy,
+    tracing_options::{TracingMode, TracingOptions},
+};
 
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
@@ -349,44 +352,49 @@ impl Tracer {
 }
 
 impl Tracer {
-    pub fn ensure_utf8(&mut self) -> Result<()> {
+    pub fn ensure_utf8(
+        &mut self,
+        item_type: GenericDataType,
+        strategy: Option<Strategy>,
+    ) -> Result<()> {
         if self.is_unknown() {
             let tracer = PrimitiveTracer::new(
                 self.get_path().to_owned(),
                 self.get_options().clone(),
-                GenericDataType::LargeUtf8,
-                self.get_nullable(),
-            );
-            *self = Self::Primitive(tracer);
-        }
-        self.ensure_utf8_type_compatible()
-    }
-
-    pub fn ensure_utf8_type_compatible(&self) -> Result<()> {
-        let Some(item_type) = self.get_type() else {
-            fail!("unknown tracer is not compatible with LargeUtf8");
-        };
-
-        let strategy = self.get_strategy();
-
-        let compatible = matches!(
-            (item_type, strategy),
-            (GenericDataType::LargeUtf8, None)
-                | (GenericDataType::Utf8, None)
-                | (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
-                | (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
-        );
-
-        if !compatible {
-            fail!(
-                "mismatched types, previous {:?} with strategy {:?}, current {:?}",
                 item_type,
-                strategy,
-                GenericDataType::LargeUtf8
-            );
+                self.get_nullable(),
+            )
+            .with_strategy(strategy);
+            *self = Self::Primitive(tracer);
+            Ok(())
+        } else if let Tracer::Primitive(tracer) = self {
+            use {
+                GenericDataType::Date64, GenericDataType::LargeUtf8, Strategy::NaiveStrAsDate64,
+                Strategy::UtcStrAsDate64,
+            };
+            let (item_type, strategy) = match ((&tracer.item_type), (item_type)) {
+                (Date64, Date64) => match (&tracer.strategy, strategy) {
+                    (Some(NaiveStrAsDate64), Some(NaiveStrAsDate64)) => {
+                        (Date64, Some(NaiveStrAsDate64))
+                    }
+                    (Some(UtcStrAsDate64), Some(UtcStrAsDate64)) => (Date64, Some(UtcStrAsDate64)),
+                    // incompatible strategies, coerce to string
+                    (_, _) => (LargeUtf8, None),
+                },
+                (LargeUtf8, _) | (_, LargeUtf8) => (LargeUtf8, None),
+                (prev_ty, new_ty) => {
+                    fail!("mismatched types, previous {prev_ty}, current {new_ty}")
+                }
+            };
+            tracer.item_type = item_type;
+            tracer.strategy = strategy;
+            Ok(())
+        } else {
+            let Some(ty) = self.get_type() else {
+                unreachable!("tracer cannot be unknown");
+            };
+            fail!("mismatched types, previous {ty}, current {item_type}");
         }
-
-        Ok(())
     }
 }
 
@@ -828,6 +836,11 @@ impl PrimitiveTracer {
             strategy: None,
             seen_samples: 0,
         }
+    }
+
+    pub fn with_strategy(mut self, strategy: Option<Strategy>) -> Self {
+        self.strategy = strategy;
+        self
     }
 
     pub fn finish(&mut self) -> Result<()> {

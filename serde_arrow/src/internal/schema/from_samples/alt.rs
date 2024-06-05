@@ -13,6 +13,8 @@ use crate::internal::{
     },
 };
 
+use super::get_string_type_and_strategy;
+
 pub fn to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions) -> Result<Tracer> {
     let options = options.tracing_mode(TracingMode::FromSamples);
     let mut tracer = Tracer::new("$".into(), options);
@@ -211,8 +213,9 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         self.0.ensure_null()
     }
 
-    fn serialize_str(self, _: &str) -> Result<Self::Ok> {
-        self.0.ensure_utf8()
+    fn serialize_str(self, s: &str) -> Result<Self::Ok> {
+        let (ty, strategy) = get_string_type_and_strategy(s, self.0.get_options());
+        self.0.ensure_utf8(ty, strategy)
     }
 
     fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {

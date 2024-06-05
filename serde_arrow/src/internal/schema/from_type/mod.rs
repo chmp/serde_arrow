@@ -11,7 +11,7 @@ use crate::internal::error::{fail, Error, Result};
 
 use super::{
     tracer::{StructField, StructMode, Tracer},
-    TracingMode, TracingOptions,
+    GenericDataType, TracingMode, TracingOptions,
 };
 
 impl Tracer {
@@ -115,12 +115,12 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8()?;
+        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
         visitor.visit_borrowed_str("")
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8()?;
+        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
         visitor.visit_string(Default::default())
     }
 
