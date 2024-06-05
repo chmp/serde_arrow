@@ -222,10 +222,10 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
     fn serialize_newtype_struct<T: Serialize + ?Sized>(
         self,
-        name: &'static str,
+        _: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        fail!("serialize_newtype_struct is not implemented")
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
