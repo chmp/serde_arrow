@@ -30,11 +30,7 @@ pub fn schema_from_samples<T: Serialize + ?Sized>(
     samples: &T,
     options: TracingOptions,
 ) -> Result<SerdeArrowSchema> {
-    let options = options.tracing_mode(TracingMode::FromSamples);
-
-    let mut tracer = Tracer::new(String::from("$"), options);
-    tracer.trace_samples(samples)?;
-    tracer.to_schema()
+    alt::to_tracer(samples, options.tracing_mode(TracingMode::FromSamples))?.to_schema()
 }
 
 impl Tracer {
