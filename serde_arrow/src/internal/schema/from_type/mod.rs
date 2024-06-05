@@ -172,12 +172,12 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         let Tracer::List(tracer) = self.0 else {
             unreachable!()
         };
+
         visitor.visit_seq(TraceSeq(&mut tracer.item_tracer, true))
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
         self.0.ensure_tuple(len)?;
-
         let Tracer::Tuple(tracer) = self.0 else {
             unreachable!();
         };
@@ -242,9 +242,8 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         visitor: V,
     ) -> Result<V::Value> {
         self.0.ensure_union(variants)?;
-
         let Tracer::Union(tracer) = self.0 else {
-            fail!("invalid state")
+            unreachable!();
         };
 
         let idx = tracer
