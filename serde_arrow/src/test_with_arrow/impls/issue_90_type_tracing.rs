@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::internal::{
     schema::{tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions},
     testing::assert_error,
-    utils::{Item, Items},
+    utils::Item,
 };
 
 fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
-    let mut tracer = Tracer::new(String::from("$"), options);
-    tracer.trace_type::<Item<T>>().unwrap();
-
+    let tracer = Tracer::from_type::<Item<T>>(options).unwrap();
     let schema = tracer.to_schema().unwrap();
     schema.fields.into_iter().next().unwrap()
 }
@@ -171,143 +169,6 @@ fn trace_map() {
     assert_eq!(actual, expected);
 }
 
-mod mixed_tracing_dates {
-    use super::*;
-
-    #[derive(Serialize, Deserialize)]
-    struct Example {
-        opt: Option<u32>,
-        date: String,
-    }
-
-    fn expected() -> Vec<F> {
-        vec![
-            F::new("opt", T::U32, true),
-            F::new("date", T::Date64, false).with_strategy(Strategy::UtcStrAsDate64),
-        ]
-    }
-
-    fn samples() -> Vec<Example> {
-        vec![Example {
-            opt: None,
-            date: String::from("2015-09-18T23:56:04Z"),
-        }]
-    }
-
-    #[test]
-    fn type_then_samples() {
-        let mut tracer = Tracer::new(
-            String::from("$"),
-            TracingOptions::default().guess_dates(true),
-        );
-
-        tracer.trace_type::<Example>().unwrap();
-        tracer.trace_samples(&samples()).unwrap();
-
-        let actual = tracer.to_schema().unwrap().fields;
-        assert_eq!(actual, expected());
-    }
-
-    #[test]
-    fn samples_then_type() {
-        let mut tracer = Tracer::new(
-            String::from("$"),
-            TracingOptions::default().guess_dates(true),
-        );
-
-        tracer.trace_samples(&samples()).unwrap();
-        tracer.trace_type::<Example>().unwrap();
-
-        let actual = tracer.to_schema().unwrap().fields;
-        assert_eq!(actual, expected());
-    }
-
-    #[test]
-    fn invalid_values_first() {
-        let mut tracer = Tracer::new(
-            String::from("$"),
-            TracingOptions::default().guess_dates(true),
-        );
-
-        tracer.trace_samples(&Items(["foo bar"])).unwrap();
-        tracer.trace_type::<Item<String>>().unwrap();
-        tracer
-            .trace_samples(&Items(["2015-09-18T23:56:04Z"]))
-            .unwrap();
-
-        let actual = tracer
-            .to_schema()
-            .unwrap()
-            .fields
-            .into_iter()
-            .next()
-            .unwrap();
-        let expected = F::new("item", T::LargeUtf8, false);
-
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn invalid_values_last() {
-        let mut tracer = Tracer::new(
-            String::from("$"),
-            TracingOptions::default().guess_dates(true),
-        );
-
-        tracer
-            .trace_samples(&Items(["2015-09-18T23:56:04Z"]))
-            .unwrap();
-        tracer.trace_type::<Item<String>>().unwrap();
-        tracer.trace_samples(&Items(["foo bar"])).unwrap();
-
-        let actual = tracer
-            .to_schema()
-            .unwrap()
-            .fields
-            .into_iter()
-            .next()
-            .unwrap();
-        let expected = F::new("item", T::LargeUtf8, false);
-
-        assert_eq!(actual, expected);
-    }
-}
-
-mod mixed_tracing_unions {
-    use crate::internal::{
-        schema::tracer::Tracer,
-        utils::{Item, Items},
-    };
-
-    use super::*;
-
-    #[test]
-    fn example() {
-        #[derive(Serialize, Deserialize)]
-        enum E {
-            A,
-            B,
-            C(u32),
-        }
-
-        let mut tracer = Tracer::new(
-            String::from("$"),
-            TracingOptions::default().allow_null_fields(true),
-        );
-        tracer.trace_type::<Item<E>>().unwrap();
-        tracer.trace_samples(&Items(&[E::A, E::C(32)])).unwrap();
-        let schema = tracer.to_schema().unwrap();
-
-        let actual = schema.fields.into_iter().next().unwrap();
-        let expected = F::new("item", T::Union, false)
-            .with_child(F::new("A", T::Null, true))
-            .with_child(F::new("B", T::Null, true))
-            .with_child(F::new("C", T::U32, false));
-
-        assert_eq!(actual, expected);
-    }
-}
-
 #[test]
 fn unsupported_recursive_types() {
     #[allow(unused)]
@@ -317,7 +178,6 @@ fn unsupported_recursive_types() {
         right: Option<Box<Tree>>,
     }
 
-    let mut tracer = Tracer::new(String::from("$"), TracingOptions::default());
-    let res = tracer.trace_type::<Tree>();
+    let res = Tracer::from_type::<Tree>(TracingOptions::default());
     assert_error(&res, "too deeply nested type detected");
 }

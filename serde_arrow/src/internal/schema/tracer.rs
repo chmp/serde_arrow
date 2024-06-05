@@ -155,10 +155,6 @@ impl Tracer {
         dispatch_tracer!(self, tracer => tracer.finish())
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        dispatch_tracer!(self, tracer => tracer.reset())
-    }
-
     pub fn get_depth(&self) -> usize {
         self.get_path().chars().filter(|c| *c == '.').count()
     }
@@ -209,7 +205,6 @@ impl Tracer {
                     index,
                     nullable: this.get_nullable(),
                     mode: StructMode::Struct,
-                    state: StructTracerState::WaitForKey,
                     seen_samples: 0,
                 };
                 *this = Self::Struct(tracer);
@@ -243,7 +238,6 @@ impl Tracer {
                         })
                         .collect(),
                     nullable: this.get_nullable(),
-                    state: TupleTracerState::WaitForStart,
                 };
                 *this = Self::Tuple(tracer);
                 Ok(())
@@ -267,7 +261,6 @@ impl Tracer {
                 let tracer = UnionTracer {
                     path: this.get_path().to_owned(),
                     options: this.get_options().clone(),
-                    state: UnionTracerState::WaitForVariant,
                     variants: variants
                         .iter()
                         .map(|variant| {
@@ -309,7 +302,6 @@ impl Tracer {
                         format!("{}.item", this.get_path()),
                         this.get_options().clone(),
                     )),
-                    state: ListTracerState::WaitForStart,
                 };
                 *this = Self::List(tracer);
                 Ok(())
@@ -339,7 +331,6 @@ impl Tracer {
                         format!("{}.value", this.get_path()),
                         this.get_options().clone(),
                     )),
-                    state: MapTracerState::WaitForKey,
                 };
                 *this = Self::Map(tracer);
                 Ok(())
@@ -447,13 +438,6 @@ pub struct UnknownTracer {
     pub path: String,
     pub options: TracingOptions,
     pub nullable: bool,
-    pub state: UnknownTracerState,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum UnknownTracerState {
-    Unfinished,
-    Finished,
 }
 
 impl UnknownTracer {
@@ -462,18 +446,13 @@ impl UnknownTracer {
             path,
             options,
             nullable: false,
-            state: UnknownTracerState::Unfinished,
         }
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, UnknownTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
         if !self.options.allow_null_fields {
             fail!("{}", NullFieldMessage(name));
         }
-
         Ok(GenericField::new(
             name,
             GenericDataType::Null,
@@ -481,16 +460,7 @@ impl UnknownTracer {
         ))
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        self.state = UnknownTracerState::Unfinished;
-        Ok(())
-    }
-
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, UnknownTracerState::Unfinished) {
-            fail!("Cannot finish an already finished tracer");
-        }
-        self.state = UnknownTracerState::Finished;
         Ok(())
     }
 
@@ -518,31 +488,9 @@ pub struct MapTracer {
     pub nullable: bool,
     pub key_tracer: Box<Tracer>,
     pub value_tracer: Box<Tracer>,
-    pub state: MapTracerState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MapTracerState {
-    WaitForKey,
-    /// Process the current key at `(depth)`
-    InKey(usize),
-    /// Process the current value at `(depth)`
-    InValue(usize),
-    Finished,
 }
 
 impl MapTracer {
-    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
-        Self {
-            nullable,
-            options: options.clone(),
-            key_tracer: Box::new(Tracer::new(format!("{path}.$key"), options.clone())),
-            value_tracer: Box::new(Tracer::new(format!("{path}.$value"), options)),
-            state: MapTracerState::WaitForKey,
-            path,
-        }
-    }
-
     pub fn get_strategy(&self) -> Option<&Strategy> {
         None
     }
@@ -560,10 +508,6 @@ impl MapTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, MapTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
         let mut entries = GenericField::new("entries", GenericDataType::Struct, false);
         entries.children.push(self.key_tracer.to_field("key")?);
         entries.children.push(self.value_tracer.to_field("value")?);
@@ -574,29 +518,9 @@ impl MapTracer {
         Ok(field)
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        match self.state {
-            MapTracerState::WaitForKey | MapTracerState::Finished => {
-                self.key_tracer.reset()?;
-                self.value_tracer.reset()?;
-                self.state = MapTracerState::WaitForKey;
-                Ok(())
-            }
-            state => fail!("Cannot reset map tracer in state {state:?}"),
-        }
-    }
-
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, MapTracerState::WaitForKey) {
-            fail!(
-                "Cannot finish map tracer in state {state:?}",
-                state = self.state
-            );
-        }
-
         self.key_tracer.finish()?;
         self.value_tracer.finish()?;
-        self.state = MapTracerState::Finished;
         Ok(())
     }
 }
@@ -607,28 +531,9 @@ pub struct ListTracer {
     pub options: TracingOptions,
     pub nullable: bool,
     pub item_tracer: Box<Tracer>,
-    pub state: ListTracerState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ListTracerState {
-    WaitForStart,
-    WaitForItem,
-    InItem(usize),
-    Finished,
 }
 
 impl ListTracer {
-    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
-        Self {
-            path: path.clone(),
-            options: options.clone(),
-            item_tracer: Box::new(Tracer::new(path, options)),
-            nullable,
-            state: ListTracerState::WaitForStart,
-        }
-    }
-
     pub fn get_strategy(&self) -> Option<&Strategy> {
         None
     }
@@ -646,34 +551,14 @@ impl ListTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, ListTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
         let mut field = GenericField::new(name, GenericDataType::LargeList, self.nullable);
         field.children.push(self.item_tracer.to_field("element")?);
 
         Ok(field)
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        match self.state {
-            ListTracerState::WaitForStart | ListTracerState::Finished => {
-                self.item_tracer.reset()?;
-                self.state = ListTracerState::Finished;
-                Ok(())
-            }
-            state => fail!("cannot reset list tracer in {state:?}"),
-        }
-    }
-
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, ListTracerState::WaitForStart) {
-            fail!("Incomplete list in schema tracing");
-        }
-        self.item_tracer.finish()?;
-        self.state = ListTracerState::Finished;
-        Ok(())
+        self.item_tracer.finish()
     }
 }
 
@@ -683,30 +568,9 @@ pub struct TupleTracer {
     pub options: TracingOptions,
     pub nullable: bool,
     pub field_tracers: Vec<Tracer>,
-    pub state: TupleTracerState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TupleTracerState {
-    WaitForStart,
-    /// Wait for the item with `(field_index)`
-    WaitForItem(usize),
-    /// Process the item at `(field_index, depth)`
-    InItem(usize, usize),
-    Finished,
 }
 
 impl TupleTracer {
-    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
-        Self {
-            path,
-            options,
-            field_tracers: Vec::new(),
-            nullable,
-            state: TupleTracerState::WaitForStart,
-        }
-    }
-
     pub fn get_path(&self) -> &str {
         &self.path
     }
@@ -716,16 +580,11 @@ impl TupleTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, TupleTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
         let mut field = GenericField::new(name, GenericDataType::Struct, self.nullable);
         for (idx, tracer) in self.field_tracers.iter().enumerate() {
             field.children.push(tracer.to_field(&idx.to_string())?);
         }
         field.strategy = Some(Strategy::TupleAsStruct);
-
         Ok(field)
     }
 
@@ -737,27 +596,10 @@ impl TupleTracer {
         Some(&Strategy::TupleAsStruct)
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        match self.state {
-            TupleTracerState::WaitForStart | TupleTracerState::Finished => {
-                for tracer in &mut self.field_tracers {
-                    tracer.reset()?;
-                }
-                self.state = TupleTracerState::WaitForStart;
-                Ok(())
-            }
-            state => fail!("Cannot reset tuple tracer in state {state:?}"),
-        }
-    }
-
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, TupleTracerState::WaitForStart) {
-            fail!("Incomplete tuple in schema tracing");
-        }
         for tracer in &mut self.field_tracers {
             tracer.finish()?;
         }
-        self.state = TupleTracerState::Finished;
         Ok(())
     }
 
@@ -780,7 +622,6 @@ pub struct StructTracer {
     pub fields: Vec<StructField>,
     pub index: HashMap<String, usize>,
     pub mode: StructMode,
-    pub state: StructTracerState,
     /// Count how many samples were seen by this tracer
     pub seen_samples: usize,
 }
@@ -796,18 +637,6 @@ pub struct StructField {
 pub enum StructMode {
     Struct,
     Map,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum StructTracerState {
-    /// The tracer is waiting for the next key
-    WaitForKey,
-    /// The tracer is currently processing the next key
-    InKey,
-    /// The tracer is currently tracing a value for `(field, depth)`
-    InValue(usize, usize),
-    /// The tracer is finished
-    Finished,
 }
 
 impl StructTracer {
@@ -827,9 +656,6 @@ impl StructTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, StructTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
         let mut res_field = GenericField::new(name, GenericDataType::Struct, self.nullable);
         for field in &self.fields {
             res_field.children.push(field.tracer.to_field(&field.name)?);
@@ -846,31 +672,10 @@ impl StructTracer {
         Some(&GenericDataType::Struct)
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        match self.state {
-            StructTracerState::WaitForKey | StructTracerState::Finished => {
-                for field in &mut self.fields {
-                    field.tracer.reset()?;
-                }
-
-                self.state = StructTracerState::WaitForKey;
-                Ok(())
-            }
-            state => fail!("Cannot unfinished tracer in state {state:?}"),
-        }
-    }
-
     pub fn finish(&mut self) -> Result<()> {
-        if !matches!(self.state, StructTracerState::WaitForKey) {
-            fail!("Incomplete struct in schema tracing");
-        }
-
         for field in &mut self.fields {
             field.tracer.finish()?;
         }
-
-        self.state = StructTracerState::Finished;
-
         Ok(())
     }
 }
@@ -882,7 +687,6 @@ pub struct UnionTracer {
     pub options: TracingOptions,
     pub nullable: bool,
     pub variants: Vec<Option<UnionVariant>>,
-    pub state: UnionTracerState,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -898,26 +702,7 @@ impl UnionVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum UnionTracerState {
-    /// Wait for the next variant
-    WaitForVariant,
-    /// Process the current variant at `(variant_index, depth)`
-    InVariant(usize, usize),
-    Finished,
-}
-
 impl UnionTracer {
-    pub fn new(path: String, options: TracingOptions, nullable: bool) -> Self {
-        Self {
-            path,
-            options,
-            variants: Vec::new(),
-            nullable,
-            state: UnionTracerState::WaitForVariant,
-        }
-    }
-
     pub fn ensure_variant<S: Into<String> + AsRef<str>>(
         &mut self,
         variant: S,
@@ -968,10 +753,6 @@ impl UnionTracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        if !matches!(self.state, UnionTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
-
         if self.is_without_data() {
             if self.options.enums_without_data_as_strings {
                 return Ok(default_dictionary_field(name, self.nullable));
@@ -1005,22 +786,6 @@ impl UnionTracer {
         })
     }
 
-    pub fn reset(&mut self) -> Result<()> {
-        match self.state {
-            UnionTracerState::WaitForVariant | UnionTracerState::Finished => {
-                for variant in &mut self.variants {
-                    let Some(variant) = variant.as_mut() else {
-                        continue;
-                    };
-                    variant.tracer.reset()?;
-                }
-                self.state = UnionTracerState::WaitForVariant;
-                Ok(())
-            }
-            state => fail!("Cannot reset union tracer in state {state:?}"),
-        }
-    }
-
     pub fn finish(&mut self) -> Result<()> {
         // TODO: fix me
         for variant in &mut self.variants {
@@ -1029,7 +794,6 @@ impl UnionTracer {
             };
             variant.tracer.finish()?;
         }
-        self.state = UnionTracerState::Finished;
         Ok(())
     }
 }
@@ -1041,15 +805,8 @@ pub struct PrimitiveTracer {
     pub nullable: bool,
     pub strategy: Option<Strategy>,
     pub item_type: GenericDataType,
-    pub state: PrimitiveTracerState,
     /// Count how many samples were seen by this tracer
     pub seen_samples: usize,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum PrimitiveTracerState {
-    Unfinished,
-    Finished,
 }
 
 impl PrimitiveTracer {
@@ -1065,30 +822,16 @@ impl PrimitiveTracer {
             item_type,
             nullable,
             strategy: None,
-            state: PrimitiveTracerState::Unfinished,
             seen_samples: 0,
         }
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        if matches!(self.state, PrimitiveTracerState::Finished) {
-            fail!("Cannot finish an already finished tracer");
-        }
-        self.state = PrimitiveTracerState::Finished;
-        Ok(())
-    }
-
-    pub fn reset(&mut self) -> Result<()> {
-        self.state = PrimitiveTracerState::Unfinished;
         Ok(())
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
         type D = GenericDataType;
-
-        if !matches!(self.state, PrimitiveTracerState::Finished) {
-            fail!("Cannot build field {name} from unfinished tracer");
-        }
 
         if !self.options.allow_null_fields && matches!(self.item_type, D::Null) {
             fail!("{}", NullFieldMessage(name));

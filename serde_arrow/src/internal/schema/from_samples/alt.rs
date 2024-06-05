@@ -7,11 +7,12 @@ use crate::internal::{
     error::{fail, Error, Result},
     schema::{
         tracer::{ListTracer, StructTracer, Tracer, TupleTracer},
-        TracingOptions,
+        TracingMode, TracingOptions,
     },
 };
 
 pub fn to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions) -> Result<Tracer> {
+    let options = options.tracing_mode(TracingMode::FromSamples);
     let mut tracer = Tracer::new("$".into(), options);
     items.serialize(OuterSequenceSerializer(&mut tracer))?;
     tracer.finish()?;

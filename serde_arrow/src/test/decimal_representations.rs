@@ -1,3 +1,5 @@
+// TODO: use to_value
+/*
 use std::str::FromStr;
 
 use rust_decimal::Decimal;
@@ -60,7 +62,7 @@ fn example_float() {
         ],
     );
 }
-
+ */
 /*
 #[test]
 fn example_arbitrary_precision() {

@@ -20,6 +20,7 @@ pub use data_type::{GenericDataType, GenericTimeUnit};
 pub use strategy::{
     merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
 };
+use tracer::Tracer;
 pub use tracing_options::{TracingMode, TracingOptions};
 
 pub trait Sealed {}
@@ -296,11 +297,11 @@ impl SchemaLike for SerdeArrowSchema {
     }
 
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {
-        from_type::schema_from_type::<T>(options)
+        Tracer::from_type::<T>(options)?.to_schema()
     }
 
     fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
-        from_samples::schema_from_samples(samples, options)
+        Tracer::from_samples(samples, options)?.to_schema()
     }
 }
 

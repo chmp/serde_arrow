@@ -11,40 +11,32 @@ use crate::internal::error::{fail, Error, Result};
 
 use super::{
     tracer::{StructField, Tracer},
-    SerdeArrowSchema, TracingMode, TracingOptions,
+    TracingMode, TracingOptions,
 };
 
-pub fn schema_from_type<'de, T: Deserialize<'de> + ?Sized>(
-    options: TracingOptions,
-) -> Result<SerdeArrowSchema> {
-    let options = options.tracing_mode(TracingMode::FromType);
-
-    let mut tracer = Tracer::new(String::from("$"), options);
-    tracer.trace_type::<T>()?;
-    tracer.to_schema()
-}
-
 impl Tracer {
-    pub fn trace_type<'de, T: Deserialize<'de>>(&mut self) -> Result<()> {
-        self.reset()?;
+    pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        let options = options.tracing_mode(TracingMode::FromType);
+        let mut tracer = Tracer::new(String::from("$"), options);
 
-        let mut budget = self.get_options().from_type_budget;
-        while !self.is_complete() {
+        let mut budget = tracer.get_options().from_type_budget;
+        while !tracer.is_complete() {
             if budget == 0 {
                 fail!(
                     concat!(
                         "Could not determine schema from the type after {budget} iterations. ",
                         "Consider increasing the budget option or using `from_samples`.",
                     ),
-                    budget = self.get_options().from_type_budget,
+                    budget = tracer.get_options().from_type_budget,
                 );
             }
-            T::deserialize(TraceAny(&mut *self))?;
+            T::deserialize(TraceAny(&mut tracer))?;
             budget -= 1;
         }
 
-        self.finish()?;
-        Ok(())
+        tracer.finish()?;
+
+        Ok(tracer)
     }
 }
 
