@@ -83,6 +83,18 @@ pub fn get_string_type_and_strategy(
     }
 }
 
+pub fn matches_naive_datetime(s: &str) -> bool {
+    parsing::matches_naive_datetime(s)
+        .map(|s| s.is_empty())
+        .unwrap_or_default()
+}
+
+pub fn matches_utc_datetime(s: &str) -> bool {
+    parsing::matches_utc_datetime(s)
+        .map(|s| s.is_empty())
+        .unwrap_or_default()
+}
+
 mod parsing {
     pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -149,18 +161,6 @@ mod parsing {
             Err(s)
         }
     }
-}
-
-pub fn matches_naive_datetime(s: &str) -> bool {
-    parsing::matches_naive_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
-}
-
-pub fn matches_utc_datetime(s: &str) -> bool {
-    parsing::matches_utc_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

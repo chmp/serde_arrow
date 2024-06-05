@@ -827,8 +827,6 @@ pub struct PrimitiveTracer {
     pub nullable: bool,
     pub strategy: Option<Strategy>,
     pub item_type: GenericDataType,
-    /// Count how many samples were seen by this tracer
-    pub seen_samples: usize,
 }
 
 impl PrimitiveTracer {
@@ -844,7 +842,6 @@ impl PrimitiveTracer {
             item_type,
             nullable,
             strategy: None,
-            seen_samples: 0,
         }
     }
 
