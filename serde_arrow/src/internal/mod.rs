@@ -4,7 +4,6 @@ pub mod deserialization;
 pub mod deserializer;
 pub mod dsl;
 pub mod error;
-pub mod event;
 pub mod schema;
 pub mod serialization;
 pub mod serializer;
