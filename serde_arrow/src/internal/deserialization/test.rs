@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::internal::{common::Mut, deserialization::integer_deserializer::IntegerDeserializer};
+use crate::internal::{deserialization::integer_deserializer::IntegerDeserializer, utils::Mut};
 
 use super::outer_sequence_deserializer::OuterSequenceDeserializer;
 

@@ -297,8 +297,6 @@ pub mod _impl {
     #[doc(hidden)]
     pub use crate::internal::{
         error::PanicOnError,
-        event::Event,
-        sink::serialize_into_sink,
         serialization::array_builder::ArrayBuilder,
     };
 }

@@ -1,8 +1,8 @@
 use serde::{de::Visitor, Deserializer};
 
 use crate::internal::{
-    common::Mut,
     error::{fail, Error, Result},
+    utils::Mut,
 };
 
 #[allow(unused)]

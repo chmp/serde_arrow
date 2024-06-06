@@ -3,11 +3,14 @@ use serde::de::{
 };
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
     error::{fail, Error, Result},
+    utils::Mut,
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::BitBuffer,
+};
 
 pub struct StructDeserializer<'a> {
     pub fields: Vec<(String, ArrayDeserializer<'a>)>,

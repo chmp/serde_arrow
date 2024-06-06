@@ -2,14 +2,15 @@ use chrono::NaiveTime;
 use serde::de::Visitor;
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
     error::{fail, Result},
     schema::GenericTimeUnit,
+    utils::Mut,
 };
 
 use super::{
-    integer_deserializer::Integer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
+    integer_deserializer::Integer,
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
 };
 
 pub struct TimeDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>, i64, i64);

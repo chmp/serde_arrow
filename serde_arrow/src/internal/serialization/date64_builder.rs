@@ -1,12 +1,9 @@
-use crate::{
-    internal::{
-        common::MutableBitBuffer,
-        schema::{GenericDataType, GenericField, GenericTimeUnit},
-    },
-    Error, Result,
+use crate::internal::{
+    error::{Error, Result},
+    schema::{GenericDataType, GenericField, GenericTimeUnit},
 };
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {

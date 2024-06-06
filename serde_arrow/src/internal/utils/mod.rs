@@ -1,5 +1,9 @@
-#[allow(unused)]
-mod value;
+pub mod decimal;
+pub mod dsl;
+pub mod value;
+
+#[cfg(test)]
+mod test_value;
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
@@ -140,3 +144,6 @@ impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
         seq.end()
     }
 }
+
+/// A wrapper type to allow implementing foreign traits
+pub struct Mut<'a, T>(pub &'a mut T);

@@ -1,907 +1,694 @@
 //! Support for `from_samples`
+mod chrono;
 #[cfg(test)]
 mod test_error_messages;
 
-use std::collections::HashMap;
-
-use serde::Serialize;
+use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
-    error::{fail, Result},
-    event::Event,
+    error::{fail, Error, Result},
     schema::{GenericDataType, Strategy},
-    sink::macros,
-    sink::{serialize_into_sink, EventSink},
 };
 
 use super::tracing_options::TracingOptions;
 use super::{
-    tracer::{
-        ListTracer, ListTracerState, MapTracer, MapTracerState, PrimitiveTracer, StructField,
-        StructMode, StructTracer, StructTracerState, Tracer, TupleTracer, TupleTracerState,
-        UnionTracer, UnionTracerState,
-    },
-    SerdeArrowSchema, TracingMode,
+    tracer::{ListTracer, MapTracer, StructMode, StructTracer, Tracer, TupleTracer, UnionVariant},
+    TracingMode,
 };
 
-pub fn schema_from_samples<T: Serialize + ?Sized>(
-    samples: &T,
-    options: TracingOptions,
-) -> Result<SerdeArrowSchema> {
-    let options = options.tracing_mode(TracingMode::FromSamples);
-
-    let mut tracer = Tracer::new(String::from("$"), options);
-    tracer.trace_samples(samples)?;
-    tracer.to_schema()
-}
-
 impl Tracer {
-    pub fn trace_samples<T: Serialize + ?Sized>(&mut self, samples: &T) -> Result<()> {
-        self.reset()?;
-        let mut tracer = StripOuterSequenceSink::new(&mut *self);
-        serialize_into_sink(&mut tracer, samples)
+    pub fn from_samples<T: Serialize + ?Sized>(
+        samples: &T,
+        options: TracingOptions,
+    ) -> Result<Self> {
+        let options = options.tracing_mode(TracingMode::FromSamples);
+        let mut tracer = Tracer::new("$".into(), options);
+        samples.serialize(OuterSequenceSerializer(&mut tracer))?;
+        tracer.finish()?;
+        Ok(tracer)
     }
 }
 
-pub(crate) struct StripOuterSequenceSink<E> {
-    wrapped: E,
-    state: StripOuterSequenceState,
+struct OuterSequenceSerializer<'a>(&'a mut Tracer);
+
+mod impl_outer_sequence_serializer {
+    use super::*;
+
+    macro_rules! unimplemented_fn {
+        ($name:ident $($args:tt)* ) => {
+            fn $name $($args)* {
+                fail!("Cannot trace non-sequences with `from_samples`. Consider wrapping the argument in an array.");
+            }
+        };
+    }
+
+    #[rustfmt::skip]
+    impl<'a> serde::ser::Serializer for OuterSequenceSerializer<'a> {
+        type Ok = ();
+        type Error = Error;
+
+        type SerializeSeq = Self;
+        type SerializeTuple = Self;
+        type SerializeTupleVariant = Self;
+
+        fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq> {
+            Ok(self)
+        }
+        fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple> {
+            Ok(self)
+        }
+
+        fn serialize_tuple_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeTupleVariant> {
+            Ok(self)
+        }
+
+        type SerializeMap = Impossible<Self::Ok, Self::Error>;
+        type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+        type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
+        type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+
+        unimplemented_fn!(serialize_bool(self, _: bool) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i8(self, _: i8) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i16(self, _: i16) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i32(self, _: i32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i64(self, _: i64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u8(self, _: u8) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u16(self, _: u16) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u32(self, _: u32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u64(self, _: u64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_f32(self, _: f32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_f64(self, _: f64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_char(self, _: char) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_unit(self) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_str(self, _: &str) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_bytes(self, _: &[u8]) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_none(self) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap>);
+        unimplemented_fn!(serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct>);
+        unimplemented_fn!(serialize_struct_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeStructVariant>);
+        unimplemented_fn!(serialize_tuple_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeTupleStruct>);
+        unimplemented_fn!(serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, _: &T) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_newtype_variant<T: Serialize + ?Sized>(self, _: &'static str, _: u32, _: &'static str, _: &T) -> Result<Self::Ok>);
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum StripOuterSequenceState {
-    WaitForStart,
-    WaitForItem,
-    Item(usize),
+impl<'a> serde::ser::SerializeSeq for OuterSequenceSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        value.serialize(TracerSerializer(&mut *self.0))
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
 }
 
-impl<E> StripOuterSequenceSink<E> {
-    pub fn new(wrapped: E) -> Self {
-        Self {
-            wrapped,
-            state: StripOuterSequenceState::WaitForStart,
+impl<'a> serde::ser::SerializeTuple for OuterSequenceSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        value.serialize(TracerSerializer(&mut *self.0))
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        value.serialize(TracerSerializer(&mut *self.0))
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+struct TracerSerializer<'a>(&'a mut Tracer);
+
+impl<'a> TracerSerializer<'a> {
+    fn ensure_union_variant(
+        self,
+        variant_name: &str,
+        variant_index: u32,
+    ) -> Result<&'a mut UnionVariant> {
+        self.0.ensure_union(&[])?;
+        let Tracer::Union(tracer) = self.0 else {
+            unreachable!();
+        };
+        let variant_index: usize = variant_index.try_into()?;
+        tracer.ensure_variant(variant_name, variant_index)?;
+        let Some(variant) = &mut tracer.variants[variant_index] else {
+            unreachable!();
+        };
+        Ok(variant)
+    }
+}
+
+impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeStruct = StructSerializer<'a>;
+    type SerializeMap = MapSerializer<'a>;
+    type SerializeSeq = ListSerializer<'a>;
+    type SerializeTuple = TupleSerializer<'a>;
+    type SerializeTupleStruct = TupleSerializer<'a>;
+    type SerializeStructVariant = StructSerializer<'a>;
+    type SerializeTupleVariant = TupleSerializer<'a>;
+
+    fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
+        self.0.ensure_primitive(GenericDataType::Bool)
+    }
+
+    fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::I8)
+    }
+
+    fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::I16)
+    }
+
+    fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::I32)
+    }
+
+    fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::I64)
+    }
+
+    fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::U8)
+    }
+
+    fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::U16)
+    }
+
+    fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::U32)
+    }
+
+    fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::U64)
+    }
+
+    fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::F32)
+    }
+
+    fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
+        self.0.ensure_number(GenericDataType::F64)
+    }
+
+    fn serialize_char(self, _: char) -> Result<Self::Ok> {
+        self.0.ensure_primitive(GenericDataType::U32)
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok> {
+        self.0.ensure_primitive(GenericDataType::Null)
+    }
+
+    fn serialize_str(self, s: &str) -> Result<Self::Ok> {
+        let guess_dates = self.0.get_options().guess_dates;
+        if guess_dates && chrono::matches_naive_datetime(s) {
+            self.0
+                .ensure_utf8(GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
+        } else if guess_dates && chrono::matches_utc_datetime(s) {
+            self.0
+                .ensure_utf8(GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
+        } else {
+            self.0.ensure_utf8(GenericDataType::LargeUtf8, None)
         }
     }
-}
 
-impl<E: EventSink> EventSink for StripOuterSequenceSink<E> {
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use Event::*;
-        match event {
-            StartSequence => self.accept_start_sequence(),
-            StartTuple => self.accept_start_tuple(),
-            StartMap => self.accept_start_map(),
-            StartStruct => self.accept_start_struct(),
-            EndSequence => self.accept_end_sequence(),
-            EndTuple => self.accept_end_tuple(),
-            EndMap => self.accept_end_map(),
-            EndStruct => self.accept_end_struct(),
-            Item => self.accept_item(),
-            Null => self.accept_null(),
-            Some => self.accept_some(),
-            Default => self.accept_default(),
-            Bool(val) => self.accept_bool(val),
-            I8(val) => self.accept_i8(val),
-            I16(val) => self.accept_i16(val),
-            I32(val) => self.accept_i32(val),
-            I64(val) => self.accept_i64(val),
-            U8(val) => self.accept_u8(val),
-            U16(val) => self.accept_u16(val),
-            U32(val) => self.accept_u32(val),
-            U64(val) => self.accept_u64(val),
-            F32(val) => self.accept_f32(val),
-            F64(val) => self.accept_f64(val),
-            Str(val) => self.accept_str(val),
-            OwnedStr(val) => self.accept_str(&val),
-            Variant(name, idx) => self.accept_variant(name, idx),
-            OwnedVariant(name, idx) => self.accept_variant(&name, idx),
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
+        fail!("cannot trace bytes")
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok> {
+        self.0.mark_nullable();
+        Ok(())
+    }
+
+    fn serialize_some<T: Serialize + ?Sized>(self, value: &T) -> Result<Self::Ok> {
+        self.0.mark_nullable();
+        value.serialize(self)
+    }
+
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
+        self.serialize_unit()
+    }
+
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(
+        self,
+        _: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
+        value.serialize(self)
+    }
+
+    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap> {
+        if self.0.get_options().map_as_struct {
+            self.0.ensure_struct::<&str>(&[], StructMode::Map)?;
+            let Tracer::Struct(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(MapSerializer::AsStruct(tracer, None))
+        } else {
+            self.0.ensure_map()?;
+            let Tracer::Map(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(MapSerializer::AsMap(tracer))
         }
     }
 
-    macros::accept_start!((this, ev, val, next) {
-        use StripOuterSequenceState::*;
-        this.state = match this.state {
-            WaitForStart => {
-                if !matches!(ev, Event::StartSequence | Event::StartTuple) {
-                    fail!(concat!(
-                        "Cannot trace non-sequences with `from_samples`. ",
-                        "Samples must be given as a sequence. ",
-                        "Consider wrapping the argument in an array. ",
-                        "E.g., `from_samples(&[arg], options)`.",
-                    ));
-                }
-                WaitForItem
-            },
-            Item(depth) => {
-                next(&mut this.wrapped, val)?;
-                Item(depth + 1)
-            }
-            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
+    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq> {
+        self.0.ensure_list()?;
+        let Tracer::List(tracer) = self.0 else {
+            unreachable!();
         };
-        Ok(())
-    });
-    macros::accept_end!((this, ev, val, next) {
-        use StripOuterSequenceState::*;
-        this.state = match this.state {
-            Item(1) => {
-                next(&mut this.wrapped, val)?;
-                WaitForItem
-            }
-            Item(depth) if depth > 1 => {
-                next(&mut this.wrapped, val)?;
-                Item(depth - 1)
-            }
-            WaitForItem => WaitForStart,
-            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
-        };
-        Ok(())
-    });
-    macros::accept_value!((this, ev, val, next) {
-        use StripOuterSequenceState::*;
-        this.state = match this.state {
-            Item(0) => {
-                next(&mut this.wrapped, val)?;
-                WaitForItem
-            }
-            Item(depth) => {
-                next(&mut this.wrapped, val)?;
-                Item(depth)
-            }
-            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
-        };
-        Ok(())
-    });
-    macros::accept_marker!((this, ev, val, next) {
-        use StripOuterSequenceState::*;
-        this.state = match this.state {
-            WaitForItem if matches!(ev, Event::Item) => Item(0),
-            Item(depth) => {
-                next(&mut this.wrapped, val)?;
-                Item(depth)
-            }
-            state => fail!("Invalid event {ev} in state {state:?} for StripOuterSequence"),
-        };
-        Ok(())
-    });
+        Ok(ListSerializer(tracer))
+    }
 
-    fn finish(&mut self) -> Result<()> {
-        self.wrapped.finish()
+    fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct> {
+        self.0.ensure_struct::<&str>(&[], StructMode::Struct)?;
+        let Tracer::Struct(tracer) = self.0 else {
+            unreachable!();
+        };
+        Ok(StructSerializer(tracer))
+    }
+
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        self.0.ensure_tuple(len)?;
+        let Tracer::Tuple(tracer) = self.0 else {
+            unreachable!();
+        };
+        Ok(TupleSerializer::new(tracer))
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        self.0.ensure_tuple(len)?;
+        let Tracer::Tuple(tracer) = self.0 else {
+            unreachable!();
+        };
+        Ok(TupleSerializer::new(tracer))
+    }
+
+    fn serialize_unit_variant(
+        self,
+        _: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+    ) -> Result<Self::Ok> {
+        let variant = self.ensure_union_variant(variant_name, variant_index)?;
+        variant.tracer.ensure_primitive(GenericDataType::Null)
+    }
+
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(
+        self,
+        _: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
+        let variant = self.ensure_union_variant(variant_name, variant_index)?;
+        value.serialize(TracerSerializer(&mut variant.tracer))
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        let variant = self.ensure_union_variant(variant_name, variant_index)?;
+        variant
+            .tracer
+            .ensure_struct::<&str>(&[], StructMode::Struct)?;
+        let Tracer::Struct(tracer) = &mut variant.tracer else {
+            unreachable!();
+        };
+        Ok(StructSerializer(tracer))
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        let variant = self.ensure_union_variant(variant_name, variant_index)?;
+        variant.tracer.ensure_tuple(len)?;
+        let Tracer::Tuple(tracer) = &mut variant.tracer else {
+            unreachable!();
+        };
+        Ok(TupleSerializer::new(tracer))
     }
 }
 
-impl<'a> EventSink for &'a mut Tracer {
-    macros::forward_specialized_to_generic!();
+struct StructSerializer<'a>(&'a mut StructTracer);
 
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        (*self).accept(event)
+impl<'a> serde::ser::SerializeStruct for StructSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let field_idx = self.0.ensure_field(key)?;
+        let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
+            unreachable!();
+        };
+        value.serialize(TracerSerializer(field_tracer))
     }
 
-    fn finish(&mut self) -> Result<()> {
-        (*self).finish()
+    fn end(self) -> Result<Self::Ok> {
+        self.0.end()
     }
 }
 
-impl EventSink for Tracer {
-    macros::forward_specialized_to_generic!();
+impl<'a> serde::ser::SerializeStructVariant for StructSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
 
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let field_idx = self.0.ensure_field(key)?;
+        let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
+            unreachable!();
+        };
+        value.serialize(TracerSerializer(field_tracer))
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.0.end()
+    }
+}
+
+struct ListSerializer<'a>(&'a mut ListTracer);
+
+impl<'a> serde::ser::SerializeSeq for ListSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        value.serialize(TracerSerializer(&mut self.0.item_tracer))
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+struct TupleSerializer<'a>(&'a mut TupleTracer, usize);
+
+impl<'a> TupleSerializer<'a> {
+    fn new(tracer: &'a mut TupleTracer) -> Self {
+        Self(tracer, 0)
+    }
+}
+
+impl<'a> serde::ser::SerializeTuple for TupleSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        let pos = self.1;
+        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+        self.1 += 1;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleStruct for TupleSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        let pos = self.1;
+        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+        self.1 += 1;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleVariant for TupleSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> where {
+        let pos = self.1;
+        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+        self.1 += 1;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
+}
+
+enum MapSerializer<'a> {
+    AsStruct(&'a mut StructTracer, Option<String>),
+    AsMap(&'a mut MapTracer),
+}
+
+impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<()> {
         match self {
-            // NOTE: unknown tracer is the only tracer that change the internal type
-            Self::Unknown(tracer) => match event {
-                Event::Some | Event::Null => tracer.nullable = true,
-                Event::Bool(_)
-                | Event::I8(_)
-                | Event::I16(_)
-                | Event::I32(_)
-                | Event::I64(_)
-                | Event::U8(_)
-                | Event::U16(_)
-                | Event::U32(_)
-                | Event::U64(_)
-                | Event::F32(_)
-                | Event::F64(_)
-                | Event::Str(_)
-                | Event::OwnedStr(_) => {
-                    let mut tracer = PrimitiveTracer::new(
-                        tracer.path.clone(),
-                        tracer.options.clone(),
-                        GenericDataType::Null,
-                        tracer.nullable,
-                    );
-                    tracer.accept(event)?;
-                    *self = Tracer::Primitive(tracer)
-                }
-                Event::StartSequence => {
-                    let mut tracer = ListTracer::new(
-                        tracer.path.clone(),
-                        tracer.options.clone(),
-                        tracer.nullable,
-                    );
-                    tracer.accept(event)?;
-                    *self = Tracer::List(tracer);
-                }
-                Event::StartStruct => {
-                    let mut tracer = StructTracer::new(
-                        tracer.path.clone(),
-                        tracer.options.clone(),
-                        StructMode::Struct,
-                        tracer.nullable,
-                    );
-                    tracer.accept(event)?;
-                    *self = Tracer::Struct(tracer);
-                }
-                Event::StartTuple => {
-                    let mut tracer = TupleTracer::new(
-                        tracer.path.clone(),
-                        tracer.options.clone(),
-                        tracer.nullable,
-                    );
-                    tracer.accept(event)?;
-                    *self = Tracer::Tuple(tracer);
-                }
-                Event::StartMap => {
-                    if tracer.options.map_as_struct {
-                        let mut tracer = StructTracer::new(
-                            tracer.path.clone(),
-                            tracer.options.clone(),
-                            StructMode::Map,
-                            tracer.nullable,
-                        );
-                        tracer.accept(event)?;
-                        *self = Tracer::Struct(tracer);
-                    } else {
-                        let mut tracer = MapTracer::new(
-                            tracer.path.clone(),
-                            tracer.options.clone(),
-                            tracer.nullable,
-                        );
-                        tracer.accept(event)?;
-                        *self = Tracer::Map(tracer);
-                    }
-                }
-                Event::Variant(_, _) => {
-                    let mut tracer = UnionTracer::new(
-                        tracer.path.clone(),
-                        tracer.options.clone(),
-                        tracer.nullable,
-                    );
-                    tracer.accept(event)?;
-                    *self = Tracer::Union(tracer)
-                }
-                ev if ev.is_end() => fail!(
-                    "Invalid end nesting events for unknown tracer ({path})",
-                    path = tracer.path
-                ),
-                ev => fail!(
-                    "Internal error unmatched event {ev} in Tracer ({path})",
-                    path = tracer.path
-                ),
-            },
-            Self::List(tracer) => tracer.accept(event)?,
-            Self::Struct(tracer) => tracer.accept(event)?,
-            Self::Primitive(tracer) => tracer.accept(event)?,
-            Self::Tuple(tracer) => tracer.accept(event)?,
-            Self::Union(tracer) => tracer.accept(event)?,
-            Self::Map(tracer) => tracer.accept(event)?,
+            Self::AsStruct(_, next_key) => {
+                *next_key = Some(key.serialize(SerializeToString)?);
+                Ok(())
+            }
+            Self::AsMap(tracer) => key.serialize(TracerSerializer(&mut tracer.key_tracer)),
         }
-        Ok(())
     }
 
-    fn finish(&mut self) -> Result<()> {
-        Tracer::finish(self)
+    fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        match self {
+            Self::AsStruct(tracer, next_key) => {
+                let Some(next_key) = next_key.take() else {
+                    fail!("invalid operations");
+                };
+                let field_idx = tracer.ensure_field(&next_key)?;
+                let Some(field_tracer) = tracer.get_field_tracer_mut(field_idx) else {
+                    unreachable!();
+                };
+                value.serialize(TracerSerializer(field_tracer))
+            }
+            Self::AsMap(tracer) => value.serialize(TracerSerializer(&mut tracer.value_tracer)),
+        }
     }
-}
 
-impl StructTracer {
-    pub fn new(path: String, options: TracingOptions, mode: StructMode, nullable: bool) -> Self {
-        Self {
-            path,
-            options,
-            mode,
-            fields: Vec::new(),
-            index: HashMap::new(),
-            nullable,
-            state: StructTracerState::WaitForKey,
-            seen_samples: 0,
+    fn end(self) -> Result<Self::Ok> {
+        match self {
+            Self::AsStruct(tracer, _) => tracer.end(),
+            Self::AsMap(_) => Ok(()),
         }
     }
 }
 
-impl EventSink for StructTracer {
-    macros::forward_specialized_to_generic!();
+struct SerializeToString;
 
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use StructTracerState::*;
-        type E<'a> = Event<'a>;
+mod impl_serialize_to_string {
+    use super::*;
 
-        self.state = match (self.state, event) {
-            (WaitForKey, E::StartStruct | E::StartMap) => InKey,
-            (WaitForKey, E::Null | E::Some) => {
-                self.nullable = true;
-                WaitForKey
-            }
-            (WaitForKey, ev) => fail!("Invalid event {ev} for struct tracer in state Start"),
-            (InKey, E::Item) => InKey,
-            (InKey, E::Str(key)) => {
-                if let Some(&field_idx) = self.index.get(key) {
-                    let Some(field) = self.fields.get_mut(field_idx) else {
-                        fail!("invalid state");
-                    };
-                    field.last_seen_in_sample = self.seen_samples;
-
-                    InValue(field_idx, 0)
-                } else {
-                    let mut field = StructField {
-                        tracer: Tracer::new(
-                            format!("{path}.{key}", path = self.path),
-                            self.options.clone(),
-                        ),
-                        name: key.to_owned(),
-                        last_seen_in_sample: self.seen_samples,
-                    };
-
-                    // field was missing in previous samples
-                    if self.seen_samples != 0 {
-                        field.tracer.mark_nullable();
-                    }
-
-                    let field_idx = self.fields.len();
-                    self.fields.push(field);
-                    self.index.insert(key.to_owned(), field_idx);
-                    InValue(field_idx, 0)
-                }
-            }
-            (InKey, E::EndStruct | E::EndMap) => {
-                for field in &mut self.fields {
-                    // field. was not seen in this sample
-                    if field.last_seen_in_sample != self.seen_samples {
-                        field.tracer.mark_nullable();
-                    }
-                }
-                self.seen_samples += 1;
-
-                WaitForKey
-            }
-            (InKey, ev) => fail!("Invalid event {ev} for struct tracer in state Key"),
-            (InValue(field, depth), ev) if ev.is_start() => {
-                self.fields[field].tracer.accept(ev)?;
-                InValue(field, depth + 1)
-            }
-            (InValue(field, depth), ev) if ev.is_end() => {
-                self.fields[field].tracer.accept(ev)?;
-                match depth {
-                    0 => fail!("Invalid closing event in struct tracer in state Value"),
-                    1 => InKey,
-                    depth => InValue(field, depth - 1),
-                }
-            }
-            (InValue(field, depth), ev) if ev.is_marker() => {
-                self.fields[field].tracer.accept(ev)?;
-                // markers are always followed by the actual  value
-                InValue(field, depth)
-            }
-            (InValue(field, depth), ev) => {
-                self.fields[field].tracer.accept(ev)?;
-                match depth {
-                    // Any event at depth == 0 that does not start a structure (is a complete value)
-                    0 => InKey,
-                    _ => InValue(field, depth),
-                }
-            }
-            (Finished, _) => fail!("finished StructTracer cannot handle events"),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        StructTracer::finish(self)
-    }
-}
-
-impl EventSink for TupleTracer {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use TupleTracerState::*;
-        type E<'a> = Event<'a>;
-
-        self.state = match (self.state, event) {
-            (WaitForStart, Event::StartTuple) => WaitForItem(0),
-            (WaitForStart, E::Null | E::Some) => {
-                self.nullable = true;
-                WaitForStart
-            }
-            (WaitForStart, ev) => fail!(
-                "Invalid event {ev} for TupleTracer in state Start [{path}]",
-                path = self.path
-            ),
-            (WaitForItem(field), Event::Item) => InItem(field, 0),
-            (WaitForItem(_), E::EndTuple) => WaitForStart,
-            (WaitForItem(field), ev) => fail!(
-                "Invalid event {ev} for TupleTracer in state WaitForItem({field}) [{path}]",
-                path = self.path
-            ),
-            (InItem(field, depth), ev) if ev.is_start() => {
-                self.field_tracer(field).accept(ev)?;
-                InItem(field, depth + 1)
-            }
-            (InItem(field, depth), ev) if ev.is_end() => {
-                self.field_tracer(field).accept(ev)?;
-                match depth {
-                    0 => fail!(
-                        "Invalid closing event in TupleTracer in state Value [{path}]",
-                        path = self.path
-                    ),
-                    1 => WaitForItem(field + 1),
-                    depth => InItem(field, depth - 1),
-                }
-            }
-            (InItem(field, depth), ev) if ev.is_marker() => {
-                self.field_tracer(field).accept(ev)?;
-                // markers are always followed by the actual  value
-                InItem(field, depth)
-            }
-            (InItem(field, depth), ev) => {
-                self.field_tracer(field).accept(ev)?;
-                match depth {
-                    // Any event at depth == 0 that does not start a structure (is a complete value)
-                    0 => WaitForItem(field + 1),
-                    _ => InItem(field, depth),
-                }
-            }
-            (Finished, ev) => fail!("finished tuple tracer cannot handle event {ev}"),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        TupleTracer::finish(self)
-    }
-}
-
-impl EventSink for ListTracer {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use {Event as E, ListTracerState as S};
-
-        self.state = match (self.state, event) {
-            (S::WaitForStart, E::Null | E::Some) => {
-                self.nullable = true;
-                S::WaitForStart
-            }
-            (S::WaitForStart, E::StartSequence) => S::WaitForItem,
-            (S::WaitForItem, E::EndSequence) => S::WaitForStart,
-            (S::WaitForItem, E::Item) => S::InItem(0),
-            (S::InItem(depth), ev) if ev.is_start() => {
-                self.item_tracer.accept(ev)?;
-                S::InItem(depth + 1)
-            }
-            (S::InItem(depth), ev) if ev.is_end() => match depth {
-                0 => fail!(
-                    "Invalid event {ev} for list tracer ({path}) in state Item(0)",
-                    path = self.path
-                ),
-                1 => {
-                    self.item_tracer.accept(ev)?;
-                    S::WaitForItem
-                }
-                depth => {
-                    self.item_tracer.accept(ev)?;
-                    S::InItem(depth - 1)
-                }
-            },
-            (S::InItem(0), ev) if ev.is_value() => {
-                self.item_tracer.accept(ev)?;
-                S::WaitForItem
-            }
-            (S::InItem(depth), ev) => {
-                self.item_tracer.accept(ev)?;
-                S::InItem(depth)
-            }
-            (state, ev) => fail!(
-                "Invalid event {ev} for list tracer ({path}) in state {state:?}",
-                path = self.path
-            ),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        ListTracer::finish(self)
-    }
-}
-
-impl EventSink for UnionTracer {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        type S = UnionTracerState;
-        type E<'a> = Event<'a>;
-
-        self.state = match self.state {
-            S::WaitForVariant => match event {
-                E::Variant(variant, idx) => {
-                    self.ensure_variant(variant, idx)?;
-                    S::InVariant(idx, 0)
-                }
-                E::Some => fail!("Nullable unions are not supported"),
-                E::OwnedVariant(variant, idx) => {
-                    self.ensure_variant(variant, idx)?;
-                    S::InVariant(idx, 0)
-                }
-                ev => fail!("Invalid event {ev} for UnionTracer in State Inactive"),
-            },
-            S::InVariant(idx, depth) => match event {
-                ev if ev.is_start() => {
-                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
-                    S::InVariant(idx, depth + 1)
-                }
-                ev if ev.is_end() => match depth {
-                    0 => fail!("Invalid end event {ev} at depth 0 in UnionTracer"),
-                    1 => {
-                        self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
-                        S::WaitForVariant
-                    }
-                    _ => {
-                        self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
-                        S::InVariant(idx, depth - 1)
-                    }
-                },
-                ev if ev.is_marker() => {
-                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
-                    S::InVariant(idx, depth)
-                }
-                ev if ev.is_value() => {
-                    self.variants[idx].as_mut().unwrap().tracer.accept(ev)?;
-                    match depth {
-                        0 => S::WaitForVariant,
-                        _ => S::InVariant(idx, depth),
-                    }
-                }
-                _ => unreachable!(),
-            },
-            S::Finished => fail!("finished union tracer cannot handle event"),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        UnionTracer::finish(self)
-    }
-}
-
-impl EventSink for MapTracer {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        type S = MapTracerState;
-        type E<'a> = Event<'a>;
-
-        self.state = match self.state {
-            S::WaitForKey => match event {
-                Event::StartMap => S::InKey(0),
-                Event::Null | Event::Some => {
-                    self.nullable = true;
-                    S::WaitForKey
-                }
-                ev => fail!("Unexpected event {ev} in state Start of MapTracer"),
-            },
-            S::InKey(depth) => match event {
-                Event::Item if depth == 0 => S::InKey(depth),
-                ev if ev.is_end() => match depth {
-                    0 => {
-                        if !matches!(ev, E::EndMap) {
-                            fail!("Unexpected event {ev} in State Key at depth 0 in MapTracer")
-                        }
-                        S::WaitForKey
-                    }
-                    1 => {
-                        self.key_tracer.accept(ev)?;
-                        S::InValue(0)
-                    }
-                    _ => {
-                        self.key_tracer.accept(ev)?;
-                        S::InKey(depth - 1)
-                    }
-                },
-                ev if ev.is_start() => {
-                    self.key_tracer.accept(ev)?;
-                    S::InKey(depth + 1)
-                }
-                ev if ev.is_marker() => {
-                    self.key_tracer.accept(ev)?;
-                    S::InKey(depth)
-                }
-                ev if ev.is_value() => {
-                    self.key_tracer.accept(ev)?;
-                    if depth == 0 {
-                        S::InValue(0)
-                    } else {
-                        S::InKey(depth)
-                    }
-                }
-                _ => unreachable!(),
-            },
-            S::InValue(depth) => match event {
-                ev if ev.is_end() => match depth {
-                    0 => fail!("Unexpected event {ev} in State Value at depth 0 in MapTracer"),
-                    1 => {
-                        self.value_tracer.accept(ev)?;
-                        S::InKey(0)
-                    }
-                    _ => {
-                        self.value_tracer.accept(ev)?;
-                        S::InValue(depth - 1)
-                    }
-                },
-                ev if ev.is_start() => {
-                    self.value_tracer.accept(ev)?;
-                    S::InValue(depth + 1)
-                }
-                ev if ev.is_marker() => {
-                    self.value_tracer.accept(ev)?;
-                    S::InValue(depth)
-                }
-                ev if ev.is_value() => {
-                    self.value_tracer.accept(ev)?;
-                    if depth == 0 {
-                        S::InKey(0)
-                    } else {
-                        S::InValue(depth)
-                    }
-                }
-                _ => unreachable!(),
-            },
-            S::Finished => fail!("Finished map tracer cannot handle event"),
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        MapTracer::finish(self)
-    }
-}
-
-impl EventSink for PrimitiveTracer {
-    macros::forward_specialized_to_generic!();
-
-    fn accept(&mut self, event: Event<'_>) -> Result<()> {
-        use GenericDataType::*;
-        use Strategy as S;
-
-        let (ev_type, ev_strategy) = match event {
-            Event::Some | Event::Null => (Null, None),
-            Event::Bool(_) => (Bool, None),
-            Event::Str(s) => self.get_string_type_and_strategy(s),
-            Event::OwnedStr(s) => self.get_string_type_and_strategy(&s),
-            Event::U8(_) => (U8, None),
-            Event::U16(_) => (U16, None),
-            Event::U32(_) => (U32, None),
-            Event::U64(_) => (U64, None),
-            Event::I8(_) => (I8, None),
-            Event::I16(_) => (I16, None),
-            Event::I32(_) => (I32, None),
-            Event::I64(_) => (I64, None),
-            Event::F32(_) => (F32, None),
-            Event::F64(_) => (F64, None),
-            ev => fail!("Cannot handle event {ev} in primitive tracer"),
-        };
-
-        // coercion rules as a table of (this_ty, this_strategy), (ev_ty, ev_strategy)
-        (self.item_type, self.strategy) = match (
-            (&self.item_type, self.strategy.as_ref()),
-            (ev_type, ev_strategy),
-        ) {
-            ((ty, strategy), (Null, None)) => {
-                self.nullable = true;
-                (ty.clone(), strategy.cloned())
-            }
-            ((Null, None), (ev_type, ev_strategy)) => (ev_type, ev_strategy),
-            ((Bool, None), (Bool, None)) => (Bool, None),
-            ((I8, None), (I8, None)) => (I8, None),
-            ((I16, None), (I16, None)) => (I16, None),
-            ((I32, None), (I32, None)) => (I32, None),
-            ((I64, None), (I64, None)) => (I64, None),
-            ((U8, None), (U8, None)) => (U8, None),
-            ((U16, None), (U16, None)) => (U16, None),
-            ((U32, None), (U32, None)) => (U32, None),
-            ((U64, None), (U64, None)) => (U64, None),
-            ((F32, None), (F32, None)) => (F32, None),
-            ((F64, None), (F64, None)) => (F64, None),
-            ((Date64, Some(S::NaiveStrAsDate64)), (Date64, Some(S::NaiveStrAsDate64))) => {
-                (Date64, Some(S::NaiveStrAsDate64))
-            }
-            ((Date64, Some(S::UtcStrAsDate64)), (Date64, Some(S::UtcStrAsDate64))) => {
-                (Date64, Some(S::UtcStrAsDate64))
-            }
-            ((Date64, Some(S::NaiveStrAsDate64)), (Date64, Some(S::UtcStrAsDate64))) => {
-                (LargeUtf8, None)
-            }
-            // incompatible strategies, coerce to string
-            ((Date64, Some(S::UtcStrAsDate64)), (Date64, Some(S::NaiveStrAsDate64))) => {
-                (LargeUtf8, None)
-            }
-            (
-                (LargeUtf8, None) | (Date64, Some(S::NaiveStrAsDate64) | Some(S::UtcStrAsDate64)),
-                (LargeUtf8, None),
-            ) => (LargeUtf8, None),
-            (
-                (LargeUtf8, None),
-                (Date64, strategy @ (Some(S::NaiveStrAsDate64) | Some(S::UtcStrAsDate64))),
-            ) => {
-                if self.seen_samples == 0 {
-                    (Date64, strategy)
-                } else {
-                    (LargeUtf8, None)
-                }
-            }
-            ((ty, None), (ev, None)) if self.options.coerce_numbers => match (ty, ev) {
-                // unsigned x unsigned -> u64
-                (U8 | U16 | U32 | U64, U8 | U16 | U32 | U64) => (U64, None),
-                // signed x signed -> i64
-                (I8 | I16 | I32 | I64, I8 | I16 | I32 | I64) => (I64, None),
-                // signed x unsigned -> i64
-                (I8 | I16 | I32 | I64, U8 | U16 | U32 | U64) => (I64, None),
-                // unsigned x signed -> i64
-                (U8 | U16 | U32 | U64, I8 | I16 | I32 | I64) => (I64, None),
-                // float x float -> f64
-                (F32 | F64, F32 | F64) => (F64, None),
-                // int x float -> f64
-                (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, F32 | F64) => (F64, None),
-                // float x int -> f64
-                (F32 | F64, I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64) => (F64, None),
-                (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
-            },
-            ((this_ty, this_strategy), (ev_ty, ev_strategy)) => {
-                fail!("Cannot accept event {ev_ty} with strategy {ev_strategy:?} for tracer of primitive type {this_ty} with strategy {this_strategy:?}")
+    macro_rules! unimplemented_fn {
+        ($name:ident $($args:tt)* ) => {
+            fn $name $($args)* {
+                fail!("Invalid argument: cannot interpret key as string");
             }
         };
-
-        self.seen_samples += 1;
-        Ok(())
     }
 
-    fn finish(&mut self) -> Result<()> {
-        PrimitiveTracer::finish(self)
-    }
-}
+    #[rustfmt::skip]
+    impl serde::ser::Serializer for SerializeToString {
+        type Ok = String;
+        type Error = Error;
 
-impl PrimitiveTracer {
-    fn get_string_type_and_strategy(&self, s: &str) -> (GenericDataType, Option<Strategy>) {
-        if self.options.guess_dates && matches_naive_datetime(s) {
-            (GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
-        } else if self.options.guess_dates && matches_utc_datetime(s) {
-            (GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
-        } else {
-            (GenericDataType::LargeUtf8, None)
+        type SerializeSeq = Impossible<Self::Ok, Self::Error>;
+        type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+        type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
+        type SerializeMap = Impossible<Self::Ok, Self::Error>;
+        type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+        type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
+        type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+
+        fn serialize_str(self, val: &str) -> Result<Self::Ok> {
+            Ok(val.to_owned())
         }
+
+        unimplemented_fn!(serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq>);
+        unimplemented_fn!(serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple>);
+        unimplemented_fn!(serialize_tuple_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeTupleVariant>);
+        unimplemented_fn!(serialize_bool(self, _: bool) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i8(self, _: i8) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i16(self, _: i16) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i32(self, _: i32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_i64(self, _: i64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u8(self, _: u8) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u16(self, _: u16) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u32(self, _: u32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_u64(self, _: u64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_f32(self, _: f32) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_f64(self, _: f64) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_char(self, _: char) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_unit(self) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_bytes(self, _: &[u8]) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_none(self) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap>);
+        unimplemented_fn!(serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct>);
+        unimplemented_fn!(serialize_struct_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeStructVariant>);
+        unimplemented_fn!(serialize_tuple_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeTupleStruct>);
+        unimplemented_fn!(serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, _: &T) -> Result<Self::Ok>);
+        unimplemented_fn!(serialize_newtype_variant<T: Serialize + ?Sized>(self, _: &'static str, _: u32, _: &'static str, _: &T) -> Result<Self::Ok>);
     }
-}
-
-mod parsing {
-    pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    pub fn match_optional_sign(s: &str) -> Result<&str, &str> {
-        Ok(s.strip_prefix(['+', '-']).unwrap_or(s))
-    }
-
-    pub fn match_one_or_more_digits(s: &str) -> Result<&str, &str> {
-        let mut s = s.strip_prefix(DIGIT).ok_or(s)?;
-        while let Some(new_s) = s.strip_prefix(DIGIT) {
-            s = new_s;
-        }
-        Ok(s)
-    }
-
-    pub fn match_one_or_two_digits(s: &str) -> Result<&str, &str> {
-        let s = s.strip_prefix(DIGIT).ok_or(s)?;
-        Ok(s.strip_prefix(DIGIT).unwrap_or(s))
-    }
-
-    pub fn match_char(s: &str, c: char) -> Result<&str, &str> {
-        s.strip_prefix(c).ok_or(s)
-    }
-
-    pub fn matches_naive_datetime_with_sep<'a>(
-        s: &'a str,
-        sep: &'_ [char],
-    ) -> Result<&'a str, &'a str> {
-        let s = s.trim();
-        let s = match_optional_sign(s)?;
-        let s = match_one_or_more_digits(s)?;
-        let s = match_char(s, '-')?;
-        let s = match_one_or_two_digits(s)?;
-        let s = match_char(s, '-')?;
-        let s = match_one_or_two_digits(s)?;
-        let s = s.strip_prefix(sep).ok_or(s)?;
-        let s = match_one_or_two_digits(s)?;
-        let s = match_char(s, ':')?;
-        let s = match_one_or_two_digits(s)?;
-        let s = match_char(s, ':')?;
-        let s = match_one_or_two_digits(s)?;
-
-        if let Some(s) = s.strip_prefix('.') {
-            match_one_or_more_digits(s)
-        } else {
-            Ok(s)
-        }
-    }
-
-    pub fn matches_naive_datetime(s: &str) -> Result<&str, &str> {
-        matches_naive_datetime_with_sep(s, &['T'])
-    }
-
-    pub fn matches_utc_datetime(s: &str) -> Result<&str, &str> {
-        let s = matches_naive_datetime_with_sep(s, &['T', ' '])?;
-
-        if let Some(s) = s.strip_prefix('Z') {
-            Ok(s)
-        } else if let Some(s) = s.strip_prefix("+0000") {
-            Ok(s)
-        } else if let Some(s) = s.strip_prefix("+00:00") {
-            Ok(s)
-        } else {
-            Err(s)
-        }
-    }
-}
-
-pub fn matches_naive_datetime(s: &str) -> bool {
-    parsing::matches_naive_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
-}
-
-pub fn matches_utc_datetime(s: &str) -> bool {
-    parsing::matches_utc_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
-mod test_matches_naive_datetime {
-    macro_rules! test {
-        ($( ( $name:ident, $s:expr, $expected:expr ), )*) => {
-            $(
-                #[test]
-                fn $name() {
-                    if $expected {
-                        assert_eq!(super::parsing::matches_naive_datetime($s), Ok(""));
-                    }
-                    assert_eq!(super::matches_naive_datetime($s), $expected);
-                }
-            )*
-        };
+mod test {
+    use serde::Serialize;
+    use serde_json::{json, Value};
+
+    use crate::internal::schema::{GenericField, TracingOptions};
+
+    use super::*;
+
+    fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
+        let tracer = Tracer::from_samples(items, options).unwrap();
+        let field = tracer.to_field("$").unwrap();
+        let expected = serde_json::from_value::<GenericField>(expected).unwrap();
+
+        assert_eq!(field, expected);
     }
 
-    test!(
-        (example_chrono_docs_1, "2015-09-18T23:56:04", true),
-        (example_chrono_docs_2, "+12345-6-7T7:59:60.5", true),
-        (surrounding_space, "   2015-09-18T23:56:04   ", true),
-    );
-}
-
-#[cfg(test)]
-mod test_matches_utc_datetime {
-    macro_rules! test {
-        ($( ( $name:ident, $s:expr, $expected:expr ), )*) => {
-            $(
-                #[test]
-                fn $name() {
-                    if $expected {
-                        assert_eq!(super::parsing::matches_utc_datetime($s), Ok(""));
-                    }
-                    assert_eq!(super::matches_utc_datetime($s), $expected);
-                }
-            )*
-        };
+    #[test]
+    fn example_i64() {
+        test_to_tracer(
+            &[13_i64, 21, 42],
+            TracingOptions::default(),
+            json!({"name": "$", "data_type": "I64"}),
+        )
     }
 
-    test!(
-        (example_chrono_docs_1, "2012-12-12T12:12:12Z", true),
-        (example_chrono_docs_2, "2012-12-12 12:12:12Z", true),
-        (example_chrono_docs_3, "2012-12-12 12:12:12+0000", true),
-        (example_chrono_docs_4, "2012-12-12 12:12:12+00:00", true),
-    );
+    #[test]
+    fn example_i32_nullable_some() {
+        let expected = json!({"name": "$", "data_type": "I32", "nullable": true});
+        test_to_tracer(&[Some(42_i32)], TracingOptions::default(), expected.clone());
+        test_to_tracer(&[None, Some(42_i32)], TracingOptions::default(), expected);
+    }
+
+    #[test]
+    fn example_simple_struct() {
+        #[derive(Serialize)]
+        struct S {
+            a: u32,
+            b: bool,
+        }
+
+        let expected = json!({
+            "name": "$",
+            "data_type": "Struct",
+            "children": [
+                {"name": "a", "data_type": "U32"},
+                {"name": "b", "data_type": "Bool"},
+            ],
+        });
+
+        test_to_tracer(
+            &[S { a: 1, b: false }, S { a: 1, b: true }],
+            TracingOptions::default(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_vec_f32() {
+        let expected = json!({
+            "name": "$",
+            "data_type": "LargeList",
+            "children": [
+                {"name": "element", "data_type": "F32"},
+            ],
+        });
+
+        test_to_tracer(
+            &[vec![1.0_f32, 2.0_f32], vec![3.0_f32], vec![]],
+            TracingOptions::default(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_vec_nullable_f32() {
+        let expected = json!({
+            "name": "$",
+            "data_type": "LargeList",
+            "children": [
+                {"name": "element", "data_type": "F32", "nullable": true},
+            ],
+        });
+
+        test_to_tracer(
+            &[vec![Some(1.0_f32), None], vec![Some(3.0_f32)], vec![]],
+            TracingOptions::default(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_tuples() {
+        let expected = json!({
+            "name": "$",
+            "data_type": "Struct",
+            "strategy": "TupleAsStruct",
+            "children": [
+                {"name": "0", "data_type": "F64"},
+                {"name": "1", "data_type": "LargeUtf8"},
+            ],
+        });
+
+        test_to_tracer(
+            &[(2.0_f64, "hello world")],
+            TracingOptions::default(),
+            expected,
+        );
+    }
 }

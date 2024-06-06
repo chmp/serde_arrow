@@ -1,6 +1,6 @@
-use crate::{internal::common::MutableBitBuffer, Result};
+use crate::internal::error::Result;
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder {

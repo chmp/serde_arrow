@@ -1,12 +1,14 @@
 use serde::de::Visitor;
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
-    decimal,
     error::Result,
+    utils::{decimal, Mut},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
+};
 
 pub struct DecimalDeserializer<'a> {
     inner: ArrayBufferIterator<'a, i128>,

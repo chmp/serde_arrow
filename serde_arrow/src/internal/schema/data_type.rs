@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
-    dsl::Term,
     error::{fail, Error, Result},
+    utils::dsl::Term,
 };
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]

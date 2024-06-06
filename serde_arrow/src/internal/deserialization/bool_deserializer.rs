@@ -1,12 +1,8 @@
 use serde::de::Visitor;
 
-use crate::internal::{
-    common::{BitBuffer, Mut},
-    error::fail,
-    error::Result,
-};
+use crate::internal::{error::fail, error::Result, utils::Mut};
 
-use super::simple_deserializer::SimpleDeserializer;
+use super::{simple_deserializer::SimpleDeserializer, utils::BitBuffer};
 
 pub struct BoolDeserializer<'a> {
     pub buffer: BitBuffer<'a>,

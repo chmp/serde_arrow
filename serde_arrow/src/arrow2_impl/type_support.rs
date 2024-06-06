@@ -1,13 +1,4 @@
-use crate::{
-    _impl::arrow2::types::f16,
-    internal::{error::Error, event::Event},
-};
-
-impl<'a> From<f16> for Event<'a> {
-    fn from(value: f16) -> Self {
-        Event::F32(value.to_f32())
-    }
-}
+use crate::internal::error::Error;
 
 impl From<crate::_impl::arrow2::error::Error> for Error {
     fn from(err: crate::_impl::arrow2::error::Error) -> Error {

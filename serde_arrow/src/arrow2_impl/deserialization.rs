@@ -1,5 +1,4 @@
 use crate::internal::{
-    common::{check_supported_list_layout, BitBuffer},
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
@@ -17,6 +16,7 @@ use crate::internal::{
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
+        utils::{check_supported_list_layout, BitBuffer},
     },
     deserializer::Deserializer,
     error::{fail, Result},

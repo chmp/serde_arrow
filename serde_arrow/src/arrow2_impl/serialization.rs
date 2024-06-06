@@ -13,10 +13,9 @@ use crate::{
         types::{f16, NativeType, Offset},
     },
     internal::{
-        common::MutableBitBuffer,
         error::{fail, Result},
         schema::{GenericField, SerdeArrowSchema},
-        serialization::{ArrayBuilder, OuterSequenceBuilder},
+        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
     },
 };
 

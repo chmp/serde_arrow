@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::internal::{
-    common::Mut,
     error::{fail, Result},
     schema::GenericField,
+    utils::Mut,
 };
 
 use super::{array_builder::ArrayBuilder, utils::SimpleSerializer};

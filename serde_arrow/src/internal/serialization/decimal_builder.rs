@@ -1,12 +1,9 @@
-use crate::{
-    internal::{
-        common::MutableBitBuffer,
-        decimal::{self, DecimalParser},
-    },
-    Result,
+use crate::internal::{
+    error::Result,
+    utils::decimal::{self, DecimalParser},
 };
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {

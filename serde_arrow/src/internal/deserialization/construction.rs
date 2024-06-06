@@ -1,14 +1,12 @@
-use crate::{
-    internal::{
-        common::BitBuffer,
-        deserialization::date64_deserializer::Date64Deserializer,
-        error::{fail, Result},
-        schema::{GenericDataType, GenericField},
-    },
-    schema::Strategy,
+use crate::internal::{
+    deserialization::date64_deserializer::Date64Deserializer,
+    error::{fail, Result},
+    schema::{GenericDataType, GenericField, Strategy},
 };
 
-use super::{array_deserializer::ArrayDeserializer, time_deserializer::TimeDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer, time_deserializer::TimeDeserializer, utils::BitBuffer,
+};
 
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,

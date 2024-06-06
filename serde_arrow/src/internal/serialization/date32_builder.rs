@@ -1,11 +1,8 @@
 use chrono::{NaiveDate, NaiveDateTime};
 
-use crate::{
-    internal::{common::MutableBitBuffer, schema::GenericField},
-    Result,
-};
+use crate::internal::{error::Result, schema::GenericField};
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date32Builder {
