@@ -1,6 +1,6 @@
 use crate::internal::{
-    decimal::{self, DecimalParser},
     error::Result,
+    utils::decimal::{self, DecimalParser},
 };
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
     array_builder::ArrayBuilder,
@@ -73,11 +73,11 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
 
     type SerializeSeq = CollectionSerializer<A>;
     type SerializeTuple = CollectionSerializer<A>;
-    type SerializeMap = CollectionSerializer<A>;
-    type SerializeStruct = CollectionSerializer<A>;
-    type SerializeStructVariant = CollectionSerializer<A>;
     type SerializeTupleStruct = CollectionSerializer<A>;
     type SerializeTupleVariant = CollectionSerializer<A>;
+    type SerializeMap = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(CollectionSerializer(self.0))
@@ -279,48 +279,5 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSer
 
     fn end(self) -> Result<Self::Ok> {
         Ok(Serializer(self.0))
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeMap for CollectionSerializer<A> {
-    type Ok = Serializer<A>;
-    type Error = Error;
-
-    fn serialize_key<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-
-    fn serialize_value<T: Serialize + ?Sized>(&mut self, _: &T) -> Result<()> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStruct for CollectionSerializer<A> {
-    type Ok = Serializer<A>;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-}
-
-impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeStructVariant for CollectionSerializer<A> {
-    type Ok = Serializer<A>;
-    type Error = Error;
-
-    fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &'static str, _: &T) -> Result<()> {
-        fail!("Serializer expects a sequence of records, not a single XX")
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single XX")
     }
 }

@@ -1,8 +1,6 @@
 pub mod array_builder;
-pub mod decimal;
 pub mod deserialization;
 pub mod deserializer;
-pub mod dsl;
 pub mod error;
 pub mod schema;
 pub mod serialization;

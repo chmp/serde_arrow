@@ -1,6 +1,9 @@
 use serde::de::Visitor;
 
-use crate::internal::{decimal, error::Result, utils::Mut};
+use crate::internal::{
+    error::Result,
+    utils::{decimal, Mut},
+};
 
 use super::{
     simple_deserializer::SimpleDeserializer,
