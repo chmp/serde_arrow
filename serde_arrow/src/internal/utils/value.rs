@@ -3,10 +3,19 @@ use serde::{de::DeserializeOwned, forward_to_deserialize_any, Serialize};
 
 use crate::{internal::error::fail, Error, Result};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variant(u32, &'static str);
 
-#[derive(Debug)]
+/// A in-memory representation of a Serde value
+///
+/// Values are comparable and hashable with a couple of caveats:
+///
+/// - Hash and equality for structs / maps are dependent on the field / entry
+///   order
+/// - Hash and equality of floats are based on the underlying bits, not the
+///   resulting floating point values
+///
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
     Bool(bool),
     U8(u8),
@@ -17,8 +26,8 @@ pub enum Value {
     I16(i16),
     I32(i32),
     I64(i64),
-    F32(f32),
-    F64(f64),
+    F32(HashF32),
+    F64(HashF64),
     StaticStr(&'static str),
     String(String),
     Char(char),
@@ -37,6 +46,40 @@ pub enum Value {
     TupleVariant(Variant, Vec<Value>),
     UnitVariant(Variant),
     NewtypeVariant(Variant, Box<Value>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct HashF32(f32);
+
+impl std::cmp::PartialEq<HashF32> for HashF32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_ne_bytes() == other.0.to_ne_bytes()
+    }
+}
+
+impl std::cmp::Eq for HashF32 {}
+
+impl std::hash::Hash for HashF32 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_ne_bytes().hash(state)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct HashF64(f64);
+
+impl std::cmp::PartialEq<HashF64> for HashF64 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_ne_bytes() == other.0.to_ne_bytes()
+    }
+}
+
+impl std::cmp::Eq for HashF64 {}
+
+impl std::hash::Hash for HashF64 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_ne_bytes().hash(state)
+    }
 }
 
 pub fn transmute<S: Serialize + ?Sized, T: DeserializeOwned>(value: &S) -> Result<T> {
@@ -138,11 +181,11 @@ impl serde::ser::Serializer for ValueSerializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
-        Ok(Value::F32(v))
+        Ok(Value::F32(HashF32(v)))
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok> {
-        Ok(Value::F64(v))
+        Ok(Value::F64(HashF64(v)))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
@@ -498,8 +541,8 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
             &Value::I16(v) => visitor.visit_i16(v),
             &Value::I32(v) => visitor.visit_i32(v),
             &Value::I64(v) => visitor.visit_i64(v),
-            &Value::F32(v) => visitor.visit_f32(v),
-            &Value::F64(v) => visitor.visit_f64(v),
+            &Value::F32(v) => visitor.visit_f32(v.0),
+            &Value::F64(v) => visitor.visit_f64(v.0),
             Value::String(v) => visitor.visit_str(v),
             &Value::StaticStr(v) => visitor.visit_str(v),
             Value::Bytes(v) => visitor.visit_bytes(v),
@@ -614,16 +657,16 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
 
     fn deserialize_f32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
-            &Value::F32(v) => visitor.visit_f32(v),
-            &Value::F64(v) => visitor.visit_f32(v as f32),
+            &Value::F32(v) => visitor.visit_f32(v.0),
+            &Value::F64(v) => visitor.visit_f32(v.0 as f32),
             v => fail!("cannot deserialize f32 from non-float value {v:?}"),
         }
     }
 
     fn deserialize_f64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
-            &Value::F32(v) => visitor.visit_f64(v as f64),
-            &Value::F64(v) => visitor.visit_f64(v),
+            &Value::F32(v) => visitor.visit_f64(v.0 as f64),
+            &Value::F64(v) => visitor.visit_f64(v.0),
             v => fail!("cannot deserialize f64 from non-float value {v:?}"),
         }
     }
