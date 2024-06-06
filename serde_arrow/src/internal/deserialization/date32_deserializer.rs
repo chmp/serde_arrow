@@ -1,12 +1,12 @@
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 use serde::de::Visitor;
 
-use crate::{
-    internal::common::{BitBuffer, Mut},
-    Result,
-};
+use crate::internal::{error::Result, utils::Mut};
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
+};
 
 pub struct Date32Deserializer<'a>(ArrayBufferIterator<'a, i32>);
 

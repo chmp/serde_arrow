@@ -1,10 +1,10 @@
 use serde::Serialize;
 
 use crate::internal::{
-    common::Mut,
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
     serialization::duration_builder::DurationBuilder,
+    utils::Mut,
 };
 
 use super::{

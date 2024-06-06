@@ -1,9 +1,9 @@
-use crate::internal::{
-    common::{MutableBitBuffer, MutableOffsetBuffer, Offset},
-    error::{fail, Result},
-};
+use crate::internal::error::{fail, Result};
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{
+    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, Offset,
+    SimpleSerializer,
+};
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<O> {

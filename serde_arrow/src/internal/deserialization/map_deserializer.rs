@@ -1,12 +1,15 @@
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
     deserialization::list_deserializer::IntoUsize,
     error::{fail, Error, Result},
+    utils::Mut,
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::BitBuffer,
+};
 
 pub struct MapDeserializer<'a> {
     key: Box<ArrayDeserializer<'a>>,

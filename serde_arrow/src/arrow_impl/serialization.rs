@@ -8,10 +8,9 @@ use crate::{
         datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type, Schema},
     },
     internal::{
-        common::MutableBitBuffer,
         error::{fail, Result},
         schema::{GenericField, SerdeArrowSchema},
-        serialization::{ArrayBuilder, OuterSequenceBuilder},
+        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
     },
 };
 

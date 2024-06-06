@@ -1,16 +1,16 @@
 use chrono::DateTime;
 use serde::de::Visitor;
 
-use crate::internal::schema::GenericTimeUnit;
-use crate::{
-    internal::{
-        common::{BitBuffer, Mut},
-        error::fail,
-    },
-    Result,
+use crate::internal::{
+    error::{fail, Result},
+    schema::GenericTimeUnit,
+    utils::Mut,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
+};
 
 pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, GenericTimeUnit, bool);
 

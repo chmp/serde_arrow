@@ -1,13 +1,16 @@
 use serde::de::Visitor;
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
     error::{fail, Result},
+    utils::Mut,
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess, integer_deserializer::Integer, list_deserializer::IntoUsize,
-    simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
+    enums_as_string_impl::EnumAccess,
+    integer_deserializer::Integer,
+    list_deserializer::IntoUsize,
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: IntoUsize> {

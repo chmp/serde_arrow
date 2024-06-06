@@ -1,16 +1,13 @@
 use serde::Serialize;
 
-use crate::{
-    internal::{
-        common::{Mut, MutableBitBuffer, MutableOffsetBuffer, Offset},
-        schema::GenericField,
-    },
-    Result,
-};
+use crate::internal::{error::Result, schema::GenericField, utils::Mut};
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, SimpleSerializer},
+    utils::{
+        push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, Offset,
+        SimpleSerializer,
+    },
 };
 
 #[derive(Debug, Clone)]

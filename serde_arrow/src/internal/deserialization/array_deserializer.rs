@@ -2,8 +2,8 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    common::Mut,
     error::{Error, Result},
+    utils::Mut,
 };
 
 use super::{

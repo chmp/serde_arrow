@@ -1,5 +1,4 @@
 pub mod array_builder;
-pub mod common;
 pub mod decimal;
 pub mod deserialization;
 pub mod deserializer;

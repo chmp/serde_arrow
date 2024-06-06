@@ -1,11 +1,11 @@
 use crate::internal::{
-    common::{BitBuffer, Mut},
     error::{error, fail, Result},
+    utils::Mut,
 };
 
 use super::{
     enums_as_string_impl::EnumAccess, list_deserializer::IntoUsize,
-    simple_deserializer::SimpleDeserializer,
+    simple_deserializer::SimpleDeserializer, utils::BitBuffer,
 };
 
 pub struct StringDeserializer<'a, O: IntoUsize> {

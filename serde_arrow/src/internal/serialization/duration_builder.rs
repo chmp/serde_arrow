@@ -1,6 +1,6 @@
-use crate::internal::{common::MutableBitBuffer, error::Result, schema::GenericTimeUnit};
+use crate::internal::{error::Result, schema::GenericTimeUnit};
 
-use super::utils::{push_validity, push_validity_default, SimpleSerializer};
+use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DurationBuilder {

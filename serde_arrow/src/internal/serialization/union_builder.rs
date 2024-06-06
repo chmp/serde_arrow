@@ -1,7 +1,7 @@
 use crate::internal::{
-    common::Mut,
     error::{fail, Result},
     schema::GenericField,
+    utils::Mut,
 };
 
 use super::{utils::SimpleSerializer, ArrayBuilder};

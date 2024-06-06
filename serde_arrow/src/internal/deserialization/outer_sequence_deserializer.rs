@@ -1,8 +1,8 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    common::Mut,
     error::{Error, Result},
+    utils::Mut,
 };
 
 use super::{

@@ -3,14 +3,14 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::internal::{
-    common::{Mut, MutableBitBuffer},
     error::{fail, Result},
     schema::GenericField,
+    utils::Mut,
 };
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, SimpleSerializer},
+    utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer},
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;

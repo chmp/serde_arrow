@@ -1,11 +1,11 @@
 use serde::de::Visitor;
 
-use crate::internal::{
-    common::{BitBuffer, Mut},
-    error::Result,
-};
+use crate::internal::{error::Result, utils::Mut};
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    simple_deserializer::SimpleDeserializer,
+    utils::{ArrayBufferIterator, BitBuffer},
+};
 
 pub trait Integer: Sized + Copy {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(

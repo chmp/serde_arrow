@@ -1,11 +1,14 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    common::{BitBuffer, Mut},
     error::{fail, Error, Result},
+    utils::Mut,
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::BitBuffer,
+};
 
 pub trait IntoUsize: Copy {
     fn into_usize(self) -> Result<usize>;
