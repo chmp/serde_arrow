@@ -33,7 +33,7 @@ Supported arrow data types:
 - [x] [`Utf8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Utf8)
 - [x] [`LargeUtf8`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeUtf8)
 - [x] [`List`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.List)
-- [ ] [`FixedSizeList`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.FixedSizeList)
+- [x] [`FixedSizeList`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.FixedSizeList)
 - [x] [`LargeList`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeList)
 - [x] [`Struct`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Struct)
 - [x] [`Union`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Union):
