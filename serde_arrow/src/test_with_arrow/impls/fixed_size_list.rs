@@ -74,3 +74,17 @@ fn incorrect_number_of_elements() {
     let res = crate::to_record_batch(&fields, &items);
     assert_error(&res, "Invalid number of elements for FixedSizedList(2).");
 }
+
+#[test]
+fn deserialize_from_schema() {
+    let fields = Vec::<FieldRef>::from_value(&json!([{
+        "name": "item",
+        "data_type": "FixedSizeList(2)",
+        "children": [{"name": "element", "data_type": "U8"}],
+    }]))
+    .unwrap();
+
+    let fields_from_fields = Vec::<FieldRef>::from_value(&fields).unwrap();
+
+    assert_eq!(fields, fields_from_fields);
+}
