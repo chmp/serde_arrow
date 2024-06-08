@@ -2,7 +2,7 @@
 
 ## 0.11.6
 
-- Add support to overwrite field definitions with `TracingOptions::override`
+- Add support to overwrite field definitions with `TracingOptions::overwrite`
 - Add support to serialize enums without data (e.g., `enum E { A, B, C}`) as
   strings by setting the corresponding field to a string value (`Utf`,
   `LargeUtf`, `Dictionary(_, Utf8)`, `Dictionary(_, LargeUtf8`)
