@@ -31,6 +31,34 @@ fn example_issue_187() -> PanicOnError<()> {
 }
 
 #[test]
+fn example_nested_overwrites() -> PanicOnError<()> {
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Example {
+        pub date_times: Vec<i64>,
+    }
+
+    let options = TracingOptions::default().overwrite(
+        "$.date_times.element",
+        json!({"name": "element", "data_type": "Timestamp(Microsecond, None)"}),
+    )?;
+    let actual = SerdeArrowSchema::from_type::<Example>(options)?;
+
+    let expected = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "date_times",
+            "data_type": "LargeList",
+            "children": [
+                {"name": "element", "data_type": "Timestamp(Microsecond, None)"},
+            ],
+        }
+    ]))?;
+
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+
+#[test]
 fn example_renames() {
     #[derive(Debug, Serialize, Deserialize)]
     struct Example {
