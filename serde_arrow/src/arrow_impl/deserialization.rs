@@ -8,6 +8,7 @@ use crate::internal::{
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
+        fixed_size_list_deserializer::FixedSizeListDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::{IntoUsize, ListDeserializer},
@@ -453,12 +454,12 @@ pub fn build_fixed_size_list_deserializer<'a>(
         );
     };
 
+    let n = n.try_into()?;
+    let len = array.len();
     let item = build_array_deserializer(&field.children[0], array.values())?;
     let validity = get_validity(array);
 
-    let _ = (item, validity, n);
-
-    todo!()
+    Ok(FixedSizeListDeserializer::new(item, validity, n, len).into())
 }
 
 pub fn build_map_deserializer<'a>(

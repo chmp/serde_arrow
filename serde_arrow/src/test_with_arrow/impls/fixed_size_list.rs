@@ -18,8 +18,8 @@ fn example() {
             "data_type": "FixedSizeList(2)",
             "children": [{"name": "element", "data_type": "U8"}],
         }]))
-        .serialize(&items);
-    // .deserialize(&items);
+        .serialize(&items)
+        .deserialize(&items);
 }
 
 #[test]
@@ -35,8 +35,8 @@ fn example_nullable_no_nulls() {
             "children": [{"name": "element", "data_type": "U16"}],
         }]))
         .serialize(&items)
+        .deserialize(&items)
         .check_nulls(&[&[false, false, false]]);
-    // .deserialize(&items);
 }
 
 #[test]
@@ -56,8 +56,8 @@ fn example_nullable_with_nulls() {
             "children": [{"name": "element", "data_type": "U16"}],
         }]))
         .serialize(&items)
+        .deserialize(&items)
         .check_nulls(&[&[false, true, false]]);
-    // .deserialize(&items);
 }
 
 #[test]
