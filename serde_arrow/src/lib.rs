@@ -387,7 +387,7 @@ pub mod utils {
 #[deny(missing_docs)]
 pub mod schema {
     pub use crate::internal::schema::{
-        SchemaLike, SerdeArrowSchema, Strategy, TracingOptions, STRATEGY_KEY,
+        Overwrites, SchemaLike, SerdeArrowSchema, Strategy, TracingOptions, STRATEGY_KEY,
     };
 
     /// Renamed to [`SerdeArrowSchema`]

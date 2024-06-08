@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::{
     internal::testing::assert_error,
@@ -61,4 +62,39 @@ fn enums_without_data() {
 
     let res = SerdeArrowSchema::from_type::<E>(TracingOptions::default());
     assert_error(&res, "by setting `enums_without_data_as_strings` to `true`");
+}
+
+#[test]
+fn missing_overwrites() {
+    #[derive(Debug, Deserialize)]
+    pub struct S {
+        #[allow(dead_code)]
+        a: i64,
+    }
+
+    let res = SerdeArrowSchema::from_type::<S>(
+        TracingOptions::default()
+            .overwrite("b", json!({"name": "b", "data_type": "I64"}))
+            .unwrap(),
+    );
+    assert_error(&res, "Overwritten fields could not be found.");
+}
+
+#[test]
+fn overwrite_invalid_name() {
+    #[derive(Debug, Deserialize)]
+    pub struct S {
+        #[allow(dead_code)]
+        a: i64,
+    }
+
+    let res = SerdeArrowSchema::from_type::<S>(
+        TracingOptions::default()
+            .overwrite("a", json!({"name": "b", "data_type": "I64"}))
+            .unwrap(),
+    );
+    assert_error(
+        &res,
+        "Invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
+    );
 }

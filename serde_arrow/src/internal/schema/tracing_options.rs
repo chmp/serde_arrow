@@ -1,3 +1,11 @@
+use std::collections::HashMap;
+
+use serde::Serialize;
+
+use crate::internal::{error::Result, utils::value};
+
+use super::GenericField;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {
     Unknown,
@@ -118,6 +126,89 @@ pub struct TracingOptions {
     /// ```
     pub enums_without_data_as_strings: bool,
 
+    /// A mapping of field paths to field definitions
+    ///
+    /// Overwrites can be added with `options.overwrite(path, field)`. The
+    /// `field` parameter must serialize to a valid field. Examples are
+    /// instances of `serde_json::Value` with the correct content or of
+    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using
+    /// dotted paths, e.g.m `"foo.bar"`.
+    ///
+    /// Overwrites can be used to change the data type of field, e.g., to ensure
+    /// a field is a `Timestamp`:
+    ///
+    /// ```rust
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::FieldRef;
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde_json::json;
+    /// # use serde::{Serialize, Deserialize};
+    /// #
+    /// use chrono::{DateTime, Utc};
+    ///
+    /// ##[derive(Debug, Serialize, Deserialize)]
+    /// struct Example {
+    ///     #[serde(with = "chrono::serde::ts_microseconds")]
+    ///     pub expiry: DateTime<Utc>,
+    /// }
+    ///
+    /// let options = TracingOptions::default().overwrite(
+    ///     "expiry",
+    ///     json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
+    /// )?;
+    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
+    /// #
+    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
+    /// #     {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
+    /// # ]))?);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    ///
+    /// Using a field:
+    ///
+    /// ```rust
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::{FieldRef, Field, DataType, TimeUnit};
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde_json::json;
+    /// # use serde::{Serialize, Deserialize};
+    /// #
+    /// # use chrono::{DateTime, Utc};
+    /// #
+    /// # #[derive(Debug, Serialize, Deserialize)]
+    /// # struct Example {
+    /// #    #[serde(with = "chrono::serde::ts_microseconds")]
+    /// #    pub expiry: DateTime<Utc>,
+    /// # }
+    /// #
+    /// let options = TracingOptions::default().overwrite(
+    ///     "expiry",
+    ///     Field::new(
+    ///         "expiry",
+    ///         DataType::Timestamp(TimeUnit::Microsecond, None),
+    ///         false,
+    ///     ),
+    /// )?;
+    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
+    /// #
+    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
+    /// #     {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
+    /// # ]))?);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    ///
+    pub overwrites: Overwrites,
+
     /// Internal field to improve error messages for the different tracing
     /// functions
     pub(crate) tracing_mode: TracingMode,
@@ -132,8 +223,9 @@ impl Default for TracingOptions {
             coerce_numbers: false,
             guess_dates: false,
             from_type_budget: 100,
-            tracing_mode: TracingMode::Unknown,
             enums_without_data_as_strings: false,
+            overwrites: Overwrites::default(),
+            tracing_mode: TracingMode::Unknown,
         }
     }
 }
@@ -185,8 +277,33 @@ impl TracingOptions {
         self
     }
 
+    /// Add an overwrite to [`overwrites`](#structfield.overwrites)
+    pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
+        let path = path.into();
+        let path = format!("$.{path}");
+        let field: GenericField = value::transmute(&field)?;
+
+        self.overwrites.0.insert(path, field);
+        Ok(self)
+    }
+
     pub(crate) fn tracing_mode(mut self, value: TracingMode) -> Self {
         self.tracing_mode = value;
         self
+    }
+
+    pub(crate) fn get_overwrite(&self, path: &str) -> Option<&GenericField> {
+        self.overwrites.0.get(path)
+    }
+}
+
+/// An opaque mapping of field paths to field definitions
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Overwrites(pub(crate) HashMap<String, GenericField>);
+
+impl Overwrites {
+    /// Create a new empty instance
+    pub fn new() -> Self {
+        Self::default()
     }
 }

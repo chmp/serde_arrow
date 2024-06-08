@@ -229,17 +229,14 @@ impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDe
     }
 }
 
-#[derive(Debug)]
-struct NativeOrArrowField(GenericField);
-
-impl<'de> Deserialize<'de> for NativeOrArrowField {
+impl<'de> Deserialize<'de> for GenericField {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error;
 
         struct VisitorImpl;
 
         impl<'de> Visitor<'de> for VisitorImpl {
-            type Value = NativeOrArrowField;
+            type Value = GenericField;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "a struct with keys 'name', 'data_type', ...")
@@ -307,24 +304,24 @@ impl<'de> Deserialize<'de> for NativeOrArrowField {
                 let (metadata, strategy) =
                     split_strategy_from_metadata(metadata).map_err(A::Error::custom)?;
 
-                let field = GenericField {
+                Ok(GenericField {
                     name: name.ok_or_else(|| A::Error::custom("missing field `name`"))?,
                     data_type,
                     children,
                     nullable: nullable.unwrap_or_default(),
                     metadata,
                     strategy,
-                };
-                Ok(NativeOrArrowField(field))
+                })
             }
         }
 
         let res = deserializer.deserialize_map(VisitorImpl)?;
-        res.0.validate().map_err(D::Error::custom)?;
+        res.validate().map_err(D::Error::custom)?;
         Ok(res)
     }
 }
 
+// A custom impl of untagged-enum repr with better error messages
 impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct VisitorImpl;
@@ -341,9 +338,8 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
                 mut seq: A,
             ) -> Result<Self::Value, A::Error> {
                 let mut fields = Vec::new();
-
-                while let Some(item) = seq.next_element::<NativeOrArrowField>()? {
-                    fields.push(item.0);
+                while let Some(item) = seq.next_element::<GenericField>()? {
+                    fields.push(item);
                 }
 
                 Ok(SerdeArrowSchema { fields })
@@ -359,13 +355,7 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
 
                 while let Some(key) = map.next_key::<String>()? {
                     if key == "fields" {
-                        let fields_data = map.next_value::<Vec<NativeOrArrowField>>()?;
-                        fields = Some(
-                            fields_data
-                                .into_iter()
-                                .map(|item| item.0)
-                                .collect::<Vec<_>>(),
-                        );
+                        fields = Some(map.next_value::<Vec<GenericField>>()?);
                     } else {
                         map.next_value::<serde::de::IgnoredAny>()?;
                     }

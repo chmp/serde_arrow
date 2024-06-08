@@ -23,7 +23,7 @@ pub use strategy::{
     merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
 };
 use tracer::Tracer;
-pub use tracing_options::{TracingMode, TracingOptions};
+pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
 pub trait Sealed {}
 
@@ -125,7 +125,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - durations: `"Duration(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
-    ///   field named `"element"` that describes the element types
+    ///   field named `"element"` that describes the element type
     /// - structs: `"Struct"`. `"children"` must contain the child fields
     /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
     ///   `"value"` that encode the key and value types
@@ -323,50 +323,6 @@ pub struct GenericField {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<GenericField>,
-}
-
-impl<'de> Deserialize<'de> for GenericField {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de::Error;
-
-        #[derive(Deserialize)]
-        struct Helper {
-            pub name: String,
-            pub data_type: GenericDataType,
-
-            #[serde(default)]
-            pub metadata: HashMap<String, String>,
-
-            #[serde(default)]
-            pub strategy: Option<Strategy>,
-
-            #[serde(default)]
-            pub nullable: bool,
-
-            #[serde(default)]
-            pub children: Vec<GenericField>,
-        }
-
-        let Helper {
-            name,
-            data_type,
-            metadata,
-            strategy,
-            nullable,
-            children,
-        } = Helper::deserialize(deserializer)?;
-
-        let result = GenericField {
-            name,
-            data_type,
-            metadata,
-            strategy,
-            nullable,
-            children,
-        };
-        result.validate().map_err(D::Error::custom)?;
-        Ok(result)
-    }
 }
 
 fn is_false(val: &bool) -> bool {
