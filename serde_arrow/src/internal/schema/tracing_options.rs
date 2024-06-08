@@ -131,7 +131,116 @@ pub struct TracingOptions {
 
     /// A mapping of field paths to field definitions
     ///
-    /// New overwrites can be added with [`TracingOptions::overwrite`].
+    /// Overwrites can be added with `options.overwrite(path, field)`. The
+    /// `path` must be rooted, i.e., start with `$`. The `field` parameter must
+    /// serialize to a valid field. Examples are instances of
+    /// `serde_json::Value` with the correct content or of
+    /// `arrow::datatypes::Field`.
+    ///
+    /// Overwrites can be used to change the data type of field, e.g., to ensure
+    /// a field is a `Timestamp`:
+    ///
+    /// ```rust
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::FieldRef;
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde_json::json;
+    /// # use serde::{Serialize, Deserialize};
+    /// #
+    /// use chrono::{DateTime, Utc};
+    ///
+    /// ##[derive(Debug, Serialize, Deserialize)]
+    /// struct Example {
+    ///     #[serde(with = "chrono::serde::ts_microseconds")]
+    ///     pub expiry: DateTime<Utc>,
+    /// }
+    ///
+    /// let options = TracingOptions::default().overwrite(
+    ///     "$.expiry",
+    ///     json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
+    /// )?;
+    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
+    /// #
+    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
+    /// #     {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
+    /// # ]))?);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    ///
+    /// Using a field:
+    ///
+    /// ```rust
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::{FieldRef, Field, DataType, TimeUnit};
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde_json::json;
+    /// # use serde::{Serialize, Deserialize};
+    /// #
+    /// # use chrono::{DateTime, Utc};
+    /// #
+    /// # #[derive(Debug, Serialize, Deserialize)]
+    /// # struct Example {
+    /// #    #[serde(with = "chrono::serde::ts_microseconds")]
+    /// #    pub expiry: DateTime<Utc>,
+    /// # }
+    /// #
+    /// let options = TracingOptions::default().overwrite(
+    ///     "$.expiry",
+    ///     Field::new(
+    ///         "expiry",
+    ///         DataType::Timestamp(TimeUnit::Microsecond, None),
+    ///         false,
+    ///     ),
+    /// )?;
+    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
+    /// #
+    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
+    /// #     {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
+    /// # ]))?);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    ///
+    /// Overwrites can also be used to rename fields, e.g.:
+    ///
+    /// ```rust
+    /// # #[cfg(has_arrow)]
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::FieldRef;
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde_json::json;
+    /// # use serde::{Serialize, Deserialize};
+    /// #
+    /// ##[derive(Debug, Serialize, Deserialize)]
+    /// struct Example {
+    ///     pub i64_value: i64,
+    /// }
+    ///
+    /// let options = TracingOptions::default().overwrite(
+    ///     "$.i64_value",
+    ///     json!({"name": "value", "data_type": "I64"}),
+    /// )?;
+    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
+    /// #
+    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
+    /// #     {"name": "value", "data_type": "I64"}
+    /// # ]))?);
+    /// # Ok(())
+    /// # }
+    /// # #[cfg(not(has_arrow))]
+    /// # fn main() { }
+    /// ```
+    ///
     pub overwrites: Overwrites,
 
     /// Internal field to improve error messages for the different tracing
@@ -202,20 +311,7 @@ impl TracingOptions {
         self
     }
 
-    /// Overwrite a field with a new definition
-    ///
-    /// The parameter `field` can be anything that serialize to a valid field,
-    /// e.g., a `serde_json::Value` with the correct content or an
-    /// `arrow::datatypes::Field`.
-    ///
-    /// TODO: add examples changing the data type for Timestamp
-    ///
-    /// TODO: add example of renaming a field
-    ///
-    /// TODO: add example changing the key of a map
-    ///
-    /// TODO: add example using arrow field
-    ///
+    /// Add an overwrite to [`overwrites`](#structfield.overwrites)
     pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
         let path = path.into();
         let field: GenericField = value::transmute(&field)?;
