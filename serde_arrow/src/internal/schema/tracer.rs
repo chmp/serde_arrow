@@ -1,11 +1,17 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::internal::{
     error::{fail, Result},
     schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
 };
 
-use super::tracing_options::{TracingMode, TracingOptions};
+use super::{
+    tracing_options::{TracingMode, TracingOptions},
+    Overwrites,
+};
 
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
@@ -147,11 +153,76 @@ impl Tracer {
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        dispatch_tracer!(self, tracer => tracer.finish())
+        dispatch_tracer!(self, tracer => tracer.finish()?);
+
+        let options = self.get_options();
+        self.check_overwrites(&options.overwrites)?;
+
+        Ok(())
     }
 
     pub fn get_depth(&self) -> usize {
         dispatch_tracer!(self, tracer => tracer.path.chars().filter(|c| *c == '.').count())
+    }
+
+    pub fn check_overwrites(&self, overwrites: &Overwrites) -> Result<()> {
+        let mut paths = HashSet::new();
+        self.collect_paths(&mut paths);
+
+        let mut missing = Vec::new();
+        for key in overwrites.0.keys() {
+            if !paths.contains(key) {
+                missing.push(key);
+            }
+        }
+
+        if !missing.is_empty() {
+            missing.sort();
+            fail!("Overwritten fields could not be found. Missing fields: {missing:?}");
+        }
+
+        Ok(())
+    }
+
+    pub fn collect_paths<'this>(&'this self, target: &mut HashSet<&'this String>) {
+        match self {
+            Self::Unknown(tracer) => {
+                target.insert(&tracer.path);
+            }
+            Self::Primitive(tracer) => {
+                target.insert(&tracer.path);
+            }
+            Self::Map(tracer) => {
+                target.insert(&tracer.path);
+                tracer.key_tracer.collect_paths(target);
+                tracer.value_tracer.collect_paths(target)
+            }
+            Self::List(tracer) => {
+                target.insert(&tracer.path);
+                tracer.item_tracer.collect_paths(target);
+            }
+            Self::Struct(tracer) => {
+                target.insert(&tracer.path);
+                for field in &tracer.fields {
+                    field.tracer.collect_paths(target);
+                }
+            }
+            Self::Union(tracer) => {
+                target.insert(&tracer.path);
+                for variant in &tracer.variants {
+                    let Some(variant) = variant else {
+                        continue;
+                    };
+                    variant.tracer.collect_paths(target);
+                }
+            }
+            Self::Tuple(tracer) => {
+                target.insert(&tracer.path);
+                for field in &tracer.field_tracers {
+                    field.collect_paths(target);
+                }
+            }
+        }
     }
 }
 
