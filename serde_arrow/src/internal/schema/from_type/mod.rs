@@ -2,9 +2,6 @@
 #[cfg(test)]
 mod test_error_messages;
 
-#[cfg(test)]
-mod test_overwrites;
-
 use std::sync::Arc;
 
 use serde::{

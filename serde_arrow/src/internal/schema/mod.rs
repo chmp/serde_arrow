@@ -325,52 +325,6 @@ pub struct GenericField {
     pub children: Vec<GenericField>,
 }
 
-/// Implement deserialize to add a additional validation
-///
-impl<'de> Deserialize<'de> for GenericField {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de::Error;
-
-        #[derive(Deserialize)]
-        struct Helper {
-            pub name: String,
-            pub data_type: GenericDataType,
-
-            #[serde(default)]
-            pub metadata: HashMap<String, String>,
-
-            #[serde(default)]
-            pub strategy: Option<Strategy>,
-
-            #[serde(default)]
-            pub nullable: bool,
-
-            #[serde(default)]
-            pub children: Vec<GenericField>,
-        }
-
-        let Helper {
-            name,
-            data_type,
-            metadata,
-            strategy,
-            nullable,
-            children,
-        } = Helper::deserialize(deserializer)?;
-
-        let result = GenericField {
-            name,
-            data_type,
-            metadata,
-            strategy,
-            nullable,
-            children,
-        };
-        result.validate().map_err(D::Error::custom)?;
-        Ok(result)
-    }
-}
-
 fn is_false(val: &bool) -> bool {
     !*val
 }
