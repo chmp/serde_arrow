@@ -69,10 +69,8 @@ fn example_nested_overwrites_structs() -> PanicOnError<()> {
         pub value: i64,
     }
 
-    let options = TracingOptions::default().overwrite(
-        "inner.value",
-        json!({"name": "value", "data_type": "I32"}),
-    )?;
+    let options = TracingOptions::default()
+        .overwrite("inner.value", json!({"name": "value", "data_type": "I32"}))?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
 
     let expected = SerdeArrowSchema::from_value(&json!([
@@ -90,31 +88,7 @@ fn example_nested_overwrites_structs() -> PanicOnError<()> {
 }
 
 #[test]
-fn example_renames() {
-    #[derive(Debug, Serialize, Deserialize)]
-    struct Example {
-        pub value: i64,
-    }
-
-    let actual = SerdeArrowSchema::from_type::<Example>(
-        TracingOptions::default()
-            .overwrite(
-                "value",
-                json!({"name": "renamed_value", "data_type": "I64"}),
-            )
-            .unwrap(),
-    )
-    .unwrap();
-    let expected = SerdeArrowSchema::from_value(&json!([
-        {"name": "renamed_value", "data_type": "I64"}
-    ]))
-    .unwrap();
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn example_renames_with_arrow_field() {
+fn example_with_arrow_field() {
     use crate::_impl::arrow::datatypes::{DataType, Field};
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -124,15 +98,12 @@ fn example_renames_with_arrow_field() {
 
     let actual = SerdeArrowSchema::from_type::<Example>(
         TracingOptions::default()
-            .overwrite(
-                "value",
-                Field::new("renamed_value", DataType::Int64, false),
-            )
+            .overwrite("value", Field::new("value", DataType::UInt64, false))
             .unwrap(),
     )
     .unwrap();
     let expected = SerdeArrowSchema::from_value(&json!([
-        {"name": "renamed_value", "data_type": "I64"}
+        {"name": "value", "data_type": "U64"}
     ]))
     .unwrap();
 

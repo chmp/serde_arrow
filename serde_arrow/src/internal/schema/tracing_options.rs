@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::internal::{
-    error::Result,
-    utils::value,
-};
+use crate::internal::{error::Result, utils::value};
 
 use super::GenericField;
 
@@ -203,37 +200,6 @@ pub struct TracingOptions {
     /// #
     /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
     /// #     {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
-    /// # ]))?);
-    /// # Ok(())
-    /// # }
-    /// # #[cfg(not(has_arrow))]
-    /// # fn main() { }
-    /// ```
-    ///
-    /// Overwrites can also be used to rename fields, e.g.:
-    ///
-    /// ```rust
-    /// # #[cfg(has_arrow)]
-    /// # fn main() -> serde_arrow::Result<()> {
-    /// # use serde_arrow::_impl::arrow;
-    /// # use arrow::datatypes::FieldRef;
-    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
-    /// # use serde_json::json;
-    /// # use serde::{Serialize, Deserialize};
-    /// #
-    /// ##[derive(Debug, Serialize, Deserialize)]
-    /// struct Example {
-    ///     pub i64_value: i64,
-    /// }
-    ///
-    /// let options = TracingOptions::default().overwrite(
-    ///     "i64_value",
-    ///     json!({"name": "value", "data_type": "I64"}),
-    /// )?;
-    /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
-    /// #
-    /// # assert_eq!(fields, Vec::<FieldRef>::from_value(&json!([
-    /// #     {"name": "value", "data_type": "I64"}
     /// # ]))?);
     /// # Ok(())
     /// # }

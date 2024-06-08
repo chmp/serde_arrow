@@ -138,10 +138,16 @@ impl Tracer {
     }
 
     pub fn to_field(&self) -> Result<GenericField> {
+        let path = dispatch_tracer!(self, tracer => &tracer.path);
         if let Some(overwrite) =
-            dispatch_tracer!(self, tracer => tracer.options.get_overwrite(&tracer.path))
+            dispatch_tracer!(self, tracer => tracer.options.get_overwrite(path))
         {
-            // NOTE: do not change the name to allow renames
+            let overwrite_name = &overwrite.name;
+            let tracer_name = dispatch_tracer!(self, tracer => &tracer.name);
+            if *overwrite_name != *tracer_name {
+                let path = path.strip_prefix("$.").unwrap_or(path);
+                fail!("Invalid name for overwritten field {path:?}: found {overwrite_name:?}, expected {tracer_name:?}");
+            }
             Ok(overwrite.clone())
         } else {
             dispatch_tracer!(self, tracer => tracer.to_field())
