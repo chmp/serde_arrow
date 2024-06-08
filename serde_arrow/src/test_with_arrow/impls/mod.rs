@@ -3,6 +3,7 @@ mod utils;
 mod chrono;
 mod dictionary;
 mod examples;
+mod fixed_size_list;
 mod json_values;
 mod list;
 mod map;

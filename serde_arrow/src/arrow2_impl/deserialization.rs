@@ -125,6 +125,7 @@ pub fn build_array_deserializer<'a>(
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
     }

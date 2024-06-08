@@ -3,7 +3,9 @@ use serde::Serialize;
 use crate::internal::{
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
-    serialization::duration_builder::DurationBuilder,
+    serialization::{
+        duration_builder::DurationBuilder, fixed_size_list_builder::FixedSizeListBuilder,
+    },
     utils::Mut,
 };
 
@@ -111,6 +113,17 @@ impl OuterSequenceBuilder {
                     A::LargeList(ListBuilder::new(
                         child.clone(),
                         build_builder(child)?,
+                        field.nullable,
+                    ))
+                }
+                T::FixedSizeList(n) => {
+                    let Some(child) = field.children.first() else {
+                        fail!("cannot build list without an element field");
+                    };
+                    A::FixedSizedList(FixedSizeListBuilder::new(
+                        child.clone(),
+                        build_builder(child)?,
+                        (*n).try_into()?,
                         field.nullable,
                     ))
                 }

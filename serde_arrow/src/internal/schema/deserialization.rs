@@ -80,6 +80,7 @@ pub enum ArrowDataType {
     Struct(Vec<ArrowField>),
     List(Box<ArrowField>),
     LargeList(Box<ArrowField>),
+    FixedSizeList(Box<ArrowField>, i32),
     Map(Box<ArrowField>),
     // TODO:
     // Union,
@@ -116,6 +117,7 @@ impl ArrowDataType {
             Self::Struct(fields) => (T::Struct, fields),
             Self::List(field) => (T::List, vec![*field]),
             Self::LargeList(field) => (T::LargeList, vec![*field]),
+            Self::FixedSizeList(field, n) => (T::FixedSizeList(n), vec![*field]),
             Self::Map(field) => (T::Map, vec![*field]),
             Self::Dictionary(key, value) => (
                 T::Map,

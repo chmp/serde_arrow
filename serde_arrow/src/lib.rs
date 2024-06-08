@@ -205,6 +205,7 @@ pub mod _impl {
                         ArrowPrimitiveType,
                         BooleanArray,
                         DictionaryArray,
+                        FixedSizeListArray,
                         GenericListArray,
                         GenericStringArray,
                         LargeStringArray,
