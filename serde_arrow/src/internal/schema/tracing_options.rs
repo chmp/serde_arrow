@@ -1,3 +1,14 @@
+use std::collections::HashMap;
+
+use serde::Serialize;
+
+use crate::internal::{
+    error::{fail, Result},
+    utils::value,
+};
+
+use super::GenericField;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {
     Unknown,
@@ -118,6 +129,11 @@ pub struct TracingOptions {
     /// ```
     pub enums_without_data_as_strings: bool,
 
+    /// A mapping of field paths to field definitions
+    ///
+    /// New overwrites can be added with [`TracingOptions::overwrite`].
+    pub overwrites: Overwrites,
+
     /// Internal field to improve error messages for the different tracing
     /// functions
     pub(crate) tracing_mode: TracingMode,
@@ -132,8 +148,9 @@ impl Default for TracingOptions {
             coerce_numbers: false,
             guess_dates: false,
             from_type_budget: 100,
-            tracing_mode: TracingMode::Unknown,
             enums_without_data_as_strings: false,
+            overwrites: Overwrites::default(),
+            tracing_mode: TracingMode::Unknown,
         }
     }
 }
@@ -185,8 +202,47 @@ impl TracingOptions {
         self
     }
 
+    /// Overwrite a field with a new definition
+    ///
+    /// The parameter `field` can be anything that serialize to a valid field,
+    /// e.g., a `serde_json::Value` with the correct content or an
+    /// `arrow::datatypes::Field`.
+    ///
+    /// TODO: add examples changing the data type for Timestamp
+    ///
+    /// TODO: add example of renaming a field
+    ///
+    /// TODO: add example changing the key of a map
+    ///
+    /// TODO: add example using arrow field
+    ///
+    pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
+        let path = path.into();
+        let field: GenericField = value::transmute(&field)?;
+
+        if !path.starts_with('$') {
+            fail!(
+                "Paths must be rooted, i.e., prefixed with '$'. For example '$.struct.date_field'"
+            );
+        }
+
+        self.overwrites.0.insert(path, field);
+        Ok(self)
+    }
+
     pub(crate) fn tracing_mode(mut self, value: TracingMode) -> Self {
         self.tracing_mode = value;
         self
+    }
+}
+
+/// An opaque mapping of field paths to field definitions
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Overwrites(pub(crate) HashMap<String, GenericField>);
+
+impl Overwrites {
+    /// Create a new empty instance
+    pub fn new() -> Self {
+        Self::default()
     }
 }

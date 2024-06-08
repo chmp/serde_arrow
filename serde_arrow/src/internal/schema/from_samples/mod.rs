@@ -3,6 +3,8 @@ mod chrono;
 #[cfg(test)]
 mod test_error_messages;
 
+use std::sync::Arc;
+
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
@@ -22,7 +24,7 @@ impl Tracer {
         options: TracingOptions,
     ) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromSamples);
-        let mut tracer = Tracer::new("$".into(), options);
+        let mut tracer = Tracer::new("$".into(), Arc::new(options));
         samples.serialize(OuterSequenceSerializer(&mut tracer))?;
         tracer.finish()?;
         Ok(tracer)

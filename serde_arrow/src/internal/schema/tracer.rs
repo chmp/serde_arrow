@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::internal::{
     error::{fail, Result},
@@ -82,7 +82,7 @@ defined_tracer!(
 );
 
 impl Tracer {
-    pub fn new(path: String, options: TracingOptions) -> Self {
+    pub fn new(path: String, options: Arc<TracingOptions>) -> Self {
         Self::Unknown(UnknownTracer::new(path, options))
     }
 
@@ -140,7 +140,13 @@ impl Tracer {
     }
 
     pub fn to_field(&self, name: &str) -> Result<GenericField> {
-        dispatch_tracer!(self, tracer => tracer.to_field(name))
+        let options = self.get_options();
+        if let Some(overwrite) = options.overwrites.0.get(self.get_path()) {
+            // NOTE: do not change the name to allow renames
+            Ok(overwrite.clone())
+        } else {
+            dispatch_tracer!(self, tracer => tracer.to_field(name))
+        }
     }
 
     pub fn get_options(&self) -> &TracingOptions {
@@ -190,13 +196,13 @@ impl Tracer {
 
                 let tracer = StructTracer {
                     path: this.get_path().to_owned(),
-                    options: this.get_options().clone(),
+                    options: dispatch_tracer!(this, tracer => tracer.options.clone()),
                     fields: fields
                         .iter()
                         .map(|field| StructField {
                             tracer: Tracer::new(
                                 format!("{}.{}", this.get_path(), field),
-                                this.get_options().clone(),
+                                dispatch_tracer!(this, tracer => tracer.options.clone()),
                             ),
                             name: field.to_string(),
                             last_seen_in_sample: 0,
@@ -226,12 +232,12 @@ impl Tracer {
             this @ Self::Unknown(_) => {
                 let tracer = TupleTracer {
                     path: this.get_path().to_owned(),
-                    options: this.get_options().clone(),
+                    options: dispatch_tracer!(this, tracer => tracer.options.clone()),
                     field_tracers: (0..num_fields)
                         .map(|i| {
                             Tracer::new(
                                 format!("{}.{}", this.get_path(), i),
-                                this.get_options().clone(),
+                                dispatch_tracer!(this, tracer => tracer.options.clone()),
                             )
                         })
                         .collect(),
@@ -256,7 +262,7 @@ impl Tracer {
             this @ Self::Unknown(_) => {
                 let tracer = UnionTracer {
                     path: this.get_path().to_owned(),
-                    options: this.get_options().clone(),
+                    options: dispatch_tracer!(this, tracer => tracer.options.clone()),
                     variants: variants
                         .iter()
                         .map(|variant| {
@@ -264,7 +270,7 @@ impl Tracer {
                                 name: variant.to_string(),
                                 tracer: Tracer::new(
                                     format!("{}.{}", this.get_path(), variant),
-                                    this.get_options().clone(),
+                                    dispatch_tracer!(this, tracer => tracer.options.clone()),
                                 ),
                             })
                         })
@@ -290,11 +296,11 @@ impl Tracer {
             this @ Self::Unknown(_) => {
                 let tracer = ListTracer {
                     path: this.get_path().to_owned(),
-                    options: this.get_options().clone(),
+                    options: dispatch_tracer!(this, tracer => tracer.options.clone()),
                     nullable: this.get_nullable(),
                     item_tracer: Box::new(Tracer::new(
                         format!("{}.item", this.get_path()),
-                        this.get_options().clone(),
+                        dispatch_tracer!(this, tracer => tracer.options.clone()),
                     )),
                 };
                 *this = Self::List(tracer);
@@ -315,15 +321,15 @@ impl Tracer {
             this @ Self::Unknown(_) => {
                 let tracer = MapTracer {
                     path: this.get_path().to_owned(),
-                    options: this.get_options().clone(),
+                    options: dispatch_tracer!(this, tracer => tracer.options.clone()),
                     nullable: this.get_nullable(),
                     key_tracer: Box::new(Tracer::new(
                         format!("{}.key", this.get_path()),
-                        this.get_options().clone(),
+                        dispatch_tracer!(this, tracer => tracer.options.clone()),
                     )),
                     value_tracer: Box::new(Tracer::new(
                         format!("{}.value", this.get_path()),
-                        this.get_options().clone(),
+                        dispatch_tracer!(this, tracer => tracer.options.clone()),
                     )),
                 };
                 *this = Self::Map(tracer);
@@ -448,12 +454,12 @@ impl Tracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnknownTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
 }
 
 impl UnknownTracer {
-    pub fn new(path: String, options: TracingOptions) -> Self {
+    pub fn new(path: String, options: Arc<TracingOptions>) -> Self {
         Self {
             path,
             options,
@@ -492,7 +498,7 @@ impl UnknownTracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct MapTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub key_tracer: Box<Tracer>,
     pub value_tracer: Box<Tracer>,
@@ -532,7 +538,7 @@ impl MapTracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ListTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub item_tracer: Box<Tracer>,
 }
@@ -565,7 +571,7 @@ impl ListTracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct TupleTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub field_tracers: Vec<Tracer>,
 }
@@ -613,7 +619,7 @@ impl TupleTracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub fields: Vec<StructField>,
     pub index: HashMap<String, usize>,
@@ -718,7 +724,7 @@ impl StructTracer {
 
 pub struct UnionTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub variants: Vec<Option<UnionVariant>>,
 }
@@ -831,7 +837,7 @@ impl UnionTracer {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PrimitiveTracer {
     pub path: String,
-    pub options: TracingOptions,
+    pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub strategy: Option<Strategy>,
     pub item_type: GenericDataType,
@@ -846,7 +852,7 @@ impl PrimitiveTracer {
     ) -> Self {
         Self {
             path,
-            options,
+            options: Arc::new(options),
             item_type,
             nullable,
             strategy: None,

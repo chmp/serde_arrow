@@ -23,7 +23,7 @@ pub use strategy::{
     merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
 };
 use tracer::Tracer;
-pub use tracing_options::{TracingMode, TracingOptions};
+pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
 pub trait Sealed {}
 
@@ -325,6 +325,8 @@ pub struct GenericField {
     pub children: Vec<GenericField>,
 }
 
+/// Implement deserialize to add a additional validation
+///
 impl<'de> Deserialize<'de> for GenericField {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error;

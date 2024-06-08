@@ -229,6 +229,7 @@ impl<'de, A: serde::de::EnumAccess<'de>> serde::de::Deserializer<'de> for EnumDe
     }
 }
 
+/// A wrapper around GenericField to add custom deserialization logic
 #[derive(Debug)]
 struct NativeOrArrowField(GenericField);
 
