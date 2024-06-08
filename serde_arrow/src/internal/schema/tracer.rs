@@ -172,6 +172,7 @@ impl Tracer {
         let mut missing = Vec::new();
         for key in overwrites.0.keys() {
             if !paths.contains(key) {
+                let key = key.strip_prefix("$.").unwrap_or(key);
                 missing.push(key);
             }
         }
