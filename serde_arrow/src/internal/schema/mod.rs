@@ -125,7 +125,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - durations: `"Duration(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
-    ///   field named `"element"` that describes the element types
+    ///   field named `"element"` that describes the element type
     /// - structs: `"Struct"`. `"children"` must contain the child fields
     /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
     ///   `"value"` that encode the key and value types

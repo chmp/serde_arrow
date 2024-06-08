@@ -234,6 +234,10 @@ impl TracingOptions {
         self.tracing_mode = value;
         self
     }
+
+    pub(crate) fn get_overwrite(&self, path: &str) -> Option<&GenericField> {
+        self.overwrites.0.get(path)
+    }
 }
 
 /// An opaque mapping of field paths to field definitions

@@ -22,7 +22,7 @@ use super::{
 impl Tracer {
     pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromType);
-        let mut tracer = Tracer::new(String::from("$"), Arc::new(options));
+        let mut tracer = Tracer::new(String::from("$"), String::from("$"), Arc::new(options));
 
         let mut budget = tracer.get_options().from_type_budget;
         while !tracer.is_complete() {

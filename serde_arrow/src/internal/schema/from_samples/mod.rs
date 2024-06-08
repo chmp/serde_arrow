@@ -24,7 +24,7 @@ impl Tracer {
         options: TracingOptions,
     ) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromSamples);
-        let mut tracer = Tracer::new("$".into(), Arc::new(options));
+        let mut tracer = Tracer::new(String::from("$"), String::from("$"), Arc::new(options));
         samples.serialize(OuterSequenceSerializer(&mut tracer))?;
         tracer.finish()?;
         Ok(tracer)
@@ -595,7 +595,7 @@ mod test {
 
     fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
         let tracer = Tracer::from_samples(items, options).unwrap();
-        let field = tracer.to_field("$").unwrap();
+        let field = tracer.to_field().unwrap();
         let expected = serde_json::from_value::<GenericField>(expected).unwrap();
 
         assert_eq!(field, expected);
