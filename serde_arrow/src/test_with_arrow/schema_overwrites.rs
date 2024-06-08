@@ -17,7 +17,7 @@ fn example_issue_187() -> PanicOnError<()> {
     }
 
     let options = TracingOptions::default().overwrite(
-        "$.expiry",
+        "expiry",
         json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
     )?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
@@ -31,14 +31,14 @@ fn example_issue_187() -> PanicOnError<()> {
 }
 
 #[test]
-fn example_nested_overwrites() -> PanicOnError<()> {
+fn example_nested_overwrites_vec() -> PanicOnError<()> {
     #[derive(Debug, Serialize, Deserialize)]
     struct Example {
         pub date_times: Vec<i64>,
     }
 
     let options = TracingOptions::default().overwrite(
-        "$.date_times.element",
+        "date_times.element",
         json!({"name": "element", "data_type": "Timestamp(Microsecond, None)"}),
     )?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
@@ -58,6 +58,38 @@ fn example_nested_overwrites() -> PanicOnError<()> {
 }
 
 #[test]
+fn example_nested_overwrites_structs() -> PanicOnError<()> {
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Example {
+        pub inner: Inner,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Inner {
+        pub value: i64,
+    }
+
+    let options = TracingOptions::default().overwrite(
+        "inner.value",
+        json!({"name": "value", "data_type": "I32"}),
+    )?;
+    let actual = SerdeArrowSchema::from_type::<Example>(options)?;
+
+    let expected = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "inner",
+            "data_type": "Struct",
+            "children": [
+                {"name": "value", "data_type": "I32"},
+            ],
+        }
+    ]))?;
+
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
 fn example_renames() {
     #[derive(Debug, Serialize, Deserialize)]
     struct Example {
@@ -67,7 +99,7 @@ fn example_renames() {
     let actual = SerdeArrowSchema::from_type::<Example>(
         TracingOptions::default()
             .overwrite(
-                "$.value",
+                "value",
                 json!({"name": "renamed_value", "data_type": "I64"}),
             )
             .unwrap(),
@@ -93,7 +125,7 @@ fn example_renames_with_arrow_field() {
     let actual = SerdeArrowSchema::from_type::<Example>(
         TracingOptions::default()
             .overwrite(
-                "$.value",
+                "value",
                 Field::new("renamed_value", DataType::Int64, false),
             )
             .unwrap(),

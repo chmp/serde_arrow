@@ -74,7 +74,7 @@ fn missing_overwrites() {
 
     let res = SerdeArrowSchema::from_type::<S>(
         TracingOptions::default()
-            .overwrite("$.b", json!({"name": "b", "data_type": "I64"}))
+            .overwrite("b", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
     );
     assert_error(&res, "Overwritten fields could not be found.");

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, Result},
+    error::Result,
     utils::value,
 };
 
@@ -132,10 +132,10 @@ pub struct TracingOptions {
     /// A mapping of field paths to field definitions
     ///
     /// Overwrites can be added with `options.overwrite(path, field)`. The
-    /// `path` must be rooted, i.e., start with `$`. The `field` parameter must
-    /// serialize to a valid field. Examples are instances of
-    /// `serde_json::Value` with the correct content or of
-    /// `arrow::datatypes::Field`.
+    /// `field` parameter must serialize to a valid field. Examples are
+    /// instances of `serde_json::Value` with the correct content or of
+    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using
+    /// dotted paths, e.g.m `"foo.bar"`.
     ///
     /// Overwrites can be used to change the data type of field, e.g., to ensure
     /// a field is a `Timestamp`:
@@ -158,7 +158,7 @@ pub struct TracingOptions {
     /// }
     ///
     /// let options = TracingOptions::default().overwrite(
-    ///     "$.expiry",
+    ///     "expiry",
     ///     json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
     /// )?;
     /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
@@ -192,7 +192,7 @@ pub struct TracingOptions {
     /// # }
     /// #
     /// let options = TracingOptions::default().overwrite(
-    ///     "$.expiry",
+    ///     "expiry",
     ///     Field::new(
     ///         "expiry",
     ///         DataType::Timestamp(TimeUnit::Microsecond, None),
@@ -227,7 +227,7 @@ pub struct TracingOptions {
     /// }
     ///
     /// let options = TracingOptions::default().overwrite(
-    ///     "$.i64_value",
+    ///     "i64_value",
     ///     json!({"name": "value", "data_type": "I64"}),
     /// )?;
     /// let fields = Vec::<FieldRef>::from_type::<Example>(options)?;
@@ -314,13 +314,8 @@ impl TracingOptions {
     /// Add an overwrite to [`overwrites`](#structfield.overwrites)
     pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
         let path = path.into();
+        let path = format!("$.{path}");
         let field: GenericField = value::transmute(&field)?;
-
-        if !path.starts_with('$') {
-            fail!(
-                "Paths must be rooted, i.e., prefixed with '$'. For example '$.struct.date_field'"
-            );
-        }
 
         self.overwrites.0.insert(path, field);
         Ok(self)
