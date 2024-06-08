@@ -16,17 +16,21 @@ fn example_issue_187() -> PanicOnError<()> {
         pub expiry: DateTime<Utc>,
     }
 
-    let options = TracingOptions::default().overwrite(
-        "expiry",
-        json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
-    )?;
-    let actual = SerdeArrowSchema::from_type::<Example>(options)?;
-
     let expected = SerdeArrowSchema::from_value(&json!([
         {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
     ]))?;
 
+    let options = TracingOptions::default().overwrite(
+        "expiry",
+        json!({"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}),
+    )?;
+
+    let actual = SerdeArrowSchema::from_type::<Example>(options.clone())?;
     assert_eq!(actual, expected);
+
+    let actual = SerdeArrowSchema::from_samples(&[Example { expiry: Utc::now() }], options)?;
+    assert_eq!(actual, expected);
+
     Ok(())
 }
 
