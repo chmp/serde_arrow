@@ -18,6 +18,7 @@ pub fn write_file(name: &str, batch: &RecordBatch) -> Result<()> {
 pub fn execute_python(source: &str) -> Result<String> {
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
 
+    // TODO: implement proper dedent logic
     let mut dedented_source = String::new();
     for line in source.lines() {
         dedented_source.push_str(line.trim_start());
