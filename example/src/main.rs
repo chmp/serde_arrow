@@ -114,7 +114,7 @@ fn main() -> Result<(), PanicOnError> {
             FixedShapeTensorField::new(
                 "tensor",
                 json!({"name": "element", "data_type": "I32"}),
-                [2, 2],
+                vec![2, 2],
             )?,
         )?;
 

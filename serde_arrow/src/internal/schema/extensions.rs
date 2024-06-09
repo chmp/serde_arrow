@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use super::{GenericDataType, GenericField};
 use crate::internal::{
     error::{fail, Error, Result},
@@ -8,9 +10,12 @@ use crate::internal::{
 
 /// Easily construct a field for tensors with fixed shape
 ///
-/// The corresponding Rust type must serialize to a fixed size list that
-/// contains the  flattened tensor elements in C order. To support different
-/// orders, set the [`permutation`][FixedShapeTensorField::permutation].
+/// See the [arrow docs][fixed-shape-tensor-docs] for details on the different
+/// fields.
+///
+/// The Rust value must serialize to a fixed size list that contains the
+/// flattened tensor elements in C order. To support different orders, set the
+/// [`permutation`][FixedShapeTensorField::permutation].
 ///
 /// This struct is designed to be used with
 /// [`TracingOptions::overwrite`][crate::schema::TracingOptions::overwrite]:
@@ -31,6 +36,10 @@ use crate::internal::{
 /// # Ok(())
 /// # }
 /// ```
+///
+/// [fixed-shape-tensor-docs]:
+///     https://arrow.apache.org/docs/format/CanonicalExtensions.html#variable-shape-tensor
+///
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixedShapeTensorField {
     name: String,
@@ -42,20 +51,20 @@ pub struct FixedShapeTensorField {
 }
 
 impl FixedShapeTensorField {
-    pub fn new<Name, Element, Shape>(name: Name, element: Element, shape: Shape) -> Result<Self>
-    where
-        Name: Into<String>,
-        Element: serde::ser::Serialize,
-        Shape: Into<Vec<usize>>,
-    {
+    /// Construct a new instance
+    ///
+    /// Note the element parameter must serialize into a valid field definition
+    /// with the the name `"element"`. The field type can be any valid Arrow
+    /// type.
+    pub fn new(name: &str, element: impl Serialize, shape: Vec<usize>) -> Result<Self> {
         let element: GenericField = value::transmute(&element)?;
         if element.name != "element" {
             fail!("The element field of FixedShapeTensorField must be named \"element\"");
         }
 
         Ok(Self {
-            name: name.into(),
-            shape: shape.into(),
+            name: name.to_owned(),
+            shape,
             element,
             nullable: false,
             dim_names: None,
@@ -69,20 +78,36 @@ impl FixedShapeTensorField {
         self
     }
 
-    /// Permute the dimensions
-    pub fn permutation<P: Into<Vec<usize>>>(mut self, value: P) -> Result<Self> {
-        // TODO: check the permutation
-        let value = value.into();
+    /// Set the permutation of the dimension
+    pub fn permutation(mut self, value: Vec<usize>) -> Result<Self> {
         if value.len() != self.shape.len() {
             fail!("Number of permutation entries must be equal to the number of dimensions");
         }
+        let seen = vec![false; value.len()];
+        for &i in &value {
+            if i >= seen.len() {
+                fail!(
+                    "Invalid permutation: index {i} is not in range 0..{len}",
+                    len = seen.len()
+                );
+            }
+            if seen[i] {
+                fail!("Invalid permutation: index {i} found multiple times");
+            }
+            seen[i];
+        }
+        for (i, seen) in seen.into_iter().enumerate() {
+            if !seen {
+                fail!("Invalid permutation: index {i} is not present");
+            }
+        }
+
         self.permutation = Some(value);
         Ok(self)
     }
 
     /// Set the dimension names
-    pub fn dim_names<P: Into<Vec<String>>>(mut self, value: P) -> Result<Self> {
-        let value = value.into();
+    pub fn dim_names(mut self, value: Vec<String>) -> Result<Self> {
         if value.len() != self.shape.len() {
             fail!("Number of dim names must be equal to the number of dimensions");
         }
