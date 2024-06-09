@@ -394,4 +394,11 @@ pub mod schema {
     /// Renamed to [`SerdeArrowSchema`]
     #[deprecated = "serde_arrow::schema::Schema is deprecated. Use serde_arrow::schema::SerdeArrowSchema instead"]
     pub type Schema = SerdeArrowSchema;
+
+    /// Support for [canonical extension types][ext-docs]. This module is experimental without semver guarantees.
+    ///
+    /// [ext-docs]: https://arrow.apache.org/docs/format/CanonicalExtensions.html
+    pub mod ext {
+        pub use crate::internal::schema::extensions::FixedShapeTensorField;
+    }
 }

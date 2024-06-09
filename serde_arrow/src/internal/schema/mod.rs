@@ -1,3 +1,5 @@
+pub mod extensions;
+
 mod data_type;
 mod deserialization;
 mod from_samples;
