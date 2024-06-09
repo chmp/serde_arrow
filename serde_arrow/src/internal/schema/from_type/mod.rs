@@ -127,12 +127,14 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         visitor.visit_string(Default::default())
     }
 
-    fn deserialize_bytes<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        fail!("Cannot trace bytes")
+    fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        <&[u8]>::deserialize(self)?;
+        visitor.visit_bytes(&[])
     }
 
-    fn deserialize_byte_buf<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        fail!("Cannot trace byte bufs")
+    fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        Vec::<u8>::deserialize(self)?;
+        visitor.visit_byte_buf(Default::default())
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

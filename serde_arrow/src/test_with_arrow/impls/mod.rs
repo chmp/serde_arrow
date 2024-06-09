@@ -1,5 +1,6 @@
 mod utils;
 
+mod bytes;
 mod chrono;
 mod dictionary;
 mod examples;

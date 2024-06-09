@@ -89,6 +89,14 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_seq(self)
     }
+
+    fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(self)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(self)
+    }
 }
 
 impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {

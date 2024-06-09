@@ -110,4 +110,12 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         self.end()
     }
+
+    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
+        self.start()?;
+        for item in v {
+            self.element(item)?;
+        }
+        self.end()
+    }
 }
