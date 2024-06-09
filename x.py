@@ -193,6 +193,18 @@ def example(backtrace=False):
     )
 
 
+@cmd(help="Run both unit and integration tests")
+@arg(
+    "--backtrace",
+    action="store_true",
+    default=False,
+    help="If given, print a backtrace on error",
+)
+def test(backtrace=False):
+    test_unit(backtrace=backtrace)
+    test_integration(backtrace)
+
+
 @cmd(help="Run the tests")
 @arg(
     "--backtrace",
@@ -206,15 +218,8 @@ def example(backtrace=False):
     default=False,
     help="If given, run all feature combinations",
 )
-@arg(
-    "--skip-arrow2",
-    action="store_true",
-    help="If given, skip arrow2 implementations in tests",
-)
 @arg("test_name", nargs="?", help="Filter of test names")
-def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
-    import os
-
+def test_unit(test_name=None, backtrace=False, full=False):
     if not full:
         feature_selections = [f"--features {default_features}"]
 
@@ -234,11 +239,22 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
                     {feature_selection}
                     {_q(test_name) if test_name else ''}
             """,
-            env={
-                **({"RUST_BACKTRACE": "1"} if backtrace else {}),
-                **({"SERDE_ARROW_SKIP_ARROW2_TESTS": "1"} if skip_arrow2 else {}),
-            },
+            env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
         )
+
+
+@cmd(help="Run integration tests")
+@arg(
+    "--backtrace",
+    action="store_true",
+    default=False,
+    help="If given, print a backtrace on error",
+)
+def test_integration(backtrace=False):
+    _sh(
+        "cargo test -p integration_tests",
+        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+    )
 
 
 @cmd()

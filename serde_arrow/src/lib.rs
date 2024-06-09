@@ -297,7 +297,7 @@ pub mod _impl {
     // Reexport for tests
     #[doc(hidden)]
     pub use crate::internal::{
-        error::PanicOnError,
+        error::{PanicOnError, PanicOnErrorError},
         serialization::array_builder::ArrayBuilder,
     };
 }
