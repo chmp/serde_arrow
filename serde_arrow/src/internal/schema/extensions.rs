@@ -335,7 +335,6 @@ fn check_permutation(ndim: usize, permutation: &[usize]) -> Result<()> {
         if seen[i] {
             fail!("Invalid permutation: index {i} found multiple times");
         }
-        seen[i];
     }
     for (i, seen) in seen.into_iter().enumerate() {
         if !seen {
