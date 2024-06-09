@@ -1458,6 +1458,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_arrow",
+ "serde_json",
 ]
 
 [[package]]
