@@ -101,7 +101,7 @@ def precommit(backtrace=False):
     format()
     check()
     test(backtrace=backtrace)
-    example()
+    example(backtrace)
 
 
 @cmd(help="Update the github workflows")
@@ -180,9 +180,17 @@ def check(fast=False):
 
 
 @cmd(help="Run the example")
-def example():
-    _sh("cargo run -p example")
-    _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
+@arg("--backtrace", action="store_true", default=False)
+def example(backtrace=False):
+    _sh(
+        "cargo run -p example",
+        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+    )
+    # NOTE: polars does not support extension types
+    # _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
+    _sh(
+        f"{python} -c 'import pyarrow as pa; print(pa.ipc.open_file(\"example.ipc\").read_all())'"
+    )
 
 
 @cmd(help="Run the tests")
@@ -219,11 +227,6 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
             for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]
 
-    env = {
-        **os.environ,
-        **({"RUST_BACKTRACE": "1"} if backtrace else {}),
-        **({"SERDE_ARROW_SKIP_ARROW2_TESTS": "1"} if skip_arrow2 else {}),
-    }
     for feature_selection in feature_selections:
         _sh(
             f"""
@@ -231,7 +234,10 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
                     {feature_selection}
                     {_q(test_name) if test_name else ''}
             """,
-            env=env,
+            env={
+                **({"RUST_BACKTRACE": "1"} if backtrace else {}),
+                **({"SERDE_ARROW_SKIP_ARROW2_TESTS": "1"} if skip_arrow2 else {}),
+            },
         )
 
 
@@ -316,10 +322,7 @@ def bench(quick=False):
 
     _sh(
         f"cargo bench --features {default_features}",
-        env={
-            **os.environ,
-            **({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
-        },
+        env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
 
@@ -555,9 +558,15 @@ def add_arrow_version(version):
     update_workflows()
 
 
-_sh = lambda c, **kw: __import__("subprocess").run(
+_sh = lambda c, env=(), **kw: __import__("subprocess").run(
     [args := __import__("shlex").split(c.replace("\n", " ")), print("::", *args)][0],
-    **{"check": True, "cwd": self_path, "encoding": "utf-8", **kw},
+    **{
+        "check": True,
+        "cwd": self_path,
+        "encoding": "utf-8",
+        "env": {**__import__("os").environ, **dict(env)},
+        **kw,
+    },
 )
 _q = lambda arg: __import__("shlex").quote(str(arg))
 
