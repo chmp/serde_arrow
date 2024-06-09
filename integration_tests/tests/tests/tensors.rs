@@ -33,7 +33,7 @@ fn fixed_shape_tensor() -> Result<()> {
     let output = execute_python(
         r#"
         import pyarrow as pa
-        tbl = tbl = pa.ipc.open_file("fixed_shape_tensor.ipc").read_all()
+        tbl = pa.ipc.open_file("fixed_shape_tensor.ipc").read_all()
         print(tbl["item"].combine_chunks().to_numpy_ndarray().shape)
     "#,
     )?;
@@ -76,7 +76,7 @@ fn variable_shape_tensor() -> Result<()> {
     let output = execute_python(
         r#"
         import pyarrow as pa
-        tbl = tbl = pa.ipc.open_file("variable_shape_tensor.ipc").read_all()
+        tbl = pa.ipc.open_file("variable_shape_tensor.ipc").read_all()
     "#,
     )?;
     let _ = output;
