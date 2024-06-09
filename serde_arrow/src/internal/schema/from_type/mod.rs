@@ -37,6 +37,7 @@ impl Tracer {
         }
 
         tracer.finish()?;
+        tracer.check()?;
 
         Ok(tracer)
     }

@@ -27,6 +27,8 @@ impl Tracer {
         let mut tracer = Tracer::new(String::from("$"), String::from("$"), Arc::new(options));
         samples.serialize(OuterSequenceSerializer(&mut tracer))?;
         tracer.finish()?;
+        tracer.check()?;
+
         Ok(tracer)
     }
 }

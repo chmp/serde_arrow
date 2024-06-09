@@ -77,7 +77,23 @@ fn missing_overwrites() {
             .overwrite("b", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
     );
-    assert_error(&res, "Overwritten fields could not be found.");
+    assert_error(&res, "Overwritten fields could not be found:");
+}
+
+#[test]
+fn mismatched_overwrite_name() {
+    #[derive(Debug, Deserialize)]
+    pub struct S {
+        #[allow(dead_code)]
+        a: i64,
+    }
+
+    let res = SerdeArrowSchema::from_type::<S>(
+        TracingOptions::default()
+            .overwrite("a", json!({"name": "b", "data_type": "I64"}))
+            .unwrap(),
+    );
+    assert_error(&res, "Invalid name for overwritten field");
 }
 
 #[test]
