@@ -63,7 +63,7 @@ impl std::fmt::Display for GenericDataType {
             Struct => write!(f, "Struct"),
             List => write!(f, "List"),
             LargeList => write!(f, "LargeList"),
-            FixedSizeList(n) => write!(f, "FixedSizeList({n}"),
+            FixedSizeList(n) => write!(f, "FixedSizeList({n})"),
             Union => write!(f, "Union"),
             Map => write!(f, "Map"),
             Dictionary => write!(f, "Dictionary"),
