@@ -186,11 +186,7 @@ def example(backtrace=False):
         "cargo run -p example",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
-    # NOTE: polars does not support extension types
-    # _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
-    _sh(
-        f"{python} -c 'import pyarrow as pa; print(pa.ipc.open_file(\"example.ipc\").read_all())'"
-    )
+    _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
 
 
 @cmd(help="Run both unit and integration tests")
