@@ -8,6 +8,7 @@ use crate::internal::{
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
+        fixed_size_list_deserializer::FixedSizeListDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::{IntoUsize, ListDeserializer},
@@ -25,8 +26,9 @@ use crate::internal::{
 
 use crate::_impl::arrow::{
     array::{
-        Array, BooleanArray, DictionaryArray, GenericListArray, GenericStringArray, MapArray,
-        OffsetSizeTrait, PrimitiveArray, RecordBatch, StructArray, UnionArray,
+        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericListArray,
+        GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray, RecordBatch, StructArray,
+        UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
@@ -184,6 +186,7 @@ pub fn build_array_deserializer<'a>(
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -437,6 +440,26 @@ where
     let validity = get_validity(array);
 
     Ok(ListDeserializer::new(item, offsets, validity).into())
+}
+
+pub fn build_fixed_size_list_deserializer<'a>(
+    field: &GenericField,
+    array: &'a dyn Array,
+    n: i32,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<FixedSizeListArray>() else {
+        fail!(
+            "Cannot interpret {} array as GenericListArray",
+            array.data_type()
+        );
+    };
+
+    let n = n.try_into()?;
+    let len = array.len();
+    let item = build_array_deserializer(&field.children[0], array.values())?;
+    let validity = get_validity(array);
+
+    Ok(FixedSizeListDeserializer::new(item, validity, n, len).into())
 }
 
 pub fn build_map_deserializer<'a>(

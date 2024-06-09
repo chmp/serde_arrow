@@ -10,11 +10,11 @@ use super::{
     bool_deserializer::BoolDeserializer, date32_deserializer::Date32Deserializer,
     date64_deserializer::Date64Deserializer, decimal_deserializer::DecimalDeserializer,
     dictionary_deserializer::DictionaryDeserializer, enum_deserializer::EnumDeserializer,
-    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
-    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
-    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
-    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
-    time_deserializer::TimeDeserializer,
+    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -57,6 +57,7 @@ pub enum ArrayDeserializer<'a> {
     Struct(StructDeserializer<'a>),
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
+    FixedSizeList(FixedSizeListDeserializer<'a>),
     Map(MapDeserializer<'a>),
     Enum(EnumDeserializer<'a>),
 }
@@ -184,6 +185,12 @@ impl<'a> From<ListDeserializer<'a, i32>> for ArrayDeserializer<'a> {
 impl<'a> From<ListDeserializer<'a, i64>> for ArrayDeserializer<'a> {
     fn from(value: ListDeserializer<'a, i64>) -> Self {
         Self::LargeList(value)
+    }
+}
+
+impl<'a> From<FixedSizeListDeserializer<'a>> for ArrayDeserializer<'a> {
+    fn from(value: FixedSizeListDeserializer<'a>) -> Self {
+        Self::FixedSizeList(value)
     }
 }
 
@@ -332,6 +339,7 @@ macro_rules! dispatch {
             $wrapper::LargeUtf8($name) => $expr,
             $wrapper::Struct($name) => $expr,
             $wrapper::List($name) => $expr,
+            $wrapper::FixedSizeList($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Enum($name) => $expr,

@@ -1,8 +1,10 @@
 mod utils;
 
+mod bytes;
 mod chrono;
 mod dictionary;
 mod examples;
+mod fixed_size_list;
 mod json_values;
 mod list;
 mod map;

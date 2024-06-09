@@ -1,3 +1,5 @@
+pub mod extensions;
+
 mod data_type;
 mod deserialization;
 mod from_samples;
@@ -368,6 +370,7 @@ impl GenericField {
             GenericDataType::Map => self.validate_map(),
             GenericDataType::List => self.validate_list(),
             GenericDataType::LargeList => self.validate_list(),
+            GenericDataType::FixedSizeList(n) => self.validate_fixed_size_list(n),
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
@@ -617,6 +620,13 @@ impl GenericField {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn validate_fixed_size_list(&self, n: i32) -> Result<()> {
+        if n < 0 {
+            fail!("Invalid FixedSizeList with negative number of elements");
+        }
+        self.validate_list()
     }
 
     pub(crate) fn validate_list(&self) -> Result<()> {

@@ -92,6 +92,38 @@ fn example_nested_overwrites_structs() -> PanicOnError<()> {
 }
 
 #[test]
+fn example_nested_struct_overwrite_outer() -> PanicOnError<()> {
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Example {
+        pub inner: Inner,
+        pub field: i64,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Inner {
+        pub value: i64,
+    }
+
+    let options = TracingOptions::default()
+        .overwrite("field", json!({"name": "field", "data_type": "I32"}))?;
+    let actual = SerdeArrowSchema::from_type::<Example>(options)?;
+
+    let expected = SerdeArrowSchema::from_value(&json!([
+        {
+            "name": "inner",
+            "data_type": "Struct",
+            "children": [
+                {"name": "value", "data_type": "I64"},
+            ],
+        },
+        {"name": "field", "data_type": "I32"},
+    ]))?;
+
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
 fn example_with_arrow_field() {
     use crate::_impl::arrow::datatypes::{DataType, Field};
 

@@ -230,6 +230,10 @@ impl TryFrom<&Field> for GenericField {
                 children.push(field.as_ref().try_into()?);
                 GenericDataType::LargeList
             }
+            DataType::FixedSizeList(field, n) => {
+                children.push(field.as_ref().try_into()?);
+                GenericDataType::FixedSizeList(*n)
+            }
             DataType::Struct(fields) => {
                 for field in fields {
                     children.push(field.as_ref().try_into()?);
@@ -323,6 +327,17 @@ impl TryFrom<&GenericField> for Field {
                         .try_into()?,
                 )
                 .into(),
+            ),
+            T::FixedSizeList(n) => DataType::FixedSizeList(
+                Box::<Field>::new(
+                    value
+                        .children
+                        .first()
+                        .ok_or_else(|| error!("List must a single child"))?
+                        .try_into()?,
+                )
+                .into(),
+                *n,
             ),
             T::Struct => DataType::Struct(
                 value

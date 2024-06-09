@@ -1,30 +1,35 @@
 use serde::Serialize;
 
-use crate::internal::{error::Result, schema::GenericField, utils::Mut};
+use crate::internal::{
+    error::{fail, Result},
+    schema::GenericField,
+    utils::Mut,
+};
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, Offset,
-        SimpleSerializer,
-    },
+    utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]
 
-pub struct ListBuilder<O> {
+pub struct FixedSizeListBuilder {
     pub field: GenericField,
+    pub n: usize,
+    pub current_count: usize,
+    pub num_elements: usize,
     pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<O>,
     pub element: Box<ArrayBuilder>,
 }
 
-impl<O: Offset> ListBuilder<O> {
-    pub fn new(field: GenericField, element: ArrayBuilder, is_nullable: bool) -> Self {
+impl FixedSizeListBuilder {
+    pub fn new(field: GenericField, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
         Self {
             field,
+            n,
+            current_count: 0,
+            num_elements: 0,
             validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: Default::default(),
             element: Box::new(element),
         }
     }
@@ -32,8 +37,10 @@ impl<O: Offset> ListBuilder<O> {
     pub fn take(&mut self) -> Self {
         Self {
             field: self.field.clone(),
+            n: self.n,
+            current_count: std::mem::take(&mut self.current_count),
+            num_elements: std::mem::take(&mut self.num_elements),
             validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
             element: Box::new(self.element.take()),
         }
     }
@@ -43,36 +50,51 @@ impl<O: Offset> ListBuilder<O> {
     }
 }
 
-impl<O: Offset> ListBuilder<O> {
+impl FixedSizeListBuilder {
     fn start(&mut self) -> Result<()> {
+        self.current_count = 0;
         push_validity(&mut self.validity, true)
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.offsets.inc_current_items()?;
+        self.current_count += 1;
         value.serialize(Mut(self.element.as_mut()))
     }
 
     fn end(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
+        if self.current_count != self.n {
+            fail!(
+                "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
+                n = self.n,
+                actual = self.current_count
+            );
+        }
+        self.num_elements += 1;
         Ok(())
     }
 }
 
-impl<O: Offset> SimpleSerializer for ListBuilder<O> {
+impl SimpleSerializer for FixedSizeListBuilder {
     fn name(&self) -> &str {
-        "ListBuilder"
+        "FixedSizeListBuilder"
     }
 
     fn serialize_default(&mut self) -> Result<()> {
         push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
+        for _ in 0..self.n {
+            self.element.serialize_default()?;
+        }
+        self.num_elements += 1;
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        push_validity(&mut self.validity, false)
+        push_validity(&mut self.validity, false)?;
+        for _ in 0..self.n {
+            self.element.serialize_default()?;
+        }
+        self.num_elements += 1;
+        Ok(())
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
@@ -108,14 +130,6 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end()
-    }
-
-    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.start()?;
-        for item in v {
-            self.element(item)?;
-        }
         self.end()
     }
 }

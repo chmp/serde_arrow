@@ -275,6 +275,7 @@ impl TryFrom<&GenericField> for Field {
                     .ok_or_else(|| error!("List must a single child"))?
                     .try_into()?,
             )),
+            T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
             T::Struct => DataType::Struct(
                 value
                     .children

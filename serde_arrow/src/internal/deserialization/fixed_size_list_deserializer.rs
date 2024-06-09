@@ -1,4 +1,4 @@
-use serde::de::{SeqAccess, Visitor};
+use serde::de::{IgnoredAny, SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, Error, Result},
@@ -10,45 +10,32 @@ use super::{
     utils::BitBuffer,
 };
 
-pub trait IntoUsize: Copy {
-    fn into_usize(self) -> Result<usize>;
-}
-
-impl IntoUsize for i32 {
-    fn into_usize(self) -> Result<usize> {
-        Ok(self.try_into()?)
-    }
-}
-
-impl IntoUsize for i64 {
-    fn into_usize(self) -> Result<usize> {
-        Ok(self.try_into()?)
-    }
-}
-
-pub struct ListDeserializer<'a, O: IntoUsize> {
+pub struct FixedSizeListDeserializer<'a> {
     pub item: Box<ArrayDeserializer<'a>>,
-    pub offsets: &'a [O],
     pub validity: Option<BitBuffer<'a>>,
+    pub n: usize,
+    pub len: usize,
     pub next: (usize, usize),
 }
 
-impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
+impl<'a> FixedSizeListDeserializer<'a> {
     pub fn new(
         item: ArrayDeserializer<'a>,
-        offsets: &'a [O],
         validity: Option<BitBuffer<'a>>,
+        n: usize,
+        len: usize,
     ) -> Self {
         Self {
             item: Box::new(item),
-            offsets,
             validity,
+            n,
+            len,
             next: (0, 0),
         }
     }
 
     pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 + 1 >= self.offsets.len() {
+        if self.next.0 >= self.len {
             fail!("Exhausted ListDeserializer")
         }
         if let Some(validity) = &self.validity {
@@ -58,12 +45,17 @@ impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
         }
     }
 
-    pub fn consume_next(&mut self) {
+    pub fn consume_next(&mut self) -> Result<()> {
+        for _ in 0..self.n {
+            self.item.deserialize_ignored_any(IgnoredAny)?;
+        }
+
         self.next = (self.next.0 + 1, 0);
+        Ok(())
     }
 }
 
-impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
+impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {
     fn name() -> &'static str {
         "ListDeserializer"
     }
@@ -72,7 +64,7 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
         if self.peek_next()? {
             self.deserialize_seq(visitor)
         } else {
-            self.consume_next();
+            self.consume_next()?;
             visitor.visit_none()
         }
     }
@@ -81,7 +73,7 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
         if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
-            self.consume_next();
+            self.consume_next()?;
             visitor.visit_none()
         }
     }
@@ -89,17 +81,9 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_seq(self)
     }
-
-    fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
-    }
-
-    fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
-    }
 }
 
-impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
+impl<'de> SeqAccess<'de> for FixedSizeListDeserializer<'de> {
     type Error = Error;
 
     fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -107,13 +91,11 @@ impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
         seed: T,
     ) -> Result<Option<T::Value>> {
         let (item, offset) = self.next;
-        if item + 1 >= self.offsets.len() {
+        if item >= self.len {
             return Ok(None);
         }
-        let end = self.offsets[item + 1].into_usize()?;
-        let start = self.offsets[item].into_usize()?;
 
-        if offset >= end - start {
+        if offset >= self.n {
             self.next = (item + 1, 0);
             return Ok(None);
         }

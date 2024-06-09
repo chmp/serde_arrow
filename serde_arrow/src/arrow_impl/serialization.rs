@@ -144,6 +144,24 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             build_array_data(*builder.element)?,
             builder.validity,
         ),
+        A::FixedSizedList(builder) => {
+            let data_type = T::FixedSizeList(
+                Arc::new(Field::try_from(&builder.field)?),
+                builder.n.try_into()?,
+            );
+            let child_data = build_array_data(*builder.element)?;
+            let validity = if let Some(validity) = builder.validity {
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            Ok(ArrayData::builder(data_type)
+                .len(builder.num_elements)
+                .null_bit_buffer(validity)
+                .add_child_data(child_data)
+                .build()?)
+        }
         A::Struct(builder) => {
             let mut data = Vec::new();
             for (_, field) in builder.named_fields {

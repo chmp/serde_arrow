@@ -159,16 +159,19 @@ impl Tracer {
     }
 
     pub fn finish(&mut self) -> Result<()> {
-        dispatch_tracer!(self, tracer => tracer.finish()?);
-
-        let options = self.get_options();
-        self.check_overwrites(&options.overwrites)?;
-
-        Ok(())
+        dispatch_tracer!(self, tracer => tracer.finish())
     }
 
     pub fn get_depth(&self) -> usize {
         dispatch_tracer!(self, tracer => tracer.path.chars().filter(|c| *c == '.').count())
+    }
+
+    pub fn check(&self) -> Result<()> {
+        if dispatch_tracer!(self, tracer => tracer.name != "$") {
+            fail!("check must be called on the root tracer");
+        }
+        let options = self.get_options();
+        self.check_overwrites(&options.overwrites)
     }
 
     pub fn check_overwrites(&self, overwrites: &Overwrites) -> Result<()> {
@@ -185,7 +188,14 @@ impl Tracer {
 
         if !missing.is_empty() {
             missing.sort();
-            fail!("Overwritten fields could not be found. Missing fields: {missing:?}");
+
+            let mut paths = paths
+                .into_iter()
+                .map(|p| p.strip_prefix("$.").unwrap_or(p))
+                .collect::<Vec<_>>();
+            paths.sort();
+
+            fail!("Overwritten fields could not be found: missing fields {missing:?}, known fields: {paths:?}");
         }
 
         Ok(())

@@ -101,7 +101,7 @@ def precommit(backtrace=False):
     format()
     check()
     test(backtrace=backtrace)
-    example()
+    example(backtrace)
 
 
 @cmd(help="Update the github workflows")
@@ -180,9 +180,25 @@ def check(fast=False):
 
 
 @cmd(help="Run the example")
-def example():
-    _sh("cargo run -p example")
+@arg("--backtrace", action="store_true", default=False)
+def example(backtrace=False):
+    _sh(
+        "cargo run -p example",
+        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+    )
     _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
+
+
+@cmd(help="Run both unit and integration tests")
+@arg(
+    "--backtrace",
+    action="store_true",
+    default=False,
+    help="If given, print a backtrace on error",
+)
+def test(backtrace=False):
+    test_unit(backtrace=backtrace)
+    test_integration(backtrace)
 
 
 @cmd(help="Run the tests")
@@ -198,15 +214,8 @@ def example():
     default=False,
     help="If given, run all feature combinations",
 )
-@arg(
-    "--skip-arrow2",
-    action="store_true",
-    help="If given, skip arrow2 implementations in tests",
-)
 @arg("test_name", nargs="?", help="Filter of test names")
-def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
-    import os
-
+def test_unit(test_name=None, backtrace=False, full=False):
     if not full:
         feature_selections = [f"--features {default_features}"]
 
@@ -219,11 +228,6 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
             for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]
 
-    env = {
-        **os.environ,
-        **({"RUST_BACKTRACE": "1"} if backtrace else {}),
-        **({"SERDE_ARROW_SKIP_ARROW2_TESTS": "1"} if skip_arrow2 else {}),
-    }
     for feature_selection in feature_selections:
         _sh(
             f"""
@@ -231,8 +235,22 @@ def test(test_name=None, backtrace=False, full=False, skip_arrow2=False):
                     {feature_selection}
                     {_q(test_name) if test_name else ''}
             """,
-            env=env,
+            env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
         )
+
+
+@cmd(help="Run integration tests")
+@arg(
+    "--backtrace",
+    action="store_true",
+    default=False,
+    help="If given, print a backtrace on error",
+)
+def test_integration(backtrace=False):
+    _sh(
+        "cargo test -p integration_tests",
+        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+    )
 
 
 @cmd()
@@ -316,10 +334,7 @@ def bench(quick=False):
 
     _sh(
         f"cargo bench --features {default_features}",
-        env={
-            **os.environ,
-            **({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
-        },
+        env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
 
@@ -555,9 +570,15 @@ def add_arrow_version(version):
     update_workflows()
 
 
-_sh = lambda c, **kw: __import__("subprocess").run(
+_sh = lambda c, env=(), **kw: __import__("subprocess").run(
     [args := __import__("shlex").split(c.replace("\n", " ")), print("::", *args)][0],
-    **{"check": True, "cwd": self_path, "encoding": "utf-8", **kw},
+    **{
+        "check": True,
+        "cwd": self_path,
+        "encoding": "utf-8",
+        "env": {**__import__("os").environ, **dict(env)},
+        **kw,
+    },
 )
 _q = lambda arg: __import__("shlex").quote(str(arg))
 
