@@ -9,7 +9,6 @@ use crate::internal::{
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
-        fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
@@ -29,9 +28,9 @@ use crate::internal::{
 
 use crate::_impl::arrow::{
     array::{
-        Array, BooleanArray, DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray,
-        GenericBinaryArray, GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait,
-        PrimitiveArray, RecordBatch, StructArray, UnionArray,
+        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
+        GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray,
+        RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
@@ -467,10 +466,14 @@ where
     Ok(BinaryDeserializer::new(buffer, offsets, validity).into())
 }
 
+#[cfg(has_arrow_fixed_binary_support)]
 pub fn build_fixed_size_binary_deserializer<'a>(
     _field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
+    use crate::_impl::arrow::array::FixedSizeBinaryArray;
+    use crate::internal::deserialization::fixed_size_binary_deserializer::FixedSizeBinaryDeserializer;
+
     let Some(array) = array.as_any().downcast_ref::<FixedSizeBinaryArray>() else {
         fail!("cannot convert {} array into string", array.data_type());
     };
@@ -480,6 +483,14 @@ pub fn build_fixed_size_binary_deserializer<'a>(
     let validity = get_validity(array);
 
     Ok(FixedSizeBinaryDeserializer::new(shape, buffer, validity).into())
+}
+
+#[cfg(not(has_arrow_fixed_binary_support))]
+pub fn build_fixed_size_binary_deserializer<'a>(
+    _field: &GenericField,
+    _array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    fail!("FixedSizeBinary arrays are not supported for arrow<=46");
 }
 
 pub fn build_fixed_size_list_deserializer<'a>(
