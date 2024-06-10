@@ -128,12 +128,12 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        <&[u8]>::deserialize(self)?;
-        visitor.visit_bytes(&[])
+        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
+        visitor.visit_borrowed_bytes(&[])
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        Vec::<u8>::deserialize(self)?;
+        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
         visitor.visit_byte_buf(Default::default())
     }
 

@@ -7,6 +7,8 @@ mod test_value;
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
+use crate::internal::error::Result;
+
 /// A wrapper around a sequence of items
 ///
 /// When serialized or deserialized, it behaves as if each item was wrapped in a
@@ -147,3 +149,29 @@ impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
 
 /// A wrapper type to allow implementing foreign traits
 pub struct Mut<'a, T>(pub &'a mut T);
+
+/// A trait to handle different offset types
+pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default {
+    fn try_form_usize(val: usize) -> Result<Self>;
+    fn try_into_usize(self) -> Result<usize>;
+}
+
+impl Offset for i32 {
+    fn try_form_usize(val: usize) -> Result<Self> {
+        Ok(i32::try_from(val)?)
+    }
+
+    fn try_into_usize(self) -> Result<usize> {
+        Ok(self.try_into()?)
+    }
+}
+
+impl Offset for i64 {
+    fn try_form_usize(val: usize) -> Result<Self> {
+        Ok(i64::try_from(val)?)
+    }
+
+    fn try_into_usize(self) -> Result<usize> {
+        Ok(self.try_into()?)
+    }
+}

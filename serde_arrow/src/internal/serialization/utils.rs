@@ -8,7 +8,7 @@ use serde::{
 
 use crate::internal::{
     error::{fail, Error, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::ArrayBuilder;
@@ -54,22 +54,6 @@ impl MutableBitBuffer {
     }
 }
 
-pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Default {
-    fn try_form_usize(val: usize) -> Result<Self>;
-}
-
-impl Offset for i32 {
-    fn try_form_usize(val: usize) -> Result<Self> {
-        Ok(i32::try_from(val)?)
-    }
-}
-
-impl Offset for i64 {
-    fn try_form_usize(val: usize) -> Result<Self> {
-        Ok(i64::try_from(val)?)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct MutableOffsetBuffer<O> {
     pub(crate) offsets: Vec<O>,
@@ -94,18 +78,18 @@ impl<O: Offset> MutableOffsetBuffer<O> {
 
     // push a new item with the given number of children
     pub fn push(&mut self, num_children: usize) -> Result<()> {
-        self.current_items = self.current_items.clone() + O::try_form_usize(num_children)?;
-        self.offsets.push(self.current_items.clone());
+        self.current_items = self.current_items + O::try_form_usize(num_children)?;
+        self.offsets.push(self.current_items);
 
         Ok(())
     }
 
     pub fn push_current_items(&mut self) {
-        self.offsets.push(self.current_items.clone());
+        self.offsets.push(self.current_items);
     }
 
     pub fn inc_current_items(&mut self) -> Result<()> {
-        self.current_items = self.current_items.clone() + O::try_form_usize(1)?;
+        self.current_items = self.current_items + O::try_form_usize(1)?;
         Ok(())
     }
 

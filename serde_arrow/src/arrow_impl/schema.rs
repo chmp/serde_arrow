@@ -205,6 +205,9 @@ impl TryFrom<&DataType> for GenericDataType {
             DataType::Duration(TimeUnit::Millisecond) => Ok(T::Duration(U::Millisecond)),
             DataType::Duration(TimeUnit::Microsecond) => Ok(T::Duration(U::Microsecond)),
             DataType::Duration(TimeUnit::Nanosecond) => Ok(T::Duration(U::Nanosecond)),
+            DataType::Binary => Ok(T::Binary),
+            DataType::LargeBinary => Ok(T::LargeBinary),
+            DataType::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(*n)),
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
@@ -339,6 +342,9 @@ impl TryFrom<&GenericField> for Field {
                 .into(),
                 *n,
             ),
+            T::Binary => DataType::Binary,
+            T::LargeBinary => DataType::LargeBinary,
+            T::FixedSizeBinary(n) => DataType::FixedSizeBinary(*n),
             T::Struct => DataType::Struct(
                 value
                     .children

@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, Error, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::{
@@ -10,30 +10,14 @@ use super::{
     utils::BitBuffer,
 };
 
-pub trait IntoUsize: Copy {
-    fn into_usize(self) -> Result<usize>;
-}
-
-impl IntoUsize for i32 {
-    fn into_usize(self) -> Result<usize> {
-        Ok(self.try_into()?)
-    }
-}
-
-impl IntoUsize for i64 {
-    fn into_usize(self) -> Result<usize> {
-        Ok(self.try_into()?)
-    }
-}
-
-pub struct ListDeserializer<'a, O: IntoUsize> {
+pub struct ListDeserializer<'a, O: Offset> {
     pub item: Box<ArrayDeserializer<'a>>,
     pub offsets: &'a [O],
     pub validity: Option<BitBuffer<'a>>,
     pub next: (usize, usize),
 }
 
-impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
+impl<'a, O: Offset> ListDeserializer<'a, O> {
     pub fn new(
         item: ArrayDeserializer<'a>,
         offsets: &'a [O],
@@ -63,7 +47,7 @@ impl<'a, O: IntoUsize> ListDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
+impl<'a, O: Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn name() -> &'static str {
         "ListDeserializer"
     }
@@ -99,7 +83,7 @@ impl<'a, O: IntoUsize> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     }
 }
 
-impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
+impl<'de, O: Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
     type Error = Error;
 
     fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -110,8 +94,8 @@ impl<'de, O: IntoUsize> SeqAccess<'de> for ListDeserializer<'de, O> {
         if item + 1 >= self.offsets.len() {
             return Ok(None);
         }
-        let end = self.offsets[item + 1].into_usize()?;
-        let start = self.offsets[item].into_usize()?;
+        let end = self.offsets[item + 1].try_into_usize()?;
+        let start = self.offsets[item].try_into_usize()?;
 
         if offset >= end - start {
             self.next = (item + 1, 0);

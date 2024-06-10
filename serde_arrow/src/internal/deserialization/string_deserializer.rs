@@ -1,21 +1,20 @@
 use crate::internal::{
     error::{error, fail, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess, list_deserializer::IntoUsize,
-    simple_deserializer::SimpleDeserializer, utils::BitBuffer,
+    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::BitBuffer,
 };
 
-pub struct StringDeserializer<'a, O: IntoUsize> {
+pub struct StringDeserializer<'a, O: Offset> {
     pub data: &'a [u8],
     pub offsets: &'a [O],
     pub validity: Option<BitBuffer<'a>>,
     pub next: usize,
 }
 
-impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
+impl<'a, O: Offset> StringDeserializer<'a, O> {
     pub fn new(data: &'a [u8], offsets: &'a [O], validity: Option<BitBuffer<'a>>) -> Self {
         Self {
             data,
@@ -36,8 +35,8 @@ impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
             }
         }
 
-        let start = self.offsets[self.next].into_usize()?;
-        let end = self.offsets[self.next + 1].into_usize()?;
+        let start = self.offsets[self.next].try_into_usize()?;
+        let end = self.offsets[self.next + 1].try_into_usize()?;
         let s = std::str::from_utf8(&self.data[start..end])?;
 
         self.next += 1;
@@ -69,7 +68,7 @@ impl<'a, O: IntoUsize> StringDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: IntoUsize> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
+impl<'a, O: Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     fn name() -> &'static str {
         "StringDeserializer"
     }

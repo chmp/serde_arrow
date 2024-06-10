@@ -2,24 +2,23 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::{
     enums_as_string_impl::EnumAccess,
     integer_deserializer::Integer,
-    list_deserializer::IntoUsize,
     simple_deserializer::SimpleDeserializer,
     utils::{ArrayBufferIterator, BitBuffer},
 };
 
-pub struct DictionaryDeserializer<'a, K: Integer, V: IntoUsize> {
+pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
     keys: ArrayBufferIterator<'a, K>,
     offsets: &'a [V],
     data: &'a [u8],
 }
 
-impl<'a, K: Integer, V: IntoUsize> DictionaryDeserializer<'a, K, V> {
+impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn new(
         keys_buffer: &'a [K],
         keys_validity: Option<BitBuffer<'a>>,
@@ -38,19 +37,19 @@ impl<'a, K: Integer, V: IntoUsize> DictionaryDeserializer<'a, K, V> {
         let Some(start) = self.offsets.get(k) else {
             fail!("invalid index");
         };
-        let start = start.into_usize()?;
+        let start = start.try_into_usize()?;
 
         let Some(end) = self.offsets.get(k + 1) else {
             fail!("invalid index");
         };
-        let end = end.into_usize()?;
+        let end = end.try_into_usize()?;
 
         let s = std::str::from_utf8(&self.data[start..end])?;
         Ok(s)
     }
 }
 
-impl<'de, K: Integer, V: IntoUsize> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
+impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
     fn name() -> &'static str {
         "DictionaryDeserializer"
     }

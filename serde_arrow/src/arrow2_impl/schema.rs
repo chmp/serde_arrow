@@ -276,6 +276,9 @@ impl TryFrom<&GenericField> for Field {
                     .try_into()?,
             )),
             T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
+            T::Binary => DataType::Binary,
+            T::LargeBinary => DataType::LargeBinary,
+            T::FixedSizeBinary(n) => DataType::FixedSizeBinary((*n).try_into()?),
             T::Struct => DataType::Struct(
                 value
                     .children

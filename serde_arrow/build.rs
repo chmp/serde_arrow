@@ -52,5 +52,9 @@ fn main() {
     if let Some(version) = max_arrow_version {
         println!("cargo:rustc-cfg=has_arrow");
         println!("cargo:rustc-cfg=has_arrow_{version}");
+
+        if version >= 47 {
+            println!("cargo:rustc-cfg=has_arrow_fixed_binary_support");
+        }
     }
 }

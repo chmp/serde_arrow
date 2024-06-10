@@ -134,6 +134,9 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
             build_validity(builder.validity),
         )?)),
         A::FixedSizedList(_) => fail!("FixedSizedList is not supported by arrow2"),
+        A::Binary(_) => fail!("Binary is not supported by arrow2"),
+        A::LargeBinary(_) => fail!("LargeBinary is not supported by arrow2"),
+        A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
         A::Struct(builder) => {
             let mut values = Vec::new();
             for (_, field) in builder.named_fields {
