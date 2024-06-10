@@ -2,7 +2,9 @@
 
 ## 0.11.6
 
-- Add support for the `FixedSizeList(n)` data type (only `arrow`)
+- Add support for `Binary`, `LargeBinary` (only `arrow`)
+- Add support for `FixedSizeBinary(n)` (only `arrow>=47`)
+- Add support for `FixedSizeList(n)` (only `arrow`)
 - Add support to overwrite field definitions with `TracingOptions::overwrite`
 - Add support to serialize enums without data (e.g., `enum E { A, B, C}`) as
   strings by setting the corresponding field to a string value (`Utf`,
