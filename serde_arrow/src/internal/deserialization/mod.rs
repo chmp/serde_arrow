@@ -8,6 +8,7 @@ pub mod decimal_deserializer;
 pub mod dictionary_deserializer;
 pub mod enum_deserializer;
 pub mod enums_as_string_impl;
+pub mod fixed_size_binary_deserializer;
 pub mod fixed_size_list_deserializer;
 pub mod float_deserializer;
 pub mod float_impls;

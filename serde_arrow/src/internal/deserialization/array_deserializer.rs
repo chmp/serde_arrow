@@ -10,12 +10,13 @@ use super::{
     binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
     date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
     decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
-    enum_deserializer::EnumDeserializer, fixed_size_list_deserializer::FixedSizeListDeserializer,
-    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
-    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
-    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
-    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
-    time_deserializer::TimeDeserializer,
+    enum_deserializer::EnumDeserializer,
+    fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
+    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -61,6 +62,7 @@ pub enum ArrayDeserializer<'a> {
     FixedSizeList(FixedSizeListDeserializer<'a>),
     Binary(BinaryDeserializer<'a, i32>),
     LargeBinary(BinaryDeserializer<'a, i64>),
+    FixedSizeBinary(FixedSizeBinaryDeserializer<'a>),
     Map(MapDeserializer<'a>),
     Enum(EnumDeserializer<'a>),
 }
@@ -206,6 +208,12 @@ impl<'a> From<BinaryDeserializer<'a, i32>> for ArrayDeserializer<'a> {
 impl<'a> From<BinaryDeserializer<'a, i64>> for ArrayDeserializer<'a> {
     fn from(value: BinaryDeserializer<'a, i64>) -> Self {
         Self::LargeBinary(value)
+    }
+}
+
+impl<'a> From<FixedSizeBinaryDeserializer<'a>> for ArrayDeserializer<'a> {
+    fn from(value: FixedSizeBinaryDeserializer<'a>) -> Self {
+        Self::FixedSizeBinary(value)
     }
 }
 
@@ -358,6 +366,7 @@ macro_rules! dispatch {
             $wrapper::LargeList($name) => $expr,
             $wrapper::Binary($name) => $expr,
             $wrapper::LargeBinary($name) => $expr,
+            $wrapper::FixedSizeBinary($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Enum($name) => $expr,
             $wrapper::DictionaryU8I32($name) => $expr,

@@ -9,6 +9,7 @@ use crate::internal::{
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
+        fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
@@ -28,9 +29,9 @@ use crate::internal::{
 
 use crate::_impl::arrow::{
     array::{
-        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
-        GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray,
-        RecordBatch, StructArray, UnionArray,
+        Array, BooleanArray, DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray,
+        GenericBinaryArray, GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait,
+        PrimitiveArray, RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
@@ -191,7 +192,7 @@ pub fn build_array_deserializer<'a>(
         T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
         T::Binary => build_binary_deserializer::<i32>(field, array),
         T::LargeBinary => build_binary_deserializer::<i64>(field, array),
-        T::FixedSizeBinary(_) => todo!(),
+        T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -464,6 +465,21 @@ where
     let validity = get_validity(array);
 
     Ok(BinaryDeserializer::new(buffer, offsets, validity).into())
+}
+
+pub fn build_fixed_size_binary_deserializer<'a>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>> {
+    let Some(array) = array.as_any().downcast_ref::<FixedSizeBinaryArray>() else {
+        fail!("cannot convert {} array into string", array.data_type());
+    };
+
+    let shape = (array.len(), array.value_length().try_into()?);
+    let buffer = array.value_data();
+    let validity = get_validity(array);
+
+    Ok(FixedSizeBinaryDeserializer::new(shape, buffer, validity).into())
 }
 
 pub fn build_fixed_size_list_deserializer<'a>(

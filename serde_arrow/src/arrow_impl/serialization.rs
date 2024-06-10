@@ -175,6 +175,22 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             builder.buffer,
             builder.validity,
         ),
+        A::FixedSizeBinary(builder) => {
+            let data_buffer = ScalarBuffer::from(builder.buffer).into_inner();
+            let validity = if let Some(validity) = builder.validity {
+                Some(Buffer::from(validity.buffer))
+            } else {
+                None
+            };
+
+            Ok(
+                ArrayData::builder(T::FixedSizeBinary(builder.n.try_into()?))
+                    .len(builder.len)
+                    .null_bit_buffer(validity)
+                    .add_buffer(data_buffer)
+                    .build()?,
+            )
+        }
         A::Struct(builder) => {
             let mut data = Vec::new();
             for (_, field) in builder.named_fields {
