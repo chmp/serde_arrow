@@ -207,6 +207,7 @@ pub mod _impl {
                         DictionaryArray,
                         FixedSizeListArray,
                         GenericListArray,
+                        GenericBinaryArray,
                         GenericStringArray,
                         LargeStringArray,
                         make_array,

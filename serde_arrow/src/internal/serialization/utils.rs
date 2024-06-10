@@ -8,7 +8,7 @@ use serde::{
 
 use crate::internal::{
     error::{fail, Error, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::ArrayBuilder;
@@ -51,22 +51,6 @@ impl MutableBitBuffer {
 
     pub fn clear(&mut self) {
         *self = Self::default();
-    }
-}
-
-pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Default {
-    fn try_form_usize(val: usize) -> Result<Self>;
-}
-
-impl Offset for i32 {
-    fn try_form_usize(val: usize) -> Result<Self> {
-        Ok(i32::try_from(val)?)
-    }
-}
-
-impl Offset for i64 {
-    fn try_form_usize(val: usize) -> Result<Self> {
-        Ok(i64::try_from(val)?)
     }
 }
 

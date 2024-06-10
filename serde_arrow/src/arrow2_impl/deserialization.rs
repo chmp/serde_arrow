@@ -10,7 +10,7 @@ use crate::internal::{
         enum_deserializer::EnumDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
-        list_deserializer::{IntoUsize, ListDeserializer},
+        list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
@@ -21,6 +21,7 @@ use crate::internal::{
     deserializer::Deserializer,
     error::{fail, Result},
     schema::{GenericDataType, GenericField},
+    utils::Offset,
 };
 
 use crate::_impl::arrow2::{
@@ -29,7 +30,7 @@ use crate::_impl::arrow2::{
         StructArray, UnionArray, Utf8Array,
     },
     datatypes::{DataType, Field, UnionMode},
-    types::{f16, NativeType, Offset},
+    types::{f16, NativeType, Offset as ArrowOffset},
 };
 use crate::internal::schema::GenericTimeUnit;
 
@@ -125,6 +126,9 @@ pub fn build_array_deserializer<'a>(
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
+        T::Binary => fail!("Binary is not supported by arrow2"),
+        T::LargeBinary => fail!("LargeBinary is not supported by arrow2"),
+        T::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
         T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
@@ -222,7 +226,7 @@ pub fn build_string_deserializer<'a, O>(
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
-    O: IntoUsize + Offset,
+    O: ArrowOffset + Offset,
     ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
 {
     let Some(array) = array.as_any().downcast_ref::<Utf8Array<O>>() else {
@@ -275,7 +279,7 @@ pub fn build_dictionary_deserializer<'a>(
     ) -> Result<ArrayDeserializer<'a>>
     where
         K: DictionaryKey + Integer,
-        V: Offset + IntoUsize,
+        V: Offset + ArrowOffset,
         DictionaryDeserializer<'a, K, V>: Into<ArrayDeserializer<'a>>,
     {
         let Some(array) = array.as_any().downcast_ref::<DictionaryArray<K>>() else {
@@ -348,7 +352,7 @@ pub fn build_list_deserializer<'a, O>(
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
-    O: Offset + IntoUsize,
+    O: Offset + ArrowOffset,
     ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
 {
     let Some(array) = array.as_any().downcast_ref::<ListArray<O>>() else {

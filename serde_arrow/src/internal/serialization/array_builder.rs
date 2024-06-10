@@ -4,14 +4,14 @@ use serde::Serialize;
 use crate::internal::error::Result;
 
 use super::{
-    bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
-    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
-    duration_builder::DurationBuilder, fixed_size_list_builder::FixedSizeListBuilder,
-    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
-    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, union_builder::UnionBuilder,
-    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
-    utils::SimpleSerializer,
+    binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date32_builder::Date32Builder,
+    date64_builder::Date64Builder, decimal_builder::DecimalBuilder,
+    dictionary_utf8_builder::DictionaryUtf8Builder, duration_builder::DurationBuilder,
+    fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
+    int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
+    null_builder::NullBuilder, struct_builder::StructBuilder, time_builder::TimeBuilder,
+    union_builder::UnionBuilder, unknown_variant_builder::UnknownVariantBuilder,
+    utf8_builder::Utf8Builder, utils::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
@@ -38,6 +38,8 @@ pub enum ArrayBuilder {
     List(ListBuilder<i32>),
     LargeList(ListBuilder<i64>),
     FixedSizedList(FixedSizeListBuilder),
+    Binary(BinaryBuilder<i32>),
+    LargeBinary(BinaryBuilder<i64>),
     Map(MapBuilder),
     Struct(StructBuilder),
     Utf8(Utf8Builder<i32>),
@@ -74,6 +76,8 @@ macro_rules! dispatch {
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::FixedSizedList($name) => $expr,
+            $wrapper::Binary($name) => $expr,
+            $wrapper::LargeBinary($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Struct($name) => $expr,
             $wrapper::DictionaryUtf8($name) => $expr,
@@ -110,6 +114,8 @@ impl ArrayBuilder {
             Self::List(_) => "List",
             Self::LargeList(_) => "LargeList",
             Self::FixedSizedList(_) => "FixedSizeList",
+            Self::Binary(_) => "Binary",
+            Self::LargeBinary(_) => "LargeBinary",
             Self::Struct(_) => "Struct",
             Self::Map(_) => "Map",
             Self::DictionaryUtf8(_) => "DictionaryUtf8",
@@ -151,6 +157,8 @@ impl ArrayBuilder {
             Self::List(builder) => Self::List(builder.take()),
             Self::LargeList(builder) => Self::LargeList(builder.take()),
             Self::FixedSizedList(builder) => Self::FixedSizedList(builder.take()),
+            Self::Binary(builder) => Self::Binary(builder.take()),
+            Self::LargeBinary(builder) => Self::LargeBinary(builder.take()),
             Self::Struct(builder) => Self::Struct(builder.take()),
             Self::Map(builder) => Self::Map(builder.take()),
             Self::DictionaryUtf8(builder) => Self::DictionaryUtf8(builder.take()),

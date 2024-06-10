@@ -14,7 +14,7 @@ mod test;
 use std::collections::HashMap;
 
 use crate::internal::{
-    error::{fail, Error, Result},
+    error::{fail, Result},
     utils::value,
 };
 
@@ -371,6 +371,9 @@ impl GenericField {
             GenericDataType::List => self.validate_list(),
             GenericDataType::LargeList => self.validate_list(),
             GenericDataType::FixedSizeList(n) => self.validate_fixed_size_list(n),
+            GenericDataType::Binary => self.validate_binary(),
+            GenericDataType::LargeBinary => self.validate_binary(),
+            GenericDataType::FixedSizeBinary(n) => self.validate_fixed_size_binary(n),
             GenericDataType::Union => self.validate_union(),
             GenericDataType::Dictionary => self.validate_dictionary(),
             GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
@@ -394,25 +397,6 @@ impl GenericField {
             },
             _ => fail!("non date time type {}", self.data_type),
         }
-    }
-
-    /// Test that the other field is compatible with the current one
-    ///
-    pub fn is_compatible(&self, other: &GenericField) -> bool {
-        self.validate_compatibility(other).is_ok()
-    }
-
-    pub fn validate_compatibility(&self, other: &GenericField) -> Result<()> {
-        self.validate()?;
-        other
-            .validate()
-            .map_err(|err| Error::custom_from(format!("invalid other field: {err}"), err))?;
-
-        if !field_is_compatible(self, other) {
-            fail!("incompatible fields: {self:?}, {other:?}");
-        }
-
-        Ok(())
     }
 
     pub fn with_child(mut self, child: GenericField) -> Self {
@@ -449,42 +433,20 @@ impl GenericField {
     }
 
     pub(crate) fn validate_primitive(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        Ok(())
+        self.validate_no_strategy_no_children()
     }
 
     pub(crate) fn validate_date32(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        Ok(())
+        self.validate_no_strategy_no_children()
     }
 
     pub(crate) fn validate_date64(&self) -> Result<()> {
-        if !matches!(
-            self.strategy,
-            None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64)
-        ) {
-            fail!(
-                "invalid strategy for Date64 field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        match self.strategy.as_ref() {
+            None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => {}
+            Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
         }
         Ok(())
     }
@@ -542,11 +504,10 @@ impl GenericField {
     }
 
     pub(crate) fn validate_time64(&self) -> Result<()> {
-        if self.strategy.is_some() {
+        if let Some(strategy) = self.strategy.as_ref() {
             fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
+                "invalid strategy for {data_type}: {strategy}",
+                data_type = self.data_type,
             );
         }
         if !self.children.is_empty() {
@@ -562,29 +523,14 @@ impl GenericField {
     }
 
     pub(crate) fn validate_duration(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        Ok(())
+        self.validate_no_strategy_no_children()
     }
 
     pub(crate) fn validate_struct(&self) -> Result<()> {
         // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
-        if !matches!(
-            self.strategy,
-            None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct)
-        ) {
-            fail!(
-                "invalid strategy for Struct field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        match self.strategy.as_ref() {
+            None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
+            Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
         }
         for child in &self.children {
             child.validate()?;
@@ -593,11 +539,8 @@ impl GenericField {
     }
 
     pub(crate) fn validate_map(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for Map field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        if let Some(strategy) = self.strategy.as_ref() {
+            fail!("invalid strategy for Map field: {strategy}");
         }
         if self.children.len() != 1 {
             fail!(
@@ -630,11 +573,8 @@ impl GenericField {
     }
 
     pub(crate) fn validate_list(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for List field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        if let Some(strategy) = self.strategy.as_ref() {
+            fail!("invalid strategy for List field: {strategy}");
         }
         if self.children.len() != 1 {
             fail!(
@@ -647,12 +587,20 @@ impl GenericField {
         Ok(())
     }
 
+    pub(crate) fn validate_fixed_size_binary(&self, n: i32) -> Result<()> {
+        if n < 0 {
+            fail!("Invalid FixedSizedBinary with negative number of elements");
+        }
+        self.validate_binary()
+    }
+
+    pub(crate) fn validate_binary(&self) -> Result<()> {
+        self.validate_no_strategy_no_children()
+    }
+
     pub(crate) fn validate_union(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for Union field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        if let Some(strategy) = self.strategy.as_ref() {
+            fail!("invalid strategy for Union field: {strategy}");
         }
         if self.children.is_empty() {
             fail!("Union field without children");
@@ -664,11 +612,8 @@ impl GenericField {
     }
 
     pub(crate) fn validate_dictionary(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for Dictionary field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        if let Some(strategy) = self.strategy.as_ref() {
+            fail!("invalid strategy for Dictionary field: {strategy}");
         }
         if self.children.len() != 2 {
             fail!(
@@ -706,58 +651,17 @@ impl GenericField {
         }
         Ok(())
     }
-}
 
-/// Test that two fields are compatible with each other
-///
-fn field_is_compatible(left: &GenericField, right: &GenericField) -> bool {
-    if left == right {
-        return true;
-    }
-
-    let (left, right) = if left.data_type > right.data_type {
-        (right, left)
-    } else {
-        (left, right)
-    };
-
-    use GenericDataType as D;
-
-    match &left.data_type {
-        D::I8 => matches!(
-            &right.data_type,
-            D::I16 | D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
-        ),
-        D::I16 => matches!(
-            &right.data_type,
-            D::I32 | D::I64 | D::U8 | D::U16 | D::U32 | D::U64
-        ),
-        D::I32 => matches!(&right.data_type, D::I64 | D::U8 | D::U16 | D::U32 | D::U64),
-        D::I64 => matches!(
-            &right.data_type,
-            D::U8 | D::U16 | D::U32 | D::U64 | D::Date64
-        ),
-        D::U8 => matches!(&right.data_type, D::U16 | D::U32 | D::U64),
-        D::U16 => matches!(&right.data_type, D::U32 | D::U64),
-        D::U32 => matches!(&right.data_type, D::U64),
-        D::Utf8 => match &right.data_type {
-            D::LargeUtf8 => true,
-            D::Dictionary => true,
-            D::Date64 => matches!(
-                &right.strategy,
-                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
-            ),
-            _ => false,
-        },
-        D::LargeUtf8 => match &right.data_type {
-            D::Dictionary => true,
-            D::Date64 => matches!(
-                &right.strategy,
-                Some(Strategy::NaiveStrAsDate64) | Some(Strategy::UtcStrAsDate64)
-            ),
-            _ => false,
-        },
-        D::Dictionary => right.data_type == D::Dictionary,
-        _ => false,
+    pub(crate) fn validate_no_strategy_no_children(&self) -> Result<()> {
+        if let Some(strategy) = self.strategy.as_ref() {
+            fail!(
+                "invalid strategy for {data_type}: {strategy}",
+                data_type = self.data_type,
+            );
+        }
+        if !self.children.is_empty() {
+            fail!("{} field must not have children", self.data_type);
+        }
+        Ok(())
     }
 }

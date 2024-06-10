@@ -1,4 +1,5 @@
 pub mod array_deserializer;
+pub mod binary_deserializer;
 pub mod bool_deserializer;
 pub mod construction;
 pub mod date32_deserializer;

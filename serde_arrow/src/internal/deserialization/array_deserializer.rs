@@ -7,14 +7,15 @@ use crate::internal::{
 };
 
 use super::{
-    bool_deserializer::BoolDeserializer, date32_deserializer::Date32Deserializer,
-    date64_deserializer::Date64Deserializer, decimal_deserializer::DecimalDeserializer,
-    dictionary_deserializer::DictionaryDeserializer, enum_deserializer::EnumDeserializer,
-    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
-    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
-    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
-    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
+    binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
+    date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
+    decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
+    enum_deserializer::EnumDeserializer, fixed_size_list_deserializer::FixedSizeListDeserializer,
+    float_deserializer::FloatDeserializer, integer_deserializer::IntegerDeserializer,
+    list_deserializer::ListDeserializer, map_deserializer::MapDeserializer,
+    null_deserializer::NullDeserializer, simple_deserializer::SimpleDeserializer,
+    string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer,
+    time_deserializer::TimeDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -58,6 +59,8 @@ pub enum ArrayDeserializer<'a> {
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
     FixedSizeList(FixedSizeListDeserializer<'a>),
+    Binary(BinaryDeserializer<'a, i32>),
+    LargeBinary(BinaryDeserializer<'a, i64>),
     Map(MapDeserializer<'a>),
     Enum(EnumDeserializer<'a>),
 }
@@ -191,6 +194,18 @@ impl<'a> From<ListDeserializer<'a, i64>> for ArrayDeserializer<'a> {
 impl<'a> From<FixedSizeListDeserializer<'a>> for ArrayDeserializer<'a> {
     fn from(value: FixedSizeListDeserializer<'a>) -> Self {
         Self::FixedSizeList(value)
+    }
+}
+
+impl<'a> From<BinaryDeserializer<'a, i32>> for ArrayDeserializer<'a> {
+    fn from(value: BinaryDeserializer<'a, i32>) -> Self {
+        Self::Binary(value)
+    }
+}
+
+impl<'a> From<BinaryDeserializer<'a, i64>> for ArrayDeserializer<'a> {
+    fn from(value: BinaryDeserializer<'a, i64>) -> Self {
+        Self::LargeBinary(value)
     }
 }
 
@@ -341,6 +356,8 @@ macro_rules! dispatch {
             $wrapper::List($name) => $expr,
             $wrapper::FixedSizeList($name) => $expr,
             $wrapper::LargeList($name) => $expr,
+            $wrapper::Binary($name) => $expr,
+            $wrapper::LargeBinary($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Enum($name) => $expr,
             $wrapper::DictionaryU8I32($name) => $expr,

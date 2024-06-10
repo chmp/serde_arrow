@@ -1,6 +1,7 @@
 use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer,
+        binary_deserializer::BinaryDeserializer,
         bool_deserializer::BoolDeserializer,
         construction,
         date32_deserializer::Date32Deserializer,
@@ -11,7 +12,7 @@ use crate::internal::{
         fixed_size_list_deserializer::FixedSizeListDeserializer,
         float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
-        list_deserializer::{IntoUsize, ListDeserializer},
+        list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
@@ -22,13 +23,14 @@ use crate::internal::{
     deserializer::Deserializer,
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit},
+    utils::Offset,
 };
 
 use crate::_impl::arrow::{
     array::{
-        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericListArray,
-        GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray, RecordBatch, StructArray,
-        UnionArray,
+        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
+        GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray,
+        RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
@@ -187,6 +189,9 @@ pub fn build_array_deserializer<'a>(
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
         T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
+        T::Binary => build_binary_deserializer::<i32>(field, array),
+        T::LargeBinary => build_binary_deserializer::<i64>(field, array),
+        T::FixedSizeBinary(_) => todo!(),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -291,7 +296,7 @@ pub fn build_string_deserializer<'a, O>(
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
-    O: OffsetSizeTrait + IntoUsize,
+    O: OffsetSizeTrait + Offset,
     ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
 {
     let Some(array) = array.as_any().downcast_ref::<GenericStringArray<O>>() else {
@@ -345,7 +350,7 @@ pub fn build_dictionary_deserializer<'a>(
     where
         K: ArrowDictionaryKeyType,
         K::Native: Integer,
-        V: OffsetSizeTrait + IntoUsize,
+        V: OffsetSizeTrait + Offset,
         DictionaryDeserializer<'a, K::Native, V>: Into<ArrayDeserializer<'a>>,
     {
         let Some(array) = array.as_any().downcast_ref::<DictionaryArray<K>>() else {
@@ -425,7 +430,7 @@ pub fn build_list_deserializer<'a, O>(
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>>
 where
-    O: OffsetSizeTrait + IntoUsize,
+    O: OffsetSizeTrait + Offset,
     ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
 {
     let Some(array) = array.as_any().downcast_ref::<GenericListArray<O>>() else {
@@ -440,6 +445,25 @@ where
     let validity = get_validity(array);
 
     Ok(ListDeserializer::new(item, offsets, validity).into())
+}
+
+pub fn build_binary_deserializer<'a, O>(
+    _field: &GenericField,
+    array: &'a dyn Array,
+) -> Result<ArrayDeserializer<'a>>
+where
+    O: OffsetSizeTrait + Offset,
+    ArrayDeserializer<'a>: From<BinaryDeserializer<'a, O>>,
+{
+    let Some(array) = array.as_any().downcast_ref::<GenericBinaryArray<O>>() else {
+        fail!("cannot convert {} array into string", array.data_type());
+    };
+
+    let buffer = array.value_data();
+    let offsets = array.value_offsets();
+    let validity = get_validity(array);
+
+    Ok(BinaryDeserializer::new(buffer, offsets, validity).into())
 }
 
 pub fn build_fixed_size_list_deserializer<'a>(

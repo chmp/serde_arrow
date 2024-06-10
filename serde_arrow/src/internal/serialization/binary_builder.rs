@@ -2,43 +2,35 @@ use serde::Serialize;
 
 use crate::internal::{
     error::Result,
-    schema::GenericField,
     utils::{Mut, Offset},
 };
 
-use super::{
-    array_builder::ArrayBuilder,
-    utils::{
-        push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer,
-        SimpleSerializer,
-    },
+use super::utils::{
+    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 
-pub struct ListBuilder<O> {
-    pub field: GenericField,
+pub struct BinaryBuilder<O> {
     pub validity: Option<MutableBitBuffer>,
     pub offsets: MutableOffsetBuffer<O>,
-    pub element: Box<ArrayBuilder>,
+    pub buffer: Vec<u8>,
 }
 
-impl<O: Offset> ListBuilder<O> {
-    pub fn new(field: GenericField, element: ArrayBuilder, is_nullable: bool) -> Self {
+impl<O: Offset> BinaryBuilder<O> {
+    pub fn new(is_nullable: bool) -> Self {
         Self {
-            field,
             validity: is_nullable.then(MutableBitBuffer::default),
             offsets: Default::default(),
-            element: Box::new(element),
+            buffer: Vec::new(),
         }
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
             validity: self.validity.as_mut().map(std::mem::take),
             offsets: std::mem::take(&mut self.offsets),
-            element: Box::new(self.element.take()),
+            buffer: std::mem::take(&mut self.buffer),
         }
     }
 
@@ -47,14 +39,19 @@ impl<O: Offset> ListBuilder<O> {
     }
 }
 
-impl<O: Offset> ListBuilder<O> {
+impl<O: Offset> BinaryBuilder<O> {
     fn start(&mut self) -> Result<()> {
         push_validity(&mut self.validity, true)
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        let mut u8_serializer = U8Serializer(0);
+        value.serialize(Mut(&mut u8_serializer))?;
+
         self.offsets.inc_current_items()?;
-        value.serialize(Mut(self.element.as_mut()))
+        self.buffer.push(u8_serializer.0);
+
+        Ok(())
     }
 
     fn end(&mut self) -> Result<()> {
@@ -63,7 +60,7 @@ impl<O: Offset> ListBuilder<O> {
     }
 }
 
-impl<O: Offset> SimpleSerializer for ListBuilder<O> {
+impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
     fn name(&self) -> &str {
         "ListBuilder"
     }
@@ -116,10 +113,49 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.start()?;
-        for item in v {
-            self.element(item)?;
-        }
-        self.end()
+        push_validity(&mut self.validity, true)?;
+        self.buffer.extend(v);
+        self.offsets.push(v.len())
+    }
+}
+
+struct U8Serializer(u8);
+
+impl SimpleSerializer for U8Serializer {
+    fn name(&self) -> &str {
+        "SerializeU8"
+    }
+
+    fn serialize_u8(&mut self, v: u8) -> Result<()> {
+        self.0 = v;
+        Ok(())
+    }
+
+    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
+    }
+
+    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+        self.serialize_u8(v.try_into()?)
     }
 }

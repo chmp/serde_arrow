@@ -1,7 +1,6 @@
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
-    deserialization::list_deserializer::IntoUsize,
     error::{fail, Error, Result},
     utils::Mut,
 };
@@ -90,8 +89,8 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
         if item + 1 >= self.offsets.len() {
             fail!("Exhausted MapDeserializer");
         }
-        let start = self.offsets[item].into_usize()?;
-        let end = self.offsets[item + 1].into_usize()?;
+        let start: usize = self.offsets[item].try_into()?;
+        let end: usize = self.offsets[item + 1].try_into()?;
 
         if entry >= (end - start) {
             self.next = (item + 1, 0);

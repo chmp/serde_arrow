@@ -4,7 +4,8 @@ use crate::internal::{
     error::{fail, Result},
     schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
     serialization::{
-        duration_builder::DurationBuilder, fixed_size_list_builder::FixedSizeListBuilder,
+        binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
+        fixed_size_list_builder::FixedSizeListBuilder,
     },
     utils::Mut,
 };
@@ -127,6 +128,9 @@ impl OuterSequenceBuilder {
                         field.nullable,
                     ))
                 }
+                T::Binary => A::Binary(BinaryBuilder::new(field.nullable)),
+                T::LargeBinary => A::LargeBinary(BinaryBuilder::new(field.nullable)),
+                T::FixedSizeBinary(_) => todo!(),
                 T::Map => {
                     let Some(entry_field) = field.children.first() else {
                         fail!("Cannot build a map with an entry field");

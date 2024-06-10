@@ -10,7 +10,11 @@ use crate::{
     internal::{
         error::{fail, Result},
         schema::{GenericField, SerdeArrowSchema},
-        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
+        serialization::{
+            utils::{MutableBitBuffer, MutableOffsetBuffer},
+            ArrayBuilder, OuterSequenceBuilder,
+        },
+        utils::Offset,
     },
 };
 
@@ -162,6 +166,15 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
                 .add_child_data(child_data)
                 .build()?)
         }
+        A::Binary(builder) => {
+            build_array_data_binary(T::Binary, builder.offsets, builder.buffer, builder.validity)
+        }
+        A::LargeBinary(builder) => build_array_data_binary(
+            T::LargeBinary,
+            builder.offsets,
+            builder.buffer,
+            builder.validity,
+        ),
         A::Struct(builder) => {
             let mut data = Vec::new();
             for (_, field) in builder.named_fields {
@@ -274,6 +287,28 @@ fn build_array_data_utf8<O: ArrowNativeType>(
         vec![offsets, data],
         vec![],
     )?)
+}
+
+fn build_array_data_binary<O: ArrowNativeType + Offset>(
+    data_type: DataType,
+    offsets: MutableOffsetBuffer<O>,
+    data: Vec<u8>,
+    validity: Option<MutableBitBuffer>,
+) -> Result<ArrayData> {
+    let len = offsets.len();
+    let offset_buffer = ScalarBuffer::from(offsets.offsets).into_inner();
+    let data_buffer = ScalarBuffer::from(data).into_inner();
+    let validity = if let Some(validity) = validity {
+        Some(Buffer::from(validity.buffer))
+    } else {
+        None
+    };
+    Ok(ArrayData::builder(data_type)
+        .len(len)
+        .null_bit_buffer(validity)
+        .add_buffer(offset_buffer)
+        .add_buffer(data_buffer)
+        .build()?)
 }
 
 fn build_array_data_list<O: ArrowNativeType>(

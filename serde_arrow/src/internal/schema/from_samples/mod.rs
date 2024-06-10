@@ -236,8 +236,8 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         }
     }
 
-    fn serialize_bytes(self, val: &[u8]) -> Result<Self::Ok> {
-        val.serialize(self)
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
+        self.0.ensure_primitive(GenericDataType::LargeBinary)
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {

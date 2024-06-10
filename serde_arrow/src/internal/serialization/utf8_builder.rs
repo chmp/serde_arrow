@@ -1,8 +1,10 @@
-use crate::internal::error::{fail, Result};
+use crate::internal::{
+    error::{fail, Result},
+    utils::Offset,
+};
 
 use super::utils::{
-    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, Offset,
-    SimpleSerializer,
+    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
