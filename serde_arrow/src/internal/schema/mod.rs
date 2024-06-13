@@ -180,7 +180,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// ```
     ///
     /// Note, the type `T` must encode a single "row" in the resulting data
-    /// frame. When encoding single arrays, consider using the
+    /// frame. When encoding single values, consider using the
     /// [`Item`][crate::utils::Item] wrapper.
     ///
     /// ```rust
@@ -256,7 +256,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// ```
     ///
     /// Note, the samples must encode "rows" in the resulting data frame. When
-    /// encoding single arrays, consider using the
+    /// encoding single values, consider using the
     /// [`Items`][crate::utils::Items] wrapper.
     ///
     /// ```rust

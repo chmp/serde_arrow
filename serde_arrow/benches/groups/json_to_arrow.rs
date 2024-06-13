@@ -6,13 +6,13 @@ use {
 };
 
 // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-use arrow_json_51::ReaderBuilder;
+use arrow_json_52::ReaderBuilder;
 
-// arrow-version:replace: use arrow_schema_{version}::{FieldRef, Schema as ArrowSchema};
-use arrow_schema_51::{FieldRef, Schema as ArrowSchema};
+// arrow-version:replace: use arrow_schema_{version}::{{FieldRef, Schema as ArrowSchema}};
+use arrow_schema_52::{FieldRef, Schema as ArrowSchema};
 
 // arrow-version:replace: use arrow_array_{version}::RecordBatch;
-use arrow_array_51::RecordBatch;
+use arrow_array_52::RecordBatch;
 use serde_json::Value;
 
 fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {

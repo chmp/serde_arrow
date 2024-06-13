@@ -18,12 +18,15 @@ fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
 fn issue_90() {
     #[derive(Deserialize)]
     pub struct Distribution {
+        #[allow(unused)]
         pub samples: Vec<f64>,
+        #[allow(unused)]
         pub statistic: String,
     }
 
     #[derive(Deserialize)]
     pub struct VectorMetric {
+        #[allow(unused)]
         pub distribution: Option<Distribution>,
     }
 

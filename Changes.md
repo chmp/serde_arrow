@@ -2,6 +2,7 @@
 
 ## 0.11.6
 
+- Add `arrow=52` support
 - Add support for `Binary`, `LargeBinary` (only `arrow`)
 - Add support for `FixedSizeBinary(n)` (only `arrow>=47`)
 - Add support for `FixedSizeList(n)` (only `arrow`)

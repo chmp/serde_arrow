@@ -4,9 +4,9 @@
 //! structures. However, the API of the underlying Rust crates can be at times
 //! cumbersome to use due to the statically typed nature of Rust. `serde_arrow`,
 //! offers a simple way to convert Rust objects into Arrow arrays and back.
-//! `serde_arrow` relies on the [Serde](https://serde.rs) package to interpret
-//! Rust objects. Therefore, adding support for `serde_arrow` to custom types is
-//! as easy as using Serde's derive macros.
+//! `serde_arrow` relies on [Serde](https://serde.rs) to interpret Rust objects.
+//! Therefore, adding support for `serde_arrow` to custom types is as easy as
+//! using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
 //! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
@@ -145,6 +145,7 @@
 //! | Arrow Feature | Arrow Version |
 //! |---------------|---------------|
 // arrow-version:insert: //! | `arrow-{version}`    | `arrow={version}`    |
+//! | `arrow-52`    | `arrow=52`    |
 //! | `arrow-51`    | `arrow=51`    |
 //! | `arrow-50`    | `arrow=50`    |
 //! | `arrow-49`    | `arrow=49`    |
@@ -266,7 +267,8 @@ pub mod _impl {
         };
     }
 
-    //     arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
+    // arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
+    #[cfg(has_arrow_52)] build_arrow_crate!(arrow_array_52, arrow_buffer_52, arrow_data_52, arrow_schema_52);
     #[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_buffer_51, arrow_data_51, arrow_schema_51);
     #[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_buffer_50, arrow_data_50, arrow_schema_50);
     #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_buffer_49, arrow_data_49, arrow_schema_49);
@@ -346,7 +348,7 @@ pub mod utils {
 /// The mapping between Rust and Arrow types
 ///
 /// To convert between Rust objects and Arrow types, `serde_arrows` requires
-/// schema information as a list of Arrow fields with additional meta data. See
+/// schema information as a list of Arrow fields with additional metadata. See
 /// [`SchemaLike`][crate::schema::SchemaLike] for details on how to specify the
 /// schema.
 ///

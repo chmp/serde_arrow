@@ -124,9 +124,9 @@ pub mod arrow {
     use std::sync::Arc;
 
     // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-    use arrow_json_51::ReaderBuilder;
+    use arrow_json_52::ReaderBuilder;
     // arrow-version:replace: use arrow_schema_{version}::Schema;
-    use arrow_schema_51::Schema;
+    use arrow_schema_52::Schema;
 
     use serde::Serialize;
 
