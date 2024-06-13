@@ -4,9 +4,9 @@
 //! structures. However, the API of the underlying Rust crates can be at times
 //! cumbersome to use due to the statically typed nature of Rust. `serde_arrow`,
 //! offers a simple way to convert Rust objects into Arrow arrays and back.
-//! `serde_arrow` relies on the [Serde](https://serde.rs) package to interpret
-//! Rust objects. Therefore, adding support for `serde_arrow` to custom types is
-//! as easy as using Serde's derive macros.
+//! `serde_arrow` relies on [Serde](https://serde.rs) to interpret Rust objects.
+//! Therefore, adding support for `serde_arrow` to custom types is as easy as
+//! using Serde's derive macros.
 //!
 //! In the Rust ecosystem there are two competing implementations of the arrow
 //! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
@@ -346,7 +346,7 @@ pub mod utils {
 /// The mapping between Rust and Arrow types
 ///
 /// To convert between Rust objects and Arrow types, `serde_arrows` requires
-/// schema information as a list of Arrow fields with additional meta data. See
+/// schema information as a list of Arrow fields with additional metadata. See
 /// [`SchemaLike`][crate::schema::SchemaLike] for details on how to specify the
 /// schema.
 ///
