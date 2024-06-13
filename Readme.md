@@ -1,10 +1,9 @@
 # `serde_arrow` - convert sequences of Rust objects to Arrow arrays and back again
 
-[[Crate info]](https://crates.io/crates/serde_arrow)
-| [[API docs]](https://docs.rs/serde_arrow/latest/serde_arrow/)
+[Crate info](https://crates.io/crates/serde_arrow)
+| [API docs](https://docs.rs/serde_arrow/latest/serde_arrow/)
 | [Example](#example)
 | [Related packages & performance](#related-packages--performance)
-| [[How does it work?]](https://docs.rs/serde_arrow/latest/serde_arrow/_impl/docs/implementation/index.html)
 | [Status](serde_arrow/Status.md)
 | [License](#license)
 | [Changes](Changes.md)
