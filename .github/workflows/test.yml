@@ -46,6 +46,10 @@
           "run": "cargo check --features arrow2-0-16"
         },
         {
+          "name": "Check arrow-52",
+          "run": "cargo check --features arrow-52"
+        },
+        {
           "name": "Check arrow-51",
           "run": "cargo check --features arrow-51"
         },
@@ -115,11 +119,11 @@
         },
         {
           "name": "Build",
-          "run": "cargo build --features arrow2-0-17,arrow-51"
+          "run": "cargo build --features arrow2-0-17,arrow-52"
         },
         {
           "name": "Test",
-          "run": "cargo test --features arrow2-0-17,arrow-51"
+          "run": "cargo test --features arrow2-0-17,arrow-52"
         }
       ]
     }
