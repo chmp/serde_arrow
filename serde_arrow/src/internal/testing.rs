@@ -1,12 +1,16 @@
 //! Support for tests
-pub fn assert_error<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
-    let Err(actual) = actual else {
-        panic!("expected an error, but no error was raised");
-    };
+use crate::internal::error::Result;
 
-    let actual = actual.to_string();
-    if !actual.contains(expected) {
-        panic!("Error did not contain {expected:?}. Full error: {actual}");
+pub trait ResultAsserts {
+    fn assert_error(&self, message: &str);
+}
+
+impl<T> ResultAsserts for Result<T> {
+    fn assert_error(&self, message: &str) {
+        let Err(err) = self else {
+            panic!("Expected error");
+        };
+        assert!(err.to_string().contains(message), "unexpected error: {err}");
     }
 }
 

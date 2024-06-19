@@ -10,16 +10,11 @@ use crate::internal::{
 ///
 /// - [`ArrayBuilder::new`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::from_arrow`]")]
-#[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::from_arrow2`]")]
 ///
-#[cfg_attr(
-    any(has_arrow, has_arrow2),
-    doc = r"It supports array construction via"
-)]
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+#[cfg_attr(has_arrow, doc = r"It supports array construction via")]
+#[cfg_attr(has_arrow, doc = r"")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_arrow`]")]
-#[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::to_arrow2`]")]
 ///
 /// Usage:
 ///

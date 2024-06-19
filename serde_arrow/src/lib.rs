@@ -8,12 +8,6 @@
 //! Therefore, adding support for `serde_arrow` to custom types is as easy as
 //! using Serde's derive macros.
 //!
-//! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
-//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports
-//! both. The supported arrow implementations can be selected via
-//! [features](#features).
-//!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as
 //! their type systems do not directly match. The schema is expressed as a
 //! collection of Arrow fields with additional metadata describing the arrays.
@@ -24,17 +18,17 @@
 //! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
 #![cfg_attr(
-    all(has_arrow, has_arrow2),
+    has_arrow,
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             |
-|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     |
-| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       |
-| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       |
+| Operation     |                                                                   |
+|:--------------|:------------------------------------------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             |
+| Array Builder | [`ArrayBuilder::from_arrow`]                                      |
+| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] |
 "#
 )]
 //!
@@ -78,67 +72,20 @@
 //! # fn main() { }
 //! ```
 //!
-//! The `RecordBatch` can then be written to disk, e.g., as parquet using
-//! the [`ArrowWriter`] from the [`parquet`] crate.
+//! The `RecordBatch` can then be written to disk, e.g., as parquet using the
+//! [`ArrowWriter`] from the [`parquet`] crate.
 //!
-//! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+//! [`ArrowWriter`]:
+//!     https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
-//!
-//! ## `arrow2` Example
-//!
-//! Requires one of `arrow2` feature (see below).
-//!
-//! ```rust
-//! # use serde::{Deserialize, Serialize};
-//! # #[cfg(has_arrow2)]
-//! # fn main() -> serde_arrow::Result<()> {
-//! # use serde_arrow::_impl::arrow2;
-//! use arrow2::datatypes::Field;
-//! use serde_arrow::schema::{SchemaLike, TracingOptions};
-//!
-//! ##[derive(Serialize, Deserialize)]
-//! struct Record {
-//!     a: f32,
-//!     b: i32,
-//! }
-//!
-//! let records = vec![
-//!     Record { a: 1.0, b: 1 },
-//!     Record { a: 2.0, b: 2 },
-//!     Record { a: 3.0, b: 3 },
-//! ];
-//!
-//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-//! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-//! # Ok(())
-//! # }
-//! # #[cfg(not(has_arrow2))]
-//! # fn main() { }
-//! ```
-//!
-//! The generated arrays can then be written to disk, e.g., as parquet:
-//!
-//! ```rust,ignore
-//! use arrow2::{chunk::Chunk, datatypes::Schema};
-//!
-//! // see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-//! write_chunk(
-//!     "example.pq",
-//!     Schema::from(fields),
-//!     Chunk::new(arrays),
-//! )?;
-//! ```
 //!
 //! # Features:
 //!
-//! The version of `arrow` or `arrow2` used can be selected via features. Per
-//! default no arrow implementation is used. In that case only the base features
-//! of `serde_arrow` are available.
-//!
-//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
-//! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
-//! the highest version is selected, if multiple features are activated. E.g,
-//! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
+//! The `arrow` version used can be selected via features. Per default no arrow
+//! implementation is used. In that case only the base features of `serde_arrow`
+//! are available. If multiple features are activated, the highest version is
+//! selected. E.g, when selecting  `arrow-52` and `arrow-51`, `arrow=52` will be
+//! used.
 //!
 //! Available features:
 //!
@@ -161,11 +108,9 @@
 //! | `arrow-39`    | `arrow=39`    |
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
 
 // be more forgiving without any active implementation
-#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
+#[cfg_attr(not(has_arrow), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
@@ -176,14 +121,6 @@ mod internal;
 ///
 #[rustfmt::skip]
 pub mod _impl {
-
-    #[cfg(has_arrow2_0_17)]
-    #[doc(hidden)]
-    pub use arrow2_0_17 as arrow2;
-
-    #[cfg(has_arrow2_0_16)]
-    pub use arrow2_0_16 as arrow2;
-
     #[allow(unused)]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
@@ -306,7 +243,7 @@ pub mod _impl {
     };
 }
 
-#[cfg(all(test, has_arrow, has_arrow2))]
+#[cfg(all(test, has_arrow))]
 mod test_with_arrow;
 
 #[cfg(test)]
@@ -324,12 +261,6 @@ mod arrow_impl;
 
 #[cfg(has_arrow)]
 pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch};
-
-#[cfg(has_arrow2)]
-mod arrow2_impl;
-
-#[cfg(has_arrow2)]
-pub use arrow2_impl::api::{from_arrow2, to_arrow2};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`
@@ -369,15 +300,15 @@ pub mod utils {
 /// to strings (chrono's default), use
 ///
 /// ```rust
-/// # #[cfg(feature="has_arrow2")]
+/// # #[cfg(feature="has_arrow")]
 /// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use arrow::datatypes::{DataType, Field};
 /// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
 /// # let mut field = Field::new("my_field", DataType::Null, false);
 /// field.data_type = DataType::Date64;
 /// field.metadata = Strategy::UtcStrAsDate64.into();
 /// # }
-/// # #[cfg(not(feature="has_arrow2"))]
+/// # #[cfg(not(feature="has_arrow"))]
 /// # fn main() {}
 /// ```
 

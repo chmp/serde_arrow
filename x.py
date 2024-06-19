@@ -25,8 +25,7 @@ all_arrow_features = [
     "arrow-38",
     "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
-default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
+default_features = f"{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -89,7 +88,6 @@ workflow_release_template = {
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
-    "serde_arrow_arrow2": "serde_arrow::to_arrow2",
     "arrow2_convert": "arrow2_convert::TryIntoArrow",
 }
 
@@ -142,7 +140,7 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in (*all_arrow2_features, *all_arrow_features):
+    for feature in all_arrow_features:
         yield {
             "name": f"Check {feature}",
             "run": f"cargo check --features {feature}",
@@ -176,8 +174,8 @@ def check(fast=False):
     _sh(f"cargo clippy --features {default_features}")
 
     if not fast:
-        for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-            _sh(f"cargo check --features {arrow2_feature}")
+        for arrow_feature in all_arrow_features:
+            _sh(f"cargo check --features {arrow_feature}")
 
 
 @cmd(help="Run the example")
@@ -222,11 +220,8 @@ def test_unit(test_name=None, backtrace=False, full=False):
 
     else:
         feature_selections = [
-            f"--features {', '.join(arrow_feature + arrow2_feature)}"
-            if arrow_feature or arrow2_feature
-            else ""
+            f"--features {', '.join(arrow_feature)}" if arrow_feature else ""
             for arrow_feature in [[], *([feat] for feat in all_arrow_features)]
-            for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]
 
     for feature_selection in feature_selections:

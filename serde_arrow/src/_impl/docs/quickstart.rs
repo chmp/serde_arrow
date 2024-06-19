@@ -7,8 +7,6 @@
 //! 2. [Decimals](#decimals)
 //! 3. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
 //! 4. [Working with enums](#working-with-enums)
-//! 5. [Convert from arrow2 to arrow
-//!    arrays](#convert-from-arrow2-to-arrow-arrays)
 //!
 //! The examples assume the following items to be in scope:
 //!
@@ -247,19 +245,4 @@
 //! # }
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
-//!
-//! ## Convert from arrow2 to arrow arrays
-//!
-//! Both `arrow` and `arrow2` use the Arrow memory format. Hence, it is possible
-//! to convert arrays between both packages with minimal work using their
-//! respective FFI interfaces:
-//!
-//! - [`arrow2::ffi::export_field_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
-//! - [`arrow2::ffi_export_array_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
-//! - [`arrow::ffi::ArrowArray::new`](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
-//!
-//! The arrow2 crate includes [a helper
-//! trait](https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html) to
-//! perform this conversion when used with the `arrow` feature.
-//!
 //!

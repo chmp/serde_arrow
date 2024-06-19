@@ -33,14 +33,6 @@
           "run": "cargo check"
         },
         {
-          "name": "Check arrow2-0-17",
-          "run": "cargo check --features arrow2-0-17"
-        },
-        {
-          "name": "Check arrow2-0-16",
-          "run": "cargo check --features arrow2-0-16"
-        },
-        {
           "name": "Check arrow-52",
           "run": "cargo check --features arrow-52"
         },
@@ -114,11 +106,11 @@
         },
         {
           "name": "Build",
-          "run": "cargo build --features arrow2-0-17,arrow-52"
+          "run": "cargo build --features arrow-52"
         },
         {
           "name": "Test",
-          "run": "cargo test --features arrow2-0-17,arrow-52"
+          "run": "cargo test --features arrow-52"
         },
         {
           "name": "Publish to crates.io",

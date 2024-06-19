@@ -18,9 +18,6 @@ fn null() {
         .trace_schema_from_type::<Item<()>>(TracingOptions::default().allow_null_fields(true))
         .serialize(items)
         .deserialize(items);
-
-    // NOTE: arrow2 has an incorrect is_null impl for NullArray
-    // nulls = [true, true, true],
 }
 
 #[test]

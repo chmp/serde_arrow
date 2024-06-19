@@ -13,7 +13,7 @@ macro_rules! define_benchmark {
     ) => {
         pub fn benchmark_serialize(c: &mut criterion::Criterion) {
             use serde_arrow::schema::{SerdeArrowSchema, SchemaLike};
-            use serde_arrow::_impl::{arrow::datatypes::FieldRef, arrow2::datatypes::Field as Arrow2Field};
+            use serde_arrow::_impl::arrow::datatypes::FieldRef;
 
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));
@@ -35,7 +35,6 @@ macro_rules! define_benchmark {
                     .collect::<Vec<_>>();
                 let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
                 let arrow_fields = Vec::<FieldRef>::try_from(&schema).unwrap();
-                let arrow2_fields = Vec::<Arrow2Field>::try_from(&schema).unwrap();
 
                 #[allow(unused)]
                 let bench_serde_arrow = true;
@@ -44,10 +43,6 @@ macro_rules! define_benchmark {
                 if bench_serde_arrow {
                     group.bench_function("serde_arrow_arrow", |b| {
                         b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_arrow::serialize(&arrow_fields, &items).unwrap()));
-                    });
-
-                    group.bench_function("serde_arrow_arrow2", |b| {
-                        b.iter(|| criterion::black_box(crate::groups::impls::serde_arrow_arrow2::serialize(&arrow2_fields, &items).unwrap()));
                     });
                 }
 
@@ -105,21 +100,6 @@ pub mod serde_arrow_arrow {
     }
 }
 
-pub mod serde_arrow_arrow2 {
-    use serde::Serialize;
-    use serde_arrow::{
-        Result,
-        _impl::arrow2::{array::Array, datatypes::Field},
-    };
-
-    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
-    where
-        T: Serialize + ?Sized,
-    {
-        serde_arrow::to_arrow2(&fields, &items)
-    }
-}
-
 pub mod arrow {
 
     use std::sync::Arc;
@@ -152,8 +132,9 @@ pub mod arrow {
 }
 
 pub mod arrow2_convert {
+    use arrow2::array::Array;
     use arrow2_convert::serialize::TryIntoArrow;
-    use serde_arrow::{Error, Result, _impl::arrow2::array::Array};
+    use serde_arrow::{Error, Result};
 
     pub fn serialize<'a, T, E, F>(_fields: &[F], items: T) -> Result<Box<dyn Array>>
     where

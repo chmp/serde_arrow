@@ -2,9 +2,6 @@ use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
 use serde::{Deserialize, Serialize};
 
-// required for arrow2_convert
-use serde_arrow::_impl::arrow2;
-
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
 pub struct Item {
     pub k: bool,

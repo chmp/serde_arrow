@@ -7,7 +7,7 @@ use rand::{
 use serde::{Deserialize, Serialize};
 
 // required for arrow2_convert
-use serde_arrow::_impl::arrow2;
+use arrow2;
 
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
 pub struct Item {

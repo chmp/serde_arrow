@@ -34,7 +34,6 @@ fn example_as_binary() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "Binary"}]))
         .serialize(&items)
         .deserialize(&items);
@@ -49,7 +48,6 @@ fn example_large_binary() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary"}]))
         .trace_schema_from_type::<Item<ByteBuf>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
@@ -66,7 +64,6 @@ fn example_large_binary_nullable() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary", "nullable": true}]))
         .trace_schema_from_type::<Item<Option<ByteBuf>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
@@ -84,7 +81,6 @@ fn example_vec_as_large_binary() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary"}]))
         .serialize(&items)
         .deserialize(&items);
@@ -99,7 +95,6 @@ fn example_vec_as_large_binary_nullable() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary", "nullable": true}]))
         .serialize(&items)
         .check_nulls(&[&[false, true, false]])
@@ -111,7 +106,6 @@ fn example_vec_i64_as_large_binary() {
     let items = [Item(vec![1_i64, 2, 3]), Item(vec![128, 255, 75])];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary"}]))
         .serialize(&items)
         .deserialize(&items);
@@ -126,7 +120,6 @@ fn example_borrowed() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary"}]))
         .trace_schema_from_type::<Item<ByteBuf>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
@@ -143,7 +136,6 @@ fn example_borrowed_nullable() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "LargeBinary", "nullable": true}]))
         .trace_schema_from_type::<Item<Option<&Bytes>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
@@ -165,7 +157,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize(&items);
@@ -180,7 +171,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize(&items);
@@ -195,7 +185,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize_borrowed(&items);
