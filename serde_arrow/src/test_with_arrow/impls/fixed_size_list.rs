@@ -3,7 +3,7 @@ use serde_json::json;
 use super::utils::Test;
 
 use crate::_impl::arrow::datatypes::FieldRef;
-use crate::internal::testing::assert_error;
+use crate::internal::testing::ResultAsserts;
 use crate::internal::utils::Item;
 use crate::schema::SchemaLike;
 
@@ -68,8 +68,8 @@ fn incorrect_number_of_elements() {
     }]))
     .unwrap();
 
-    let res = crate::to_record_batch(&fields, &items);
-    assert_error(&res, "Invalid number of elements for FixedSizedList(2).");
+    crate::to_record_batch(&fields, &items)
+        .assert_error("Invalid number of elements for FixedSizedList(2).");
 }
 
 #[test]

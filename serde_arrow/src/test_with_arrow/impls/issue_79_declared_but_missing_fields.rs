@@ -1,7 +1,8 @@
 use serde::Serialize;
 use serde_json::json;
 
-use super::utils::{ResultAsserts, Test};
+use super::utils::Test;
+use crate::internal::testing::ResultAsserts;
 
 #[test]
 fn declared_but_missing_fields() {

@@ -1,6 +1,6 @@
 use super::utils::Test;
 use crate::{
-    internal::testing::assert_error,
+    internal::testing::ResultAsserts,
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
     utils::Item,
 };
@@ -294,35 +294,27 @@ fn time64_type_invalid_units() {
     // Note: the arrow docs state: that the time unit "[m]ust be either
     // microseconds or nanoseconds."
 
-    assert_error(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time64(Millisecond)",
-        }])),
-        "Error: Time64 field must have Microsecond or Nanosecond unit",
-    );
-    assert_error(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time64(Second)",
-        }])),
-        "Error: Time64 field must have Microsecond or Nanosecond unit",
-    );
+    SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time64(Millisecond)",
+    }]))
+    .assert_error("Error: Time64 field must have Microsecond or Nanosecond unit");
+    SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time64(Second)",
+    }]))
+    .assert_error("Error: Time64 field must have Microsecond or Nanosecond unit");
 
-    assert_error(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time32(Microsecond)",
-        }])),
-        "Error: Time32 field must have Second or Millisecond unit",
-    );
-    assert_error(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time32(Nanosecond)",
-        }])),
-        "Error: Time32 field must have Second or Millisecond unit",
-    );
+    SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time32(Microsecond)",
+    }]))
+    .assert_error("Error: Time32 field must have Second or Millisecond unit");
+    SerdeArrowSchema::from_value(&json!([{
+        "name": "item",
+        "data_type": "Time32(Nanosecond)",
+    }]))
+    .assert_error("Error: Time32 field must have Second or Millisecond unit");
 }
 
 #[test]

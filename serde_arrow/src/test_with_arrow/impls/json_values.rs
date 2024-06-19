@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use crate::schema::TracingOptions;
+use crate::internal::{schema::TracingOptions, testing::ResultAsserts};
 
-use super::utils::{ResultAsserts, Test};
+use super::utils::Test;
 
 struct ApproxEq<'a>(&'a Value);
 

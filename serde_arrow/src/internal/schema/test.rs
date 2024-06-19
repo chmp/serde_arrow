@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::internal::{
     schema::{GenericDataType, GenericField, SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
-    testing::{assert_error, hash_map},
+    testing::{hash_map, ResultAsserts},
 };
 
 impl SerdeArrowSchema {
@@ -282,7 +282,7 @@ fn test_metadata_strategy_from_metadata() {
 #[test]
 fn test_invalid_metadata() {
     // strategies cannot be given both in metadata and strategy field
-    let res = SerdeArrowSchema::from_value(&json!([
+    SerdeArrowSchema::from_value(&json!([
         {
             "name": "example",
             "data_type": "Date64",
@@ -291,7 +291,6 @@ fn test_invalid_metadata() {
                 STRATEGY_KEY: "UtcStrAsDate64"
             },
         },
-    ]));
-
-    assert_error(&res, "Duplicate strategy");
+    ]))
+    .assert_error("Duplicate strategy");
 }

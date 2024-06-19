@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{_impl::arrow, internal::testing::assert_error, utils::Item};
+use crate::{_impl::arrow, internal::testing::ResultAsserts, utils::Item};
 
 use super::utils::Test;
 
@@ -122,6 +122,6 @@ fn bigdecimal_too_small_precision() {
     let mut test =
         Test::new().with_schema(json!([{"name": "item", "data_type": "Decimal128(2, 2)"}]));
 
-    let res = test.try_serialize_arrow(items);
-    assert_error(&res, "not enough precision");
+    test.try_serialize_arrow(items)
+        .assert_error("not enough precision");
 }

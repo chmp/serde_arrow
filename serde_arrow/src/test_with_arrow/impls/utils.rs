@@ -18,19 +18,6 @@ pub struct Fields {
     pub arrow: Option<Vec<arrow::datatypes::FieldRef>>,
 }
 
-pub trait ResultAsserts {
-    fn assert_error(&self, message: &str);
-}
-
-impl<T> ResultAsserts for Result<T> {
-    fn assert_error(&self, message: &str) {
-        let Err(err) = self else {
-            panic!("Expected error");
-        };
-        assert!(err.to_string().contains(message), "unexpected error: {err}");
-    }
-}
-
 #[derive(Default)]
 pub struct Test {
     schema: Option<SerdeArrowSchema>,

@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::internal::{
     schema::{tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions},
-    testing::assert_error,
+    testing::ResultAsserts,
     utils::Item,
 };
 
@@ -181,6 +181,6 @@ fn unsupported_recursive_types() {
         right: Option<Box<Tree>>,
     }
 
-    let res = Tracer::from_type::<Tree>(TracingOptions::default());
-    assert_error(&res, "too deeply nested type detected");
+    Tracer::from_type::<Tree>(TracingOptions::default())
+        .assert_error("too deeply nested type detected");
 }
