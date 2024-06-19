@@ -32,15 +32,3 @@ pub fn example_arrow_arrays() -> (Vec<crate::_impl::arrow::datatypes::FieldRef>,
 
     (fields, arrays)
 }
-
-#[cfg(has_arrow2)]
-pub fn example_arrow2_arrays() -> (Vec<crate::_impl::arrow2::datatypes::Field>, Vec<Box<dyn crate::_impl::arrow2::array::Array>>) {
-    use crate::schema::{SchemaLike, TracingOptions};
-
-    let items = example_records();
-
-    let fields = Vec::<crate::_impl::arrow2::datatypes::Field>::from_type::<Record>(TracingOptions::default()).unwrap();
-    let arrays = crate::to_arrow2(&fields, &items).unwrap();
-
-    (fields, arrays)
-}

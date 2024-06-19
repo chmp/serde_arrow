@@ -8,12 +8,6 @@
 //! Therefore, adding support for `serde_arrow` to custom types is as easy as
 //! using Serde's derive macros.
 //!
-//! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
-//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports
-//! both. The supported arrow implementations can be selected via
-//! [features](#features).
-//!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as
 //! their type systems do not directly match. The schema is expressed as a
 //! collection of Arrow fields with additional metadata describing the arrays.
@@ -24,7 +18,7 @@
 //! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
 //!
 #![cfg_attr(
-    all(has_arrow, has_arrow2),
+    has_arrow,
     doc = r#"
 ## Overview
 
@@ -87,12 +81,11 @@
 //!
 //! # Features:
 //!
-//! The version of `arrow` or `arrow2` used can be selected via features. Per
-//! default no arrow implementation is used. In that case only the base features
-//! of `serde_arrow` are available.
-//!
-//! The highest version is selected, if multiple features are activated. E.g,
-//! when selecting  `arrow-52` and `arrow-51`, `arrow=52` will be used.
+//! The `arrow` version used can be selected via features. Per default no arrow
+//! implementation is used. In that case only the base features of `serde_arrow`
+//! are available. If multiple features are activated, the highest version is
+//! selected. E.g, when selecting  `arrow-52` and `arrow-51`, `arrow=52` will be
+//! used.
 //!
 //! Available features:
 //!
@@ -117,7 +110,7 @@
 //! | `arrow-37`    | `arrow=37`    |
 
 // be more forgiving without any active implementation
-#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
+#[cfg_attr(not(has_arrow), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
@@ -307,15 +300,15 @@ pub mod utils {
 /// to strings (chrono's default), use
 ///
 /// ```rust
-/// # #[cfg(feature="has_arrow2")]
+/// # #[cfg(feature="has_arrow")]
 /// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
+/// # use arrow::datatypes::{DataType, Field};
 /// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
 /// # let mut field = Field::new("my_field", DataType::Null, false);
 /// field.data_type = DataType::Date64;
 /// field.metadata = Strategy::UtcStrAsDate64.into();
 /// # }
-/// # #[cfg(not(feature="has_arrow2"))]
+/// # #[cfg(not(feature="has_arrow"))]
 /// # fn main() {}
 /// ```
 

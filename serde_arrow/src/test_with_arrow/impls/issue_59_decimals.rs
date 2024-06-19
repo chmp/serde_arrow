@@ -106,7 +106,6 @@ fn bigdecimal_negative_scale() {
     ];
 
     Test::new()
-        // NOTE: arrow2 only supports positive scale
         .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, -2)"}]))
         .serialize(items)
         .also(|it| assert_eq!(get_i128_values(it), &[13, 42]));

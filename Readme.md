@@ -20,13 +20,10 @@ back.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
 types is as easy as using Serde's derive macros.
 
-In the Rust ecosystem there are two competing implementations of the arrow
-in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
-[`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
-arrays, and deserialization from arrays to Rust structs.
+`serde_arrow` supports [`arrow`][arrow] for schema tracing, serialization from
+Rust structs to arrays, and deserialization from arrays to Rust structs.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
-[arrow2]: https://docs.rs/arrow2/latest/arrow2/
 [polars]: https://github.com/pola-rs/polars
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
@@ -34,9 +31,9 @@ arrays, and deserialization from arrays to Rust structs.
 
 The following examples assume that `serde_arrow` is added to the `Cargo.toml`
 file and its features are configured. `serde_arrow` supports different `arrow`
-and `arrow2` versions. The relevant one can be selected by specifying the
-correct feature (e.g., `arrow-51` to support `arrow=51`). See
-[here][feature-docs] for more details.
+versions. The relevant one can be selected by specifying the correct feature
+(e.g., `arrow-51` to support `arrow=51`). See [here][feature-docs] for more
+details.
 
 [feature-docs]: https://docs.rs/serde_arrow/latest/serde_arrow/#features
 
@@ -82,30 +79,6 @@ writer.write(&batch)?;
 writer.close()?;
 ```
 
-### Serialize to `arrow2` arrays
-
-```rust
-use arrow2::datatypes::Field;
-use serde_arrow::schema::{SchemaLike, TracingOptions};
-
-let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-```
-
-These arrays can now be written to disk using the helper method defined in the
-[arrow2 guide][arrow2-guide]. For parquet:
-
-```rust,ignore
-use arrow2::{chunk::Chunk, datatypes::Schema};
-
-// see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-write_chunk(
-    "example.pq",
-    Schema::from(fields),
-    Chunk::new(arrays),
-)?;
-```
-
 ### Usage from python
 
 The written files can be read in Python via
@@ -133,8 +106,6 @@ shape: (3, 2)
 1  2.0  2
 2  3.0  3
 ```
-
-[arrow2-guide]: https://jorgecarleitao.github.io/arrow2
 
 ## Related packages & Performance
 

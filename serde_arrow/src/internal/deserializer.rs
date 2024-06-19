@@ -7,11 +7,10 @@ use crate::internal::{
 
 /// A structure to deserialize Arrow arrays into Rust objects
 ///
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"It can be constructed via")]
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+#[cfg_attr(has_arrow, doc = r"It can be constructed via")]
+#[cfg_attr(has_arrow, doc = r"")]
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]
-#[cfg_attr(has_arrow2, doc = r"- [`Deserializer::from_arrow2`]")]
 pub struct Deserializer<'de>(pub(crate) OuterSequenceDeserializer<'de>);
 
 impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {

@@ -13,32 +13,13 @@ macro_rules! test_roundtrip_arrays {
             use serde::{Deserialize, Serialize};
 
             use crate::{
-                arrow, arrow2,
+                arrow,
                 internal::{
                     deserialize_from_arrays,
                     schema::{GenericDataType, GenericField},
                 },
                 Result,
             };
-
-            #[test]
-            fn arrow2() {
-                use crate::_impl::arrow2::datatypes::Field;
-                $($setup)*
-
-                let fields = $fields;
-                let inputs = $inputs;
-
-                let expected = inputs;
-                $(let expected = $expected;)?
-
-
-                let fields = fields.iter().map(|f| Field::try_from(f)).collect::<Result<Vec<_>>>().unwrap();
-                let arrays = arrow2::serialize_into_arrays(&fields, inputs).unwrap();
-
-                let reconstructed: Vec<S> = deserialize_from_arrays(&fields, &arrays).unwrap();
-                assert_eq!(reconstructed, expected);
-            }
 
             #[test]
             fn arrow() {
