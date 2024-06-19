@@ -1,5 +1,15 @@
 # Change log
 
+## 0.12
+
+- Remove `serde_arrow::schema::Schema`
+- Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
+- Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
+- Use `&[FieldRef]` instead of `&[Field]` in arrow APIs
+- Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
+  `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
+- Remove `SerdeArrowSchema::new()`, `Overwrites::new()`
+
 ## 0.11.6
 
 - Add `arrow=52` support

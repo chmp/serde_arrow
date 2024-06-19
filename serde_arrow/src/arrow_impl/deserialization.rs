@@ -35,7 +35,7 @@ use crate::_impl::arrow::{
     datatypes::{
         ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
         Decimal128Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
-        DurationSecondType, Field, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
+        DurationSecondType, FieldRef, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
         Int64Type, Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
         Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
         TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
@@ -69,9 +69,8 @@ impl<'de> Deserializer<'de> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_arrow<F, A>(fields: &[F], arrays: &'de [A]) -> Result<Self>
+    pub fn from_arrow<A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<Self>
     where
-        F: AsRef<Field>,
         A: AsRef<dyn Array>,
     {
         let fields = fields

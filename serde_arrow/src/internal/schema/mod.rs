@@ -281,16 +281,12 @@ pub trait SchemaLike: Sized + Sealed {
 }
 
 /// A collection of fields as understood by `serde_arrow`
+///
+/// It can be converted from / to arrow or arrow2 fields.
+///
 #[derive(Default, Debug, PartialEq, Clone, Serialize)]
 pub struct SerdeArrowSchema {
     pub(crate) fields: Vec<GenericField>,
-}
-
-impl SerdeArrowSchema {
-    /// Return a new schema without any fields
-    pub fn new() -> Self {
-        Self::default()
-    }
 }
 
 impl Sealed for SerdeArrowSchema {}

@@ -5,7 +5,9 @@ use crate::{
     _impl::arrow::{
         array::{make_array, Array, ArrayData, ArrayRef, NullArray, RecordBatch},
         buffer::{Buffer, ScalarBuffer},
-        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type, Schema},
+        datatypes::{
+            ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type, Schema,
+        },
     },
     internal::{
         error::{fail, Result},
@@ -22,7 +24,7 @@ use crate::{
 impl crate::internal::array_builder::ArrayBuilder {
     /// Build an ArrayBuilder from `arrow` fields (*requires one of the
     /// `arrow-*` features*)
-    pub fn from_arrow<F: AsRef<Field>>(fields: &[F]) -> Result<Self> {
+    pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
         let fields = fields
             .iter()
             .map(|f| GenericField::try_from(f.as_ref()))
@@ -40,7 +42,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// `arrow-*` features*)
     pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
         let arrays = self.builder.build_arrow()?;
-        let fields = self.schema.to_arrow_fields()?;
+        let fields = Vec::<FieldRef>::try_from(&self.schema)?;
         let schema = Schema::new(fields);
         Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
     }

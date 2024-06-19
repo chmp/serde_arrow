@@ -3,8 +3,8 @@ use serde_json::json;
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
-    utils::Item,
+    schema::{SchemaLike, Strategy, TracingOptions},
+    utils::{Item, Items},
 };
 
 use super::utils::Test;
@@ -302,68 +302,28 @@ fn enums_union() {
         .deserialize(&values);
 }
 
-macro_rules! test_generic {
-    (
-        $(#[ignore = $ignore:literal])?
-        fn $name:ident() {
-            $($stmt:stmt)*
-        }
-    ) => {
-        #[allow(unused)]
-        mod $name {
-            use crate::{
-                schema::{SchemaLike, TracingOptions},
-                utils::{Items, Item}
-            };
-            use crate::internal::schema::{GenericField, GenericDataType};
+#[test]
+fn missing_union_variants() {
+    use crate::_impl::arrow::datatypes::FieldRef;
 
-            mod arrow {
-                use super::*;
-                use crate::{to_arrow, from_arrow};
-                use crate::_impl::arrow::datatypes::Field;
+    use crate::internal::testing::assert_error;
+    use crate::schema::TracingOptions;
+    use serde::{Deserialize, Serialize};
 
-                $(#[ignore = $ignore])?
-                #[test]
-                fn test() {
-                    $($stmt)*
-                }
-            }
-            mod arrow2 {
-                use super::*;
-                use crate::{to_arrow2 as to_arrow, from_arrow2 as from_arrow};
-                use crate::_impl::arrow2::datatypes::Field;
-
-                $(#[ignore = $ignore])?
-                #[test]
-                fn test() {
-                    $($stmt)*
-                }
-            }
-        }
-    };
-}
-
-test_generic!(
-    fn missing_union_variants() {
-        use crate::internal::testing::assert_error;
-        use crate::schema::TracingOptions;
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum U {
-            A,
-            B,
-            C,
-        }
-
-        let tracing_options = TracingOptions::default().allow_null_fields(true);
-        let fields = Vec::<Field>::from_samples(&Items(&[U::A, U::C]), tracing_options).unwrap();
-
-        // NOTE: variant B was never encountered during tracing
-        let res = to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
-        assert_error(&res, "Serialization failed: an unknown variant");
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum U {
+        A,
+        B,
+        C,
     }
-);
+
+    let tracing_options = TracingOptions::default().allow_null_fields(true);
+    let fields = Vec::<FieldRef>::from_samples(&Items(&[U::A, U::C]), tracing_options).unwrap();
+
+    // NOTE: variant B was never encountered during tracing
+    let res = crate::to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
+    assert_error(&res, "Serialization failed: an unknown variant");
+}
 
 #[test]
 fn fieldless_unions_as_dictionary() {

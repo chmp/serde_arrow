@@ -11,44 +11,11 @@ use crate::{
     },
 };
 
-/// Support for arrow types (*requires one of the `arrow-*` features*)
-impl SerdeArrowSchema {
-    /// Build a new Schema object from fields
-    pub fn from_arrow_fields(fields: &[Field]) -> Result<Self> {
-        Self::try_from(fields)
-    }
-
-    /// This method is deprecated. Use
-    /// [`to_arrow_fields`][SerdeArrowSchema::to_arrow_fields] instead:
-    ///
-    /// ```rust
-    /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-    /// # use serde_arrow::schema::{SerdeArrowSchema, SchemaLike, TracingOptions};
-    /// # #[derive(serde::Deserialize)]
-    /// # struct Item { a: u32 }
-    /// # let schema = SerdeArrowSchema::from_type::<Item>(TracingOptions::default()).unwrap();
-    /// # let fields =
-    /// schema.to_arrow_fields()?
-    /// # ;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[deprecated = "The method `get_arrow_fields` is deprecated. Use `to_arrow_fields` instead"]
-    pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
-        Vec::<Field>::try_from(self)
-    }
-
-    /// Build a vec of fields from a Schema object
-    pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
-        Vec::<Field>::try_from(self)
-    }
-}
-
 impl TryFrom<SerdeArrowSchema> for Vec<Field> {
     type Error = Error;
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
-        value.fields.iter().map(Field::try_from).collect()
+        (&value).try_into()
     }
 }
 
@@ -57,6 +24,14 @@ impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<Field> {
 
     fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
         value.fields.iter().map(Field::try_from).collect()
+    }
+}
+
+impl TryFrom<SerdeArrowSchema> for Vec<FieldRef> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        (&value).try_into()
     }
 }
 
@@ -104,20 +79,20 @@ impl Sealed for Vec<Field> {}
 /// `arrow-*` features*)
 impl SchemaLike for Vec<Field> {
     fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
-        SerdeArrowSchema::from_value(value)?.to_arrow_fields()
+        SerdeArrowSchema::from_value(value)?.try_into()
     }
 
     fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
-        SerdeArrowSchema::from_type::<T>(options)?.to_arrow_fields()
+        SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
     fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
-        SerdeArrowSchema::from_samples(samples, options)?.to_arrow_fields()
+        SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
 }
 
@@ -127,32 +102,20 @@ impl Sealed for Vec<FieldRef> {}
 /// `arrow-*` features*)
 impl SchemaLike for Vec<FieldRef> {
     fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
-        Ok(SerdeArrowSchema::from_value(value)?
-            .to_arrow_fields()?
-            .into_iter()
-            .map(Arc::new)
-            .collect())
+        SerdeArrowSchema::from_value(value)?.try_into()
     }
 
     fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
-        Ok(SerdeArrowSchema::from_type::<T>(options)?
-            .to_arrow_fields()?
-            .into_iter()
-            .map(Arc::new)
-            .collect())
+        SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
     fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
         options: crate::schema::TracingOptions,
     ) -> Result<Self> {
-        Ok(SerdeArrowSchema::from_samples(samples, options)?
-            .to_arrow_fields()?
-            .into_iter()
-            .map(Arc::new)
-            .collect())
+        SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
 }
 

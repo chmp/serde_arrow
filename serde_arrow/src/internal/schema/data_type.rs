@@ -194,11 +194,10 @@ impl std::str::FromStr for GenericTimeUnit {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            // TODO: remove plural forms (were incorrectly supported in 0.11.x)
-            "Second" | "Seconds" => Ok(Self::Second),
-            "Millisecond" | "Milliseconds" => Ok(Self::Millisecond),
-            "Microsecond" | "Microseconds" => Ok(Self::Microsecond),
-            "Nanosecond" | "Nanoseconds" => Ok(Self::Nanosecond),
+            "Second" => Ok(Self::Second),
+            "Millisecond" => Ok(Self::Millisecond),
+            "Microsecond" => Ok(Self::Microsecond),
+            "Nanosecond" => Ok(Self::Nanosecond),
             s => fail!("Invalid time unit {s}"),
         }
     }
