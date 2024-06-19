@@ -78,10 +78,11 @@
 //! # fn main() { }
 //! ```
 //!
-//! The `RecordBatch` can then be written to disk, e.g., as parquet using
-//! the [`ArrowWriter`] from the [`parquet`] crate.
+//! The `RecordBatch` can then be written to disk, e.g., as parquet using the
+//! [`ArrowWriter`] from the [`parquet`] crate.
 //!
-//! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+//! [`ArrowWriter`]:
+//!     https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
 //!
 //! # Features:
@@ -90,10 +91,8 @@
 //! default no arrow implementation is used. In that case only the base features
 //! of `serde_arrow` are available.
 //!
-//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
-//! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
-//! the highest version is selected, if multiple features are activated. E.g,
-//! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
+//! The highest version is selected, if multiple features are activated. E.g,
+//! when selecting  `arrow-52` and `arrow-51`, `arrow=52` will be used.
 //!
 //! Available features:
 //!
@@ -116,8 +115,6 @@
 //! | `arrow-39`    | `arrow=39`    |
 //! | `arrow-38`    | `arrow=38`    |
 //! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
 
 // be more forgiving without any active implementation
 #[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
