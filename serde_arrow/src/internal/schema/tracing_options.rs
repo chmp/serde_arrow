@@ -300,10 +300,3 @@ impl TracingOptions {
 /// An opaque mapping of field paths to field definitions
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Overwrites(pub(crate) HashMap<String, GenericField>);
-
-impl Overwrites {
-    /// Create a new empty instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-}

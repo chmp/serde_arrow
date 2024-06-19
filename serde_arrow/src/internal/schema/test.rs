@@ -14,7 +14,7 @@ impl SerdeArrowSchema {
 
 #[test]
 fn example() {
-    let schema = SerdeArrowSchema::new()
+    let schema = SerdeArrowSchema::default()
         .with_field(GenericField::new("foo", GenericDataType::U8, false))
         .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
@@ -30,7 +30,7 @@ fn example() {
 
 #[test]
 fn example_without_wrapper() {
-    let expected = SerdeArrowSchema::new()
+    let expected = SerdeArrowSchema::default()
         .with_field(GenericField::new("foo", GenericDataType::U8, false))
         .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
@@ -41,7 +41,7 @@ fn example_without_wrapper() {
 
 #[test]
 fn list() {
-    let schema = SerdeArrowSchema::new().with_field(
+    let schema = SerdeArrowSchema::default().with_field(
         GenericField::new("value", GenericDataType::List, false).with_child(GenericField::new(
             "element",
             GenericDataType::I32,
@@ -69,7 +69,7 @@ fn doc_schema() {
     "#;
 
     let actual: SerdeArrowSchema = serde_json::from_str(&schema).unwrap();
-    let expected = SerdeArrowSchema::new()
+    let expected = SerdeArrowSchema::default()
         .with_field(GenericField::new("foo", GenericDataType::U8, false))
         .with_field(GenericField::new("bar", GenericDataType::Utf8, false));
 
@@ -78,7 +78,7 @@ fn doc_schema() {
 
 #[test]
 fn date64_with_strategy() {
-    let schema = SerdeArrowSchema::new().with_field(
+    let schema = SerdeArrowSchema::default().with_field(
         GenericField::new("item", GenericDataType::Date64, false)
             .with_strategy(Strategy::NaiveStrAsDate64),
     );

@@ -8,6 +8,7 @@
 - Use `&[FieldRef]` instead of `&[Field]` in arrow APIs
 - Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
   `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
+- Remove `SerdeArrowSchema::new()`, `Overwrites::new()`
 
 ## 0.11.6
 

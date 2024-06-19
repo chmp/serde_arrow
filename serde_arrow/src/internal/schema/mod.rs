@@ -289,13 +289,6 @@ pub struct SerdeArrowSchema {
     pub(crate) fields: Vec<GenericField>,
 }
 
-impl SerdeArrowSchema {
-    /// Return a new schema without any fields
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
