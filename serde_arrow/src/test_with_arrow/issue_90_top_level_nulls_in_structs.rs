@@ -9,7 +9,7 @@ use crate::{
     schema::{SchemaLike, TracingOptions},
 };
 
-use crate::_impl::arrow::{_raw::schema::Schema, array::RecordBatch, datatypes::Field};
+use crate::_impl::arrow::{_raw::schema::Schema, array::RecordBatch, datatypes::FieldRef};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Distribution {
@@ -40,7 +40,7 @@ fn example() -> PanicOnError<()> {
         VectorMetric { distribution: None },
     ];
 
-    let fields = Vec::<Field>::from_type::<VectorMetric>(TracingOptions::default())?;
+    let fields = Vec::<FieldRef>::from_type::<VectorMetric>(TracingOptions::default())?;
     let arrays = serde_arrow::to_arrow(&fields, &metrics)?;
 
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields.clone())), arrays.clone())?;
@@ -55,7 +55,7 @@ fn example() -> PanicOnError<()> {
 #[test]
 fn example_top_level_none() -> PanicOnError<()> {
     // top-level options are not supported if fields are are extracted
-    let res = Vec::<Field>::from_type::<Option<Distribution>>(TracingOptions::default());
+    let res = Vec::<FieldRef>::from_type::<Option<Distribution>>(TracingOptions::default());
     assert!(res.is_err());
     Ok(())
 }

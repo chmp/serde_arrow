@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    _impl::arrow::{
-        array::ArrayRef,
-        datatypes::{Field, FieldRef},
-    },
+    _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
     schema::{SchemaLike, TracingOptions},
     ArrayBuilder, Deserializer,
 };
@@ -27,7 +24,7 @@ enum Enum<'a> {
     TupleVariant(Record, Record),
 }
 
-fn serialize<I: Serialize + ?Sized>(fields: &[impl AsRef<Field>], items: &I) -> Vec<ArrayRef> {
+fn serialize<I: Serialize + ?Sized>(fields: &[FieldRef], items: &I) -> Vec<ArrayRef> {
     let builder = ArrayBuilder::from_arrow(&fields).unwrap();
     items
         .serialize(crate::Serializer::new(builder))
@@ -37,10 +34,7 @@ fn serialize<I: Serialize + ?Sized>(fields: &[impl AsRef<Field>], items: &I) -> 
         .unwrap()
 }
 
-fn deserialize<'de, I: Deserialize<'de>>(
-    fields: &[impl AsRef<Field>],
-    arrays: &'de [ArrayRef],
-) -> I {
+fn deserialize<'de, I: Deserialize<'de>>(fields: &[FieldRef], arrays: &'de [ArrayRef]) -> I {
     I::deserialize(Deserializer::<'de>::from_arrow(fields, arrays).unwrap()).unwrap()
 }
 

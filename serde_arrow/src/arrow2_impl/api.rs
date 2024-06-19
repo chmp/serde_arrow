@@ -19,7 +19,7 @@ use crate::{
 /// structs). To serialize items encoding single values consider the
 /// [`Items`][crate::utils::Items] wrapper.
 ///
-/// To build arrays record by record use [`Arrow2Builder`].
+/// To build arrays record by record use [`ArrayBuilder`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {

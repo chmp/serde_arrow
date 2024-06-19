@@ -1,12 +1,10 @@
 #![deny(missing_docs)]
-use std::borrow::Cow;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow::{
         array::{Array, ArrayRef, RecordBatch},
-        datatypes::{Field, FieldRef},
+        datatypes::FieldRef,
     },
     internal::{
         array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
@@ -29,7 +27,7 @@ use crate::{
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow;
-/// use arrow::datatypes::Field;
+/// use arrow::datatypes::FieldRef;
 /// use serde::{Serialize, Deserialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
@@ -44,7 +42,7 @@ use crate::{
 ///     // ...
 /// ];
 ///
-/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+/// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 /// let arrays = serde_arrow::to_arrow(&fields, &items)?;
 /// #
 /// # assert_eq!(arrays.len(), 2);
@@ -52,7 +50,7 @@ use crate::{
 /// # }
 /// ```
 ///
-pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>> {
+pub fn to_arrow<T: Serialize + ?Sized>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>> {
     let builder = ArrayBuilder::new(SerdeArrowSchema::try_from(fields)?)?;
     items
         .serialize(Serializer::new(builder))?
@@ -70,7 +68,7 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow;
-/// use arrow::datatypes::Field;
+/// use arrow::datatypes::FieldRef;
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
@@ -82,20 +80,18 @@ pub fn to_arrow<T: Serialize + ?Sized>(fields: &[Field], items: &T) -> Result<Ve
 ///     b: u64,
 /// }
 ///
-/// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+/// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 /// let items: Vec<Record> = serde_arrow::from_arrow(&fields, &arrays)?;
 /// # Ok(())
 /// # }
 /// ```
 ///
-pub fn from_arrow<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+pub fn from_arrow<'de, T, A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
-    let fields = fields.iter().map(Cow::Borrowed).collect::<Vec<_>>();
-    let deserializer = Deserializer::from_arrow(&fields, arrays)?;
-    T::deserialize(deserializer)
+    T::deserialize(Deserializer::from_arrow(fields, arrays)?)
 }
 
 /// Build a record batch from the given items  (*requires one of the `arrow-*`

@@ -13,6 +13,7 @@ macro_rules! define_benchmark {
     ) => {
         pub fn benchmark_serialize(c: &mut criterion::Criterion) {
             use serde_arrow::schema::{SerdeArrowSchema, SchemaLike};
+            use serde_arrow::_impl::arrow::datatypes::FieldRef;
 
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));
@@ -33,7 +34,7 @@ macro_rules! define_benchmark {
                     .map(|_| <$ty>::random(&mut rng))
                     .collect::<Vec<_>>();
                 let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
-                let arrow_fields = schema.to_arrow_fields().unwrap();
+                let arrow_fields = Vec::<FieldRef>::try_from(&schema).unwrap();
                 let arrow2_fields = schema.to_arrow2_fields().unwrap();
 
                 #[allow(unused)]
@@ -93,10 +94,10 @@ pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
         Result,
-        _impl::arrow::{array::ArrayRef, datatypes::Field},
+        _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
     };
 
-    pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<ArrayRef>>
+    pub fn serialize<T>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>>
     where
         T: Serialize + ?Sized,
     {
@@ -132,10 +133,10 @@ pub mod arrow {
 
     use serde_arrow::{
         Error, Result,
-        _impl::arrow::{array::ArrayRef, datatypes::Field},
+        _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
     };
 
-    pub fn serialize<T>(fields: &[Field], items: &[T]) -> Result<Vec<ArrayRef>>
+    pub fn serialize<T>(fields: &[FieldRef], items: &[T]) -> Result<Vec<ArrayRef>>
     where
         T: Serialize,
     {
