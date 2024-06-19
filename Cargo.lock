@@ -2277,6 +2277,7 @@ dependencies = [
  "arrow-schema 50.0.0",
  "arrow-schema 51.0.0",
  "arrow-schema 52.0.0",
+ "arrow2",
  "arrow2_convert",
  "bigdecimal",
  "bytemuck",
