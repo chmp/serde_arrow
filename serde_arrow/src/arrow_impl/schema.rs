@@ -18,8 +18,7 @@ impl SerdeArrowSchema {
         Self::try_from(fields)
     }
 
-    /// This method is deprecated. Use
-    /// [`to_arrow_fields`][SerdeArrowSchema::to_arrow_fields] instead:
+    /// Build a vec of fields from a Schema object
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -33,12 +32,6 @@ impl SerdeArrowSchema {
     /// # Ok(())
     /// # }
     /// ```
-    #[deprecated = "The method `get_arrow_fields` is deprecated. Use `to_arrow_fields` instead"]
-    pub fn get_arrow_fields(&self) -> Result<Vec<Field>> {
-        Vec::<Field>::try_from(self)
-    }
-
-    /// Build a vec of fields from a Schema object
     pub fn to_arrow_fields(&self) -> Result<Vec<Field>> {
         Vec::<Field>::try_from(self)
     }

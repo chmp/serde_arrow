@@ -1,5 +1,11 @@
 # Change log
 
+## 0.12
+
+- Remove `serde_arrow::schema::Schema`
+- Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
+- Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
+
 ## 0.11.6
 
 - Add `arrow=52` support

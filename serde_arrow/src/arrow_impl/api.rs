@@ -14,94 +14,6 @@ use crate::{
     },
 };
 
-/// Build arrow arrays record by record (*requires one of the `arrow-*`
-/// features*)
-///
-/// The given items should be records (e.g., structs). To serialize items
-/// encoding single values consider the [`Items`][crate::utils::Items] and
-/// [`Item`][crate::utils::Item] wrappers.
-///
-/// Example:
-///
-/// ```rust
-/// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::_impl::arrow as arrow;
-/// use arrow::datatypes::{DataType, Field};
-/// use serde::Serialize;
-/// use serde_arrow::ArrowBuilder;
-///
-/// ##[derive(Serialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-///
-/// let mut builder = ArrowBuilder::new(&[
-///     Field::new("a", DataType::Float32, true),
-///     Field::new("b", DataType::UInt64, false),
-/// ])?;
-///
-/// builder.push(&Record { a: Some(1.0), b: 2})?;
-/// builder.push(&Record { a: Some(3.0), b: 4})?;
-/// builder.push(&Record { a: Some(5.0), b: 5})?;
-///
-/// builder.extend(&[
-///     Record { a: Some(6.0), b: 7},
-///     Record { a: Some(8.0), b: 9},
-///     Record { a: Some(10.0), b: 11},
-/// ])?;
-///
-/// let arrays = builder.build_arrays()?;
-/// #
-/// # assert_eq!(arrays.len(), 2);
-/// # assert_eq!(arrays[0].len(), 6);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated = "`ArrowBuilder` is deprecated. Use `ArrayBuilder` instead"]
-pub struct ArrowBuilder(ArrayBuilder);
-
-#[allow(deprecated)]
-impl std::fmt::Debug for ArrowBuilder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ArrowBuilder<...>")
-    }
-}
-
-#[allow(deprecated)]
-impl ArrowBuilder {
-    /// Build a new ArrowBuilder for the given fields
-    ///
-    /// This method may fail when unsupported data types are encountered in the
-    /// given fields.
-    ///
-    pub fn new(fields: &[Field]) -> Result<Self> {
-        Ok(Self(ArrayBuilder::new(SerdeArrowSchema::try_from(
-            fields,
-        )?)?))
-    }
-
-    /// Add a single record to the arrays
-    ///
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.0.push(item)
-    }
-
-    /// Add multiple records to the arrays
-    ///
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.0.extend(items)
-    }
-
-    /// Build the arrays from the rows pushed to far.
-    ///
-    /// This operation will reset the underlying buffers and start a new batch.
-    ///
-    pub fn build_arrays(&mut self) -> Result<Vec<ArrayRef>> {
-        self.0.to_arrow()
-    }
-}
-
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
 /// features*)
 ///
@@ -109,7 +21,7 @@ impl ArrowBuilder {
 /// structs). To serialize items encoding single values consider the
 /// [`Items`][crate::utils::Items] wrapper.
 ///
-/// To build arrays record by record use [`ArrowBuilder`]. To construct a record
+/// To build arrays record by record use [`ArrayBuilder`]. To construct a record
 /// batch, consider using [`to_record_batch`].
 ///
 /// Example:
@@ -193,7 +105,7 @@ where
 /// structs). To serialize items encoding single values consider the
 /// [`Items`][crate::utils::Items] wrapper.
 ///
-/// To build arrays record by record use [`ArrowBuilder`].
+/// To build arrays record by record use [`ArrayBuilder`].
 ///
 /// Example:
 ///
