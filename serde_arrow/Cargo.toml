@@ -13,13 +13,12 @@ bench = false
 
 [[bench]]
 name = "serde_arrow_bench"
-# arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
-required-features = ["arrow2-0-17", "arrow-52"]
+required-features = ["arrow-52"]
 harness = false
 
 [package.metadata.docs.rs]
-# arrow-version:replace: features = ["arrow2-0-17", "arrow-{version}"]
-features = ["arrow2-0-17", "arrow-52"]
+# arrow-version:replace: features = ["arrow-{version}"]
+features = ["arrow-52"]
 
 [features]
 default = []
@@ -120,9 +119,6 @@ arrow-schema-40 = { package = "arrow-schema", version = "40", optional = true, d
 arrow-schema-39 = { package = "arrow-schema", version = "39", optional = true, default-features = false }
 arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true, default-features = false }
 arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true, default-features = false }
-
-arrow2-0-17 = { package = "arrow2", version = "0.17", optional = true, default-features = false }
-arrow2-0-16 = { package = "arrow2", version = "0.16", optional = true, default-features = false }
 
 [dev-dependencies]
 anyhow = "1"

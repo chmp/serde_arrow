@@ -1,18 +1,4 @@
 fn main() {
-    let max_arrow2_version: Option<usize> = [
-        #[cfg(feature = "arrow2-0-17")]
-        17,
-        #[cfg(feature = "arrow2-0-16")]
-        16,
-    ]
-    .into_iter()
-    .max();
-
-    if let Some(version) = max_arrow2_version {
-        println!("cargo:rustc-cfg=has_arrow2");
-        println!("cargo:rustc-cfg=has_arrow2_0_{version}");
-    }
-
     let max_arrow_version: Option<usize> = [
         // arrow-version:insert: #[cfg(feature = "arrow-{version}")]{\n}{version},
         #[cfg(feature = "arrow-52")]

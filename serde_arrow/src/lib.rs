@@ -28,13 +28,13 @@
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             |
-|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     |
-| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       |
-| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       |
+| Operation     |                                                                   |
+|:--------------|:------------------------------------------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             |
+| Array Builder | [`ArrayBuilder::from_arrow`]                                      |
+| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] |
 "#
 )]
 //!
@@ -84,51 +84,6 @@
 //! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
 //!
-//! ## `arrow2` Example
-//!
-//! Requires one of `arrow2` feature (see below).
-//!
-//! ```rust
-//! # use serde::{Deserialize, Serialize};
-//! # #[cfg(has_arrow2)]
-//! # fn main() -> serde_arrow::Result<()> {
-//! # use serde_arrow::_impl::arrow2;
-//! use arrow2::datatypes::Field;
-//! use serde_arrow::schema::{SchemaLike, TracingOptions};
-//!
-//! ##[derive(Serialize, Deserialize)]
-//! struct Record {
-//!     a: f32,
-//!     b: i32,
-//! }
-//!
-//! let records = vec![
-//!     Record { a: 1.0, b: 1 },
-//!     Record { a: 2.0, b: 2 },
-//!     Record { a: 3.0, b: 3 },
-//! ];
-//!
-//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-//! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-//! # Ok(())
-//! # }
-//! # #[cfg(not(has_arrow2))]
-//! # fn main() { }
-//! ```
-//!
-//! The generated arrays can then be written to disk, e.g., as parquet:
-//!
-//! ```rust,ignore
-//! use arrow2::{chunk::Chunk, datatypes::Schema};
-//!
-//! // see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-//! write_chunk(
-//!     "example.pq",
-//!     Schema::from(fields),
-//!     Chunk::new(arrays),
-//! )?;
-//! ```
-//!
 //! # Features:
 //!
 //! The version of `arrow` or `arrow2` used can be selected via features. Per
@@ -176,14 +131,6 @@ mod internal;
 ///
 #[rustfmt::skip]
 pub mod _impl {
-
-    #[cfg(has_arrow2_0_17)]
-    #[doc(hidden)]
-    pub use arrow2_0_17 as arrow2;
-
-    #[cfg(has_arrow2_0_16)]
-    pub use arrow2_0_16 as arrow2;
-
     #[allow(unused)]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
@@ -306,7 +253,7 @@ pub mod _impl {
     };
 }
 
-#[cfg(all(test, has_arrow, has_arrow2))]
+#[cfg(all(test, has_arrow))]
 mod test_with_arrow;
 
 #[cfg(test)]
@@ -324,12 +271,6 @@ mod arrow_impl;
 
 #[cfg(has_arrow)]
 pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch};
-
-#[cfg(has_arrow2)]
-mod arrow2_impl;
-
-#[cfg(has_arrow2)]
-pub use arrow2_impl::api::{from_arrow2, to_arrow2};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`

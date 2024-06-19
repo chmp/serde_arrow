@@ -25,8 +25,7 @@ all_arrow_features = [
     "arrow-38",
     "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
-default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
+default_features = f"{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -142,7 +141,7 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in (*all_arrow2_features, *all_arrow_features):
+    for feature in all_arrow_features:
         yield {
             "name": f"Check {feature}",
             "run": f"cargo check --features {feature}",

@@ -45,32 +45,16 @@ impl<'a> std::fmt::Debug for ApproxEq<'a> {
 
 impl Test {
     pub fn deserialize_json(self, items: &Value) -> Self {
-        if self.impls.arrow {
-            let fields = self.get_arrow_fields();
-            let roundtripped: Value = crate::from_arrow(
-                &fields,
-                self.arrays
-                    .arrow
-                    .as_ref()
-                    .expect("Deserialization requires known arrow arrays"),
-            )
-            .expect("Failed arrow deserialization");
-            assert_eq!(ApproxEq(&roundtripped), ApproxEq(items));
-        }
-
-        if self.impls.arrow2 {
-            let fields = self.get_arrow2_fields();
-            let roundtripped: Value = crate::from_arrow2(
-                &fields,
-                self.arrays
-                    .arrow2
-                    .as_ref()
-                    .expect("Deserialization requires known arrow2 arrays"),
-            )
-            .expect("Failed arrow2 deserialization");
-            assert_eq!(ApproxEq(&roundtripped), ApproxEq(items));
-        }
-
+        let fields = self.get_arrow_fields();
+        let roundtripped: Value = crate::from_arrow(
+            &fields,
+            self.arrays
+                .arrow
+                .as_ref()
+                .expect("Deserialization requires known arrow arrays"),
+        )
+        .expect("Failed arrow deserialization");
+        assert_eq!(ApproxEq(&roundtripped), ApproxEq(items));
         self
     }
 }
@@ -177,7 +161,5 @@ fn serde_json_nullable_strings_non_nullable_field() {
     ]));
 
     test.try_serialize_arrow(&items)
-        .assert_error("cannot push null for non-nullable array");
-    test.try_serialize_arrow2(&items)
         .assert_error("cannot push null for non-nullable array");
 }

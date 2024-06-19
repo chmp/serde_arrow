@@ -1006,26 +1006,6 @@ dependencies = [
 
 [[package]]
 name = "arrow2"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a4c5b03335bc1cb0fd9f5297f8fd3bbfd6fb04f3cb0bc7d6c91b7128cb8336a"
-dependencies = [
- "ahash 0.8.3",
- "bytemuck",
- "chrono",
- "dyn-clone",
- "either",
- "ethnum",
- "foreign_vec",
- "getrandom",
- "hash_hasher",
- "num-traits",
- "rustc_version",
- "simdutf8",
-]
-
-[[package]]
-name = "arrow2"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c63cf31f1416ed2fab8f91e8488e10129f47bd89c553ec354a06751d5697f3"
@@ -1050,7 +1030,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e907cf50c3406c79e3a6f4c36d177df9ce99edb7e39ca448d947e6945725034e"
 dependencies = [
- "arrow2 0.17.0",
+ "arrow2",
  "arrow2_convert_derive",
  "chrono",
  "err-derive",
@@ -2297,8 +2277,6 @@ dependencies = [
  "arrow-schema 50.0.0",
  "arrow-schema 51.0.0",
  "arrow-schema 52.0.0",
- "arrow2 0.16.0",
- "arrow2 0.17.0",
  "arrow2_convert",
  "bigdecimal",
  "bytemuck",
