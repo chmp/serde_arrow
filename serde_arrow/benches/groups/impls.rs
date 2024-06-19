@@ -13,7 +13,7 @@ macro_rules! define_benchmark {
     ) => {
         pub fn benchmark_serialize(c: &mut criterion::Criterion) {
             use serde_arrow::schema::{SerdeArrowSchema, SchemaLike};
-            use serde_arrow::_impl::arrow::datatypes::FieldRef;
+            use serde_arrow::_impl::{arrow::datatypes::FieldRef, arrow2::datatypes::Field as Arrow2Field};
 
             for n in [$($n),*] {
                 let mut group = c.benchmark_group(format!("{}_serialize({})", stringify!($name), n));
@@ -35,7 +35,7 @@ macro_rules! define_benchmark {
                     .collect::<Vec<_>>();
                 let schema = SerdeArrowSchema::from_samples(&items, Default::default()).unwrap();
                 let arrow_fields = Vec::<FieldRef>::try_from(&schema).unwrap();
-                let arrow2_fields = schema.to_arrow2_fields().unwrap();
+                let arrow2_fields = Vec::<Arrow2Field>::try_from(&schema).unwrap();
 
                 #[allow(unused)]
                 let bench_serde_arrow = true;

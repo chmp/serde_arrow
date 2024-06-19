@@ -6,6 +6,8 @@
 - Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
 - Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
 - Use `&[FieldRef]` instead of `&[Field]` in arrow APIs
+- Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
+  `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
 
 ## 0.11.6
 

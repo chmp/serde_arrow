@@ -42,7 +42,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// `arrow-*` features*)
     pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
         let arrays = self.builder.build_arrow()?;
-        let fields = self.schema.to_arrow_fields()?;
+        let fields = Vec::<FieldRef>::try_from(&self.schema)?;
         let schema = Schema::new(fields);
         Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
     }

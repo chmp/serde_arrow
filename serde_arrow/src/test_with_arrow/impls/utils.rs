@@ -95,8 +95,7 @@ impl Test {
     pub fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
-                schema
-                    .to_arrow2_fields()
+                Vec::<arrow2::datatypes::Field>::try_from(schema)
                     .expect("Cannot covert schema to arrow fields"),
             ),
             None => Cow::Borrowed(
