@@ -14,7 +14,7 @@ use crate::{
     internal::{
         error::{fail, Error, Result},
         schema::{GenericField, SerdeArrowSchema},
-        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
+        serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
 
@@ -90,19 +90,19 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::LargeUtf8(_)
         | A::Binary(_)
         | A::LargeBinary(_)) => builder.into_array().try_into(),
-        A::LargeList(builder) => build_array_data_list(
+        A::LargeList(builder) => list_into_data(
             T::LargeList(Arc::new(Field::try_from(&builder.field)?)),
             builder.offsets.offsets.len() - 1,
             builder.offsets.offsets,
             build_array_data(*builder.element)?,
-            builder.validity,
+            builder.validity.map(|v| v.buffer),
         ),
-        A::List(builder) => build_array_data_list(
+        A::List(builder) => list_into_data(
             T::List(Arc::new(Field::try_from(&builder.field)?)),
             builder.offsets.offsets.len() - 1,
             builder.offsets.offsets,
             build_array_data(*builder.element)?,
-            builder.validity,
+            builder.validity.map(|v| v.buffer),
         ),
         A::FixedSizedList(builder) => {
             let data_type = T::FixedSizeList(
@@ -297,36 +297,32 @@ fn bytes_into_data<O: ArrowNativeType>(
     data: Vec<u8>,
     validity: Option<Vec<u8>>,
 ) -> Result<ArrayData> {
-    let values_len = offsets.len() - 1;
-
-    let offsets = ScalarBuffer::from(offsets).into_inner();
-    let data = ScalarBuffer::from(data).into_inner();
-    let validity = validity.map(Buffer::from);
-
     Ok(ArrayData::try_new(
         data_type,
-        values_len,
-        validity,
+        offsets.len() - 1,
+        validity.map(Buffer::from),
         0,
-        vec![offsets, data],
+        vec![
+            ScalarBuffer::from(offsets).into_inner(),
+            ScalarBuffer::from(data).into_inner(),
+        ],
         vec![],
     )?)
 }
 
-fn build_array_data_list<O: ArrowNativeType>(
+fn list_into_data<O: ArrowNativeType>(
     data_type: DataType,
     len: usize,
     offsets: Vec<O>,
     child_data: ArrayData,
-    validity: Option<MutableBitBuffer>,
+    validity: Option<Vec<u8>>,
 ) -> Result<ArrayData> {
-    let offset_buffer = ScalarBuffer::from(offsets).into_inner();
-    let validity = validity.map(|b| Buffer::from(b.buffer));
-
-    Ok(ArrayData::builder(data_type)
-        .len(len)
-        .add_buffer(offset_buffer)
-        .add_child_data(child_data)
-        .null_bit_buffer(validity)
-        .build()?)
+    Ok(ArrayData::try_new(
+        data_type,
+        len,
+        validity.map(Buffer::from),
+        0,
+        vec![ScalarBuffer::from(offsets).into_inner()],
+        vec![child_data],
+    )?)
 }
