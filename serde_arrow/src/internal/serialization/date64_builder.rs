@@ -1,5 +1,5 @@
 use crate::internal::{
-    arrow::{Array, TimeUnit},
+    arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
     error::{Error, Result},
     schema::{GenericDataType, GenericField},
 };
@@ -38,7 +38,19 @@ impl Date64Builder {
     }
 
     pub fn into_array(self) -> Array {
-        unimplemented!()
+        if let GenericDataType::Timestamp(unit, timezone) = self.field.data_type {
+            Array::Timestamp(TimestampArray {
+                unit,
+                timezone,
+                validity: self.validity.map(|validity| validity.buffer),
+                values: self.buffer,
+            })
+        } else {
+            Array::Date64(PrimitiveArray {
+                validity: self.validity.map(|validity| validity.buffer),
+                values: self.buffer,
+            })
+        }
     }
 }
 

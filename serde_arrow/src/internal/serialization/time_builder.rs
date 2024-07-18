@@ -1,7 +1,7 @@
 use chrono::Timelike;
 
 use crate::internal::{
-    arrow::{Array, TimeUnit},
+    arrow::{Array, TimeArray, TimeUnit},
     error::{Error, Result},
     schema::GenericField,
 };
@@ -13,25 +13,16 @@ pub struct TimeBuilder<I> {
     pub field: GenericField,
     pub validity: Option<MutableBitBuffer>,
     pub buffer: Vec<I>,
-    pub seconds_factor: i64,
-    pub nanoseconds_factor: i64,
+    pub unit: TimeUnit,
 }
 
 impl<I> TimeBuilder<I> {
     pub fn new(field: GenericField, nullable: bool, unit: TimeUnit) -> Self {
-        let (seconds_factor, nanoseconds_factor) = match unit {
-            TimeUnit::Nanosecond => (1_000_000_000, 1),
-            TimeUnit::Microsecond => (1_000_000, 1_000),
-            TimeUnit::Millisecond => (1_000, 1_000_000),
-            TimeUnit::Second => (1, 1_000_000_000),
-        };
-
         Self {
             field,
             validity: nullable.then(MutableBitBuffer::default),
             buffer: Vec::new(),
-            seconds_factor,
-            nanoseconds_factor,
+            unit,
         }
     }
 
@@ -40,17 +31,32 @@ impl<I> TimeBuilder<I> {
             field: self.field.clone(),
             validity: self.validity.as_mut().map(std::mem::take),
             buffer: std::mem::take(&mut self.buffer),
-            seconds_factor: self.seconds_factor,
-            nanoseconds_factor: self.nanoseconds_factor,
+            unit: self.unit,
         }
     }
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
     }
+}
 
+impl TimeBuilder<i32> {
     pub fn into_array(self) -> Array {
-        unimplemented!()
+        Array::Time32(TimeArray {
+            unit: self.unit,
+            validity: self.validity.map(|v| v.buffer),
+            values: self.buffer,
+        })
+    }
+}
+
+impl TimeBuilder<i64> {
+    pub fn into_array(self) -> Array {
+        Array::Time64(TimeArray {
+            unit: self.unit,
+            validity: self.validity.map(|v| v.buffer),
+            values: self.buffer,
+        })
     }
 }
 
@@ -77,10 +83,17 @@ where
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
+        let (seconds_factor, nanoseconds_factor) = match self.unit {
+            TimeUnit::Nanosecond => (1_000_000_000, 1),
+            TimeUnit::Microsecond => (1_000_000, 1_000),
+            TimeUnit::Millisecond => (1_000, 1_000_000),
+            TimeUnit::Second => (1, 1_000_000_000),
+        };
+
         use chrono::naive::NaiveTime;
         let time = v.parse::<NaiveTime>()?;
-        let timestamp = time.num_seconds_from_midnight() as i64 * self.seconds_factor
-            + time.nanosecond() as i64 / self.nanoseconds_factor;
+        let timestamp = time.num_seconds_from_midnight() as i64 * seconds_factor
+            + time.nanosecond() as i64 / nanoseconds_factor;
 
         push_validity(&mut self.validity, true)?;
         self.buffer.push(timestamp.try_into()?);

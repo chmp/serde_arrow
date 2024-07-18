@@ -23,6 +23,7 @@ pub enum Array {
     Date64(PrimitiveArray<i64>),
     Time32(TimeArray<i32>),
     Time64(TimeArray<i64>),
+    Timestamp(TimestampArray),
     Utf8(Utf8Array<i32>),
     LargeUtf8(Utf8Array<i64>),
     Binary(Utf8Array<i32>),
@@ -66,6 +67,15 @@ pub struct TimeArray<T> {
     pub unit: TimeUnit,
     pub validity: Option<Vec<u8>>,
     pub values: Vec<T>,
+}
+
+#[derive(Debug, Clone)]
+
+pub struct TimestampArray {
+    pub unit: TimeUnit,
+    pub timezone: Option<String>,
+    pub validity: Option<Vec<u8>>,
+    pub values: Vec<i64>,
 }
 
 #[derive(Clone, Debug)]

@@ -83,17 +83,9 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::U64(_)
         | A::F16(_)
         | A::F32(_)
-        | A::F64(_)) => builder.into_array().try_into(),
-        A::Date32(builder) => build_array_data_primitive(
-            Field::try_from(&builder.field)?.data_type().clone(),
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Date64(builder) => build_array_data_primitive(
-            Field::try_from(&builder.field)?.data_type().clone(),
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::F64(_)
+        | A::Date32(_)
+        | A::Date64(_)) => builder.into_array().try_into(),
         A::Time32(builder) => build_array_data_primitive(
             Field::try_from(&builder.field)?.data_type().clone(),
             builder.buffer,
@@ -282,6 +274,19 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Float16(arr) => primitive_into_data(ArrowT::Float16, arr.map_values(f16_to_f16)),
             A::Float32(arr) => primitive_into_data(ArrowT::Float32, arr),
             A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr),
+            A::Date32(arr) => primitive_into_data(ArrowT::Date32, arr),
+            A::Date64(arr) => primitive_into_data(ArrowT::Date64, arr),
+            A::Timestamp(arr) => {
+                let data_type = ArrowT::Timestamp(arr.unit.into(), arr.timezone.map(String::into));
+                Ok(ArrayData::try_new(
+                    data_type,
+                    arr.values.len(),
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![ScalarBuffer::from(arr.values).into_inner()],
+                    vec![],
+                )?)
+            }
             array => fail!("{:?} not implemented", array),
         }
     }
