@@ -86,6 +86,7 @@ impl NullArray {
 
 #[derive(Clone, Debug)]
 pub struct BooleanArray {
+    // Note: len is required to know how many bits of values are used
     pub len: usize,
     pub validity: Option<Vec<u8>>,
     pub values: Vec<u8>,

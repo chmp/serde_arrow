@@ -1,7 +1,7 @@
 use half::f16;
 
 use crate::internal::{
-    arrow::{Array, DataType, PrimitiveArray},
+    arrow::{Array, PrimitiveArray},
     error::Result,
     utils::Mut,
 };

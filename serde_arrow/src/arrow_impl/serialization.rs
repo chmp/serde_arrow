@@ -266,7 +266,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Boolean(arr) => Ok(ArrayData::try_new(
                 ArrowT::Boolean,
                 arr.len,
-                arr.validity.map(|buffer| Buffer::from(buffer)),
+                arr.validity.map(Buffer::from),
                 0,
                 vec![ScalarBuffer::from(arr.values).into_inner()],
                 vec![],
@@ -294,7 +294,7 @@ fn primitive_into_data<T: ArrowNativeType>(
     Ok(ArrayData::try_new(
         data_type,
         array.values.len(),
-        array.validity.map(|buffer| Buffer::from(buffer)),
+        array.validity.map(Buffer::from),
         0,
         vec![ScalarBuffer::from(array.values).into_inner()],
         vec![],

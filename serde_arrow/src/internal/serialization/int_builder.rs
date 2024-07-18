@@ -1,5 +1,5 @@
 use crate::internal::{
-    arrow::{Array, DataType, PrimitiveArray},
+    arrow::{Array, PrimitiveArray},
     error::{Error, Result},
 };
 
