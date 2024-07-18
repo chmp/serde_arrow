@@ -1,5 +1,5 @@
 use crate::internal::{
-    arrow::{Array, TimeUnit},
+    arrow::{Array, TimeArray, TimeUnit},
     error::Result,
 };
 
@@ -34,7 +34,11 @@ impl DurationBuilder {
     }
 
     pub fn into_array(self) -> Array {
-        unimplemented!()
+        Array::Duration(TimeArray {
+            unit: self.unit,
+            validity: self.validity.map(|b| b.buffer),
+            values: self.buffer,
+        })
     }
 }
 

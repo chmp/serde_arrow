@@ -24,6 +24,7 @@ pub enum Array {
     Time32(TimeArray<i32>),
     Time64(TimeArray<i64>),
     Timestamp(TimestampArray),
+    Duration(TimeArray<i64>),
     Utf8(Utf8Array<i32>),
     LargeUtf8(Utf8Array<i64>),
     Binary(Utf8Array<i32>),
@@ -51,15 +52,6 @@ pub struct BooleanArray {
 pub struct PrimitiveArray<T> {
     pub validity: Option<Vec<u8>>,
     pub values: Vec<T>,
-}
-
-impl<T> PrimitiveArray<T> {
-    pub(crate) fn map_values<R>(self, func: impl Fn(T) -> R) -> PrimitiveArray<R> {
-        PrimitiveArray {
-            validity: self.validity,
-            values: self.values.into_iter().map(func).collect(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

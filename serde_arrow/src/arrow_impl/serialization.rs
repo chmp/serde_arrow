@@ -87,12 +87,8 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::Date32(_)
         | A::Date64(_)
         | A::Time32(_)
-        | A::Time64(_)) => builder.into_array().try_into(),
-        A::Duration(builder) => build_array_data_primitive(
-            T::Duration(builder.unit.into()),
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::Time64(_)
+        | A::Duration(_)) => builder.into_array().try_into(),
         A::Decimal128(builder) => build_array_data_primitive(
             T::Decimal128(builder.precision, builder.scale),
             builder.buffer,
@@ -249,49 +245,44 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Null(arr) => Ok(NullArray::new(arr.len).into_data()),
             A::Boolean(arr) => Ok(ArrayData::try_new(
                 ArrowT::Boolean,
+                // NOTE: use the explicit len
                 arr.len,
                 arr.validity.map(Buffer::from),
                 0,
                 vec![ScalarBuffer::from(arr.values).into_inner()],
                 vec![],
             )?),
-            A::Int8(arr) => primitive_into_data(ArrowT::Int8, arr),
-            A::Int16(arr) => primitive_into_data(ArrowT::Int16, arr),
-            A::Int32(arr) => primitive_into_data(ArrowT::Int32, arr),
-            A::Int64(arr) => primitive_into_data(ArrowT::Int64, arr),
-            A::UInt8(arr) => primitive_into_data(ArrowT::UInt8, arr),
-            A::UInt16(arr) => primitive_into_data(ArrowT::UInt16, arr),
-            A::UInt32(arr) => primitive_into_data(ArrowT::UInt32, arr),
-            A::UInt64(arr) => primitive_into_data(ArrowT::UInt64, arr),
-            A::Float16(arr) => primitive_into_data(ArrowT::Float16, arr.map_values(f16_to_f16)),
-            A::Float32(arr) => primitive_into_data(ArrowT::Float32, arr),
-            A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr),
-            A::Date32(arr) => primitive_into_data(ArrowT::Date32, arr),
-            A::Date64(arr) => primitive_into_data(ArrowT::Date64, arr),
-            A::Timestamp(arr) => Ok(ArrayData::try_new(
+            A::Int8(arr) => primitive_into_data(ArrowT::Int8, arr.validity, arr.values),
+            A::Int16(arr) => primitive_into_data(ArrowT::Int16, arr.validity, arr.values),
+            A::Int32(arr) => primitive_into_data(ArrowT::Int32, arr.validity, arr.values),
+            A::Int64(arr) => primitive_into_data(ArrowT::Int64, arr.validity, arr.values),
+            A::UInt8(arr) => primitive_into_data(ArrowT::UInt8, arr.validity, arr.values),
+            A::UInt16(arr) => primitive_into_data(ArrowT::UInt16, arr.validity, arr.values),
+            A::UInt32(arr) => primitive_into_data(ArrowT::UInt32, arr.validity, arr.values),
+            A::UInt64(arr) => primitive_into_data(ArrowT::UInt64, arr.validity, arr.values),
+            A::Float16(arr) => primitive_into_data(
+                ArrowT::Float16,
+                arr.validity,
+                arr.values.into_iter().map(f16_to_f16).collect(),
+            ),
+            A::Float32(arr) => primitive_into_data(ArrowT::Float32, arr.validity, arr.values),
+            A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr.validity, arr.values),
+            A::Date32(arr) => primitive_into_data(ArrowT::Date32, arr.validity, arr.values),
+            A::Date64(arr) => primitive_into_data(ArrowT::Date64, arr.validity, arr.values),
+            A::Timestamp(arr) => primitive_into_data(
                 ArrowT::Timestamp(arr.unit.into(), arr.timezone.map(String::into)),
-                arr.values.len(),
-                arr.validity.map(Buffer::from),
-                0,
-                vec![ScalarBuffer::from(arr.values).into_inner()],
-                vec![],
-            )?),
-            A::Time32(arr) => Ok(ArrayData::try_new(
-                ArrowT::Time32(arr.unit.into()),
-                arr.values.len(),
-                arr.validity.map(Buffer::from),
-                0,
-                vec![ScalarBuffer::from(arr.values).into_inner()],
-                vec![],
-            )?),
-            A::Time64(arr) => Ok(ArrayData::try_new(
-                ArrowT::Time64(arr.unit.into()),
-                arr.values.len(),
-                arr.validity.map(Buffer::from),
-                0,
-                vec![ScalarBuffer::from(arr.values).into_inner()],
-                vec![],
-            )?),
+                arr.validity,
+                arr.values,
+            ),
+            A::Time32(arr) => {
+                primitive_into_data(ArrowT::Time32(arr.unit.into()), arr.validity, arr.values)
+            }
+            A::Time64(arr) => {
+                primitive_into_data(ArrowT::Time64(arr.unit.into()), arr.validity, arr.values)
+            }
+            A::Duration(arr) => {
+                primitive_into_data(ArrowT::Duration(arr.unit.into()), arr.validity, arr.values)
+            }
             array => fail!("{:?} not implemented", array),
         }
     }
@@ -299,14 +290,15 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
 
 fn primitive_into_data<T: ArrowNativeType>(
     data_type: DataType,
-    array: crate::internal::arrow::PrimitiveArray<T>,
+    validity: Option<Vec<u8>>,
+    values: Vec<T>,
 ) -> Result<ArrayData> {
     Ok(ArrayData::try_new(
         data_type,
-        array.values.len(),
-        array.validity.map(Buffer::from),
+        values.len(),
+        validity.map(Buffer::from),
         0,
-        vec![ScalarBuffer::from(array.values).into_inner()],
+        vec![ScalarBuffer::from(values).into_inner()],
         vec![],
     )?)
 }
