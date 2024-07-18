@@ -9,7 +9,7 @@ pub use array::{
     Array, BooleanArray, ListArray, NullArray, PrimitiveArray, StructArray, Utf8Array,
 };
 pub use array_view::{
-    ArrayView, BooleanArrayView, ListArrayView, NullArrayView, PrimitiveArrayView, StructArrayView,
-    Utf8ArrayView,
+    ArrayView, BitsWithOffset, BooleanArrayView, ListArrayView, NullArrayView, PrimitiveArrayView,
+    StructArrayView, Utf8ArrayView,
 };
 pub use data_type::{BaseDataTypeDisplay, DataType, Field, TimeUnit};

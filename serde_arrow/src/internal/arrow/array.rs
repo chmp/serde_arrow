@@ -46,7 +46,6 @@ pub struct BooleanArray {
     pub values: Vec<u8>,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct PrimitiveArray<T> {
     pub validity: Option<Vec<u8>>,
