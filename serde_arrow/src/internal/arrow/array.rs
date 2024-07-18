@@ -25,10 +25,10 @@ pub enum Array {
     Time64(TimeArray<i64>),
     Timestamp(TimestampArray),
     Duration(TimeArray<i64>),
-    Utf8(Utf8Array<i32>),
-    LargeUtf8(Utf8Array<i64>),
-    Binary(Utf8Array<i32>),
-    LargeBinary(Utf8Array<i64>),
+    Utf8(BytesArray<i32>),
+    LargeUtf8(BytesArray<i64>),
+    Binary(BytesArray<i32>),
+    LargeBinary(BytesArray<i64>),
     Decimal128(DecimalArray<i128>),
     Struct(StructArray),
     List(ListArray<i32>),
@@ -86,7 +86,7 @@ pub struct ListArray<O> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Utf8Array<O> {
+pub struct BytesArray<O> {
     pub len: usize,
     pub validity: Option<Vec<u8>>,
     pub offsets: Vec<O>,

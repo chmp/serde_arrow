@@ -14,11 +14,7 @@ use crate::{
     internal::{
         error::{fail, Error, Result},
         schema::{GenericField, SerdeArrowSchema},
-        serialization::{
-            utils::{MutableBitBuffer, MutableOffsetBuffer},
-            ArrayBuilder, OuterSequenceBuilder,
-        },
-        utils::Offset,
+        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
     },
 };
 
@@ -89,19 +85,11 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::Time32(_)
         | A::Time64(_)
         | A::Duration(_)
-        | A::Decimal128(_)) => builder.into_array().try_into(),
-        A::Utf8(builder) => build_array_data_utf8(
-            T::Utf8,
-            builder.offsets.offsets,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::LargeUtf8(builder) => build_array_data_utf8(
-            T::LargeUtf8,
-            builder.offsets.offsets,
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::Decimal128(_)
+        | A::Utf8(_)
+        | A::LargeUtf8(_)
+        | A::Binary(_)
+        | A::LargeBinary(_)) => builder.into_array().try_into(),
         A::LargeList(builder) => build_array_data_list(
             T::LargeList(Arc::new(Field::try_from(&builder.field)?)),
             builder.offsets.offsets.len() - 1,
@@ -134,15 +122,6 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
                 .add_child_data(child_data)
                 .build()?)
         }
-        A::Binary(builder) => {
-            build_array_data_binary(T::Binary, builder.offsets, builder.buffer, builder.validity)
-        }
-        A::LargeBinary(builder) => build_array_data_binary(
-            T::LargeBinary,
-            builder.offsets,
-            builder.buffer,
-            builder.validity,
-        ),
         A::FixedSizeBinary(builder) => {
             let data_buffer = ScalarBuffer::from(builder.buffer).into_inner();
             let validity = if let Some(validity) = builder.validity {
@@ -284,6 +263,14 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 arr.validity,
                 arr.values,
             ),
+            A::Utf8(arr) => bytes_into_data(ArrowT::Utf8, arr.offsets, arr.data, arr.validity),
+            A::LargeUtf8(arr) => {
+                bytes_into_data(ArrowT::LargeUtf8, arr.offsets, arr.data, arr.validity)
+            }
+            A::Binary(arr) => bytes_into_data(ArrowT::Binary, arr.offsets, arr.data, arr.validity),
+            A::LargeBinary(arr) => {
+                bytes_into_data(ArrowT::LargeBinary, arr.offsets, arr.data, arr.validity)
+            }
             array => fail!("{:?} not implemented", array),
         }
     }
@@ -304,17 +291,17 @@ fn primitive_into_data<T: ArrowNativeType>(
     )?)
 }
 
-fn build_array_data_utf8<O: ArrowNativeType>(
+fn bytes_into_data<O: ArrowNativeType>(
     data_type: DataType,
     offsets: Vec<O>,
     data: Vec<u8>,
-    validity: Option<MutableBitBuffer>,
+    validity: Option<Vec<u8>>,
 ) -> Result<ArrayData> {
     let values_len = offsets.len() - 1;
 
     let offsets = ScalarBuffer::from(offsets).into_inner();
     let data = ScalarBuffer::from(data).into_inner();
-    let validity = validity.map(|b| Buffer::from(b.buffer));
+    let validity = validity.map(Buffer::from);
 
     Ok(ArrayData::try_new(
         data_type,
@@ -324,28 +311,6 @@ fn build_array_data_utf8<O: ArrowNativeType>(
         vec![offsets, data],
         vec![],
     )?)
-}
-
-fn build_array_data_binary<O: ArrowNativeType + Offset>(
-    data_type: DataType,
-    offsets: MutableOffsetBuffer<O>,
-    data: Vec<u8>,
-    validity: Option<MutableBitBuffer>,
-) -> Result<ArrayData> {
-    let len = offsets.len();
-    let offset_buffer = ScalarBuffer::from(offsets.offsets).into_inner();
-    let data_buffer = ScalarBuffer::from(data).into_inner();
-    let validity = if let Some(validity) = validity {
-        Some(Buffer::from(validity.buffer))
-    } else {
-        None
-    };
-    Ok(ArrayData::builder(data_type)
-        .len(len)
-        .null_bit_buffer(validity)
-        .add_buffer(offset_buffer)
-        .add_buffer(data_buffer)
-        .build()?)
 }
 
 fn build_array_data_list<O: ArrowNativeType>(

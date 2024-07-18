@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::Array,
+    arrow::{Array, BytesArray},
     error::Result,
     utils::{Mut, Offset},
 };
@@ -38,9 +38,27 @@ impl<O: Offset> BinaryBuilder<O> {
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
     }
+}
 
+impl BinaryBuilder<i32> {
     pub fn into_array(self) -> Array {
-        unimplemented!()
+        Array::Binary(BytesArray {
+            len: self.offsets.len(),
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            data: self.buffer,
+        })
+    }
+}
+
+impl BinaryBuilder<i64> {
+    pub fn into_array(self) -> Array {
+        Array::LargeBinary(BytesArray {
+            len: self.offsets.len(),
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            data: self.buffer,
+        })
     }
 }
 
