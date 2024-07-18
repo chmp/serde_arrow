@@ -88,12 +88,8 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::Date64(_)
         | A::Time32(_)
         | A::Time64(_)
-        | A::Duration(_)) => builder.into_array().try_into(),
-        A::Decimal128(builder) => build_array_data_primitive(
-            T::Decimal128(builder.precision, builder.scale),
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::Duration(_)
+        | A::Decimal128(_)) => builder.into_array().try_into(),
         A::Utf8(builder) => build_array_data_utf8(
             T::Utf8,
             builder.offsets.offsets,
@@ -283,6 +279,11 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Duration(arr) => {
                 primitive_into_data(ArrowT::Duration(arr.unit.into()), arr.validity, arr.values)
             }
+            A::Decimal128(arr) => primitive_into_data(
+                ArrowT::Decimal128(arr.precision, arr.scale),
+                arr.validity,
+                arr.values,
+            ),
             array => fail!("{:?} not implemented", array),
         }
     }
@@ -299,31 +300,6 @@ fn primitive_into_data<T: ArrowNativeType>(
         validity.map(Buffer::from),
         0,
         vec![ScalarBuffer::from(values).into_inner()],
-        vec![],
-    )?)
-}
-
-fn build_array_data_primitive<T: ArrowNativeType>(
-    data_type: DataType,
-    data: Vec<T>,
-    validity: Option<MutableBitBuffer>,
-) -> Result<ArrayData> {
-    let len = data.len();
-    build_array_data_primitive_with_len(data_type, len, data, validity)
-}
-
-fn build_array_data_primitive_with_len<T: ArrowNativeType>(
-    data_type: DataType,
-    len: usize,
-    data: Vec<T>,
-    validity: Option<MutableBitBuffer>,
-) -> Result<ArrayData> {
-    Ok(ArrayData::try_new(
-        data_type,
-        len,
-        validity.map(|b| Buffer::from(b.buffer)),
-        0,
-        vec![ScalarBuffer::from(data).into_inner()],
         vec![],
     )?)
 }

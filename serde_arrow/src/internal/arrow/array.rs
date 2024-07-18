@@ -29,7 +29,7 @@ pub enum Array {
     LargeUtf8(Utf8Array<i64>),
     Binary(Utf8Array<i32>),
     LargeBinary(Utf8Array<i64>),
-    Decimal128(PrimitiveArray<i128>),
+    Decimal128(DecimalArray<i128>),
     Struct(StructArray),
     List(ListArray<i32>),
     LargeList(ListArray<i64>),
@@ -91,4 +91,12 @@ pub struct Utf8Array<O> {
     pub validity: Option<Vec<u8>>,
     pub offsets: Vec<O>,
     pub data: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DecimalArray<T> {
+    pub precision: u8,
+    pub scale: i8,
+    pub validity: Option<Vec<u8>>,
+    pub values: Vec<T>,
 }

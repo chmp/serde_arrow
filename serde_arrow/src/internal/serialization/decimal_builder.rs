@@ -1,5 +1,5 @@
 use crate::internal::{
-    arrow::Array,
+    arrow::{Array, DecimalArray},
     error::Result,
     utils::decimal::{self, DecimalParser},
 };
@@ -47,7 +47,12 @@ impl DecimalBuilder {
     }
 
     pub fn into_array(self) -> Array {
-        unimplemented!()
+        Array::Decimal128(DecimalArray {
+            precision: self.precision,
+            scale: self.scale,
+            validity: self.validity.map(|b| b.buffer),
+            values: self.buffer,
+        })
     }
 }
 
