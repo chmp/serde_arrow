@@ -85,17 +85,9 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::F32(_)
         | A::F64(_)
         | A::Date32(_)
-        | A::Date64(_)) => builder.into_array().try_into(),
-        A::Time32(builder) => build_array_data_primitive(
-            Field::try_from(&builder.field)?.data_type().clone(),
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Time64(builder) => build_array_data_primitive(
-            Field::try_from(&builder.field)?.data_type().clone(),
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::Date64(_)
+        | A::Time32(_)
+        | A::Time64(_)) => builder.into_array().try_into(),
         A::Duration(builder) => build_array_data_primitive(
             T::Duration(builder.unit.into()),
             builder.buffer,
@@ -276,17 +268,30 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr),
             A::Date32(arr) => primitive_into_data(ArrowT::Date32, arr),
             A::Date64(arr) => primitive_into_data(ArrowT::Date64, arr),
-            A::Timestamp(arr) => {
-                let data_type = ArrowT::Timestamp(arr.unit.into(), arr.timezone.map(String::into));
-                Ok(ArrayData::try_new(
-                    data_type,
-                    arr.values.len(),
-                    arr.validity.map(Buffer::from),
-                    0,
-                    vec![ScalarBuffer::from(arr.values).into_inner()],
-                    vec![],
-                )?)
-            }
+            A::Timestamp(arr) => Ok(ArrayData::try_new(
+                ArrowT::Timestamp(arr.unit.into(), arr.timezone.map(String::into)),
+                arr.values.len(),
+                arr.validity.map(Buffer::from),
+                0,
+                vec![ScalarBuffer::from(arr.values).into_inner()],
+                vec![],
+            )?),
+            A::Time32(arr) => Ok(ArrayData::try_new(
+                ArrowT::Time32(arr.unit.into()),
+                arr.values.len(),
+                arr.validity.map(Buffer::from),
+                0,
+                vec![ScalarBuffer::from(arr.values).into_inner()],
+                vec![],
+            )?),
+            A::Time64(arr) => Ok(ArrayData::try_new(
+                ArrowT::Time64(arr.unit.into()),
+                arr.values.len(),
+                arr.validity.map(Buffer::from),
+                0,
+                vec![ScalarBuffer::from(arr.values).into_inner()],
+                vec![],
+            )?),
             array => fail!("{:?} not implemented", array),
         }
     }
