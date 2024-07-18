@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::Array,
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
@@ -80,6 +81,10 @@ impl StructBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

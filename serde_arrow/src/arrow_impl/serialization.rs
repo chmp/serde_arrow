@@ -1,6 +1,8 @@
 #![allow(missing_docs)]
 use std::sync::Arc;
 
+use half::f16;
+
 use crate::{
     _impl::arrow::{
         array::{make_array, Array, ArrayData, ArrayRef, NullArray, RecordBatch},
@@ -10,7 +12,7 @@ use crate::{
         },
     },
     internal::{
-        error::{fail, Result},
+        error::{fail, Error, Result},
         schema::{GenericField, SerdeArrowSchema},
         serialization::{
             utils::{MutableBitBuffer, MutableOffsetBuffer},
@@ -66,34 +68,22 @@ fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
 
 fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
     use {ArrayBuilder as A, DataType as T};
+
     match builder {
-        A::Null(builder) => Ok(NullArray::new(builder.count).into_data()),
-        A::UnknownVariant(_) => Ok(NullArray::new(0).into_data()),
-        A::Bool(builder) => build_array_data_primitive_with_len(
-            T::Boolean,
-            builder.buffer.len(),
-            builder.buffer.buffer,
-            builder.validity,
-        ),
-        A::I8(builder) => build_array_data_primitive(T::Int8, builder.buffer, builder.validity),
-        A::I16(builder) => build_array_data_primitive(T::Int16, builder.buffer, builder.validity),
-        A::I32(builder) => build_array_data_primitive(T::Int32, builder.buffer, builder.validity),
-        A::I64(builder) => build_array_data_primitive(T::Int64, builder.buffer, builder.validity),
-        A::U8(builder) => build_array_data_primitive(T::UInt8, builder.buffer, builder.validity),
-        A::U16(builder) => build_array_data_primitive(T::UInt16, builder.buffer, builder.validity),
-        A::U32(builder) => build_array_data_primitive(T::UInt32, builder.buffer, builder.validity),
-        A::U64(builder) => build_array_data_primitive(T::UInt64, builder.buffer, builder.validity),
-        A::F16(builder) => build_array_data_primitive(
-            T::Float16,
-            builder
-                .buffer
-                .into_iter()
-                .map(|v| <Float16Type as ArrowPrimitiveType>::Native::from_bits(v.to_bits()))
-                .collect(),
-            builder.validity,
-        ),
-        A::F32(builder) => build_array_data_primitive(T::Float32, builder.buffer, builder.validity),
-        A::F64(builder) => build_array_data_primitive(T::Float64, builder.buffer, builder.validity),
+        builder @ (A::UnknownVariant(_)
+        | A::Null(_)
+        | A::Bool(_)
+        | A::I8(_)
+        | A::I16(_)
+        | A::I32(_)
+        | A::I64(_)
+        | A::U8(_)
+        | A::U16(_)
+        | A::U32(_)
+        | A::U64(_)
+        | A::F16(_)
+        | A::F32(_)
+        | A::F64(_)) => builder.into_array().try_into(),
         A::Date32(builder) => build_array_data_primitive(
             Field::try_from(&builder.field)?.data_type().clone(),
             builder.buffer,
@@ -258,6 +248,57 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
                 .build()?)
         }
     }
+}
+
+impl TryFrom<crate::internal::arrow::Array> for ArrayData {
+    type Error = Error;
+
+    fn try_from(value: crate::internal::arrow::Array) -> Result<ArrayData> {
+        use {crate::internal::arrow::Array as A, DataType as ArrowT};
+        type ArrowF16 = <Float16Type as ArrowPrimitiveType>::Native;
+
+        fn f16_to_f16(v: f16) -> ArrowF16 {
+            ArrowF16::from_bits(v.to_bits())
+        }
+
+        match value {
+            A::Null(arr) => Ok(NullArray::new(arr.len).into_data()),
+            A::Boolean(arr) => Ok(ArrayData::try_new(
+                ArrowT::Boolean,
+                arr.len,
+                arr.validity.map(|buffer| Buffer::from(buffer)),
+                0,
+                vec![ScalarBuffer::from(arr.values).into_inner()],
+                vec![],
+            )?),
+            A::Int8(arr) => primitive_into_data(ArrowT::Int8, arr),
+            A::Int16(arr) => primitive_into_data(ArrowT::Int16, arr),
+            A::Int32(arr) => primitive_into_data(ArrowT::Int32, arr),
+            A::Int64(arr) => primitive_into_data(ArrowT::Int64, arr),
+            A::UInt8(arr) => primitive_into_data(ArrowT::UInt8, arr),
+            A::UInt16(arr) => primitive_into_data(ArrowT::UInt16, arr),
+            A::UInt32(arr) => primitive_into_data(ArrowT::UInt32, arr),
+            A::UInt64(arr) => primitive_into_data(ArrowT::UInt64, arr),
+            A::Float16(arr) => primitive_into_data(ArrowT::Float16, arr.map_values(f16_to_f16)),
+            A::Float32(arr) => primitive_into_data(ArrowT::Float32, arr),
+            A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr),
+            array => fail!("{:?} not implemented", array),
+        }
+    }
+}
+
+fn primitive_into_data<T: ArrowNativeType>(
+    data_type: DataType,
+    array: crate::internal::arrow::PrimitiveArray<T>,
+) -> Result<ArrayData> {
+    Ok(ArrayData::try_new(
+        data_type,
+        array.values.len(),
+        array.validity.map(|buffer| Buffer::from(buffer)),
+        0,
+        vec![ScalarBuffer::from(array.values).into_inner()],
+        vec![],
+    )?)
 }
 
 fn build_array_data_primitive<T: ArrowNativeType>(

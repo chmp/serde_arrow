@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::Array,
     error::Result,
     utils::{Mut, Offset},
 };
@@ -36,6 +37,10 @@ impl<O: Offset> BinaryBuilder<O> {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

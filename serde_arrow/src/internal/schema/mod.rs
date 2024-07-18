@@ -14,13 +14,14 @@ mod test;
 use std::collections::HashMap;
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Result},
     utils::value,
 };
 
 use serde::{Deserialize, Serialize};
 
-pub use data_type::{GenericDataType, GenericTimeUnit};
+pub use data_type::GenericDataType;
 pub use strategy::{
     merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
 };
@@ -492,7 +493,7 @@ impl GenericField {
         }
         if !matches!(
             self.data_type,
-            GenericDataType::Time32(GenericTimeUnit::Second | GenericTimeUnit::Millisecond)
+            GenericDataType::Time32(TimeUnit::Second | TimeUnit::Millisecond)
         ) {
             fail!("Time32 field must have Second or Millisecond unit");
         }
@@ -511,7 +512,7 @@ impl GenericField {
         }
         if !matches!(
             self.data_type,
-            GenericDataType::Time64(GenericTimeUnit::Microsecond | GenericTimeUnit::Nanosecond)
+            GenericDataType::Time64(TimeUnit::Microsecond | TimeUnit::Nanosecond)
         ) {
             fail!("Time64 field must have Microsecond or Nanosecond unit");
         }

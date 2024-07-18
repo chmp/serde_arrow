@@ -6,10 +6,11 @@ use std::{collections::HashMap, str::FromStr};
 use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Error, Result},
     schema::{
         merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType, GenericField,
-        GenericTimeUnit, SerdeArrowSchema, Strategy,
+        SerdeArrowSchema, Strategy,
     },
 };
 
@@ -40,7 +41,7 @@ pub enum ArrowTimeUnit {
     Nanosecond,
 }
 
-impl From<ArrowTimeUnit> for GenericTimeUnit {
+impl From<ArrowTimeUnit> for TimeUnit {
     fn from(value: ArrowTimeUnit) -> Self {
         match value {
             ArrowTimeUnit::Second => Self::Second,

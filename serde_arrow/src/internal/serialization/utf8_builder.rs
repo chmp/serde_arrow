@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::Array,
     error::{fail, Result},
     utils::Offset,
 };
@@ -33,6 +34,10 @@ impl<O: Offset> Utf8Builder<O> {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

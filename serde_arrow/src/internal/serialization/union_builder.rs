@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::Array,
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
@@ -38,6 +39,10 @@ impl UnionBuilder {
 
     pub fn is_nullable(&self) -> bool {
         false
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

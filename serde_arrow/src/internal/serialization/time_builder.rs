@@ -1,8 +1,9 @@
 use chrono::Timelike;
 
 use crate::internal::{
+    arrow::{Array, TimeUnit},
     error::{Error, Result},
-    schema::{GenericField, GenericTimeUnit},
+    schema::GenericField,
 };
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
@@ -17,8 +18,13 @@ pub struct TimeBuilder<I> {
 }
 
 impl<I> TimeBuilder<I> {
-    pub fn new(field: GenericField, nullable: bool, unit: GenericTimeUnit) -> Self {
-        let (seconds_factor, nanoseconds_factor) = unit.get_factors();
+    pub fn new(field: GenericField, nullable: bool, unit: TimeUnit) -> Self {
+        let (seconds_factor, nanoseconds_factor) = match unit {
+            TimeUnit::Nanosecond => (1_000_000_000, 1),
+            TimeUnit::Microsecond => (1_000_000, 1_000),
+            TimeUnit::Millisecond => (1_000, 1_000_000),
+            TimeUnit::Second => (1, 1_000_000_000),
+        };
 
         Self {
             field,
@@ -41,6 +47,10 @@ impl<I> TimeBuilder<I> {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

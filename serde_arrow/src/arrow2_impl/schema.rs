@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
 use crate::{
-    _impl::arrow2::datatypes::{DataType, Field, IntegerType, TimeUnit, UnionMode},
+    _impl::arrow2::datatypes::{
+        DataType, Field, IntegerType, TimeUnit as ArrowTimeUnit, UnionMode,
+    },
     internal::{
+        arrow::TimeUnit,
         error::{error, fail, Error, Result},
         schema::{
             merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType,
-            GenericField, GenericTimeUnit, SchemaLike, Sealed, SerdeArrowSchema,
+            GenericField, SchemaLike, Sealed, SerdeArrowSchema,
         },
     },
 };
@@ -67,7 +70,7 @@ impl TryFrom<&Field> for GenericField {
     type Error = Error;
 
     fn try_from(field: &Field) -> Result<Self> {
-        use {GenericDataType as T, GenericTimeUnit as U};
+        use {GenericDataType as T, TimeUnit as U};
 
         let metadata = field
             .metadata
@@ -104,26 +107,26 @@ impl TryFrom<&Field> for GenericField {
                 }
                 T::Decimal128(*precision as u8, *scale as i8)
             }
-            DataType::Time32(TimeUnit::Second) => T::Time32(U::Second),
-            DataType::Time32(TimeUnit::Millisecond) => T::Time32(U::Millisecond),
+            DataType::Time32(ArrowTimeUnit::Second) => T::Time32(U::Second),
+            DataType::Time32(ArrowTimeUnit::Millisecond) => T::Time32(U::Millisecond),
             DataType::Time32(unit) => fail!("Invalid time unit {unit:?} for Time32"),
-            DataType::Time64(TimeUnit::Microsecond) => T::Time64(U::Microsecond),
-            DataType::Time64(TimeUnit::Nanosecond) => T::Time64(U::Nanosecond),
+            DataType::Time64(ArrowTimeUnit::Microsecond) => T::Time64(U::Microsecond),
+            DataType::Time64(ArrowTimeUnit::Nanosecond) => T::Time64(U::Nanosecond),
             DataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
-            DataType::Timestamp(TimeUnit::Second, tz) => T::Timestamp(U::Second, tz.clone()),
-            DataType::Timestamp(TimeUnit::Millisecond, tz) => {
+            DataType::Timestamp(ArrowTimeUnit::Second, tz) => T::Timestamp(U::Second, tz.clone()),
+            DataType::Timestamp(ArrowTimeUnit::Millisecond, tz) => {
                 T::Timestamp(U::Millisecond, tz.clone())
             }
-            DataType::Timestamp(TimeUnit::Microsecond, tz) => {
+            DataType::Timestamp(ArrowTimeUnit::Microsecond, tz) => {
                 T::Timestamp(U::Microsecond, tz.clone())
             }
-            DataType::Timestamp(TimeUnit::Nanosecond, tz) => {
+            DataType::Timestamp(ArrowTimeUnit::Nanosecond, tz) => {
                 T::Timestamp(U::Nanosecond, tz.clone())
             }
-            DataType::Duration(TimeUnit::Second) => T::Duration(U::Second),
-            DataType::Duration(TimeUnit::Millisecond) => T::Duration(U::Millisecond),
-            DataType::Duration(TimeUnit::Microsecond) => T::Duration(U::Microsecond),
-            DataType::Duration(TimeUnit::Nanosecond) => T::Duration(U::Nanosecond),
+            DataType::Duration(ArrowTimeUnit::Second) => T::Duration(U::Second),
+            DataType::Duration(ArrowTimeUnit::Millisecond) => T::Duration(U::Millisecond),
+            DataType::Duration(ArrowTimeUnit::Microsecond) => T::Duration(U::Microsecond),
+            DataType::Duration(ArrowTimeUnit::Nanosecond) => T::Duration(U::Nanosecond),
             DataType::List(field) => {
                 children.push(GenericField::try_from(field.as_ref())?);
                 T::List
@@ -194,7 +197,7 @@ impl TryFrom<&GenericField> for Field {
     type Error = Error;
 
     fn try_from(value: &GenericField) -> Result<Self> {
-        use {GenericDataType as T, GenericTimeUnit as U};
+        use {GenericDataType as T, TimeUnit as U};
 
         let data_type = match &value.data_type {
             T::Null => DataType::Null,
@@ -212,11 +215,11 @@ impl TryFrom<&GenericField> for Field {
             T::F64 => DataType::Float64,
             T::Date32 => DataType::Date32,
             T::Date64 => DataType::Date64,
-            T::Time32(U::Second) => DataType::Time32(TimeUnit::Second),
-            T::Time32(U::Millisecond) => DataType::Time32(TimeUnit::Millisecond),
+            T::Time32(U::Second) => DataType::Time32(ArrowTimeUnit::Second),
+            T::Time32(U::Millisecond) => DataType::Time32(ArrowTimeUnit::Millisecond),
             T::Time32(unit) => fail!("Invalid time unit {unit} for Time32"),
-            T::Time64(U::Microsecond) => DataType::Time64(TimeUnit::Microsecond),
-            T::Time64(U::Nanosecond) => DataType::Time64(TimeUnit::Nanosecond),
+            T::Time64(U::Microsecond) => DataType::Time64(ArrowTimeUnit::Microsecond),
+            T::Time64(U::Nanosecond) => DataType::Time64(ArrowTimeUnit::Nanosecond),
             T::Time64(unit) => fail!("Invalid time unit {unit} for Time64"),
             T::Timestamp(unit, tz) => DataType::Timestamp((*unit).into(), tz.clone()),
             T::Duration(unit) => DataType::Duration((*unit).into()),
@@ -306,13 +309,13 @@ impl TryFrom<&GenericField> for Field {
     }
 }
 
-impl From<GenericTimeUnit> for TimeUnit {
-    fn from(value: GenericTimeUnit) -> Self {
+impl From<TimeUnit> for ArrowTimeUnit {
+    fn from(value: TimeUnit) -> Self {
         match value {
-            GenericTimeUnit::Second => Self::Second,
-            GenericTimeUnit::Millisecond => Self::Millisecond,
-            GenericTimeUnit::Microsecond => Self::Microsecond,
-            GenericTimeUnit::Nanosecond => Self::Nanosecond,
+            TimeUnit::Second => Self::Second,
+            TimeUnit::Millisecond => Self::Millisecond,
+            TimeUnit::Microsecond => Self::Microsecond,
+            TimeUnit::Nanosecond => Self::Nanosecond,
         }
     }
 }

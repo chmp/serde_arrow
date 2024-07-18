@@ -1,6 +1,7 @@
 use crate::internal::{
+    arrow::{Array, TimeUnit},
     error::{Error, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit},
+    schema::{GenericDataType, GenericField},
 };
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
@@ -35,6 +36,10 @@ impl Date64Builder {
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
     }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
+    }
 }
 
 impl SimpleSerializer for Date64Builder {
@@ -64,14 +69,14 @@ impl SimpleSerializer for Date64Builder {
         };
 
         let timestamp = match self.field.data_type {
-            GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, _) => {
+            GenericDataType::Timestamp(TimeUnit::Nanosecond, _) => {
                 date_time
                     .timestamp_nanos_opt()
                     .ok_or_else(|| Error::custom(format!("Timestamp '{v}' cannot be converted to nanoseconds. The dates that can be represented as nanoseconds are between 1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.")))?
             },
-            GenericDataType::Timestamp(GenericTimeUnit::Microsecond, _) => date_time.timestamp_micros(),
-            GenericDataType::Timestamp(GenericTimeUnit::Millisecond, _) => date_time.timestamp_millis(),
-            GenericDataType::Timestamp(GenericTimeUnit::Second, _) => date_time.timestamp(),
+            GenericDataType::Timestamp(TimeUnit::Microsecond, _) => date_time.timestamp_micros(),
+            GenericDataType::Timestamp(TimeUnit::Millisecond, _) => date_time.timestamp_millis(),
+            GenericDataType::Timestamp(TimeUnit::Second, _) => date_time.timestamp(),
             _ => date_time.timestamp_millis(),
         };
 

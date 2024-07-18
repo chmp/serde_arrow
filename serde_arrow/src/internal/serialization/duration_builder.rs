@@ -1,16 +1,19 @@
-use crate::internal::{error::Result, schema::GenericTimeUnit};
+use crate::internal::{
+    arrow::{Array, TimeUnit},
+    error::Result,
+};
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DurationBuilder {
-    pub unit: GenericTimeUnit,
+    pub unit: TimeUnit,
     pub validity: Option<MutableBitBuffer>,
     pub buffer: Vec<i64>,
 }
 
 impl DurationBuilder {
-    pub fn new(unit: GenericTimeUnit, is_nullable: bool) -> Self {
+    pub fn new(unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
             unit,
             validity: is_nullable.then(MutableBitBuffer::default),
@@ -28,6 +31,10 @@ impl DurationBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

@@ -1,6 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
 
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{arrow::Array, error::Result, schema::GenericField};
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
@@ -30,6 +30,10 @@ impl Date32Builder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

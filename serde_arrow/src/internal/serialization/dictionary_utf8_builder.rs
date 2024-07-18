@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::Array,
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
@@ -39,6 +40,10 @@ impl DictionaryUtf8Builder {
 
     pub fn is_nullable(&self) -> bool {
         self.indices.is_nullable()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 

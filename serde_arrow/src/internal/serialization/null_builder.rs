@@ -1,4 +1,7 @@
-use crate::Result;
+use crate::internal::{
+    arrow::{Array, NullArray},
+    error::Result,
+};
 
 use super::utils::SimpleSerializer;
 
@@ -20,6 +23,10 @@ impl NullBuilder {
 
     pub fn is_nullable(&self) -> bool {
         true
+    }
+
+    pub fn into_array(self) -> Array {
+        Array::Null(NullArray { len: self.count })
     }
 }
 

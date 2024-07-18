@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::TimeUnit,
     deserialization::{
         array_deserializer::ArrayDeserializer,
         binary_deserializer::BinaryDeserializer,
@@ -22,7 +23,7 @@ use crate::internal::{
     },
     deserializer::Deserializer,
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit},
+    schema::{GenericDataType, GenericField},
     utils::Offset,
 };
 
@@ -124,7 +125,7 @@ pub fn build_array_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    use {GenericDataType as T, GenericTimeUnit as U};
+    use {GenericDataType as T, TimeUnit as U};
     match &field.data_type {
         T::Null => Ok(NullDeserializer.into()),
         T::Bool => build_bool_deserializer(field, array),
@@ -284,7 +285,7 @@ pub fn build_date64_deserializer<'a>(
     Ok(Date64Deserializer::new(
         as_primitive_values::<Date64Type>(array)?,
         get_validity(array),
-        GenericTimeUnit::Millisecond,
+        TimeUnit::Millisecond,
         field.is_utc()?,
     )
     .into())

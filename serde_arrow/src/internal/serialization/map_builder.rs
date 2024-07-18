@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{arrow::Array, error::Result, schema::GenericField};
 
 use super::{
     array_builder::ArrayBuilder,
@@ -39,6 +39,10 @@ impl MapBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Array {
+        unimplemented!()
     }
 }
 
