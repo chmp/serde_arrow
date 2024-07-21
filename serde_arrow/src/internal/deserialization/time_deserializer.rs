@@ -2,8 +2,8 @@ use chrono::NaiveTime;
 use serde::de::Visitor;
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Result},
-    schema::GenericTimeUnit,
     utils::Mut,
 };
 
@@ -16,8 +16,13 @@ use super::{
 pub struct TimeDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>, i64, i64);
 
 impl<'a, T: Integer> TimeDeserializer<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>, unit: GenericTimeUnit) -> Self {
-        let (seconds_factor, nanoseconds_factor) = unit.get_factors();
+    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>, unit: TimeUnit) -> Self {
+        let (seconds_factor, nanoseconds_factor) = match unit {
+            TimeUnit::Nanosecond => (1_000_000_000, 1),
+            TimeUnit::Microsecond => (1_000_000, 1_000),
+            TimeUnit::Millisecond => (1_000, 1_000_000),
+            TimeUnit::Second => (1, 1_000_000_000),
+        };
 
         Self(
             ArrayBufferIterator::new(buffer, validity),

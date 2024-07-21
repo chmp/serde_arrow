@@ -1,6 +1,7 @@
 use serde_json::json;
 
 use crate::internal::{
+    arrow::TimeUnit,
     schema::{GenericDataType, GenericField, SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
     testing::{assert_error, hash_map},
 };
@@ -104,7 +105,7 @@ fn date64_with_strategy() {
 
 #[test]
 fn timestamp_second_serialization() {
-    let dt = super::GenericDataType::Timestamp(super::GenericTimeUnit::Second, None);
+    let dt = super::GenericDataType::Timestamp(TimeUnit::Second, None);
 
     let s = serde_json::to_string(&dt).unwrap();
     assert_eq!(s, r#""Timestamp(Second, None)""#);
@@ -115,10 +116,7 @@ fn timestamp_second_serialization() {
 
 #[test]
 fn timestamp_second_utc_serialization() {
-    let dt = super::GenericDataType::Timestamp(
-        super::GenericTimeUnit::Second,
-        Some(String::from("Utc")),
-    );
+    let dt = super::GenericDataType::Timestamp(TimeUnit::Second, Some(String::from("Utc")));
 
     let s = serde_json::to_string(&dt).unwrap();
     assert_eq!(s, r#""Timestamp(Second, Some(\"Utc\"))""#);
@@ -129,7 +127,7 @@ fn timestamp_second_utc_serialization() {
 
 #[test]
 fn test_date32() {
-    use super::GenericDataType as DT;
+    use GenericDataType as DT;
 
     assert_eq!(DT::Date32.to_string(), "Date32");
     assert_eq!("Date32".parse::<DT>().unwrap(), DT::Date32);
@@ -137,7 +135,7 @@ fn test_date32() {
 
 #[test]
 fn time64_data_type_format() {
-    use super::{GenericDataType as DT, GenericTimeUnit as TU};
+    use {GenericDataType as DT, TimeUnit as TU};
 
     for (dt, s) in [
         (DT::Time64(TU::Microsecond), "Time64(Microsecond)"),

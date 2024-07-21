@@ -1,10 +1,14 @@
 use crate::internal::{
+    arrow::{Array, DenseUnionArray},
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
 };
 
-use super::{utils::SimpleSerializer, ArrayBuilder};
+use super::{
+    utils::{meta_from_field, SimpleSerializer},
+    ArrayBuilder,
+};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
@@ -38,6 +42,21 @@ impl UnionBuilder {
 
     pub fn is_nullable(&self) -> bool {
         false
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        let mut fields = Vec::new();
+        for (field, builder) in self.field.children.into_iter().zip(self.fields) {
+            let meta = meta_from_field(field)?;
+            let array = builder.into_array()?;
+            fields.push((array, meta));
+        }
+
+        Ok(Array::DenseUnion(DenseUnionArray {
+            types: self.types,
+            offsets: self.offsets,
+            fields,
+        }))
     }
 }
 

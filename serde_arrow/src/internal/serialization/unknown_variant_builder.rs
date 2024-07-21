@@ -1,6 +1,12 @@
 use serde::Serialize;
 
-use crate::{internal::error::fail, Result};
+use crate::{
+    internal::{
+        arrow::{Array, NullArray},
+        error::fail,
+    },
+    Result,
+};
 
 use super::{utils::SimpleSerializer, ArrayBuilder};
 
@@ -14,6 +20,10 @@ impl UnknownVariantBuilder {
 
     pub fn is_nullable(&self) -> bool {
         false
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Null(NullArray { len: 0 }))
     }
 }
 

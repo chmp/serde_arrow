@@ -1,12 +1,16 @@
 use serde::Serialize;
 
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{
+    arrow::{Array, ListArray},
+    error::Result,
+    schema::GenericField,
+};
 
 use super::{
     array_builder::ArrayBuilder,
     utils::{
-        push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer,
-        SimpleSerializer,
+        meta_from_field, push_validity, push_validity_default, MutableBitBuffer,
+        MutableOffsetBuffer, SimpleSerializer,
     },
 };
 
@@ -39,6 +43,15 @@ impl MapBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Map(ListArray {
+            meta: meta_from_field(self.entry_field)?,
+            element: Box::new((*self.entry).into_array()?),
+            validity: self.validity.map(|v| v.buffer),
+            offsets: self.offsets.offsets,
+        }))
     }
 }
 

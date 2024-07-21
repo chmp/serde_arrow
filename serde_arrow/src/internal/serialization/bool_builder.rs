@@ -1,4 +1,7 @@
-use crate::internal::error::Result;
+use crate::internal::{
+    arrow::{Array, BooleanArray},
+    error::Result,
+};
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
@@ -25,6 +28,14 @@ impl BoolBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Boolean(BooleanArray {
+            len: self.buffer.len,
+            validity: self.validity.map(|v| v.buffer),
+            values: self.buffer.buffer,
+        }))
     }
 }
 

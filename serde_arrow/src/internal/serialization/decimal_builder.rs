@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::{Array, DecimalArray},
     error::Result,
     utils::decimal::{self, DecimalParser},
 };
@@ -43,6 +44,15 @@ impl DecimalBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Decimal128(DecimalArray {
+            precision: self.precision,
+            scale: self.scale,
+            validity: self.validity.map(|b| b.buffer),
+            values: self.buffer,
+        }))
     }
 }
 

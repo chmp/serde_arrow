@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::{Array, BytesArray},
     error::{fail, Result},
     utils::Offset,
 };
@@ -33,6 +34,26 @@ impl<O: Offset> Utf8Builder<O> {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+}
+
+impl Utf8Builder<i32> {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Utf8(BytesArray {
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            data: self.buffer,
+        }))
+    }
+}
+
+impl Utf8Builder<i64> {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::LargeUtf8(BytesArray {
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            data: self.buffer,
+        }))
     }
 }
 

@@ -1,8 +1,9 @@
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit, SerdeArrowSchema, Strategy},
+    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
@@ -78,16 +79,13 @@ impl OuterSequenceBuilder {
                     Some(tz) => fail!("Timezone {tz} is not supported"),
                 },
                 T::Time32(unit) => {
-                    if !matches!(unit, GenericTimeUnit::Second | GenericTimeUnit::Millisecond) {
+                    if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");
                     }
                     A::Time32(TimeBuilder::new(field.clone(), field.nullable, *unit))
                 }
                 T::Time64(unit) => {
-                    if !matches!(
-                        unit,
-                        GenericTimeUnit::Nanosecond | GenericTimeUnit::Microsecond
-                    ) {
+                    if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
                     A::Time64(TimeBuilder::new(field.clone(), field.nullable, *unit))

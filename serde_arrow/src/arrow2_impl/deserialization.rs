@@ -1,4 +1,5 @@
 use crate::internal::{
+    arrow::TimeUnit,
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
@@ -32,7 +33,6 @@ use crate::_impl::arrow2::{
     datatypes::{DataType, Field, UnionMode},
     types::{f16, NativeType, Offset as ArrowOffset},
 };
-use crate::internal::schema::GenericTimeUnit;
 
 impl<'de> Deserializer<'de> {
     /// Build a deserializer from `arrow2` arrays (*requires one of the
@@ -215,7 +215,7 @@ pub fn build_date64_deserializer<'a>(
     Ok(Date64Deserializer::new(
         as_primitive_values(array)?,
         get_validity(array),
-        GenericTimeUnit::Millisecond,
+        TimeUnit::Millisecond,
         field.is_utc()?,
     )
     .into())

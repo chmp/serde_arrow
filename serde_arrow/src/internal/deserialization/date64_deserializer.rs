@@ -2,8 +2,8 @@ use chrono::DateTime;
 use serde::de::Visitor;
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Result},
-    schema::GenericTimeUnit,
     utils::Mut,
 };
 
@@ -12,13 +12,13 @@ use super::{
     utils::{ArrayBufferIterator, BitBuffer},
 };
 
-pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, GenericTimeUnit, bool);
+pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, TimeUnit, bool);
 
 impl<'a> Date64Deserializer<'a> {
     pub fn new(
         buffer: &'a [i64],
         validity: Option<BitBuffer<'a>>,
-        unit: GenericTimeUnit,
+        unit: TimeUnit,
         is_utc: bool,
     ) -> Self {
         Self(ArrayBufferIterator::new(buffer, validity), unit, is_utc)
@@ -26,10 +26,10 @@ impl<'a> Date64Deserializer<'a> {
 
     pub fn get_string_repr(&self, ts: i64) -> Result<String> {
         let Some(date_time) = (match self.1 {
-            GenericTimeUnit::Second => DateTime::from_timestamp(ts, 0),
-            GenericTimeUnit::Millisecond => DateTime::from_timestamp_millis(ts),
-            GenericTimeUnit::Microsecond => DateTime::from_timestamp_micros(ts),
-            GenericTimeUnit::Nanosecond => Some(DateTime::from_timestamp_nanos(ts)),
+            TimeUnit::Second => DateTime::from_timestamp(ts, 0),
+            TimeUnit::Millisecond => DateTime::from_timestamp_millis(ts),
+            TimeUnit::Microsecond => DateTime::from_timestamp_micros(ts),
+            TimeUnit::Nanosecond => Some(DateTime::from_timestamp_nanos(ts)),
         }) else {
             fail!("Unsupported timestamp value: {ts}");
         };

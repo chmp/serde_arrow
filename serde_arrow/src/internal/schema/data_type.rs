@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
+    arrow::TimeUnit,
     error::{fail, Error, Result},
     utils::dsl::Term,
 };
@@ -25,9 +26,9 @@ pub enum GenericDataType {
     LargeUtf8,
     Date32,
     Date64,
-    Time32(GenericTimeUnit),
-    Time64(GenericTimeUnit),
-    Duration(GenericTimeUnit),
+    Time32(TimeUnit),
+    Time64(TimeUnit),
+    Duration(TimeUnit),
     Struct,
     List,
     LargeList,
@@ -38,7 +39,7 @@ pub enum GenericDataType {
     Union,
     Map,
     Dictionary,
-    Timestamp(GenericTimeUnit, Option<String>),
+    Timestamp(TimeUnit, Option<String>),
     Decimal128(u8, i8),
 }
 
@@ -123,7 +124,7 @@ impl std::str::FromStr for GenericDataType {
             ("Map", []) => T::Map,
             ("Dictionary", []) => T::Dictionary,
             ("Timestamp", [unit, timezone]) => {
-                let unit: GenericTimeUnit = unit.as_ident()?.parse()?;
+                let unit: TimeUnit = unit.as_ident()?.parse()?;
                 let timezone = timezone
                     .as_option()?
                     .map(|term| term.as_string())
@@ -156,49 +157,5 @@ impl TryFrom<GenericDataTypeString> for GenericDataType {
 impl From<GenericDataType> for GenericDataTypeString {
     fn from(value: GenericDataType) -> Self {
         Self(value.to_string())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
-pub enum GenericTimeUnit {
-    Second,
-    Millisecond,
-    Microsecond,
-    Nanosecond,
-}
-
-impl GenericTimeUnit {
-    pub fn get_factors(&self) -> (i64, i64) {
-        match self {
-            GenericTimeUnit::Nanosecond => (1_000_000_000, 1),
-            GenericTimeUnit::Microsecond => (1_000_000, 1_000),
-            GenericTimeUnit::Millisecond => (1_000, 1_000_000),
-            GenericTimeUnit::Second => (1, 1_000_000_000),
-        }
-    }
-}
-
-impl std::fmt::Display for GenericTimeUnit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GenericTimeUnit::Second => write!(f, "Second"),
-            GenericTimeUnit::Millisecond => write!(f, "Millisecond"),
-            GenericTimeUnit::Microsecond => write!(f, "Microsecond"),
-            GenericTimeUnit::Nanosecond => write!(f, "Nanosecond"),
-        }
-    }
-}
-
-impl std::str::FromStr for GenericTimeUnit {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "Second" => Ok(Self::Second),
-            "Millisecond" => Ok(Self::Millisecond),
-            "Microsecond" => Ok(Self::Microsecond),
-            "Nanosecond" => Ok(Self::Nanosecond),
-            s => fail!("Invalid time unit {s}"),
-        }
     }
 }

@@ -1,7 +1,7 @@
 use half::f16;
 use serde::Serialize;
 
-use crate::internal::error::Result;
+use crate::internal::{arrow::Array, error::Result};
 
 use super::{
     binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date32_builder::Date32Builder,
@@ -131,10 +131,15 @@ impl ArrayBuilder {
     pub fn is_nullable(&self) -> bool {
         dispatch!(self, Self(builder) => builder.is_nullable())
     }
+
+    pub fn into_array(self) -> Result<Array> {
+        dispatch!(self, Self(builder) => builder.into_array())
+    }
 }
 
 impl ArrayBuilder {
     /// Take the contained array builder, while leaving structure intact
+    // TODO: use ArrayBuilder as return type for the impls and use dispatch here
     pub fn take(&mut self) -> ArrayBuilder {
         match self {
             Self::Null(builder) => Self::Null(builder.take()),

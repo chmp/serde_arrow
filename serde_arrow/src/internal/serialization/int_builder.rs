@@ -1,4 +1,7 @@
-use crate::internal::error::{Error, Result};
+use crate::internal::{
+    arrow::{Array, PrimitiveArray},
+    error::{Error, Result},
+};
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
@@ -27,6 +30,28 @@ impl<I> IntBuilder<I> {
         self.validity.is_some()
     }
 }
+
+macro_rules! impl_into_array {
+    ($ty:ty, $var:ident) => {
+        impl IntBuilder<$ty> {
+            pub fn into_array(self) -> Result<Array> {
+                Ok(Array::$var(PrimitiveArray {
+                    validity: self.validity.map(|b| b.buffer),
+                    values: self.buffer,
+                }))
+            }
+        }
+    };
+}
+
+impl_into_array!(i8, Int8);
+impl_into_array!(i16, Int16);
+impl_into_array!(i32, Int32);
+impl_into_array!(i64, Int64);
+impl_into_array!(u8, UInt8);
+impl_into_array!(u16, UInt16);
+impl_into_array!(u32, UInt32);
+impl_into_array!(u64, UInt64);
 
 impl<I> SimpleSerializer for IntBuilder<I>
 where

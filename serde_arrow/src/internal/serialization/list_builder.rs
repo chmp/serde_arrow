@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::{Array, ListArray},
     error::Result,
     schema::GenericField,
     utils::{Mut, Offset},
@@ -9,8 +10,8 @@ use crate::internal::{
 use super::{
     array_builder::ArrayBuilder,
     utils::{
-        push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer,
-        SimpleSerializer,
+        meta_from_field, push_validity, push_validity_default, MutableBitBuffer,
+        MutableOffsetBuffer, SimpleSerializer,
     },
 };
 
@@ -44,6 +45,28 @@ impl<O: Offset> ListBuilder<O> {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+}
+
+impl ListBuilder<i32> {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::List(ListArray {
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            element: Box::new(self.element.into_array()?),
+            meta: meta_from_field(self.field)?,
+        }))
+    }
+}
+
+impl ListBuilder<i64> {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::LargeList(ListArray {
+            validity: self.validity.map(|b| b.buffer),
+            offsets: self.offsets.offsets,
+            element: Box::new(self.element.into_array()?),
+            meta: meta_from_field(self.field)?,
+        }))
     }
 }
 

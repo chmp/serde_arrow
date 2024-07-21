@@ -169,13 +169,13 @@ def format():
 
 
 @cmd(help="Run the linters")
-@arg("--fast", action="store_true")
-def check(fast=False):
+@arg("--all", action="store_true")
+def check(all=False):
     check_cargo_toml()
     _sh(f"cargo check --features {default_features}")
     _sh(f"cargo clippy --features {default_features}")
 
-    if not fast:
+    if all:
         for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
             _sh(f"cargo check --features {arrow2_feature}")
 

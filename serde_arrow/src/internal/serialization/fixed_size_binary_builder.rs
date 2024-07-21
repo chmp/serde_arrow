@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
+    arrow::{Array, FixedSizeBinaryArray},
     error::{fail, Result},
     utils::Mut,
 };
@@ -40,6 +41,14 @@ impl FixedSizeBinaryBuilder {
 
     pub fn is_nullable(&self) -> bool {
         self.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::FixedSizeBinary(FixedSizeBinaryArray {
+            n: self.n.try_into()?,
+            validity: self.validity.map(|v| v.buffer),
+            data: self.buffer,
+        }))
     }
 }
 

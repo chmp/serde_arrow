@@ -1,6 +1,10 @@
 use half::f16;
 
-use crate::internal::{error::Result, utils::Mut};
+use crate::internal::{
+    arrow::{Array, PrimitiveArray},
+    error::Result,
+    utils::Mut,
+};
 
 use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
 
@@ -35,6 +39,23 @@ impl<I> FloatBuilder<I> {
         Ok(())
     }
 }
+
+macro_rules! impl_into_array {
+    ($ty:ty, $var:ident) => {
+        impl FloatBuilder<$ty> {
+            pub fn into_array(self) -> Result<Array> {
+                Ok(Array::$var(PrimitiveArray {
+                    validity: self.validity.map(|b| b.buffer),
+                    values: self.buffer,
+                }))
+            }
+        }
+    };
+}
+
+impl_into_array!(f16, Float16);
+impl_into_array!(f32, Float32);
+impl_into_array!(f64, Float64);
 
 impl SimpleSerializer for FloatBuilder<f32> {
     fn name(&self) -> &str {
