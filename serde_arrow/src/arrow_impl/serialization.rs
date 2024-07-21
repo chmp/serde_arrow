@@ -95,7 +95,8 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::LargeList(_)
         | A::List(_)
         | A::FixedSizedList(_)
-        | A::FixedSizeBinary(_)) => builder.into_array()?.try_into(),
+        | A::FixedSizeBinary(_)
+        | A::DictionaryUtf8(_)) => builder.into_array()?.try_into(),
         A::Map(builder) => Ok(ArrayData::builder(T::Map(
             Arc::new(Field::try_from(&builder.entry_field)?),
             false,
@@ -105,17 +106,6 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         .add_child_data(build_array_data(*builder.entry)?)
         .null_bit_buffer(builder.validity.map(|b| Buffer::from(b.buffer)))
         .build()?),
-        A::DictionaryUtf8(builder) => {
-            let indices = build_array_data(*builder.indices)?;
-            let values = build_array_data(*builder.values)?;
-            let data_type = Field::try_from(&builder.field)?.data_type().clone();
-
-            Ok(indices
-                .into_builder()
-                .data_type(data_type)
-                .child_data(vec![values])
-                .build()?)
-        }
         A::Union(builder) => {
             let data_type = Field::try_from(&builder.field)?.data_type().clone();
             let children = builder
@@ -277,6 +267,20 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                     vec![ScalarBuffer::from(arr.data).into_inner()],
                     vec![],
                 )?)
+            }
+            A::Dictionary(arr) => {
+                let indices: ArrayData = (*arr.indices).try_into()?;
+                let values: ArrayData = (*arr.values).try_into()?;
+                let data_type = ArrowT::Dictionary(
+                    Box::new(indices.data_type().clone()),
+                    Box::new(values.data_type().clone()),
+                );
+
+                Ok(indices
+                    .into_builder()
+                    .data_type(data_type)
+                    .child_data(vec![values])
+                    .build()?)
             }
         }
     }

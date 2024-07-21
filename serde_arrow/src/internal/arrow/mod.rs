@@ -6,9 +6,9 @@ mod array_view;
 mod data_type;
 
 pub use array::{
-    Array, BooleanArray, BytesArray, DecimalArray, FieldMeta, FixedSizeBinaryArray,
-    FixedSizeListArray, ListArray, NullArray, PrimitiveArray, StructArray, TimeArray,
-    TimestampArray,
+    Array, BooleanArray, BytesArray, DecimalArray, DictionaryArray, FieldMeta,
+    FixedSizeBinaryArray, FixedSizeListArray, ListArray, NullArray, PrimitiveArray, StructArray,
+    TimeArray, TimestampArray,
 };
 pub use array_view::{
     ArrayView, BitsWithOffset, BooleanArrayView, ListArrayView, NullArrayView, PrimitiveArrayView,

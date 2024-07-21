@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::Array,
+    arrow::{Array, DictionaryArray},
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
@@ -43,7 +43,10 @@ impl DictionaryUtf8Builder {
     }
 
     pub fn into_array(self) -> Result<Array> {
-        unimplemented!()
+        Ok(Array::Dictionary(DictionaryArray {
+            indices: Box::new((*self.indices).into_array()?),
+            values: Box::new((*self.values).into_array()?),
+        }))
     }
 }
 

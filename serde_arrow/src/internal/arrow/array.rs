@@ -37,6 +37,7 @@ pub enum Array {
     List(ListArray<i32>),
     LargeList(ListArray<i64>),
     FixedSizeList(FixedSizeListArray),
+    Dictionary(DictionaryArray),
 }
 
 #[derive(Clone, Debug)]
@@ -124,4 +125,10 @@ pub struct DecimalArray<T> {
     pub scale: i8,
     pub validity: Option<Vec<u8>>,
     pub values: Vec<T>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DictionaryArray {
+    pub indices: Box<Array>,
+    pub values: Box<Array>,
 }
