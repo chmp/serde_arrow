@@ -2,7 +2,7 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    arrow::{ArrayView, BitsWithOffset},
+    arrow::{ArrayView, BitsWithOffset, TimeUnit},
     error::{Error, Result},
     schema::GenericField,
     utils::Mut,
@@ -70,7 +70,7 @@ pub enum ArrayDeserializer<'a> {
 }
 
 impl<'a> ArrayDeserializer<'a> {
-    pub fn new(_field: &GenericField, array: ArrayView<'a>) -> Result<Self> {
+    pub fn new(field: &GenericField, array: ArrayView<'a>) -> Result<Self> {
         match array {
             ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
             ArrayView::Boolean(view) => Ok(Self::Bool(BoolDeserializer::new(
@@ -125,6 +125,16 @@ impl<'a> ArrayDeserializer<'a> {
                 view.values,
                 buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                 view.scale,
+            ))),
+            ArrayView::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                TimeUnit::Millisecond,
+                field.is_utc()?,
             ))),
             _ => unimplemented!(),
         }

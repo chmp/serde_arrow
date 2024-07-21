@@ -7,8 +7,6 @@ use crate::internal::{
         array_deserializer::ArrayDeserializer,
         binary_deserializer::BinaryDeserializer,
         construction,
-        date32_deserializer::Date32Deserializer,
-        date64_deserializer::Date64Deserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
@@ -126,8 +124,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use {GenericDataType as T, TimeUnit as U};
     match &field.data_type {
-        T::Date32 => build_date32_deserializer(field, array),
-        T::Date64 => build_date64_deserializer(field, array),
         T::Time32(unit) => construction::build_time32_deserializer(
             field,
             match unit {
@@ -194,30 +190,6 @@ where
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T::Native>>,
 {
     Ok(IntegerDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
-}
-
-pub fn build_date32_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    Ok(Date32Deserializer::new(
-        as_primitive_values::<Date32Type>(array)?,
-        get_validity(array),
-    )
-    .into())
-}
-
-pub fn build_date64_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    Ok(Date64Deserializer::new(
-        as_primitive_values::<Date64Type>(array)?,
-        get_validity(array),
-        TimeUnit::Millisecond,
-        field.is_utc()?,
-    )
-    .into())
 }
 
 pub fn build_string_deserializer<'a, O>(
@@ -603,6 +575,16 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::Decimal128(DecimalArrayView {
                 precision,
                 scale,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Date32Type>>() {
+            Ok(ArrayView::Date32(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Date64Type>>() {
+            Ok(ArrayView::Date64(PrimitiveArrayView {
                 validity: get_bits_with_offset(array),
                 values: array.values(),
             }))
