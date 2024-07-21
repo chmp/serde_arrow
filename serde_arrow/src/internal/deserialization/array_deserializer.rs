@@ -136,6 +136,16 @@ impl<'a> ArrayDeserializer<'a> {
                 TimeUnit::Millisecond,
                 field.is_utc()?,
             ))),
+            ArrayView::Time32(view) => Ok(Self::Time32(TimeDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.unit,
+            ))),
+            ArrayView::Time64(view) => Ok(Self::Time64(TimeDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.unit,
+            ))),
             _ => unimplemented!(),
         }
     }

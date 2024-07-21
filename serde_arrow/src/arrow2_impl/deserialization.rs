@@ -1,23 +1,7 @@
 use crate::internal::{
     arrow::TimeUnit,
     deserialization::{
-        array_deserializer::ArrayDeserializer,
-        bool_deserializer::BoolDeserializer,
-        construction,
-        date32_deserializer::Date32Deserializer,
-        date64_deserializer::Date64Deserializer,
-        decimal_deserializer::DecimalDeserializer,
-        dictionary_deserializer::DictionaryDeserializer,
-        enum_deserializer::EnumDeserializer,
-        float_deserializer::{Float, FloatDeserializer},
-        integer_deserializer::{Integer, IntegerDeserializer},
-        list_deserializer::ListDeserializer,
-        map_deserializer::MapDeserializer,
-        null_deserializer::NullDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer,
-        string_deserializer::StringDeserializer,
-        struct_deserializer::StructDeserializer,
-        utils::{check_supported_list_layout, BitBuffer},
+        array_deserializer::ArrayDeserializer, bool_deserializer::BoolDeserializer, construction, date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer, decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer, enum_deserializer::EnumDeserializer, float_deserializer::{Float, FloatDeserializer}, integer_deserializer::{Integer, IntegerDeserializer}, list_deserializer::ListDeserializer, map_deserializer::MapDeserializer, null_deserializer::NullDeserializer, outer_sequence_deserializer::OuterSequenceDeserializer, string_deserializer::StringDeserializer, struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer, utils::{check_supported_list_layout, BitBuffer}
     },
     deserializer::Deserializer,
     error::{fail, Result},
@@ -104,16 +88,16 @@ pub fn build_array_deserializer<'a>(
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
-        T::Time32(_) => construction::build_time32_deserializer(
-            field,
+        T::Time32(unit) => Ok(ArrayDeserializer::Time32(TimeDeserializer::new(
             as_primitive_values::<i32>(array)?,
             get_validity(array),
-        ),
-        T::Time64(_) => construction::build_time64_deserializer(
-            field,
+            *unit,
+        ))),
+        T::Time64(unit) => Ok(ArrayDeserializer::Time64(TimeDeserializer::new(
             as_primitive_values::<i64>(array)?,
             get_validity(array),
-        ),
+            *unit,
+        ))),
         T::Timestamp(_, _) => construction::build_timestamp_deserializer(
             field,
             as_primitive_values::<i64>(array)?,

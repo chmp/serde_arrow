@@ -1,7 +1,7 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
-        PrimitiveArrayView, TimeUnit,
+        PrimitiveArrayView, TimeArrayView, TimeUnit,
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
@@ -124,26 +124,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use {GenericDataType as T, TimeUnit as U};
     match &field.data_type {
-        T::Time32(unit) => construction::build_time32_deserializer(
-            field,
-            match unit {
-                U::Second => as_primitive_values::<Time32SecondType>(array)?,
-                U::Millisecond => as_primitive_values::<Time32MillisecondType>(array)?,
-                // Not supported according to the arrow docs
-                unit => fail!("cannot build deserializer for Time64({unit})"),
-            },
-            get_validity(array),
-        ),
-        T::Time64(unit) => construction::build_time64_deserializer(
-            field,
-            match unit {
-                U::Microsecond => as_primitive_values::<Time64MicrosecondType>(array)?,
-                U::Nanosecond => as_primitive_values::<Time64NanosecondType>(array)?,
-                // Not supported according to the arrow docs
-                unit => fail!("cannot build deserializer for Time64({unit})"),
-            },
-            get_validity(array),
-        ),
         T::Timestamp(unit, _) => construction::build_timestamp_deserializer(
             field,
             match unit {
@@ -585,6 +565,30 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             }))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Date64Type>>() {
             Ok(ArrayView::Date64(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Time32MillisecondType>>() {
+            Ok(ArrayView::Time32(TimeArrayView {
+                unit: TimeUnit::Millisecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Time32SecondType>>() {
+            Ok(ArrayView::Time32(TimeArrayView {
+                unit: TimeUnit::Second,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Time64NanosecondType>>() {
+            Ok(ArrayView::Time64(TimeArrayView {
+                unit: TimeUnit::Nanosecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Time64MicrosecondType>>() {
+            Ok(ArrayView::Time64(TimeArrayView {
+                unit: TimeUnit::Microsecond,
                 validity: get_bits_with_offset(array),
                 values: array.values(),
             }))

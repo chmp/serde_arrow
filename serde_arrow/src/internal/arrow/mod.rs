@@ -11,6 +11,6 @@ pub use array::{
 };
 pub use array_view::{
     ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
-    PrimitiveArrayView,
+    PrimitiveArrayView, TimeArrayView,
 };
 pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};
