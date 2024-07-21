@@ -94,23 +94,8 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::Struct(_)
         | A::LargeList(_)
         | A::List(_)
-        | A::FixedSizedList(_)) => builder.into_array()?.try_into(),
-        A::FixedSizeBinary(builder) => {
-            let data_buffer = ScalarBuffer::from(builder.buffer).into_inner();
-            let validity = if let Some(validity) = builder.validity {
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            Ok(
-                ArrayData::builder(T::FixedSizeBinary(builder.n.try_into()?))
-                    .len(builder.len)
-                    .null_bit_buffer(validity)
-                    .add_buffer(data_buffer)
-                    .build()?,
-            )
-        }
+        | A::FixedSizedList(_)
+        | A::FixedSizeBinary(_)) => builder.into_array()?.try_into(),
         A::Map(builder) => Ok(ArrayData::builder(T::Map(
             Arc::new(Field::try_from(&builder.entry_field)?),
             false,
@@ -259,7 +244,6 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             }
             A::FixedSizeList(arr) => {
                 let child: ArrayData = (*arr.element).try_into()?;
-
                 if (child.len() % usize::try_from(arr.n)?) != 0 {
                     fail!(
                         "Invalid FixedSizeList: number of child elements ({}) not divisible by n ({})",
@@ -268,13 +252,31 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                     );
                 }
                 let field = field_from_data_and_meta(&child, arr.meta);
-                Ok(
-                    ArrayData::builder(ArrowT::FixedSizeList(Arc::new(field), arr.n))
-                        .len(child.len() / usize::try_from(arr.n)?)
-                        .null_bit_buffer(arr.validity.map(Buffer::from))
-                        .add_child_data(child)
-                        .build()?,
-                )
+                Ok(ArrayData::try_new(
+                    ArrowT::FixedSizeList(Arc::new(field), arr.n),
+                    child.len() / usize::try_from(arr.n)?,
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![],
+                    vec![child],
+                )?)
+            }
+            A::FixedSizeBinary(arr) => {
+                if (arr.data.len() % usize::try_from(arr.n)?) != 0 {
+                    fail!(
+                        "Invalid FixedSizeBinary: number of child elements ({}) not divisible by n ({})",
+                        arr.data.len(),
+                        arr.n,
+                    );
+                }
+                Ok(ArrayData::try_new(
+                    ArrowT::FixedSizeBinary(arr.n),
+                    arr.data.len() / usize::try_from(arr.n)?,
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![ScalarBuffer::from(arr.data).into_inner()],
+                    vec![],
+                )?)
             }
         }
     }

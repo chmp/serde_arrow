@@ -31,6 +31,7 @@ pub enum Array {
     LargeUtf8(BytesArray<i64>),
     Binary(BytesArray<i32>),
     LargeBinary(BytesArray<i64>),
+    FixedSizeBinary(FixedSizeBinaryArray),
     Decimal128(DecimalArray<i128>),
     Struct(StructArray),
     List(ListArray<i32>),
@@ -107,6 +108,13 @@ pub struct FixedSizeListArray {
 pub struct BytesArray<O> {
     pub validity: Option<Vec<u8>>,
     pub offsets: Vec<O>,
+    pub data: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct FixedSizeBinaryArray {
+    pub n: i32,
+    pub validity: Option<Vec<u8>>,
     pub data: Vec<u8>,
 }
 
