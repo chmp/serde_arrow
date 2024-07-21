@@ -9,6 +9,7 @@ use crate::{
         buffer::{Buffer, ScalarBuffer},
         datatypes::{
             ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type, Schema,
+            UnionMode,
         },
     },
     internal::{
@@ -59,69 +60,15 @@ impl OuterSequenceBuilder {
 }
 
 fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
-    let data = build_array_data(builder)?;
+    let data = builder.into_array()?.try_into()?;
     Ok(make_array(data))
-}
-
-fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
-    use ArrayBuilder as A;
-
-    match builder {
-        builder @ (A::UnknownVariant(_)
-        | A::Null(_)
-        | A::Bool(_)
-        | A::I8(_)
-        | A::I16(_)
-        | A::I32(_)
-        | A::I64(_)
-        | A::U8(_)
-        | A::U16(_)
-        | A::U32(_)
-        | A::U64(_)
-        | A::F16(_)
-        | A::F32(_)
-        | A::F64(_)
-        | A::Date32(_)
-        | A::Date64(_)
-        | A::Time32(_)
-        | A::Time64(_)
-        | A::Duration(_)
-        | A::Decimal128(_)
-        | A::Utf8(_)
-        | A::LargeUtf8(_)
-        | A::Binary(_)
-        | A::LargeBinary(_)
-        | A::Struct(_)
-        | A::LargeList(_)
-        | A::List(_)
-        | A::FixedSizedList(_)
-        | A::FixedSizeBinary(_)
-        | A::DictionaryUtf8(_)
-        | A::Map(_)) => builder.into_array()?.try_into(),
-        A::Union(builder) => {
-            let data_type = Field::try_from(&builder.field)?.data_type().clone();
-            let children = builder
-                .fields
-                .into_iter()
-                .map(build_array_data)
-                .collect::<Result<Vec<_>>>()?;
-            let len = builder.types.len();
-
-            Ok(ArrayData::builder(data_type)
-                .len(len)
-                .add_buffer(Buffer::from_vec(builder.types))
-                .add_buffer(Buffer::from_vec(builder.offsets))
-                .child_data(children)
-                .build()?)
-        }
-    }
 }
 
 impl TryFrom<crate::internal::arrow::Array> for ArrayData {
     type Error = Error;
 
     fn try_from(value: crate::internal::arrow::Array) -> Result<ArrayData> {
-        use {crate::internal::arrow::Array as A, DataType as ArrowT};
+        use {crate::internal::arrow::Array as A, DataType as T};
         type ArrowF16 = <Float16Type as ArrowPrimitiveType>::Native;
 
         fn f16_to_f16(v: f16) -> ArrowF16 {
@@ -131,7 +78,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
         match value {
             A::Null(arr) => Ok(NullArray::new(arr.len).into_data()),
             A::Boolean(arr) => Ok(ArrayData::try_new(
-                ArrowT::Boolean,
+                T::Boolean,
                 // NOTE: use the explicit len
                 arr.len,
                 arr.validity.map(Buffer::from),
@@ -139,49 +86,47 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 vec![ScalarBuffer::from(arr.values).into_inner()],
                 vec![],
             )?),
-            A::Int8(arr) => primitive_into_data(ArrowT::Int8, arr.validity, arr.values),
-            A::Int16(arr) => primitive_into_data(ArrowT::Int16, arr.validity, arr.values),
-            A::Int32(arr) => primitive_into_data(ArrowT::Int32, arr.validity, arr.values),
-            A::Int64(arr) => primitive_into_data(ArrowT::Int64, arr.validity, arr.values),
-            A::UInt8(arr) => primitive_into_data(ArrowT::UInt8, arr.validity, arr.values),
-            A::UInt16(arr) => primitive_into_data(ArrowT::UInt16, arr.validity, arr.values),
-            A::UInt32(arr) => primitive_into_data(ArrowT::UInt32, arr.validity, arr.values),
-            A::UInt64(arr) => primitive_into_data(ArrowT::UInt64, arr.validity, arr.values),
+            A::Int8(arr) => primitive_into_data(T::Int8, arr.validity, arr.values),
+            A::Int16(arr) => primitive_into_data(T::Int16, arr.validity, arr.values),
+            A::Int32(arr) => primitive_into_data(T::Int32, arr.validity, arr.values),
+            A::Int64(arr) => primitive_into_data(T::Int64, arr.validity, arr.values),
+            A::UInt8(arr) => primitive_into_data(T::UInt8, arr.validity, arr.values),
+            A::UInt16(arr) => primitive_into_data(T::UInt16, arr.validity, arr.values),
+            A::UInt32(arr) => primitive_into_data(T::UInt32, arr.validity, arr.values),
+            A::UInt64(arr) => primitive_into_data(T::UInt64, arr.validity, arr.values),
             A::Float16(arr) => primitive_into_data(
-                ArrowT::Float16,
+                T::Float16,
                 arr.validity,
                 arr.values.into_iter().map(f16_to_f16).collect(),
             ),
-            A::Float32(arr) => primitive_into_data(ArrowT::Float32, arr.validity, arr.values),
-            A::Float64(arr) => primitive_into_data(ArrowT::Float64, arr.validity, arr.values),
-            A::Date32(arr) => primitive_into_data(ArrowT::Date32, arr.validity, arr.values),
-            A::Date64(arr) => primitive_into_data(ArrowT::Date64, arr.validity, arr.values),
+            A::Float32(arr) => primitive_into_data(T::Float32, arr.validity, arr.values),
+            A::Float64(arr) => primitive_into_data(T::Float64, arr.validity, arr.values),
+            A::Date32(arr) => primitive_into_data(T::Date32, arr.validity, arr.values),
+            A::Date64(arr) => primitive_into_data(T::Date64, arr.validity, arr.values),
             A::Timestamp(arr) => primitive_into_data(
-                ArrowT::Timestamp(arr.unit.into(), arr.timezone.map(String::into)),
+                T::Timestamp(arr.unit.into(), arr.timezone.map(String::into)),
                 arr.validity,
                 arr.values,
             ),
             A::Time32(arr) => {
-                primitive_into_data(ArrowT::Time32(arr.unit.into()), arr.validity, arr.values)
+                primitive_into_data(T::Time32(arr.unit.into()), arr.validity, arr.values)
             }
             A::Time64(arr) => {
-                primitive_into_data(ArrowT::Time64(arr.unit.into()), arr.validity, arr.values)
+                primitive_into_data(T::Time64(arr.unit.into()), arr.validity, arr.values)
             }
             A::Duration(arr) => {
-                primitive_into_data(ArrowT::Duration(arr.unit.into()), arr.validity, arr.values)
+                primitive_into_data(T::Duration(arr.unit.into()), arr.validity, arr.values)
             }
             A::Decimal128(arr) => primitive_into_data(
-                ArrowT::Decimal128(arr.precision, arr.scale),
+                T::Decimal128(arr.precision, arr.scale),
                 arr.validity,
                 arr.values,
             ),
-            A::Utf8(arr) => bytes_into_data(ArrowT::Utf8, arr.offsets, arr.data, arr.validity),
-            A::LargeUtf8(arr) => {
-                bytes_into_data(ArrowT::LargeUtf8, arr.offsets, arr.data, arr.validity)
-            }
-            A::Binary(arr) => bytes_into_data(ArrowT::Binary, arr.offsets, arr.data, arr.validity),
+            A::Utf8(arr) => bytes_into_data(T::Utf8, arr.offsets, arr.data, arr.validity),
+            A::LargeUtf8(arr) => bytes_into_data(T::LargeUtf8, arr.offsets, arr.data, arr.validity),
+            A::Binary(arr) => bytes_into_data(T::Binary, arr.offsets, arr.data, arr.validity),
             A::LargeBinary(arr) => {
-                bytes_into_data(ArrowT::LargeBinary, arr.offsets, arr.data, arr.validity)
+                bytes_into_data(T::LargeBinary, arr.offsets, arr.data, arr.validity)
             }
             A::Struct(arr) => {
                 let mut fields = Vec::new();
@@ -194,7 +139,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                     fields.push(Arc::new(field));
                     data.push(child);
                 }
-                let data_type = ArrowT::Struct(fields.into());
+                let data_type = T::Struct(fields.into());
 
                 Ok(ArrayData::builder(data_type)
                     .len(arr.len)
@@ -206,7 +151,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 let child: ArrayData = (*arr.element).try_into()?;
                 let field = field_from_data_and_meta(&child, arr.meta);
                 list_into_data(
-                    ArrowT::List(Arc::new(field)),
+                    T::List(Arc::new(field)),
                     arr.offsets.len().saturating_sub(1),
                     arr.offsets,
                     child,
@@ -217,7 +162,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 let child: ArrayData = (*arr.element).try_into()?;
                 let field = field_from_data_and_meta(&child, arr.meta);
                 list_into_data(
-                    ArrowT::LargeList(Arc::new(field)),
+                    T::LargeList(Arc::new(field)),
                     arr.offsets.len().saturating_sub(1),
                     arr.offsets,
                     child,
@@ -235,7 +180,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 }
                 let field = field_from_data_and_meta(&child, arr.meta);
                 Ok(ArrayData::try_new(
-                    ArrowT::FixedSizeList(Arc::new(field), arr.n),
+                    T::FixedSizeList(Arc::new(field), arr.n),
                     child.len() / usize::try_from(arr.n)?,
                     arr.validity.map(Buffer::from),
                     0,
@@ -252,7 +197,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                     );
                 }
                 Ok(ArrayData::try_new(
-                    ArrowT::FixedSizeBinary(arr.n),
+                    T::FixedSizeBinary(arr.n),
                     arr.data.len() / usize::try_from(arr.n)?,
                     arr.validity.map(Buffer::from),
                     0,
@@ -263,7 +208,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::Dictionary(arr) => {
                 let indices: ArrayData = (*arr.indices).try_into()?;
                 let values: ArrayData = (*arr.values).try_into()?;
-                let data_type = ArrowT::Dictionary(
+                let data_type = T::Dictionary(
                     Box::new(indices.data_type().clone()),
                     Box::new(values.data_type().clone()),
                 );
@@ -278,12 +223,36 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 let child: ArrayData = (*arr.element).try_into()?;
                 let field = field_from_data_and_meta(&child, arr.meta);
                 Ok(ArrayData::try_new(
-                    ArrowT::Map(Arc::new(field), false),
+                    T::Map(Arc::new(field), false),
                     arr.offsets.len().saturating_sub(1),
                     arr.validity.map(Buffer::from),
                     0,
                     vec![ScalarBuffer::from(arr.offsets).into_inner()],
                     vec![child],
+                )?)
+            }
+            A::DenseUnion(arr) => {
+                let mut fields = Vec::new();
+                let mut child_data = Vec::new();
+
+                for (idx, (array, meta)) in arr.fields.into_iter().enumerate() {
+                    let child: ArrayData = array.try_into()?;
+                    let field = field_from_data_and_meta(&child, meta);
+
+                    fields.push((idx as i8, Arc::new(field)));
+                    child_data.push(child);
+                }
+
+                Ok(ArrayData::try_new(
+                    DataType::Union(fields.into_iter().collect(), UnionMode::Dense),
+                    arr.types.len(),
+                    None,
+                    0,
+                    vec![
+                        ScalarBuffer::from(arr.types).into_inner(),
+                        ScalarBuffer::from(arr.offsets).into_inner(),
+                    ],
+                    child_data,
                 )?)
             }
         }

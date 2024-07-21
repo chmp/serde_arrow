@@ -39,6 +39,7 @@ pub enum Array {
     FixedSizeList(FixedSizeListArray),
     Dictionary(DictionaryArray),
     Map(ListArray<i32>),
+    DenseUnion(DenseUnionArray),
 }
 
 #[derive(Clone, Debug)]
@@ -132,4 +133,11 @@ pub struct DecimalArray<T> {
 pub struct DictionaryArray {
     pub indices: Box<Array>,
     pub values: Box<Array>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DenseUnionArray {
+    pub types: Vec<i8>,
+    pub offsets: Vec<i32>,
+    pub fields: Vec<(Array, FieldMeta)>,
 }

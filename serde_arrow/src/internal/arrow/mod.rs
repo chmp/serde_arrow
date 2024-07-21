@@ -6,7 +6,7 @@ mod array_view;
 mod data_type;
 
 pub use array::{
-    Array, BooleanArray, BytesArray, DecimalArray, DictionaryArray, FieldMeta,
+    Array, BooleanArray, BytesArray, DecimalArray, DenseUnionArray, DictionaryArray, FieldMeta,
     FixedSizeBinaryArray, FixedSizeListArray, ListArray, NullArray, PrimitiveArray, StructArray,
     TimeArray, TimestampArray,
 };
