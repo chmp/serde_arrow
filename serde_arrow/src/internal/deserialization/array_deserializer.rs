@@ -2,7 +2,9 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
+    arrow::{ArrayView, BitsWithOffset},
     error::{Error, Result},
+    schema::GenericField,
     utils::Mut,
 };
 
@@ -16,7 +18,7 @@ use super::{
     integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
     map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
     simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
+    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer, utils::BitBuffer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -67,16 +69,78 @@ pub enum ArrayDeserializer<'a> {
     Enum(EnumDeserializer<'a>),
 }
 
-impl<'a> From<NullDeserializer> for ArrayDeserializer<'a> {
-    fn from(value: NullDeserializer) -> Self {
-        Self::Null(value)
+impl<'a> ArrayDeserializer<'a> {
+    pub fn new(_field: &GenericField, array: ArrayView<'a>) -> Result<Self> {
+        match array {
+            ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
+            ArrayView::Boolean(view) => Ok(Self::Bool(BoolDeserializer::new(
+                buffer_from_bits_with_offset(view.values, view.len),
+                buffer_from_bits_with_offset_opt(view.validity, view.len),
+            ))),
+            ArrayView::Int8(view) => Ok(Self::I8(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Int16(view) => Ok(Self::I16(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Int32(view) => Ok(Self::I32(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Int64(view) => Ok(Self::I64(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::UInt8(view) => Ok(Self::U8(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::UInt16(view) => Ok(Self::U16(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::UInt32(view) => Ok(Self::U32(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::UInt64(view) => Ok(Self::U64(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Float16(view) => Ok(Self::F16(FloatDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Float32(view) => Ok(Self::F32(FloatDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Float64(view) => Ok(Self::F64(FloatDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+            ))),
+            ArrayView::Decimal128(view) => Ok(Self::Decimal128(DecimalDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.scale,
+            ))),
+            _ => unimplemented!(),
+        }
     }
 }
 
-impl<'a> From<BoolDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: BoolDeserializer<'a>) -> Self {
-        Self::Bool(value)
+fn buffer_from_bits_with_offset(bits: BitsWithOffset, len: usize) -> BitBuffer {
+    BitBuffer {
+        data: bits.data,
+        offset: bits.offset,
+        number_of_bits: len,
     }
+}
+
+fn buffer_from_bits_with_offset_opt(bits: Option<BitsWithOffset>, len: usize) -> Option<BitBuffer> {
+    Some(buffer_from_bits_with_offset(bits?, len))
 }
 
 impl<'a> From<IntegerDeserializer<'a, i8>> for ArrayDeserializer<'a> {

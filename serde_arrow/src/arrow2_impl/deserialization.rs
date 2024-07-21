@@ -88,7 +88,7 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Null => Ok(NullDeserializer.into()),
+        T::Null => Ok(ArrayDeserializer::Null(NullDeserializer)),
         T::Bool => build_bool_deserializer(field, array),
         T::U8 => build_integer_deserializer::<u8>(field, array),
         T::U16 => build_integer_deserializer::<u16>(field, array),
@@ -151,7 +151,9 @@ pub fn build_bool_deserializer<'a>(
     };
     let validity = get_validity(array);
 
-    Ok(BoolDeserializer::new(buffer, validity).into())
+    Ok(ArrayDeserializer::Bool(BoolDeserializer::new(
+        buffer, validity,
+    )))
 }
 
 pub fn build_integer_deserializer<'a, T>(

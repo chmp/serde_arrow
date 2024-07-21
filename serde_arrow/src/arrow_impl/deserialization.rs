@@ -1,28 +1,27 @@
 use crate::internal::{
-    arrow::TimeUnit,
+    arrow::{
+        ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
+        PrimitiveArrayView, TimeUnit,
+    },
     deserialization::{
         array_deserializer::ArrayDeserializer,
         binary_deserializer::BinaryDeserializer,
-        bool_deserializer::BoolDeserializer,
         construction,
         date32_deserializer::Date32Deserializer,
         date64_deserializer::Date64Deserializer,
-        decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
-        float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
-        null_deserializer::NullDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
     deserializer::Deserializer,
-    error::{fail, Result},
+    error::{fail, Error, Result},
     schema::{GenericDataType, GenericField},
     utils::Offset,
 };
@@ -30,7 +29,7 @@ use crate::internal::{
 use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
-        GenericListArray, GenericStringArray, MapArray, OffsetSizeTrait, PrimitiveArray,
+        GenericListArray, GenericStringArray, MapArray, NullArray, OffsetSizeTrait, PrimitiveArray,
         RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
@@ -127,20 +126,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use {GenericDataType as T, TimeUnit as U};
     match &field.data_type {
-        T::Null => Ok(NullDeserializer.into()),
-        T::Bool => build_bool_deserializer(field, array),
-        T::U8 => build_integer_deserializer::<UInt8Type>(field, array),
-        T::U16 => build_integer_deserializer::<UInt16Type>(field, array),
-        T::U32 => build_integer_deserializer::<UInt32Type>(field, array),
-        T::U64 => build_integer_deserializer::<UInt64Type>(field, array),
-        T::I8 => build_integer_deserializer::<Int8Type>(field, array),
-        T::I16 => build_integer_deserializer::<Int16Type>(field, array),
-        T::I32 => build_integer_deserializer::<Int32Type>(field, array),
-        T::I64 => build_integer_deserializer::<Int64Type>(field, array),
-        T::F16 => build_float16_deserializer(field, array),
-        T::F32 => build_float_deserializer::<Float32Type>(field, array),
-        T::F64 => build_float_deserializer::<Float64Type>(field, array),
-        T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
         T::Time32(unit) => construction::build_time32_deserializer(
@@ -195,25 +180,8 @@ pub fn build_array_deserializer<'a>(
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
+        _ => ArrayDeserializer::new(field, array.try_into()?),
     }
-}
-
-pub fn build_bool_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
-        fail!("cannot convert {} array into bool", array.data_type());
-    };
-
-    let buffer = BitBuffer {
-        data: array.values().values(),
-        offset: array.values().offset(),
-        number_of_bits: array.values().len(),
-    };
-    let validity = get_validity(array);
-
-    Ok(BoolDeserializer::new(buffer, validity).into())
 }
 
 pub fn build_integer_deserializer<'a, T>(
@@ -226,45 +194,6 @@ where
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T::Native>>,
 {
     Ok(IntegerDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
-}
-
-pub fn build_float16_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    Ok(FloatDeserializer::new(
-        as_primitive_values::<Float16Type>(array)?,
-        get_validity(array),
-    )
-    .into())
-}
-
-pub fn build_float_deserializer<'a, T>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    T: ArrowPrimitiveType,
-    T::Native: Float,
-    ArrayDeserializer<'a>: From<FloatDeserializer<'a, T::Native>>,
-{
-    Ok(FloatDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
-}
-
-pub fn build_decimal128_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Decimal128(_, scale) = field.data_type else {
-        fail!("Invalid data type for Decimal128Deserializer");
-    };
-
-    Ok(DecimalDeserializer::new(
-        as_primitive_values::<Decimal128Type>(array)?,
-        get_validity(array),
-        scale,
-    )
-    .into())
 }
 
 pub fn build_date32_deserializer<'a>(
@@ -590,5 +519,106 @@ fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
         data,
         offset,
         number_of_bits,
+    })
+}
+
+impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
+    type Error = Error;
+
+    fn try_from(array: &'a dyn Array) -> Result<Self> {
+        let any = array.as_any();
+        if let Some(array) = any.downcast_ref::<NullArray>() {
+            Ok(ArrayView::Null(NullArrayView { len: array.len() }))
+        } else if let Some(array) = any.downcast_ref::<BooleanArray>() {
+            Ok(ArrayView::Boolean(BooleanArrayView {
+                len: array.len(),
+                validity: get_bits_with_offset(array),
+                values: BitsWithOffset {
+                    offset: array.values().offset(),
+                    data: array.values().values(),
+                },
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Int8Type>>() {
+            Ok(ArrayView::Int8(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Int16Type>>() {
+            Ok(ArrayView::Int16(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Int32Type>>() {
+            Ok(ArrayView::Int32(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Int64Type>>() {
+            Ok(ArrayView::Int64(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<UInt8Type>>() {
+            Ok(ArrayView::UInt8(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<UInt16Type>>() {
+            Ok(ArrayView::UInt16(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<UInt32Type>>() {
+            Ok(ArrayView::UInt32(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<UInt64Type>>() {
+            Ok(ArrayView::UInt64(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Float16Type>>() {
+            Ok(ArrayView::Float16(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Float32Type>>() {
+            Ok(ArrayView::Float32(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Float64Type>>() {
+            Ok(ArrayView::Float64(PrimitiveArrayView {
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Decimal128Type>>() {
+            let &DataType::Decimal128(precision, scale) = array.data_type() else {
+                fail!(
+                    "Invalid data type for Decimal128 array: {}",
+                    array.data_type()
+                );
+            };
+            Ok(ArrayView::Decimal128(DecimalArrayView {
+                precision,
+                scale,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else {
+            fail!(
+                "Cannot build an array view for {dt}",
+                dt = array.data_type()
+            );
+        }
+    }
+}
+
+fn get_bits_with_offset(array: &dyn Array) -> Option<BitsWithOffset<'_>> {
+    let validity = array.nulls()?;
+    Some(BitsWithOffset {
+        offset: validity.offset(),
+        data: validity.validity(),
     })
 }

@@ -25,7 +25,7 @@ pub enum ArrayView<'a> {
     LargeUtf8(Utf8ArrayView<'a, i64>),
     Binary(Utf8ArrayView<'a, i32>),
     LargeBinary(Utf8ArrayView<'a, i64>),
-    Decimal128(PrimitiveArrayView<'a, i128>),
+    Decimal128(DecimalArrayView<'a, i128>),
     Struct(StructArrayView<'a>),
     List(ListArrayView<'a, i32>),
     LargeList(ListArrayView<'a, i64>),
@@ -48,6 +48,13 @@ pub struct BooleanArrayView<'a> {
 }
 
 pub struct PrimitiveArrayView<'a, T> {
+    pub validity: Option<BitsWithOffset<'a>>,
+    pub values: &'a [T],
+}
+
+pub struct DecimalArrayView<'a, T> {
+    pub precision: u8,
+    pub scale: i8,
     pub validity: Option<BitsWithOffset<'a>>,
     pub values: &'a [T],
 }

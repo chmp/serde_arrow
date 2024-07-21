@@ -9,4 +9,8 @@ pub use array::{
     FixedSizeBinaryArray, FixedSizeListArray, ListArray, NullArray, PrimitiveArray, StructArray,
     TimeArray, TimestampArray,
 };
+pub use array_view::{
+    ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
+    PrimitiveArrayView,
+};
 pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};
