@@ -1,3 +1,4 @@
+#![allow(dead_code, unused)]
 use half::f16;
 
 use crate::internal::arrow::data_type::TimeUnit;
