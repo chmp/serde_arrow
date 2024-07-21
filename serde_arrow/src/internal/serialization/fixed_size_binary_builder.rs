@@ -43,7 +43,7 @@ impl FixedSizeBinaryBuilder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
+    pub fn into_array(self) -> Result<Array> {
         unimplemented!()
     }
 }

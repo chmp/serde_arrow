@@ -1,4 +1,6 @@
 //! Owned versions of the different array types
+use std::collections::HashMap;
+
 use half::f16;
 
 use crate::internal::arrow::data_type::TimeUnit;
@@ -33,6 +35,7 @@ pub enum Array {
     Struct(StructArray),
     List(ListArray<i32>),
     LargeList(ListArray<i64>),
+    FixedSizeList(FixedSizeListArray),
 }
 
 #[derive(Clone, Debug)]
@@ -74,20 +77,34 @@ pub struct TimestampArray {
 pub struct StructArray {
     pub len: usize,
     pub validity: Option<Vec<u8>>,
-    pub fields: Vec<Array>,
+    pub fields: Vec<(Array, FieldMeta)>,
+}
+
+#[derive(Clone, Debug)]
+pub struct FieldMeta {
+    pub name: String,
+    pub nullable: bool,
+    pub metadata: HashMap<String, String>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ListArray<O> {
-    pub len: usize,
     pub validity: Option<Vec<u8>>,
     pub offsets: Vec<O>,
+    pub meta: FieldMeta,
+    pub element: Box<Array>,
+}
+
+#[derive(Clone, Debug)]
+pub struct FixedSizeListArray {
+    pub n: i32,
+    pub validity: Option<Vec<u8>>,
+    pub meta: FieldMeta,
     pub element: Box<Array>,
 }
 
 #[derive(Clone, Debug)]
 pub struct BytesArray<O> {
-    pub len: usize,
     pub validity: Option<Vec<u8>>,
     pub offsets: Vec<O>,
     pub data: Vec<u8>,

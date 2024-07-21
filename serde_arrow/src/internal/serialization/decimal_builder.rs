@@ -46,13 +46,13 @@ impl DecimalBuilder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Decimal128(DecimalArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Decimal128(DecimalArray {
             precision: self.precision,
             scale: self.scale,
             validity: self.validity.map(|b| b.buffer),
             values: self.buffer,
-        })
+        }))
     }
 }
 

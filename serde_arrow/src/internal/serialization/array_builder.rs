@@ -132,7 +132,7 @@ impl ArrayBuilder {
         dispatch!(self, Self(builder) => builder.is_nullable())
     }
 
-    pub fn into_array(self) -> Array {
+    pub fn into_array(self) -> Result<Array> {
         dispatch!(self, Self(builder) => builder.into_array())
     }
 }

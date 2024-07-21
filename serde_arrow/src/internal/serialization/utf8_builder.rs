@@ -38,24 +38,22 @@ impl<O: Offset> Utf8Builder<O> {
 }
 
 impl Utf8Builder<i32> {
-    pub fn into_array(self) -> Array {
-        Array::Utf8(BytesArray {
-            len: self.offsets.len(),
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Utf8(BytesArray {
             validity: self.validity.map(|b| b.buffer),
             offsets: self.offsets.offsets,
             data: self.buffer,
-        })
+        }))
     }
 }
 
 impl Utf8Builder<i64> {
-    pub fn into_array(self) -> Array {
-        Array::LargeUtf8(BytesArray {
-            len: self.offsets.len(),
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::LargeUtf8(BytesArray {
             validity: self.validity.map(|b| b.buffer),
             offsets: self.offsets.offsets,
             data: self.buffer,
-        })
+        }))
     }
 }
 

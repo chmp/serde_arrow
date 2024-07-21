@@ -41,22 +41,22 @@ impl<I> TimeBuilder<I> {
 }
 
 impl TimeBuilder<i32> {
-    pub fn into_array(self) -> Array {
-        Array::Time32(TimeArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Time32(TimeArray {
             unit: self.unit,
             validity: self.validity.map(|v| v.buffer),
             values: self.buffer,
-        })
+        }))
     }
 }
 
 impl TimeBuilder<i64> {
-    pub fn into_array(self) -> Array {
-        Array::Time64(TimeArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Time64(TimeArray {
             unit: self.unit,
             validity: self.validity.map(|v| v.buffer),
             values: self.buffer,
-        })
+        }))
     }
 }
 

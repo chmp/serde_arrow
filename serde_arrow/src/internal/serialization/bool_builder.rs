@@ -30,12 +30,12 @@ impl BoolBuilder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Boolean(BooleanArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Boolean(BooleanArray {
             len: self.buffer.len,
             validity: self.validity.map(|v| v.buffer),
             values: self.buffer.buffer,
-        })
+        }))
     }
 }
 

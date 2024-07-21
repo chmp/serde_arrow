@@ -42,7 +42,7 @@ impl DictionaryUtf8Builder {
         self.indices.is_nullable()
     }
 
-    pub fn into_array(self) -> Array {
+    pub fn into_array(self) -> Result<Array> {
         unimplemented!()
     }
 }

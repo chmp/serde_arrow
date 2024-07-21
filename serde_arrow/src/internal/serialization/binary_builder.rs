@@ -41,24 +41,22 @@ impl<O: Offset> BinaryBuilder<O> {
 }
 
 impl BinaryBuilder<i32> {
-    pub fn into_array(self) -> Array {
-        Array::Binary(BytesArray {
-            len: self.offsets.len(),
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Binary(BytesArray {
             validity: self.validity.map(|b| b.buffer),
             offsets: self.offsets.offsets,
             data: self.buffer,
-        })
+        }))
     }
 }
 
 impl BinaryBuilder<i64> {
-    pub fn into_array(self) -> Array {
-        Array::LargeBinary(BytesArray {
-            len: self.offsets.len(),
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::LargeBinary(BytesArray {
             validity: self.validity.map(|b| b.buffer),
             offsets: self.offsets.offsets,
             data: self.buffer,
-        })
+        }))
     }
 }
 

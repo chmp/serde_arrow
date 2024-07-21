@@ -41,7 +41,7 @@ impl UnionBuilder {
         false
     }
 
-    pub fn into_array(self) -> Array {
+    pub fn into_array(self) -> Result<Array> {
         unimplemented!()
     }
 }

@@ -34,11 +34,11 @@ impl<I> IntBuilder<I> {
 macro_rules! impl_into_array {
     ($ty:ty, $var:ident) => {
         impl IntBuilder<$ty> {
-            pub fn into_array(self) -> Array {
-                Array::$var(PrimitiveArray {
+            pub fn into_array(self) -> Result<Array> {
+                Ok(Array::$var(PrimitiveArray {
                     validity: self.validity.map(|b| b.buffer),
                     values: self.buffer,
-                })
+                }))
             }
         }
     };

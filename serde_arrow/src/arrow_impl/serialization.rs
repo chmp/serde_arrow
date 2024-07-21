@@ -12,6 +12,7 @@ use crate::{
         },
     },
     internal::{
+        arrow::FieldMeta,
         error::{fail, Error, Result},
         schema::{GenericField, SerdeArrowSchema},
         serialization::{ArrayBuilder, OuterSequenceBuilder},
@@ -89,39 +90,11 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::Utf8(_)
         | A::LargeUtf8(_)
         | A::Binary(_)
-        | A::LargeBinary(_)) => builder.into_array().try_into(),
-        A::LargeList(builder) => list_into_data(
-            T::LargeList(Arc::new(Field::try_from(&builder.field)?)),
-            builder.offsets.offsets.len() - 1,
-            builder.offsets.offsets,
-            build_array_data(*builder.element)?,
-            builder.validity.map(|v| v.buffer),
-        ),
-        A::List(builder) => list_into_data(
-            T::List(Arc::new(Field::try_from(&builder.field)?)),
-            builder.offsets.offsets.len() - 1,
-            builder.offsets.offsets,
-            build_array_data(*builder.element)?,
-            builder.validity.map(|v| v.buffer),
-        ),
-        A::FixedSizedList(builder) => {
-            let data_type = T::FixedSizeList(
-                Arc::new(Field::try_from(&builder.field)?),
-                builder.n.try_into()?,
-            );
-            let child_data = build_array_data(*builder.element)?;
-            let validity = if let Some(validity) = builder.validity {
-                Some(Buffer::from(validity.buffer))
-            } else {
-                None
-            };
-
-            Ok(ArrayData::builder(data_type)
-                .len(builder.num_elements)
-                .null_bit_buffer(validity)
-                .add_child_data(child_data)
-                .build()?)
-        }
+        | A::LargeBinary(_)
+        | A::Struct(_)
+        | A::LargeList(_)
+        | A::List(_)
+        | A::FixedSizedList(_)) => builder.into_array()?.try_into(),
         A::FixedSizeBinary(builder) => {
             let data_buffer = ScalarBuffer::from(builder.buffer).into_inner();
             let validity = if let Some(validity) = builder.validity {
@@ -137,34 +110,6 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
                     .add_buffer(data_buffer)
                     .build()?,
             )
-        }
-        A::Struct(builder) => {
-            let mut data = Vec::new();
-            for (_, field) in builder.named_fields {
-                data.push(build_array_data(field)?);
-            }
-
-            let (validity, len) = if let Some(validity) = builder.validity {
-                (Some(Buffer::from(validity.buffer)), validity.len)
-            } else {
-                if data.is_empty() {
-                    fail!("cannot built non-nullable structs without fields");
-                }
-                (None, data[0].len())
-            };
-
-            let fields = builder
-                .fields
-                .iter()
-                .map(Field::try_from)
-                .collect::<Result<Vec<_>>>()?;
-            let data_type = T::Struct(fields.into());
-
-            Ok(ArrayData::builder(data_type)
-                .len(len)
-                .null_bit_buffer(validity)
-                .child_data(data)
-                .build()?)
         }
         A::Map(builder) => Ok(ArrayData::builder(T::Map(
             Arc::new(Field::try_from(&builder.entry_field)?),
@@ -271,9 +216,72 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
             A::LargeBinary(arr) => {
                 bytes_into_data(ArrowT::LargeBinary, arr.offsets, arr.data, arr.validity)
             }
-            array => fail!("{:?} not implemented", array),
+            A::Struct(arr) => {
+                let mut fields = Vec::new();
+                let mut data = Vec::new();
+
+                for (field, meta) in arr.fields {
+                    let child: ArrayData = field.try_into()?;
+                    let field = Field::new(meta.name, child.data_type().clone(), meta.nullable)
+                        .with_metadata(meta.metadata);
+                    fields.push(Arc::new(field));
+                    data.push(child);
+                }
+                let data_type = ArrowT::Struct(fields.into());
+
+                Ok(ArrayData::builder(data_type)
+                    .len(arr.len)
+                    .null_bit_buffer(arr.validity.map(Buffer::from))
+                    .child_data(data)
+                    .build()?)
+            }
+            A::List(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                list_into_data(
+                    ArrowT::List(Arc::new(field)),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.offsets,
+                    child,
+                    arr.validity,
+                )
+            }
+            A::LargeList(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                list_into_data(
+                    ArrowT::LargeList(Arc::new(field)),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.offsets,
+                    child,
+                    arr.validity,
+                )
+            }
+            A::FixedSizeList(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+
+                if (child.len() % usize::try_from(arr.n)?) != 0 {
+                    fail!(
+                        "Invalid FixedSizeList: number of child elements ({}) not divisible by n ({})",
+                        child.len(),
+                        arr.n,
+                    );
+                }
+                let field = field_from_data_and_meta(&child, arr.meta);
+                Ok(
+                    ArrayData::builder(ArrowT::FixedSizeList(Arc::new(field), arr.n))
+                        .len(child.len() / usize::try_from(arr.n)?)
+                        .null_bit_buffer(arr.validity.map(Buffer::from))
+                        .add_child_data(child)
+                        .build()?,
+                )
+            }
         }
     }
+}
+
+fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> Field {
+    Field::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
 }
 
 fn primitive_into_data<T: ArrowNativeType>(
@@ -299,7 +307,7 @@ fn bytes_into_data<O: ArrowNativeType>(
 ) -> Result<ArrayData> {
     Ok(ArrayData::try_new(
         data_type,
-        offsets.len() - 1,
+        offsets.len().saturating_sub(1),
         validity.map(Buffer::from),
         0,
         vec![

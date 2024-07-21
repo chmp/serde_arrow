@@ -25,8 +25,8 @@ impl NullBuilder {
         true
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Null(NullArray { len: self.count })
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Null(NullArray { len: self.count }))
     }
 }
 

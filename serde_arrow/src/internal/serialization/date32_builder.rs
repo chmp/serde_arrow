@@ -36,11 +36,11 @@ impl Date32Builder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Date32(PrimitiveArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Date32(PrimitiveArray {
             validity: self.validity.map(|validity| validity.buffer),
             values: self.buffer,
-        })
+        }))
     }
 }
 

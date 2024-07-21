@@ -33,12 +33,12 @@ impl DurationBuilder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Duration(TimeArray {
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Duration(TimeArray {
             unit: self.unit,
             validity: self.validity.map(|b| b.buffer),
             values: self.buffer,
-        })
+        }))
     }
 }
 

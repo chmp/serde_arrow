@@ -37,19 +37,19 @@ impl Date64Builder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
+    pub fn into_array(self) -> Result<Array> {
         if let GenericDataType::Timestamp(unit, timezone) = self.field.data_type {
-            Array::Timestamp(TimestampArray {
+            Ok(Array::Timestamp(TimestampArray {
                 unit,
                 timezone,
                 validity: self.validity.map(|validity| validity.buffer),
                 values: self.buffer,
-            })
+            }))
         } else {
-            Array::Date64(PrimitiveArray {
+            Ok(Array::Date64(PrimitiveArray {
                 validity: self.validity.map(|validity| validity.buffer),
                 values: self.buffer,
-            })
+            }))
         }
     }
 }

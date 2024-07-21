@@ -22,8 +22,8 @@ impl UnknownVariantBuilder {
         false
     }
 
-    pub fn into_array(self) -> Array {
-        Array::Null(NullArray { len: 0 })
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Null(NullArray { len: 0 }))
     }
 }
 

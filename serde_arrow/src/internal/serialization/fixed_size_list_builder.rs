@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::Array,
+    arrow::{Array, FixedSizeListArray},
     error::{fail, Result},
     schema::GenericField,
     utils::Mut,
@@ -9,7 +9,9 @@ use crate::internal::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer},
+    utils::{
+        meta_from_field, push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -50,8 +52,13 @@ impl FixedSizeListBuilder {
         self.validity.is_some()
     }
 
-    pub fn into_array(self) -> Array {
-        unimplemented!()
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::FixedSizeList(FixedSizeListArray {
+            n: self.n.try_into()?,
+            meta: meta_from_field(self.field)?,
+            validity: self.validity.map(|v| v.buffer),
+            element: Box::new((*self.element).into_array()?),
+        }))
     }
 }
 
