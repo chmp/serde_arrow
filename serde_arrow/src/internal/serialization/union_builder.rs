@@ -55,7 +55,7 @@ impl UnionBuilder {
         Ok(Array::DenseUnion(DenseUnionArray {
             types: self.types,
             offsets: self.offsets,
-            fields: fields,
+            fields,
         }))
     }
 }
