@@ -64,7 +64,7 @@ fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
 }
 
 fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
-    use {ArrayBuilder as A, DataType as T};
+    use ArrayBuilder as A;
 
     match builder {
         builder @ (A::UnknownVariant(_)
@@ -96,16 +96,8 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         | A::List(_)
         | A::FixedSizedList(_)
         | A::FixedSizeBinary(_)
-        | A::DictionaryUtf8(_)) => builder.into_array()?.try_into(),
-        A::Map(builder) => Ok(ArrayData::builder(T::Map(
-            Arc::new(Field::try_from(&builder.entry_field)?),
-            false,
-        ))
-        .len(builder.offsets.offsets.len() - 1)
-        .add_buffer(ScalarBuffer::from(builder.offsets.offsets).into_inner())
-        .add_child_data(build_array_data(*builder.entry)?)
-        .null_bit_buffer(builder.validity.map(|b| Buffer::from(b.buffer)))
-        .build()?),
+        | A::DictionaryUtf8(_)
+        | A::Map(_)) => builder.into_array()?.try_into(),
         A::Union(builder) => {
             let data_type = Field::try_from(&builder.field)?.data_type().clone();
             let children = builder
@@ -281,6 +273,18 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                     .data_type(data_type)
                     .child_data(vec![values])
                     .build()?)
+            }
+            A::Map(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                Ok(ArrayData::try_new(
+                    ArrowT::Map(Arc::new(field), false),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![ScalarBuffer::from(arr.offsets).into_inner()],
+                    vec![child],
+                )?)
             }
         }
     }

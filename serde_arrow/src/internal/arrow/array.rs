@@ -38,6 +38,7 @@ pub enum Array {
     LargeList(ListArray<i64>),
     FixedSizeList(FixedSizeListArray),
     Dictionary(DictionaryArray),
+    Map(ListArray<i32>),
 }
 
 #[derive(Clone, Debug)]
