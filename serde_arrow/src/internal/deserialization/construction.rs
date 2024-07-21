@@ -4,9 +4,7 @@ use crate::internal::{
     schema::{GenericDataType, GenericField, Strategy},
 };
 
-use super::{
-    array_deserializer::ArrayDeserializer, utils::BitBuffer,
-};
+use super::{array_deserializer::ArrayDeserializer, utils::BitBuffer};
 
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,
@@ -34,4 +32,3 @@ pub fn build_timestamp_deserializer<'a>(
 
     Ok(Date64Deserializer::new(values, validity, *unit, field.is_utc()?).into())
 }
-
