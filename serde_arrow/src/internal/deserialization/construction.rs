@@ -6,6 +6,7 @@ use crate::internal::{
 
 use super::{array_deserializer::ArrayDeserializer, utils::BitBuffer};
 
+#[allow(unused)]
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,
     values: &'a [i64],

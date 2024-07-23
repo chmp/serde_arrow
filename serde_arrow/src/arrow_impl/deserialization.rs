@@ -1,16 +1,15 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
-        PrimitiveArrayView, TimeArrayView, TimeUnit,
+        PrimitiveArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
         binary_deserializer::BinaryDeserializer,
-        construction,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
-        integer_deserializer::{Integer, IntegerDeserializer},
+        integer_deserializer::Integer,
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
@@ -31,8 +30,8 @@ use crate::_impl::arrow::{
         RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
-        ArrowDictionaryKeyType, ArrowPrimitiveType, DataType, Date32Type, Date64Type,
-        Decimal128Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
+        ArrowDictionaryKeyType, DataType, Date32Type, Date64Type, Decimal128Type,
+        DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
         DurationSecondType, FieldRef, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
         Int64Type, Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
         Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
@@ -122,28 +121,8 @@ pub fn build_array_deserializer<'a>(
     field: &GenericField,
     array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
-    use {GenericDataType as T, TimeUnit as U};
+    use GenericDataType as T;
     match &field.data_type {
-        T::Timestamp(unit, _) => construction::build_timestamp_deserializer(
-            field,
-            match unit {
-                U::Second => as_primitive_values::<TimestampSecondType>(array)?,
-                U::Millisecond => as_primitive_values::<TimestampMillisecondType>(array)?,
-                U::Microsecond => as_primitive_values::<TimestampMicrosecondType>(array)?,
-                U::Nanosecond => as_primitive_values::<TimestampNanosecondType>(array)?,
-            },
-            get_validity(array),
-        ),
-        T::Duration(U::Second) => build_integer_deserializer::<DurationSecondType>(field, array),
-        T::Duration(U::Millisecond) => {
-            build_integer_deserializer::<DurationMillisecondType>(field, array)
-        }
-        T::Duration(U::Microsecond) => {
-            build_integer_deserializer::<DurationMicrosecondType>(field, array)
-        }
-        T::Duration(U::Nanosecond) => {
-            build_integer_deserializer::<DurationNanosecondType>(field, array)
-        }
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Struct => build_struct_deserializer(field, array),
@@ -158,18 +137,6 @@ pub fn build_array_deserializer<'a>(
         T::Dictionary => build_dictionary_deserializer(field, array),
         _ => ArrayDeserializer::new(field, array.try_into()?),
     }
-}
-
-pub fn build_integer_deserializer<'a, T>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    T: ArrowPrimitiveType,
-    T::Native: Integer,
-    ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T::Native>>,
-{
-    Ok(IntegerDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
 }
 
 pub fn build_string_deserializer<'a, O>(
@@ -451,17 +418,6 @@ pub fn build_union_deserializer<'a>(
     Ok(EnumDeserializer::new(type_ids, variants).into())
 }
 
-fn as_primitive_values<T: ArrowPrimitiveType>(array: &dyn Array) -> Result<&[T::Native]> {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
-        fail!(
-            "cannot convert {} array into {}",
-            array.data_type(),
-            T::DATA_TYPE,
-        );
-    };
-    Ok(array.values())
-}
-
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
     let validity = arr.nulls()?;
     let data = validity.validity();
@@ -589,6 +545,58 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<Time64MicrosecondType>>() {
             Ok(ArrayView::Time64(TimeArrayView {
                 unit: TimeUnit::Microsecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<TimestampNanosecondType>>() {
+            Ok(ArrayView::Timestamp(TimestampArrayView {
+                unit: TimeUnit::Nanosecond,
+                timezone: array.timezone().map(str::to_owned),
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<TimestampMicrosecondType>>() {
+            Ok(ArrayView::Timestamp(TimestampArrayView {
+                unit: TimeUnit::Microsecond,
+                timezone: array.timezone().map(str::to_owned),
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<TimestampMillisecondType>>() {
+            Ok(ArrayView::Timestamp(TimestampArrayView {
+                unit: TimeUnit::Millisecond,
+                timezone: array.timezone().map(str::to_owned),
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<TimestampSecondType>>() {
+            Ok(ArrayView::Timestamp(TimestampArrayView {
+                unit: TimeUnit::Second,
+                timezone: array.timezone().map(str::to_owned),
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<DurationNanosecondType>>() {
+            Ok(ArrayView::Duration(TimeArrayView {
+                unit: TimeUnit::Nanosecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<DurationMicrosecondType>>() {
+            Ok(ArrayView::Duration(TimeArrayView {
+                unit: TimeUnit::Microsecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<DurationMillisecondType>>() {
+            Ok(ArrayView::Duration(TimeArrayView {
+                unit: TimeUnit::Millisecond,
+                validity: get_bits_with_offset(array),
+                values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<DurationSecondType>>() {
+            Ok(ArrayView::Duration(TimeArrayView {
+                unit: TimeUnit::Second,
                 validity: get_bits_with_offset(array),
                 values: array.values(),
             }))

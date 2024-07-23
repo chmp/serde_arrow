@@ -3,8 +3,8 @@ use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
     arrow::{ArrayView, BitsWithOffset, TimeUnit},
-    error::{Error, Result},
-    schema::GenericField,
+    error::{fail, Error, Result},
+    schema::{GenericField, Strategy},
     utils::Mut,
 };
 
@@ -145,6 +145,28 @@ impl<'a> ArrayDeserializer<'a> {
                 view.values,
                 buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                 view.unit,
+            ))),
+            ArrayView::Timestamp(view) => match field.strategy.as_ref() {
+                Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
+                    Ok(Self::Date64(Date64Deserializer::new(
+                        view.values,
+                        buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                        view.unit,
+                        field.is_utc()?,
+                    )))
+                }
+                Some(strategy) => fail!("invalid strategy {strategy} for timestamp field"),
+                None => Ok(Date64Deserializer::new(
+                    view.values,
+                    buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                    view.unit,
+                    field.is_utc()?,
+                )
+                .into()),
+            },
+            ArrayView::Duration(view) => Ok(Self::I64(IntegerDeserializer::new(
+                view.values,
+                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
             ))),
             _ => unimplemented!(),
         }
