@@ -1,19 +1,16 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        ListArrayView, NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
-        TimestampArrayView,
+        FixedSizeListArrayView, ListArrayView, NullArrayView, PrimitiveArrayView, StructArrayView,
+        TimeArrayView, TimeUnit, TimestampArrayView,
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
-        fixed_size_list_deserializer::FixedSizeListDeserializer,
         integer_deserializer::Integer,
-        list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
-        struct_deserializer::StructDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
     deserializer::Deserializer,
@@ -123,7 +120,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
@@ -202,26 +198,6 @@ pub fn build_dictionary_deserializer<'a>(
     }
 }
 
-pub fn build_struct_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<StructArray>() else {
-        fail!("Cannot convert {} array into struct", array.data_type());
-    };
-
-    let fields = &field.children;
-    let arrays = array
-        .columns()
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-    let validity = get_validity(array);
-
-    let (deserializers, len) = build_struct_fields(fields, &arrays)?;
-    Ok(StructDeserializer::new(deserializers, validity, len).into())
-}
-
 pub fn build_struct_fields<'a>(
     fields: &[GenericField],
     arrays: &[&'a dyn Array],
@@ -272,26 +248,6 @@ pub fn build_fixed_size_binary_deserializer<'a>(
     _array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
     fail!("FixedSizeBinary arrays are not supported for arrow<=46");
-}
-
-pub fn build_fixed_size_list_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-    n: i32,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<FixedSizeListArray>() else {
-        fail!(
-            "Cannot interpret {} array as GenericListArray",
-            array.data_type()
-        );
-    };
-
-    let n = n.try_into()?;
-    let len = array.len();
-    let item = build_array_deserializer(&field.children[0], array.values())?;
-    let validity = get_validity(array);
-
-    Ok(FixedSizeListDeserializer::new(item, validity, n, len).into())
 }
 
 pub fn build_map_deserializer<'a>(
@@ -574,6 +530,17 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::LargeList(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
+                meta: meta_from_field(field.as_ref().try_into()?)?,
+                element: Box::new(array.values().as_ref().try_into()?),
+            }))
+        } else if let Some(array) = any.downcast_ref::<FixedSizeListArray>() {
+            let DataType::FixedSizeList(field, n) = array.data_type() else {
+                fail!("invalid data type for list array: {}", array.data_type());
+            };
+            Ok(ArrayView::FixedSizeList(FixedSizeListArrayView {
+                len: array.len(),
+                n: *n,
+                validity: get_bits_with_offset(array),
                 meta: meta_from_field(field.as_ref().try_into()?)?,
                 element: Box::new(array.values().as_ref().try_into()?),
             }))

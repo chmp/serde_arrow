@@ -54,6 +54,7 @@ impl FixedSizeListBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::FixedSizeList(FixedSizeListArray {
+            len: self.num_elements,
             n: self.n.try_into()?,
             meta: meta_from_field(self.field)?,
             validity: self.validity.map(|v| v.buffer),

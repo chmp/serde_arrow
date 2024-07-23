@@ -193,6 +193,7 @@ pub struct ListArrayView<'a, O> {
 
 #[derive(Clone, Debug)]
 pub struct FixedSizeListArray {
+    pub len: usize,
     pub n: i32,
     pub validity: Option<Vec<u8>>,
     pub meta: FieldMeta,
@@ -201,6 +202,7 @@ pub struct FixedSizeListArray {
 
 #[derive(Clone, Debug)]
 pub struct FixedSizeListArrayView<'a> {
+    pub len: usize,
     pub n: i32,
     pub validity: Option<BitsWithOffset<'a>>,
     pub meta: FieldMeta,

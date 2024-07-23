@@ -203,13 +203,27 @@ impl<'a> ArrayDeserializer<'a> {
             ArrayView::List(view) => Ok(Self::List(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
-                buffer_from_bits_with_offset_opt(view.validity, view.offsets.len()),
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
             ))),
             ArrayView::LargeList(view) => Ok(Self::LargeList(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
-                buffer_from_bits_with_offset_opt(view.validity, view.offsets.len()),
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
             ))),
+            ArrayView::FixedSizeList(view) => {
+                Ok(Self::FixedSizeList(FixedSizeListDeserializer::new(
+                    ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
+                    buffer_from_bits_with_offset_opt(view.validity, view.len),
+                    view.n.try_into()?,
+                    view.len,
+                )))
+            }
             ArrayView::Struct(view) => {
                 let mut fields = Vec::new();
                 for (field_view, field_meta) in view.fields {
