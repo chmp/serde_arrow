@@ -152,7 +152,7 @@ impl<'a> ArrayDeserializer<'a> {
                         view.values,
                         buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                         view.unit,
-                        field.is_utc()?,
+                        is_utc_timestamp(view.timezone.as_deref())?,
                     )))
                 }
                 Some(strategy) => fail!("invalid strategy {strategy} for timestamp field"),
@@ -160,7 +160,7 @@ impl<'a> ArrayDeserializer<'a> {
                     view.values,
                     buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                     view.unit,
-                    field.is_utc()?,
+                    is_utc_timestamp(view.timezone.as_deref())?,
                 )
                 .into()),
             },
@@ -200,8 +200,21 @@ impl<'a> ArrayDeserializer<'a> {
                     view.offsets.len().saturating_sub(1),
                 ),
             ))),
+            ArrayView::List(view) => Ok(Self::List(ListDeserializer::new(
+                todo!(),
+                view.offsets,
+                buffer_from_bits_with_offset_opt(view.validity, view.offsets.len()),
+            ))),
             _ => unimplemented!(),
         }
+    }
+}
+
+fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
+    match timezone {
+        Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
+        Some(tz) => fail!("unsupported timezone {}", tz),
+        None => Ok(false),
     }
 }
 

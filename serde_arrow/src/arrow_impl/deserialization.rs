@@ -1,7 +1,8 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        NullArrayView, PrimitiveArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
+        ListArrayView, NullArrayView, PrimitiveArrayView, TimeArrayView, TimeUnit,
+        TimestampArrayView,
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
@@ -18,6 +19,7 @@ use crate::internal::{
     deserializer::Deserializer,
     error::{fail, Error, Result},
     schema::{GenericDataType, GenericField},
+    serialization::utils::meta_from_field,
     utils::Offset,
 };
 
@@ -559,26 +561,46 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
         } else if let Some(array) = any.downcast_ref::<GenericStringArray<i32>>() {
             Ok(ArrayView::Utf8(BytesArrayView {
                 validity: get_bits_with_offset(array),
-                offsets: array.offsets(),
+                offsets: array.value_offsets(),
                 data: array.values(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericStringArray<i64>>() {
             Ok(ArrayView::LargeUtf8(BytesArrayView {
                 validity: get_bits_with_offset(array),
-                offsets: array.offsets(),
+                offsets: array.value_offsets(),
                 data: array.values(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i32>>() {
             Ok(ArrayView::Binary(BytesArrayView {
                 validity: get_bits_with_offset(array),
-                offsets: array.offsets(),
+                offsets: array.value_offsets(),
                 data: array.values(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i64>>() {
             Ok(ArrayView::LargeBinary(BytesArrayView {
                 validity: get_bits_with_offset(array),
-                offsets: array.offsets(),
+                offsets: array.value_offsets(),
                 data: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericListArray<i32>>() {
+            let DataType::List(field) = array.data_type() else {
+                fail!("invalid data type for list array: {}", array.data_type());
+            };
+            Ok(ArrayView::List(ListArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.value_offsets(),
+                meta: meta_from_field(field.as_ref().try_into()?)?,
+                element: Box::new(array.values().as_ref().try_into()?),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericListArray<i64>>() {
+            let DataType::LargeList(field) = array.data_type() else {
+                fail!("invalid data type for list array: {}", array.data_type());
+            };
+            Ok(ArrayView::LargeList(ListArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.value_offsets(),
+                meta: meta_from_field(field.as_ref().try_into()?)?,
+                element: Box::new(array.values().as_ref().try_into()?),
             }))
         } else {
             fail!(
