@@ -168,6 +168,38 @@ impl<'a> ArrayDeserializer<'a> {
                 view.values,
                 buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
             ))),
+            ArrayView::Utf8(view) => Ok(Self::Utf8(StringDeserializer::new(
+                view.data,
+                view.offsets,
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
+            ))),
+            ArrayView::LargeUtf8(view) => Ok(Self::LargeUtf8(StringDeserializer::new(
+                view.data,
+                view.offsets,
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
+            ))),
+            ArrayView::Binary(view) => Ok(Self::Binary(BinaryDeserializer::new(
+                view.data,
+                view.offsets,
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
+            ))),
+            ArrayView::LargeBinary(view) => Ok(Self::LargeBinary(BinaryDeserializer::new(
+                view.data,
+                view.offsets,
+                buffer_from_bits_with_offset_opt(
+                    view.validity,
+                    view.offsets.len().saturating_sub(1),
+                ),
+            ))),
             _ => unimplemented!(),
         }
     }

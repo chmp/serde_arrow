@@ -1,11 +1,10 @@
 use crate::internal::{
     arrow::{
-        ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, NullArrayView,
-        PrimitiveArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
+        ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
+        NullArrayView, PrimitiveArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
-        binary_deserializer::BinaryDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         fixed_size_list_deserializer::FixedSizeListDeserializer,
@@ -13,7 +12,6 @@ use crate::internal::{
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
-        string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
@@ -123,39 +121,16 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Utf8 => build_string_deserializer::<i32>(field, array),
-        T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
         T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
-        T::Binary => build_binary_deserializer::<i32>(field, array),
-        T::LargeBinary => build_binary_deserializer::<i64>(field, array),
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
         _ => ArrayDeserializer::new(field, array.try_into()?),
     }
-}
-
-pub fn build_string_deserializer<'a, O>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    O: OffsetSizeTrait + Offset,
-    ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
-{
-    let Some(array) = array.as_any().downcast_ref::<GenericStringArray<O>>() else {
-        fail!("cannot convert {} array into string", array.data_type());
-    };
-
-    let buffer = array.value_data();
-    let offsets = array.value_offsets();
-    let validity = get_validity(array);
-
-    Ok(StringDeserializer::new(buffer, offsets, validity).into())
 }
 
 pub fn build_dictionary_deserializer<'a>(
@@ -293,25 +268,6 @@ where
     let validity = get_validity(array);
 
     Ok(ListDeserializer::new(item, offsets, validity).into())
-}
-
-pub fn build_binary_deserializer<'a, O>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    O: OffsetSizeTrait + Offset,
-    ArrayDeserializer<'a>: From<BinaryDeserializer<'a, O>>,
-{
-    let Some(array) = array.as_any().downcast_ref::<GenericBinaryArray<O>>() else {
-        fail!("cannot convert {} array into string", array.data_type());
-    };
-
-    let buffer = array.value_data();
-    let offsets = array.value_offsets();
-    let validity = get_validity(array);
-
-    Ok(BinaryDeserializer::new(buffer, offsets, validity).into())
 }
 
 #[cfg(has_arrow_fixed_binary_support)]
@@ -599,6 +555,30 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 unit: TimeUnit::Second,
                 validity: get_bits_with_offset(array),
                 values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericStringArray<i32>>() {
+            Ok(ArrayView::Utf8(BytesArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.offsets(),
+                data: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericStringArray<i64>>() {
+            Ok(ArrayView::LargeUtf8(BytesArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.offsets(),
+                data: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i32>>() {
+            Ok(ArrayView::Binary(BytesArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.offsets(),
+                data: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i64>>() {
+            Ok(ArrayView::LargeBinary(BytesArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.offsets(),
+                data: array.values(),
             }))
         } else {
             fail!(
