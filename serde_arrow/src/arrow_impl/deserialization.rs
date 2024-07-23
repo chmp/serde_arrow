@@ -1,7 +1,7 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        ListArrayView, NullArrayView, PrimitiveArrayView, TimeArrayView, TimeUnit,
+        ListArrayView, NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
         TimestampArrayView,
     },
     deserialization::{
@@ -123,15 +123,12 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Struct => build_struct_deserializer(field, array),
-        T::List => build_list_deserializer::<i32>(field, array),
-        T::LargeList => build_list_deserializer::<i64>(field, array),
         T::FixedSizeList(n) => build_fixed_size_list_deserializer(field, array, *n),
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
-        _ => ArrayDeserializer::new(field, array.try_into()?),
+        _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
 }
 
@@ -248,28 +245,6 @@ pub fn build_struct_fields<'a>(
     }
 
     Ok((deserializers, len))
-}
-
-pub fn build_list_deserializer<'a, O>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    O: OffsetSizeTrait + Offset,
-    ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
-{
-    let Some(array) = array.as_any().downcast_ref::<GenericListArray<O>>() else {
-        fail!(
-            "Cannot interpret {} array as GenericListArray",
-            array.data_type()
-        );
-    };
-
-    let item = build_array_deserializer(&field.children[0], array.values())?;
-    let offsets = array.value_offsets();
-    let validity = get_validity(array);
-
-    Ok(ListDeserializer::new(item, offsets, validity).into())
 }
 
 #[cfg(has_arrow_fixed_binary_support)]
@@ -601,6 +576,23 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 offsets: array.value_offsets(),
                 meta: meta_from_field(field.as_ref().try_into()?)?,
                 element: Box::new(array.values().as_ref().try_into()?),
+            }))
+        } else if let Some(array) = any.downcast_ref::<StructArray>() {
+            let DataType::Struct(column_fields) = array.data_type() else {
+                fail!("invalid data type for struct array: {}", array.data_type());
+            };
+
+            let mut fields = Vec::new();
+            for (field, array) in std::iter::zip(column_fields, array.columns()) {
+                let view = ArrayView::try_from(array.as_ref())?;
+                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+                fields.push((view, meta));
+            }
+
+            Ok(ArrayView::Struct(StructArrayView {
+                len: array.len(),
+                validity: get_bits_with_offset(array),
+                fields,
             }))
         } else {
             fail!(

@@ -2,9 +2,9 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    arrow::{ArrayView, BitsWithOffset, TimeUnit},
+    arrow::{ArrayView, BitsWithOffset, FieldMeta, TimeUnit},
     error::{fail, Error, Result},
-    schema::{GenericField, Strategy},
+    schema::{Strategy, STRATEGY_KEY},
     utils::Mut,
 };
 
@@ -70,7 +70,7 @@ pub enum ArrayDeserializer<'a> {
 }
 
 impl<'a> ArrayDeserializer<'a> {
-    pub fn new(field: &GenericField, array: ArrayView<'a>) -> Result<Self> {
+    pub fn new(strategy: Option<&Strategy>, array: ArrayView<'a>) -> Result<Self> {
         match array {
             ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
             ArrayView::Boolean(view) => Ok(Self::Bool(BoolDeserializer::new(
@@ -134,7 +134,7 @@ impl<'a> ArrayDeserializer<'a> {
                 view.values,
                 buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                 TimeUnit::Millisecond,
-                field.is_utc()?,
+                is_utc_date64(strategy)?,
             ))),
             ArrayView::Time32(view) => Ok(Self::Time32(TimeDeserializer::new(
                 view.values,
@@ -146,7 +146,7 @@ impl<'a> ArrayDeserializer<'a> {
                 buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
                 view.unit,
             ))),
-            ArrayView::Timestamp(view) => match field.strategy.as_ref() {
+            ArrayView::Timestamp(view) => match strategy {
                 Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
                     Ok(Self::Date64(Date64Deserializer::new(
                         view.values,
@@ -201,10 +201,31 @@ impl<'a> ArrayDeserializer<'a> {
                 ),
             ))),
             ArrayView::List(view) => Ok(Self::List(ListDeserializer::new(
-                todo!(),
+                ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
                 buffer_from_bits_with_offset_opt(view.validity, view.offsets.len()),
             ))),
+            ArrayView::LargeList(view) => Ok(Self::LargeList(ListDeserializer::new(
+                ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
+                view.offsets,
+                buffer_from_bits_with_offset_opt(view.validity, view.offsets.len()),
+            ))),
+            ArrayView::Struct(view) => {
+                let mut fields = Vec::new();
+                for (field_view, field_meta) in view.fields {
+                    let field_deserializer =
+                        ArrayDeserializer::new(get_strategy(&field_meta)?.as_ref(), field_view)?;
+                    let field_name = field_meta.name;
+
+                    fields.push((field_name, field_deserializer));
+                }
+
+                Ok(Self::Struct(StructDeserializer::new(
+                    fields,
+                    buffer_from_bits_with_offset_opt(view.validity, view.len),
+                    view.len,
+                )))
+            }
             _ => unimplemented!(),
         }
     }
@@ -216,6 +237,21 @@ fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
         Some(tz) => fail!("unsupported timezone {}", tz),
         None => Ok(false),
     }
+}
+
+fn is_utc_date64(strategy: Option<&Strategy>) -> Result<bool> {
+    match strategy {
+        None | Some(Strategy::UtcStrAsDate64) => Ok(true),
+        Some(Strategy::NaiveStrAsDate64) => Ok(false),
+        Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
+    }
+}
+
+fn get_strategy(meta: &FieldMeta) -> Result<Option<Strategy>> {
+    let Some(strategy) = meta.metadata.get(STRATEGY_KEY) else {
+        return Ok(None);
+    };
+    Ok(Some(strategy.parse()?))
 }
 
 fn buffer_from_bits_with_offset(bits: BitsWithOffset, len: usize) -> BitBuffer {
