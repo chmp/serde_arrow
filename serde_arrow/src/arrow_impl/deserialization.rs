@@ -562,25 +562,25 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::Utf8(BytesArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                data: array.values(),
+                data: array.value_data(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericStringArray<i64>>() {
             Ok(ArrayView::LargeUtf8(BytesArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                data: array.values(),
+                data: array.value_data(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i32>>() {
             Ok(ArrayView::Binary(BytesArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                data: array.values(),
+                data: array.value_data(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericBinaryArray<i64>>() {
             Ok(ArrayView::LargeBinary(BytesArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                data: array.values(),
+                data: array.value_data(),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericListArray<i32>>() {
             let DataType::List(field) = array.data_type() else {
