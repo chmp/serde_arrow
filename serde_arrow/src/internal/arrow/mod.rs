@@ -6,9 +6,9 @@ mod data_type;
 pub use array::{
     Array, ArrayView, BitsWithOffset, BooleanArray, BooleanArrayView, BytesArray, BytesArrayView,
     DecimalArray, DecimalArrayView, DenseUnionArray, DenseUnionArrayView, DictionaryArray,
-    DictionaryArrayView, FieldMeta, FixedSizeBinaryArray, FixedSizeListArray,
-    FixedSizeListArrayView, ListArray, ListArrayView, NullArray, NullArrayView, PrimitiveArray,
-    PrimitiveArrayView, StructArray, StructArrayView, TimeArray, TimeArrayView, TimestampArray,
-    TimestampArrayView,
+    DictionaryArrayView, FieldMeta, FixedSizeBinaryArray, FixedSizeBinaryArrayView,
+    FixedSizeListArray, FixedSizeListArrayView, ListArray, ListArrayView, NullArray, NullArrayView,
+    PrimitiveArray, PrimitiveArrayView, StructArray, StructArrayView, TimeArray, TimeArrayView,
+    TimestampArray, TimestampArrayView,
 };
 pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};

@@ -7,19 +7,19 @@ use crate::internal::{
     },
     deserialization::{
         array_deserializer::ArrayDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer, utils::BitBuffer,
+        outer_sequence_deserializer::OuterSequenceDeserializer,
     },
     deserializer::Deserializer,
     error::{fail, Error, Result},
-    schema::{GenericDataType, GenericField},
+    schema::GenericField,
     serialization::utils::meta_from_field,
 };
 
 use crate::_impl::arrow::{
     array::{
-        Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
-        GenericListArray, GenericStringArray, MapArray, NullArray, PrimitiveArray, RecordBatch,
-        StructArray, UnionArray,
+        Array, BooleanArray, DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray,
+        GenericBinaryArray, GenericListArray, GenericStringArray, MapArray, NullArray,
+        PrimitiveArray, RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, DataType, Date32Type, Date64Type, Decimal128Type,
@@ -71,7 +71,24 @@ impl<'de> Deserializer<'de> {
             .map(|array| array.as_ref())
             .collect::<Vec<_>>();
 
-        let (deserializers, len) = build_struct_fields(&fields, &arrays)?;
+        if fields.len() != arrays.len() {
+            fail!(
+                "different number of fields ({}) and arrays ({})",
+                fields.len(),
+                arrays.len()
+            );
+        }
+        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+        let mut deserializers = Vec::new();
+        for (field, array) in std::iter::zip(&fields, arrays) {
+            if array.len() != len {
+                fail!("arrays of different lengths are not supported");
+            }
+
+            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
+            deserializers.push((field.name.clone(), deserializer));
+        }
 
         let deserializer = OuterSequenceDeserializer::new(deserializers, len);
         let deserializer = Deserializer(deserializer);
@@ -107,81 +124,6 @@ impl<'de> Deserializer<'de> {
         let schema = record_batch.schema();
         Deserializer::from_arrow(schema.fields(), record_batch.columns())
     }
-}
-
-pub fn build_array_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    use GenericDataType as T;
-    match &field.data_type {
-        T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
-        _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
-    }
-}
-
-pub fn build_struct_fields<'a>(
-    fields: &[GenericField],
-    arrays: &[&'a dyn Array],
-) -> Result<(Vec<(String, ArrayDeserializer<'a>)>, usize)> {
-    if fields.len() != arrays.len() {
-        fail!(
-            "different number of fields ({}) and arrays ({})",
-            fields.len(),
-            arrays.len()
-        );
-    }
-    let len = arrays.first().map(|array| array.len()).unwrap_or_default();
-
-    let mut deserializers = Vec::new();
-    for (field, &array) in std::iter::zip(fields, arrays) {
-        if array.len() != len {
-            fail!("arrays of different lengths are not supported");
-        }
-
-        deserializers.push((field.name.clone(), build_array_deserializer(field, array)?));
-    }
-
-    Ok((deserializers, len))
-}
-
-#[cfg(has_arrow_fixed_binary_support)]
-pub fn build_fixed_size_binary_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    use crate::_impl::arrow::array::FixedSizeBinaryArray;
-    use crate::internal::deserialization::fixed_size_binary_deserializer::FixedSizeBinaryDeserializer;
-
-    let Some(array) = array.as_any().downcast_ref::<FixedSizeBinaryArray>() else {
-        fail!("cannot convert {} array into string", array.data_type());
-    };
-
-    let shape = (array.len(), array.value_length().try_into()?);
-    let buffer = array.value_data();
-    let validity = get_validity(array);
-
-    Ok(FixedSizeBinaryDeserializer::new(shape, buffer, validity).into())
-}
-
-#[cfg(not(has_arrow_fixed_binary_support))]
-pub fn build_fixed_size_binary_deserializer<'a>(
-    _field: &GenericField,
-    _array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    fail!("FixedSizeBinary arrays are not supported for arrow<=46");
-}
-
-fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
-    let validity = arr.nulls()?;
-    let data = validity.validity();
-    let offset = validity.offset();
-    let number_of_bits = validity.len();
-    Some(BitBuffer {
-        data,
-        offset,
-        number_of_bits,
-    })
 }
 
 impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
@@ -378,6 +320,8 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 offsets: array.value_offsets(),
                 data: array.value_data(),
             }))
+        } else if let Some(array) = any.downcast_ref::<FixedSizeBinaryArray>() {
+            wrap_fixed_size_binary_array(array)
         } else if let Some(array) = any.downcast_ref::<GenericListArray<i32>>() {
             let DataType::List(field) = array.data_type() else {
                 fail!("invalid data type for list array: {}", array.data_type());
@@ -497,6 +441,22 @@ fn wrap_dictionary_array<K: ArrowDictionaryKeyType>(
         indices: Box::new(keys.try_into()?),
         values: Box::new(array.values().as_ref().try_into()?),
     }))
+}
+
+#[cfg(has_arrow_fixed_binary_support)]
+pub fn wrap_fixed_size_binary_array<'a>(array: &'a FixedSizeBinaryArray) -> Result<ArrayView<'a>> {
+    use crate::internal::arrow::FixedSizeBinaryArrayView;
+
+    Ok(ArrayView::FixedSizeBinary(FixedSizeBinaryArrayView {
+        n: array.value_length(),
+        validity: get_bits_with_offset(array),
+        data: array.value_data(),
+    }))
+}
+
+#[cfg(not(has_arrow_fixed_binary_support))]
+pub fn wrap_fixed_size_binary_array<'a>(_array: &'a FixedSizeBinaryArray) -> Result<ArrayView<'a>> {
+    fail!("FixedSizeBinary arrays are not supported for arrow<=46");
 }
 
 fn get_bits_with_offset(array: &dyn Array) -> Option<BitsWithOffset<'_>> {

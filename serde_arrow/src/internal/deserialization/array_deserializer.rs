@@ -209,6 +209,19 @@ impl<'a> ArrayDeserializer<'a> {
                     view.offsets.len().saturating_sub(1),
                 ),
             ))),
+            ArrayView::FixedSizeBinary(view) => {
+                let value_length: usize = view.n.try_into()?;
+                if view.data.len() % value_length != 0 {
+                    fail!("Invalid FixedSizeBinary array: Data is not evenly divisible into chunks of size {value_length}");
+                }
+                let len = view.data.len() / value_length;
+
+                Ok(Self::FixedSizeBinary(FixedSizeBinaryDeserializer::new(
+                    (len, value_length),
+                    view.data,
+                    buffer_from_bits_with_offset_opt(view.validity, len),
+                )))
+            }
             ArrayView::List(view) => Ok(Self::List(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
@@ -332,7 +345,6 @@ impl<'a> ArrayDeserializer<'a> {
 
                 Ok(Self::Enum(EnumDeserializer::new(view.types, fields)))
             }
-            _ => unimplemented!(),
         }
     }
 }
