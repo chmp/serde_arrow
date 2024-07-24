@@ -1,11 +1,12 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        DictionaryArrayView, FixedSizeListArrayView, ListArrayView, NullArrayView,
-        PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
+        DenseUnionArrayView, DictionaryArrayView, FixedSizeListArrayView, ListArrayView,
+        NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
+        TimestampArrayView,
     },
     deserialization::{
-        array_deserializer::ArrayDeserializer, enum_deserializer::EnumDeserializer,
+        array_deserializer::ArrayDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer, utils::BitBuffer,
     },
     deserializer::Deserializer,
@@ -17,8 +18,8 @@ use crate::internal::{
 use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
-        GenericListArray, GenericStringArray, MapArray, NullArray, PrimitiveArray,
-        RecordBatch, StructArray, UnionArray,
+        GenericListArray, GenericStringArray, MapArray, NullArray, PrimitiveArray, RecordBatch,
+        StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, DataType, Date32Type, Date64Type, Decimal128Type,
@@ -115,7 +116,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
-        T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
 }
@@ -170,35 +170,6 @@ pub fn build_fixed_size_binary_deserializer<'a>(
     _array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
     fail!("FixedSizeBinary arrays are not supported for arrow<=46");
-}
-
-pub fn build_union_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<UnionArray>() else {
-        fail!(
-            "Cannot interpret {} array as a union array",
-            array.data_type()
-        );
-    };
-
-    if !matches!(array.data_type(), DataType::Union(_, UnionMode::Dense)) {
-        fail!("Invalid data type: only dense unions are supported");
-    }
-
-    let type_ids = array.type_ids();
-
-    let mut variants = Vec::new();
-    for (type_id, field) in field.children.iter().enumerate() {
-        // TODO: how to prevent a panic? + validate the order / type_ids
-        let name = field.name.to_owned();
-        let deser = build_array_deserializer(field, array.child(type_id.try_into()?).as_ref())?;
-
-        variants.push((name, deser));
-    }
-
-    Ok(EnumDeserializer::new(type_ids, variants).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
@@ -483,6 +454,31 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             wrap_dictionary_array::<Int32Type>(array)
         } else if let Some(array) = any.downcast_ref::<DictionaryArray<Int64Type>>() {
             wrap_dictionary_array::<Int64Type>(array)
+        } else if let Some(array) = any.downcast_ref::<UnionArray>() {
+            let DataType::Union(union_fields, UnionMode::Dense) = array.data_type() else {
+                fail!("Invalid data type: only dense unions are supported");
+            };
+
+            let mut fields = Vec::new();
+            for (type_idx, (type_id, field)) in union_fields.iter().enumerate() {
+                if type_id < 0 || usize::try_from(type_id)? != type_idx {
+                    fail!("invalid union, only unions with consecutive variants are supported");
+                }
+
+                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+                let view: ArrayView = array.child(type_id).as_ref().try_into()?;
+                fields.push((view, meta));
+            }
+            let Some(offsets) = array.offsets() else {
+                fail!("Dense unions must have an offset array");
+            };
+
+            // array.type_ids()
+            Ok(ArrayView::DenseUnion(DenseUnionArrayView {
+                types: array.type_ids(),
+                offsets,
+                fields,
+            }))
         } else {
             fail!(
                 "Cannot build an array view for {dt}",

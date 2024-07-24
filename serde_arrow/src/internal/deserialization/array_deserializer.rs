@@ -322,6 +322,16 @@ impl<'a> ArrayDeserializer<'a> {
                 ),
                 _ => fail!("unsupported dictionary array"),
             },
+            ArrayView::DenseUnion(view) => {
+                let mut fields = Vec::new();
+                for (field_view, field_meta) in view.fields {
+                    let field_deserializer =
+                        ArrayDeserializer::new(get_strategy(&field_meta)?.as_ref(), field_view)?;
+                    fields.push((field_meta.name, field_deserializer))
+                }
+
+                Ok(Self::Enum(EnumDeserializer::new(view.types, fields)))
+            }
             _ => unimplemented!(),
         }
     }
