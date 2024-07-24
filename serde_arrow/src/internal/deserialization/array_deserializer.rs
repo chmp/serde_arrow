@@ -2,23 +2,32 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    arrow::{ArrayView, BitsWithOffset, FieldMeta, TimeUnit},
+    arrow::{ArrayView, BitsWithOffset, BytesArrayView, FieldMeta, PrimitiveArrayView, TimeUnit},
     error::{fail, Error, Result},
     schema::{Strategy, STRATEGY_KEY},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
 use super::{
-    binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
-    date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
-    decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
+    binary_deserializer::BinaryDeserializer,
+    bool_deserializer::BoolDeserializer,
+    date32_deserializer::Date32Deserializer,
+    date64_deserializer::Date64Deserializer,
+    decimal_deserializer::DecimalDeserializer,
+    dictionary_deserializer::DictionaryDeserializer,
     enum_deserializer::EnumDeserializer,
     fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
-    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
-    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
-    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
-    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer, utils::BitBuffer,
+    fixed_size_list_deserializer::FixedSizeListDeserializer,
+    float_deserializer::FloatDeserializer,
+    integer_deserializer::{Integer, IntegerDeserializer},
+    list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer,
+    null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer,
+    string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer,
+    time_deserializer::TimeDeserializer,
+    utils::BitBuffer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -262,9 +271,76 @@ impl<'a> ArrayDeserializer<'a> {
                     ),
                 )?))
             }
+            ArrayView::Dictionary(view) => match (*view.indices, *view.values) {
+                (ArrayView::Int8(keys), ArrayView::Utf8(values)) => {
+                    Ok(Self::DictionaryI8I32(build_dictionary_array(keys, values)?))
+                }
+                (ArrayView::Int16(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI16I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::Int32(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI32I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::Int64(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI64I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::UInt8(keys), ArrayView::Utf8(values)) => {
+                    Ok(Self::DictionaryU8I32(build_dictionary_array(keys, values)?))
+                }
+                (ArrayView::UInt16(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU16I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::UInt32(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU32I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::UInt64(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU64I32(
+                    build_dictionary_array(keys, values)?,
+                )),
+                (ArrayView::Int8(keys), ArrayView::LargeUtf8(values)) => {
+                    Ok(Self::DictionaryI8I64(build_dictionary_array(keys, values)?))
+                }
+                (ArrayView::Int16(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryI16I64(build_dictionary_array(keys, values)?),
+                ),
+                (ArrayView::Int32(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryI32I64(build_dictionary_array(keys, values)?),
+                ),
+                (ArrayView::Int64(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryI64I64(build_dictionary_array(keys, values)?),
+                ),
+                (ArrayView::UInt8(keys), ArrayView::LargeUtf8(values)) => {
+                    Ok(Self::DictionaryU8I64(build_dictionary_array(keys, values)?))
+                }
+                (ArrayView::UInt16(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryU16I64(build_dictionary_array(keys, values)?),
+                ),
+                (ArrayView::UInt32(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryU32I64(build_dictionary_array(keys, values)?),
+                ),
+                (ArrayView::UInt64(keys), ArrayView::LargeUtf8(values)) => Ok(
+                    Self::DictionaryU64I64(build_dictionary_array(keys, values)?),
+                ),
+                _ => fail!("unsupported dictionary array"),
+            },
             _ => unimplemented!(),
         }
     }
+}
+
+fn build_dictionary_array<'a, K: Integer, V: Offset>(
+    keys: PrimitiveArrayView<'a, K>,
+    values: BytesArrayView<'a, V>,
+) -> Result<DictionaryDeserializer<'a, K, V>> {
+    if values.validity.is_some() {
+        // TODO: check whether all values are defined?
+        fail!("dictionaries with nullable values are not supported");
+    }
+    Ok(DictionaryDeserializer::new(
+        keys.values,
+        buffer_from_bits_with_offset_opt(keys.validity, keys.values.len()),
+        values.data,
+        values.offsets,
+    ))
 }
 
 fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {

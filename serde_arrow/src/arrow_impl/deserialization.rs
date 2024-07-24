@@ -1,25 +1,23 @@
 use crate::internal::{
     arrow::{
         ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        FixedSizeListArrayView, ListArrayView, NullArrayView, PrimitiveArrayView, StructArrayView,
-        TimeArrayView, TimeUnit, TimestampArrayView,
+        DictionaryArrayView, FixedSizeListArrayView, ListArrayView, NullArrayView,
+        PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit, TimestampArrayView,
     },
     deserialization::{
-        array_deserializer::ArrayDeserializer, dictionary_deserializer::DictionaryDeserializer,
-        enum_deserializer::EnumDeserializer, integer_deserializer::Integer,
+        array_deserializer::ArrayDeserializer, enum_deserializer::EnumDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer, utils::BitBuffer,
     },
     deserializer::Deserializer,
     error::{fail, Error, Result},
     schema::{GenericDataType, GenericField},
     serialization::utils::meta_from_field,
-    utils::Offset,
 };
 
 use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, FixedSizeListArray, GenericBinaryArray,
-        GenericListArray, GenericStringArray, MapArray, NullArray, OffsetSizeTrait, PrimitiveArray,
+        GenericListArray, GenericStringArray, MapArray, NullArray, PrimitiveArray,
         RecordBatch, StructArray, UnionArray,
     },
     datatypes::{
@@ -118,78 +116,7 @@ pub fn build_array_deserializer<'a>(
     match &field.data_type {
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
-        T::Dictionary => build_dictionary_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
-    }
-}
-
-pub fn build_dictionary_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    use GenericDataType as T;
-
-    let Some(key_field) = field.children.first() else {
-        fail!("Missing key field");
-    };
-    let Some(value_field) = field.children.get(1) else {
-        fail!("Missing key field");
-    };
-
-    return match (&key_field.data_type, &value_field.data_type) {
-        (T::U8, T::Utf8) => typed::<UInt8Type, i32>(field, array),
-        (T::U16, T::Utf8) => typed::<UInt16Type, i32>(field, array),
-        (T::U32, T::Utf8) => typed::<UInt32Type, i32>(field, array),
-        (T::U64, T::Utf8) => typed::<UInt64Type, i32>(field, array),
-        (T::I8, T::Utf8) => typed::<Int8Type, i32>(field, array),
-        (T::I16, T::Utf8) => typed::<Int16Type, i32>(field, array),
-        (T::I32, T::Utf8) => typed::<Int32Type, i32>(field, array),
-        (T::I64, T::Utf8) => typed::<Int64Type, i32>(field, array),
-        (T::U8, T::LargeUtf8) => typed::<UInt8Type, i64>(field, array),
-        (T::U16, T::LargeUtf8) => typed::<UInt16Type, i64>(field, array),
-        (T::U32, T::LargeUtf8) => typed::<UInt32Type, i64>(field, array),
-        (T::U64, T::LargeUtf8) => typed::<UInt64Type, i64>(field, array),
-        (T::I8, T::LargeUtf8) => typed::<Int8Type, i64>(field, array),
-        (T::I16, T::LargeUtf8) => typed::<Int16Type, i64>(field, array),
-        (T::I32, T::LargeUtf8) => typed::<Int32Type, i64>(field, array),
-        (T::I64, T::LargeUtf8) => typed::<Int64Type, i64>(field, array),
-        _ => fail!("invalid dicitonary key / value data type"),
-    };
-
-    pub fn typed<'a, K, V>(
-        _field: &GenericField,
-        array: &'a dyn Array,
-    ) -> Result<ArrayDeserializer<'a>>
-    where
-        K: ArrowDictionaryKeyType,
-        K::Native: Integer,
-        V: OffsetSizeTrait + Offset,
-        DictionaryDeserializer<'a, K::Native, V>: Into<ArrayDeserializer<'a>>,
-    {
-        let Some(array) = array.as_any().downcast_ref::<DictionaryArray<K>>() else {
-            fail!(
-                "cannot convert {} array into dictionary array",
-                array.data_type()
-            );
-        };
-        let Some(values) = array
-            .values()
-            .as_any()
-            .downcast_ref::<GenericStringArray<V>>()
-        else {
-            fail!("invalid values");
-        };
-
-        let keys_buffer = array.keys().values();
-        let keys_validity = get_validity(array);
-
-        let values_data = values.value_data();
-        let values_offsets = values.value_offsets();
-
-        Ok(
-            DictionaryDeserializer::new(keys_buffer, keys_validity, values_data, values_offsets)
-                .into(),
-        )
     }
 }
 
@@ -540,6 +467,22 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 meta: meta_from_field(GenericField::try_from(entries_field.as_ref())?)?,
                 element: Box::new(entries_array.try_into()?),
             }))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt8Type>>() {
+            wrap_dictionary_array::<UInt8Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt16Type>>() {
+            wrap_dictionary_array::<UInt16Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt32Type>>() {
+            wrap_dictionary_array::<UInt32Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt64Type>>() {
+            wrap_dictionary_array::<UInt64Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<Int8Type>>() {
+            wrap_dictionary_array::<Int8Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<Int16Type>>() {
+            wrap_dictionary_array::<Int16Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<Int32Type>>() {
+            wrap_dictionary_array::<Int32Type>(array)
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<Int64Type>>() {
+            wrap_dictionary_array::<Int64Type>(array)
         } else {
             fail!(
                 "Cannot build an array view for {dt}",
@@ -547,6 +490,17 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             );
         }
     }
+}
+
+fn wrap_dictionary_array<K: ArrowDictionaryKeyType>(
+    array: &DictionaryArray<K>,
+) -> Result<ArrayView<'_>> {
+    let keys: &dyn Array = array.keys();
+
+    Ok(ArrayView::Dictionary(DictionaryArrayView {
+        indices: Box::new(keys.try_into()?),
+        values: Box::new(array.values().as_ref().try_into()?),
+    }))
 }
 
 fn get_bits_with_offset(array: &dyn Array) -> Option<BitsWithOffset<'_>> {
