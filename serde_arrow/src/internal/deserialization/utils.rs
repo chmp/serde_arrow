@@ -1,4 +1,7 @@
-use crate::internal::error::{error, fail, Result};
+use crate::internal::{
+    error::{error, fail, Result},
+    utils::Offset,
+};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BitBuffer<'a> {
@@ -81,13 +84,10 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 /// **non-empty** segment in the child array."
 ///
 /// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
-pub fn check_supported_list_layout<'a, O>(
+pub fn check_supported_list_layout<'a, O: Offset>(
     validity: Option<BitBuffer<'a>>,
     offsets: &'a [O],
-) -> Result<()>
-where
-    O: std::ops::Sub<Output = O> + std::cmp::PartialEq + From<i32> + Copy,
-{
+) -> Result<()> {
     let Some(validity) = validity else {
         return Ok(());
     };
@@ -101,7 +101,9 @@ where
         );
     }
     for i in 0..validity.len() {
-        if !validity.is_set(i) && (offsets[i + 1] - offsets[i]) != O::from(0) {
+        let curr = offsets[i].try_into_usize()?;
+        let next = offsets[i + 1].try_into_usize()?;
+        if !validity.is_set(i) && (next - curr) != 0 {
             fail!("lists with data in null values are currently not supported in deserialization");
         }
     }

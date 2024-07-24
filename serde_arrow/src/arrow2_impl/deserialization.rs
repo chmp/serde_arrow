@@ -370,7 +370,7 @@ where
     };
     let item = build_array_deserializer(item_field, array.values().as_ref())?;
 
-    Ok(ListDeserializer::new(item, offsets, validity).into())
+    Ok(ListDeserializer::new(item, offsets, validity)?.into())
 }
 
 pub fn build_map_deserializer<'a>(
@@ -407,7 +407,7 @@ pub fn build_map_deserializer<'a>(
     let keys = build_array_deserializer(keys_field, keys.as_ref())?;
     let values = build_array_deserializer(values_field, values.as_ref())?;
 
-    Ok(MapDeserializer::new(keys, values, offsets, validity).into())
+    Ok(MapDeserializer::new(keys, values, offsets, validity)?.into())
 }
 
 pub fn build_union_deserializer<'a>(

@@ -207,7 +207,7 @@ impl<'a> ArrayDeserializer<'a> {
                     view.validity,
                     view.offsets.len().saturating_sub(1),
                 ),
-            ))),
+            )?)),
             ArrayView::LargeList(view) => Ok(Self::LargeList(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
@@ -215,7 +215,7 @@ impl<'a> ArrayDeserializer<'a> {
                     view.validity,
                     view.offsets.len().saturating_sub(1),
                 ),
-            ))),
+            )?)),
             ArrayView::FixedSizeList(view) => {
                 Ok(Self::FixedSizeList(FixedSizeListDeserializer::new(
                     ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
@@ -239,6 +239,28 @@ impl<'a> ArrayDeserializer<'a> {
                     buffer_from_bits_with_offset_opt(view.validity, view.len),
                     view.len,
                 )))
+            }
+            ArrayView::Map(view) => {
+                let ArrayView::Struct(entries_view) = *view.element else {
+                    fail!("invalid entries field in map array");
+                };
+                let Ok(entries_fields) = <[_; 2]>::try_from(entries_view.fields) else {
+                    fail!("invalid entries field in map array")
+                };
+                let [(keys_view, keys_meta), (values_view, values_meta)] = entries_fields;
+                let keys = ArrayDeserializer::new(get_strategy(&keys_meta)?.as_ref(), keys_view)?;
+                let values =
+                    ArrayDeserializer::new(get_strategy(&values_meta)?.as_ref(), values_view)?;
+
+                Ok(Self::Map(MapDeserializer::new(
+                    keys,
+                    values,
+                    view.offsets,
+                    buffer_from_bits_with_offset_opt(
+                        view.validity,
+                        view.offsets.len().saturating_sub(1),
+                    ),
+                )?))
             }
             _ => unimplemented!(),
         }

@@ -5,13 +5,9 @@ use crate::internal::{
         TimeArrayView, TimeUnit, TimestampArrayView,
     },
     deserialization::{
-        array_deserializer::ArrayDeserializer,
-        dictionary_deserializer::DictionaryDeserializer,
-        enum_deserializer::EnumDeserializer,
-        integer_deserializer::Integer,
-        map_deserializer::MapDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer,
-        utils::{check_supported_list_layout, BitBuffer},
+        array_deserializer::ArrayDeserializer, dictionary_deserializer::DictionaryDeserializer,
+        enum_deserializer::EnumDeserializer, integer_deserializer::Integer,
+        outer_sequence_deserializer::OuterSequenceDeserializer, utils::BitBuffer,
     },
     deserializer::Deserializer,
     error::{fail, Error, Result},
@@ -121,7 +117,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::FixedSizeBinary(_) => build_fixed_size_binary_deserializer(field, array),
-        T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
@@ -248,34 +243,6 @@ pub fn build_fixed_size_binary_deserializer<'a>(
     _array: &'a dyn Array,
 ) -> Result<ArrayDeserializer<'a>> {
     fail!("FixedSizeBinary arrays are not supported for arrow<=46");
-}
-
-pub fn build_map_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(entries_field) = field.children.first() else {
-        fail!("cannot get children of map");
-    };
-    let Some(keys_field) = entries_field.children.first() else {
-        fail!("cannot get keys field");
-    };
-    let Some(values_field) = entries_field.children.get(1) else {
-        fail!("cannot get values field");
-    };
-    let Some(array) = array.as_any().downcast_ref::<MapArray>() else {
-        fail!("cannot convert {} array into map array", array.data_type());
-    };
-
-    let offsets = array.value_offsets();
-    let validity = get_validity(array);
-
-    check_supported_list_layout(validity, offsets)?;
-
-    let key = build_array_deserializer(keys_field, array.keys())?;
-    let value = build_array_deserializer(values_field, array.values())?;
-
-    Ok(MapDeserializer::new(key, value, offsets, validity).into())
 }
 
 pub fn build_union_deserializer<'a>(
@@ -560,6 +527,18 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 len: array.len(),
                 validity: get_bits_with_offset(array),
                 fields,
+            }))
+        } else if let Some(array) = any.downcast_ref::<MapArray>() {
+            let DataType::Map(entries_field, _) = array.data_type() else {
+                fail!("invalid data type for map array: {}", array.data_type());
+            };
+            let entries_array: &dyn Array = array.entries();
+
+            Ok(ArrayView::Map(ListArrayView {
+                validity: get_bits_with_offset(array),
+                offsets: array.value_offsets(),
+                meta: meta_from_field(GenericField::try_from(entries_field.as_ref())?)?,
+                element: Box::new(entries_array.try_into()?),
             }))
         } else {
             fail!(

@@ -6,8 +6,9 @@ use crate::internal::{
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::BitBuffer,
+    array_deserializer::ArrayDeserializer,
+    simple_deserializer::SimpleDeserializer,
+    utils::{check_supported_list_layout, BitBuffer},
 };
 
 pub struct ListDeserializer<'a, O: Offset> {
@@ -22,13 +23,15 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
         item: ArrayDeserializer<'a>,
         offsets: &'a [O],
         validity: Option<BitBuffer<'a>>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        check_supported_list_layout(validity, offsets)?;
+
+        Ok(Self {
             item: Box::new(item),
             offsets,
             validity,
             next: (0, 0),
-        }
+        })
     }
 
     pub fn peek_next(&self) -> Result<bool> {
