@@ -17,6 +17,7 @@ use crate::internal::{
         outer_sequence_deserializer::OuterSequenceDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
+        time_deserializer::TimeDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
     deserializer::Deserializer,
@@ -88,7 +89,7 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Null => Ok(NullDeserializer.into()),
+        T::Null => Ok(ArrayDeserializer::Null(NullDeserializer)),
         T::Bool => build_bool_deserializer(field, array),
         T::U8 => build_integer_deserializer::<u8>(field, array),
         T::U16 => build_integer_deserializer::<u16>(field, array),
@@ -104,16 +105,16 @@ pub fn build_array_deserializer<'a>(
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
-        T::Time32(_) => construction::build_time32_deserializer(
-            field,
+        T::Time32(unit) => Ok(ArrayDeserializer::Time32(TimeDeserializer::new(
             as_primitive_values::<i32>(array)?,
             get_validity(array),
-        ),
-        T::Time64(_) => construction::build_time64_deserializer(
-            field,
+            *unit,
+        ))),
+        T::Time64(unit) => Ok(ArrayDeserializer::Time64(TimeDeserializer::new(
             as_primitive_values::<i64>(array)?,
             get_validity(array),
-        ),
+            *unit,
+        ))),
         T::Timestamp(_, _) => construction::build_timestamp_deserializer(
             field,
             as_primitive_values::<i64>(array)?,
@@ -151,7 +152,9 @@ pub fn build_bool_deserializer<'a>(
     };
     let validity = get_validity(array);
 
-    Ok(BoolDeserializer::new(buffer, validity).into())
+    Ok(ArrayDeserializer::Bool(BoolDeserializer::new(
+        buffer, validity,
+    )))
 }
 
 pub fn build_integer_deserializer<'a, T>(
@@ -367,7 +370,7 @@ where
     };
     let item = build_array_deserializer(item_field, array.values().as_ref())?;
 
-    Ok(ListDeserializer::new(item, offsets, validity).into())
+    Ok(ListDeserializer::new(item, offsets, validity)?.into())
 }
 
 pub fn build_map_deserializer<'a>(
@@ -404,7 +407,7 @@ pub fn build_map_deserializer<'a>(
     let keys = build_array_deserializer(keys_field, keys.as_ref())?;
     let values = build_array_deserializer(values_field, values.as_ref())?;
 
-    Ok(MapDeserializer::new(keys, values, offsets, validity).into())
+    Ok(MapDeserializer::new(keys, values, offsets, validity)?.into())
 }
 
 pub fn build_union_deserializer<'a>(

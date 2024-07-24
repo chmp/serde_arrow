@@ -6,8 +6,9 @@ use crate::internal::{
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::BitBuffer,
+    array_deserializer::ArrayDeserializer,
+    simple_deserializer::SimpleDeserializer,
+    utils::{check_supported_list_layout, BitBuffer},
 };
 
 pub struct MapDeserializer<'a> {
@@ -24,14 +25,16 @@ impl<'a> MapDeserializer<'a> {
         value: ArrayDeserializer<'a>,
         offsets: &'a [i32],
         validity: Option<BitBuffer<'a>>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        check_supported_list_layout(validity, offsets)?;
+
+        Ok(Self {
             key: Box::new(key),
             value: Box::new(value),
             offsets,
             validity,
             next: (0, 0),
-        }
+        })
     }
 
     pub fn peek_next(&self) -> Result<bool> {

@@ -4,10 +4,9 @@ use crate::internal::{
     schema::{GenericDataType, GenericField, Strategy},
 };
 
-use super::{
-    array_deserializer::ArrayDeserializer, time_deserializer::TimeDeserializer, utils::BitBuffer,
-};
+use super::{array_deserializer::ArrayDeserializer, utils::BitBuffer};
 
+#[allow(unused)]
 pub fn build_timestamp_deserializer<'a>(
     field: &GenericField,
     values: &'a [i64],
@@ -33,28 +32,4 @@ pub fn build_timestamp_deserializer<'a>(
     }
 
     Ok(Date64Deserializer::new(values, validity, *unit, field.is_utc()?).into())
-}
-
-pub fn build_time32_deserializer<'a>(
-    field: &GenericField,
-    values: &'a [i32],
-    validity: Option<BitBuffer<'a>>,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Time32(unit) = &field.data_type else {
-        fail!("invalid data type for time64");
-    };
-
-    Ok(TimeDeserializer::<i32>::new(values, validity, *unit).into())
-}
-
-pub fn build_time64_deserializer<'a>(
-    field: &GenericField,
-    values: &'a [i64],
-    validity: Option<BitBuffer<'a>>,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Time64(unit) = &field.data_type else {
-        fail!("invalid data type for time64");
-    };
-
-    Ok(TimeDeserializer::<i64>::new(values, validity, *unit).into())
 }

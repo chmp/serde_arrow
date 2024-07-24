@@ -1,12 +1,14 @@
 //! A common arrow abstraction to simplify conversion between different arrow
 //! implementations
 mod array;
-mod array_view;
 mod data_type;
 
 pub use array::{
-    Array, BooleanArray, BytesArray, DecimalArray, DenseUnionArray, DictionaryArray, FieldMeta,
-    FixedSizeBinaryArray, FixedSizeListArray, ListArray, NullArray, PrimitiveArray, StructArray,
-    TimeArray, TimestampArray,
+    Array, ArrayView, BitsWithOffset, BooleanArray, BooleanArrayView, BytesArray, BytesArrayView,
+    DecimalArray, DecimalArrayView, DenseUnionArray, DenseUnionArrayView, DictionaryArray,
+    DictionaryArrayView, FieldMeta, FixedSizeBinaryArray, FixedSizeBinaryArrayView,
+    FixedSizeListArray, FixedSizeListArrayView, ListArray, ListArrayView, NullArray, NullArrayView,
+    PrimitiveArray, PrimitiveArrayView, StructArray, StructArrayView, TimeArray, TimeArrayView,
+    TimestampArray, TimestampArrayView,
 };
 pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};
