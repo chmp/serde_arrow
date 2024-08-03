@@ -53,6 +53,11 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                 arr.values,
                 arr.validity,
             ),
+            A::Decimal128(arr) => build_primitive_array(
+                T::Decimal(arr.precision as usize, usize::try_from(arr.scale)?),
+                arr.values,
+                arr.validity,
+            ),
             _ => fail!("cannot convert array to arrow2 array"),
         }
     }
