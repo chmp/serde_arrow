@@ -2,11 +2,10 @@
 //!
 use crate::{
     _impl::arrow2::{
-        array::{Array, DictionaryArray, DictionaryKey, MapArray, PrimitiveArray, UnionArray},
+        array::{Array, DictionaryArray, DictionaryKey, PrimitiveArray, UnionArray},
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::{DataType, Field},
-        offset::OffsetsBuffer,
     },
     internal::{
         error::{fail, Result},
@@ -18,41 +17,6 @@ use crate::{
 pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
     use {ArrayBuilder as A, DataType as T};
     match builder {
-        A::Null(_)
-        | A::UnknownVariant(_)
-        | A::I8(_)
-        | A::I16(_)
-        | A::I32(_)
-        | A::I64(_)
-        | A::U8(_)
-        | A::U16(_)
-        | A::U32(_)
-        | A::U64(_)
-        | A::F16(_)
-        | A::F32(_)
-        | A::F64(_)
-        | A::Date32(_)
-        | A::Date64(_)
-        | A::Duration(_)
-        | A::Time32(_)
-        | A::Time64(_)
-        | A::Decimal128(_)
-        | A::Bool(_)
-        | A::Utf8(_)
-        | A::LargeUtf8(_)
-        | A::Binary(_)
-        | A::LargeBinary(_)
-        | A::List(_)
-        | A::LargeList(_)
-        | A::Struct(_)
-        | A::FixedSizedList(_)
-        | A::FixedSizeBinary(_) => builder.into_array()?.try_into(),
-        A::Map(builder) => Ok(Box::new(MapArray::try_new(
-            T::Map(Box::new(Field::try_from(&builder.entry_field)?), false),
-            OffsetsBuffer::try_from(builder.offsets.offsets)?,
-            build_array(*builder.entry)?,
-            build_validity(builder.validity),
-        )?)),
         A::DictionaryUtf8(builder) => {
             let values = build_array(*builder.values)?;
             match *builder.indices {
@@ -97,6 +61,7 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
                 Some(Buffer::from(builder.offsets)),
             )?))
         }
+        _ => builder.into_array()?.try_into(),
     }
 }
 

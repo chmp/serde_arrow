@@ -1,8 +1,8 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array as A2Array, BinaryArray, BooleanArray, ListArray, NullArray, PrimitiveArray,
-            StructArray, Utf8Array,
+            Array as A2Array, BinaryArray, BooleanArray, ListArray, MapArray, NullArray,
+            PrimitiveArray, StructArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
@@ -104,6 +104,19 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                     T::Struct(fields),
                     values,
                     arr.validity.map(|v| Bitmap::from_u8_vec(v, arr.len)),
+                )))
+            }
+            A::Map(arr) => {
+                let child: Box<dyn A2Array> = (*arr.element).try_into()?;
+                let field = field_from_array_and_meta(child.as_ref(), arr.meta);
+                let validity = arr
+                    .validity
+                    .map(|v| Bitmap::from_u8_vec(v, arr.offsets.len().saturating_sub(1)));
+                Ok(Box::new(MapArray::new(
+                    T::Map(Box::new(field), false),
+                    arr.offsets.try_into()?,
+                    child,
+                    validity,
                 )))
             }
             A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
