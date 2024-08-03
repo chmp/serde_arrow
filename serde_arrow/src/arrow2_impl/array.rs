@@ -11,7 +11,9 @@ use crate::{
     },
     internal::{
         arrow::{
-            Array, ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, TimeArrayView, TimestampArrayView
+            Array, ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
+            FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView,
+            TimeArrayView, TimestampArrayView,
         },
         error::{fail, Error, Result},
     },
@@ -152,7 +154,10 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
             Ok(V::Boolean(BooleanArrayView {
                 len: array.len(),
                 validity: bits_with_offset_from_bitmap(array.validity()),
-                values: BitsWithOffset { offset: values_offset, data: values_data },
+                values: BitsWithOffset {
+                    offset: values_offset,
+                    data: values_data,
+                },
             }))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i8>>() {
             Ok(V::Int8(view_primitive_array(array)))
@@ -218,6 +223,30 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
             Ok(V::Float32(view_primitive_array(array)))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<f64>>() {
             Ok(V::Float64(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<Utf8Array<i32>>() {
+            Ok(V::Utf8(BytesArrayView {
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                data: array.values().as_slice(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<Utf8Array<i64>>() {
+            Ok(V::LargeUtf8(BytesArrayView {
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                data: array.values().as_slice(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<BinaryArray<i32>>() {
+            Ok(V::Binary(BytesArrayView {
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                data: array.values().as_slice(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<BinaryArray<i64>>() {
+            Ok(V::LargeBinary(BytesArrayView {
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                data: array.values().as_slice(),
+            }))
         } else {
             fail!(
                 "Cannot convert array with data type {:?} into an array view",

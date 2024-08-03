@@ -6,7 +6,6 @@ use crate::internal::{
         integer_deserializer::Integer,
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
-        string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
@@ -17,8 +16,8 @@ use crate::internal::{
 
 use crate::_impl::arrow2::{
     array::{
-        Array, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray,
-        UnionArray, Utf8Array,
+        Array, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray, UnionArray,
+        Utf8Array,
     },
     datatypes::{DataType, UnionMode},
     types::Offset as ArrowOffset,
@@ -30,39 +29,16 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Utf8 => build_string_deserializer::<i32>(field, array),
-        T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
         T::Struct => build_struct_deserializer(field, array),
         T::List => build_list_deserializer::<i32>(field, array),
         T::LargeList => build_list_deserializer::<i64>(field, array),
-        T::Binary => fail!("Binary is not supported by arrow2"),
-        T::LargeBinary => fail!("LargeBinary is not supported by arrow2"),
         T::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
         T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
-}
-
-pub fn build_string_deserializer<'a, O>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    O: ArrowOffset + Offset,
-    ArrayDeserializer<'a>: From<StringDeserializer<'a, O>>,
-{
-    let Some(array) = array.as_any().downcast_ref::<Utf8Array<O>>() else {
-        fail!("cannot interpret array as Utf8 array");
-    };
-
-    let buffer = array.values().as_slice();
-    let offsets = array.offsets().as_slice();
-    let validity = get_validity(array);
-
-    Ok(StringDeserializer::new(buffer, offsets, validity).into())
 }
 
 pub fn build_dictionary_deserializer<'a>(

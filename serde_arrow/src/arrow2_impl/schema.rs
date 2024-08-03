@@ -176,6 +176,8 @@ impl TryFrom<&Field> for GenericField {
                 children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
                 T::Dictionary
             }
+            DataType::Binary => T::Binary,
+            DataType::LargeBinary => T::LargeBinary,
             dt => fail!("Cannot convert data type {dt:?}"),
         };
 

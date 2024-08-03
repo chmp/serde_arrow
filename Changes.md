@@ -2,6 +2,7 @@
 
 ## 0.12
 
+- Add `Binary` / `LargeBinary` support for `arrow2`
 - Remove `serde_arrow::schema::Schema`
 - Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
 - Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
