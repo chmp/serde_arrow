@@ -1,16 +1,16 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array as A2Array, BinaryArray, BooleanArray, ListArray, MapArray, NullArray,
-            PrimitiveArray, StructArray, UnionArray, Utf8Array,
+            Array as A2Array, BinaryArray, BooleanArray, DictionaryArray, DictionaryKey, ListArray,
+            MapArray, NullArray, PrimitiveArray, StructArray, UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
-        datatypes::{DataType, Field, UnionMode},
+        datatypes::{DataType, Field, IntegerType, UnionMode},
         types::{f16, NativeType, Offset},
     },
     internal::{
-        arrow::{Array, FieldMeta},
+        arrow::{Array, FieldMeta, PrimitiveArray as InternalPrimitiveArray},
         error::{fail, Error, Result},
     },
 };
@@ -19,7 +19,7 @@ impl TryFrom<Array> for Box<dyn A2Array> {
     type Error = Error;
 
     fn try_from(value: Array) -> Result<Self> {
-        use {Array as A, DataType as T};
+        use {Array as A, DataType as T, IntegerType as I};
         match value {
             A::Null(arr) => Ok(Box::new(NullArray::new(T::Null, arr.len))),
             A::Boolean(arr) => Ok(Box::new(BooleanArray::try_new(
@@ -74,6 +74,18 @@ impl TryFrom<Array> for Box<dyn A2Array> {
             A::LargeBinary(arr) => {
                 build_binary_array(T::LargeBinary, arr.offsets, arr.data, arr.validity)
             }
+            A::Dictionary(arr) => match *arr.indices {
+                A::Int8(indices) => build_dictionary_array(I::Int8, indices, *arr.values),
+                A::Int16(indices) => build_dictionary_array(I::Int16, indices, *arr.values),
+                A::Int32(indices) => build_dictionary_array(I::Int32, indices, *arr.values),
+                A::Int64(indices) => build_dictionary_array(I::Int64, indices, *arr.values),
+                A::UInt8(indices) => build_dictionary_array(I::UInt8, indices, *arr.values),
+                A::UInt16(indices) => build_dictionary_array(I::UInt16, indices, *arr.values),
+                A::UInt32(indices) => build_dictionary_array(I::UInt32, indices, *arr.values),
+                A::UInt64(indices) => build_dictionary_array(I::UInt64, indices, *arr.values),
+                // TODO: improve error message by including the data type
+                _ => fail!("unsupported dictionary index array during arrow2 conversion"),
+            },
             A::List(arr) => build_list_array(
                 T::List,
                 arr.offsets,
@@ -120,7 +132,6 @@ impl TryFrom<Array> for Box<dyn A2Array> {
             }
             A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
             A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
-            arr => fail!("cannot convert array {arr:?} to arrow2 array"),
         }
     }
 }
@@ -203,4 +214,22 @@ fn array_with_meta_to_array_and_fields(
     }
 
     Ok((res_arrays, res_fields))
+}
+
+fn build_dictionary_array<K: DictionaryKey>(
+    indices_type: IntegerType,
+    indices: InternalPrimitiveArray<K>,
+    values: Array,
+) -> Result<Box<dyn A2Array>> {
+    let values: Box<dyn A2Array> = values.try_into()?;
+    let validity = indices
+        .validity
+        .map(|v| Bitmap::from_u8_vec(v, indices.values.len()));
+    let keys = PrimitiveArray::new(indices_type.into(), indices.values.into(), validity);
+
+    Ok(Box::new(DictionaryArray::try_new(
+        DataType::Dictionary(indices_type, Box::new(values.data_type().clone()), false),
+        keys,
+        values,
+    )?))
 }

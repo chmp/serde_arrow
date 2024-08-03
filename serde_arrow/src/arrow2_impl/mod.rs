@@ -7,5 +7,4 @@ pub(crate) mod api;
 mod array;
 pub(crate) mod deserialization;
 mod schema;
-pub(crate) mod serialization;
 mod type_support;

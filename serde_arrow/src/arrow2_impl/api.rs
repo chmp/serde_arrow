@@ -112,7 +112,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
         let mut arrays = Vec::new();
         for field in self.builder.take_records()? {
-            arrays.push(super::serialization::build_array(field)?);
+            arrays.push(field.into_array()?.try_into()?);
         }
         Ok(arrays)
     }
