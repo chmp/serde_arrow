@@ -1,7 +1,6 @@
 use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer,
-        bool_deserializer::BoolDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         integer_deserializer::Integer,
@@ -18,7 +17,7 @@ use crate::internal::{
 
 use crate::_impl::arrow2::{
     array::{
-        Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray,
+        Array, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray,
         UnionArray, Utf8Array,
     },
     datatypes::{DataType, UnionMode},
@@ -31,7 +30,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Bool => build_bool_deserializer(field, array),
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -46,27 +44,6 @@ pub fn build_array_deserializer<'a>(
         T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
-}
-
-pub fn build_bool_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<BooleanArray>() else {
-        fail!("cannot interpret array as Bool array");
-    };
-
-    let (data, offset, number_of_bits) = array.values().as_slice();
-    let buffer = BitBuffer {
-        data,
-        offset,
-        number_of_bits,
-    };
-    let validity = get_validity(array);
-
-    Ok(ArrayDeserializer::Bool(BoolDeserializer::new(
-        buffer, validity,
-    )))
 }
 
 pub fn build_string_deserializer<'a, O>(

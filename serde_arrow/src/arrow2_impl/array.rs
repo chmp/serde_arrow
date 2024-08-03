@@ -11,9 +11,7 @@ use crate::{
     },
     internal::{
         arrow::{
-            Array, ArrayView, BitsWithOffset, DecimalArrayView, FieldMeta, NullArrayView,
-            PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, TimeArrayView,
-            TimestampArrayView,
+            Array, ArrayView, BitsWithOffset, BooleanArrayView, DecimalArrayView, FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, TimeArrayView, TimestampArrayView
         },
         error::{fail, Error, Result},
     },
@@ -149,6 +147,13 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
         let any = array.as_any();
         if let Some(array) = any.downcast_ref::<NullArray>() {
             Ok(V::Null(NullArrayView { len: array.len() }))
+        } else if let Some(array) = any.downcast_ref::<BooleanArray>() {
+            let (values_data, values_offset, _) = array.values().as_slice();
+            Ok(V::Boolean(BooleanArrayView {
+                len: array.len(),
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                values: BitsWithOffset { offset: values_offset, data: values_data },
+            }))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i8>>() {
             Ok(V::Int8(view_primitive_array(array)))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i16>>() {
