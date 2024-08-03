@@ -2,12 +2,20 @@
 //!
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
+#![deny(missing_docs)]
 use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
-        array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
+        array_builder::ArrayBuilder,
+        deserialization::{
+            array_deserializer::ArrayDeserializer,
+            outer_sequence_deserializer::OuterSequenceDeserializer,
+        },
+        deserializer::Deserializer,
+        error::{fail, Result},
+        schema::{GenericField, SerdeArrowSchema},
         serializer::Serializer,
     },
 };
@@ -92,4 +100,88 @@ where
 {
     let deserializer = Deserializer::from_arrow2(fields, arrays)?;
     T::deserialize(deserializer)
+}
+
+/// Support `arrow2` (*requires one of the `arrow2-*` features*)
+impl crate::internal::array_builder::ArrayBuilder {
+    /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
+        Self::new(SerdeArrowSchema::try_from(fields)?)
+    }
+
+    /// Construct `arrow2` arrays and reset the builder (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
+        let mut arrays = Vec::new();
+        for field in self.builder.take_records()? {
+            arrays.push(field.into_array()?.try_into()?);
+        }
+        Ok(arrays)
+    }
+}
+
+impl<'de> Deserializer<'de> {
+    /// Build a deserializer from `arrow2` arrays (*requires one of the
+    /// `arrow2-*` features*)
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow2;
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+    /// use arrow2::datatypes::Field;
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
+    ///
+    /// ##[derive(Deserialize, Serialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+    ///
+    /// let deserializer = Deserializer::from_arrow2(&fields, &arrays)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_arrow2<A>(fields: &[Field], arrays: &'de [A]) -> Result<Self>
+    where
+        A: AsRef<dyn Array>,
+    {
+        let fields = fields
+            .iter()
+            .map(GenericField::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let arrays = arrays
+            .iter()
+            .map(|array| array.as_ref())
+            .collect::<Vec<_>>();
+
+        if fields.len() != arrays.len() {
+            fail!(
+                "different number of fields ({}) and arrays ({})",
+                fields.len(),
+                arrays.len()
+            );
+        }
+        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+        let mut deserializers = Vec::new();
+        for (field, array) in std::iter::zip(fields, arrays) {
+            if array.len() != len {
+                fail!("arrays of different lengths are not supported");
+            }
+            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
+            deserializers.push((field.name.clone(), deserializer));
+        }
+
+        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
+        let deserializer = Deserializer(deserializer);
+
+        Ok(deserializer)
+    }
 }

@@ -1,7 +1,10 @@
-use crate::_impl::arrow::{datatypes::Field, error::ArrowError};
+use crate::_impl::arrow::{
+    datatypes::{Field, FieldRef},
+    error::ArrowError,
+};
 
 use crate::internal::{
-    error::Error,
+    error::{Error, Result},
     schema::{extensions::FixedShapeTensorField, GenericField},
 };
 
@@ -25,4 +28,11 @@ impl TryFrom<FixedShapeTensorField> for Field {
     fn try_from(value: FixedShapeTensorField) -> Result<Self, Self::Error> {
         Self::try_from(&value)
     }
+}
+
+pub fn fields_from_field_refs(fields: &[FieldRef]) -> Result<Vec<GenericField>> {
+    fields
+        .iter()
+        .map(|field| GenericField::try_from(field.as_ref()))
+        .collect()
 }

@@ -176,6 +176,8 @@ impl TryFrom<&Field> for GenericField {
                 children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
                 T::Dictionary
             }
+            DataType::Binary => T::Binary,
+            DataType::LargeBinary => T::LargeBinary,
             dt => fail!("Cannot convert data type {dt:?}"),
         };
 
@@ -316,6 +318,17 @@ impl From<TimeUnit> for ArrowTimeUnit {
             TimeUnit::Millisecond => Self::Millisecond,
             TimeUnit::Microsecond => Self::Microsecond,
             TimeUnit::Nanosecond => Self::Nanosecond,
+        }
+    }
+}
+
+impl From<ArrowTimeUnit> for TimeUnit {
+    fn from(value: ArrowTimeUnit) -> Self {
+        match value {
+            ArrowTimeUnit::Second => Self::Second,
+            ArrowTimeUnit::Millisecond => Self::Millisecond,
+            ArrowTimeUnit::Microsecond => Self::Microsecond,
+            ArrowTimeUnit::Nanosecond => Self::Nanosecond,
         }
     }
 }

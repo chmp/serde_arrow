@@ -1,128 +1,232 @@
-use crate::internal::{
-    arrow::{
-        ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-        DenseUnionArrayView, DictionaryArrayView, FixedSizeListArrayView, ListArrayView,
-        NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
-        TimestampArrayView,
+//! Convert between arrow arrays and the internal array representation
+use std::sync::Arc;
+
+use half::f16;
+
+use crate::{
+    _impl::arrow::{
+        array::{
+            Array, ArrayData, BooleanArray, DictionaryArray, FixedSizeBinaryArray,
+            FixedSizeListArray, GenericBinaryArray, GenericListArray, GenericStringArray, MapArray,
+            NullArray, PrimitiveArray, StructArray, UnionArray,
+        },
+        buffer::{Buffer, ScalarBuffer},
+        datatypes::{
+            ArrowDictionaryKeyType, ArrowNativeType, ArrowPrimitiveType, DataType, Date32Type,
+            Date64Type, Decimal128Type, DurationMicrosecondType, DurationMillisecondType,
+            DurationNanosecondType, DurationSecondType, Field, Float16Type, Float32Type,
+            Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, Time32MillisecondType,
+            Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
+            TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
+            TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
+        },
     },
-    deserialization::{
-        array_deserializer::ArrayDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer,
+    internal::{
+        arrow::FieldMeta,
+        arrow::{
+            ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
+            DenseUnionArrayView, DictionaryArrayView, FixedSizeListArrayView, ListArrayView,
+            NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
+            TimestampArrayView,
+        },
+        error::{fail, Error, Result},
+        schema::GenericField,
+        serialization::utils::meta_from_field,
     },
-    deserializer::Deserializer,
-    error::{fail, Error, Result},
-    schema::GenericField,
-    serialization::utils::meta_from_field,
 };
 
-use crate::_impl::arrow::{
-    array::{
-        Array, BooleanArray, DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray,
-        GenericBinaryArray, GenericListArray, GenericStringArray, MapArray, NullArray,
-        PrimitiveArray, RecordBatch, StructArray, UnionArray,
-    },
-    datatypes::{
-        ArrowDictionaryKeyType, DataType, Date32Type, Date64Type, Decimal128Type,
-        DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
-        DurationSecondType, FieldRef, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
-        Int64Type, Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
-        Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
-        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
-        UInt8Type, UnionMode,
-    },
-};
+impl TryFrom<crate::internal::arrow::Array> for ArrayData {
+    type Error = Error;
 
-impl<'de> Deserializer<'de> {
-    /// Construct a new deserializer from `arrow` arrays (*requires one of the
-    /// `arrow-*` features*)
-    ///
-    /// Usage
-    /// ```rust
-    /// # fn main() -> serde_arrow::Result<()> {
-    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
-    /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::FieldRef;
-    /// use serde::{Deserialize, Serialize};
-    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
-    ///
-    /// ##[derive(Deserialize, Serialize)]
-    /// struct Record {
-    ///     a: Option<f32>,
-    ///     b: u64,
-    /// }
-    ///
-    /// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
-    ///
-    /// let deserializer = Deserializer::from_arrow(&fields, &arrays)?;
-    /// let items = Vec::<Record>::deserialize(deserializer)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn from_arrow<A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<Self>
-    where
-        A: AsRef<dyn Array>,
-    {
-        let fields = fields
-            .iter()
-            .map(|field| GenericField::try_from(field.as_ref()))
-            .collect::<Result<Vec<_>>>()?;
-        let arrays = arrays
-            .iter()
-            .map(|array| array.as_ref())
-            .collect::<Vec<_>>();
+    fn try_from(value: crate::internal::arrow::Array) -> Result<ArrayData> {
+        use {crate::internal::arrow::Array as A, DataType as T};
+        type ArrowF16 = <Float16Type as ArrowPrimitiveType>::Native;
 
-        if fields.len() != arrays.len() {
-            fail!(
-                "different number of fields ({}) and arrays ({})",
-                fields.len(),
-                arrays.len()
-            );
+        fn f16_to_f16(v: f16) -> ArrowF16 {
+            ArrowF16::from_bits(v.to_bits())
         }
-        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
 
-        let mut deserializers = Vec::new();
-        for (field, array) in std::iter::zip(&fields, arrays) {
-            if array.len() != len {
-                fail!("arrays of different lengths are not supported");
+        match value {
+            A::Null(arr) => Ok(NullArray::new(arr.len).into_data()),
+            A::Boolean(arr) => Ok(ArrayData::try_new(
+                T::Boolean,
+                // NOTE: use the explicit len
+                arr.len,
+                arr.validity.map(Buffer::from),
+                0,
+                vec![ScalarBuffer::from(arr.values).into_inner()],
+                vec![],
+            )?),
+            A::Int8(arr) => primitive_into_data(T::Int8, arr.validity, arr.values),
+            A::Int16(arr) => primitive_into_data(T::Int16, arr.validity, arr.values),
+            A::Int32(arr) => primitive_into_data(T::Int32, arr.validity, arr.values),
+            A::Int64(arr) => primitive_into_data(T::Int64, arr.validity, arr.values),
+            A::UInt8(arr) => primitive_into_data(T::UInt8, arr.validity, arr.values),
+            A::UInt16(arr) => primitive_into_data(T::UInt16, arr.validity, arr.values),
+            A::UInt32(arr) => primitive_into_data(T::UInt32, arr.validity, arr.values),
+            A::UInt64(arr) => primitive_into_data(T::UInt64, arr.validity, arr.values),
+            A::Float16(arr) => primitive_into_data(
+                T::Float16,
+                arr.validity,
+                arr.values.into_iter().map(f16_to_f16).collect(),
+            ),
+            A::Float32(arr) => primitive_into_data(T::Float32, arr.validity, arr.values),
+            A::Float64(arr) => primitive_into_data(T::Float64, arr.validity, arr.values),
+            A::Date32(arr) => primitive_into_data(T::Date32, arr.validity, arr.values),
+            A::Date64(arr) => primitive_into_data(T::Date64, arr.validity, arr.values),
+            A::Timestamp(arr) => primitive_into_data(
+                T::Timestamp(arr.unit.into(), arr.timezone.map(String::into)),
+                arr.validity,
+                arr.values,
+            ),
+            A::Time32(arr) => {
+                primitive_into_data(T::Time32(arr.unit.into()), arr.validity, arr.values)
             }
+            A::Time64(arr) => {
+                primitive_into_data(T::Time64(arr.unit.into()), arr.validity, arr.values)
+            }
+            A::Duration(arr) => {
+                primitive_into_data(T::Duration(arr.unit.into()), arr.validity, arr.values)
+            }
+            A::Decimal128(arr) => primitive_into_data(
+                T::Decimal128(arr.precision, arr.scale),
+                arr.validity,
+                arr.values,
+            ),
+            A::Utf8(arr) => bytes_into_data(T::Utf8, arr.offsets, arr.data, arr.validity),
+            A::LargeUtf8(arr) => bytes_into_data(T::LargeUtf8, arr.offsets, arr.data, arr.validity),
+            A::Binary(arr) => bytes_into_data(T::Binary, arr.offsets, arr.data, arr.validity),
+            A::LargeBinary(arr) => {
+                bytes_into_data(T::LargeBinary, arr.offsets, arr.data, arr.validity)
+            }
+            A::Struct(arr) => {
+                let mut fields = Vec::new();
+                let mut data = Vec::new();
 
-            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
-            deserializers.push((field.name.clone(), deserializer));
+                for (field, meta) in arr.fields {
+                    let child: ArrayData = field.try_into()?;
+                    let field = Field::new(meta.name, child.data_type().clone(), meta.nullable)
+                        .with_metadata(meta.metadata);
+                    fields.push(Arc::new(field));
+                    data.push(child);
+                }
+                let data_type = T::Struct(fields.into());
+
+                Ok(ArrayData::builder(data_type)
+                    .len(arr.len)
+                    .null_bit_buffer(arr.validity.map(Buffer::from))
+                    .child_data(data)
+                    .build()?)
+            }
+            A::List(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                list_into_data(
+                    T::List(Arc::new(field)),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.offsets,
+                    child,
+                    arr.validity,
+                )
+            }
+            A::LargeList(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                list_into_data(
+                    T::LargeList(Arc::new(field)),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.offsets,
+                    child,
+                    arr.validity,
+                )
+            }
+            A::FixedSizeList(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                if (child.len() % usize::try_from(arr.n)?) != 0 {
+                    fail!(
+                        "Invalid FixedSizeList: number of child elements ({}) not divisible by n ({})",
+                        child.len(),
+                        arr.n,
+                    );
+                }
+                let field = field_from_data_and_meta(&child, arr.meta);
+                Ok(ArrayData::try_new(
+                    T::FixedSizeList(Arc::new(field), arr.n),
+                    child.len() / usize::try_from(arr.n)?,
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![],
+                    vec![child],
+                )?)
+            }
+            A::FixedSizeBinary(arr) => {
+                if (arr.data.len() % usize::try_from(arr.n)?) != 0 {
+                    fail!(
+                        "Invalid FixedSizeBinary: number of child elements ({}) not divisible by n ({})",
+                        arr.data.len(),
+                        arr.n,
+                    );
+                }
+                Ok(ArrayData::try_new(
+                    T::FixedSizeBinary(arr.n),
+                    arr.data.len() / usize::try_from(arr.n)?,
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![ScalarBuffer::from(arr.data).into_inner()],
+                    vec![],
+                )?)
+            }
+            A::Dictionary(arr) => {
+                let indices: ArrayData = (*arr.indices).try_into()?;
+                let values: ArrayData = (*arr.values).try_into()?;
+                let data_type = T::Dictionary(
+                    Box::new(indices.data_type().clone()),
+                    Box::new(values.data_type().clone()),
+                );
+
+                Ok(indices
+                    .into_builder()
+                    .data_type(data_type)
+                    .child_data(vec![values])
+                    .build()?)
+            }
+            A::Map(arr) => {
+                let child: ArrayData = (*arr.element).try_into()?;
+                let field = field_from_data_and_meta(&child, arr.meta);
+                Ok(ArrayData::try_new(
+                    T::Map(Arc::new(field), false),
+                    arr.offsets.len().saturating_sub(1),
+                    arr.validity.map(Buffer::from),
+                    0,
+                    vec![ScalarBuffer::from(arr.offsets).into_inner()],
+                    vec![child],
+                )?)
+            }
+            A::DenseUnion(arr) => {
+                let mut fields = Vec::new();
+                let mut child_data = Vec::new();
+
+                for (idx, (array, meta)) in arr.fields.into_iter().enumerate() {
+                    let child: ArrayData = array.try_into()?;
+                    let field = field_from_data_and_meta(&child, meta);
+
+                    fields.push((idx as i8, Arc::new(field)));
+                    child_data.push(child);
+                }
+
+                Ok(ArrayData::try_new(
+                    DataType::Union(fields.into_iter().collect(), UnionMode::Dense),
+                    arr.types.len(),
+                    None,
+                    0,
+                    vec![
+                        ScalarBuffer::from(arr.types).into_inner(),
+                        ScalarBuffer::from(arr.offsets).into_inner(),
+                    ],
+                    child_data,
+                )?)
+            }
         }
-
-        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
-        let deserializer = Deserializer(deserializer);
-
-        Ok(deserializer)
-    }
-
-    /// Construct a new deserializer from a record batch (*requires one of the
-    /// `arrow-*` features*)
-    ///
-    /// Usage:
-    ///
-    /// ```rust
-    /// # fn main() -> serde_arrow::Result<()> {
-    /// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
-    /// #
-    /// use serde::Deserialize;
-    /// use serde_arrow::Deserializer;
-    ///
-    /// ##[derive(Deserialize)]
-    /// struct Record {
-    ///     a: Option<f32>,
-    ///     b: u64,
-    /// }
-    ///
-    /// let deserializer = Deserializer::from_record_batch(&record_batch)?;
-    /// let items = Vec::<Record>::deserialize(deserializer)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    pub fn from_record_batch(record_batch: &'de RecordBatch) -> Result<Self> {
-        let schema = record_batch.schema();
-        Deserializer::from_arrow(schema.fields(), record_batch.columns())
     }
 }
 
@@ -417,7 +521,6 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 fail!("Dense unions must have an offset array");
             };
 
-            // array.type_ids()
             Ok(ArrayView::DenseUnion(DenseUnionArrayView {
                 types: array.type_ids(),
                 offsets,
@@ -430,6 +533,61 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             );
         }
     }
+}
+
+fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> Field {
+    Field::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
+}
+
+fn primitive_into_data<T: ArrowNativeType>(
+    data_type: DataType,
+    validity: Option<Vec<u8>>,
+    values: Vec<T>,
+) -> Result<ArrayData> {
+    Ok(ArrayData::try_new(
+        data_type,
+        values.len(),
+        validity.map(Buffer::from),
+        0,
+        vec![ScalarBuffer::from(values).into_inner()],
+        vec![],
+    )?)
+}
+
+fn bytes_into_data<O: ArrowNativeType>(
+    data_type: DataType,
+    offsets: Vec<O>,
+    data: Vec<u8>,
+    validity: Option<Vec<u8>>,
+) -> Result<ArrayData> {
+    Ok(ArrayData::try_new(
+        data_type,
+        offsets.len().saturating_sub(1),
+        validity.map(Buffer::from),
+        0,
+        vec![
+            ScalarBuffer::from(offsets).into_inner(),
+            ScalarBuffer::from(data).into_inner(),
+        ],
+        vec![],
+    )?)
+}
+
+fn list_into_data<O: ArrowNativeType>(
+    data_type: DataType,
+    len: usize,
+    offsets: Vec<O>,
+    child_data: ArrayData,
+    validity: Option<Vec<u8>>,
+) -> Result<ArrayData> {
+    Ok(ArrayData::try_new(
+        data_type,
+        len,
+        validity.map(Buffer::from),
+        0,
+        vec![ScalarBuffer::from(offsets).into_inner()],
+        vec![child_data],
+    )?)
 }
 
 fn wrap_dictionary_array<K: ArrowDictionaryKeyType>(
