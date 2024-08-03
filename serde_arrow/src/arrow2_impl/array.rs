@@ -12,8 +12,9 @@ use crate::{
     internal::{
         arrow::{
             Array, ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-            FieldMeta, ListArrayView, NullArrayView, PrimitiveArray as InternalPrimitiveArray,
-            PrimitiveArrayView, StructArrayView, TimeArrayView, TimestampArrayView,
+            DenseUnionArrayView, FieldMeta, ListArrayView, NullArrayView,
+            PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, StructArrayView,
+            TimeArrayView, TimestampArrayView,
         },
         error::{fail, Error, Result},
         serialization::utils::meta_from_field,
@@ -308,6 +309,30 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 meta,
                 validity: bits_with_offset_from_bitmap(array.validity()),
                 offsets: array.offsets().as_slice(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<UnionArray>() {
+            // TODO: check type ids
+            let T::Union(union_fields, _, UnionMode::Dense) = array.data_type() else {
+                fail!("Invalid data type: only dense unions are supported");
+            };
+
+            let types = array.types().as_slice();
+            let Some(offsets) = array.offsets() else {
+                fail!("DenseUnion array without offsets are not supported");
+            };
+
+            let mut fields = Vec::new();
+            for (child, child_field) in array.fields().iter().zip(union_fields) {
+                fields.push((
+                    child.as_ref().try_into()?,
+                    meta_from_field(child_field.try_into()?)?,
+                ));
+            }
+
+            Ok(V::DenseUnion(DenseUnionArrayView {
+                types,
+                offsets: offsets.as_slice(),
+                fields,
             }))
         } else {
             fail!(

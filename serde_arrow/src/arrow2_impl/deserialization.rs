@@ -1,7 +1,7 @@
 use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer, dictionary_deserializer::DictionaryDeserializer,
-        enum_deserializer::EnumDeserializer, integer_deserializer::Integer, utils::BitBuffer,
+        integer_deserializer::Integer, utils::BitBuffer,
     },
     error::{fail, Result},
     schema::{GenericDataType, GenericField},
@@ -9,8 +9,7 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow2::{
-    array::{Array, DictionaryArray, DictionaryKey, UnionArray, Utf8Array},
-    datatypes::{DataType, UnionMode},
+    array::{Array, DictionaryArray, DictionaryKey, Utf8Array},
     types::Offset as ArrowOffset,
 };
 
@@ -21,7 +20,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Dictionary => build_dictionary_deserializer(field, array),
-        T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
 }
@@ -111,34 +109,6 @@ pub fn build_struct_fields<'a>(
     }
 
     Ok((deserializers, len))
-}
-
-pub fn build_union_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<UnionArray>() else {
-        fail!("Cannot interpret array as a union array");
-    };
-
-    if !matches!(array.data_type(), DataType::Union(_, _, UnionMode::Dense)) {
-        fail!("Invalid data type: only dense unions are supported");
-    }
-
-    let type_ids = array.types().as_slice();
-
-    let mut variants = Vec::new();
-    for (type_id, field) in field.children.iter().enumerate() {
-        let name = field.name.to_owned();
-        let Some(child) = array.fields().get(type_id) else {
-            fail!("Cannot get variant");
-        };
-        let deser = build_array_deserializer(field, child.as_ref())?;
-
-        variants.push((name, deser));
-    }
-
-    Ok(EnumDeserializer::new(type_ids, variants).into())
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {
