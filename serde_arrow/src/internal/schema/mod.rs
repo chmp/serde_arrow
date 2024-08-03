@@ -150,6 +150,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// - auto detection of date time strings
     /// - non self-describing types such as `serde_json::Value`
     /// - flattened structure (`#[serde(flatten)]`)
+    /// - types that require specific data to be deserialized, such as the
+    ///   `DateTime` type of `chrono` or the `Uuid` type of the `uuid` package
     ///
     /// Consider using [`from_samples`][SchemaLike::from_samples] in these
     /// cases.
