@@ -3,54 +3,38 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, NullArray,
+            Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray,
             PrimitiveArray, StructArray, UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::{DataType, Field},
         offset::OffsetsBuffer,
-        types::{f16, NativeType, Offset},
+        types::{NativeType, Offset},
     },
     internal::{
         error::{fail, Result},
-        schema::{GenericField, SerdeArrowSchema},
-        serialization::{utils::MutableBitBuffer, ArrayBuilder, OuterSequenceBuilder},
+        schema::GenericField,
+        serialization::{utils::MutableBitBuffer, ArrayBuilder},
     },
 };
 
-/// Support `arrow2` (*requires one of the `arrow2-*` features*)
-impl crate::internal::array_builder::ArrayBuilder {
-    /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
-    /// `arrow2-*` features*)
-    pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
-        Self::new(SerdeArrowSchema::try_from(fields)?)
-    }
-
-    /// Construct `arrow2` arrays and reset the builder (*requires one of the
-    /// `arrow2-*` features*)
-    pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.builder.build_arrow2()
-    }
-}
-
-impl OuterSequenceBuilder {
-    /// Build the arrow2 arrays
-    pub fn build_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        let fields = self.take_records()?;
-        let arrays = fields
-            .into_iter()
-            .map(build_array)
-            .collect::<Result<Vec<_>>>()?;
-        Ok(arrays)
-    }
-}
-
-fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
+pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
     use {ArrayBuilder as A, DataType as T};
     match builder {
-        A::Null(builder) => Ok(Box::new(NullArray::new(T::Null, builder.count))),
-        A::UnknownVariant(_) => Ok(Box::new(NullArray::new(T::Null, 0))),
+        A::Null(_)
+        | A::UnknownVariant(_)
+        | A::I8(_)
+        | A::I16(_)
+        | A::I32(_)
+        | A::I64(_)
+        | A::U8(_)
+        | A::U16(_)
+        | A::U32(_)
+        | A::U64(_)
+        | A::F16(_)
+        | A::F32(_)
+        | A::F64(_) => builder.into_array()?.try_into(),
         A::Bool(builder) => {
             let buffer = Bitmap::from_u8_vec(builder.buffer.buffer, builder.buffer.len);
             let validity = build_validity(builder.validity);
@@ -60,25 +44,6 @@ fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
                 validity,
             )?))
         }
-        A::I8(builder) => build_primitive_array(T::Int8, builder.buffer, builder.validity),
-        A::I16(builder) => build_primitive_array(T::Int16, builder.buffer, builder.validity),
-        A::I32(builder) => build_primitive_array(T::Int32, builder.buffer, builder.validity),
-        A::I64(builder) => build_primitive_array(T::Int64, builder.buffer, builder.validity),
-        A::U8(builder) => build_primitive_array(T::UInt8, builder.buffer, builder.validity),
-        A::U16(builder) => build_primitive_array(T::UInt16, builder.buffer, builder.validity),
-        A::U32(builder) => build_primitive_array(T::UInt32, builder.buffer, builder.validity),
-        A::U64(builder) => build_primitive_array(T::UInt64, builder.buffer, builder.validity),
-        A::F16(builder) => build_primitive_array(
-            T::Float16,
-            builder
-                .buffer
-                .into_iter()
-                .map(|v| f16::from_bits(v.to_bits()))
-                .collect(),
-            builder.validity,
-        ),
-        A::F32(builder) => build_primitive_array(T::Float32, builder.buffer, builder.validity),
-        A::F64(builder) => build_primitive_array(T::Float64, builder.buffer, builder.validity),
         A::Date32(builder) => build_primitive_array(
             Field::try_from(&builder.field)?.data_type,
             builder.buffer,

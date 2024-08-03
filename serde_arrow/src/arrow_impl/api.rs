@@ -62,7 +62,7 @@ use super::type_support::fields_from_field_refs;
 /// ```
 ///
 pub fn to_arrow<T: Serialize + ?Sized>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>> {
-    let builder = ArrayBuilder::new(SerdeArrowSchema::try_from(fields)?)?;
+    let builder = ArrayBuilder::from_arrow(fields)?;
     items
         .serialize(Serializer::new(builder))?
         .into_inner()
