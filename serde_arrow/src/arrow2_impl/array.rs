@@ -1,13 +1,12 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array as A2Array, BooleanArray as A2BooleanArray, NullArray as A2NullArray,
-            PrimitiveArray as A2PrimitiveArray,
+            Array as A2Array, BinaryArray, BooleanArray, NullArray, PrimitiveArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::DataType,
-        types::{f16, NativeType},
+        types::{f16, NativeType, Offset},
     },
     internal::{
         arrow::Array,
@@ -21,8 +20,8 @@ impl TryFrom<Array> for Box<dyn A2Array> {
     fn try_from(value: Array) -> Result<Self> {
         use {Array as A, DataType as T};
         match value {
-            A::Null(arr) => Ok(Box::new(A2NullArray::new(T::Null, arr.len))),
-            A::Boolean(arr) => Ok(Box::new(A2BooleanArray::try_new(
+            A::Null(arr) => Ok(Box::new(NullArray::new(T::Null, arr.len))),
+            A::Boolean(arr) => Ok(Box::new(BooleanArray::try_new(
                 T::Boolean,
                 Bitmap::from_u8_vec(arr.values, arr.len),
                 arr.validity.map(|v| Bitmap::from_u8_vec(v, arr.len)),
@@ -66,6 +65,14 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                 arr.values,
                 arr.validity,
             ),
+            A::Utf8(arr) => build_utf8_array(T::Utf8, arr.offsets, arr.data, arr.validity),
+            A::LargeUtf8(arr) => {
+                build_utf8_array(T::LargeUtf8, arr.offsets, arr.data, arr.validity)
+            }
+            A::Binary(arr) => build_binary_array(T::Binary, arr.offsets, arr.data, arr.validity),
+            A::LargeBinary(arr) => {
+                build_binary_array(T::LargeBinary, arr.offsets, arr.data, arr.validity)
+            }
             _ => fail!("cannot convert array to arrow2 array"),
         }
     }
@@ -78,7 +85,37 @@ fn build_primitive_array<T: NativeType>(
 ) -> Result<Box<dyn A2Array>> {
     let validity = validity.map(|v| Bitmap::from_u8_vec(v, buffer.len()));
     let buffer = Buffer::from(buffer);
-    Ok(Box::new(A2PrimitiveArray::try_new(
+    Ok(Box::new(PrimitiveArray::try_new(
         data_type, buffer, validity,
     )?))
+}
+
+fn build_utf8_array<O: Offset>(
+    data_type: DataType,
+    offsets: Vec<O>,
+    data: Vec<u8>,
+    validity: Option<Vec<u8>>,
+) -> Result<Box<dyn A2Array>> {
+    let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
+    Ok(Box::new(Utf8Array::new(
+        data_type,
+        offsets.try_into()?,
+        Buffer::from(data),
+        validity,
+    )))
+}
+
+fn build_binary_array<O: Offset>(
+    data_type: DataType,
+    offsets: Vec<O>,
+    data: Vec<u8>,
+    validity: Option<Vec<u8>>,
+) -> Result<Box<dyn A2Array>> {
+    let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
+    Ok(Box::new(BinaryArray::new(
+        data_type,
+        offsets.try_into()?,
+        Buffer::from(data),
+        validity,
+    )))
 }

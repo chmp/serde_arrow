@@ -4,13 +4,12 @@ use crate::{
     _impl::arrow2::{
         array::{
             Array, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
-            StructArray, UnionArray, Utf8Array,
+            StructArray, UnionArray,
         },
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::{DataType, Field},
         offset::OffsetsBuffer,
-        types::Offset,
     },
     internal::{
         error::{fail, Result},
@@ -41,19 +40,11 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
         | A::Time32(_)
         | A::Time64(_)
         | A::Decimal128(_)
-        | A::Bool(_) => builder.into_array()?.try_into(),
-        A::Utf8(builder) => build_array_utf8_array(
-            T::Utf8,
-            builder.offsets.offsets,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::LargeUtf8(builder) => build_array_utf8_array(
-            T::LargeUtf8,
-            builder.offsets.offsets,
-            builder.buffer,
-            builder.validity,
-        ),
+        | A::Bool(_)
+        | A::Utf8(_)
+        | A::LargeUtf8(_)
+        | A::Binary(_)
+        | A::LargeBinary(_) => builder.into_array()?.try_into(),
         A::LargeList(builder) => Ok(Box::new(ListArray::try_new(
             T::LargeList(Box::new(Field::try_from(&builder.field)?)),
             OffsetsBuffer::try_from(builder.offsets.offsets)?,
@@ -67,8 +58,6 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
             build_validity(builder.validity),
         )?)),
         A::FixedSizedList(_) => fail!("FixedSizedList is not supported by arrow2"),
-        A::Binary(_) => fail!("Binary is not supported by arrow2"),
-        A::LargeBinary(_) => fail!("LargeBinary is not supported by arrow2"),
         A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
         A::Struct(builder) => {
             let mut values = Vec::new();
@@ -157,18 +146,4 @@ fn build_dictionary_array<K: DictionaryKey>(
     Ok(Box::new(DictionaryArray::try_new(
         data_type, indices, values,
     )?))
-}
-
-fn build_array_utf8_array<O: Offset>(
-    data_type: DataType,
-    offsets: Vec<O>,
-    data: Vec<u8>,
-    validity: Option<MutableBitBuffer>,
-) -> Result<Box<dyn Array>> {
-    Ok(Box::new(Utf8Array::new(
-        data_type,
-        OffsetsBuffer::try_from(offsets)?,
-        Buffer::from(data),
-        build_validity(validity),
-    )))
 }
