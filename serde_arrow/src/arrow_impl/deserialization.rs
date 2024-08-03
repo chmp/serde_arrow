@@ -417,7 +417,6 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 fail!("Dense unions must have an offset array");
             };
 
-            // array.type_ids()
             Ok(ArrayView::DenseUnion(DenseUnionArrayView {
                 types: array.type_ids(),
                 offsets,
