@@ -1,6 +1,9 @@
 use crate::{
     _impl::arrow2::{
-        array::{Array as A2Array, NullArray as A2NullArray, PrimitiveArray as A2PrimitiveArray},
+        array::{
+            Array as A2Array, BooleanArray as A2BooleanArray, NullArray as A2NullArray,
+            PrimitiveArray as A2PrimitiveArray,
+        },
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::DataType,
@@ -19,6 +22,11 @@ impl TryFrom<Array> for Box<dyn A2Array> {
         use {Array as A, DataType as T};
         match value {
             A::Null(arr) => Ok(Box::new(A2NullArray::new(T::Null, arr.len))),
+            A::Boolean(arr) => Ok(Box::new(A2BooleanArray::try_new(
+                T::Boolean,
+                Bitmap::from_u8_vec(arr.values, arr.len),
+                arr.validity.map(|v| Bitmap::from_u8_vec(v, arr.len)),
+            )?)),
             A::Int8(arr) => build_primitive_array(T::Int8, arr.values, arr.validity),
             A::Int16(arr) => build_primitive_array(T::Int16, arr.values, arr.validity),
             A::Int32(arr) => build_primitive_array(T::Int32, arr.values, arr.validity),

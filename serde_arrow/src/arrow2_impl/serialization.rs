@@ -3,8 +3,8 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray,
-            PrimitiveArray, StructArray, UnionArray, Utf8Array,
+            Array, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
+            StructArray, UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
@@ -40,16 +40,8 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
         | A::Duration(_)
         | A::Time32(_)
         | A::Time64(_)
-        | A::Decimal128(_) => builder.into_array()?.try_into(),
-        A::Bool(builder) => {
-            let buffer = Bitmap::from_u8_vec(builder.buffer.buffer, builder.buffer.len);
-            let validity = build_validity(builder.validity);
-            Ok(Box::new(BooleanArray::try_new(
-                T::Boolean,
-                buffer,
-                validity,
-            )?))
-        }
+        | A::Decimal128(_)
+        | A::Bool(_) => builder.into_array()?.try_into(),
         A::Utf8(builder) => build_array_utf8_array(
             T::Utf8,
             builder.offsets.offsets,
