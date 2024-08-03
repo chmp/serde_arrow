@@ -2,11 +2,11 @@ use crate::{
     _impl::arrow2::{
         array::{
             Array as A2Array, BinaryArray, BooleanArray, ListArray, MapArray, NullArray,
-            PrimitiveArray, StructArray, Utf8Array,
+            PrimitiveArray, StructArray, UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
-        datatypes::{DataType, Field},
+        datatypes::{DataType, Field, UnionMode},
         types::{f16, NativeType, Offset},
     },
     internal::{
@@ -89,17 +89,7 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                 arr.validity,
             ),
             A::Struct(arr) => {
-                let mut fields = Vec::new();
-                let mut values = Vec::new();
-
-                for (child, meta) in arr.fields {
-                    let child: Box<dyn A2Array> = child.try_into()?;
-                    let field = field_from_array_and_meta(child.as_ref(), meta);
-
-                    values.push(child);
-                    fields.push(field);
-                }
-
+                let (values, fields) = array_with_meta_to_array_and_fields(arr.fields)?;
                 Ok(Box::new(StructArray::new(
                     T::Struct(fields),
                     values,
@@ -118,6 +108,15 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                     child,
                     validity,
                 )))
+            }
+            A::DenseUnion(arr) => {
+                let (values, fields) = array_with_meta_to_array_and_fields(arr.fields)?;
+                Ok(Box::new(UnionArray::try_new(
+                    T::Union(fields, None, UnionMode::Dense),
+                    arr.types.into(),
+                    values,
+                    Some(arr.offsets.into()),
+                )?))
             }
             A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
             A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
@@ -187,4 +186,21 @@ fn build_list_array<F: FnOnce(Box<Field>) -> DataType, O: Offset>(
 fn field_from_array_and_meta(arr: &dyn A2Array, meta: FieldMeta) -> Field {
     Field::new(meta.name, arr.data_type().clone(), meta.nullable)
         .with_metadata(meta.metadata.into_iter().collect())
+}
+
+fn array_with_meta_to_array_and_fields(
+    arrays: Vec<(Array, FieldMeta)>,
+) -> Result<(Vec<Box<dyn A2Array>>, Vec<Field>)> {
+    let mut res_fields = Vec::new();
+    let mut res_arrays = Vec::new();
+
+    for (child, meta) in arrays {
+        let child: Box<dyn A2Array> = child.try_into()?;
+        let field = field_from_array_and_meta(child.as_ref(), meta);
+
+        res_arrays.push(child);
+        res_fields.push(field);
+    }
+
+    Ok((res_arrays, res_fields))
 }

@@ -2,7 +2,7 @@
 //!
 use crate::{
     _impl::arrow2::{
-        array::{Array, DictionaryArray, DictionaryKey, PrimitiveArray, UnionArray},
+        array::{Array, DictionaryArray, DictionaryKey, PrimitiveArray},
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::{DataType, Field},
@@ -46,20 +46,6 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
                 }
                 builder => fail!("Cannot use {} as an index for a dictionary", builder.name()),
             }
-        }
-        A::Union(builder) => {
-            let data_type = Field::try_from(&builder.field)?.data_type;
-            let children = builder
-                .fields
-                .into_iter()
-                .map(build_array)
-                .collect::<Result<_>>()?;
-            Ok(Box::new(UnionArray::try_new(
-                data_type,
-                Buffer::from(builder.types),
-                children,
-                Some(Buffer::from(builder.offsets)),
-            )?))
         }
         _ => builder.into_array()?.try_into(),
     }
