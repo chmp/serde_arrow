@@ -5,11 +5,6 @@ use crate::internal::{
         NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
         TimestampArrayView,
     },
-    deserialization::{
-        array_deserializer::ArrayDeserializer,
-        outer_sequence_deserializer::OuterSequenceDeserializer,
-    },
-    deserializer::Deserializer,
     error::{fail, Error, Result},
     schema::GenericField,
     serialization::utils::meta_from_field,
@@ -19,112 +14,18 @@ use crate::_impl::arrow::{
     array::{
         Array, BooleanArray, DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray,
         GenericBinaryArray, GenericListArray, GenericStringArray, MapArray, NullArray,
-        PrimitiveArray, RecordBatch, StructArray, UnionArray,
+        PrimitiveArray, StructArray, UnionArray,
     },
     datatypes::{
         ArrowDictionaryKeyType, DataType, Date32Type, Date64Type, Decimal128Type,
         DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
-        DurationSecondType, FieldRef, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type,
-        Int64Type, Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
+        DurationSecondType, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+        Int8Type, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
         Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
         TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
         UInt8Type, UnionMode,
     },
 };
-
-impl<'de> Deserializer<'de> {
-    /// Construct a new deserializer from `arrow` arrays (*requires one of the
-    /// `arrow-*` features*)
-    ///
-    /// Usage
-    /// ```rust
-    /// # fn main() -> serde_arrow::Result<()> {
-    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
-    /// # use serde_arrow::_impl::arrow;
-    /// use arrow::datatypes::FieldRef;
-    /// use serde::{Deserialize, Serialize};
-    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
-    ///
-    /// ##[derive(Deserialize, Serialize)]
-    /// struct Record {
-    ///     a: Option<f32>,
-    ///     b: u64,
-    /// }
-    ///
-    /// let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
-    ///
-    /// let deserializer = Deserializer::from_arrow(&fields, &arrays)?;
-    /// let items = Vec::<Record>::deserialize(deserializer)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn from_arrow<A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<Self>
-    where
-        A: AsRef<dyn Array>,
-    {
-        let fields = fields
-            .iter()
-            .map(|field| GenericField::try_from(field.as_ref()))
-            .collect::<Result<Vec<_>>>()?;
-        let arrays = arrays
-            .iter()
-            .map(|array| array.as_ref())
-            .collect::<Vec<_>>();
-
-        if fields.len() != arrays.len() {
-            fail!(
-                "different number of fields ({}) and arrays ({})",
-                fields.len(),
-                arrays.len()
-            );
-        }
-        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
-
-        let mut deserializers = Vec::new();
-        for (field, array) in std::iter::zip(&fields, arrays) {
-            if array.len() != len {
-                fail!("arrays of different lengths are not supported");
-            }
-
-            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
-            deserializers.push((field.name.clone(), deserializer));
-        }
-
-        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
-        let deserializer = Deserializer(deserializer);
-
-        Ok(deserializer)
-    }
-
-    /// Construct a new deserializer from a record batch (*requires one of the
-    /// `arrow-*` features*)
-    ///
-    /// Usage:
-    ///
-    /// ```rust
-    /// # fn main() -> serde_arrow::Result<()> {
-    /// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
-    /// #
-    /// use serde::Deserialize;
-    /// use serde_arrow::Deserializer;
-    ///
-    /// ##[derive(Deserialize)]
-    /// struct Record {
-    ///     a: Option<f32>,
-    ///     b: u64,
-    /// }
-    ///
-    /// let deserializer = Deserializer::from_record_batch(&record_batch)?;
-    /// let items = Vec::<Record>::deserialize(deserializer)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    pub fn from_record_batch(record_batch: &'de RecordBatch) -> Result<Self> {
-        let schema = record_batch.schema();
-        Deserializer::from_arrow(schema.fields(), record_batch.columns())
-    }
-}
 
 impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
     type Error = Error;
