@@ -319,3 +319,14 @@ impl From<TimeUnit> for ArrowTimeUnit {
         }
     }
 }
+
+impl From<ArrowTimeUnit> for TimeUnit {
+    fn from(value: ArrowTimeUnit) -> Self {
+        match value {
+            ArrowTimeUnit::Second => Self::Second,
+            ArrowTimeUnit::Millisecond => Self::Millisecond,
+            ArrowTimeUnit::Microsecond => Self::Microsecond,
+            ArrowTimeUnit::Nanosecond => Self::Nanosecond,
+        }
+    }
+}

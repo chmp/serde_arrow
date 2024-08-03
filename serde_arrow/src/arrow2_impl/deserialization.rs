@@ -2,15 +2,13 @@ use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
-        construction,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
-        integer_deserializer::{Integer, IntegerDeserializer},
+        integer_deserializer::Integer,
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
-        time_deserializer::TimeDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
     error::{fail, Result},
@@ -20,11 +18,11 @@ use crate::internal::{
 
 use crate::_impl::arrow2::{
     array::{
-        Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
-        StructArray, UnionArray, Utf8Array,
+        Array, BooleanArray, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray,
+        UnionArray, Utf8Array,
     },
     datatypes::{DataType, UnionMode},
-    types::{NativeType, Offset as ArrowOffset},
+    types::Offset as ArrowOffset,
 };
 
 pub fn build_array_deserializer<'a>(
@@ -34,22 +32,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Bool => build_bool_deserializer(field, array),
-        T::Time32(unit) => Ok(ArrayDeserializer::Time32(TimeDeserializer::new(
-            as_primitive_values::<i32>(array)?,
-            get_validity(array),
-            *unit,
-        ))),
-        T::Time64(unit) => Ok(ArrayDeserializer::Time64(TimeDeserializer::new(
-            as_primitive_values::<i64>(array)?,
-            get_validity(array),
-            *unit,
-        ))),
-        T::Timestamp(_, _) => construction::build_timestamp_deserializer(
-            field,
-            as_primitive_values::<i64>(array)?,
-            get_validity(array),
-        ),
-        T::Duration(_) => build_integer_deserializer::<i64>(field, array),
         T::Utf8 => build_string_deserializer::<i32>(field, array),
         T::LargeUtf8 => build_string_deserializer::<i64>(field, array),
         T::Dictionary => build_dictionary_deserializer(field, array),
@@ -85,17 +67,6 @@ pub fn build_bool_deserializer<'a>(
     Ok(ArrayDeserializer::Bool(BoolDeserializer::new(
         buffer, validity,
     )))
-}
-
-pub fn build_integer_deserializer<'a, T>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    T: Integer + NativeType + 'static,
-    ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
-{
-    Ok(IntegerDeserializer::new(as_primitive_values(array)?, get_validity(array)).into())
 }
 
 pub fn build_string_deserializer<'a, O>(
@@ -310,15 +281,6 @@ pub fn build_union_deserializer<'a>(
     }
 
     Ok(EnumDeserializer::new(type_ids, variants).into())
-}
-
-fn as_primitive_values<T: NativeType>(array: &dyn Array) -> Result<&[T]> {
-    let Some(array) = array.as_any().downcast_ref::<PrimitiveArray<T>>() else {
-        fail!("cannot interpret array as integer array");
-    };
-
-    let buffer = array.values().as_slice();
-    Ok(buffer)
 }
 
 fn get_validity(arr: &dyn Array) -> Option<BitBuffer<'_>> {

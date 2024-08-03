@@ -12,7 +12,8 @@ use crate::{
     internal::{
         arrow::{
             Array, ArrayView, BitsWithOffset, DecimalArrayView, FieldMeta, NullArrayView,
-            PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView,
+            PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, TimeArrayView,
+            TimestampArrayView,
         },
         error::{fail, Error, Result},
     },
@@ -156,12 +157,33 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
             match array.data_type() {
                 T::Int32 => Ok(V::Int32(view_primitive_array(array))),
                 T::Date32 => Ok(V::Date32(view_primitive_array(array))),
+                T::Time32(unit) => Ok(V::Time32(TimeArrayView {
+                    unit: (*unit).into(),
+                    validity: bits_with_offset_from_bitmap(array.validity()),
+                    values: array.values().as_slice(),
+                })),
                 dt => fail!("unsupported data type {dt:?} for i32 arrow2 array"),
             }
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i64>>() {
             match array.data_type() {
                 T::Int64 => Ok(V::Int64(view_primitive_array(array))),
                 T::Date64 => Ok(V::Date64(view_primitive_array(array))),
+                T::Timestamp(unit, tz) => Ok(V::Timestamp(TimestampArrayView {
+                    unit: (*unit).into(),
+                    timezone: tz.to_owned(),
+                    validity: bits_with_offset_from_bitmap(array.validity()),
+                    values: array.values().as_slice(),
+                })),
+                T::Time64(unit) => Ok(V::Time64(TimeArrayView {
+                    unit: (*unit).into(),
+                    validity: bits_with_offset_from_bitmap(array.validity()),
+                    values: array.values().as_slice(),
+                })),
+                T::Duration(unit) => Ok(V::Duration(TimeArrayView {
+                    unit: (*unit).into(),
+                    validity: bits_with_offset_from_bitmap(array.validity()),
+                    values: array.values().as_slice(),
+                })),
                 dt => fail!("unsupported data type {dt:?} for i64 arrow2 array"),
             }
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i128>>() {
