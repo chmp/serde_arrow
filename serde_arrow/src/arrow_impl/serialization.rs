@@ -5,64 +5,15 @@ use half::f16;
 
 use crate::{
     _impl::arrow::{
-        array::{make_array, Array, ArrayData, ArrayRef, NullArray, RecordBatch},
+        array::{Array, ArrayData, NullArray},
         buffer::{Buffer, ScalarBuffer},
-        datatypes::{
-            ArrowNativeType, ArrowPrimitiveType, DataType, Field, FieldRef, Float16Type, Schema,
-            UnionMode,
-        },
+        datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field, Float16Type, UnionMode},
     },
     internal::{
         arrow::FieldMeta,
         error::{fail, Error, Result},
-        schema::{GenericField, SerdeArrowSchema},
-        serialization::{ArrayBuilder, OuterSequenceBuilder},
     },
 };
-
-/// Support `arrow` (*requires one of the `arrow-*` features*)
-impl crate::internal::array_builder::ArrayBuilder {
-    /// Build an ArrayBuilder from `arrow` fields (*requires one of the
-    /// `arrow-*` features*)
-    pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
-        let fields = fields
-            .iter()
-            .map(|f| GenericField::try_from(f.as_ref()))
-            .collect::<Result<Vec<_>>>()?;
-        Self::new(SerdeArrowSchema { fields })
-    }
-
-    /// Construct `arrow` arrays and reset the builder (*requires one of the
-    /// `arrow-*` features*)
-    pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        self.builder.build_arrow()
-    }
-
-    /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
-    /// `arrow-*` features*)
-    pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
-        let arrays = self.builder.build_arrow()?;
-        let fields = Vec::<FieldRef>::try_from(&self.schema)?;
-        let schema = Schema::new(fields);
-        Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
-    }
-}
-
-impl OuterSequenceBuilder {
-    pub fn build_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        let fields = self.take_records()?;
-        let arrays = fields
-            .into_iter()
-            .map(build_array)
-            .collect::<Result<Vec<_>>>()?;
-        Ok(arrays)
-    }
-}
-
-fn build_array(builder: ArrayBuilder) -> Result<ArrayRef> {
-    let data = builder.into_array()?.try_into()?;
-    Ok(make_array(data))
-}
 
 impl TryFrom<crate::internal::arrow::Array> for ArrayData {
     type Error = Error;

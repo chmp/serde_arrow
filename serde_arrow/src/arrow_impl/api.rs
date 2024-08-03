@@ -1,14 +1,19 @@
 #![deny(missing_docs)]
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow::{
-        array::{Array, ArrayRef, RecordBatch},
-        datatypes::FieldRef,
+        array::{make_array, Array, ArrayRef, RecordBatch},
+        datatypes::{FieldRef, Schema},
     },
     internal::{
-        array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
-        schema::SerdeArrowSchema, serializer::Serializer,
+        array_builder::ArrayBuilder,
+        deserializer::Deserializer,
+        error::Result,
+        schema::{GenericField, SerdeArrowSchema},
+        serializer::Serializer,
     },
 };
 
@@ -168,4 +173,37 @@ pub fn to_record_batch<T: Serialize + ?Sized>(
 ///
 pub fn from_record_batch<'de, T: Deserialize<'de>>(record_batch: &'de RecordBatch) -> Result<T> {
     T::deserialize(Deserializer::from_record_batch(record_batch)?)
+}
+
+/// Support `arrow` (*requires one of the `arrow-*` features*)
+impl crate::internal::array_builder::ArrayBuilder {
+    /// Build an ArrayBuilder from `arrow` fields (*requires one of the
+    /// `arrow-*` features*)
+    pub fn from_arrow(fields: &[FieldRef]) -> Result<Self> {
+        let fields = fields
+            .iter()
+            .map(|f| GenericField::try_from(f.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
+        Self::new(SerdeArrowSchema { fields })
+    }
+
+    /// Construct `arrow` arrays and reset the builder (*requires one of the
+    /// `arrow-*` features*)
+    pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
+        let mut arrays = Vec::new();
+        for field in self.builder.take_records()? {
+            let data = field.into_array()?.try_into()?;
+            arrays.push(make_array(data));
+        }
+        Ok(arrays)
+    }
+
+    /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
+    /// `arrow-*` features*)
+    pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
+        let arrays = self.to_arrow()?;
+        let fields = Vec::<FieldRef>::try_from(&self.schema)?;
+        let schema = Schema::new(fields);
+        Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
+    }
 }
