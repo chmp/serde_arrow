@@ -11,7 +11,7 @@ use crate::{
     },
     internal::{
         arrow::{
-            Array, ArrayView, BitsWithOffset, FieldMeta, NullArrayView,
+            Array, ArrayView, BitsWithOffset, DecimalArrayView, FieldMeta, NullArrayView,
             PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView,
         },
         error::{fail, Error, Result},
@@ -143,7 +143,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
     type Error = Error;
 
     fn try_from(array: &'a dyn A2Array) -> Result<Self> {
-        use ArrayView as V;
+        use {ArrayView as V, DataType as T};
 
         let any = array.as_any();
         if let Some(array) = any.downcast_ref::<NullArray>() {
@@ -153,9 +153,27 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i16>>() {
             Ok(V::Int16(view_primitive_array(array)))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i32>>() {
-            Ok(V::Int32(view_primitive_array(array)))
+            match array.data_type() {
+                T::Int32 => Ok(V::Int32(view_primitive_array(array))),
+                T::Date32 => Ok(V::Date32(view_primitive_array(array))),
+                dt => fail!("unsupported data type {dt:?} for i32 arrow2 array"),
+            }
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i64>>() {
-            Ok(V::Int64(view_primitive_array(array)))
+            match array.data_type() {
+                T::Int64 => Ok(V::Int64(view_primitive_array(array))),
+                T::Date64 => Ok(V::Date64(view_primitive_array(array))),
+                dt => fail!("unsupported data type {dt:?} for i64 arrow2 array"),
+            }
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i128>>() {
+            match array.data_type() {
+                T::Decimal(precision, scale) => Ok(V::Decimal128(DecimalArrayView {
+                    precision: (*precision).try_into()?,
+                    scale: (*scale).try_into()?,
+                    validity: bits_with_offset_from_bitmap(array.validity()),
+                    values: array.values().as_slice(),
+                })),
+                dt => fail!("unsupported data type {dt:?} for i128 arrow2 array"),
+            }
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u8>>() {
             Ok(V::UInt8(view_primitive_array(array)))
         } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u16>>() {

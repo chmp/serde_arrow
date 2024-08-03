@@ -1,12 +1,8 @@
 use crate::internal::{
-    arrow::TimeUnit,
     deserialization::{
         array_deserializer::ArrayDeserializer,
         bool_deserializer::BoolDeserializer,
         construction,
-        date32_deserializer::Date32Deserializer,
-        date64_deserializer::Date64Deserializer,
-        decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         integer_deserializer::{Integer, IntegerDeserializer},
@@ -38,9 +34,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Bool => build_bool_deserializer(field, array),
-        T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
-        T::Date32 => build_date32_deserializer(field, array),
-        T::Date64 => build_date64_deserializer(field, array),
         T::Time32(unit) => Ok(ArrayDeserializer::Time32(TimeDeserializer::new(
             as_primitive_values::<i32>(array)?,
             get_validity(array),
@@ -103,41 +96,6 @@ where
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
 {
     Ok(IntegerDeserializer::new(as_primitive_values(array)?, get_validity(array)).into())
-}
-
-pub fn build_decimal128_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let GenericDataType::Decimal128(_, scale) = field.data_type else {
-        fail!("Invalid data type for Decimal128Deserializer");
-    };
-    Ok(DecimalDeserializer::new(
-        as_primitive_values::<i128>(array)?,
-        get_validity(array),
-        scale,
-    )
-    .into())
-}
-
-pub fn build_date32_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    Ok(Date32Deserializer::new(as_primitive_values::<i32>(array)?, get_validity(array)).into())
-}
-
-pub fn build_date64_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    Ok(Date64Deserializer::new(
-        as_primitive_values(array)?,
-        get_validity(array),
-        TimeUnit::Millisecond,
-        field.is_utc()?,
-    )
-    .into())
 }
 
 pub fn build_string_deserializer<'a, O>(
