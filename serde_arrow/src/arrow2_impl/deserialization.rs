@@ -9,7 +9,6 @@ use crate::internal::{
         decimal_deserializer::DecimalDeserializer,
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
-        float_deserializer::{Float, FloatDeserializer},
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
@@ -29,7 +28,7 @@ use crate::_impl::arrow2::{
         StructArray, UnionArray, Utf8Array,
     },
     datatypes::{DataType, UnionMode},
-    types::{f16, NativeType, Offset as ArrowOffset},
+    types::{NativeType, Offset as ArrowOffset},
 };
 
 pub fn build_array_deserializer<'a>(
@@ -39,17 +38,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Bool => build_bool_deserializer(field, array),
-        T::U8 => build_integer_deserializer::<u8>(field, array),
-        T::U16 => build_integer_deserializer::<u16>(field, array),
-        T::U32 => build_integer_deserializer::<u32>(field, array),
-        T::U64 => build_integer_deserializer::<u64>(field, array),
-        T::I8 => build_integer_deserializer::<i8>(field, array),
-        T::I16 => build_integer_deserializer::<i16>(field, array),
-        T::I32 => build_integer_deserializer::<i32>(field, array),
-        T::I64 => build_integer_deserializer::<i64>(field, array),
-        T::F16 => build_float16_deserializer(field, array),
-        T::F32 => build_float_deserializer::<f32>(field, array),
-        T::F64 => build_float_deserializer::<f64>(field, array),
         T::Decimal128(_, _) => build_decimal128_deserializer(field, array),
         T::Date32 => build_date32_deserializer(field, array),
         T::Date64 => build_date64_deserializer(field, array),
@@ -115,27 +103,6 @@ where
     ArrayDeserializer<'a>: From<IntegerDeserializer<'a, T>>,
 {
     Ok(IntegerDeserializer::new(as_primitive_values(array)?, get_validity(array)).into())
-}
-
-pub fn build_float16_deserializer<'a>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let buffer = as_primitive_values(array)?;
-    let validity = get_validity(array);
-
-    Ok(FloatDeserializer::new(bytemuck::cast_slice::<f16, half::f16>(buffer), validity).into())
-}
-
-pub fn build_float_deserializer<'a, T>(
-    _field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    T: Float + NativeType + 'static,
-    ArrayDeserializer<'a>: From<FloatDeserializer<'a, T>>,
-{
-    Ok(FloatDeserializer::new(as_primitive_values::<T>(array)?, get_validity(array)).into())
 }
 
 pub fn build_decimal128_deserializer<'a>(

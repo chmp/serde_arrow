@@ -11,7 +11,8 @@ use crate::{
     },
     internal::{
         arrow::{
-            Array, ArrayView, FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray,
+            Array, ArrayView, BitsWithOffset, FieldMeta, NullArrayView,
+            PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView,
         },
         error::{fail, Error, Result},
     },
@@ -142,9 +143,36 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
     type Error = Error;
 
     fn try_from(array: &'a dyn A2Array) -> Result<Self> {
+        use ArrayView as V;
+
         let any = array.as_any();
         if let Some(array) = any.downcast_ref::<NullArray>() {
-            Ok(ArrayView::Null(NullArrayView { len: array.len() }))
+            Ok(V::Null(NullArrayView { len: array.len() }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i8>>() {
+            Ok(V::Int8(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i16>>() {
+            Ok(V::Int16(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i32>>() {
+            Ok(V::Int32(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<i64>>() {
+            Ok(V::Int64(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u8>>() {
+            Ok(V::UInt8(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u16>>() {
+            Ok(V::UInt16(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u32>>() {
+            Ok(V::UInt32(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<u64>>() {
+            Ok(V::UInt64(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<f16>>() {
+            Ok(V::Float16(PrimitiveArrayView {
+                values: bytemuck::cast_slice::<f16, half::f16>(array.values().as_slice()),
+                validity: bits_with_offset_from_bitmap(array.validity()),
+            }))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<f32>>() {
+            Ok(V::Float32(view_primitive_array(array)))
+        } else if let Some(array) = any.downcast_ref::<PrimitiveArray<f64>>() {
+            Ok(V::Float64(view_primitive_array(array)))
         } else {
             fail!(
                 "Cannot convert array with data type {:?} into an array view",
@@ -250,4 +278,16 @@ fn build_dictionary_array<K: DictionaryKey>(
         keys,
         values,
     )?))
+}
+
+fn view_primitive_array<T: NativeType>(array: &PrimitiveArray<T>) -> PrimitiveArrayView<'_, T> {
+    PrimitiveArrayView {
+        values: array.values().as_slice(),
+        validity: bits_with_offset_from_bitmap(array.validity()),
+    }
+}
+
+fn bits_with_offset_from_bitmap(bitmap: Option<&Bitmap>) -> Option<BitsWithOffset<'_>> {
+    let (data, offset, _) = bitmap?.as_slice();
+    Some(BitsWithOffset { data, offset })
 }
