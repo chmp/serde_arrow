@@ -9,9 +9,12 @@ use crate::{
     _impl::arrow2::{array::Array, datatypes::Field},
     internal::{
         array_builder::ArrayBuilder,
-        deserialization::outer_sequence_deserializer::OuterSequenceDeserializer,
+        deserialization::{
+            array_deserializer::ArrayDeserializer,
+            outer_sequence_deserializer::OuterSequenceDeserializer,
+        },
         deserializer::Deserializer,
-        error::Result,
+        error::{fail, Result},
         schema::{GenericField, SerdeArrowSchema},
         serializer::Serializer,
     },
@@ -158,7 +161,24 @@ impl<'de> Deserializer<'de> {
             .map(|array| array.as_ref())
             .collect::<Vec<_>>();
 
-        let (deserializers, len) = super::deserialization::build_struct_fields(&fields, &arrays)?;
+        if fields.len() != arrays.len() {
+            fail!(
+                "different number of fields ({}) and arrays ({})",
+                fields.len(),
+                arrays.len()
+            );
+        }
+        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
+
+        let mut deserializers = Vec::new();
+        for (field, array) in std::iter::zip(fields, arrays) {
+            if array.len() != len {
+                fail!("arrays of different lengths are not supported");
+            }
+            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
+            deserializers.push((field.name.clone(), deserializer));
+        }
+
         let deserializer = OuterSequenceDeserializer::new(deserializers, len);
         let deserializer = Deserializer(deserializer);
 
