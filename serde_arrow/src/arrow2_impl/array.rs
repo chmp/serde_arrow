@@ -37,6 +37,22 @@ impl TryFrom<Array> for Box<dyn A2Array> {
             ),
             A::Float32(arr) => build_primitive_array(T::Float32, arr.values, arr.validity),
             A::Float64(arr) => build_primitive_array(T::Float64, arr.values, arr.validity),
+            A::Date32(arr) => build_primitive_array(T::Date32, arr.values, arr.validity),
+            A::Date64(arr) => build_primitive_array(T::Date64, arr.values, arr.validity),
+            A::Duration(arr) => {
+                build_primitive_array(T::Duration(arr.unit.into()), arr.values, arr.validity)
+            }
+            A::Time32(arr) => {
+                build_primitive_array(T::Time32(arr.unit.into()), arr.values, arr.validity)
+            }
+            A::Time64(arr) => {
+                build_primitive_array(T::Time64(arr.unit.into()), arr.values, arr.validity)
+            }
+            A::Timestamp(arr) => build_primitive_array(
+                T::Timestamp(arr.unit.into(), arr.timezone),
+                arr.values,
+                arr.validity,
+            ),
             _ => fail!("cannot convert array to arrow2 array"),
         }
     }

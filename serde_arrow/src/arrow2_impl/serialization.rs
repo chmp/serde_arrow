@@ -34,7 +34,12 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
         | A::U64(_)
         | A::F16(_)
         | A::F32(_)
-        | A::F64(_) => builder.into_array()?.try_into(),
+        | A::F64(_)
+        | A::Date32(_)
+        | A::Date64(_)
+        | A::Duration(_)
+        | A::Time32(_)
+        | A::Time64(_) => builder.into_array()?.try_into(),
         A::Bool(builder) => {
             let buffer = Bitmap::from_u8_vec(builder.buffer.buffer, builder.buffer.len);
             let validity = build_validity(builder.validity);
@@ -44,31 +49,6 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
                 validity,
             )?))
         }
-        A::Date32(builder) => build_primitive_array(
-            Field::try_from(&builder.field)?.data_type,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Date64(builder) => build_primitive_array(
-            Field::try_from(&builder.field)?.data_type,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Time32(builder) => build_primitive_array(
-            Field::try_from(&builder.field)?.data_type,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Time64(builder) => build_primitive_array(
-            Field::try_from(&builder.field)?.data_type,
-            builder.buffer,
-            builder.validity,
-        ),
-        A::Duration(builder) => build_primitive_array(
-            T::Duration(builder.unit.into()),
-            builder.buffer,
-            builder.validity,
-        ),
         A::Decimal128(builder) => build_primitive_array(
             T::Decimal(builder.precision as usize, usize::try_from(builder.scale)?),
             builder.buffer,
