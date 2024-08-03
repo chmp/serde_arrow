@@ -10,7 +10,9 @@ use crate::{
         types::{f16, NativeType, Offset},
     },
     internal::{
-        arrow::{Array, FieldMeta, PrimitiveArray as InternalPrimitiveArray},
+        arrow::{
+            Array, ArrayView, FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray,
+        },
         error::{fail, Error, Result},
     },
 };
@@ -132,6 +134,22 @@ impl TryFrom<Array> for Box<dyn A2Array> {
             }
             A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
             A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
+    type Error = Error;
+
+    fn try_from(array: &'a dyn A2Array) -> Result<Self> {
+        let any = array.as_any();
+        if let Some(array) = any.downcast_ref::<NullArray>() {
+            Ok(ArrayView::Null(NullArrayView { len: array.len() }))
+        } else {
+            fail!(
+                "Cannot convert array with data type {:?} into an array view",
+                array.data_type()
+            );
         }
     }
 }

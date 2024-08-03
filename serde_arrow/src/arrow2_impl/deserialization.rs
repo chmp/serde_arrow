@@ -13,7 +13,6 @@ use crate::internal::{
         integer_deserializer::{Integer, IntegerDeserializer},
         list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
-        null_deserializer::NullDeserializer,
         string_deserializer::StringDeserializer,
         struct_deserializer::StructDeserializer,
         time_deserializer::TimeDeserializer,
@@ -39,7 +38,6 @@ pub fn build_array_deserializer<'a>(
 ) -> Result<ArrayDeserializer<'a>> {
     use GenericDataType as T;
     match &field.data_type {
-        T::Null => Ok(ArrayDeserializer::Null(NullDeserializer)),
         T::Bool => build_bool_deserializer(field, array),
         T::U8 => build_integer_deserializer::<u8>(field, array),
         T::U16 => build_integer_deserializer::<u16>(field, array),
@@ -83,6 +81,7 @@ pub fn build_array_deserializer<'a>(
         T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
+        _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
 }
 
