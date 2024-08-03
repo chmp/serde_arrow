@@ -293,6 +293,22 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 validity: bits_with_offset_from_bitmap(array.validity()),
                 fields,
             }))
+        } else if let Some(array) = any.downcast_ref::<MapArray>() {
+            let T::Map(field, _) = array.data_type() else {
+                fail!(
+                    "invalid data type for arrow2 Map array: {:?}",
+                    array.data_type(),
+                );
+            };
+            let meta = meta_from_field(field.as_ref().try_into()?)?;
+            let element: ArrayView<'_> = array.field().as_ref().try_into()?;
+
+            Ok(V::Map(ListArrayView {
+                element: Box::new(element),
+                meta,
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+            }))
         } else {
             fail!(
                 "Cannot convert array with data type {:?} into an array view",

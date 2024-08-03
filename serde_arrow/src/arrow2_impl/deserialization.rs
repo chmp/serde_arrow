@@ -1,11 +1,7 @@
 use crate::internal::{
     deserialization::{
-        array_deserializer::ArrayDeserializer,
-        dictionary_deserializer::DictionaryDeserializer,
-        enum_deserializer::EnumDeserializer,
-        integer_deserializer::Integer,
-        map_deserializer::MapDeserializer,
-        utils::{check_supported_list_layout, BitBuffer},
+        array_deserializer::ArrayDeserializer, dictionary_deserializer::DictionaryDeserializer,
+        enum_deserializer::EnumDeserializer, integer_deserializer::Integer, utils::BitBuffer,
     },
     error::{fail, Result},
     schema::{GenericDataType, GenericField},
@@ -13,7 +9,7 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow2::{
-    array::{Array, DictionaryArray, DictionaryKey, MapArray, StructArray, UnionArray, Utf8Array},
+    array::{Array, DictionaryArray, DictionaryKey, UnionArray, Utf8Array},
     datatypes::{DataType, UnionMode},
     types::Offset as ArrowOffset,
 };
@@ -25,7 +21,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Dictionary => build_dictionary_deserializer(field, array),
-        T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
     }
@@ -116,43 +111,6 @@ pub fn build_struct_fields<'a>(
     }
 
     Ok((deserializers, len))
-}
-
-pub fn build_map_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(entries_field) = field.children.first() else {
-        fail!("cannot get children of map");
-    };
-    let Some(keys_field) = entries_field.children.first() else {
-        fail!("cannot get keys field");
-    };
-    let Some(values_field) = entries_field.children.get(1) else {
-        fail!("cannot get values field");
-    };
-    let Some(array) = array.as_any().downcast_ref::<MapArray>() else {
-        fail!("cannot convert array into map array");
-    };
-    let Some(entries) = array.field().as_any().downcast_ref::<StructArray>() else {
-        fail!("cannot convert map field into struct array");
-    };
-    let Some(keys) = entries.values().first() else {
-        fail!("cannot get keys array of map entries");
-    };
-    let Some(values) = entries.values().get(1) else {
-        fail!("cannot get values array of map entries");
-    };
-
-    let offsets = array.offsets().as_slice();
-    let validity = get_validity(array);
-
-    check_supported_list_layout(validity, offsets)?;
-
-    let keys = build_array_deserializer(keys_field, keys.as_ref())?;
-    let values = build_array_deserializer(values_field, values.as_ref())?;
-
-    Ok(MapDeserializer::new(keys, values, offsets, validity)?.into())
 }
 
 pub fn build_union_deserializer<'a>(
