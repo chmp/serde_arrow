@@ -12,7 +12,7 @@ use crate::{
     internal::{
         arrow::{
             Array, ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-            DenseUnionArrayView, FieldMeta, ListArrayView, NullArrayView,
+            DenseUnionArrayView, DictionaryArrayView, FieldMeta, ListArrayView, NullArrayView,
             PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, StructArrayView,
             TimeArrayView, TimestampArrayView,
         },
@@ -249,6 +249,22 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 offsets: array.offsets().as_slice(),
                 data: array.values().as_slice(),
             }))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<i8>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::Int8, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<i16>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::Int16, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<i32>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::Int32, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<i64>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::Int64, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<u8>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::UInt8, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<u16>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::UInt16, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<u32>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::UInt32, array)?))
+        } else if let Some(array) = any.downcast_ref::<DictionaryArray<u64>>() {
+            Ok(V::Dictionary(view_dictionary_array(V::UInt64, array)?))
         } else if let Some(array) = any.downcast_ref::<ListArray<i32>>() {
             let T::List(field) = array.data_type() else {
                 fail!(
@@ -446,6 +462,20 @@ fn view_primitive_array<T: NativeType>(array: &PrimitiveArray<T>) -> PrimitiveAr
         values: array.values().as_slice(),
         validity: bits_with_offset_from_bitmap(array.validity()),
     }
+}
+
+fn view_dictionary_array<
+    'a,
+    K: DictionaryKey,
+    I: FnOnce(PrimitiveArrayView<'a, K>) -> ArrayView<'a>,
+>(
+    index_type: I,
+    array: &'a DictionaryArray<K>,
+) -> Result<DictionaryArrayView<'a>> {
+    Ok(DictionaryArrayView {
+        indices: Box::new(index_type(view_primitive_array(array.keys()))),
+        values: Box::new(array.values().as_ref().try_into()?),
+    })
 }
 
 fn bits_with_offset_from_bitmap(bitmap: Option<&Bitmap>) -> Option<BitsWithOffset<'_>> {
