@@ -2,10 +2,7 @@
 //!
 use crate::{
     _impl::arrow2::{
-        array::{
-            Array, DictionaryArray, DictionaryKey, ListArray, MapArray, PrimitiveArray,
-            StructArray, UnionArray,
-        },
+        array::{Array, DictionaryArray, DictionaryKey, MapArray, PrimitiveArray, UnionArray},
         bitmap::Bitmap,
         buffer::Buffer,
         datatypes::{DataType, Field},
@@ -44,38 +41,12 @@ pub fn build_array(builder: ArrayBuilder) -> Result<Box<dyn Array>> {
         | A::Utf8(_)
         | A::LargeUtf8(_)
         | A::Binary(_)
-        | A::LargeBinary(_) => builder.into_array()?.try_into(),
-        A::LargeList(builder) => Ok(Box::new(ListArray::try_new(
-            T::LargeList(Box::new(Field::try_from(&builder.field)?)),
-            OffsetsBuffer::try_from(builder.offsets.offsets)?,
-            build_array(*builder.element)?,
-            build_validity(builder.validity),
-        )?)),
-        A::List(builder) => Ok(Box::new(ListArray::try_new(
-            T::List(Box::new(Field::try_from(&builder.field)?)),
-            OffsetsBuffer::try_from(builder.offsets.offsets)?,
-            build_array(*builder.element)?,
-            build_validity(builder.validity),
-        )?)),
-        A::FixedSizedList(_) => fail!("FixedSizedList is not supported by arrow2"),
-        A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
-        A::Struct(builder) => {
-            let mut values = Vec::new();
-            for (_, field) in builder.named_fields {
-                values.push(build_array(field)?);
-            }
-
-            let fields = builder
-                .fields
-                .iter()
-                .map(Field::try_from)
-                .collect::<Result<Vec<_>>>()?;
-            Ok(Box::new(StructArray::try_new(
-                T::Struct(fields),
-                values,
-                build_validity(builder.validity),
-            )?))
-        }
+        | A::LargeBinary(_)
+        | A::List(_)
+        | A::LargeList(_)
+        | A::Struct(_)
+        | A::FixedSizedList(_)
+        | A::FixedSizeBinary(_) => builder.into_array()?.try_into(),
         A::Map(builder) => Ok(Box::new(MapArray::try_new(
             T::Map(Box::new(Field::try_from(&builder.entry_field)?), false),
             OffsetsBuffer::try_from(builder.offsets.offsets)?,

@@ -1,15 +1,16 @@
 use crate::{
     _impl::arrow2::{
         array::{
-            Array as A2Array, BinaryArray, BooleanArray, NullArray, PrimitiveArray, Utf8Array,
+            Array as A2Array, BinaryArray, BooleanArray, ListArray, NullArray, PrimitiveArray,
+            StructArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
-        datatypes::DataType,
+        datatypes::{DataType, Field},
         types::{f16, NativeType, Offset},
     },
     internal::{
-        arrow::Array,
+        arrow::{Array, FieldMeta},
         error::{fail, Error, Result},
     },
 };
@@ -73,7 +74,41 @@ impl TryFrom<Array> for Box<dyn A2Array> {
             A::LargeBinary(arr) => {
                 build_binary_array(T::LargeBinary, arr.offsets, arr.data, arr.validity)
             }
-            _ => fail!("cannot convert array to arrow2 array"),
+            A::List(arr) => build_list_array(
+                T::List,
+                arr.offsets,
+                arr.meta,
+                (*arr.element).try_into()?,
+                arr.validity,
+            ),
+            A::LargeList(arr) => build_list_array(
+                T::LargeList,
+                arr.offsets,
+                arr.meta,
+                (*arr.element).try_into()?,
+                arr.validity,
+            ),
+            A::Struct(arr) => {
+                let mut fields = Vec::new();
+                let mut values = Vec::new();
+
+                for (child, meta) in arr.fields {
+                    let child: Box<dyn A2Array> = child.try_into()?;
+                    let field = field_from_array_and_meta(child.as_ref(), meta);
+
+                    values.push(child);
+                    fields.push(field);
+                }
+
+                Ok(Box::new(StructArray::new(
+                    T::Struct(fields),
+                    values,
+                    arr.validity.map(|v| Bitmap::from_u8_vec(v, arr.len)),
+                )))
+            }
+            A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
+            A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
+            arr => fail!("cannot convert array {arr:?} to arrow2 array"),
         }
     }
 }
@@ -118,4 +153,25 @@ fn build_binary_array<O: Offset>(
         Buffer::from(data),
         validity,
     )))
+}
+
+fn build_list_array<F: FnOnce(Box<Field>) -> DataType, O: Offset>(
+    data_type: F,
+    offsets: Vec<O>,
+    meta: FieldMeta,
+    values: Box<dyn A2Array>,
+    validity: Option<Vec<u8>>,
+) -> Result<Box<dyn A2Array>> {
+    let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
+    Ok(Box::new(ListArray::new(
+        data_type(Box::new(field_from_array_and_meta(values.as_ref(), meta))),
+        offsets.try_into()?,
+        values,
+        validity,
+    )))
+}
+
+fn field_from_array_and_meta(arr: &dyn A2Array, meta: FieldMeta) -> Field {
+    Field::new(meta.name, arr.data_type().clone(), meta.nullable)
+        .with_metadata(meta.metadata.into_iter().collect())
 }
