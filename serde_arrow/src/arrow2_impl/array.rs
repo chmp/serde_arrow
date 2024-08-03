@@ -12,10 +12,11 @@ use crate::{
     internal::{
         arrow::{
             Array, ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-            FieldMeta, NullArrayView, PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView,
-            TimeArrayView, TimestampArrayView,
+            FieldMeta, ListArrayView, NullArrayView, PrimitiveArray as InternalPrimitiveArray,
+            PrimitiveArrayView, StructArrayView, TimeArrayView, TimestampArrayView,
         },
         error::{fail, Error, Result},
+        serialization::utils::meta_from_field,
     },
 };
 
@@ -246,6 +247,51 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 validity: bits_with_offset_from_bitmap(array.validity()),
                 offsets: array.offsets().as_slice(),
                 data: array.values().as_slice(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<ListArray<i32>>() {
+            let T::List(field) = array.data_type() else {
+                fail!(
+                    "invalid data type for arrow2 List array: {:?}",
+                    array.data_type()
+                );
+            };
+            Ok(V::List(ListArrayView {
+                meta: meta_from_field(field.as_ref().try_into()?)?,
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                element: Box::new(array.values().as_ref().try_into()?),
+            }))
+        } else if let Some(array) = any.downcast_ref::<ListArray<i64>>() {
+            let T::LargeList(field) = array.data_type() else {
+                fail!(
+                    "invalid data type for arrow2 LargeList array: {:?}",
+                    array.data_type()
+                );
+            };
+            Ok(V::LargeList(ListArrayView {
+                meta: meta_from_field(field.as_ref().try_into()?)?,
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                offsets: array.offsets().as_slice(),
+                element: Box::new(array.values().as_ref().try_into()?),
+            }))
+        } else if let Some(array) = any.downcast_ref::<StructArray>() {
+            let T::Struct(child_fields) = array.data_type() else {
+                fail!(
+                    "invalid data type for arrow2 Struct array: {:?}",
+                    array.data_type()
+                );
+            };
+            let mut fields = Vec::new();
+            for (child_field, child) in child_fields.iter().zip(array.values()) {
+                fields.push((
+                    child.as_ref().try_into()?,
+                    meta_from_field(child_field.try_into()?)?,
+                ));
+            }
+            Ok(V::Struct(StructArrayView {
+                len: array.len(),
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                fields,
             }))
         } else {
             fail!(

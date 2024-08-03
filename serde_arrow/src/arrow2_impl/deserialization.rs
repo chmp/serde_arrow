@@ -4,9 +4,7 @@ use crate::internal::{
         dictionary_deserializer::DictionaryDeserializer,
         enum_deserializer::EnumDeserializer,
         integer_deserializer::Integer,
-        list_deserializer::ListDeserializer,
         map_deserializer::MapDeserializer,
-        struct_deserializer::StructDeserializer,
         utils::{check_supported_list_layout, BitBuffer},
     },
     error::{fail, Result},
@@ -15,10 +13,7 @@ use crate::internal::{
 };
 
 use crate::_impl::arrow2::{
-    array::{
-        Array, DictionaryArray, DictionaryKey, ListArray, MapArray, StructArray, UnionArray,
-        Utf8Array,
-    },
+    array::{Array, DictionaryArray, DictionaryKey, MapArray, StructArray, UnionArray, Utf8Array},
     datatypes::{DataType, UnionMode},
     types::Offset as ArrowOffset,
 };
@@ -30,11 +25,6 @@ pub fn build_array_deserializer<'a>(
     use GenericDataType as T;
     match &field.data_type {
         T::Dictionary => build_dictionary_deserializer(field, array),
-        T::Struct => build_struct_deserializer(field, array),
-        T::List => build_list_deserializer::<i32>(field, array),
-        T::LargeList => build_list_deserializer::<i64>(field, array),
-        T::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
-        T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
         T::Map => build_map_deserializer(field, array),
         T::Union => build_union_deserializer(field, array),
         _ => ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?),
@@ -103,26 +93,6 @@ pub fn build_dictionary_deserializer<'a>(
     }
 }
 
-pub fn build_struct_deserializer<'a>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>> {
-    let Some(array) = array.as_any().downcast_ref::<StructArray>() else {
-        fail!("Cannot convert array into struct");
-    };
-
-    let fields = &field.children;
-    let arrays = array
-        .values()
-        .iter()
-        .map(|array| array.as_ref())
-        .collect::<Vec<_>>();
-    let validity = get_validity(array);
-
-    let (deserializers, len) = build_struct_fields(fields, &arrays)?;
-    Ok(StructDeserializer::new(deserializers, validity, len).into())
-}
-
 pub fn build_struct_fields<'a>(
     fields: &[GenericField],
     arrays: &[&'a dyn Array],
@@ -146,29 +116,6 @@ pub fn build_struct_fields<'a>(
     }
 
     Ok((deserializers, len))
-}
-
-pub fn build_list_deserializer<'a, O>(
-    field: &GenericField,
-    array: &'a dyn Array,
-) -> Result<ArrayDeserializer<'a>>
-where
-    O: Offset + ArrowOffset,
-    ArrayDeserializer<'a>: From<ListDeserializer<'a, O>>,
-{
-    let Some(array) = array.as_any().downcast_ref::<ListArray<O>>() else {
-        fail!("cannot interpret array as LargeList array");
-    };
-
-    let validity = get_validity(array);
-    let offsets = array.offsets().as_slice();
-
-    let Some(item_field) = field.children.first() else {
-        fail!("cannot get first child of list array")
-    };
-    let item = build_array_deserializer(item_field, array.values().as_ref())?;
-
-    Ok(ListDeserializer::new(item, offsets, validity)?.into())
 }
 
 pub fn build_map_deserializer<'a>(
