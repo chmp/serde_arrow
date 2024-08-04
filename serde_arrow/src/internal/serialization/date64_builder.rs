@@ -1,7 +1,6 @@
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
     error::{fail, Result},
-    schema::{GenericDataType, GenericField},
 };
 
 use super::{
@@ -11,15 +10,15 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
-    pub field: GenericField,
+    pub meta: Option<(TimeUnit, Option<String>)>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
 }
 
 impl Date64Builder {
-    pub fn new(field: GenericField, utc: bool, is_nullable: bool) -> Self {
+    pub fn new(meta: Option<(TimeUnit, Option<String>)>, utc: bool, is_nullable: bool) -> Self {
         Self {
-            field,
+            meta,
             utc,
             array: new_primitive_array(is_nullable),
         }
@@ -27,7 +26,7 @@ impl Date64Builder {
 
     pub fn take(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
+            meta: self.meta.clone(),
             utc: self.utc,
             array: self.array.take(),
         }
@@ -37,9 +36,8 @@ impl Date64Builder {
         self.array.validity.is_some()
     }
 
-    // TODO: fix this
     pub fn into_array(self) -> Result<Array> {
-        if let GenericDataType::Timestamp(unit, timezone) = self.field.data_type {
+        if let Some((unit, timezone)) = self.meta {
             Ok(Array::Timestamp(TimestampArray {
                 unit,
                 timezone,
@@ -47,7 +45,6 @@ impl Date64Builder {
                 values: self.array.values,
             }))
         } else {
-            // TOOD: check data type
             Ok(Array::Date64(PrimitiveArray {
                 validity: self.array.validity,
                 values: self.array.values,
@@ -78,24 +75,21 @@ impl SimpleSerializer for Date64Builder {
             v.parse::<NaiveDateTime>()?.and_utc()
         };
 
-        let timestamp = match self.field.data_type {
-            GenericDataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                match date_time.timestamp_nanos_opt() {
-                    Some(timestamp) => timestamp,
-                    _ => fail!(
-                        concat!(
-                            "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
-                            "The dates that can be represented as nanoseconds are between ",
-                            "1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.",
-                        ),
-                        date_time = date_time,
+        let timestamp = match self.meta.as_ref() {
+            Some((TimeUnit::Nanosecond, _)) => match date_time.timestamp_nanos_opt() {
+                Some(timestamp) => timestamp,
+                _ => fail!(
+                    concat!(
+                        "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
+                        "The dates that can be represented as nanoseconds are between ",
+                        "1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.",
                     ),
-                }
-            }
-            GenericDataType::Timestamp(TimeUnit::Microsecond, _) => date_time.timestamp_micros(),
-            GenericDataType::Timestamp(TimeUnit::Millisecond, _) => date_time.timestamp_millis(),
-            GenericDataType::Timestamp(TimeUnit::Second, _) => date_time.timestamp(),
-            _ => date_time.timestamp_millis(),
+                    date_time = date_time,
+                ),
+            },
+            Some((TimeUnit::Microsecond, _)) => date_time.timestamp_micros(),
+            Some((TimeUnit::Millisecond, _)) | None => date_time.timestamp_millis(),
+            Some((TimeUnit::Second, _)) => date_time.timestamp(),
         };
 
         self.array.push_scalar_value(timestamp)

@@ -16,10 +16,9 @@ use super::{
     bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
     decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
     float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
-    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, union_builder::UnionBuilder,
-    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
-    simple_serializer::SimpleSerializer, ArrayBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, simple_serializer::SimpleSerializer,
+    struct_builder::StructBuilder, time_builder::TimeBuilder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder, ArrayBuilder,
 };
 
 #[derive(Debug, Clone)]
@@ -61,21 +60,16 @@ impl OuterSequenceBuilder {
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
                 T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
-                T::Date64 => {
-                    let is_utc = match field.strategy.as_ref() {
-                        Some(Strategy::UtcStrAsDate64) | None => true,
-                        Some(Strategy::NaiveStrAsDate64) => false,
-                        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-                    };
-                    A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
-                }
-                T::Timestamp(_, tz) => match tz.as_deref() {
-                    None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
-                    Some(tz) if tz.to_uppercase() == "UTC" => {
-                        A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
-                    }
-                    Some(tz) => fail!("Timezone {tz} is not supported"),
-                },
+                T::Date64 => A::Date64(Date64Builder::new(
+                    None,
+                    is_utc_strategy(field.strategy.as_ref())?,
+                    field.nullable,
+                )),
+                T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
+                    Some((*unit, tz.clone())),
+                    is_utc_tz(tz.as_deref())?,
+                    field.nullable,
+                )),
                 T::Time32(unit) => {
                     if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");
@@ -247,5 +241,21 @@ impl SimpleSerializer for OuterSequenceBuilder {
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
+    match tz {
+        None => Ok(false),
+        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
+        Some(tz) => fail!("Timezone {tz} is not supported"),
+    }
+}
+
+fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
+    match strategy {
+        Some(Strategy::UtcStrAsDate64) | None => Ok(true),
+        Some(Strategy::NaiveStrAsDate64) => Ok(false),
+        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
     }
 }
