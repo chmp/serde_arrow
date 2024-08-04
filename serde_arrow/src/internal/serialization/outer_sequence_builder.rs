@@ -7,7 +7,7 @@ use crate::internal::{
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
-        fixed_size_list_builder::FixedSizeListBuilder,
+        fixed_size_list_builder::FixedSizeListBuilder, utils::meta_from_field,
     },
     utils::Mut,
 };
@@ -170,10 +170,10 @@ impl OuterSequenceBuilder {
                 T::Union => {
                     let mut fields = Vec::new();
                     for field in &field.children {
-                        fields.push(build_builder(field)?);
+                        fields.push((build_builder(field)?, meta_from_field(field.clone())?));
                     }
 
-                    A::Union(UnionBuilder::new(field.clone(), fields)?)
+                    A::Union(UnionBuilder::new(fields))
                 }
             };
             Ok(builder)
