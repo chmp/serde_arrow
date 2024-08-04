@@ -165,7 +165,7 @@
 //! | `arrow2-0-16` | `arrow2=0.16` |
 
 // be more forgiving without any active implementation
-#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
+#[cfg_attr(not(any(has_arrow, has_arrow2)), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
