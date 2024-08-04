@@ -12,4 +12,4 @@ pub use array::{
     TimestampArray, TimestampArrayView,
 };
 #[allow(unused)]
-pub use data_type::{Field, DataType, TimeUnit};
+pub use data_type::{DataType, Field, TimeUnit};

@@ -4,6 +4,7 @@ mod data_type;
 mod deserialization;
 mod from_samples;
 mod from_type;
+mod serde;
 mod strategy;
 pub mod tracer;
 mod tracing_options;
@@ -19,7 +20,7 @@ use crate::internal::{
     utils::value,
 };
 
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
 pub use data_type::GenericDataType;
 pub use strategy::{
