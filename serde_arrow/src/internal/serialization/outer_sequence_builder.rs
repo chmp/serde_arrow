@@ -19,7 +19,7 @@ use super::{
     map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
     time_builder::TimeBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
-    utils::SimpleSerializer, ArrayBuilder,
+    simple_serializer::SimpleSerializer, ArrayBuilder,
 };
 
 #[derive(Debug, Clone)]

@@ -9,7 +9,7 @@ use crate::internal::{
     utils::Mut,
 };
 
-use super::{array_builder::ArrayBuilder, utils::SimpleSerializer};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {

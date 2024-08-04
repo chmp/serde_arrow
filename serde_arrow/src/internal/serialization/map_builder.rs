@@ -8,7 +8,7 @@ use crate::internal::{
 use super::{
     array_builder::ArrayBuilder,
     array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    utils::SimpleSerializer,
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]

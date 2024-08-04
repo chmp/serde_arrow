@@ -4,7 +4,7 @@ use crate::internal::{
     utils::Mut,
 };
 
-use super::{utils::SimpleSerializer, ArrayBuilder};
+use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {

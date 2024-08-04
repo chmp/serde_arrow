@@ -12,7 +12,7 @@ use super::{
     int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
     null_builder::NullBuilder, struct_builder::StructBuilder, time_builder::TimeBuilder,
     union_builder::UnionBuilder, unknown_variant_builder::UnknownVariantBuilder,
-    utf8_builder::Utf8Builder, utils::SimpleSerializer,
+    utf8_builder::Utf8Builder, simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]

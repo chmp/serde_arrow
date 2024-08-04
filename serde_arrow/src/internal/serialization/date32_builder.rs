@@ -7,7 +7,7 @@ use crate::internal::{
 
 use super::{
     array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    utils::SimpleSerializer,
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]

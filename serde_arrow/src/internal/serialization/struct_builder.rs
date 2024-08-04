@@ -11,7 +11,7 @@ use crate::internal::{
 use super::{
     array_builder::ArrayBuilder,
     array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    utils::SimpleSerializer,
+    simple_serializer::SimpleSerializer,
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;

@@ -5,7 +5,7 @@ use crate::internal::{
 
 use super::{
     array_ext::{set_bit_buffer, set_validity, set_validity_default},
-    utils::SimpleSerializer,
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
