@@ -1,7 +1,7 @@
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::BitsWithOffset,
+    arrow::DecimalArrayView,
     error::Result,
     utils::{decimal, Mut},
 };
@@ -14,10 +14,10 @@ pub struct DecimalDeserializer<'a> {
 }
 
 impl<'a> DecimalDeserializer<'a> {
-    pub fn new(buffer: &'a [i128], validity: Option<BitsWithOffset<'a>>, scale: i8) -> Self {
+    pub fn new(view: DecimalArrayView<'a, i128>) -> Self {
         Self {
-            inner: ArrayBufferIterator::new(buffer, validity),
-            scale,
+            inner: ArrayBufferIterator::new(view.values, view.validity),
+            scale: view.scale,
         }
     }
 }
