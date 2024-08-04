@@ -309,26 +309,14 @@ impl SchemaLike for SerdeArrowSchema {
     }
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GenericField {
     pub name: String,
     pub data_type: GenericDataType,
-
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub metadata: HashMap<String, String>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy: Option<Strategy>,
-
-    #[serde(default, skip_serializing_if = "is_false")]
     pub nullable: bool,
-
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<GenericField>,
-}
-
-fn is_false(val: &bool) -> bool {
-    !*val
 }
 
 impl GenericField {
