@@ -1,33 +1,32 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FixedSizeListArray},
+    arrow::{Array, FieldMeta, FixedSizeListArray},
     error::{fail, Result},
-    schema::GenericField,
     utils::Mut,
 };
 
 use super::{
     array_builder::ArrayBuilder,
     array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    utils::{meta_from_field, SimpleSerializer},
+    utils::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeListBuilder {
     pub seq: CountArray,
-    pub field: GenericField,
+    pub meta: FieldMeta,
     pub n: usize,
     pub current_count: usize,
     pub element: Box<ArrayBuilder>,
 }
 
 impl FixedSizeListBuilder {
-    pub fn new(field: GenericField, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
+    pub fn new(meta: FieldMeta, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
         Self {
             seq: CountArray::new(is_nullable),
-            field,
+            meta,
             n,
             current_count: 0,
             element: Box::new(element),
@@ -37,7 +36,7 @@ impl FixedSizeListBuilder {
     pub fn take(&mut self) -> Self {
         Self {
             seq: self.seq.take(),
-            field: self.field.clone(),
+            meta: self.meta.clone(),
             n: self.n,
             current_count: std::mem::take(&mut self.current_count),
             element: Box::new(self.element.take()),
@@ -53,7 +52,7 @@ impl FixedSizeListBuilder {
             len: self.seq.len,
             validity: self.seq.validity,
             n: self.n.try_into()?,
-            meta: meta_from_field(self.field)?,
+            meta: self.meta,
             element: Box::new((*self.element).into_array()?),
         }))
     }

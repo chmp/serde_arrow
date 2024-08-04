@@ -7,21 +7,11 @@ use serde::{
 };
 
 use crate::internal::{
-    arrow::FieldMeta,
     error::{fail, Error, Result},
-    schema::{merge_strategy_with_metadata, GenericField},
     utils::Mut,
 };
 
 use super::ArrayBuilder;
-
-pub fn meta_from_field(field: GenericField) -> Result<FieldMeta> {
-    Ok(FieldMeta {
-        name: field.name,
-        nullable: field.nullable,
-        metadata: merge_strategy_with_metadata(field.metadata, field.strategy)?,
-    })
-}
 
 /// A simplified serialization trait with default implementations raising an
 /// error

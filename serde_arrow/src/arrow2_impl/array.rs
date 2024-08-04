@@ -17,7 +17,7 @@ use crate::{
             TimeArrayView, TimestampArrayView,
         },
         error::{fail, Error, Result},
-        serialization::utils::meta_from_field,
+        utils::meta_from_field,
     },
 };
 

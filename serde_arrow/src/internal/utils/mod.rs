@@ -9,6 +9,11 @@ use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::error::Result;
 
+use super::{
+    arrow::FieldMeta,
+    schema::{merge_strategy_with_metadata, GenericField},
+};
+
 /// A wrapper around a sequence of items
 ///
 /// When serialized or deserialized, it behaves as if each item was wrapped in a
@@ -174,4 +179,12 @@ impl Offset for i64 {
     fn try_into_usize(self) -> Result<usize> {
         Ok(self.try_into()?)
     }
+}
+
+pub fn meta_from_field(field: GenericField) -> Result<FieldMeta> {
+    Ok(FieldMeta {
+        name: field.name,
+        nullable: field.nullable,
+        metadata: merge_strategy_with_metadata(field.metadata, field.strategy)?,
+    })
 }

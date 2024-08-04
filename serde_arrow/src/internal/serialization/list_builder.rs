@@ -3,14 +3,13 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
     error::Result,
-    schema::GenericField,
     utils::{Mut, Offset},
 };
 
 use super::{
     array_builder::ArrayBuilder,
     array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    utils::{meta_from_field, SimpleSerializer},
+    utils::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
@@ -22,9 +21,9 @@ pub struct ListBuilder<O> {
 }
 
 impl<O: Offset> ListBuilder<O> {
-    pub fn new(field: GenericField, element: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+    pub fn new(meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Result<Self> {
         Ok(Self {
-            meta: meta_from_field(field)?,
+            meta,
             element: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
         })

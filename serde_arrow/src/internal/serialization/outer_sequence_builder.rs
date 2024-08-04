@@ -7,9 +7,9 @@ use crate::internal::{
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
-        fixed_size_list_builder::FixedSizeListBuilder, utils::meta_from_field,
+        fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::Mut,
+    utils::{meta_from_field, Mut},
 };
 
 use super::{
@@ -29,14 +29,12 @@ impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
         return Ok(Self(build_struct(&schema.fields, false)?));
 
-        fn build_struct(fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
-            let mut named_fields = Vec::new();
-            for field in fields {
-                let builder = build_builder(field)?;
-                named_fields.push((field.name.to_owned(), builder));
+        fn build_struct(struct_fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
+            let mut fields = Vec::new();
+            for field in struct_fields {
+                fields.push((build_builder(field)?, meta_from_field(field.clone())?));
             }
-
-            StructBuilder::new(fields.to_vec(), named_fields, nullable)
+            StructBuilder::new(fields, nullable)
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
@@ -101,7 +99,7 @@ impl OuterSequenceBuilder {
                         fail!("cannot build a list without an element field");
                     };
                     A::List(ListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         field.nullable,
                     )?)
@@ -111,7 +109,7 @@ impl OuterSequenceBuilder {
                         fail!("cannot build list without an element field");
                     };
                     A::LargeList(ListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         field.nullable,
                     )?)
@@ -121,7 +119,7 @@ impl OuterSequenceBuilder {
                         fail!("cannot build list without an element field");
                     };
                     A::FixedSizedList(FixedSizeListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         (*n).try_into()?,
                         field.nullable,
@@ -141,7 +139,7 @@ impl OuterSequenceBuilder {
                         fail!("Invalid child field for map: {entry_field:?}")
                     }
                     A::Map(MapBuilder::new(
-                        entry_field.clone(),
+                        meta_from_field(entry_field.clone())?,
                         build_builder(entry_field)?,
                         field.nullable,
                     ))
@@ -182,13 +180,10 @@ impl OuterSequenceBuilder {
 
     /// Extract the contained struct fields
     pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
-        let builder = self.0.take();
-
         let mut result = Vec::new();
-        for (_, field) in builder.named_fields {
-            result.push(field);
+        for (builder, _) in self.0.take().fields {
+            result.push(builder);
         }
-
         Ok(result)
     }
 

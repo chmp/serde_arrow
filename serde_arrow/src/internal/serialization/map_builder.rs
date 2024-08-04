@@ -1,28 +1,27 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, ListArray},
+    arrow::{Array, FieldMeta, ListArray},
     error::Result,
-    schema::GenericField,
 };
 
 use super::{
     array_builder::ArrayBuilder,
     array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    utils::{meta_from_field, SimpleSerializer},
+    utils::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
-    pub entry_field: GenericField,
+    pub meta: FieldMeta,
     pub entry: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<i32>,
 }
 
 impl MapBuilder {
-    pub fn new(entry_field: GenericField, entry: ArrayBuilder, is_nullable: bool) -> Self {
+    pub fn new(meta: FieldMeta, entry: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
-            entry_field,
+            meta,
             offsets: OffsetsArray::new(is_nullable),
             entry: Box::new(entry),
         }
@@ -30,7 +29,7 @@ impl MapBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
-            entry_field: self.entry_field.clone(),
+            meta: self.meta.clone(),
             offsets: self.offsets.take(),
             entry: Box::new(self.entry.take()),
         }
@@ -42,7 +41,7 @@ impl MapBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Map(ListArray {
-            meta: meta_from_field(self.entry_field)?,
+            meta: self.meta,
             element: Box::new((*self.entry).into_array()?),
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,

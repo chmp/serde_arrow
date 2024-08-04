@@ -31,7 +31,7 @@ use crate::{
         },
         error::{fail, Error, Result},
         schema::GenericField,
-        serialization::utils::meta_from_field,
+        utils::meta_from_field,
     },
 };
 
