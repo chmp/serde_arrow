@@ -6,77 +6,55 @@ use crate::internal::{
     utils::{Mut, Offset},
 };
 
-use super::utils::{
-    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, SimpleSerializer,
+use super::{
+    array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 
-pub struct BinaryBuilder<O> {
-    pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<O>,
-    pub buffer: Vec<u8>,
-}
+pub struct BinaryBuilder<O>(BytesArray<O>);
 
 impl<O: Offset> BinaryBuilder<O> {
     pub fn new(is_nullable: bool) -> Self {
-        Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: Default::default(),
-            buffer: Vec::new(),
-        }
+        Self(new_bytes_array(is_nullable))
     }
 
     pub fn take(&mut self) -> Self {
-        Self {
-            validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+        Self(self.0.take())
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.0.validity.is_some()
     }
 }
 
 impl BinaryBuilder<i32> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Binary(BytesArray {
-            validity: self.validity.map(|b| b.buffer),
-            offsets: self.offsets.offsets,
-            data: self.buffer,
-        }))
+        Ok(Array::Binary(self.0))
     }
 }
 
 impl BinaryBuilder<i64> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeBinary(BytesArray {
-            validity: self.validity.map(|b| b.buffer),
-            offsets: self.offsets.offsets,
-            data: self.buffer,
-        }))
+        Ok(Array::LargeBinary(self.0))
     }
 }
 
 impl<O: Offset> BinaryBuilder<O> {
     fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)
+        self.0.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         let mut u8_serializer = U8Serializer(0);
         value.serialize(Mut(&mut u8_serializer))?;
 
-        self.offsets.inc_current_items()?;
-        self.buffer.push(u8_serializer.0);
-
-        Ok(())
+        self.0.data.push(u8_serializer.0);
+        self.0.push_seq_elements(1)
     }
 
     fn end(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
         Ok(())
     }
 }
@@ -87,14 +65,11 @@ impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
-        Ok(())
+        self.0.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        push_validity(&mut self.validity, false)
+        self.0.push_scalar_none()
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
@@ -134,9 +109,7 @@ impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.extend(v);
-        self.offsets.push(v.len())
+        self.0.push_scalar_value(v)
     }
 }
 

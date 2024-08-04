@@ -2,22 +2,19 @@ use chrono::DateTime;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::TimeUnit,
+    arrow::{BitsWithOffset, TimeUnit},
     error::{fail, Result},
     utils::Mut,
 };
 
-use super::{
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
-};
+use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
 pub struct Date64Deserializer<'a>(ArrayBufferIterator<'a, i64>, TimeUnit, bool);
 
 impl<'a> Date64Deserializer<'a> {
     pub fn new(
         buffer: &'a [i64],
-        validity: Option<BitBuffer<'a>>,
+        validity: Option<BitsWithOffset<'a>>,
         unit: TimeUnit,
         is_utc: bool,
     ) -> Self {

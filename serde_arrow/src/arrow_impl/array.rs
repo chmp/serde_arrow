@@ -31,7 +31,7 @@ use crate::{
         },
         error::{fail, Error, Result},
         schema::GenericField,
-        serialization::utils::meta_from_field,
+        utils::meta_from_field,
     },
 };
 
@@ -602,7 +602,7 @@ fn wrap_dictionary_array<K: ArrowDictionaryKeyType>(
 }
 
 #[cfg(has_arrow_fixed_binary_support)]
-pub fn wrap_fixed_size_binary_array<'a>(array: &'a FixedSizeBinaryArray) -> Result<ArrayView<'a>> {
+pub fn wrap_fixed_size_binary_array(array: &FixedSizeBinaryArray) -> Result<ArrayView<'_>> {
     use crate::internal::arrow::FixedSizeBinaryArrayView;
 
     Ok(ArrayView::FixedSizeBinary(FixedSizeBinaryArrayView {
@@ -613,7 +613,7 @@ pub fn wrap_fixed_size_binary_array<'a>(array: &'a FixedSizeBinaryArray) -> Resu
 }
 
 #[cfg(not(has_arrow_fixed_binary_support))]
-pub fn wrap_fixed_size_binary_array<'a>(_array: &'a FixedSizeBinaryArray) -> Result<ArrayView<'a>> {
+pub fn wrap_fixed_size_binary_array(_array: &FixedSizeBinaryArray) -> Result<ArrayView<'_>> {
     fail!("FixedSizeBinary arrays are not supported for arrow<=46");
 }
 

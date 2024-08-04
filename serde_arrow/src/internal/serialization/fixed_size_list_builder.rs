@@ -1,63 +1,58 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FixedSizeListArray},
+    arrow::{Array, FieldMeta, FixedSizeListArray},
     error::{fail, Result},
-    schema::GenericField,
     utils::Mut,
 };
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        meta_from_field, push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer,
-    },
+    array_ext::{ArrayExt, CountArray, SeqArrayExt},
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeListBuilder {
-    pub field: GenericField,
+    pub seq: CountArray,
+    pub meta: FieldMeta,
     pub n: usize,
     pub current_count: usize,
-    pub num_elements: usize,
-    pub validity: Option<MutableBitBuffer>,
     pub element: Box<ArrayBuilder>,
 }
 
 impl FixedSizeListBuilder {
-    pub fn new(field: GenericField, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
+    pub fn new(meta: FieldMeta, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
         Self {
-            field,
+            seq: CountArray::new(is_nullable),
+            meta,
             n,
             current_count: 0,
-            num_elements: 0,
-            validity: is_nullable.then(MutableBitBuffer::default),
             element: Box::new(element),
         }
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
+            seq: self.seq.take(),
+            meta: self.meta.clone(),
             n: self.n,
             current_count: std::mem::take(&mut self.current_count),
-            num_elements: std::mem::take(&mut self.num_elements),
-            validity: self.validity.as_mut().map(std::mem::take),
             element: Box::new(self.element.take()),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.seq.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::FixedSizeList(FixedSizeListArray {
-            len: self.num_elements,
+            len: self.seq.len,
+            validity: self.seq.validity,
             n: self.n.try_into()?,
-            meta: meta_from_field(self.field)?,
-            validity: self.validity.map(|v| v.buffer),
+            meta: self.meta,
             element: Box::new((*self.element).into_array()?),
         }))
     }
@@ -66,15 +61,17 @@ impl FixedSizeListBuilder {
 impl FixedSizeListBuilder {
     fn start(&mut self) -> Result<()> {
         self.current_count = 0;
-        push_validity(&mut self.validity, true)
+        self.seq.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.current_count += 1;
+        self.seq.push_seq_elements(1)?;
         value.serialize(Mut(self.element.as_mut()))
     }
 
     fn end(&mut self) -> Result<()> {
+        // TODO: fill with default values? would simplify using the builder
         if self.current_count != self.n {
             fail!(
                 "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
@@ -82,8 +79,7 @@ impl FixedSizeListBuilder {
                 actual = self.current_count
             );
         }
-        self.num_elements += 1;
-        Ok(())
+        self.seq.end_seq()
     }
 }
 
@@ -93,20 +89,18 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
+        self.seq.push_seq_default()?;
         for _ in 0..self.n {
             self.element.serialize_default()?;
         }
-        self.num_elements += 1;
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
+        self.seq.push_seq_none()?;
         for _ in 0..self.n {
             self.element.serialize_default()?;
         }
-        self.num_elements += 1;
         Ok(())
     }
 

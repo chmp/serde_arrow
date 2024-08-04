@@ -10,9 +10,9 @@ use super::{
     fixed_size_binary_builder::FixedSizeBinaryBuilder,
     fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
     int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
-    null_builder::NullBuilder, struct_builder::StructBuilder, time_builder::TimeBuilder,
-    union_builder::UnionBuilder, unknown_variant_builder::UnknownVariantBuilder,
-    utf8_builder::Utf8Builder, utils::SimpleSerializer,
+    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
+    time_builder::TimeBuilder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
 #[derive(Debug, Clone)]

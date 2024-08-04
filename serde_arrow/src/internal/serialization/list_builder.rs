@@ -1,60 +1,54 @@
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, ListArray},
+    arrow::{Array, FieldMeta, ListArray},
     error::Result,
-    schema::GenericField,
     utils::{Mut, Offset},
 };
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        meta_from_field, push_validity, push_validity_default, MutableBitBuffer,
-        MutableOffsetBuffer, SimpleSerializer,
-    },
+    array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
 
 pub struct ListBuilder<O> {
-    pub field: GenericField,
-    pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<O>,
+    pub meta: FieldMeta,
     pub element: Box<ArrayBuilder>,
+    pub offsets: OffsetsArray<O>,
 }
 
 impl<O: Offset> ListBuilder<O> {
-    pub fn new(field: GenericField, element: ArrayBuilder, is_nullable: bool) -> Self {
-        Self {
-            field,
-            validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: Default::default(),
+    pub fn new(meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+        Ok(Self {
+            meta,
             element: Box::new(element),
-        }
+            offsets: OffsetsArray::new(is_nullable),
+        })
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
+            meta: self.meta.clone(),
+            offsets: self.offsets.take(),
             element: Box::new(self.element.take()),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.offsets.validity.is_some()
     }
 }
 
 impl ListBuilder<i32> {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::List(ListArray {
-            validity: self.validity.map(|b| b.buffer),
+            validity: self.offsets.validity,
             offsets: self.offsets.offsets,
             element: Box::new(self.element.into_array()?),
-            meta: meta_from_field(self.field)?,
+            meta: self.meta,
         }))
     }
 }
@@ -62,27 +56,26 @@ impl ListBuilder<i32> {
 impl ListBuilder<i64> {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::LargeList(ListArray {
-            validity: self.validity.map(|b| b.buffer),
+            validity: self.offsets.validity,
             offsets: self.offsets.offsets,
             element: Box::new(self.element.into_array()?),
-            meta: meta_from_field(self.field)?,
+            meta: self.meta,
         }))
     }
 }
 
 impl<O: Offset> ListBuilder<O> {
     fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)
+        self.offsets.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.offsets.inc_current_items()?;
+        self.offsets.push_seq_elements(1)?;
         value.serialize(Mut(self.element.as_mut()))
     }
 
     fn end(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        Ok(())
+        self.offsets.end_seq()
     }
 }
 
@@ -92,14 +85,11 @@ impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
-        Ok(())
+        self.offsets.push_seq_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        push_validity(&mut self.validity, false)
+        self.offsets.push_seq_none()
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {

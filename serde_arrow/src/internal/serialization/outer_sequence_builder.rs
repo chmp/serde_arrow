@@ -9,17 +9,16 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::Mut,
+    utils::{meta_from_field, Mut},
 };
 
 use super::{
     bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
     decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
     float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
-    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, union_builder::UnionBuilder,
-    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
-    utils::SimpleSerializer, ArrayBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, simple_serializer::SimpleSerializer,
+    struct_builder::StructBuilder, time_builder::TimeBuilder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder, ArrayBuilder,
 };
 
 #[derive(Debug, Clone)]
@@ -29,14 +28,12 @@ impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
         return Ok(Self(build_struct(&schema.fields, false)?));
 
-        fn build_struct(fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
-            let mut named_fields = Vec::new();
-            for field in fields {
-                let builder = build_builder(field)?;
-                named_fields.push((field.name.to_owned(), builder));
+        fn build_struct(struct_fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
+            let mut fields = Vec::new();
+            for field in struct_fields {
+                fields.push((build_builder(field)?, meta_from_field(field.clone())?));
             }
-
-            StructBuilder::new(fields.to_vec(), named_fields, nullable)
+            StructBuilder::new(fields, nullable)
         }
 
         fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
@@ -62,33 +59,28 @@ impl OuterSequenceBuilder {
                 T::F16 => A::F16(FloatBuilder::new(field.nullable)),
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
-                T::Date32 => A::Date32(Date32Builder::new(field.clone(), field.nullable)),
-                T::Date64 => {
-                    let is_utc = match field.strategy.as_ref() {
-                        Some(Strategy::UtcStrAsDate64) | None => true,
-                        Some(Strategy::NaiveStrAsDate64) => false,
-                        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-                    };
-                    A::Date64(Date64Builder::new(field.clone(), is_utc, field.nullable))
-                }
-                T::Timestamp(_, tz) => match tz.as_deref() {
-                    None => A::Date64(Date64Builder::new(field.clone(), false, field.nullable)),
-                    Some(tz) if tz.to_uppercase() == "UTC" => {
-                        A::Date64(Date64Builder::new(field.clone(), true, field.nullable))
-                    }
-                    Some(tz) => fail!("Timezone {tz} is not supported"),
-                },
+                T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
+                T::Date64 => A::Date64(Date64Builder::new(
+                    None,
+                    is_utc_strategy(field.strategy.as_ref())?,
+                    field.nullable,
+                )),
+                T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
+                    Some((*unit, tz.clone())),
+                    is_utc_tz(tz.as_deref())?,
+                    field.nullable,
+                )),
                 T::Time32(unit) => {
                     if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");
                     }
-                    A::Time32(TimeBuilder::new(field.clone(), field.nullable, *unit))
+                    A::Time32(TimeBuilder::new(*unit, field.nullable))
                 }
                 T::Time64(unit) => {
                     if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(TimeBuilder::new(field.clone(), field.nullable, *unit))
+                    A::Time64(TimeBuilder::new(*unit, field.nullable))
                 }
                 T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
                 T::Decimal128(precision, scale) => {
@@ -101,27 +93,27 @@ impl OuterSequenceBuilder {
                         fail!("cannot build a list without an element field");
                     };
                     A::List(ListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         field.nullable,
-                    ))
+                    )?)
                 }
                 T::LargeList => {
                     let Some(child) = field.children.first() else {
                         fail!("cannot build list without an element field");
                     };
                     A::LargeList(ListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         field.nullable,
-                    ))
+                    )?)
                 }
                 T::FixedSizeList(n) => {
                     let Some(child) = field.children.first() else {
                         fail!("cannot build list without an element field");
                     };
                     A::FixedSizedList(FixedSizeListBuilder::new(
-                        child.clone(),
+                        meta_from_field(child.clone())?,
                         build_builder(child)?,
                         (*n).try_into()?,
                         field.nullable,
@@ -141,7 +133,7 @@ impl OuterSequenceBuilder {
                         fail!("Invalid child field for map: {entry_field:?}")
                     }
                     A::Map(MapBuilder::new(
-                        entry_field.clone(),
+                        meta_from_field(entry_field.clone())?,
                         build_builder(entry_field)?,
                         field.nullable,
                     ))
@@ -170,10 +162,10 @@ impl OuterSequenceBuilder {
                 T::Union => {
                     let mut fields = Vec::new();
                     for field in &field.children {
-                        fields.push(build_builder(field)?);
+                        fields.push((build_builder(field)?, meta_from_field(field.clone())?));
                     }
 
-                    A::Union(UnionBuilder::new(field.clone(), fields)?)
+                    A::Union(UnionBuilder::new(fields))
                 }
             };
             Ok(builder)
@@ -182,13 +174,10 @@ impl OuterSequenceBuilder {
 
     /// Extract the contained struct fields
     pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
-        let builder = self.0.take();
-
         let mut result = Vec::new();
-        for (_, field) in builder.named_fields {
-            result.push(field);
+        for (builder, _) in self.0.take().fields {
+            result.push(builder);
         }
-
         Ok(result)
     }
 
@@ -252,5 +241,21 @@ impl SimpleSerializer for OuterSequenceBuilder {
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
+    match tz {
+        None => Ok(false),
+        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
+        Some(tz) => fail!("Timezone {tz} is not supported"),
+    }
+}
+
+fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
+    match strategy {
+        Some(Strategy::UtcStrAsDate64) | None => Ok(true),
+        Some(Strategy::NaiveStrAsDate64) => Ok(false),
+        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
     }
 }

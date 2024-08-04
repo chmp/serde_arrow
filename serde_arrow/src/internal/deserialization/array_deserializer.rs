@@ -2,32 +2,23 @@ use half::f16;
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    arrow::{ArrayView, BitsWithOffset, BytesArrayView, FieldMeta, PrimitiveArrayView, TimeUnit},
+    arrow::{ArrayView, FieldMeta, PrimitiveArrayView, TimeUnit},
     error::{fail, Error, Result},
     schema::{Strategy, STRATEGY_KEY},
-    utils::{Mut, Offset},
+    utils::Mut,
 };
 
 use super::{
-    binary_deserializer::BinaryDeserializer,
-    bool_deserializer::BoolDeserializer,
-    date32_deserializer::Date32Deserializer,
-    date64_deserializer::Date64Deserializer,
-    decimal_deserializer::DecimalDeserializer,
-    dictionary_deserializer::DictionaryDeserializer,
+    binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
+    date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
+    decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
     enum_deserializer::EnumDeserializer,
     fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
-    fixed_size_list_deserializer::FixedSizeListDeserializer,
-    float_deserializer::FloatDeserializer,
-    integer_deserializer::{Integer, IntegerDeserializer},
-    list_deserializer::ListDeserializer,
-    map_deserializer::MapDeserializer,
-    null_deserializer::NullDeserializer,
-    simple_deserializer::SimpleDeserializer,
-    string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer,
-    time_deserializer::TimeDeserializer,
-    utils::BitBuffer,
+    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
+    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -80,173 +71,79 @@ pub enum ArrayDeserializer<'a> {
 
 impl<'a> ArrayDeserializer<'a> {
     pub fn new(strategy: Option<&Strategy>, array: ArrayView<'a>) -> Result<Self> {
+        use {ArrayDeserializer as D, ArrayView as V};
         match array {
             ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
-            ArrayView::Boolean(view) => Ok(Self::Bool(BoolDeserializer::new(
-                buffer_from_bits_with_offset(view.values, view.len),
-                buffer_from_bits_with_offset_opt(view.validity, view.len),
-            ))),
-            ArrayView::Int8(view) => Ok(Self::I8(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Int16(view) => Ok(Self::I16(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Int32(view) => Ok(Self::I32(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Int64(view) => Ok(Self::I64(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::UInt8(view) => Ok(Self::U8(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::UInt16(view) => Ok(Self::U16(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::UInt32(view) => Ok(Self::U32(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::UInt64(view) => Ok(Self::U64(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Float16(view) => Ok(Self::F16(FloatDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Float32(view) => Ok(Self::F32(FloatDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Float64(view) => Ok(Self::F64(FloatDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Decimal128(view) => Ok(Self::Decimal128(DecimalDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-                view.scale,
-            ))),
+            V::Boolean(view) => Ok(D::Bool(BoolDeserializer::new(view))),
+            V::Int8(view) => Ok(D::I8(IntegerDeserializer::new(view))),
+            V::Int16(view) => Ok(D::I16(IntegerDeserializer::new(view))),
+            V::Int32(view) => Ok(D::I32(IntegerDeserializer::new(view))),
+            V::Int64(view) => Ok(D::I64(IntegerDeserializer::new(view))),
+            V::UInt8(view) => Ok(D::U8(IntegerDeserializer::new(view))),
+            V::UInt16(view) => Ok(D::U16(IntegerDeserializer::new(view))),
+            V::UInt32(view) => Ok(D::U32(IntegerDeserializer::new(view))),
+            V::UInt64(view) => Ok(D::U64(IntegerDeserializer::new(view))),
+            V::Float16(view) => Ok(D::F16(FloatDeserializer::new(view))),
+            V::Float32(view) => Ok(D::F32(FloatDeserializer::new(view))),
+            V::Float64(view) => Ok(D::F64(FloatDeserializer::new(view))),
+            V::Decimal128(view) => Ok(D::Decimal128(DecimalDeserializer::new(view))),
             ArrayView::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
                 TimeUnit::Millisecond,
                 is_utc_date64(strategy)?,
             ))),
-            ArrayView::Time32(view) => Ok(Self::Time32(TimeDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-                view.unit,
-            ))),
-            ArrayView::Time64(view) => Ok(Self::Time64(TimeDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-                view.unit,
-            ))),
+            V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(view))),
+            V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(view))),
             ArrayView::Timestamp(view) => match strategy {
                 Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
                     Ok(Self::Date64(Date64Deserializer::new(
                         view.values,
-                        buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                        view.validity,
                         view.unit,
                         is_utc_timestamp(view.timezone.as_deref())?,
                     )))
                 }
                 Some(strategy) => fail!("invalid strategy {strategy} for timestamp field"),
-                None => Ok(Date64Deserializer::new(
+                None => Ok(Self::Date64(Date64Deserializer::new(
                     view.values,
-                    buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                    view.validity,
                     view.unit,
                     is_utc_timestamp(view.timezone.as_deref())?,
-                )
-                .into()),
+                ))),
             },
-            ArrayView::Duration(view) => Ok(Self::I64(IntegerDeserializer::new(
-                view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
-            ))),
-            ArrayView::Utf8(view) => Ok(Self::Utf8(StringDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::LargeUtf8(view) => Ok(Self::LargeUtf8(StringDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::Binary(view) => Ok(Self::Binary(BinaryDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::LargeBinary(view) => Ok(Self::LargeBinary(BinaryDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::FixedSizeBinary(view) => {
-                let value_length: usize = view.n.try_into()?;
-                if view.data.len() % value_length != 0 {
-                    fail!("Invalid FixedSizeBinary array: Data is not evenly divisible into chunks of size {value_length}");
-                }
-                let len = view.data.len() / value_length;
-
-                Ok(Self::FixedSizeBinary(FixedSizeBinaryDeserializer::new(
-                    (len, value_length),
-                    view.data,
-                    buffer_from_bits_with_offset_opt(view.validity, len),
-                )))
+            V::Duration(view) => Ok(D::I64(IntegerDeserializer::new(PrimitiveArrayView {
+                values: view.values,
+                validity: view.validity,
+            }))),
+            V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(view))),
+            V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(view))),
+            V::Binary(view) => Ok(D::Binary(BinaryDeserializer::new(view))),
+            V::LargeBinary(view) => Ok(D::LargeBinary(BinaryDeserializer::new(view))),
+            V::FixedSizeBinary(view) => {
+                Ok(D::FixedSizeBinary(FixedSizeBinaryDeserializer::new(view)?))
             }
-            ArrayView::List(view) => Ok(Self::List(ListDeserializer::new(
+            V::List(view) => Ok(D::List(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
+                view.validity,
             )?)),
-            ArrayView::LargeList(view) => Ok(Self::LargeList(ListDeserializer::new(
+            V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(
                 ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
                 view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
+                view.validity,
             )?)),
-            ArrayView::FixedSizeList(view) => {
-                Ok(Self::FixedSizeList(FixedSizeListDeserializer::new(
-                    ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
-                    buffer_from_bits_with_offset_opt(view.validity, view.len),
-                    view.n.try_into()?,
-                    view.len,
-                )))
-            }
-            ArrayView::Struct(view) => {
+            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
+                ArrayDeserializer::new(get_strategy(&view.meta)?.as_ref(), *view.element)?,
+                view.validity,
+                view.n.try_into()?,
+                view.len,
+            ))),
+            V::Struct(view) => {
                 let mut fields = Vec::new();
                 for (field_view, field_meta) in view.fields {
                     let field_deserializer =
@@ -256,13 +153,13 @@ impl<'a> ArrayDeserializer<'a> {
                     fields.push((field_name, field_deserializer));
                 }
 
-                Ok(Self::Struct(StructDeserializer::new(
+                Ok(D::Struct(StructDeserializer::new(
                     fields,
-                    buffer_from_bits_with_offset_opt(view.validity, view.len),
+                    view.validity,
                     view.len,
                 )))
             }
-            ArrayView::Map(view) => {
+            V::Map(view) => {
                 let ArrayView::Struct(entries_view) = *view.element else {
                     fail!("invalid entries field in map array");
                 };
@@ -274,65 +171,62 @@ impl<'a> ArrayDeserializer<'a> {
                 let values =
                     ArrayDeserializer::new(get_strategy(&values_meta)?.as_ref(), values_view)?;
 
-                Ok(Self::Map(MapDeserializer::new(
+                Ok(D::Map(MapDeserializer::new(
                     keys,
                     values,
                     view.offsets,
-                    buffer_from_bits_with_offset_opt(
-                        view.validity,
-                        view.offsets.len().saturating_sub(1),
-                    ),
+                    view.validity,
                 )?))
             }
-            ArrayView::Dictionary(view) => match (*view.indices, *view.values) {
-                (ArrayView::Int8(keys), ArrayView::Utf8(values)) => {
-                    Ok(Self::DictionaryI8I32(build_dictionary_array(keys, values)?))
-                }
-                (ArrayView::Int16(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI16I32(
-                    build_dictionary_array(keys, values)?,
+            V::Dictionary(view) => match (*view.indices, *view.values) {
+                (V::Int8(keys), V::Utf8(values)) => Ok(D::DictionaryI8I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::Int32(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI32I32(
-                    build_dictionary_array(keys, values)?,
+                (V::Int16(keys), V::Utf8(values)) => Ok(D::DictionaryI16I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::Int64(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryI64I32(
-                    build_dictionary_array(keys, values)?,
+                (V::Int32(keys), V::Utf8(values)) => Ok(D::DictionaryI32I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::UInt8(keys), ArrayView::Utf8(values)) => {
-                    Ok(Self::DictionaryU8I32(build_dictionary_array(keys, values)?))
-                }
-                (ArrayView::UInt16(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU16I32(
-                    build_dictionary_array(keys, values)?,
+                (V::Int64(keys), V::Utf8(values)) => Ok(D::DictionaryI64I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::UInt32(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU32I32(
-                    build_dictionary_array(keys, values)?,
+                (V::UInt8(keys), V::Utf8(values)) => Ok(Self::DictionaryU8I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::UInt64(keys), ArrayView::Utf8(values)) => Ok(Self::DictionaryU64I32(
-                    build_dictionary_array(keys, values)?,
+                (V::UInt16(keys), V::Utf8(values)) => Ok(D::DictionaryU16I32(
+                    DictionaryDeserializer::new(keys, values)?,
                 )),
-                (ArrayView::Int8(keys), ArrayView::LargeUtf8(values)) => {
-                    Ok(Self::DictionaryI8I64(build_dictionary_array(keys, values)?))
-                }
-                (ArrayView::Int16(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryI16I64(build_dictionary_array(keys, values)?),
-                ),
-                (ArrayView::Int32(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryI32I64(build_dictionary_array(keys, values)?),
-                ),
-                (ArrayView::Int64(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryI64I64(build_dictionary_array(keys, values)?),
-                ),
-                (ArrayView::UInt8(keys), ArrayView::LargeUtf8(values)) => {
-                    Ok(Self::DictionaryU8I64(build_dictionary_array(keys, values)?))
-                }
-                (ArrayView::UInt16(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryU16I64(build_dictionary_array(keys, values)?),
-                ),
-                (ArrayView::UInt32(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryU32I64(build_dictionary_array(keys, values)?),
-                ),
-                (ArrayView::UInt64(keys), ArrayView::LargeUtf8(values)) => Ok(
-                    Self::DictionaryU64I64(build_dictionary_array(keys, values)?),
-                ),
+                (V::UInt32(keys), V::Utf8(values)) => Ok(D::DictionaryU32I32(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::UInt64(keys), V::Utf8(values)) => Ok(D::DictionaryU64I32(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::Int8(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI8I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::Int16(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI16I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::Int32(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI32I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::Int64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI64I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::UInt8(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU8I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::UInt16(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU16I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::UInt32(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU32I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
+                (V::UInt64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU64I64(
+                    DictionaryDeserializer::new(keys, values)?,
+                )),
                 _ => fail!("unsupported dictionary array"),
             },
             ArrayView::DenseUnion(view) => {
@@ -347,22 +241,6 @@ impl<'a> ArrayDeserializer<'a> {
             }
         }
     }
-}
-
-fn build_dictionary_array<'a, K: Integer, V: Offset>(
-    keys: PrimitiveArrayView<'a, K>,
-    values: BytesArrayView<'a, V>,
-) -> Result<DictionaryDeserializer<'a, K, V>> {
-    if values.validity.is_some() {
-        // TODO: check whether all values are defined?
-        fail!("dictionaries with nullable values are not supported");
-    }
-    Ok(DictionaryDeserializer::new(
-        keys.values,
-        buffer_from_bits_with_offset_opt(keys.validity, keys.values.len()),
-        values.data,
-        values.offsets,
-    ))
 }
 
 fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
@@ -386,276 +264,6 @@ fn get_strategy(meta: &FieldMeta) -> Result<Option<Strategy>> {
         return Ok(None);
     };
     Ok(Some(strategy.parse()?))
-}
-
-fn buffer_from_bits_with_offset(bits: BitsWithOffset, len: usize) -> BitBuffer {
-    BitBuffer {
-        data: bits.data,
-        offset: bits.offset,
-        number_of_bits: len,
-    }
-}
-
-fn buffer_from_bits_with_offset_opt(bits: Option<BitsWithOffset>, len: usize) -> Option<BitBuffer> {
-    Some(buffer_from_bits_with_offset(bits?, len))
-}
-
-impl<'a> From<IntegerDeserializer<'a, i8>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, i8>) -> Self {
-        Self::I8(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, i16>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, i16>) -> Self {
-        Self::I16(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, i32>) -> Self {
-        Self::I32(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, i64>) -> Self {
-        Self::I64(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, u8>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, u8>) -> Self {
-        Self::U8(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, u16>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, u16>) -> Self {
-        Self::U16(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, u32>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, u32>) -> Self {
-        Self::U32(value)
-    }
-}
-
-impl<'a> From<IntegerDeserializer<'a, u64>> for ArrayDeserializer<'a> {
-    fn from(value: IntegerDeserializer<'a, u64>) -> Self {
-        Self::U64(value)
-    }
-}
-
-impl<'a> From<FloatDeserializer<'a, f16>> for ArrayDeserializer<'a> {
-    fn from(value: FloatDeserializer<'a, f16>) -> Self {
-        Self::F16(value)
-    }
-}
-
-impl<'a> From<FloatDeserializer<'a, f32>> for ArrayDeserializer<'a> {
-    fn from(value: FloatDeserializer<'a, f32>) -> Self {
-        Self::F32(value)
-    }
-}
-
-impl<'a> From<FloatDeserializer<'a, f64>> for ArrayDeserializer<'a> {
-    fn from(value: FloatDeserializer<'a, f64>) -> Self {
-        Self::F64(value)
-    }
-}
-
-impl<'a> From<DecimalDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: DecimalDeserializer<'a>) -> Self {
-        Self::Decimal128(value)
-    }
-}
-
-impl<'a> From<Date32Deserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: Date32Deserializer<'a>) -> Self {
-        Self::Date32(value)
-    }
-}
-
-impl<'a> From<Date64Deserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: Date64Deserializer<'a>) -> Self {
-        Self::Date64(value)
-    }
-}
-
-impl<'a> From<TimeDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: TimeDeserializer<'a, i32>) -> Self {
-        Self::Time32(value)
-    }
-}
-
-impl<'a> From<TimeDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: TimeDeserializer<'a, i64>) -> Self {
-        Self::Time64(value)
-    }
-}
-
-impl<'a> From<StructDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: StructDeserializer<'a>) -> Self {
-        Self::Struct(value)
-    }
-}
-
-impl<'a> From<ListDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: ListDeserializer<'a, i32>) -> Self {
-        Self::List(value)
-    }
-}
-
-impl<'a> From<ListDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: ListDeserializer<'a, i64>) -> Self {
-        Self::LargeList(value)
-    }
-}
-
-impl<'a> From<FixedSizeListDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: FixedSizeListDeserializer<'a>) -> Self {
-        Self::FixedSizeList(value)
-    }
-}
-
-impl<'a> From<BinaryDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: BinaryDeserializer<'a, i32>) -> Self {
-        Self::Binary(value)
-    }
-}
-
-impl<'a> From<BinaryDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: BinaryDeserializer<'a, i64>) -> Self {
-        Self::LargeBinary(value)
-    }
-}
-
-impl<'a> From<FixedSizeBinaryDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: FixedSizeBinaryDeserializer<'a>) -> Self {
-        Self::FixedSizeBinary(value)
-    }
-}
-
-impl<'a> From<StringDeserializer<'a, i32>> for ArrayDeserializer<'a> {
-    fn from(value: StringDeserializer<'a, i32>) -> Self {
-        Self::Utf8(value)
-    }
-}
-
-impl<'a> From<StringDeserializer<'a, i64>> for ArrayDeserializer<'a> {
-    fn from(value: StringDeserializer<'a, i64>) -> Self {
-        Self::LargeUtf8(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u8, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u8, i32>) -> Self {
-        Self::DictionaryU8I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u16, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u16, i32>) -> Self {
-        Self::DictionaryU16I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u32, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u32, i32>) -> Self {
-        Self::DictionaryU32I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u64, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u64, i32>) -> Self {
-        Self::DictionaryU64I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i8, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i8, i32>) -> Self {
-        Self::DictionaryI8I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i16, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i16, i32>) -> Self {
-        Self::DictionaryI16I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i32, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i32, i32>) -> Self {
-        Self::DictionaryI32I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i64, i32>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i64, i32>) -> Self {
-        Self::DictionaryI64I32(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u8, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u8, i64>) -> Self {
-        Self::DictionaryU8I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u16, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u16, i64>) -> Self {
-        Self::DictionaryU16I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u32, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u32, i64>) -> Self {
-        Self::DictionaryU32I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, u64, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, u64, i64>) -> Self {
-        Self::DictionaryU64I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i8, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i8, i64>) -> Self {
-        Self::DictionaryI8I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i16, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i16, i64>) -> Self {
-        Self::DictionaryI16I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i32, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i32, i64>) -> Self {
-        Self::DictionaryI32I64(value)
-    }
-}
-
-impl<'a> From<DictionaryDeserializer<'a, i64, i64>> for ArrayDeserializer<'a> {
-    fn from(value: DictionaryDeserializer<'a, i64, i64>) -> Self {
-        Self::DictionaryI64I64(value)
-    }
-}
-
-impl<'a> From<MapDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: MapDeserializer<'a>) -> Self {
-        Self::Map(value)
-    }
-}
-
-impl<'a> From<EnumDeserializer<'a>> for ArrayDeserializer<'a> {
-    fn from(value: EnumDeserializer<'a>) -> Self {
-        Self::Enum(value)
-    }
 }
 
 macro_rules! dispatch {

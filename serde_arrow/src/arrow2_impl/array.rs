@@ -17,11 +17,13 @@ use crate::{
             TimeArrayView, TimestampArrayView,
         },
         error::{fail, Error, Result},
-        serialization::utils::meta_from_field,
+        utils::meta_from_field,
     },
 };
 
-impl TryFrom<Array> for Box<dyn A2Array> {
+type ArrayRef = Box<dyn A2Array>;
+
+impl TryFrom<Array> for ArrayRef {
     type Error = Error;
 
     fn try_from(value: Array) -> Result<Self> {
@@ -115,7 +117,7 @@ impl TryFrom<Array> for Box<dyn A2Array> {
                 )))
             }
             A::Map(arr) => {
-                let child: Box<dyn A2Array> = (*arr.element).try_into()?;
+                let child: ArrayRef = (*arr.element).try_into()?;
                 let field = field_from_array_and_meta(child.as_ref(), arr.meta);
                 let validity = arr
                     .validity
@@ -363,7 +365,7 @@ fn build_primitive_array<T: NativeType>(
     data_type: DataType,
     buffer: Vec<T>,
     validity: Option<Vec<u8>>,
-) -> Result<Box<dyn A2Array>> {
+) -> Result<ArrayRef> {
     let validity = validity.map(|v| Bitmap::from_u8_vec(v, buffer.len()));
     let buffer = Buffer::from(buffer);
     Ok(Box::new(PrimitiveArray::try_new(
@@ -376,7 +378,7 @@ fn build_utf8_array<O: Offset>(
     offsets: Vec<O>,
     data: Vec<u8>,
     validity: Option<Vec<u8>>,
-) -> Result<Box<dyn A2Array>> {
+) -> Result<ArrayRef> {
     let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
     Ok(Box::new(Utf8Array::new(
         data_type,
@@ -391,7 +393,7 @@ fn build_binary_array<O: Offset>(
     offsets: Vec<O>,
     data: Vec<u8>,
     validity: Option<Vec<u8>>,
-) -> Result<Box<dyn A2Array>> {
+) -> Result<ArrayRef> {
     let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
     Ok(Box::new(BinaryArray::new(
         data_type,
@@ -405,9 +407,9 @@ fn build_list_array<F: FnOnce(Box<Field>) -> DataType, O: Offset>(
     data_type: F,
     offsets: Vec<O>,
     meta: FieldMeta,
-    values: Box<dyn A2Array>,
+    values: ArrayRef,
     validity: Option<Vec<u8>>,
-) -> Result<Box<dyn A2Array>> {
+) -> Result<ArrayRef> {
     let validity = validity.map(|v| Bitmap::from_u8_vec(v, offsets.len().saturating_sub(1)));
     Ok(Box::new(ListArray::new(
         data_type(Box::new(field_from_array_and_meta(values.as_ref(), meta))),
@@ -424,12 +426,12 @@ fn field_from_array_and_meta(arr: &dyn A2Array, meta: FieldMeta) -> Field {
 
 fn array_with_meta_to_array_and_fields(
     arrays: Vec<(Array, FieldMeta)>,
-) -> Result<(Vec<Box<dyn A2Array>>, Vec<Field>)> {
+) -> Result<(Vec<ArrayRef>, Vec<Field>)> {
     let mut res_fields = Vec::new();
     let mut res_arrays = Vec::new();
 
     for (child, meta) in arrays {
-        let child: Box<dyn A2Array> = child.try_into()?;
+        let child: ArrayRef = child.try_into()?;
         let field = field_from_array_and_meta(child.as_ref(), meta);
 
         res_arrays.push(child);
@@ -443,8 +445,8 @@ fn build_dictionary_array<K: DictionaryKey>(
     indices_type: IntegerType,
     indices: InternalPrimitiveArray<K>,
     values: Array,
-) -> Result<Box<dyn A2Array>> {
-    let values: Box<dyn A2Array> = values.try_into()?;
+) -> Result<ArrayRef> {
+    let values: ArrayRef = values.try_into()?;
     let validity = indices
         .validity
         .map(|v| Bitmap::from_u8_vec(v, indices.values.len()));

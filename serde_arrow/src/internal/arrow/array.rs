@@ -191,10 +191,14 @@ pub struct ListArrayView<'a, O> {
     pub element: Box<ArrayView<'a>>,
 }
 
+/// An array comprised of lists of fixed size
 #[derive(Clone, Debug)]
 pub struct FixedSizeListArray {
+    /// The number of elements in this array, each a list with `n` children
     pub len: usize,
+    /// The number of children per element
     pub n: i32,
+    /// The validity mask of the elements
     pub validity: Option<Vec<u8>>,
     pub meta: FieldMeta,
     pub element: Box<Array>,

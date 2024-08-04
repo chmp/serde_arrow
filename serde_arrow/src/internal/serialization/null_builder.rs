@@ -3,7 +3,7 @@ use crate::internal::{
     error::Result,
 };
 
-use super::utils::SimpleSerializer;
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone, Default)]
 pub struct NullBuilder {

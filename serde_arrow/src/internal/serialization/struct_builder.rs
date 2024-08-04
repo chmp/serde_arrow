@@ -3,99 +3,68 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, StructArray},
+    arrow::{Array, FieldMeta, StructArray},
     error::{fail, Result},
-    schema::GenericField,
     utils::Mut,
 };
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        meta_from_field, push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer,
-    },
+    array_ext::{ArrayExt, CountArray, SeqArrayExt},
+    simple_serializer::SimpleSerializer,
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;
 
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
-    // TODO: clean this up
-    pub fields: Vec<GenericField>,
-    pub validity: Option<MutableBitBuffer>,
-    pub named_fields: Vec<(String, ArrayBuilder)>,
-    pub cached_names: Vec<Option<(*const u8, usize)>>,
-    pub seen: Vec<bool>,
+    pub fields: Vec<(ArrayBuilder, FieldMeta)>,
+    pub lookup: FieldLookup,
     pub next: usize,
-    pub index: BTreeMap<String, usize>,
-    pub len: usize,
+    pub seen: Vec<bool>,
+    pub seq: CountArray,
 }
 
 impl StructBuilder {
-    pub fn new(
-        fields: Vec<GenericField>,
-        named_fields: Vec<(String, ArrayBuilder)>,
-        is_nullable: bool,
-    ) -> Result<Self> {
-        if fields.len() != named_fields.len() {
-            fail!("mismatched number of fields and builders");
-        }
-
-        let mut index = BTreeMap::new();
-        for (idx, (name, _)) in named_fields.iter().enumerate() {
-            if index.contains_key(name) {
-                fail!("Duplicate field {name}");
-            }
-            index.insert(name.to_owned(), idx);
-        }
+    pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>, is_nullable: bool) -> Result<Self> {
+        let lookup = FieldLookup::new(fields.iter().map(|(_, meta)| meta.name.clone()).collect())?;
 
         Ok(Self {
-            fields,
-            seen: vec![false; named_fields.len()],
-            cached_names: vec![None; named_fields.len()],
-            validity: is_nullable.then(MutableBitBuffer::default),
-            named_fields,
+            seq: CountArray::new(is_nullable),
+            seen: vec![false; fields.len()],
             next: 0,
-            index,
-            len: 0,
+            lookup,
+            fields,
         })
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            fields: self.fields.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            named_fields: self
-                .named_fields
+            fields: self
+                .fields
                 .iter_mut()
-                .map(|(name, builder)| (name.clone(), builder.take()))
+                .map(|(builder, meta)| (builder.take(), meta.clone()))
                 .collect(),
-            cached_names: std::mem::replace(
-                &mut self.cached_names,
-                vec![None; self.named_fields.len()],
-            ),
-            seen: std::mem::replace(&mut self.seen, vec![false; self.named_fields.len()]),
+            lookup: self.lookup.take(),
+            seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
+            seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
-            len: std::mem::take(&mut self.len),
-            index: self.index.clone(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.seq.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
-        for (field, (_, builder)) in self.fields.into_iter().zip(self.named_fields) {
-            let meta = meta_from_field(field)?;
-            let array = builder.into_array()?;
-            fields.push((array, meta));
+        for (builder, meta) in self.fields {
+            fields.push((builder.into_array()?, meta));
         }
 
         Ok(Array::Struct(StructArray {
-            len: self.len,
-            validity: self.validity.map(|b| b.buffer),
+            len: self.seq.len,
+            validity: self.seq.validity,
             fields,
         }))
     }
@@ -103,8 +72,7 @@ impl StructBuilder {
 
 impl StructBuilder {
     fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.len += 1;
+        self.seq.start_seq()?;
         self.reset();
         Ok(())
     }
@@ -115,27 +83,29 @@ impl StructBuilder {
     }
 
     fn end(&mut self) -> Result<()> {
+        self.seq.end_seq()?;
         for (idx, seen) in self.seen.iter_mut().enumerate() {
             if !*seen {
-                if !self.named_fields[idx].1.is_nullable() {
+                if !self.fields[idx].1.nullable {
                     fail!(
                         "missing non-nullable field {:?} in struct",
-                        self.named_fields[idx].0
+                        self.fields[idx].1.name
                     );
                 }
 
-                self.named_fields[idx].1.serialize_none()?;
+                self.fields[idx].0.serialize_none()?;
             }
         }
         Ok(())
     }
 
     fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
+        self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
-            fail!("Duplicate field {key}", key = self.named_fields[idx].0);
+            fail!("Duplicate field {key}", key = self.fields[idx].1.name);
         }
 
-        value.serialize(Mut(&mut self.named_fields[idx].1))?;
+        value.serialize(Mut(&mut self.fields[idx].0))?;
         self.seen[idx] = true;
         self.next = idx + 1;
         Ok(())
@@ -148,21 +118,18 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.len += 1;
-        for (_, field) in &mut self.named_fields {
-            field.serialize_default()?;
+        self.seq.push_seq_default()?;
+        for (builder, _) in &mut self.fields {
+            builder.serialize_default()?;
         }
 
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.len += 1;
-
-        for (_, field) in &mut self.named_fields {
-            field.serialize_default()?;
+        self.seq.push_seq_none()?;
+        for (builder, _) in &mut self.fields {
+            builder.serialize_default()?;
         }
         Ok(())
     }
@@ -176,21 +143,10 @@ impl SimpleSerializer for StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let fast_key = (key.as_ptr(), key.len());
-        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key)) {
-            self.next
-        } else {
-            let Some(&idx) = self.index.get(key) else {
-                // ignore unknown fields
-                return Ok(());
-            };
-
-            if self.cached_names[idx].is_none() {
-                self.cached_names[idx] = Some(fast_key);
-            }
-            idx
+        let Some(idx) = self.lookup.lookup(self.next, key) else {
+            // ignore unknown fields
+            return Ok(());
         };
-
         self.element(idx, value)
     }
 
@@ -216,7 +172,7 @@ impl SimpleSerializer for StructBuilder {
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         // ignore extra tuple fields
-        if self.next < self.named_fields.len() {
+        if self.next < self.fields.len() {
             self.element(self.next, value)?;
         }
         Ok(())
@@ -234,7 +190,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.index, key)?.unwrap_or(UNKNOWN_KEY);
+        self.next = self.lookup.lookup_serialize(key)?.unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -249,6 +205,52 @@ impl SimpleSerializer for StructBuilder {
 
     fn serialize_map_end(&mut self) -> Result<()> {
         self.end()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldLookup {
+    pub cached_names: Vec<Option<(*const u8, usize)>>,
+    pub index: BTreeMap<String, usize>,
+}
+
+impl FieldLookup {
+    pub fn new(field_names: Vec<String>) -> Result<Self> {
+        let mut index = BTreeMap::new();
+        for (idx, name) in field_names.into_iter().enumerate() {
+            if index.contains_key(&name) {
+                fail!("Duplicate field {name}");
+            }
+            index.insert(name, idx);
+        }
+        Ok(Self {
+            cached_names: vec![None; index.len()],
+            index,
+        })
+    }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.index.len()]),
+            index: self.index.clone(),
+        }
+    }
+
+    pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
+        let fast_key = (key.as_ptr(), key.len());
+        if self.cached_names.get(guess) == Some(&Some(fast_key)) {
+            Some(guess)
+        } else {
+            let &idx = self.index.get(key)?;
+            if self.cached_names[idx].is_none() {
+                self.cached_names[idx] = Some(fast_key);
+            }
+            Some(idx)
+        }
+    }
+
+    pub fn lookup_serialize<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<Option<usize>> {
+        KeyLookupSerializer::lookup(&self.index, key)
     }
 }
 

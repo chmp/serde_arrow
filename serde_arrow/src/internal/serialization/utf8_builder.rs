@@ -4,56 +4,37 @@ use crate::internal::{
     utils::Offset,
 };
 
-use super::utils::{
-    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, SimpleSerializer,
+use super::{
+    array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
+    simple_serializer::SimpleSerializer,
 };
 
 #[derive(Debug, Clone)]
-pub struct Utf8Builder<O> {
-    pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<O>,
-    pub buffer: Vec<u8>,
-}
+pub struct Utf8Builder<O>(BytesArray<O>);
 
 impl<O: Offset> Utf8Builder<O> {
     pub fn new(is_nullable: bool) -> Self {
-        Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: MutableOffsetBuffer::default(),
-            buffer: Vec::new(),
-        }
+        Self(new_bytes_array(is_nullable))
     }
 
     pub fn take(&mut self) -> Self {
-        Self {
-            validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+        Self(self.0.take())
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.0.validity.is_some()
     }
 }
 
 impl Utf8Builder<i32> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Utf8(BytesArray {
-            validity: self.validity.map(|b| b.buffer),
-            offsets: self.offsets.offsets,
-            data: self.buffer,
-        }))
+        Ok(Array::Utf8(self.0))
     }
 }
 
 impl Utf8Builder<i64> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeUtf8(BytesArray {
-            validity: self.validity.map(|b| b.buffer),
-            offsets: self.offsets.offsets,
-            data: self.buffer,
-        }))
+        Ok(Array::LargeUtf8(self.0))
     }
 }
 
@@ -63,23 +44,15 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
-        Ok(())
+        self.0.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.offsets.push_current_items();
-        Ok(())
+        self.0.push_scalar_none()
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.offsets.push(v.len())?;
-        self.buffer.extend(v.as_bytes());
-
-        Ok(())
+        self.0.push_scalar_value(v.as_bytes())
     }
 
     fn serialize_unit_variant(
@@ -88,7 +61,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.serialize_str(variant)
+        self.0.push_scalar_value(variant.as_bytes())
     }
 
     fn serialize_tuple_variant_start<'this>(
