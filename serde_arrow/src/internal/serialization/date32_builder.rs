@@ -3,44 +3,31 @@ use chrono::{NaiveDate, NaiveDateTime};
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
     error::Result,
-    schema::GenericField,
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{
+    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    utils::SimpleSerializer,
+};
 
 #[derive(Debug, Clone)]
-pub struct Date32Builder {
-    pub field: GenericField,
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<i32>,
-}
+pub struct Date32Builder(PrimitiveArray<i32>);
 
 impl Date32Builder {
-    pub fn new(field: GenericField, nullable: bool) -> Self {
-        Self {
-            field,
-            validity: nullable.then(MutableBitBuffer::default),
-            buffer: Vec::new(),
-        }
+    pub fn new(is_nullable: bool) -> Self {
+        Self(new_primitive_array(is_nullable))
     }
 
     pub fn take(&mut self) -> Self {
-        Self {
-            field: self.field.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+        Self(self.0.take())
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.0.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Date32(PrimitiveArray {
-            validity: self.validity.map(|validity| validity.buffer),
-            values: self.buffer,
-        }))
+        Ok(Array::Date32(self.0))
     }
 }
 
@@ -50,15 +37,11 @@ impl SimpleSerializer for Date32Builder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(0);
-        Ok(())
+        self.0.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0);
-        Ok(())
+        self.0.push_scalar_none()
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
@@ -68,14 +51,10 @@ impl SimpleSerializer for Date32Builder {
         let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
         let days_since_epoch = duration_since_epoch.num_days().try_into()?;
 
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(days_since_epoch);
-        Ok(())
+        self.0.push_scalar_value(days_since_epoch)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
-        Ok(())
+        self.0.push_scalar_value(v)
     }
 }

@@ -11,9 +11,8 @@ use crate::internal::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        meta_from_field, push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer,
-    },
+    array_ext::{ArrayExt, CountArray, SeqArrayExt},
+    utils::{meta_from_field, SimpleSerializer},
 };
 
 const UNKNOWN_KEY: usize = usize::MAX;
@@ -22,13 +21,12 @@ const UNKNOWN_KEY: usize = usize::MAX;
 pub struct StructBuilder {
     // TODO: clean this up
     pub fields: Vec<GenericField>,
-    pub validity: Option<MutableBitBuffer>,
     pub named_fields: Vec<(String, ArrayBuilder)>,
     pub cached_names: Vec<Option<(*const u8, usize)>>,
     pub seen: Vec<bool>,
     pub next: usize,
     pub index: BTreeMap<String, usize>,
-    pub len: usize,
+    pub seq: CountArray,
 }
 
 impl StructBuilder {
@@ -53,18 +51,16 @@ impl StructBuilder {
             fields,
             seen: vec![false; named_fields.len()],
             cached_names: vec![None; named_fields.len()],
-            validity: is_nullable.then(MutableBitBuffer::default),
             named_fields,
             next: 0,
             index,
-            len: 0,
+            seq: CountArray::new(is_nullable),
         })
     }
 
     pub fn take(&mut self) -> Self {
         Self {
             fields: self.fields.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
             named_fields: self
                 .named_fields
                 .iter_mut()
@@ -76,13 +72,13 @@ impl StructBuilder {
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.named_fields.len()]),
             next: std::mem::take(&mut self.next),
-            len: std::mem::take(&mut self.len),
             index: self.index.clone(),
+            seq: self.seq.take(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.seq.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
@@ -94,8 +90,8 @@ impl StructBuilder {
         }
 
         Ok(Array::Struct(StructArray {
-            len: self.len,
-            validity: self.validity.map(|b| b.buffer),
+            len: self.seq.len,
+            validity: self.seq.validity,
             fields,
         }))
     }
@@ -103,8 +99,7 @@ impl StructBuilder {
 
 impl StructBuilder {
     fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.len += 1;
+        self.seq.start_seq()?;
         self.reset();
         Ok(())
     }
@@ -115,6 +110,7 @@ impl StructBuilder {
     }
 
     fn end(&mut self) -> Result<()> {
+        self.seq.end_seq()?;
         for (idx, seen) in self.seen.iter_mut().enumerate() {
             if !*seen {
                 if !self.named_fields[idx].1.is_nullable() {
@@ -131,6 +127,7 @@ impl StructBuilder {
     }
 
     fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
+        self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
             fail!("Duplicate field {key}", key = self.named_fields[idx].0);
         }
@@ -148,8 +145,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.len += 1;
+        self.seq.push_seq_default()?;
         for (_, field) in &mut self.named_fields {
             field.serialize_default()?;
         }
@@ -158,9 +154,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.len += 1;
-
+        self.seq.push_seq_none()?;
         for (_, field) in &mut self.named_fields {
             field.serialize_default()?;
         }

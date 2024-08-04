@@ -62,7 +62,7 @@ impl OuterSequenceBuilder {
                 T::F16 => A::F16(FloatBuilder::new(field.nullable)),
                 T::F32 => A::F32(FloatBuilder::new(field.nullable)),
                 T::F64 => A::F64(FloatBuilder::new(field.nullable)),
-                T::Date32 => A::Date32(Date32Builder::new(field.clone(), field.nullable)),
+                T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
                 T::Date64 => {
                     let is_utc = match field.strategy.as_ref() {
                         Some(Strategy::UtcStrAsDate64) | None => true,
@@ -82,13 +82,13 @@ impl OuterSequenceBuilder {
                     if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                         fail!("Only timestamps with second or millisecond unit are supported");
                     }
-                    A::Time32(TimeBuilder::new(field.clone(), field.nullable, *unit))
+                    A::Time32(TimeBuilder::new(*unit, field.nullable))
                 }
                 T::Time64(unit) => {
                     if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
                         fail!("Only timestamps with nanosecond or microsecond unit are supported");
                     }
-                    A::Time64(TimeBuilder::new(field.clone(), field.nullable, *unit))
+                    A::Time64(TimeBuilder::new(*unit, field.nullable))
                 }
                 T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
                 T::Decimal128(precision, scale) => {
@@ -104,7 +104,7 @@ impl OuterSequenceBuilder {
                         child.clone(),
                         build_builder(child)?,
                         field.nullable,
-                    ))
+                    )?)
                 }
                 T::LargeList => {
                     let Some(child) = field.children.first() else {
@@ -114,7 +114,7 @@ impl OuterSequenceBuilder {
                         child.clone(),
                         build_builder(child)?,
                         field.nullable,
-                    ))
+                    )?)
                 }
                 T::FixedSizeList(n) => {
                     let Some(child) = field.children.first() else {

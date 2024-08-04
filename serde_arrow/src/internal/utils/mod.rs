@@ -151,7 +151,7 @@ impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
 pub struct Mut<'a, T>(pub &'a mut T);
 
 /// A trait to handle different offset types
-pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default {
+pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default + 'static {
     fn try_form_usize(val: usize) -> Result<Self>;
     fn try_into_usize(self) -> Result<usize>;
 }

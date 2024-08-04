@@ -6,14 +6,16 @@ use crate::internal::{
     utils::Mut,
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{
+    array_ext::{ArrayExt, CountArray, SeqArrayExt},
+    utils::SimpleSerializer,
+};
 
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeBinaryBuilder {
-    pub validity: Option<MutableBitBuffer>,
+    pub seq: CountArray,
     pub buffer: Vec<u8>,
-    pub len: usize,
     pub current_n: usize,
     pub n: usize,
 }
@@ -21,32 +23,30 @@ pub struct FixedSizeBinaryBuilder {
 impl FixedSizeBinaryBuilder {
     pub fn new(n: usize, is_nullable: bool) -> Self {
         Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
+            seq: CountArray::new(is_nullable),
             buffer: Vec::new(),
             n,
-            len: 0,
             current_n: 0,
         }
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            validity: self.validity.as_mut().map(std::mem::take),
+            seq: self.seq.take(),
             buffer: std::mem::take(&mut self.buffer),
-            len: std::mem::take(&mut self.len),
             current_n: std::mem::take(&mut self.current_n),
             n: self.n,
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.seq.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::FixedSizeBinary(FixedSizeBinaryArray {
             n: self.n.try_into()?,
-            validity: self.validity.map(|v| v.buffer),
+            validity: self.seq.validity,
             data: self.buffer,
         }))
     }
@@ -54,9 +54,8 @@ impl FixedSizeBinaryBuilder {
 
 impl FixedSizeBinaryBuilder {
     fn start(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
         self.current_n = 0;
-        Ok(())
+        self.seq.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -77,9 +76,7 @@ impl FixedSizeBinaryBuilder {
                 expected = self.n,
             );
         }
-
-        self.len += 1;
-        Ok(())
+        self.seq.end_seq()
     }
 }
 
@@ -89,22 +86,18 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
+        self.seq.push_seq_default()?;
         for _ in 0..self.n {
             self.buffer.push(0);
         }
-        self.len += 1;
-
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
+        self.seq.push_seq_none()?;
         for _ in 0..self.n {
             self.buffer.push(0);
         }
-        self.len += 1;
-
         Ok(())
     }
 
@@ -153,10 +146,9 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
             );
         }
 
-        push_validity(&mut self.validity, true)?;
+        self.seq.start_seq()?;
         self.buffer.extend(v);
-        self.len += 1;
-        Ok(())
+        self.seq.end_seq()
     }
 }
 

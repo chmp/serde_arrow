@@ -8,26 +8,22 @@ use crate::internal::{
 
 use super::{
     array_builder::ArrayBuilder,
-    utils::{
-        meta_from_field, push_validity, push_validity_default, MutableBitBuffer,
-        MutableOffsetBuffer, SimpleSerializer,
-    },
+    array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+    utils::{meta_from_field, SimpleSerializer},
 };
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
     pub entry_field: GenericField,
-    pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<i32>,
     pub entry: Box<ArrayBuilder>,
+    pub offsets: OffsetsArray<i32>,
 }
 
 impl MapBuilder {
     pub fn new(entry_field: GenericField, entry: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
             entry_field,
-            validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: MutableOffsetBuffer::default(),
+            offsets: OffsetsArray::new(is_nullable),
             entry: Box::new(entry),
         }
     }
@@ -35,21 +31,20 @@ impl MapBuilder {
     pub fn take(&mut self) -> Self {
         Self {
             entry_field: self.entry_field.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
+            offsets: self.offsets.take(),
             entry: Box::new(self.entry.take()),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.offsets.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Map(ListArray {
             meta: meta_from_field(self.entry_field)?,
             element: Box::new((*self.entry).into_array()?),
-            validity: self.validity.map(|v| v.buffer),
+            validity: self.offsets.validity,
             offsets: self.offsets.offsets,
         }))
     }
@@ -61,23 +56,19 @@ impl SimpleSerializer for MapBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
-        Ok(())
+        self.offsets.push_seq_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        push_validity(&mut self.validity, false)
+        self.offsets.push_seq_none()
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        Ok(())
+        self.offsets.start_seq()
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.offsets.inc_current_items()?;
+        self.offsets.push_seq_elements(1)?;
         self.entry.serialize_tuple_start(2)?;
         self.entry.serialize_tuple_element(key)
     }
@@ -88,7 +79,6 @@ impl SimpleSerializer for MapBuilder {
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.offsets.push_current_items();
-        Ok(())
+        self.offsets.end_seq()
     }
 }

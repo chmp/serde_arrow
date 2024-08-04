@@ -3,39 +3,37 @@ use crate::internal::{
     error::Result,
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{
+    array_ext::{set_bit_buffer, set_validity, set_validity_default},
+    utils::SimpleSerializer,
+};
 
 #[derive(Debug, Clone)]
-pub struct BoolBuilder {
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: MutableBitBuffer,
-}
+pub struct BoolBuilder(BooleanArray);
 
 impl BoolBuilder {
     pub fn new(is_nullable: bool) -> Self {
-        Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
-            buffer: MutableBitBuffer::default(),
-        }
+        Self(BooleanArray {
+            len: 0,
+            validity: is_nullable.then(Vec::new),
+            values: Vec::new(),
+        })
     }
 
     pub fn take(&mut self) -> Self {
-        Self {
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+        Self(BooleanArray {
+            len: std::mem::take(&mut self.0.len),
+            validity: self.0.validity.as_mut().map(std::mem::take),
+            values: std::mem::take(&mut self.0.values),
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.0.validity.is_some()
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Boolean(BooleanArray {
-            len: self.buffer.len,
-            validity: self.validity.map(|v| v.buffer),
-            values: self.buffer.buffer,
-        }))
+        Ok(Array::Boolean(self.0))
     }
 }
 
@@ -45,20 +43,23 @@ impl SimpleSerializer for BoolBuilder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(false);
+        set_validity_default(self.0.validity.as_mut(), self.0.len);
+        set_bit_buffer(&mut self.0.values, self.0.len, false);
+        self.0.len += 1;
         Ok(())
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(false);
+        set_validity(self.0.validity.as_mut(), self.0.len, false)?;
+        set_bit_buffer(&mut self.0.values, self.0.len, false);
+        self.0.len += 1;
         Ok(())
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
+        set_validity(self.0.validity.as_mut(), self.0.len, true)?;
+        set_bit_buffer(&mut self.0.values, self.0.len, v);
+        self.0.len += 1;
         Ok(())
     }
 }

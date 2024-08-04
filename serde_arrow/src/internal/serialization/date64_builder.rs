@@ -1,26 +1,27 @@
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{Error, Result},
+    error::{fail, Result},
     schema::{GenericDataType, GenericField},
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{
+    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    utils::SimpleSerializer,
+};
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
     pub field: GenericField,
     pub utc: bool,
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<i64>,
+    pub array: PrimitiveArray<i64>,
 }
 
 impl Date64Builder {
-    pub fn new(field: GenericField, utc: bool, nullable: bool) -> Self {
+    pub fn new(field: GenericField, utc: bool, is_nullable: bool) -> Self {
         Self {
             field,
             utc,
-            validity: nullable.then(MutableBitBuffer::default),
-            buffer: Vec::new(),
+            array: new_primitive_array(is_nullable),
         }
     }
 
@@ -28,27 +29,28 @@ impl Date64Builder {
         Self {
             field: self.field.clone(),
             utc: self.utc,
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
+            array: self.array.take(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
     }
 
+    // TODO: fix this
     pub fn into_array(self) -> Result<Array> {
         if let GenericDataType::Timestamp(unit, timezone) = self.field.data_type {
             Ok(Array::Timestamp(TimestampArray {
                 unit,
                 timezone,
-                validity: self.validity.map(|validity| validity.buffer),
-                values: self.buffer,
+                validity: self.array.validity,
+                values: self.array.values,
             }))
         } else {
+            // TOOD: check data type
             Ok(Array::Date64(PrimitiveArray {
-                validity: self.validity.map(|validity| validity.buffer),
-                values: self.buffer,
+                validity: self.array.validity,
+                values: self.array.values,
             }))
         }
     }
@@ -60,15 +62,11 @@ impl SimpleSerializer for Date64Builder {
     }
 
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(0);
-        Ok(())
+        self.array.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0);
-        Ok(())
+        self.array.push_scalar_none()
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
@@ -82,24 +80,28 @@ impl SimpleSerializer for Date64Builder {
 
         let timestamp = match self.field.data_type {
             GenericDataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                date_time
-                    .timestamp_nanos_opt()
-                    .ok_or_else(|| Error::custom(format!("Timestamp '{v}' cannot be converted to nanoseconds. The dates that can be represented as nanoseconds are between 1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.")))?
-            },
+                match date_time.timestamp_nanos_opt() {
+                    Some(timestamp) => timestamp,
+                    _ => fail!(
+                        concat!(
+                            "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
+                            "The dates that can be represented as nanoseconds are between ",
+                            "1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.",
+                        ),
+                        date_time = date_time,
+                    ),
+                }
+            }
             GenericDataType::Timestamp(TimeUnit::Microsecond, _) => date_time.timestamp_micros(),
             GenericDataType::Timestamp(TimeUnit::Millisecond, _) => date_time.timestamp_millis(),
             GenericDataType::Timestamp(TimeUnit::Second, _) => date_time.timestamp(),
             _ => date_time.timestamp_millis(),
         };
 
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(timestamp);
-        Ok(())
+        self.array.push_scalar_value(timestamp)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
-        Ok(())
+        self.array.push_scalar_value(v)
     }
 }

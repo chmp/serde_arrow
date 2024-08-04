@@ -10,7 +10,7 @@ use crate::internal::{
     arrow::FieldMeta,
     error::{fail, Error, Result},
     schema::{merge_strategy_with_metadata, GenericField},
-    utils::{Mut, Offset},
+    utils::Mut,
 };
 
 use super::ArrayBuilder;
@@ -21,108 +21,6 @@ pub fn meta_from_field(field: GenericField) -> Result<FieldMeta> {
         nullable: field.nullable,
         metadata: merge_strategy_with_metadata(field.metadata, field.strategy)?,
     })
-}
-
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct MutableBitBuffer {
-    pub(crate) buffer: Vec<u8>,
-    pub(crate) len: usize,
-    pub(crate) capacity: usize,
-}
-
-impl MutableBitBuffer {
-    pub fn as_bool(&self) -> Vec<bool> {
-        (0..self.len())
-            .map(|i| {
-                let flag = 1 << i;
-                (self.buffer[i / 8] & flag) == flag
-            })
-            .collect()
-    }
-
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn push(&mut self, value: bool) {
-        while self.len >= self.capacity {
-            for _ in 0..64 {
-                self.buffer.push(0);
-                self.capacity += 8;
-            }
-        }
-
-        if value {
-            self.buffer[self.len / 8] |= 1 << (self.len % 8);
-        }
-        self.len += 1;
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MutableOffsetBuffer<O> {
-    pub(crate) offsets: Vec<O>,
-    pub(crate) current_items: O,
-}
-
-impl<O: Offset> std::default::Default for MutableOffsetBuffer<O> {
-    fn default() -> Self {
-        Self {
-            offsets: vec![O::default()],
-            current_items: O::default(),
-        }
-    }
-}
-
-impl<O: Offset> MutableOffsetBuffer<O> {
-    /// The number of items pushed (one less than the number of offsets)
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.offsets.len() - 1
-    }
-
-    // push a new item with the given number of children
-    pub fn push(&mut self, num_children: usize) -> Result<()> {
-        self.current_items = self.current_items + O::try_form_usize(num_children)?;
-        self.offsets.push(self.current_items);
-
-        Ok(())
-    }
-
-    pub fn push_current_items(&mut self) {
-        self.offsets.push(self.current_items);
-    }
-
-    pub fn inc_current_items(&mut self) -> Result<()> {
-        self.current_items = self.current_items + O::try_form_usize(1)?;
-        Ok(())
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-pub fn push_validity(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
-    if let Some(buffer) = buffer.as_mut() {
-        buffer.push(value);
-        Ok(())
-    } else if value {
-        Ok(())
-    } else {
-        fail!("cannot push null for non-nullable array");
-    }
-}
-
-pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
-    if let Some(buffer) = buffer.as_mut() {
-        buffer.push(false);
-    }
 }
 
 /// A simplified serialization trait with default implementations raising an
