@@ -19,30 +19,22 @@ const UNKNOWN_KEY: usize = usize::MAX;
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
-    pub cached_names: Vec<Option<(*const u8, usize)>>,
-    pub seen: Vec<bool>,
+    pub lookup: FieldLookup,
     pub next: usize,
-    pub index: BTreeMap<String, usize>,
+    pub seen: Vec<bool>,
     pub seq: CountArray,
 }
 
 impl StructBuilder {
     pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>, is_nullable: bool) -> Result<Self> {
-        let mut index = BTreeMap::new();
-        for (idx, (_, meta)) in fields.iter().enumerate() {
-            if index.contains_key(&meta.name) {
-                fail!("Duplicate field {name}", name = meta.name);
-            }
-            index.insert(meta.name.clone(), idx);
-        }
+        let lookup = FieldLookup::new(fields.iter().map(|(_, meta)| meta.name.clone()).collect())?;
 
         Ok(Self {
-            seen: vec![false; fields.len()],
-            cached_names: vec![None; fields.len()],
-            fields,
-            next: 0,
-            index,
             seq: CountArray::new(is_nullable),
+            seen: vec![false; fields.len()],
+            next: 0,
+            lookup,
+            fields,
         })
     }
 
@@ -53,11 +45,10 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(builder, meta)| (builder.take(), meta.clone()))
                 .collect(),
-            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.fields.len()]),
+            lookup: self.lookup.take(),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
-            next: std::mem::take(&mut self.next),
-            index: self.index.clone(),
             seq: self.seq.take(),
+            next: std::mem::take(&mut self.next),
         }
     }
 
@@ -152,21 +143,10 @@ impl SimpleSerializer for StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let fast_key = (key.as_ptr(), key.len());
-        let idx = if self.cached_names.get(self.next) == Some(&Some(fast_key)) {
-            self.next
-        } else {
-            let Some(&idx) = self.index.get(key) else {
-                // ignore unknown fields
-                return Ok(());
-            };
-
-            if self.cached_names[idx].is_none() {
-                self.cached_names[idx] = Some(fast_key);
-            }
-            idx
+        let Some(idx) = self.lookup.lookup(self.next, key) else {
+            // ignore unknown fields
+            return Ok(());
         };
-
         self.element(idx, value)
     }
 
@@ -210,7 +190,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.index, key)?.unwrap_or(UNKNOWN_KEY);
+        self.next = self.lookup.lookup_serialize(key)?.unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -225,6 +205,55 @@ impl SimpleSerializer for StructBuilder {
 
     fn serialize_map_end(&mut self) -> Result<()> {
         self.end()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldLookup {
+    pub cached_names: Vec<Option<(*const u8, usize)>>,
+    pub index: BTreeMap<String, usize>,
+}
+
+impl FieldLookup {
+    pub fn new(field_names: Vec<String>) -> Result<Self> {
+        let mut index = BTreeMap::new();
+        for (idx, name) in field_names.into_iter().enumerate() {
+            if index.contains_key(&name) {
+                fail!("Duplicate field {name}");
+            }
+            index.insert(name, idx);
+        }
+        Ok(Self {
+            cached_names: vec![None; index.len()],
+            index,
+        })
+    }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.index.len()]),
+            index: self.index.clone(),
+        }
+    }
+
+    pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
+        let fast_key = (key.as_ptr(), key.len());
+        if self.cached_names.get(guess) == Some(&Some(fast_key)) {
+            Some(guess)
+        } else {
+            let Some(&idx) = self.index.get(key) else {
+                return None;
+            };
+
+            if self.cached_names[idx].is_none() {
+                self.cached_names[idx] = Some(fast_key);
+            }
+            Some(idx)
+        }
+    }
+
+    pub fn lookup_serialize<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<Option<usize>> {
+        KeyLookupSerializer::lookup(&self.index, key)
     }
 }
 
