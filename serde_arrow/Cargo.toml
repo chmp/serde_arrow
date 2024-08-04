@@ -168,3 +168,30 @@ features = [
     # NOTE activating this feature breaks JSON -> float processing
     # "serde-with-arbitrary-precision",
 ]
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    'cfg(has_arrow2)',
+    'cfg(has_arrow2_0_17)',
+    'cfg(has_arrow2_0_16)',
+    'cfg(has_arrow)',
+    'cfg(has_arrow_fixed_binary_support)',
+    # arrow-version:insert:     'cfg(has_arrow_{version})',
+    'cfg(has_arrow_52)',
+    'cfg(has_arrow_51)',
+    'cfg(has_arrow_50)',
+    'cfg(has_arrow_49)',
+    'cfg(has_arrow_48)',
+    'cfg(has_arrow_47)',
+    'cfg(has_arrow_46)',
+    'cfg(has_arrow_45)',
+    'cfg(has_arrow_44)',
+    'cfg(has_arrow_43)',
+    'cfg(has_arrow_42)',
+    'cfg(has_arrow_41)',
+    'cfg(has_arrow_40)',
+    'cfg(has_arrow_39)',
+    'cfg(has_arrow_38)',
+    'cfg(has_arrow_37)',
+]
