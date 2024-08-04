@@ -84,50 +84,17 @@ impl<'a> ArrayDeserializer<'a> {
         match array {
             ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
             V::Boolean(view) => Ok(D::Bool(BoolDeserializer::new(view))),
-            ArrayView::Int8(view) => Ok(Self::I8(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Int16(view) => Ok(Self::I16(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Int32(view) => Ok(Self::I32(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Int64(view) => Ok(Self::I64(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::UInt8(view) => Ok(Self::U8(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::UInt16(view) => Ok(Self::U16(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::UInt32(view) => Ok(Self::U32(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::UInt64(view) => Ok(Self::U64(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Float16(view) => Ok(Self::F16(FloatDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Float32(view) => Ok(Self::F32(FloatDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Float64(view) => Ok(Self::F64(FloatDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
+            V::Int8(view) => Ok(D::I8(IntegerDeserializer::new(view))),
+            V::Int16(view) => Ok(D::I16(IntegerDeserializer::new(view))),
+            V::Int32(view) => Ok(D::I32(IntegerDeserializer::new(view))),
+            V::Int64(view) => Ok(D::I64(IntegerDeserializer::new(view))),
+            V::UInt8(view) => Ok(D::U8(IntegerDeserializer::new(view))),
+            V::UInt16(view) => Ok(D::U16(IntegerDeserializer::new(view))),
+            V::UInt32(view) => Ok(D::U32(IntegerDeserializer::new(view))),
+            V::UInt64(view) => Ok(D::U64(IntegerDeserializer::new(view))),
+            V::Float16(view) => Ok(D::F16(FloatDeserializer::new(view))),
+            V::Float32(view) => Ok(D::F32(FloatDeserializer::new(view))),
+            V::Float64(view) => Ok(D::F64(FloatDeserializer::new(view))),
             ArrayView::Decimal128(view) => Ok(Self::Decimal128(DecimalDeserializer::new(
                 view.values,
                 view.validity,
@@ -171,26 +138,12 @@ impl<'a> ArrayDeserializer<'a> {
                 )
                 .into()),
             },
-            ArrayView::Duration(view) => Ok(Self::I64(IntegerDeserializer::new(
-                view.values,
-                view.validity,
-            ))),
-            ArrayView::Utf8(view) => Ok(Self::Utf8(StringDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::LargeUtf8(view) => Ok(Self::LargeUtf8(StringDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
+            V::Duration(view) => Ok(D::I64(IntegerDeserializer::new(PrimitiveArrayView {
+                values: view.values,
+                validity: view.validity,
+            }))),
+            V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(view))),
+            V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(view))),
             V::Binary(view) => Ok(D::Binary(BinaryDeserializer::new(view))),
             V::LargeBinary(view) => Ok(D::LargeBinary(BinaryDeserializer::new(view))),
             ArrayView::FixedSizeBinary(view) => {

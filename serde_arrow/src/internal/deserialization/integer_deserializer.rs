@@ -1,6 +1,6 @@
 use serde::de::Visitor;
 
-use crate::internal::{arrow::BitsWithOffset, error::Result, utils::Mut};
+use crate::internal::{arrow::PrimitiveArrayView, error::Result, utils::Mut};
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
@@ -26,8 +26,8 @@ pub trait Integer: Sized + Copy {
 pub struct IntegerDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>);
 
 impl<'a, T: Integer> IntegerDeserializer<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitsWithOffset<'a>>) -> Self {
-        Self(ArrayBufferIterator::new(buffer, validity))
+    pub fn new(view: PrimitiveArrayView<'a, T>) -> Self {
+        Self(ArrayBufferIterator::new(view.values, view.validity))
     }
 }
 
