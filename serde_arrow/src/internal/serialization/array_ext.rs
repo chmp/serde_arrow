@@ -19,7 +19,7 @@ pub trait ScalarArrayExt<'value>: ArrayExt {
 }
 
 /// An array that models a sequence
-/// 
+///
 /// As some sequence arrays, e.g., `ListArrays`, can contain arbitrarily nested subarrays, the
 /// element itself is not modelled.
 pub trait SeqArrayExt: ArrayExt {
