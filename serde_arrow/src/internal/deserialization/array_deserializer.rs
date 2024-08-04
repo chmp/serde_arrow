@@ -191,22 +191,8 @@ impl<'a> ArrayDeserializer<'a> {
                     view.offsets.len().saturating_sub(1),
                 ),
             ))),
-            ArrayView::Binary(view) => Ok(Self::Binary(BinaryDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
-            ArrayView::LargeBinary(view) => Ok(Self::LargeBinary(BinaryDeserializer::new(
-                view.data,
-                view.offsets,
-                buffer_from_bits_with_offset_opt(
-                    view.validity,
-                    view.offsets.len().saturating_sub(1),
-                ),
-            ))),
+            V::Binary(view) => Ok(D::Binary(BinaryDeserializer::new(view))),
+            V::LargeBinary(view) => Ok(D::LargeBinary(BinaryDeserializer::new(view))),
             ArrayView::FixedSizeBinary(view) => {
                 let value_length: usize = view.n.try_into()?;
                 if view.data.len() % value_length != 0 {
