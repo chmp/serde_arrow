@@ -12,25 +12,6 @@ pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     Ok(byte & flag == flag)
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct BitBuffer<'a> {
-    pub data: &'a [u8],
-    pub offset: usize,
-    pub number_of_bits: usize,
-}
-
-impl<'a> BitBuffer<'a> {
-    pub fn is_set(&self, idx: usize) -> bool {
-        let flag = 1 << ((idx + self.offset) % 8);
-        let byte = self.data[(idx + self.offset) / 8];
-        byte & flag == flag
-    }
-
-    pub fn len(&self) -> usize {
-        self.number_of_bits
-    }
-}
-
 pub struct ArrayBufferIterator<'a, T: Copy> {
     pub buffer: &'a [T],
     pub validity: Option<BitsWithOffset<'a>>,
@@ -94,7 +75,7 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 ///
 /// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
 pub fn check_supported_list_layout<'a, O: Offset>(
-    validity: Option<BitBuffer<'a>>,
+    validity: Option<BitsWithOffset<'a>>,
     offsets: &'a [O],
 ) -> Result<()> {
     let Some(validity) = validity else {
@@ -108,7 +89,7 @@ pub fn check_supported_list_layout<'a, O: Offset>(
     for i in 0..offsets.len().saturating_sub(1) {
         let curr = offsets[i].try_into_usize()?;
         let next = offsets[i + 1].try_into_usize()?;
-        if !validity.is_set(i) && (next - curr) != 0 {
+        if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
             fail!("lists with data in null values are currently not supported in deserialization");
         }
     }

@@ -1,7 +1,10 @@
 use serde::Deserialize;
 
 use crate::internal::{
-    arrow::PrimitiveArrayView, deserialization::integer_deserializer::IntegerDeserializer,
+    arrow::PrimitiveArrayView,
+    deserialization::{
+        array_deserializer::ArrayDeserializer, integer_deserializer::IntegerDeserializer,
+    },
     utils::Mut,
 };
 
@@ -13,19 +16,17 @@ fn example() {
         vec![
             (
                 String::from("a"),
-                IntegerDeserializer::new(PrimitiveArrayView {
+                ArrayDeserializer::I32(IntegerDeserializer::new(PrimitiveArrayView {
                     values: &[1, 2, 3],
                     validity: None,
-                })
-                .into(),
+                })),
             ),
             (
                 String::from("b"),
-                IntegerDeserializer::new(PrimitiveArrayView {
+                ArrayDeserializer::I32(IntegerDeserializer::new(PrimitiveArrayView {
                     values: &[4, 5, 6],
                     validity: None,
-                })
-                .into(),
+                })),
             ),
         ],
         3,

@@ -1,6 +1,7 @@
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::{fail, Error, Result},
     utils::Mut,
 };
@@ -8,14 +9,14 @@ use crate::internal::{
 use super::{
     array_deserializer::ArrayDeserializer,
     simple_deserializer::SimpleDeserializer,
-    utils::{check_supported_list_layout, BitBuffer},
+    utils::{bitset_is_set, check_supported_list_layout},
 };
 
 pub struct MapDeserializer<'a> {
     key: Box<ArrayDeserializer<'a>>,
     value: Box<ArrayDeserializer<'a>>,
     offsets: &'a [i32],
-    validity: Option<BitBuffer<'a>>,
+    validity: Option<BitsWithOffset<'a>>,
     next: (usize, usize),
 }
 
@@ -24,7 +25,7 @@ impl<'a> MapDeserializer<'a> {
         key: ArrayDeserializer<'a>,
         value: ArrayDeserializer<'a>,
         offsets: &'a [i32],
-        validity: Option<BitBuffer<'a>>,
+        validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
 
@@ -42,7 +43,7 @@ impl<'a> MapDeserializer<'a> {
             fail!("Exhausted ListDeserializer")
         }
         if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next.0))
+            Ok(bitset_is_set(validity, self.next.0)?)
         } else {
             Ok(true)
         }

@@ -1,6 +1,7 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::{fail, Error, Result},
     utils::{Mut, Offset},
 };
@@ -8,13 +9,13 @@ use crate::internal::{
 use super::{
     array_deserializer::ArrayDeserializer,
     simple_deserializer::SimpleDeserializer,
-    utils::{check_supported_list_layout, BitBuffer},
+    utils::{bitset_is_set, check_supported_list_layout},
 };
 
 pub struct ListDeserializer<'a, O: Offset> {
     pub item: Box<ArrayDeserializer<'a>>,
     pub offsets: &'a [O],
-    pub validity: Option<BitBuffer<'a>>,
+    pub validity: Option<BitsWithOffset<'a>>,
     pub next: (usize, usize),
 }
 
@@ -22,7 +23,7 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
     pub fn new(
         item: ArrayDeserializer<'a>,
         offsets: &'a [O],
-        validity: Option<BitBuffer<'a>>,
+        validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
 
@@ -39,7 +40,7 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
             fail!("Exhausted ListDeserializer")
         }
         if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next.0))
+            Ok(bitset_is_set(validity, self.next.0)?)
         } else {
             Ok(true)
         }
