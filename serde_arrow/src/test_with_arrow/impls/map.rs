@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    internal::testing::{btree_map, hash_map},
-    schema::{Strategy, TracingOptions},
+    internal::{
+        schema::{GenericDataType, GenericField},
+        testing::{btree_map, hash_map},
+    },
+    schema::{Strategy, TracingOptions, STRATEGY_KEY},
     utils::Item,
 };
 
@@ -14,7 +16,7 @@ use super::utils::Test;
 #[test]
 fn map_as_struct() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = BTreeMap<String, u32>;
@@ -35,7 +37,7 @@ fn map_as_struct() {
 #[test]
 fn hash_map_as_struct() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = HashMap<String, u32>;
@@ -55,7 +57,7 @@ fn hash_map_as_struct() {
 #[test]
 fn map_as_struct_nullable() {
     let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = Option<BTreeMap<String, u32>>;
@@ -76,7 +78,7 @@ fn map_as_struct_nullable() {
 #[test]
 fn map_as_struct_missing_fields() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, false))
         .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
@@ -95,7 +97,7 @@ fn map_as_struct_missing_fields() {
 #[test]
 fn map_as_struct_missing_fields_2() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
@@ -116,7 +118,7 @@ fn map_as_struct_missing_fields_2() {
 #[test]
 fn map_as_struct_missing_fields_3() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
@@ -137,7 +139,7 @@ fn map_as_struct_missing_fields_3() {
 #[test]
 fn map_as_struct_nullable_fields() {
     let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::U32, true))
         .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, Option<u32>>;

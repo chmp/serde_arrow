@@ -18,7 +18,7 @@ impl serde::Serialize for GenericField {
         if !non_strategy_metadata.is_empty() {
             num_fields += 1;
         }
-        if self.strategy.is_some() {
+        if self.metadata.contains_key(STRATEGY_KEY) {
             num_fields += 1;
         }
         if self.nullable {
@@ -38,7 +38,7 @@ impl serde::Serialize for GenericField {
         if !non_strategy_metadata.is_empty() {
             s.serialize_field("metadata", &non_strategy_metadata)?;
         }
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = self.metadata.get(STRATEGY_KEY) {
             s.serialize_field("strategy", strategy)?;
         }
         if !self.children.is_empty() {

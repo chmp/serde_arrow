@@ -2,10 +2,15 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::internal::{
-    schema::{tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions},
-    testing::assert_error,
-    utils::Item,
+use crate::{
+    internal::{
+        schema::{
+            tracer::Tracer, GenericDataType as T, GenericField as F, Strategy, TracingOptions,
+        },
+        testing::assert_error,
+        utils::Item,
+    },
+    schema::STRATEGY_KEY,
 };
 
 fn trace_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> F {
@@ -128,7 +133,10 @@ fn trace_tuple_as_struct() {
     let expected = F::new("item", T::Struct, false)
         .with_child(F::new("0", T::Bool, false))
         .with_child(F::new("1", T::I8, true))
-        .with_strategy(Strategy::TupleAsStruct);
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        );
 
     assert_eq!(actual, expected);
 }

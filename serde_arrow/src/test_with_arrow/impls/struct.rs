@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
+    schema::{Strategy, TracingOptions, STRATEGY_KEY},
     utils::Item,
 };
 
@@ -242,7 +242,7 @@ fn nullable_struct_list_field() {
 #[test]
 fn serde_flatten() {
     let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_strategy(Strategy::MapAsStruct)
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string())
         .with_child(GenericField::new("a", GenericDataType::I8, false))
         .with_child(GenericField::new("value", GenericDataType::Bool, false));
     let values = [Item(Some(LocalItem {
@@ -275,7 +275,7 @@ fn flattened_structures() {
         .with_child(GenericField::new("a", GenericDataType::I64, false))
         .with_child(GenericField::new("b", GenericDataType::F32, false))
         .with_child(GenericField::new("c", GenericDataType::F64, false))
-        .with_strategy(Strategy::MapAsStruct);
+        .with_metadata(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());
 
     let values = [
         Item(Outer {

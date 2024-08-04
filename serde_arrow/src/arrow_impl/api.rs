@@ -16,7 +16,7 @@ use crate::{
         },
         deserializer::Deserializer,
         error::{fail, Result},
-        schema::SerdeArrowSchema,
+        schema::{get_strategy_from_metadata, SerdeArrowSchema},
         serializer::Serializer,
     },
 };
@@ -262,7 +262,8 @@ impl<'de> Deserializer<'de> {
                 fail!("arrays of different lengths are not supported");
             }
 
-            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
+            let strategy = get_strategy_from_metadata(&field.metadata)?;
+            let deserializer = ArrayDeserializer::new(strategy.as_ref(), array.try_into()?)?;
             deserializers.push((field.name.clone(), deserializer));
         }
 

@@ -3,7 +3,7 @@ use serde_json::json;
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
-    schema::{SchemaLike, Strategy, TracingOptions},
+    schema::{SchemaLike, Strategy, TracingOptions, STRATEGY_KEY},
     utils::{Item, Items},
 };
 
@@ -225,13 +225,19 @@ fn enums_tuple() {
     let field = GenericField::new("item", GenericDataType::Union, false)
         .with_child(
             GenericField::new("A", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
+                .with_metadata(
+                    STRATEGY_KEY.to_string(),
+                    Strategy::TupleAsStruct.to_string(),
+                )
                 .with_child(GenericField::new("0", GenericDataType::U8, false))
                 .with_child(GenericField::new("1", GenericDataType::U32, false)),
         )
         .with_child(
             GenericField::new("B", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
+                .with_metadata(
+                    STRATEGY_KEY.to_string(),
+                    Strategy::TupleAsStruct.to_string(),
+                )
                 .with_child(GenericField::new("0", GenericDataType::U16, false))
                 .with_child(GenericField::new("1", GenericDataType::U64, false)),
         );

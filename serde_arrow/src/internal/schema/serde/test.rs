@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::internal::{
     error::PanicOnError,
-    schema::{GenericDataType, GenericField, Strategy},
+    schema::{GenericDataType, GenericField, STRATEGY_KEY},
     testing::hash_map,
 };
 
@@ -12,7 +12,6 @@ fn i16_field_simple() -> PanicOnError<()> {
         name: String::from("my_field_name"),
         data_type: GenericDataType::I16,
         metadata: hash_map!(),
-        strategy: None,
         nullable: false,
         children: vec![],
     };
@@ -35,8 +34,10 @@ fn date64_field_complex() -> PanicOnError<()> {
     let field = GenericField {
         name: String::from("my_field_name"),
         data_type: GenericDataType::Date64,
-        metadata: hash_map!("foo" => "bar"),
-        strategy: Some(Strategy::NaiveStrAsDate64),
+        metadata: hash_map!(
+            "foo" => "bar",
+            STRATEGY_KEY => "NaiveStrAsDate64",
+        ),
         nullable: true,
         children: vec![],
     };
@@ -65,13 +66,11 @@ fn list_field_complex() -> PanicOnError<()> {
         name: String::from("my_field_name"),
         data_type: GenericDataType::List,
         metadata: hash_map!("foo" => "bar"),
-        strategy: None,
         nullable: true,
         children: vec![GenericField {
             name: String::from("element"),
             data_type: GenericDataType::I64,
             metadata: hash_map!(),
-            strategy: None,
             nullable: false,
             children: vec![],
         }],

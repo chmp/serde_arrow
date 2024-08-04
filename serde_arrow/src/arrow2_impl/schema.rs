@@ -7,10 +7,7 @@ use crate::{
     internal::{
         arrow::TimeUnit,
         error::{error, fail, Error, Result},
-        schema::{
-            merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType,
-            GenericField, SchemaLike, Sealed, SerdeArrowSchema,
-        },
+        schema::{GenericDataType, GenericField, SchemaLike, Sealed, SerdeArrowSchema},
     },
 };
 
@@ -71,16 +68,6 @@ impl TryFrom<&Field> for GenericField {
 
     fn try_from(field: &Field) -> Result<Self> {
         use {GenericDataType as T, TimeUnit as U};
-
-        let metadata = field
-            .metadata
-            .clone()
-            .into_iter()
-            .collect::<HashMap<_, _>>();
-        let (metadata, strategy) = split_strategy_from_metadata(metadata)?;
-
-        let name = field.name.to_owned();
-        let nullable = field.is_nullable;
 
         let mut children = Vec::<GenericField>::new();
         let data_type = match &field.data_type {
@@ -181,11 +168,19 @@ impl TryFrom<&Field> for GenericField {
             dt => fail!("Cannot convert data type {dt:?}"),
         };
 
+        let name = field.name.to_owned();
+        let nullable = field.is_nullable;
+
+        let metadata = field
+            .metadata
+            .clone()
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+
         let field = GenericField {
             name,
             data_type,
             metadata,
-            strategy,
             children,
             nullable,
         };
@@ -301,11 +296,8 @@ impl TryFrom<&GenericField> for Field {
             }
         };
 
-        let metadata =
-            merge_strategy_with_metadata(value.metadata.clone(), value.strategy.clone())?;
-
         let mut field = Field::new(&value.name, data_type, value.nullable);
-        field.metadata = metadata.into_iter().collect();
+        field.metadata = value.metadata.clone().into_iter().collect();
 
         Ok(field)
     }

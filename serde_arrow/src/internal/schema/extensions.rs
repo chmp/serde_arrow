@@ -139,7 +139,6 @@ impl TryFrom<&FixedShapeTensorField> for GenericField {
             nullable: value.nullable,
             data_type: GenericDataType::FixedSizeList(n.try_into()?),
             children: vec![value.element.clone()],
-            strategy: None,
             metadata,
         })
     }
@@ -298,7 +297,6 @@ impl TryFrom<&VariableShapeTensorField> for GenericField {
                     false,
                 )),
             ],
-            strategy: None,
             metadata,
         })
     }

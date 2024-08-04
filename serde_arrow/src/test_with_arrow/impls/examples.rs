@@ -1,7 +1,7 @@
 use super::utils::Test;
 use crate::{
     internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
+    schema::{Strategy, TracingOptions, STRATEGY_KEY},
     utils::Item,
 };
 
@@ -357,8 +357,10 @@ fn issue_57() {
             GenericField::new("filename", GenericDataType::LargeUtf8, false),
             GenericField::new("game_type", GenericDataType::Union, false)
                 .with_child(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
+                    GenericField::new("", GenericDataType::Null, true).with_metadata(
+                        STRATEGY_KEY.to_string(),
+                        Strategy::UnknownVariant.to_string(),
+                    ),
                 )
                 .with_child(GenericField::new(
                     "RegularSeason",
@@ -367,8 +369,10 @@ fn issue_57() {
                 )),
             GenericField::new("account_type", GenericDataType::Union, false)
                 .with_child(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
+                    GenericField::new("", GenericDataType::Null, true).with_metadata(
+                        STRATEGY_KEY.to_string(),
+                        Strategy::UnknownVariant.to_string(),
+                    ),
                 )
                 .with_child(GenericField::new("Deduced", GenericDataType::Null, true)),
             GenericField::new("file_index", GenericDataType::U64, false),

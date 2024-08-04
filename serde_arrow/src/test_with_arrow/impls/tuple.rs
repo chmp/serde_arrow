@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
+    schema::{Strategy, TracingOptions, STRATEGY_KEY},
     utils::Item,
 };
 
@@ -18,7 +18,10 @@ fn tuple_u64_bool() {
             GenericDataType::Struct,
             false,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(GenericField::new("0", GenericDataType::U64, false))
         .with_child(GenericField::new("1", GenericDataType::Bool, false))])
         .trace_schema_from_type::<Item<(u64, bool)>>(TracingOptions::default())
@@ -41,7 +44,10 @@ fn tuple_struct_u64_bool() {
             GenericDataType::Struct,
             false,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(GenericField::new("0", GenericDataType::U64, false))
         .with_child(GenericField::new("1", GenericDataType::Bool, false))])
         .trace_schema_from_type::<Item<S>>(TracingOptions::default())
@@ -68,7 +74,10 @@ fn nullbale_tuple_u64_bool() {
             GenericDataType::Struct,
             true,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(GenericField::new("0", GenericDataType::U64, false))
         .with_child(GenericField::new("1", GenericDataType::Bool, false))])
         .trace_schema_from_type::<Item<Option<S>>>(TracingOptions::default())
@@ -88,7 +97,10 @@ fn tuple_nullable_u64() {
             GenericDataType::Struct,
             false,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(GenericField::new("0", GenericDataType::U64, true))])
         .trace_schema_from_type::<Item<(Option<u64>,)>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
@@ -107,10 +119,16 @@ fn tuple_nested() {
             GenericDataType::Struct,
             false,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(
             GenericField::new("0", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
+                .with_metadata(
+                    STRATEGY_KEY.to_string(),
+                    Strategy::TupleAsStruct.to_string(),
+                )
                 .with_child(GenericField::new("0", GenericDataType::U64, false)),
         )])
         .trace_schema_from_type::<Item<((u64,),)>>(TracingOptions::default())
@@ -134,7 +152,10 @@ fn tuple_nullable() {
             GenericDataType::Struct,
             true,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(GenericField::new("0", GenericDataType::Bool, false))
         .with_child(GenericField::new("1", GenericDataType::I64, false))])
         .trace_schema_from_type::<Item<Option<(bool, i64)>>>(TracingOptions::default())
@@ -158,10 +179,16 @@ fn tuple_nullable_nested() {
             GenericDataType::Struct,
             true,
         )
-        .with_strategy(Strategy::TupleAsStruct)
+        .with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        )
         .with_child(
             GenericField::new("0", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
+                .with_metadata(
+                    STRATEGY_KEY.to_string(),
+                    Strategy::TupleAsStruct.to_string(),
+                )
                 .with_child(GenericField::new("0", GenericDataType::Bool, false))
                 .with_child(GenericField::new("1", GenericDataType::I64, false)),
         )

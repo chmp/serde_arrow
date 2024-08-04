@@ -10,7 +10,7 @@ use crate::internal::{
 
 use super::{
     tracing_options::{TracingMode, TracingOptions},
-    Overwrites,
+    Overwrites, STRATEGY_KEY,
 };
 
 // TODO: allow to customize
@@ -692,7 +692,10 @@ impl TupleTracer {
         for tracer in &self.field_tracers {
             field.children.push(tracer.to_field()?);
         }
-        field.strategy = Some(Strategy::TupleAsStruct);
+        field.metadata.insert(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        );
         Ok(field)
     }
 
@@ -808,7 +811,9 @@ impl StructTracer {
 
         if let StructMode::Map = self.mode {
             res_field.children.sort_by(|a, b| a.name.cmp(&b.name));
-            res_field.strategy = Some(Strategy::MapAsStruct);
+            res_field
+                .metadata
+                .insert(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());
         }
         Ok(res_field)
     }
@@ -911,8 +916,10 @@ impl UnionTracer {
                 field.children.push(variant.tracer.to_field()?);
             } else {
                 field.children.push(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
+                    GenericField::new("", GenericDataType::Null, true).with_metadata(
+                        STRATEGY_KEY.to_string(),
+                        Strategy::UnknownVariant.to_string(),
+                    ),
                 );
             };
         }
@@ -994,8 +1001,15 @@ impl PrimitiveTracer {
                     Ok(default_dictionary_field(&self.name, self.nullable))
                 }
             }
-            dt => Ok(GenericField::new(&self.name, dt.clone(), self.nullable)
-                .with_optional_strategy(self.strategy.clone())),
+            dt => {
+                let mut field = GenericField::new(&self.name, dt.clone(), self.nullable);
+                if let Some(strategy) = self.strategy.as_ref() {
+                    field
+                        .metadata
+                        .insert(STRATEGY_KEY.to_string(), strategy.to_string());
+                }
+                Ok(field)
+            }
         }
     }
 }

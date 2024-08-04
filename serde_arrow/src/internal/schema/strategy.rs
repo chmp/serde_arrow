@@ -130,16 +130,11 @@ impl From<Strategy> for HashMap<String, String> {
     }
 }
 
-pub fn split_strategy_from_metadata(
-    mut metadata: HashMap<String, String>,
-) -> Result<(HashMap<String, String>, Option<Strategy>)> {
-    let strategy = if let Some(strategy_str) = metadata.remove(STRATEGY_KEY) {
-        Some(strategy_str.parse::<Strategy>()?)
-    } else {
-        None
+pub fn get_strategy_from_metadata(metadata: &HashMap<String, String>) -> Result<Option<Strategy>> {
+    let Some(strategy) = metadata.get(STRATEGY_KEY) else {
+        return Ok(None);
     };
-
-    Ok((metadata, strategy))
+    Ok(Some(strategy.parse()?))
 }
 
 pub fn merge_strategy_with_metadata(
@@ -159,47 +154,37 @@ pub fn merge_strategy_with_metadata(
 fn test_split_strategy_from_metadata_with_metadata() {
     use crate::internal::testing::hash_map;
 
-    let input: HashMap<String, String> = hash_map!(
+    let metadata: HashMap<String, String> = hash_map!(
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+    let strategy: Option<Strategy> = Some(Strategy::TupleAsStruct);
+
+    let expected: HashMap<String, String> = hash_map!(
         "SERDE_ARROW:strategy" => "TupleAsStruct",
         "key1" => "value1",
         "key2" => "value2",
     );
 
-    let expected_metadata: HashMap<String, String> = hash_map!(
-        "key1" => "value1",
-        "key2" => "value2",
-    );
-    let expected_strategy: Option<Strategy> = Some(Strategy::TupleAsStruct);
-
-    let (actual_metadata, actual_strategy) = split_strategy_from_metadata(input.clone()).unwrap();
-    let roundtripped =
-        merge_strategy_with_metadata(actual_metadata.clone(), actual_strategy.clone()).unwrap();
-
-    assert_eq!(actual_metadata, expected_metadata);
-    assert_eq!(actual_strategy, expected_strategy);
-    assert_eq!(roundtripped, input);
+    let actual = merge_strategy_with_metadata(metadata, strategy).unwrap();
+    assert_eq!(actual, expected);
 }
 
 #[test]
 fn test_split_strategy_from_metadata_without_metadata() {
     use crate::internal::testing::hash_map;
 
-    let input: HashMap<String, String> = hash_map!(
+    let metadata: HashMap<String, String> = hash_map!(
+        "key1" => "value1",
+        "key2" => "value2",
+    );
+    let strategy: Option<Strategy> = None;
+
+    let expected: HashMap<String, String> = hash_map!(
         "key1" => "value1",
         "key2" => "value2",
     );
 
-    let expected_metadata: HashMap<String, String> = hash_map!(
-        "key1" => "value1",
-        "key2" => "value2",
-    );
-    let expected_strategy: Option<Strategy> = None;
-
-    let (actual_metadata, actual_strategy) = split_strategy_from_metadata(input.clone()).unwrap();
-    let roundtripped =
-        merge_strategy_with_metadata(actual_metadata.clone(), actual_strategy.clone()).unwrap();
-
-    assert_eq!(actual_metadata, expected_metadata);
-    assert_eq!(actual_strategy, expected_strategy);
-    assert_eq!(roundtripped, input);
+    let actual = merge_strategy_with_metadata(metadata, strategy).unwrap();
+    assert_eq!(actual, expected);
 }

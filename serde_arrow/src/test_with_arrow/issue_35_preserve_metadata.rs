@@ -6,7 +6,7 @@ use serde_json::json;
 use crate::{
     _impl::{arrow, arrow2},
     internal::{schema::GenericField, testing::hash_map},
-    schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    schema::{SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
 };
 
 fn example_field_desc() -> serde_json::Value {
@@ -31,9 +31,10 @@ fn example_field_desc() -> serde_json::Value {
 #[test]
 fn arrow() {
     let initial_field = serde_json::from_value::<GenericField>(example_field_desc()).unwrap();
-
-    assert_eq!(initial_field.metadata, hash_map!("foo" => "bar"));
-    assert_eq!(initial_field.strategy, Some(Strategy::MapAsStruct));
+    assert_eq!(
+        initial_field.metadata,
+        hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")
+    );
 
     let arrow_field = arrow::datatypes::Field::try_from(&initial_field).unwrap();
     assert_eq!(
@@ -54,9 +55,10 @@ fn arrow() {
 #[test]
 fn arrow2() {
     let initial_field = serde_json::from_value::<GenericField>(example_field_desc()).unwrap();
-
-    assert_eq!(initial_field.metadata, hash_map!("foo" => "bar"));
-    assert_eq!(initial_field.strategy, Some(Strategy::MapAsStruct));
+    assert_eq!(
+        initial_field.metadata,
+        hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")
+    );
 
     let arrow_field = arrow2::datatypes::Field::try_from(&initial_field).unwrap();
     assert_eq!(

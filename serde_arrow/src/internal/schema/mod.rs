@@ -23,9 +23,8 @@ use crate::internal::{
 use ::serde::{Deserialize, Serialize};
 
 pub use data_type::GenericDataType;
-pub use strategy::{
-    merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
-};
+pub use strategy::get_strategy_from_metadata;
+pub use strategy::{merge_strategy_with_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
@@ -314,7 +313,6 @@ pub struct GenericField {
     pub name: String,
     pub data_type: GenericDataType,
     pub metadata: HashMap<String, String>,
-    pub strategy: Option<Strategy>,
     pub nullable: bool,
     pub children: Vec<GenericField>,
 }
@@ -327,7 +325,6 @@ impl GenericField {
             metadata: HashMap::new(),
             nullable,
             children: Vec::new(),
-            strategy: None,
         }
     }
 
@@ -374,7 +371,7 @@ impl GenericField {
 
     pub fn is_utc(&self) -> Result<bool> {
         match &self.data_type {
-            GenericDataType::Date64 => match &self.strategy {
+            GenericDataType::Date64 => match get_strategy_from_metadata(&self.metadata)? {
                 None | Some(Strategy::UtcStrAsDate64) => Ok(true),
                 Some(Strategy::NaiveStrAsDate64) => Ok(false),
                 Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
@@ -392,27 +389,17 @@ impl GenericField {
         self
     }
 
-    pub fn with_strategy(mut self, strategy: Strategy) -> Self {
-        self.strategy = Some(strategy);
-        self
-    }
-
-    pub fn with_optional_strategy(mut self, strategy: Option<Strategy>) -> Self {
-        self.strategy = strategy;
+    pub fn with_metadata(mut self, key: String, value: String) -> Self {
+        self.metadata.insert(key, value);
         self
     }
 }
 
 impl GenericField {
     pub(crate) fn validate_null(&self) -> Result<()> {
-        if !matches!(
-            self.strategy,
-            None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant)
-        ) {
-            fail!(
-                "invalid strategy for Null field: {}",
-                self.strategy.as_ref().unwrap()
-            );
+        match get_strategy_from_metadata(&self.metadata)? {
+            None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant) => {}
+            Some(strategy) => fail!("invalid strategy for Null field: {strategy}"),
         }
         if !self.children.is_empty() {
             fail!("Null field must not have children");
@@ -429,7 +416,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_date64(&self) -> Result<()> {
-        match self.strategy.as_ref() {
+        match get_strategy_from_metadata(&self.metadata)? {
             None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => {}
             Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
         }
@@ -440,7 +427,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_timestamp(&self) -> Result<()> {
-        match &self.strategy {
+        match get_strategy_from_metadata(&self.metadata)? {
             None => Ok(()),
             Some(strategy @ Strategy::UtcStrAsDate64) => {
                 if !matches!(&self.data_type, GenericDataType::Timestamp(_, Some(tz)) if tz.to_uppercase() == "UTC")
@@ -472,12 +459,8 @@ impl GenericField {
     }
 
     pub(crate) fn validate_time32(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
-            );
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
+            fail!("invalid strategy for {dt}: {strategy}", dt = self.data_type);
         }
         if !self.children.is_empty() {
             fail!("{} field must not have children", self.data_type);
@@ -492,7 +475,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_time64(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!(
                 "invalid strategy for {data_type}: {strategy}",
                 data_type = self.data_type,
@@ -516,7 +499,7 @@ impl GenericField {
 
     pub(crate) fn validate_struct(&self) -> Result<()> {
         // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
-        match self.strategy.as_ref() {
+        match get_strategy_from_metadata(&self.metadata)? {
             None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
             Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
         }
@@ -527,7 +510,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_map(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!("invalid strategy for Map field: {strategy}");
         }
         if self.children.len() != 1 {
@@ -561,7 +544,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_list(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!("invalid strategy for List field: {strategy}");
         }
         if self.children.len() != 1 {
@@ -587,7 +570,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_union(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!("invalid strategy for Union field: {strategy}");
         }
         if self.children.is_empty() {
@@ -600,7 +583,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_dictionary(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!("invalid strategy for Dictionary field: {strategy}");
         }
         if self.children.len() != 2 {
@@ -641,7 +624,7 @@ impl GenericField {
     }
 
     pub(crate) fn validate_no_strategy_no_children(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
+        if let Some(strategy) = get_strategy_from_metadata(&self.metadata)? {
             fail!(
                 "invalid strategy for {data_type}: {strategy}",
                 data_type = self.data_type,

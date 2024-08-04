@@ -80,8 +80,10 @@ fn doc_schema() {
 #[test]
 fn date64_with_strategy() {
     let schema = SerdeArrowSchema::default().with_field(
-        GenericField::new("item", GenericDataType::Date64, false)
-            .with_strategy(Strategy::NaiveStrAsDate64),
+        GenericField::new("item", GenericDataType::Date64, false).with_metadata(
+            STRATEGY_KEY.to_string(),
+            Strategy::NaiveStrAsDate64.to_string(),
+        ),
     );
 
     let actual = serde_json::to_string(&schema).unwrap();
@@ -213,10 +215,9 @@ fn test_metadata_strategy_from_explicit() {
     ]))
     .unwrap();
 
-    assert_eq!(schema.fields[0].strategy, Some(Strategy::UtcStrAsDate64));
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world")
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64"),
     );
 
     let schema_value = serde_json::to_value(&schema).unwrap();
@@ -252,10 +253,9 @@ fn test_metadata_strategy_from_metadata() {
     ]))
     .unwrap();
 
-    assert_eq!(schema.fields[0].strategy, Some(Strategy::UtcStrAsDate64));
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world")
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64")
     );
 
     // NOTE: the strategy is always normalized to be an extra field

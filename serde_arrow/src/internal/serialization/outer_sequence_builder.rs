@@ -3,7 +3,9 @@ use serde::Serialize;
 use crate::internal::{
     arrow::TimeUnit,
     error::{fail, Result},
-    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
+    schema::{
+        get_strategy_from_metadata, GenericDataType, GenericField, SerdeArrowSchema, Strategy,
+    },
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
@@ -40,13 +42,10 @@ impl OuterSequenceBuilder {
             use {ArrayBuilder as A, GenericDataType as T};
 
             let builder = match &field.data_type {
-                T::Null => {
-                    if matches!(&field.strategy, Some(Strategy::UnknownVariant)) {
-                        A::UnknownVariant(UnknownVariantBuilder)
-                    } else {
-                        A::Null(NullBuilder::new())
-                    }
-                }
+                T::Null => match get_strategy_from_metadata(&field.metadata)? {
+                    Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
+                    _ => A::Null(NullBuilder::new()),
+                },
                 T::Bool => A::Bool(BoolBuilder::new(field.nullable)),
                 T::I8 => A::I8(IntBuilder::new(field.nullable)),
                 T::I16 => A::I16(IntBuilder::new(field.nullable)),
@@ -62,7 +61,7 @@ impl OuterSequenceBuilder {
                 T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
                 T::Date64 => A::Date64(Date64Builder::new(
                     None,
-                    is_utc_strategy(field.strategy.as_ref())?,
+                    is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
                     field.nullable,
                 )),
                 T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(

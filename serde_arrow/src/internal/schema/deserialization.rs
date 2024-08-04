@@ -9,8 +9,7 @@ use crate::internal::{
     arrow::TimeUnit,
     error::{fail, Error, Result},
     schema::{
-        merge_strategy_with_metadata, split_strategy_from_metadata, GenericDataType, GenericField,
-        SerdeArrowSchema, Strategy,
+        merge_strategy_with_metadata, GenericDataType, GenericField, SerdeArrowSchema, Strategy,
     },
 };
 
@@ -158,16 +157,12 @@ impl TryFrom<ArrowField> for GenericField {
 
     fn try_from(value: ArrowField) -> Result<Self> {
         let (data_type, children) = value.data_type.into_generic()?;
-
-        let (metadata, strategy) = split_strategy_from_metadata(value.metadata)?;
-
         Ok(GenericField {
             name: value.name,
             nullable: value.nullable,
+            metadata: value.metadata,
             data_type,
-            metadata,
             children,
-            strategy,
         })
     }
 }
@@ -304,8 +299,6 @@ impl<'de> Deserialize<'de> for GenericField {
                 let metadata =
                     merge_strategy_with_metadata(metadata.unwrap_or_default(), strategy.flatten())
                         .map_err(A::Error::custom)?;
-                let (metadata, strategy) =
-                    split_strategy_from_metadata(metadata).map_err(A::Error::custom)?;
 
                 Ok(GenericField {
                     name: name.ok_or_else(|| A::Error::custom("missing field `name`"))?,
@@ -313,7 +306,6 @@ impl<'de> Deserialize<'de> for GenericField {
                     children,
                     nullable: nullable.unwrap_or_default(),
                     metadata,
-                    strategy,
                 })
             }
         }
