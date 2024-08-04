@@ -11,4 +11,5 @@ pub use array::{
     PrimitiveArray, PrimitiveArrayView, StructArray, StructArrayView, TimeArray, TimeArrayView,
     TimestampArray, TimestampArrayView,
 };
-pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};
+#[allow(unused)]
+pub use data_type::{Field, DataType, TimeUnit};

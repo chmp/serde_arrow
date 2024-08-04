@@ -387,29 +387,3 @@ impl From<TimeUnit> for ArrowTimeUnit {
         }
     }
 }
-
-impl TryFrom<crate::internal::arrow::DataType> for DataType {
-    type Error = Error;
-
-    fn try_from(value: crate::internal::arrow::DataType) -> Result<Self> {
-        use {crate::internal::arrow::DataType as DT, DataType as ArrowDT};
-
-        match value {
-            DT::Int8 => Ok(ArrowDT::Int8),
-            DT::Int16 => Ok(ArrowDT::Int16),
-            DT::Int32 => Ok(ArrowDT::Int32),
-            DT::Int64 => Ok(ArrowDT::Int64),
-            DT::UInt8 => Ok(ArrowDT::UInt8),
-            DT::UInt16 => Ok(ArrowDT::UInt16),
-            DT::UInt32 => Ok(ArrowDT::UInt32),
-            DT::UInt64 => Ok(ArrowDT::UInt64),
-            DT::Float16 => Ok(ArrowDT::Float16),
-            DT::Float32 => Ok(ArrowDT::Float32),
-            DT::Float64 => Ok(ArrowDT::Float64),
-            dt => fail!(
-                "{} not supported",
-                crate::internal::arrow::BaseDataTypeDisplay(&dt)
-            ),
-        }
-    }
-}
