@@ -241,10 +241,7 @@ impl FieldLookup {
         if self.cached_names.get(guess) == Some(&Some(fast_key)) {
             Some(guess)
         } else {
-            let Some(&idx) = self.index.get(key) else {
-                return None;
-            };
-
+            let &idx = self.index.get(key)?;
             if self.cached_names[idx].is_none() {
                 self.cached_names[idx] = Some(fast_key);
             }

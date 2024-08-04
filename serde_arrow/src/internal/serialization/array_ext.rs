@@ -268,7 +268,7 @@ pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
     Ok(())
 }
 
-pub fn increment_last<O: Offset>(vec: &mut Vec<O>, inc: usize) -> Result<()> {
+pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     let Some(last) = vec.last_mut() else {
         fail!("invalid offset array")
     };
