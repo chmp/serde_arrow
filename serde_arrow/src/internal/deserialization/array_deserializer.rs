@@ -80,86 +80,84 @@ pub enum ArrayDeserializer<'a> {
 
 impl<'a> ArrayDeserializer<'a> {
     pub fn new(strategy: Option<&Strategy>, array: ArrayView<'a>) -> Result<Self> {
+        use {ArrayDeserializer as D, ArrayView as V};
         match array {
             ArrayView::Null(_) => Ok(Self::Null(NullDeserializer {})),
-            ArrayView::Boolean(view) => Ok(Self::Bool(BoolDeserializer::new(
-                buffer_from_bits_with_offset(view.values, view.len),
-                buffer_from_bits_with_offset_opt(view.validity, view.len),
-            ))),
+            V::Boolean(view) => Ok(D::Bool(BoolDeserializer::new(view))),
             ArrayView::Int8(view) => Ok(Self::I8(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Int16(view) => Ok(Self::I16(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Int32(view) => Ok(Self::I32(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Int64(view) => Ok(Self::I64(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::UInt8(view) => Ok(Self::U8(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::UInt16(view) => Ok(Self::U16(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::UInt32(view) => Ok(Self::U32(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::UInt64(view) => Ok(Self::U64(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Float16(view) => Ok(Self::F16(FloatDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Float32(view) => Ok(Self::F32(FloatDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Float64(view) => Ok(Self::F64(FloatDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Decimal128(view) => Ok(Self::Decimal128(DecimalDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
                 view.scale,
             ))),
             ArrayView::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
                 TimeUnit::Millisecond,
                 is_utc_date64(strategy)?,
             ))),
             ArrayView::Time32(view) => Ok(Self::Time32(TimeDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
                 view.unit,
             ))),
             ArrayView::Time64(view) => Ok(Self::Time64(TimeDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
                 view.unit,
             ))),
             ArrayView::Timestamp(view) => match strategy {
                 Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
                     Ok(Self::Date64(Date64Deserializer::new(
                         view.values,
-                        buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                        view.validity,
                         view.unit,
                         is_utc_timestamp(view.timezone.as_deref())?,
                     )))
@@ -167,7 +165,7 @@ impl<'a> ArrayDeserializer<'a> {
                 Some(strategy) => fail!("invalid strategy {strategy} for timestamp field"),
                 None => Ok(Date64Deserializer::new(
                     view.values,
-                    buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                    view.validity,
                     view.unit,
                     is_utc_timestamp(view.timezone.as_deref())?,
                 )
@@ -175,7 +173,7 @@ impl<'a> ArrayDeserializer<'a> {
             },
             ArrayView::Duration(view) => Ok(Self::I64(IntegerDeserializer::new(
                 view.values,
-                buffer_from_bits_with_offset_opt(view.validity, view.values.len()),
+                view.validity,
             ))),
             ArrayView::Utf8(view) => Ok(Self::Utf8(StringDeserializer::new(
                 view.data,
@@ -359,7 +357,7 @@ fn build_dictionary_array<'a, K: Integer, V: Offset>(
     }
     Ok(DictionaryDeserializer::new(
         keys.values,
-        buffer_from_bits_with_offset_opt(keys.validity, keys.values.len()),
+        keys.validity,
         values.data,
         values.offsets,
     ))

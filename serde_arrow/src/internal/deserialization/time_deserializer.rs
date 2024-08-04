@@ -2,21 +2,20 @@ use chrono::NaiveTime;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::TimeUnit,
+    arrow::{BitsWithOffset, TimeUnit},
     error::{fail, Result},
     utils::Mut,
 };
 
 use super::{
-    integer_deserializer::Integer,
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
+    integer_deserializer::Integer, simple_deserializer::SimpleDeserializer,
+    utils::ArrayBufferIterator,
 };
 
 pub struct TimeDeserializer<'a, T: Integer>(ArrayBufferIterator<'a, T>, i64, i64);
 
 impl<'a, T: Integer> TimeDeserializer<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>, unit: TimeUnit) -> Self {
+    pub fn new(buffer: &'a [T], validity: Option<BitsWithOffset<'a>>, unit: TimeUnit) -> Self {
         let (seconds_factor, nanoseconds_factor) = match unit {
             TimeUnit::Nanosecond => (1_000_000_000, 1),
             TimeUnit::Microsecond => (1_000_000, 1_000),

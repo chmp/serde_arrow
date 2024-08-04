@@ -1,14 +1,12 @@
 use serde::de::Visitor;
 
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::Result,
     utils::{decimal, Mut},
 };
 
-use super::{
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
-};
+use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
 pub struct DecimalDeserializer<'a> {
     inner: ArrayBufferIterator<'a, i128>,
@@ -16,7 +14,7 @@ pub struct DecimalDeserializer<'a> {
 }
 
 impl<'a> DecimalDeserializer<'a> {
-    pub fn new(buffer: &'a [i128], validity: Option<BitBuffer<'a>>, scale: i8) -> Self {
+    pub fn new(buffer: &'a [i128], validity: Option<BitsWithOffset<'a>>, scale: i8) -> Self {
         Self {
             inner: ArrayBufferIterator::new(buffer, validity),
             scale,

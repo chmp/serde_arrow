@@ -1,7 +1,16 @@
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::{error, fail, Result},
     utils::Offset,
 };
+
+pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
+    let flag = 1 << ((idx + set.offset) % 8);
+    let Some(byte) = set.data.get((idx + set.offset) / 8) else {
+        fail!("invalid access in bitset");
+    };
+    Ok(byte & flag == flag)
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BitBuffer<'a> {
@@ -24,12 +33,12 @@ impl<'a> BitBuffer<'a> {
 
 pub struct ArrayBufferIterator<'a, T: Copy> {
     pub buffer: &'a [T],
-    pub validity: Option<BitBuffer<'a>>,
+    pub validity: Option<BitsWithOffset<'a>>,
     pub next: usize,
 }
 
 impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>) -> Self {
+    pub fn new(buffer: &'a [T], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self {
             buffer,
             validity,
@@ -43,7 +52,7 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
         }
 
         if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(None);
             }
         }
@@ -63,7 +72,7 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
         }
 
         if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(false);
             }
         }
@@ -92,15 +101,11 @@ pub fn check_supported_list_layout<'a, O: Offset>(
         return Ok(());
     };
 
-    if offsets.len() != validity.len() + 1 {
-        fail!(
-            "validity length {val} and offsets length {off} do not match (expected {val}, {exp})",
-            val = validity.len(),
-            off = offsets.len(),
-            exp = validity.len() + 1,
-        );
+    if offsets.is_empty() {
+        fail!("list offsets must be non empty");
     }
-    for i in 0..validity.len() {
+
+    for i in 0..offsets.len().saturating_sub(1) {
         let curr = offsets[i].try_into_usize()?;
         let next = offsets[i + 1].try_into_usize()?;
         if !validity.is_set(i) && (next - curr) != 0 {

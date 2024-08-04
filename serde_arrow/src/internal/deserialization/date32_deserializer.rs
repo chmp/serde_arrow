@@ -1,17 +1,14 @@
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 use serde::de::Visitor;
 
-use crate::internal::{error::Result, utils::Mut};
+use crate::internal::{arrow::BitsWithOffset, error::Result, utils::Mut};
 
-use super::{
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
-};
+use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
 pub struct Date32Deserializer<'a>(ArrayBufferIterator<'a, i32>);
 
 impl<'a> Date32Deserializer<'a> {
-    pub fn new(buffer: &'a [i32], validity: Option<BitBuffer<'a>>) -> Self {
+    pub fn new(buffer: &'a [i32], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self(ArrayBufferIterator::new(buffer, validity))
     }
 

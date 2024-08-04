@@ -1,11 +1,8 @@
 use serde::de::Visitor;
 
-use crate::internal::{error::Result, utils::Mut};
+use crate::internal::{arrow::BitsWithOffset, error::Result, utils::Mut};
 
-use super::{
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
-};
+use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
 pub trait Float: Copy {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
@@ -20,7 +17,7 @@ pub trait Float: Copy {
 pub struct FloatDeserializer<'a, F: Float>(ArrayBufferIterator<'a, F>);
 
 impl<'a, F: Float> FloatDeserializer<'a, F> {
-    pub fn new(buffer: &'a [F], validity: Option<BitBuffer<'a>>) -> Self {
+    pub fn new(buffer: &'a [F], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self(ArrayBufferIterator::new(buffer, validity))
     }
 }

@@ -1,15 +1,14 @@
 use serde::de::Visitor;
 
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::{fail, Result},
     utils::{Mut, Offset},
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess,
-    integer_deserializer::Integer,
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
+    enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
+    simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
@@ -21,7 +20,7 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn new(
         keys_buffer: &'a [K],
-        keys_validity: Option<BitBuffer<'a>>,
+        keys_validity: Option<BitsWithOffset<'a>>,
         data: &'a [u8],
         offsets: &'a [V],
     ) -> Self {
