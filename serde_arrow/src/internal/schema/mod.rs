@@ -19,7 +19,6 @@ use crate::internal::{
 
 use ::serde::{Deserialize, Serialize};
 
-pub use serde::deserialize::ArrowOrCustomField;
 pub use strategy::get_strategy_from_metadata;
 pub use strategy::{merge_strategy_with_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
@@ -305,6 +304,17 @@ impl SchemaLike for SerdeArrowSchema {
     fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
         Tracer::from_samples(samples, options)?.to_schema()
     }
+}
+
+/// Wrapper around `SerdeArrowSchema::from_value` to convert a single field
+///
+/// This function takes anything that serialized into a field and converts it into a field.
+pub fn transmute_field(field: impl Serialize) -> Result<Field> {
+    let expected = SerdeArrowSchema::from_value(&[field])?;
+    let Some(field) = expected.fields.into_iter().next() else {
+        fail!("unexpected error in transmute_field: no field found");
+    };
+    Ok(field)
 }
 
 pub fn validate_field(field: &Field) -> Result<()> {

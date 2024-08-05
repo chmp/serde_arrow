@@ -7,7 +7,7 @@ use crate::{
     _impl::{arrow, arrow2},
     internal::{
         arrow::Field,
-        schema::{ArrowOrCustomField, SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
+        schema::{transmute_field, SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
         testing::hash_map,
     },
 };
@@ -33,8 +33,7 @@ fn example_field_desc() -> serde_json::Value {
 
 #[test]
 fn arrow() {
-    let initial_field = serde_json::from_value::<ArrowOrCustomField>(example_field_desc()).unwrap();
-    let initial_field = initial_field.into_field().unwrap();
+    let initial_field = transmute_field(example_field_desc()).unwrap();
     assert_eq!(
         initial_field.metadata,
         hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")
@@ -58,8 +57,7 @@ fn arrow() {
 
 #[test]
 fn arrow2() {
-    let initial_field = serde_json::from_value::<ArrowOrCustomField>(example_field_desc()).unwrap();
-    let initial_field = initial_field.into_field().unwrap();
+    let initial_field = transmute_field(example_field_desc()).unwrap();
     assert_eq!(
         initial_field.metadata,
         hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")

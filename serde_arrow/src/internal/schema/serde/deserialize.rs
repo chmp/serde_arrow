@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::de::Visitor;
+use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
     arrow::{DataType, Field},
@@ -27,7 +27,7 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
                 use serde::de::Error;
 
                 let mut fields = Vec::new();
-                while let Some(item) = seq.next_element::<ArrowOrCustomField>()? {
+                while let Some(item) = seq.next_element::<CustomField>()? {
                     fields.push(item.into_field().map_err(A::Error::custom)?);
                 }
 
@@ -44,7 +44,7 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
 
                 while let Some(key) = map.next_key::<String>()? {
                     if key == "fields" {
-                        fields = Some(map.next_value::<Vec<ArrowOrCustomField>>()?);
+                        fields = Some(map.next_value::<Vec<CustomField>>()?);
                     } else {
                         map.next_value::<serde::de::IgnoredAny>()?;
                     }
@@ -69,30 +69,7 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
     }
 }
 
-pub enum ArrowOrCustomField {
-    Arrow(Field),
-    Custom(CustomField),
-}
-
-impl ArrowOrCustomField {
-    pub fn into_field(self) -> Result<Field> {
-        let field = match self {
-            ArrowOrCustomField::Arrow(field) => return Ok(field),
-            ArrowOrCustomField::Custom(field) => field,
-        };
-
-        todo!()
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ArrowOrCustomField {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
-        todo!()
-    }
-}
-
+#[derive(Debug, Clone, Deserialize)]
 pub struct CustomField {
     name: String,
     data_type: ArrowOrCustomDataType,
@@ -101,6 +78,13 @@ pub struct CustomField {
     metadata: HashMap<String, String>,
 }
 
+impl CustomField {
+    pub fn into_field(self) -> Result<Field> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ArrowOrCustomDataType {
     Arrow(DataType),
     Custom(String),
@@ -108,6 +92,14 @@ pub enum ArrowOrCustomDataType {
 
 impl ArrowOrCustomDataType {
     pub fn into_data_type(self, children: Vec<CustomField>) -> Result<Self> {
+        todo!()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ArrowOrCustomDataType {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         todo!()
     }
 }

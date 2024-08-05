@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::internal::{arrow::Field, error::Result, schema::ArrowOrCustomField, utils::value};
+use crate::internal::{arrow::Field, error::Result, schema::transmute_field, utils::value};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {
@@ -277,11 +277,10 @@ impl TracingOptions {
 
     /// Add an overwrite to [`overwrites`](#structfield.overwrites)
     pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
-        let path = path.into();
-        let path = format!("$.{path}");
-        let field: ArrowOrCustomField = value::transmute(&field)?;
-
-        self.overwrites.0.insert(path, field.into_field()?);
+        self.overwrites.0.insert(
+            format!("$.{path}", path = path.into()),
+            transmute_field(field)?,
+        );
         Ok(self)
     }
 

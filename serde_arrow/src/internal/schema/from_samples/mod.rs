@@ -590,15 +590,18 @@ mod test {
     use serde::Serialize;
     use serde_json::{json, Value};
 
-    use crate::internal::schema::{ArrowOrCustomField, TracingOptions};
+    use crate::{
+        internal::schema::{SerdeArrowSchema, TracingOptions},
+        schema::SchemaLike,
+    };
 
     use super::*;
 
     fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
         let tracer = Tracer::from_samples(items, options).unwrap();
         let field = tracer.to_field().unwrap();
-        let expected = serde_json::from_value::<ArrowOrCustomField>(expected).unwrap();
-        let expected = expected.into_field().unwrap();
+        let expected = SerdeArrowSchema::from_value(&[expected]).unwrap();
+        let expected = expected.fields.into_iter().next().unwrap();
 
         assert_eq!(field, expected);
     }

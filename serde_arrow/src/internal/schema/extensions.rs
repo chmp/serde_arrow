@@ -5,8 +5,7 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{DataType, Field},
     error::{fail, Error, Result},
-    schema::ArrowOrCustomField,
-    utils::value,
+    schema::transmute_field,
 };
 
 /// Easily construct a field for tensors with fixed shape
@@ -58,8 +57,7 @@ impl FixedShapeTensorField {
     /// with the the name `"element"`. The field type can be any valid Arrow
     /// type.
     pub fn new(name: &str, element: impl Serialize, shape: Vec<usize>) -> Result<Self> {
-        let element: ArrowOrCustomField = value::transmute(&element)?;
-        let element = element.into_field()?;
+        let element = transmute_field(element)?;
         if element.name != "element" {
             fail!("The element field of FixedShapeTensorField must be named \"element\"");
         }
@@ -174,8 +172,7 @@ pub struct VariableShapeTensorField {
 
 impl VariableShapeTensorField {
     pub fn new(name: &str, element: impl serde::ser::Serialize, ndim: usize) -> Result<Self> {
-        let element: ArrowOrCustomField = value::transmute(&element)?;
-        let element = element.into_field()?;
+        let element = transmute_field(element)?;
         if element.name != "element" {
             fail!("The element field of FixedShapeTensorField must be named \"element\"");
         }

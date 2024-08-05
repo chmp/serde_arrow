@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::internal::{
     arrow::{DataType, Field},
     error::PanicOnError,
-    schema::{ArrowOrCustomField, STRATEGY_KEY},
+    schema::{transmute_field, STRATEGY_KEY},
     testing::hash_map,
 };
 
@@ -25,8 +25,7 @@ fn i16_field_simple() -> PanicOnError<()> {
     let actual = serde_json::to_value(&SerializableField(&field))?;
     assert_eq!(actual, expected);
 
-    let roundtripped = serde_json::from_value::<ArrowOrCustomField>(actual)?;
-    let roundtripped = roundtripped.into_field()?;
+    let roundtripped = transmute_field(&actual)?;
     assert_eq!(roundtripped, field);
 
     Ok(())
@@ -56,8 +55,7 @@ fn date64_field_complex() -> PanicOnError<()> {
     let actual = serde_json::to_value(&field)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = serde_json::from_value::<ArrowOrCustomField>(actual)?;
-    let roundtripped = roundtripped.into_field()?;
+    let roundtripped = transmute_field(&actual)?;
     assert_eq!(roundtripped, field);
 
     Ok(())
@@ -89,8 +87,7 @@ fn list_field_complex() -> PanicOnError<()> {
     let actual = serde_json::to_value(&field)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = serde_json::from_value::<ArrowOrCustomField>(actual)?;
-    let roundtripped = roundtripped.into_field()?;
+    let roundtripped = transmute_field(&actual)?;
     assert_eq!(roundtripped, field);
 
     Ok(())
