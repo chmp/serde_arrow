@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::internal::{arrow::Field, error::Result, schema::transmute_field, utils::value};
+use crate::internal::{arrow::Field, error::Result, schema::transmute_field};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {

@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
-    arrow::{DataType, Field},
-    error::{fail, Error, Result},
+    arrow::{DataType, Field, TimeUnit, UnionMode},
+    error::{fail, Result},
     schema::{SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    utils::dsl::Term,
 };
 
 // A custom impl of untagged-enum repr with better error messages
@@ -70,7 +71,7 @@ impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CustomField {
+struct CustomField {
     name: String,
     data_type: ArrowOrCustomDataType,
     #[serde(default)]
@@ -84,38 +85,123 @@ pub struct CustomField {
 }
 
 impl CustomField {
-    pub fn into_field(self) -> Result<Field> {
-        match self.data_type {
-            ArrowOrCustomDataType::Arrow(data_type) => {
-                if !self.children.is_empty() {
-                    fail!("Cannot use children with an arrow data type");
-                }
-
-                let metadata = merge_strategy_with_metadata(self.metadata, self.strategy)?;
-                Ok(Field {
-                    name: self.name,
-                    nullable: self.nullable,
-                    data_type,
-                    metadata,
-                })
-            }
-            ArrowOrCustomDataType::Custom(data_type) => {
-                todo!()
-            }
+    fn into_field(self) -> Result<Field> {
+        let mut children = Vec::new();
+        for child in self.children {
+            children.push(child.into_field()?);
         }
+
+        let data_type = self.data_type.into_data_type(children)?;
+        let metadata = merge_strategy_with_metadata(self.metadata, self.strategy)?;
+
+        Ok(Field {
+            name: self.name,
+            nullable: self.nullable,
+            data_type,
+            metadata,
+        })
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum ArrowOrCustomDataType {
+enum ArrowOrCustomDataType {
     Arrow(DataType),
     Custom(String),
 }
 
 impl ArrowOrCustomDataType {
-    pub fn into_data_type(self, children: Vec<CustomField>) -> Result<Self> {
-        todo!()
+    fn into_data_type(self, children: Vec<Field>) -> Result<DataType> {
+        match self {
+            Self::Custom(data_type) => build_data_type(data_type, children),
+            Self::Arrow(data_type) => {
+                if !children.is_empty() {
+                    fail!("Cannot use children with an arrow data type");
+                }
+                Ok(data_type)
+            }
+        }
     }
+}
+
+fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> {
+    use DataType as T;
+
+    let res = match Term::from_str(&data_type)?.as_call()? {
+        ("Null", []) => T::Null,
+        ("Bool" | "Boolean", []) => T::Boolean,
+        ("Utf8", []) => T::Utf8,
+        ("LargeUtf8", []) => T::LargeUtf8,
+        ("U8" | "UInt8", []) => T::UInt8,
+        ("U16" | "UInt16", []) => T::UInt16,
+        ("U32" | "UInt32", []) => T::UInt32,
+        ("U64" | "UInt64", []) => T::UInt64,
+        ("I8" | "Int8", []) => T::Int8,
+        ("I16" | "Int16", []) => T::Int16,
+        ("I32" | "Int32", []) => T::Int32,
+        ("I64" | "Int64", []) => T::Int64,
+        ("F16" | "Float16", []) => T::Float16,
+        ("F32" | "Float32", []) => T::Float32,
+        ("F64" | "Float64", []) => T::Float64,
+        ("Date32", []) => T::Date32,
+        ("Date64", []) => T::Date64,
+        ("Binary", []) => T::Binary,
+        ("LargeBinary", []) => T::LargeBinary,
+        ("FixedSizeBinary", [n]) => T::FixedSizeBinary(n.as_ident()?.parse()?),
+        ("Timestamp", [unit, timezone]) => {
+            let unit: TimeUnit = unit.as_ident()?.parse()?;
+            let timezone = timezone
+                .as_option()?
+                .map(|term| term.as_string())
+                .transpose()?;
+            T::Timestamp(unit, timezone.map(|s| s.to_owned()))
+        }
+        ("Time32", [unit]) => T::Time32(unit.as_ident()?.parse()?),
+        ("Time64", [unit]) => T::Time64(unit.as_ident()?.parse()?),
+        ("Duration", [unit]) => T::Duration(unit.as_ident()?.parse()?),
+        ("Decimal128", [precision, scale]) => {
+            T::Decimal128(precision.as_ident()?.parse()?, scale.as_ident()?.parse()?)
+        }
+        ("Struct", []) => T::Struct(children),
+        ("List", []) => {
+            let Ok([child]) = <[_; 1]>::try_from(children) else {
+                fail!("Invalid children for List: expected one child");
+            };
+            T::List(Box::new(child))
+        }
+        ("LargeList", []) => {
+            let Ok([child]) = <[_; 1]>::try_from(children) else {
+                fail!("Invalid children for List: expected one child");
+            };
+            T::LargeList(Box::new(child))
+        }
+        ("FixedSizeList", [n]) => {
+            let Ok([child]) = <[_; 1]>::try_from(children) else {
+                fail!("Invalid children for LargeList: expected one child");
+            };
+            T::FixedSizeList(Box::new(child), n.as_ident()?.parse()?)
+        }
+        ("Dictionary", []) => {
+            let Ok([key, value]) = <[_; 2]>::try_from(children) else {
+                fail!("Invalid children for Dictionary: expected two children");
+            };
+            T::Dictionary(Box::new(key.data_type), Box::new(value.data_type), false)
+        }
+        ("Map", []) => {
+            let Ok([child]) = <[_; 1]>::try_from(children) else {
+                fail!("Invalid children for Map: expected one child");
+            };
+            T::Map(Box::new(child), false)
+        }
+        ("Union", []) => {
+            let mut children_with_type_ids = Vec::new();
+            for (idx, child) in children.into_iter().enumerate() {
+                children_with_type_ids.push((idx.try_into()?, child));
+            }
+            T::Union(children_with_type_ids, UnionMode::Dense)
+        }
+        _ => fail!("invalid data type {data_type}"),
+    };
+    Ok(res)
 }
 
 impl<'de> serde::Deserialize<'de> for ArrowOrCustomDataType {

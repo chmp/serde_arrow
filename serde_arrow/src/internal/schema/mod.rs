@@ -1,6 +1,4 @@
 pub mod extensions;
-
-mod data_type;
 mod from_samples;
 mod from_type;
 mod serde;
@@ -481,7 +479,7 @@ fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
     Ok(())
 }
 
-fn validate_map_field(field: &Field, entry: &Field) -> Result<()> {
+fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
         fail!("invalid strategy for Map field: {strategy}");
     }
@@ -490,7 +488,7 @@ fn validate_map_field(field: &Field, entry: &Field) -> Result<()> {
     Ok(())
 }
 
-fn validate_union_field(field: &Field, children: &[(i8, Field)], mode: UnionMode) -> Result<()> {
+fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMode) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
         fail!("invalid strategy for Union field: {strategy}");
     }
