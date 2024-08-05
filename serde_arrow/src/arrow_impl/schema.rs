@@ -121,54 +121,36 @@ impl TryFrom<&ArrowDataType> for DataType {
     type Error = Error;
 
     fn try_from(value: &ArrowDataType) -> Result<DataType> {
-        use {DataType as T, TimeUnit as U};
+        use {ArrowDataType as AT, DataType as T};
         match value {
-            ArrowDataType::Boolean => Ok(T::Boolean),
-            ArrowDataType::Null => Ok(T::Null),
-            ArrowDataType::Int8 => Ok(T::Int8),
-            ArrowDataType::Int16 => Ok(T::Int16),
-            ArrowDataType::Int32 => Ok(T::Int32),
-            ArrowDataType::Int64 => Ok(T::Int64),
-            ArrowDataType::UInt8 => Ok(T::UInt8),
-            ArrowDataType::UInt16 => Ok(T::UInt16),
-            ArrowDataType::UInt32 => Ok(T::UInt32),
-            ArrowDataType::UInt64 => Ok(T::UInt64),
-            ArrowDataType::Float16 => Ok(T::Float16),
-            ArrowDataType::Float32 => Ok(T::Float32),
-            ArrowDataType::Float64 => Ok(T::Float64),
-            ArrowDataType::Utf8 => Ok(T::Utf8),
-            ArrowDataType::LargeUtf8 => Ok(T::LargeUtf8),
-            ArrowDataType::Date32 => Ok(T::Date32),
-            ArrowDataType::Date64 => Ok(T::Date64),
-            ArrowDataType::Decimal128(precision, scale) => Ok(T::Decimal128(*precision, *scale)),
-            ArrowDataType::Time32(ArrowTimeUnit::Second) => Ok(T::Time32(U::Second)),
-            ArrowDataType::Time32(ArrowTimeUnit::Millisecond) => Ok(T::Time32(U::Millisecond)),
-            ArrowDataType::Time32(unit) => fail!("Invalid time unit {unit:?} for Time32"),
-            ArrowDataType::Time64(ArrowTimeUnit::Microsecond) => Ok(T::Time64(U::Microsecond)),
-            ArrowDataType::Time64(ArrowTimeUnit::Nanosecond) => Ok(T::Time64(U::Nanosecond)),
-            ArrowDataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
-            ArrowDataType::Timestamp(ArrowTimeUnit::Second, tz) => {
-                Ok(T::Timestamp(U::Second, tz.as_ref().map(|s| s.to_string())))
-            }
-            ArrowDataType::Timestamp(ArrowTimeUnit::Millisecond, tz) => Ok(T::Timestamp(
-                U::Millisecond,
+            AT::Boolean => Ok(T::Boolean),
+            AT::Null => Ok(T::Null),
+            AT::Int8 => Ok(T::Int8),
+            AT::Int16 => Ok(T::Int16),
+            AT::Int32 => Ok(T::Int32),
+            AT::Int64 => Ok(T::Int64),
+            AT::UInt8 => Ok(T::UInt8),
+            AT::UInt16 => Ok(T::UInt16),
+            AT::UInt32 => Ok(T::UInt32),
+            AT::UInt64 => Ok(T::UInt64),
+            AT::Float16 => Ok(T::Float16),
+            AT::Float32 => Ok(T::Float32),
+            AT::Float64 => Ok(T::Float64),
+            AT::Utf8 => Ok(T::Utf8),
+            AT::LargeUtf8 => Ok(T::LargeUtf8),
+            AT::Date32 => Ok(T::Date32),
+            AT::Date64 => Ok(T::Date64),
+            AT::Decimal128(precision, scale) => Ok(T::Decimal128(*precision, *scale)),
+            AT::Time32(unit) => Ok(T::Time32(unit.clone().into())),
+            AT::Time64(unit) => Ok(T::Time64(unit.clone().into())),
+            AT::Timestamp(unit, tz) => Ok(T::Timestamp(
+                unit.clone().into(),
                 tz.as_ref().map(|s| s.to_string()),
             )),
-            ArrowDataType::Timestamp(ArrowTimeUnit::Microsecond, tz) => Ok(T::Timestamp(
-                U::Microsecond,
-                tz.as_ref().map(|s| s.to_string()),
-            )),
-            ArrowDataType::Timestamp(ArrowTimeUnit::Nanosecond, tz) => Ok(T::Timestamp(
-                U::Nanosecond,
-                tz.as_ref().map(|s| s.to_string()),
-            )),
-            ArrowDataType::Duration(ArrowTimeUnit::Second) => Ok(T::Duration(U::Second)),
-            ArrowDataType::Duration(ArrowTimeUnit::Millisecond) => Ok(T::Duration(U::Millisecond)),
-            ArrowDataType::Duration(ArrowTimeUnit::Microsecond) => Ok(T::Duration(U::Microsecond)),
-            ArrowDataType::Duration(ArrowTimeUnit::Nanosecond) => Ok(T::Duration(U::Nanosecond)),
-            ArrowDataType::Binary => Ok(T::Binary),
-            ArrowDataType::LargeBinary => Ok(T::LargeBinary),
-            ArrowDataType::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(*n)),
+            AT::Duration(unit) => Ok(T::Duration(unit.clone().into())),
+            AT::Binary => Ok(T::Binary),
+            AT::LargeBinary => Ok(T::LargeBinary),
+            AT::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(*n)),
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
@@ -193,7 +175,38 @@ impl TryFrom<&DataType> for ArrowDataType {
     type Error = Error;
 
     fn try_from(value: &DataType) -> std::result::Result<Self, Self::Error> {
-        todo!()
+        use {ArrowDataType as AT, DataType as T};
+        match value {
+            T::Boolean => Ok(AT::Boolean),
+            T::Null => Ok(AT::Null),
+            T::Int8 => Ok(AT::Int8),
+            T::Int16 => Ok(AT::Int16),
+            T::Int32 => Ok(AT::Int32),
+            T::Int64 => Ok(AT::Int64),
+            T::UInt8 => Ok(AT::UInt8),
+            T::UInt16 => Ok(AT::UInt16),
+            T::UInt32 => Ok(AT::UInt32),
+            T::UInt64 => Ok(AT::UInt64),
+            T::Float16 => Ok(AT::Float16),
+            T::Float32 => Ok(AT::Float32),
+            T::Float64 => Ok(AT::Float64),
+            T::Utf8 => Ok(AT::Utf8),
+            T::LargeUtf8 => Ok(AT::LargeUtf8),
+            T::Date32 => Ok(AT::Date32),
+            T::Date64 => Ok(AT::Date64),
+            T::Decimal128(precision, scale) => Ok(AT::Decimal128(*precision, *scale)),
+            T::Time32(unit) => Ok(AT::Time32((*unit).into())),
+            T::Time64(unit) => Ok(AT::Time64((*unit).into())),
+            T::Timestamp(unit, tz) => Ok(AT::Timestamp(
+                (*unit).into(),
+                tz.as_ref().map(|s| s.to_string().into()),
+            )),
+            T::Duration(unit) => Ok(AT::Duration((*unit).into())),
+            T::Binary => Ok(AT::Binary),
+            T::LargeBinary => Ok(AT::LargeBinary),
+            T::FixedSizeBinary(n) => Ok(AT::FixedSizeBinary(*n)),
+            _ => fail!("Only primitive data types can be converted to T"),
+        }
     }
 }
 
@@ -212,31 +225,34 @@ impl TryFrom<&Field> for ArrowField {
     }
 }
 
-impl From<TimeUnit> for ArrowTimeUnit {
-    fn from(value: TimeUnit) -> Self {
-        match value {
-            TimeUnit::Second => Self::Second,
-            TimeUnit::Millisecond => Self::Millisecond,
-            TimeUnit::Microsecond => Self::Microsecond,
-            TimeUnit::Nanosecond => Self::Nanosecond,
+macro_rules! impl_from_one_to_one {
+    (
+        $src_ty:ty => $dst_ty:ty,
+        [
+            $($src_variant:ident => $dst_variant:ident),*
+        ]
+    ) => {
+        impl From<$dst_ty> for $src_ty {
+            fn from(value: $dst_ty) -> Self {
+                match value {
+                    $(<$dst_ty>::$dst_variant => <$src_ty>::$src_variant,)*
+                }
+            }
         }
-    }
+
+        impl From<$src_ty> for $dst_ty {
+            fn from(value: $src_ty) -> Self {
+                match value {
+                    $(<$src_ty>::$src_variant => <$dst_ty>::$dst_variant,)*
+                }
+            }
+        }
+    };
 }
 
-impl From<ArrowUnionMode> for UnionMode {
-    fn from(value: ArrowUnionMode) -> Self {
-        match value {
-            ArrowUnionMode::Dense => UnionMode::Dense,
-            ArrowUnionMode::Sparse => UnionMode::Sparse,
-        }
-    }
-}
+impl_from_one_to_one!(
+    TimeUnit => ArrowTimeUnit,
+    [Second => Second, Millisecond => Millisecond, Microsecond => Microsecond, Nanosecond => Nanosecond]
+);
 
-impl From<UnionMode> for ArrowUnionMode {
-    fn from(value: UnionMode) -> Self {
-        match value {
-            UnionMode::Dense => ArrowUnionMode::Dense,
-            UnionMode::Sparse => ArrowUnionMode::Sparse,
-        }
-    }
-}
+impl_from_one_to_one!(UnionMode => ArrowUnionMode, [Sparse => Sparse, Dense => Dense]);

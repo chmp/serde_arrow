@@ -19,8 +19,7 @@ use crate::internal::{
 
 use ::serde::{Deserialize, Serialize};
 
-pub use strategy::get_strategy_from_metadata;
-pub use strategy::{merge_strategy_with_metadata, Strategy, STRATEGY_KEY};
+pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 

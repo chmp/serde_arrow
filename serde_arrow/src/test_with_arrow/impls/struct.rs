@@ -76,7 +76,6 @@ fn struct_nested() {
 
 #[test]
 fn struct_nullable_field() {
-    type Ty = S;
     let values = [
         Item(S {
             a: Some(1),
