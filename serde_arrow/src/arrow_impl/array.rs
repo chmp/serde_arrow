@@ -14,23 +14,22 @@ use crate::{
         datatypes::{
             ArrowDictionaryKeyType, ArrowNativeType, ArrowPrimitiveType, DataType, Date32Type,
             Date64Type, Decimal128Type, DurationMicrosecondType, DurationMillisecondType,
-            DurationNanosecondType, DurationSecondType, Field, Float16Type, Float32Type,
-            Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, Time32MillisecondType,
-            Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
+            DurationNanosecondType, DurationSecondType, Field as ArrowField, Float16Type,
+            Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+            Time32MillisecondType, Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
             TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
             TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
         },
     },
     internal::{
-        arrow::FieldMeta,
         arrow::{
             ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
             DenseUnionArrayView, DictionaryArrayView, FixedSizeListArrayView, ListArrayView,
             NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
             TimestampArrayView,
         },
+        arrow::{Field, FieldMeta},
         error::{fail, Error, Result},
-        schema::GenericField,
         utils::meta_from_field,
     },
 };
@@ -105,8 +104,9 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
 
                 for (field, meta) in arr.fields {
                     let child: ArrayData = field.try_into()?;
-                    let field = Field::new(meta.name, child.data_type().clone(), meta.nullable)
-                        .with_metadata(meta.metadata);
+                    let field =
+                        ArrowField::new(meta.name, child.data_type().clone(), meta.nullable)
+                            .with_metadata(meta.metadata);
                     fields.push(Arc::new(field));
                     data.push(child);
                 }
@@ -465,7 +465,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             let mut fields = Vec::new();
             for (field, array) in std::iter::zip(column_fields, array.columns()) {
                 let view = ArrayView::try_from(array.as_ref())?;
-                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
                 fields.push((view, meta));
             }
 
@@ -483,7 +483,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::Map(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                meta: meta_from_field(GenericField::try_from(entries_field.as_ref())?)?,
+                meta: meta_from_field(Field::try_from(entries_field.as_ref())?)?,
                 element: Box::new(entries_array.try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt8Type>>() {
@@ -513,7 +513,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                     fail!("invalid union, only unions with consecutive variants are supported");
                 }
 
-                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
                 let view: ArrayView = array.child(type_id).as_ref().try_into()?;
                 fields.push((view, meta));
             }
@@ -535,8 +535,8 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
     }
 }
 
-fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> Field {
-    Field::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
+fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> ArrowField {
+    ArrowField::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
 }
 
 fn primitive_into_data<T: ArrowNativeType>(

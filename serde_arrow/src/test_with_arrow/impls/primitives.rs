@@ -1,13 +1,22 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
+use crate::internal::{
+    arrow::{DataType, Field},
     schema::TracingOptions,
     utils::Item,
 };
 
 use super::utils::Test;
+
+fn new_field(name: &str, data_type: DataType, nullable: bool) -> Field {
+    Field {
+        name: name.to_owned(),
+        data_type,
+        nullable,
+        metadata: Default::default(),
+    }
+}
 
 #[test]
 fn null() {
@@ -300,7 +309,7 @@ fn nullable_f64() {
 #[test]
 fn f32_from_f64() {
     let values = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
-    let field = GenericField::new("item", GenericDataType::F32, false);
+    let field = new_field("item", DataType::Float32, false);
 
     Test::new()
         .with_schema(vec![field])
@@ -310,7 +319,7 @@ fn f32_from_f64() {
 
 #[test]
 fn f64_from_f32() {
-    let field = GenericField::new("item", GenericDataType::F64, false);
+    let field = new_field("item", DataType::Float64, false);
     let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
@@ -321,7 +330,7 @@ fn f64_from_f32() {
 
 #[test]
 fn f16_from_f32() {
-    let field = GenericField::new("item", GenericDataType::F16, false);
+    let field = new_field("item", DataType::Float16, false);
     let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
@@ -332,7 +341,7 @@ fn f16_from_f32() {
 
 #[test]
 fn f16_from_f64() {
-    let field = GenericField::new("item", GenericDataType::F16, false);
+    let field = new_field("item", DataType::Float16, false);
     let values = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
@@ -343,7 +352,7 @@ fn f16_from_f64() {
 
 #[test]
 fn str() {
-    let field = GenericField::new("item", GenericDataType::LargeUtf8, false);
+    let field = new_field("item", DataType::LargeUtf8, false);
     type Ty = String;
     let values = [
         Item(String::from("a")),
@@ -362,7 +371,7 @@ fn str() {
 
 #[test]
 fn nullable_str() {
-    let field = GenericField::new("item", GenericDataType::LargeUtf8, true);
+    let field = new_field("item", DataType::LargeUtf8, true);
     type Ty = Option<String>;
     let values = [
         Item(Some(String::from("a"))),
@@ -381,7 +390,7 @@ fn nullable_str() {
 
 #[test]
 fn str_u32() {
-    let field = GenericField::new("item", GenericDataType::Utf8, false);
+    let field = new_field("item", DataType::Utf8, false);
     let values = [
         Item(String::from("a")),
         Item(String::from("b")),
@@ -397,7 +406,7 @@ fn str_u32() {
 
 #[test]
 fn nullable_str_u32() {
-    let field = GenericField::new("item", GenericDataType::Utf8, true);
+    let field = new_field("item", DataType::Utf8, true);
     let values = [
         Item(Some(String::from("a"))),
         Item(None),
@@ -413,7 +422,7 @@ fn nullable_str_u32() {
 
 #[test]
 fn borrowed_str() {
-    let field = GenericField::new("item", GenericDataType::LargeUtf8, false);
+    let field = new_field("item", DataType::LargeUtf8, false);
 
     type Ty<'a> = &'a str;
 
@@ -429,7 +438,7 @@ fn borrowed_str() {
 
 #[test]
 fn nullabe_borrowed_str() {
-    let field = GenericField::new("item", GenericDataType::LargeUtf8, true);
+    let field = new_field("item", DataType::LargeUtf8, true);
 
     type Ty<'a> = Option<&'a str>;
 
@@ -445,7 +454,7 @@ fn nullabe_borrowed_str() {
 
 #[test]
 fn borrowed_str_u32() {
-    let field = GenericField::new("item", GenericDataType::Utf8, false);
+    let field = new_field("item", DataType::Utf8, false);
 
     let values = [Item("a"), Item("b"), Item("c"), Item("d")];
 
@@ -457,7 +466,7 @@ fn borrowed_str_u32() {
 
 #[test]
 fn nullabe_borrowed_str_u32() {
-    let field = GenericField::new("item", GenericDataType::Utf8, true);
+    let field = new_field("item", DataType::Utf8, true);
 
     let values = [Item(Some("a")), Item(None), Item(None), Item(Some("d"))];
 
@@ -472,7 +481,7 @@ fn newtype_i64() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct I64(i64);
 
-    let field = GenericField::new("item", GenericDataType::I64, false);
+    let field = new_field("item", DataType::Int64, false);
     type Ty = I64;
 
     let values = [Item(I64(-1)), Item(I64(2)), Item(I64(3)), Item(I64(-4))];
@@ -487,7 +496,7 @@ fn newtype_i64() {
 
 #[test]
 fn u8_to_u16() {
-    let field = GenericField::new("item", GenericDataType::U16, false);
+    let field = new_field("item", DataType::UInt16, false);
     let values = [Item(1_u8), Item(2), Item(3), Item(4)];
 
     Test::new()
@@ -498,7 +507,7 @@ fn u8_to_u16() {
 
 #[test]
 fn u32_to_i64() {
-    let field = GenericField::new("item", GenericDataType::I64, false);
+    let field = new_field("item", DataType::Int64, false);
     let values = [Item(1_u32), Item(2), Item(3), Item(4)];
 
     Test::new()
@@ -509,7 +518,7 @@ fn u32_to_i64() {
 
 #[test]
 fn chars() {
-    let field = GenericField::new("item", GenericDataType::U32, false);
+    let field = new_field("item", DataType::UInt32, false);
     type Ty = char;
     let values = [Item('a'), Item('b'), Item('c')];
 

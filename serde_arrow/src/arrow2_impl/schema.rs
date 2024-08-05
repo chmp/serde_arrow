@@ -1,50 +1,46 @@
-use std::collections::HashMap;
-
 use crate::{
     _impl::arrow2::datatypes::{
-        DataType, Field, IntegerType, TimeUnit as ArrowTimeUnit, UnionMode,
+        DataType as ArrowDataType, Field as ArrowField, IntegerType, TimeUnit as ArrowTimeUnit,
+        UnionMode as ArrowUnionMode,
     },
     internal::{
-        arrow::TimeUnit,
-        error::{error, fail, Error, Result},
-        schema::{GenericDataType, GenericField, SchemaLike, Sealed, SerdeArrowSchema},
+        arrow::{DataType, Field, TimeUnit, UnionMode},
+        error::{fail, Error, Result},
+        schema::{validate_field, SchemaLike, Sealed, SerdeArrowSchema},
     },
 };
 
-impl TryFrom<SerdeArrowSchema> for Vec<Field> {
+impl TryFrom<SerdeArrowSchema> for Vec<ArrowField> {
     type Error = Error;
 
     fn try_from(value: SerdeArrowSchema) -> Result<Self> {
-        Vec::<Field>::try_from(&value)
+        Vec::<ArrowField>::try_from(&value)
     }
 }
 
-impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<Field> {
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<ArrowField> {
     type Error = Error;
 
     fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
-        value.fields.iter().map(Field::try_from).collect()
+        value.fields.iter().map(ArrowField::try_from).collect()
     }
 }
 
-impl<'a> TryFrom<&'a [Field]> for SerdeArrowSchema {
+impl<'a> TryFrom<&'a [ArrowField]> for SerdeArrowSchema {
     type Error = Error;
 
-    fn try_from(fields: &'a [Field]) -> std::prelude::v1::Result<Self, Self::Error> {
+    fn try_from(fields: &'a [ArrowField]) -> std::prelude::v1::Result<Self, Self::Error> {
         Ok(Self {
-            fields: fields
-                .iter()
-                .map(GenericField::try_from)
-                .collect::<Result<_>>()?,
+            fields: fields.iter().map(Field::try_from).collect::<Result<_>>()?,
         })
     }
 }
 
-impl Sealed for Vec<Field> {}
+impl Sealed for Vec<ArrowField> {}
 
 /// Schema support for `Vec<arrow2::datatype::Field>` (*requires one of the
 /// `arrow2-*` features*)
-impl SchemaLike for Vec<Field> {
+impl SchemaLike for Vec<ArrowField> {
     fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
@@ -63,243 +59,140 @@ impl SchemaLike for Vec<Field> {
     }
 }
 
-impl TryFrom<&Field> for GenericField {
+impl TryFrom<&ArrowDataType> for DataType {
     type Error = Error;
 
-    fn try_from(field: &Field) -> Result<Self> {
-        use {GenericDataType as T, TimeUnit as U};
-
-        let mut children = Vec::<GenericField>::new();
-        let data_type = match &field.data_type {
-            DataType::Boolean => T::Bool,
-            DataType::Null => T::Null,
-            DataType::Int8 => T::I8,
-            DataType::Int16 => T::I16,
-            DataType::Int32 => T::I32,
-            DataType::Int64 => T::I64,
-            DataType::UInt8 => T::U8,
-            DataType::UInt16 => T::U16,
-            DataType::UInt32 => T::U32,
-            DataType::UInt64 => T::U64,
-            DataType::Float16 => T::F16,
-            DataType::Float32 => T::F32,
-            DataType::Float64 => T::F64,
-            DataType::Utf8 => T::Utf8,
-            DataType::LargeUtf8 => T::LargeUtf8,
-            DataType::Date32 => T::Date32,
-            DataType::Date64 => T::Date64,
-            DataType::Decimal(precision, scale) => {
+    fn try_from(value: &ArrowDataType) -> Result<Self> {
+        use {ArrowDataType as AT, DataType as T};
+        match value {
+            AT::Null => Ok(T::Null),
+            AT::Boolean => Ok(T::Boolean),
+            AT::Int8 => Ok(T::Int8),
+            AT::Int16 => Ok(T::Int16),
+            AT::Int32 => Ok(T::Int32),
+            AT::Int64 => Ok(T::Int64),
+            AT::UInt8 => Ok(T::UInt8),
+            AT::UInt16 => Ok(T::UInt16),
+            AT::UInt32 => Ok(T::UInt32),
+            AT::UInt64 => Ok(T::UInt64),
+            AT::Float16 => Ok(T::Float16),
+            AT::Float32 => Ok(T::Float32),
+            AT::Float64 => Ok(T::Float64),
+            AT::Date32 => Ok(T::Date32),
+            AT::Date64 => Ok(T::Date64),
+            AT::Time32(unit) => Ok(T::Time32((*unit).into())),
+            AT::Time64(unit) => Ok(T::Time64((*unit).into())),
+            AT::Duration(unit) => Ok(T::Duration((*unit).into())),
+            AT::Timestamp(unit, tz) => Ok(T::Timestamp((*unit).into(), tz.clone())),
+            AT::Decimal(precision, scale) => {
                 if *precision > u8::MAX as usize || *scale > i8::MAX as usize {
                     fail!("cannot represent precision / scale of the decimal");
                 }
-                T::Decimal128(*precision as u8, *scale as i8)
+                Ok(T::Decimal128(*precision as u8, *scale as i8))
             }
-            DataType::Time32(ArrowTimeUnit::Second) => T::Time32(U::Second),
-            DataType::Time32(ArrowTimeUnit::Millisecond) => T::Time32(U::Millisecond),
-            DataType::Time32(unit) => fail!("Invalid time unit {unit:?} for Time32"),
-            DataType::Time64(ArrowTimeUnit::Microsecond) => T::Time64(U::Microsecond),
-            DataType::Time64(ArrowTimeUnit::Nanosecond) => T::Time64(U::Nanosecond),
-            DataType::Time64(unit) => fail!("Invalid time unit {unit:?} for Time64"),
-            DataType::Timestamp(ArrowTimeUnit::Second, tz) => T::Timestamp(U::Second, tz.clone()),
-            DataType::Timestamp(ArrowTimeUnit::Millisecond, tz) => {
-                T::Timestamp(U::Millisecond, tz.clone())
-            }
-            DataType::Timestamp(ArrowTimeUnit::Microsecond, tz) => {
-                T::Timestamp(U::Microsecond, tz.clone())
-            }
-            DataType::Timestamp(ArrowTimeUnit::Nanosecond, tz) => {
-                T::Timestamp(U::Nanosecond, tz.clone())
-            }
-            DataType::Duration(ArrowTimeUnit::Second) => T::Duration(U::Second),
-            DataType::Duration(ArrowTimeUnit::Millisecond) => T::Duration(U::Millisecond),
-            DataType::Duration(ArrowTimeUnit::Microsecond) => T::Duration(U::Microsecond),
-            DataType::Duration(ArrowTimeUnit::Nanosecond) => T::Duration(U::Nanosecond),
-            DataType::List(field) => {
-                children.push(GenericField::try_from(field.as_ref())?);
-                T::List
-            }
-            DataType::LargeList(field) => {
-                children.push(field.as_ref().try_into()?);
-                T::LargeList
-            }
-            DataType::Struct(fields) => {
+            AT::Utf8 => Ok(T::Utf8),
+            AT::LargeUtf8 => Ok(T::LargeUtf8),
+            AT::Binary => Ok(T::Binary),
+            AT::LargeBinary => Ok(T::LargeBinary),
+            AT::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(i32::try_from(*n)?)),
+            AT::List(entry) => Ok(T::List(Box::new(entry.as_ref().try_into()?))),
+            AT::LargeList(entry) => Ok(T::LargeList(Box::new(entry.as_ref().try_into()?))),
+            AT::FixedSizeList(entry, n) => Ok(T::FixedSizeList(
+                Box::new(entry.as_ref().try_into()?),
+                i32::try_from(*n)?,
+            )),
+            AT::Map(field, sorted) => Ok(T::Map(Box::new(field.as_ref().try_into()?), *sorted)),
+            AT::Struct(fields) => {
+                let mut res_fields = Vec::new();
                 for field in fields {
-                    children.push(field.try_into()?);
+                    res_fields.push(Field::try_from(field)?);
                 }
-                T::Struct
+                Ok(T::Struct(res_fields))
             }
-            DataType::Map(field, _) => {
-                children.push(field.as_ref().try_into()?);
-                T::Map
-            }
-            DataType::Union(fields, field_indices, mode) => {
-                if field_indices.is_some() {
-                    fail!("Union types with explicit field indices are not supported");
-                }
-                if !mode.is_dense() {
-                    fail!("Only dense unions are supported at the moment");
-                }
-
-                for field in fields {
-                    children.push(field.try_into()?);
-                }
-                T::Union
-            }
-            DataType::Dictionary(int_type, data_type, sorted) => {
-                if *sorted {
-                    fail!("Sorted dictionary are not supported");
-                }
-                let key_type = match int_type {
-                    IntegerType::Int8 => DataType::Int8,
-                    IntegerType::Int16 => DataType::Int16,
-                    IntegerType::Int32 => DataType::Int32,
-                    IntegerType::Int64 => DataType::Int64,
-                    IntegerType::UInt8 => DataType::UInt8,
-                    IntegerType::UInt16 => DataType::UInt16,
-                    IntegerType::UInt32 => DataType::UInt32,
-                    IntegerType::UInt64 => DataType::UInt64,
+            AT::Dictionary(key, value, sorted) => {
+                let key = match key {
+                    IntegerType::Int8 => T::Int8,
+                    IntegerType::Int16 => T::Int16,
+                    IntegerType::Int32 => T::Int32,
+                    IntegerType::Int64 => T::Int64,
+                    IntegerType::UInt8 => T::UInt8,
+                    IntegerType::UInt16 => T::UInt16,
+                    IntegerType::UInt32 => T::UInt32,
+                    IntegerType::UInt64 => T::UInt64,
                 };
-                children.push((&Field::new("", key_type, false)).try_into()?);
-                children.push((&Field::new("", data_type.as_ref().clone(), false)).try_into()?);
-                T::Dictionary
+                Ok(T::Dictionary(
+                    Box::new(key),
+                    Box::new(value.as_ref().try_into()?),
+                    *sorted,
+                ))
             }
-            DataType::Binary => T::Binary,
-            DataType::LargeBinary => T::LargeBinary,
-            dt => fail!("Cannot convert data type {dt:?}"),
+            AT::Union(fields, type_ids, mode) => todo!(),
+            dt => fail!("Cannot convert data type {dt:?} to internal data type"),
+        }
+    }
+}
+
+impl TryFrom<&ArrowField> for Field {
+    type Error = Error;
+
+    fn try_from(field: &ArrowField) -> Result<Self> {
+        let field = Field {
+            name: field.name.to_owned(),
+            data_type: DataType::try_from(&field.data_type)?,
+            nullable: field.is_nullable,
+            metadata: field.metadata.clone().into_iter().collect(),
         };
-
-        let name = field.name.to_owned();
-        let nullable = field.is_nullable;
-
-        let metadata = field
-            .metadata
-            .clone()
-            .into_iter()
-            .collect::<HashMap<_, _>>();
-
-        let field = GenericField {
-            name,
-            data_type,
-            metadata,
-            children,
-            nullable,
-        };
-        field.validate()?;
-
+        validate_field(&field)?;
         Ok(field)
     }
 }
 
-impl TryFrom<&GenericField> for Field {
+impl TryFrom<&DataType> for ArrowDataType {
     type Error = Error;
 
-    fn try_from(value: &GenericField) -> Result<Self> {
-        use {GenericDataType as T, TimeUnit as U};
-
-        let data_type = match &value.data_type {
-            T::Null => DataType::Null,
-            T::Bool => DataType::Boolean,
-            T::I8 => DataType::Int8,
-            T::I16 => DataType::Int16,
-            T::I32 => DataType::Int32,
-            T::I64 => DataType::Int64,
-            T::U8 => DataType::UInt8,
-            T::U16 => DataType::UInt16,
-            T::U32 => DataType::UInt32,
-            T::U64 => DataType::UInt64,
-            T::F16 => DataType::Float16,
-            T::F32 => DataType::Float32,
-            T::F64 => DataType::Float64,
-            T::Date32 => DataType::Date32,
-            T::Date64 => DataType::Date64,
-            T::Time32(U::Second) => DataType::Time32(ArrowTimeUnit::Second),
-            T::Time32(U::Millisecond) => DataType::Time32(ArrowTimeUnit::Millisecond),
-            T::Time32(unit) => fail!("Invalid time unit {unit} for Time32"),
-            T::Time64(U::Microsecond) => DataType::Time64(ArrowTimeUnit::Microsecond),
-            T::Time64(U::Nanosecond) => DataType::Time64(ArrowTimeUnit::Nanosecond),
-            T::Time64(unit) => fail!("Invalid time unit {unit} for Time64"),
-            T::Timestamp(unit, tz) => DataType::Timestamp((*unit).into(), tz.clone()),
-            T::Duration(unit) => DataType::Duration((*unit).into()),
+    fn try_from(value: &DataType) -> std::result::Result<Self, Self::Error> {
+        use {ArrowDataType as AT, DataType as T};
+        match value {
+            T::Null => Ok(AT::Null),
+            T::Boolean => Ok(AT::Boolean),
+            T::Int8 => Ok(AT::Int8),
+            T::Int16 => Ok(AT::Int16),
+            T::Int32 => Ok(AT::Int32),
+            T::Int64 => Ok(AT::Int64),
+            T::UInt8 => Ok(AT::UInt8),
+            T::UInt16 => Ok(AT::UInt16),
+            T::UInt32 => Ok(AT::UInt32),
+            T::UInt64 => Ok(AT::UInt64),
+            T::Float16 => Ok(AT::Float16),
+            T::Float32 => Ok(AT::Float32),
+            T::Float64 => Ok(AT::Float64),
+            T::Date32 => Ok(AT::Date32),
+            T::Date64 => Ok(AT::Date64),
+            T::Duration(unit) => Ok(AT::Duration((*unit).into())),
+            T::Time32(unit) => Ok(AT::Time32((*unit).into())),
+            T::Time64(unit) => Ok(AT::Time64((*unit).into())),
+            T::Timestamp(unit, tz) => Ok(AT::Timestamp((*unit).into(), tz.clone())),
             T::Decimal128(precision, scale) => {
                 if *scale < 0 {
                     fail!("arrow2 does not support decimals with negative scale");
                 }
-                DataType::Decimal(*precision as usize, *scale as usize)
+                Ok(AT::Decimal((*precision).try_into()?, (*scale).try_into()?))
             }
-            T::Utf8 => DataType::Utf8,
-            T::LargeUtf8 => DataType::LargeUtf8,
-            T::List => DataType::List(Box::new(
-                value
-                    .children
-                    .first()
-                    .ok_or_else(|| error!("List must a single child"))?
-                    .try_into()?,
-            )),
-            T::LargeList => DataType::LargeList(Box::new(
-                value
-                    .children
-                    .first()
-                    .ok_or_else(|| error!("List must a single child"))?
-                    .try_into()?,
-            )),
-            T::FixedSizeList(_) => fail!("FixedSizedList is not supported by arrow2"),
-            T::Binary => DataType::Binary,
-            T::LargeBinary => DataType::LargeBinary,
-            T::FixedSizeBinary(n) => DataType::FixedSizeBinary((*n).try_into()?),
-            T::Struct => DataType::Struct(
-                value
-                    .children
-                    .iter()
-                    .map(Field::try_from)
-                    .collect::<Result<Vec<_>>>()?,
-            ),
-            T::Map => {
-                let element_field: Field = value
-                    .children
-                    .first()
-                    .ok_or_else(|| error!("Map must a two children"))?
-                    .try_into()?;
-                DataType::Map(Box::new(element_field), false)
-            }
-            T::Union => DataType::Union(
-                value
-                    .children
-                    .iter()
-                    .map(Field::try_from)
-                    .collect::<Result<Vec<_>>>()?,
-                None,
-                UnionMode::Dense,
-            ),
-            T::Dictionary => {
-                let Some(key_field) = value.children.first() else {
-                    fail!("Dictionary must a two children");
-                };
-                let val_field: Field = value
-                    .children
-                    .get(1)
-                    .ok_or_else(|| error!("Dictionary must a two children"))?
-                    .try_into()?;
+            _ => todo!(),
+        }
+    }
+}
 
-                let key_type = match &key_field.data_type {
-                    T::U8 => IntegerType::UInt8,
-                    T::U16 => IntegerType::UInt16,
-                    T::U32 => IntegerType::UInt32,
-                    T::U64 => IntegerType::UInt64,
-                    T::I8 => IntegerType::Int8,
-                    T::I16 => IntegerType::Int16,
-                    T::I32 => IntegerType::Int32,
-                    T::I64 => IntegerType::Int64,
-                    _ => fail!("Invalid key type for dictionary"),
-                };
+impl TryFrom<&Field> for ArrowField {
+    type Error = Error;
 
-                DataType::Dictionary(key_type, Box::new(val_field.data_type), false)
-            }
-        };
-
-        let mut field = Field::new(&value.name, data_type, value.nullable);
-        field.metadata = value.metadata.clone().into_iter().collect();
-
-        Ok(field)
+    fn try_from(value: &Field) -> Result<Self> {
+        Ok(ArrowField {
+            name: value.name.to_owned(),
+            data_type: ArrowDataType::try_from(&value.data_type)?,
+            is_nullable: value.nullable,
+            metadata: value.metadata.clone().into_iter().collect(),
+        })
     }
 }
 
@@ -321,6 +214,24 @@ impl From<ArrowTimeUnit> for TimeUnit {
             ArrowTimeUnit::Millisecond => Self::Millisecond,
             ArrowTimeUnit::Microsecond => Self::Microsecond,
             ArrowTimeUnit::Nanosecond => Self::Nanosecond,
+        }
+    }
+}
+
+impl From<ArrowUnionMode> for UnionMode {
+    fn from(value: ArrowUnionMode) -> Self {
+        match value {
+            ArrowUnionMode::Dense => UnionMode::Dense,
+            ArrowUnionMode::Sparse => UnionMode::Sparse,
+        }
+    }
+}
+
+impl From<UnionMode> for ArrowUnionMode {
+    fn from(value: UnionMode) -> Self {
+        match value {
+            UnionMode::Dense => ArrowUnionMode::Dense,
+            UnionMode::Sparse => ArrowUnionMode::Sparse,
         }
     }
 }

@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::internal::{error::Result, utils::value};
-
-use super::GenericField;
+use crate::internal::{arrow::Field, error::Result, schema::ArrowOrCustomField, utils::value};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TracingMode {
@@ -281,9 +279,9 @@ impl TracingOptions {
     pub fn overwrite<P: Into<String>, F: Serialize>(mut self, path: P, field: F) -> Result<Self> {
         let path = path.into();
         let path = format!("$.{path}");
-        let field: GenericField = value::transmute(&field)?;
+        let field: ArrowOrCustomField = value::transmute(&field)?;
 
-        self.overwrites.0.insert(path, field);
+        self.overwrites.0.insert(path, field.into_field()?);
         Ok(self)
     }
 
@@ -292,11 +290,11 @@ impl TracingOptions {
         self
     }
 
-    pub(crate) fn get_overwrite(&self, path: &str) -> Option<&GenericField> {
+    pub(crate) fn get_overwrite(&self, path: &str) -> Option<&Field> {
         self.overwrites.0.get(path)
     }
 }
 
 /// An opaque mapping of field paths to field definitions
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Overwrites(pub(crate) HashMap<String, GenericField>);
+pub struct Overwrites(pub(crate) HashMap<String, Field>);

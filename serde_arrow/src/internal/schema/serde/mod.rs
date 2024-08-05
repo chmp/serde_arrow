@@ -1,6 +1,7 @@
 //! Group all serialization / deserialization related functionality
 //!
-mod serialize;
+pub mod deserialize;
+pub mod serialize;
 
 #[cfg(test)]
 mod test;

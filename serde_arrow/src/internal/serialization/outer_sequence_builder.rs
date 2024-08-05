@@ -1,11 +1,11 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::TimeUnit,
+    arrow::{DataType, Field, TimeUnit},
     error::{fail, Result},
-    schema::{
-        get_strategy_from_metadata, GenericDataType, GenericField, SerdeArrowSchema, Strategy,
-    },
+    schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
@@ -30,7 +30,7 @@ impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
         return Ok(Self(build_struct(&schema.fields, false)?));
 
-        fn build_struct(struct_fields: &[GenericField], nullable: bool) -> Result<StructBuilder> {
+        fn build_struct(struct_fields: &[Field], nullable: bool) -> Result<StructBuilder> {
             let mut fields = Vec::new();
             for field in struct_fields {
                 fields.push((build_builder(field)?, meta_from_field(field.clone())?));
@@ -38,26 +38,26 @@ impl OuterSequenceBuilder {
             StructBuilder::new(fields, nullable)
         }
 
-        fn build_builder(field: &GenericField) -> Result<ArrayBuilder> {
-            use {ArrayBuilder as A, GenericDataType as T};
+        fn build_builder(field: &Field) -> Result<ArrayBuilder> {
+            use {ArrayBuilder as A, DataType as T};
 
             let builder = match &field.data_type {
                 T::Null => match get_strategy_from_metadata(&field.metadata)? {
                     Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
                     _ => A::Null(NullBuilder::new()),
                 },
-                T::Bool => A::Bool(BoolBuilder::new(field.nullable)),
-                T::I8 => A::I8(IntBuilder::new(field.nullable)),
-                T::I16 => A::I16(IntBuilder::new(field.nullable)),
-                T::I32 => A::I32(IntBuilder::new(field.nullable)),
-                T::I64 => A::I64(IntBuilder::new(field.nullable)),
-                T::U8 => A::U8(IntBuilder::new(field.nullable)),
-                T::U16 => A::U16(IntBuilder::new(field.nullable)),
-                T::U32 => A::U32(IntBuilder::new(field.nullable)),
-                T::U64 => A::U64(IntBuilder::new(field.nullable)),
-                T::F16 => A::F16(FloatBuilder::new(field.nullable)),
-                T::F32 => A::F32(FloatBuilder::new(field.nullable)),
-                T::F64 => A::F64(FloatBuilder::new(field.nullable)),
+                T::Boolean => A::Bool(BoolBuilder::new(field.nullable)),
+                T::Int8 => A::I8(IntBuilder::new(field.nullable)),
+                T::Int16 => A::I16(IntBuilder::new(field.nullable)),
+                T::Int32 => A::I32(IntBuilder::new(field.nullable)),
+                T::Int64 => A::I64(IntBuilder::new(field.nullable)),
+                T::UInt8 => A::U8(IntBuilder::new(field.nullable)),
+                T::UInt16 => A::U16(IntBuilder::new(field.nullable)),
+                T::UInt32 => A::U32(IntBuilder::new(field.nullable)),
+                T::UInt64 => A::U64(IntBuilder::new(field.nullable)),
+                T::Float16 => A::F16(FloatBuilder::new(field.nullable)),
+                T::Float32 => A::F32(FloatBuilder::new(field.nullable)),
+                T::Float64 => A::F64(FloatBuilder::new(field.nullable)),
                 T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
                 T::Date64 => A::Date64(Date64Builder::new(
                     None,
@@ -87,80 +87,56 @@ impl OuterSequenceBuilder {
                 }
                 T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
                 T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
-                T::List => {
-                    let Some(child) = field.children.first() else {
-                        fail!("cannot build a list without an element field");
-                    };
-                    A::List(ListBuilder::new(
-                        meta_from_field(child.clone())?,
-                        build_builder(child)?,
-                        field.nullable,
-                    )?)
-                }
-                T::LargeList => {
-                    let Some(child) = field.children.first() else {
-                        fail!("cannot build list without an element field");
-                    };
-                    A::LargeList(ListBuilder::new(
-                        meta_from_field(child.clone())?,
-                        build_builder(child)?,
-                        field.nullable,
-                    )?)
-                }
-                T::FixedSizeList(n) => {
-                    let Some(child) = field.children.first() else {
-                        fail!("cannot build list without an element field");
-                    };
-                    A::FixedSizedList(FixedSizeListBuilder::new(
-                        meta_from_field(child.clone())?,
-                        build_builder(child)?,
-                        (*n).try_into()?,
-                        field.nullable,
-                    ))
-                }
+                T::List(child) => A::List(ListBuilder::new(
+                    meta_from_field(*child.clone())?,
+                    build_builder(child.as_ref())?,
+                    field.nullable,
+                )?),
+                T::LargeList(child) => A::LargeList(ListBuilder::new(
+                    meta_from_field(*child.clone())?,
+                    build_builder(child.as_ref())?,
+                    field.nullable,
+                )?),
+                T::FixedSizeList(child, n) => A::FixedSizedList(FixedSizeListBuilder::new(
+                    meta_from_field(*child.clone())?,
+                    build_builder(child.as_ref())?,
+                    (*n).try_into()?,
+                    field.nullable,
+                )),
                 T::Binary => A::Binary(BinaryBuilder::new(field.nullable)),
                 T::LargeBinary => A::LargeBinary(BinaryBuilder::new(field.nullable)),
                 T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
                     (*n).try_into()?,
                     field.nullable,
                 )),
-                T::Map => {
-                    let Some(entry_field) = field.children.first() else {
-                        fail!("Cannot build a map with an entry field");
+                T::Map(entry_field, _) => A::Map(MapBuilder::new(
+                    meta_from_field(*entry_field.clone())?,
+                    build_builder(entry_field.as_ref())?,
+                    field.nullable,
+                )?),
+                T::Struct(children) => A::Struct(build_struct(&children, field.nullable)?),
+                T::Dictionary(key, value, _) => {
+                    let key_field = Field {
+                        name: "key".to_string(),
+                        data_type: *key.clone(),
+                        nullable: field.nullable,
+                        metadata: HashMap::new(),
                     };
-                    if entry_field.data_type != T::Struct && entry_field.children.len() != 2 {
-                        fail!("Invalid child field for map: {entry_field:?}")
-                    }
-                    A::Map(MapBuilder::new(
-                        meta_from_field(entry_field.clone())?,
-                        build_builder(entry_field)?,
-                        field.nullable,
-                    ))
-                }
-                T::Struct => A::Struct(build_struct(&field.children, field.nullable)?),
-                T::Dictionary => {
-                    let Some(indices) = field.children.first() else {
-                        fail!("Cannot build a dictionary without index field");
+                    let value_field = Field {
+                        name: "value".to_string(),
+                        data_type: *value.clone(),
+                        nullable: false,
+                        metadata: HashMap::new(),
                     };
-                    let Some(values) = field.children.get(1) else {
-                        fail!("Cannot build a dictionary without values field");
-                    };
-                    if !matches!(values.data_type, T::Utf8 | T::LargeUtf8) {
-                        fail!("At the moment only string dictionaries are supported");
-                    }
-                    // TODO: figure out how arrow encodes nullability and fix this
-                    let mut indices = indices.clone();
-                    indices.nullable = field.nullable;
 
                     A::DictionaryUtf8(DictionaryUtf8Builder::new(
-                        field.clone(),
-                        build_builder(&indices)?,
-                        build_builder(values)?,
+                        build_builder(&key_field)?,
+                        build_builder(&value_field)?,
                     ))
                 }
-                T::Union => {
+                T::Union(union_fields, _) => {
                     let mut fields = Vec::new();
-                    for field in &field.children {
+                    for (_, field) in union_fields {
                         fields.push((build_builder(field)?, meta_from_field(field.clone())?));
                     }
 

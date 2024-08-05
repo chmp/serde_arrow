@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions, STRATEGY_KEY},
-    utils::Item,
-};
+use crate::internal::{schema::TracingOptions, utils::Item};
 
 use super::utils::Test;
 
@@ -13,17 +10,17 @@ fn tuple_u64_bool() {
     let items = [Item((1_u64, true)), Item((2_u64, false))];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            false,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {"name": "0", "data_type": "U64"},
+                    {"name": "1", "data_type": "Bool"},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<(u64, bool)>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -39,17 +36,17 @@ fn tuple_struct_u64_bool() {
     let items = [Item(S(1_u64, true)), Item(S(2_u64, false))];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            false,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {"name": "0", "data_type": "U64"},
+                    {"name": "1", "data_type": "Bool"},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<S>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -69,17 +66,18 @@ fn nullbale_tuple_u64_bool() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            true,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(GenericField::new("0", GenericDataType::U64, false))
-        .with_child(GenericField::new("1", GenericDataType::Bool, false))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {"name": "0", "data_type": "U64"},
+                    {"name": "1", "data_type": "Bool"},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<Option<S>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -92,16 +90,16 @@ fn tuple_nullable_u64() {
     let items = [Item((Some(1_u64),)), Item((Some(2_u64),)), Item((None,))];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            false,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(GenericField::new("0", GenericDataType::U64, true))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {"name": "0", "data_type": "U64", "nullable": true},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<(Option<u64>,)>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -114,23 +112,23 @@ fn tuple_nested() {
     let items = [Item(((1_u64,),)), Item(((2_u64,),))];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            false,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(
-            GenericField::new("0", GenericDataType::Struct, false)
-                .with_metadata(
-                    STRATEGY_KEY.to_string(),
-                    Strategy::TupleAsStruct.to_string(),
-                )
-                .with_child(GenericField::new("0", GenericDataType::U64, false)),
-        )])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {
+                        "name": "0",
+                        "data_type": "Struct",
+                        "strategy": "TupleAsStruct",
+                        "children": [
+                            {"name": "0", "data_type": "U64"},
+                        ]
+                    },
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<((u64,),)>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -147,17 +145,18 @@ fn tuple_nullable() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            true,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(GenericField::new("0", GenericDataType::Bool, false))
-        .with_child(GenericField::new("1", GenericDataType::I64, false))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {"name": "0", "data_type": "Bool"},
+                    {"name": "1", "data_type": "I64"},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<Option<(bool, i64)>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -174,25 +173,26 @@ fn tuple_nullable_nested() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::Struct,
-            true,
-        )
-        .with_metadata(
-            STRATEGY_KEY.to_string(),
-            Strategy::TupleAsStruct.to_string(),
-        )
-        .with_child(
-            GenericField::new("0", GenericDataType::Struct, false)
-                .with_metadata(
-                    STRATEGY_KEY.to_string(),
-                    Strategy::TupleAsStruct.to_string(),
-                )
-                .with_child(GenericField::new("0", GenericDataType::Bool, false))
-                .with_child(GenericField::new("1", GenericDataType::I64, false)),
-        )
-        .with_child(GenericField::new("1", GenericDataType::I64, false))])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "strategy": "TupleAsStruct",
+                "children": [
+                    {
+                        "name": "0",
+                        "data_type": "Struct",
+                        "strategy": "TupleAsStruct",
+                        "children": [
+                            {"name": "0", "data_type": "Bool"},
+                            {"name": "1", "data_type": "I64"},
+                        ],
+                    },
+                    {"name": "1", "data_type": "Bool"},
+                ],
+            }
+        ]))
         .trace_schema_from_type::<Item<Option<((bool, i64), i64)>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)

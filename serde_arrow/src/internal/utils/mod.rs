@@ -9,7 +9,7 @@ use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::error::Result;
 
-use super::{arrow::FieldMeta, schema::GenericField};
+use super::arrow::{Field, FieldMeta};
 
 /// A wrapper around a sequence of items
 ///
@@ -178,7 +178,7 @@ impl Offset for i64 {
     }
 }
 
-pub fn meta_from_field(field: GenericField) -> Result<FieldMeta> {
+pub fn meta_from_field(field: Field) -> Result<FieldMeta> {
     Ok(FieldMeta {
         name: field.name,
         nullable: field.nullable,

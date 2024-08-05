@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use super::{GenericDataType, GenericField};
 use crate::internal::{
+    arrow::{DataType, Field},
     error::{fail, Error, Result},
+    schema::ArrowOrCustomField,
     utils::value,
 };
 
@@ -44,7 +45,7 @@ use crate::internal::{
 pub struct FixedShapeTensorField {
     name: String,
     nullable: bool,
-    element: GenericField,
+    element: Field,
     shape: Vec<usize>,
     dim_names: Option<Vec<String>>,
     permutation: Option<Vec<usize>>,
@@ -57,7 +58,8 @@ impl FixedShapeTensorField {
     /// with the the name `"element"`. The field type can be any valid Arrow
     /// type.
     pub fn new(name: &str, element: impl Serialize, shape: Vec<usize>) -> Result<Self> {
-        let element: GenericField = value::transmute(&element)?;
+        let element: ArrowOrCustomField = value::transmute(&element)?;
+        let element = element.into_field()?;
         if element.name != "element" {
             fail!("The element field of FixedShapeTensorField must be named \"element\"");
         }
@@ -118,7 +120,7 @@ impl FixedShapeTensorField {
     }
 }
 
-impl TryFrom<&FixedShapeTensorField> for GenericField {
+impl TryFrom<&FixedShapeTensorField> for Field {
     type Error = Error;
 
     fn try_from(value: &FixedShapeTensorField) -> Result<Self> {
@@ -134,11 +136,10 @@ impl TryFrom<&FixedShapeTensorField> for GenericField {
         );
         metadata.insert("ARROW:extension:metadata".into(), value.get_ext_metadata()?);
 
-        Ok(GenericField {
-            name: value.name.clone(),
+        Ok(Field {
+            name: value.name.to_owned(),
             nullable: value.nullable,
-            data_type: GenericDataType::FixedSizeList(n.try_into()?),
-            children: vec![value.element.clone()],
+            data_type: DataType::FixedSizeList(Box::new(value.element.clone()), n.try_into()?),
             metadata,
         })
     }
@@ -146,10 +147,11 @@ impl TryFrom<&FixedShapeTensorField> for GenericField {
 
 impl serde::ser::Serialize for FixedShapeTensorField {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::Error;
-        GenericField::try_from(self)
-            .map_err(S::Error::custom)?
-            .serialize(serializer)
+        // use serde::ser::Error;
+        // Field::try_from(self)
+        //     .map_err(S::Error::custom)?
+        //     .serialize(serializer)
+        todo!()
     }
 }
 
@@ -162,7 +164,7 @@ impl serde::ser::Serialize for FixedShapeTensorField {
 ///     https://arrow.apache.org/docs/format/CanonicalExtensions.html#variable-shape-tensor
 pub struct VariableShapeTensorField {
     name: String,
-    element: GenericField,
+    element: Field,
     ndim: usize,
     nullable: bool,
     dim_names: Option<Vec<String>>,
@@ -172,7 +174,8 @@ pub struct VariableShapeTensorField {
 
 impl VariableShapeTensorField {
     pub fn new(name: &str, element: impl serde::ser::Serialize, ndim: usize) -> Result<Self> {
-        let element: GenericField = value::transmute(&element)?;
+        let element: ArrowOrCustomField = value::transmute(&element)?;
+        let element = element.into_field()?;
         if element.name != "element" {
             fail!("The element field of FixedShapeTensorField must be named \"element\"");
         }
@@ -268,7 +271,7 @@ impl VariableShapeTensorField {
     }
 }
 
-impl TryFrom<&VariableShapeTensorField> for GenericField {
+impl TryFrom<&VariableShapeTensorField> for Field {
     type Error = Error;
 
     fn try_from(value: &VariableShapeTensorField) -> Result<Self> {
@@ -279,24 +282,32 @@ impl TryFrom<&VariableShapeTensorField> for GenericField {
         );
         metadata.insert("ARROW:extension:metadata".into(), value.get_ext_metadata()?);
 
-        Ok(GenericField {
+        let mut fields = Vec::new();
+        fields.push(Field {
+            name: String::from("data"),
+            data_type: DataType::List(Box::new(value.element.clone())),
+            nullable: false,
+            metadata: HashMap::new(),
+        });
+        fields.push(Field {
+            name: String::from("shape"),
+            data_type: DataType::FixedSizeList(
+                Box::new(Field {
+                    name: String::from("element"),
+                    data_type: DataType::Int32,
+                    nullable: false,
+                    metadata: HashMap::new(),
+                }),
+                value.ndim.try_into()?,
+            ),
+            nullable: false,
+            metadata: HashMap::new(),
+        });
+
+        Ok(Field {
             name: value.name.clone(),
             nullable: value.nullable,
-            data_type: GenericDataType::Struct,
-            children: vec![
-                GenericField::new("data", GenericDataType::List, false)
-                    .with_child(value.element.clone()),
-                GenericField::new(
-                    "shape",
-                    GenericDataType::FixedSizeList(value.ndim.try_into()?),
-                    false,
-                )
-                .with_child(GenericField::new(
-                    "element",
-                    GenericDataType::I32,
-                    false,
-                )),
-            ],
+            data_type: DataType::Struct(fields),
             metadata,
         })
     }
@@ -304,10 +315,11 @@ impl TryFrom<&VariableShapeTensorField> for GenericField {
 
 impl serde::ser::Serialize for VariableShapeTensorField {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::Error;
-        GenericField::try_from(self)
-            .map_err(S::Error::custom)?
-            .serialize(serializer)
+        // use serde::ser::Error;
+        // GenericField::try_from(self)
+        //     .map_err(S::Error::custom)?
+        //     .serialize(serializer)
+        todo!()
     }
 }
 

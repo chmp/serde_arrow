@@ -1,11 +1,12 @@
 use crate::_impl::arrow::{
-    datatypes::{Field, FieldRef},
+    datatypes::{Field as ArrowField, FieldRef},
     error::ArrowError,
 };
 
 use crate::internal::{
+    arrow::Field,
     error::{Error, Result},
-    schema::{extensions::FixedShapeTensorField, GenericField},
+    schema::extensions::FixedShapeTensorField,
 };
 
 impl From<ArrowError> for Error {
@@ -14,15 +15,15 @@ impl From<ArrowError> for Error {
     }
 }
 
-impl TryFrom<&FixedShapeTensorField> for Field {
+impl TryFrom<&FixedShapeTensorField> for ArrowField {
     type Error = Error;
 
     fn try_from(value: &FixedShapeTensorField) -> Result<Self, Self::Error> {
-        Self::try_from(&GenericField::try_from(value)?)
+        Self::try_from(&Field::try_from(value)?)
     }
 }
 
-impl TryFrom<FixedShapeTensorField> for Field {
+impl TryFrom<FixedShapeTensorField> for ArrowField {
     type Error = Error;
 
     fn try_from(value: FixedShapeTensorField) -> Result<Self, Self::Error> {
@@ -30,9 +31,9 @@ impl TryFrom<FixedShapeTensorField> for Field {
     }
 }
 
-pub fn fields_from_field_refs(fields: &[FieldRef]) -> Result<Vec<GenericField>> {
+pub fn fields_from_field_refs(fields: &[FieldRef]) -> Result<Vec<Field>> {
     fields
         .iter()
-        .map(|field| GenericField::try_from(field.as_ref()))
+        .map(|field| Field::try_from(field.as_ref()))
         .collect()
 }

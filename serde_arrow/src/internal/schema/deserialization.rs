@@ -1,6 +1,8 @@
 //! Deserialization of SchemaLike objects with explicit support to deserialize
 //! from arrow-rs types
 
+// TODO: delete me
+
 use std::{collections::HashMap, str::FromStr};
 
 use serde::{de::Visitor, Deserialize};
@@ -9,7 +11,7 @@ use crate::internal::{
     arrow::TimeUnit,
     error::{fail, Error, Result},
     schema::{
-        merge_strategy_with_metadata, GenericDataType, GenericField, SerdeArrowSchema, Strategy,
+        merge_strategy_with_metadata, GenericDataType, SerdeArrowSchema, Strategy,
     },
 };
 
@@ -313,57 +315,5 @@ impl<'de> Deserialize<'de> for GenericField {
         let res = deserializer.deserialize_map(VisitorImpl)?;
         res.validate().map_err(D::Error::custom)?;
         Ok(res)
-    }
-}
-
-// A custom impl of untagged-enum repr with better error messages
-impl<'de> serde::Deserialize<'de> for SerdeArrowSchema {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct VisitorImpl;
-
-        impl<'de> Visitor<'de> for VisitorImpl {
-            type Value = SerdeArrowSchema;
-
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "a sequence of fields or a struct with key 'fields' containing a sequence of fields")
-            }
-
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                let mut fields = Vec::new();
-                while let Some(item) = seq.next_element::<GenericField>()? {
-                    fields.push(item);
-                }
-
-                Ok(SerdeArrowSchema { fields })
-            }
-
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> Result<Self::Value, A::Error> {
-                use serde::de::Error;
-
-                let mut fields = None;
-
-                while let Some(key) = map.next_key::<String>()? {
-                    if key == "fields" {
-                        fields = Some(map.next_value::<Vec<GenericField>>()?);
-                    } else {
-                        map.next_value::<serde::de::IgnoredAny>()?;
-                    }
-                }
-
-                let Some(fields) = fields else {
-                    return Err(A::Error::custom("missing field `fields`"));
-                };
-
-                Ok(SerdeArrowSchema { fields })
-            }
-        }
-
-        deserializer.deserialize_any(VisitorImpl)
     }
 }

@@ -5,8 +5,11 @@ use serde_json::json;
 
 use crate::{
     _impl::{arrow, arrow2},
-    internal::{schema::GenericField, testing::hash_map},
-    schema::{SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
+    internal::{
+        arrow::Field,
+        schema::{ArrowOrCustomField, SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
+        testing::hash_map,
+    },
 };
 
 fn example_field_desc() -> serde_json::Value {
@@ -30,7 +33,8 @@ fn example_field_desc() -> serde_json::Value {
 
 #[test]
 fn arrow() {
-    let initial_field = serde_json::from_value::<GenericField>(example_field_desc()).unwrap();
+    let initial_field = serde_json::from_value::<ArrowOrCustomField>(example_field_desc()).unwrap();
+    let initial_field = initial_field.into_field().unwrap();
     assert_eq!(
         initial_field.metadata,
         hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")
@@ -43,7 +47,7 @@ fn arrow() {
     );
 
     // roundtrip via try_from
-    let generic_field = GenericField::try_from(&arrow_field).unwrap();
+    let generic_field = Field::try_from(&arrow_field).unwrap();
     assert_eq!(generic_field, initial_field);
 
     // roundtrip via serialize
@@ -54,7 +58,8 @@ fn arrow() {
 
 #[test]
 fn arrow2() {
-    let initial_field = serde_json::from_value::<GenericField>(example_field_desc()).unwrap();
+    let initial_field = serde_json::from_value::<ArrowOrCustomField>(example_field_desc()).unwrap();
+    let initial_field = initial_field.into_field().unwrap();
     assert_eq!(
         initial_field.metadata,
         hash_map!("foo" => "bar", STRATEGY_KEY => "MapAsStruct")
@@ -71,7 +76,7 @@ fn arrow2() {
     );
 
     // roundtrip via try_from
-    let generic_field = GenericField::try_from(&arrow_field).unwrap();
+    let generic_field = Field::try_from(&arrow_field).unwrap();
     assert_eq!(generic_field, initial_field);
 
     // note: arrow2 Field does not support serialize

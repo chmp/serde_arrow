@@ -8,14 +8,13 @@ use std::sync::Arc;
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
+    arrow::DataType,
     error::{fail, Error, Result},
-    schema::{GenericDataType, Strategy},
+    schema::{Strategy, TracingMode, TracingOptions},
 };
 
-use super::tracing_options::TracingOptions;
-use super::{
-    tracer::{ListTracer, MapTracer, StructMode, StructTracer, Tracer, TupleTracer, UnionVariant},
-    TracingMode,
+use super::tracer::{
+    ListTracer, MapTracer, StructMode, StructTracer, Tracer, TupleTracer, UnionVariant,
 };
 
 impl Tracer {
@@ -172,72 +171,72 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
     type SerializeTupleVariant = TupleSerializer<'a>;
 
     fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
-        self.0.ensure_primitive(GenericDataType::Bool)
+        self.0.ensure_primitive(DataType::Boolean)
     }
 
     fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::I8)
+        self.0.ensure_number(DataType::Int8)
     }
 
     fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::I16)
+        self.0.ensure_number(DataType::Int16)
     }
 
     fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::I32)
+        self.0.ensure_number(DataType::Int32)
     }
 
     fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::I64)
+        self.0.ensure_number(DataType::Int64)
     }
 
     fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::U8)
+        self.0.ensure_number(DataType::UInt8)
     }
 
     fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::U16)
+        self.0.ensure_number(DataType::UInt16)
     }
 
     fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::U32)
+        self.0.ensure_number(DataType::UInt32)
     }
 
     fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::U64)
+        self.0.ensure_number(DataType::UInt64)
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::F32)
+        self.0.ensure_number(DataType::Float32)
     }
 
     fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        self.0.ensure_number(GenericDataType::F64)
+        self.0.ensure_number(DataType::Float64)
     }
 
     fn serialize_char(self, _: char) -> Result<Self::Ok> {
-        self.0.ensure_primitive(GenericDataType::U32)
+        self.0.ensure_primitive(DataType::UInt32)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        self.0.ensure_primitive(GenericDataType::Null)
+        self.0.ensure_primitive(DataType::Null)
     }
 
     fn serialize_str(self, s: &str) -> Result<Self::Ok> {
         let guess_dates = self.0.get_options().guess_dates;
         if guess_dates && chrono::matches_naive_datetime(s) {
             self.0
-                .ensure_utf8(GenericDataType::Date64, Some(Strategy::NaiveStrAsDate64))
+                .ensure_utf8(DataType::Date64, Some(Strategy::NaiveStrAsDate64))
         } else if guess_dates && chrono::matches_utc_datetime(s) {
             self.0
-                .ensure_utf8(GenericDataType::Date64, Some(Strategy::UtcStrAsDate64))
+                .ensure_utf8(DataType::Date64, Some(Strategy::UtcStrAsDate64))
         } else {
-            self.0.ensure_utf8(GenericDataType::LargeUtf8, None)
+            self.0.ensure_utf8(DataType::LargeUtf8, None)
         }
     }
 
     fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
-        self.0.ensure_primitive(GenericDataType::LargeBinary)
+        self.0.ensure_primitive(DataType::LargeBinary)
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
@@ -321,7 +320,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         variant_name: &'static str,
     ) -> Result<Self::Ok> {
         let variant = self.ensure_union_variant(variant_name, variant_index)?;
-        variant.tracer.ensure_primitive(GenericDataType::Null)
+        variant.tracer.ensure_primitive(DataType::Null)
     }
 
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
@@ -591,14 +590,15 @@ mod test {
     use serde::Serialize;
     use serde_json::{json, Value};
 
-    use crate::internal::schema::{GenericField, TracingOptions};
+    use crate::internal::schema::{ArrowOrCustomField, TracingOptions};
 
     use super::*;
 
     fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
         let tracer = Tracer::from_samples(items, options).unwrap();
         let field = tracer.to_field().unwrap();
-        let expected = serde_json::from_value::<GenericField>(expected).unwrap();
+        let expected = serde_json::from_value::<ArrowOrCustomField>(expected).unwrap();
+        let expected = expected.into_field().unwrap();
 
         assert_eq!(field, expected);
     }

@@ -1,7 +1,9 @@
 use serde_json::json;
 
-use crate::internal::schema::{GenericDataType, GenericField};
-use crate::schema::{SchemaLike, SerdeArrowSchema};
+use crate::internal::{
+    arrow::{DataType, Field},
+    schema::{SchemaLike, SerdeArrowSchema},
+};
 
 #[test]
 fn extra_attributes_trailing() {
@@ -14,7 +16,12 @@ fn extra_attributes_trailing() {
     .unwrap();
     assert_eq!(
         schema.fields,
-        vec![GenericField::new("foo", GenericDataType::F32, false)]
+        vec![Field {
+            name: String::from("foo"),
+            data_type: DataType::Float32,
+            nullable: false,
+            metadata: Default::default(),
+        }]
     );
 }
 
@@ -29,7 +36,12 @@ fn extra_attributes_leading() {
     .unwrap();
     assert_eq!(
         schema.fields,
-        vec![GenericField::new("foo", GenericDataType::F32, false)]
+        vec![Field {
+            name: String::from("foo"),
+            data_type: DataType::Float32,
+            nullable: false,
+            metadata: Default::default(),
+        }]
     );
 }
 

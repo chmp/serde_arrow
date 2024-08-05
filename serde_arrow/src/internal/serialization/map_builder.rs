@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::Result,
+    error::{fail, Result},
 };
 
 use super::{
@@ -19,12 +19,23 @@ pub struct MapBuilder {
 }
 
 impl MapBuilder {
-    pub fn new(meta: FieldMeta, entry: ArrayBuilder, is_nullable: bool) -> Self {
-        Self {
+    pub fn new(meta: FieldMeta, entry: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+        Self::validate_entry(&entry)?;
+        Ok(Self {
             meta,
             offsets: OffsetsArray::new(is_nullable),
             entry: Box::new(entry),
+        })
+    }
+
+    fn validate_entry(entry: &ArrayBuilder) -> Result<()> {
+        let ArrayBuilder::Struct(entry) = entry else {
+            fail!("entry field of a map must be a struct field");
+        };
+        if entry.fields.len() != 2 {
+            fail!("entry field of a map must be a struct field with 2 fields");
         }
+        Ok(())
     }
 
     pub fn take(&mut self) -> Self {

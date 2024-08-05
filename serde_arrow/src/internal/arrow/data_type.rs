@@ -1,18 +1,18 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::internal::error::{fail, Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
     pub data_type: DataType,
+    pub nullable: bool,
     pub metadata: HashMap<String, String>,
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum DataType {
     Null,
@@ -32,15 +32,21 @@ pub enum DataType {
     LargeUtf8,
     Binary,
     LargeBinary,
+    FixedSizeBinary(i32),
     Date32,
     Date64,
-    Timestamp(TimeUnit, Option<Arc<str>>),
+    Timestamp(TimeUnit, Option<String>),
     Time32(TimeUnit),
     Time64(TimeUnit),
-    Decimal128,
+    Duration(TimeUnit),
+    Decimal128(u8, i8),
     Struct(Vec<Field>),
     List(Box<Field>),
     LargeList(Box<Field>),
+    FixedSizeList(Box<Field>, i32),
+    Map(Box<Field>, bool),
+    Dictionary(Box<DataType>, Box<DataType>, bool),
+    Union(Vec<(i8, Field)>, UnionMode),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
@@ -71,7 +77,34 @@ impl std::str::FromStr for TimeUnit {
             "Millisecond" => Ok(Self::Millisecond),
             "Microsecond" => Ok(Self::Microsecond),
             "Nanosecond" => Ok(Self::Nanosecond),
-            s => fail!("Invalid time unit {s}"),
+            s => fail!("Invalid TimeUnit: {s}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UnionMode {
+    Sparse,
+    Dense,
+}
+
+impl std::fmt::Display for UnionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnionMode::Sparse => write!(f, "Sparse"),
+            UnionMode::Dense => write!(f, "Dense"),
+        }
+    }
+}
+
+impl std::str::FromStr for UnionMode {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "Sparse" => Ok(UnionMode::Sparse),
+            "Dense" => Ok(UnionMode::Dense),
+            s => fail!("Invalid UnionMode: {s}"),
         }
     }
 }
