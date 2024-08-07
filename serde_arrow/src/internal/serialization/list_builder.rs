@@ -3,14 +3,11 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
     error::Result,
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
     utils::{Mut, Offset},
 };
 
-use super::{
-    array_builder::ArrayBuilder,
-    array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 

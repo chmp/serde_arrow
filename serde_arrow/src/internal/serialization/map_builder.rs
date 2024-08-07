@@ -3,13 +3,10 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
     error::{fail, Result},
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
-use super::{
-    array_builder::ArrayBuilder,
-    array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {

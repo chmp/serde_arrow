@@ -3,12 +3,10 @@ use chrono::Timelike;
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
     error::{Error, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
-use super::{
-    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {

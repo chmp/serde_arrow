@@ -3,12 +3,10 @@ use chrono::{NaiveDate, NaiveDateTime};
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
     error::Result,
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
-use super::{
-    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct Date32Builder(PrimitiveArray<i32>);

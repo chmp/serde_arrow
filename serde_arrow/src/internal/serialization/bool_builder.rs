@@ -1,12 +1,10 @@
 use crate::internal::{
     arrow::{Array, BooleanArray},
     error::Result,
+    utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
 };
 
-use super::{
-    array_ext::{set_bit_buffer, set_validity, set_validity_default},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder(BooleanArray);

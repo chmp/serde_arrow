@@ -3,13 +3,11 @@ use half::f16;
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
     error::Result,
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
     utils::Mut,
 };
 
-use super::{
-    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct FloatBuilder<I>(PrimitiveArray<I>);

@@ -1,13 +1,11 @@
 use crate::internal::{
     arrow::{Array, BytesArray},
     error::{fail, Result},
+    utils::array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
     utils::Offset,
 };
 
-use super::{
-    array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<O>(BytesArray<O>);

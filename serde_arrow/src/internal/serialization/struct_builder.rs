@@ -5,14 +5,11 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, FieldMeta, StructArray},
     error::{fail, Result},
+    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
     utils::Mut,
 };
 
-use super::{
-    array_builder::ArrayBuilder,
-    array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 const UNKNOWN_KEY: usize = usize::MAX;
 

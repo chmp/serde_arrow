@@ -3,13 +3,13 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, BytesArray},
     error::Result,
-    utils::{Mut, Offset},
+    utils::{
+        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
+        Mut, Offset,
+    },
 };
 
-use super::{
-    array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 

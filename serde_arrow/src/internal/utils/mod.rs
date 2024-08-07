@@ -1,3 +1,4 @@
+pub mod array_ext;
 pub mod decimal;
 pub mod dsl;
 pub mod value;
