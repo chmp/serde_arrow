@@ -172,3 +172,36 @@ impl serde::ser::Serialize for VariableShapeTensorField {
         PrettyField(&field).serialize(serializer)
     }
 }
+
+#[test]
+fn test_serialization() -> crate::internal::error::PanicOnError<()> {
+    use serde_json::json;
+
+    let field = VariableShapeTensorField::new(
+        "foo bar",
+        json!({"name": "element", "data_type": "Bool"}),
+        2,
+    )?;
+    let field = Field::try_from(&field)?;
+    let actual = serde_json::to_value(PrettyField(&field))?;
+
+    let expected = json!({
+        "name": "foo bar",
+        "data_type": "Struct",
+        "children": [
+            {
+                "name": "data",
+                "data_type": "List",
+                "children": [{"name": "element", "data_type": "Bool"}],
+            },
+            {"name": "shape", "data_type": "FixedSizeList(2)", "children": [{"name": "element", "data_type": "I32"}]}
+        ],
+        "metadata": {
+            "ARROW:extension:metadata": "{}",
+            "ARROW:extension:name": "arrow.variable_shape_tensor",
+        },
+    });
+
+    assert_eq!(actual, expected);
+    Ok(())
+}
