@@ -10,13 +10,9 @@ use crate::{
     },
     internal::{
         array_builder::ArrayBuilder,
-        deserialization::{
-            array_deserializer::ArrayDeserializer,
-            outer_sequence_deserializer::OuterSequenceDeserializer,
-        },
         deserializer::Deserializer,
         error::{fail, Result},
-        schema::{get_strategy_from_metadata, SerdeArrowSchema},
+        schema::SerdeArrowSchema,
         serializer::Serializer,
     },
 };
@@ -241,11 +237,7 @@ impl<'de> Deserializer<'de> {
     where
         A: AsRef<dyn Array>,
     {
-        let fields = fields_from_field_refs(fields)?;
-        let arrays = arrays
-            .iter()
-            .map(|array| array.as_ref())
-            .collect::<Vec<_>>();
+        use crate::internal::arrow::ArrayView;
 
         if fields.len() != arrays.len() {
             fail!(
@@ -254,23 +246,15 @@ impl<'de> Deserializer<'de> {
                 arrays.len()
             );
         }
-        let len = arrays.first().map(|array| array.len()).unwrap_or_default();
 
-        let mut deserializers = Vec::new();
-        for (field, array) in std::iter::zip(&fields, arrays) {
-            if array.len() != len {
-                fail!("arrays of different lengths are not supported");
-            }
+        let fields = fields_from_field_refs(fields)?;
 
-            let strategy = get_strategy_from_metadata(&field.metadata)?;
-            let deserializer = ArrayDeserializer::new(strategy.as_ref(), array.try_into()?)?;
-            deserializers.push((field.name.clone(), deserializer));
+        let mut views = Vec::new();
+        for array in arrays {
+            views.push(ArrayView::try_from(array.as_ref())?);
         }
 
-        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
-        let deserializer = Deserializer(deserializer);
-
-        Ok(deserializer)
+        Deserializer::new(&fields, views)
     }
 
     /// Construct a new deserializer from a record batch (*requires one of the
