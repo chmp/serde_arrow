@@ -206,11 +206,11 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 let mut fields = Vec::new();
                 let mut child_data = Vec::new();
 
-                for (idx, (array, meta)) in arr.fields.into_iter().enumerate() {
+                for (type_id, array, meta) in arr.fields {
                     let child: ArrayData = array.try_into()?;
                     let field = field_from_data_and_meta(&child, meta);
 
-                    fields.push((idx as i8, Arc::new(field)));
+                    fields.push((type_id, Arc::new(field)));
                     child_data.push(child);
                 }
 
@@ -508,14 +508,10 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             };
 
             let mut fields = Vec::new();
-            for (type_idx, (type_id, field)) in union_fields.iter().enumerate() {
-                if type_id < 0 || usize::try_from(type_id)? != type_idx {
-                    fail!("invalid union, only unions with consecutive variants are supported");
-                }
-
+            for (type_id, field) in union_fields.iter() {
                 let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
                 let view: ArrayView = array.child(type_id).as_ref().try_into()?;
-                fields.push((view, meta));
+                fields.push((type_id, view, meta));
             }
             let Some(offsets) = array.offsets() else {
                 fail!("Dense unions must have an offset array");
