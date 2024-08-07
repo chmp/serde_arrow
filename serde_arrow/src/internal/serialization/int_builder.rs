@@ -77,6 +77,11 @@ where
         self.0.push_scalar_none()
     }
 
+    fn serialize_bool(&mut self, v: bool) -> Result<()> {
+        let v: u8 = if v { 1 } else { 0 };
+        self.0.push_scalar_value(I::try_from(v)?)
+    }
+
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
         self.0.push_scalar_value(I::try_from(v)?)
     }
