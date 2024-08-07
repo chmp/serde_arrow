@@ -169,7 +169,14 @@ impl TryFrom<&ArrowDataType> for DataType {
                 T::try_from(value.as_ref())?.into(),
                 false,
             )),
-            _ => fail!("Only primitive data types can be converted to T"),
+            AT::Union(in_fields, mode) => {
+                let mut fields = Vec::new();
+                for (type_id, field) in in_fields.iter() {
+                    fields.push((type_id, F::try_from(field.as_ref())?));
+                }
+                Ok(T::Union(fields, (*mode).into()))
+            }
+            data_type => fail!("Unsupported arrow data type {data_type}"),
         }
     }
 }
@@ -240,7 +247,13 @@ impl TryFrom<&DataType> for ArrowDataType {
                 AT::try_from(key.as_ref())?.into(),
                 AT::try_from(value.as_ref())?.into(),
             )),
-            _ => fail!("Only primitive data types can be converted to T"),
+            T::Union(in_fields, mode) => {
+                let mut fields = Vec::new();
+                for (type_id, field) in in_fields {
+                    fields.push((*type_id, Arc::new(AF::try_from(field)?)));
+                }
+                Ok(AT::Union(fields.into_iter().collect(), (*mode).into()))
+            }
         }
     }
 }

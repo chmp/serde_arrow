@@ -131,8 +131,12 @@ impl TryFrom<Array> for ArrayRef {
             }
             A::DenseUnion(arr) => {
                 let (values, fields) = array_with_meta_to_array_and_fields(arr.fields)?;
+                let mut type_ids = Vec::new();
+                for type_id in 0..fields.len() {
+                    type_ids.push(type_id.try_into()?);
+                }
                 Ok(Box::new(UnionArray::try_new(
-                    T::Union(fields, None, UnionMode::Dense),
+                    T::Union(fields, Some(type_ids), UnionMode::Dense),
                     arr.types.into(),
                     values,
                     Some(arr.offsets.into()),
@@ -329,10 +333,17 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 offsets: array.offsets().as_slice(),
             }))
         } else if let Some(array) = any.downcast_ref::<UnionArray>() {
-            // TODO: check type ids
-            let T::Union(union_fields, _, UnionMode::Dense) = array.data_type() else {
+            let T::Union(union_fields, type_ids, UnionMode::Dense) = array.data_type() else {
                 fail!("Invalid data type: only dense unions are supported");
             };
+
+            if let Some(type_ids) = type_ids.as_ref() {
+                for (idx, type_id) in type_ids.iter().enumerate() {
+                    if usize::try_from(*type_id) != Ok(idx) {
+                        fail!("Only consecutive type ids are supported");
+                    }
+                }
+            }
 
             let types = array.types().as_slice();
             let Some(offsets) = array.offsets() else {

@@ -136,7 +136,10 @@ impl OuterSequenceBuilder {
                 }
                 T::Union(union_fields, _) => {
                     let mut fields = Vec::new();
-                    for (_, field) in union_fields {
+                    for (idx, (type_id, field)) in union_fields.iter().enumerate() {
+                        if usize::try_from(*type_id) != Ok(idx) {
+                            fail!("non consecutive type ids are not supported");
+                        }
                         fields.push((build_builder(field)?, meta_from_field(field.clone())?));
                     }
 

@@ -63,7 +63,7 @@ impl TryFrom<&ArrowDataType> for DataType {
     type Error = Error;
 
     fn try_from(value: &ArrowDataType) -> Result<Self> {
-        use {ArrowDataType as AT, DataType as T};
+        use {ArrowDataType as AT, DataType as T, Field as F, IntegerType as I};
         match value {
             AT::Null => Ok(T::Null),
             AT::Boolean => Ok(T::Boolean),
@@ -111,14 +111,14 @@ impl TryFrom<&ArrowDataType> for DataType {
             }
             AT::Dictionary(key, value, sorted) => {
                 let key = match key {
-                    IntegerType::Int8 => T::Int8,
-                    IntegerType::Int16 => T::Int16,
-                    IntegerType::Int32 => T::Int32,
-                    IntegerType::Int64 => T::Int64,
-                    IntegerType::UInt8 => T::UInt8,
-                    IntegerType::UInt16 => T::UInt16,
-                    IntegerType::UInt32 => T::UInt32,
-                    IntegerType::UInt64 => T::UInt64,
+                    I::Int8 => T::Int8,
+                    I::Int16 => T::Int16,
+                    I::Int32 => T::Int32,
+                    I::Int64 => T::Int64,
+                    I::UInt8 => T::UInt8,
+                    I::UInt16 => T::UInt16,
+                    I::UInt32 => T::UInt32,
+                    I::UInt64 => T::UInt64,
                 };
                 Ok(T::Dictionary(
                     Box::new(key),
@@ -126,7 +126,24 @@ impl TryFrom<&ArrowDataType> for DataType {
                     *sorted,
                 ))
             }
-            AT::Union(fields, type_ids, mode) => todo!(),
+            AT::Union(in_fields, in_type_ids, mode) => {
+                let in_type_ids = match in_type_ids {
+                    Some(in_type_ids) => in_type_ids.clone(),
+                    None => {
+                        let mut type_ids = Vec::new();
+                        for id in 0..in_fields.len() {
+                            type_ids.push(id.try_into()?);
+                        }
+                        type_ids
+                    }
+                };
+
+                let mut fields = Vec::new();
+                for (type_id, field) in in_type_ids.iter().zip(in_fields) {
+                    fields.push(((*type_id).try_into()?, F::try_from(field)?));
+                }
+                Ok(T::Union(fields, (*mode).into()))
+            }
             dt => fail!("Cannot convert data type {dt:?} to internal data type"),
         }
     }
@@ -180,6 +197,7 @@ impl TryFrom<&DataType> for ArrowDataType {
             }
             T::Binary => Ok(AT::Binary),
             T::LargeBinary => Ok(AT::LargeBinary),
+            T::FixedSizeBinary(n) => Ok(AT::FixedSizeBinary((*n).try_into()?)),
             T::Utf8 => Ok(AT::Utf8),
             T::LargeUtf8 => Ok(AT::LargeUtf8),
             T::Dictionary(key, value, sorted) => match key.as_ref() {
@@ -242,7 +260,16 @@ impl TryFrom<&DataType> for ArrowDataType {
                 }
                 Ok(AT::Struct(fields))
             }
-            _ => todo!(),
+            T::Union(in_fields, mode) => {
+                let mut fields = Vec::new();
+                let mut type_ids = Vec::new();
+
+                for (type_id, field) in in_fields {
+                    fields.push(AF::try_from(field)?);
+                    type_ids.push((*type_id).try_into()?);
+                }
+                Ok(AT::Union(fields, Some(type_ids), (*mode).into()))
+            }
         }
     }
 }
