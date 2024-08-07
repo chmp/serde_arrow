@@ -170,7 +170,7 @@ impl Test {
         assert_eq!(fields.len(), arrays.len());
         for (field, array) in std::iter::zip(&fields, &arrays) {
             assert_eq!(field.data_type(), array.data_type());
-            }
+        }
 
         Ok(())
     }
