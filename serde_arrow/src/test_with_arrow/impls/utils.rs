@@ -165,7 +165,12 @@ impl Test {
         let mut builder = crate::ArrayBuilder::from_arrow(&fields)?;
         builder.extend(items)?;
         let arrays = builder.to_arrow()?;
-        assert_eq!(self.arrays.arrow, Some(arrays));
+        assert_eq!(self.arrays.arrow.as_ref(), Some(&arrays));
+
+        assert_eq!(fields.len(), arrays.len());
+        for (field, array) in std::iter::zip(&fields, &arrays) {
+            assert_eq!(field.data_type(), array.data_type());
+            }
 
         Ok(())
     }
@@ -184,10 +189,12 @@ impl Test {
         let mut builder = crate::ArrayBuilder::from_arrow2(&fields)?;
         builder.extend(items)?;
         let arrays = builder.to_arrow2()?;
-        assert_eq!(self.arrays.arrow2, Some(arrays));
+        assert_eq!(self.arrays.arrow2.as_ref(), Some(&arrays));
 
-        // TODO: test that the result arrays has the fields as the schema
-
+        assert_eq!(fields.len(), arrays.len());
+        for (field, array) in std::iter::zip(&fields, &arrays) {
+            assert_eq!(field.data_type(), array.data_type());
+        }
         Ok(())
     }
 

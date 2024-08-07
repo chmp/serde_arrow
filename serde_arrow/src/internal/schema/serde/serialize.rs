@@ -151,7 +151,6 @@ impl<'a> serde::Serialize for PrettyFieldChildren<'a> {
                 s.end()
             }
             T::Dictionary(key, value, _) => {
-                // TODO: this is incorrect, serialize as struct
                 let mut s = serializer.serialize_seq(Some(2))?;
                 s.serialize_element(&DictionaryField("key", key))?;
                 s.serialize_element(&DictionaryField("value", value))?;
