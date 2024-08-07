@@ -4,6 +4,7 @@ use serde_json::json;
 use crate::internal::{
     arrow::{ArrayView, DataType, Field, PrimitiveArrayView},
     deserializer::Deserializer,
+    schema::{extensions::Bool8Field, TracingOptions},
     utils::{Item, Items},
 };
 
@@ -13,7 +14,7 @@ use super::utils::Test;
 fn bool_as_int8() {
     let items = &[Item(true), Item(false)];
     Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "U8"}]))
+        .with_schema(json!([{"name": "item", "data_type": "I8"}]))
         .serialize(items)
         .deserialize(items)
         .check_nulls(&[&[false, false]]);
@@ -23,7 +24,7 @@ fn bool_as_int8() {
 fn nullable_bool_as_int8() {
     let items = &[Item(Some(true)), Item(None), Item(Some(false))];
     Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "U8", "nullable": true}]))
+        .with_schema(json!([{"name": "item", "data_type": "I8", "nullable": true}]))
         .serialize(items)
         .deserialize(items)
         .check_nulls(&[&[false, true, false]]);
@@ -48,6 +49,29 @@ fn deserialize_from_not_01_ints() -> crate::internal::error::PanicOnError<()> {
     let Items(actual) = Items::<Vec<bool>>::deserialize(deserializer)?;
     let expected = vec![false, true, true, true, true, true, false, false];
     assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[test]
+fn overwrites() -> crate::internal::error::PanicOnError<()> {
+    let tracing_options = TracingOptions::new().overwrite("item", Bool8Field::new("item"))?;
+
+    let items = &[Item(true), Item(false)];
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "I8",
+            "metadata": {
+                "ARROW:extension:name": "arrow.bool8",
+                "ARROW:extension:metadata": "",
+            },
+        }]))
+        .trace_schema_from_samples(&items, tracing_options.clone())
+        .trace_schema_from_type::<Item<bool>>(tracing_options)
+        .serialize(items)
+        .deserialize(items)
+        .check_nulls(&[&[false, false]]);
 
     Ok(())
 }

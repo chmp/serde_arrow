@@ -391,7 +391,7 @@ pub mod schema {
     /// [ext-docs]: https://arrow.apache.org/docs/format/CanonicalExtensions.html
     pub mod ext {
         pub use crate::internal::schema::extensions::{
-            FixedShapeTensorField, VariableShapeTensorField,
+            Bool8Field, FixedShapeTensorField, VariableShapeTensorField,
         };
     }
 }
