@@ -1,94 +1,108 @@
 use serde_json::json;
 
-use crate::internal::{
+use crate::{internal::{
     arrow::{DataType, Field},
     error::PanicOnError,
-    schema::{transmute_field, STRATEGY_KEY},
+    schema::STRATEGY_KEY,
     testing::hash_map,
-};
-
-use super::serialize::SerializableField;
+}, schema::{SchemaLike, SerdeArrowSchema}};
 
 #[test]
 fn i16_field_simple() -> PanicOnError<()> {
-    let field = Field {
-        name: String::from("my_field_name"),
-        data_type: DataType::Int16,
-        metadata: hash_map!(),
-        nullable: false,
-    };
+    let schema = SerdeArrowSchema { fields: vec![
+        Field {
+            name: String::from("my_field_name"),
+            data_type: DataType::Int16,
+            metadata: hash_map!(),
+            nullable: false,
+        },
+    ]};
     let expected = json!({
-        "name": "my_field_name",
-        "data_type": "I16",
+        "fields": [
+            {
+                "name": "my_field_name",
+                "data_type": "I16",
+            }
+        ],
     });
 
-    let actual = serde_json::to_value(&SerializableField(&field))?;
+
+
+    let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = transmute_field(&actual)?;
-    assert_eq!(roundtripped, field);
+    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    assert_eq!(roundtripped, schema);
 
     Ok(())
 }
 
 #[test]
 fn date64_field_complex() -> PanicOnError<()> {
-    let field = Field {
-        name: String::from("my_field_name"),
-        data_type: DataType::Date64,
-        metadata: hash_map!(
-            "foo" => "bar",
-            STRATEGY_KEY => "NaiveStrAsDate64",
-        ),
-        nullable: true,
-    };
-    let expected = json!({
-        "name": "my_field_name",
-        "data_type": "Date64",
-        "metadata": {
-            "foo": "bar",
+    let schema = SerdeArrowSchema {fields: vec![ 
+        Field {
+            name: String::from("my_field_name"),
+            data_type: DataType::Date64,
+            metadata: hash_map!(
+                "foo" => "bar",
+                STRATEGY_KEY => "NaiveStrAsDate64",
+            ),
+            nullable: true,
         },
-        "strategy": "NaiveStrAsDate64",
-        "nullable": true,
+    ]};
+    let expected = json!({
+        "fields": [{
+            "name": "my_field_name",
+            "data_type": "Date64",
+            "metadata": {
+                "foo": "bar",
+            },
+            "strategy": "NaiveStrAsDate64",
+            "nullable": true,
+        }],
     });
 
-    let actual = serde_json::to_value(&field)?;
+    let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = transmute_field(&actual)?;
-    assert_eq!(roundtripped, field);
+    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    assert_eq!(roundtripped, schema);
 
     Ok(())
 }
 
 #[test]
 fn list_field_complex() -> PanicOnError<()> {
-    let field = Field {
-        name: String::from("my_field_name"),
-        data_type: DataType::List(Box::new(Field {
-            name: String::from("element"),
-            data_type: DataType::Int64,
-            metadata: hash_map!(),
-            nullable: false,
-        })),
-        metadata: hash_map!("foo" => "bar"),
-        nullable: true,
-    };
+    let schema = SerdeArrowSchema {fields: vec![
+        Field {
+            name: String::from("my_field_name"),
+            data_type: DataType::List(Box::new(Field {
+                name: String::from("element"),
+                data_type: DataType::Int64,
+                metadata: hash_map!(),
+                nullable: false,
+            })),
+            metadata: hash_map!("foo" => "bar"),
+            nullable: true,
+        },
+    ]};
     let expected = json!({
-        "name": "my_field_name",
-        "data_type": "List",
-        "metadata": {"foo": "bar"},
-        "nullable": true,
-        "children": [
-            {"name": "element", "data_type": "I64"},
-        ]
+        "fields": [{
+            "name": "my_field_name",
+            "data_type": "List",
+            "metadata": {"foo": "bar"},
+            "nullable": true,
+            "children": [
+                {"name": "element", "data_type": "I64"},
+            ],
+        }],
     });
 
-    let actual = serde_json::to_value(&field)?;
+    let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = transmute_field(&actual)?;
-    assert_eq!(roundtripped, field);
+    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    assert_eq!(roundtripped, schema);
 
     Ok(())
 }
