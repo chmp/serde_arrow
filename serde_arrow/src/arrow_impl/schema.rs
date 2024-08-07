@@ -164,6 +164,11 @@ impl TryFrom<&ArrowDataType> for DataType {
                 }
                 Ok(T::Struct(fields))
             }
+            AT::Dictionary(key, value) => Ok(T::Dictionary(
+                T::try_from(key.as_ref())?.into(),
+                T::try_from(value.as_ref())?.into(),
+                false,
+            )),
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
@@ -231,6 +236,10 @@ impl TryFrom<&DataType> for ArrowDataType {
                 }
                 Ok(AT::Struct(fields.into()))
             }
+            T::Dictionary(key, value, _sorted) => Ok(AT::Dictionary(
+                AT::try_from(key.as_ref())?.into(),
+                AT::try_from(value.as_ref())?.into(),
+            )),
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
