@@ -91,7 +91,7 @@ fn nested_large_list_u32() {
             "data_type": "LargeList",
             "children": [{
                 "name": "element",
-                "data_type": "List",
+                "data_type": "LargeList",
                 "children": [{
                     "name": "element",
                     "data_type": "U32",
