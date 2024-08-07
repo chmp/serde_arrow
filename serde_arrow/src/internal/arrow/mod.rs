@@ -11,4 +11,4 @@ pub use array::{
     PrimitiveArray, PrimitiveArrayView, StructArray, StructArrayView, TimeArray, TimeArrayView,
     TimestampArray, TimestampArrayView,
 };
-pub use data_type::{BaseDataTypeDisplay, DataType, TimeUnit};
+pub use data_type::{DataType, Field, TimeUnit, UnionMode};

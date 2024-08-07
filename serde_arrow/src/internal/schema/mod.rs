@@ -1,9 +1,7 @@
 pub mod extensions;
-
-mod data_type;
-mod deserialization;
 mod from_samples;
 mod from_type;
+mod serde;
 mod strategy;
 pub mod tracer;
 mod tracing_options;
@@ -11,22 +9,20 @@ mod tracing_options;
 #[cfg(test)]
 mod test;
 
-use std::collections::HashMap;
-
 use crate::internal::{
-    arrow::TimeUnit,
+    arrow::{TimeUnit, UnionMode},
     error::{fail, Result},
     utils::value,
 };
 
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
-pub use data_type::GenericDataType;
-pub use strategy::{
-    merge_strategy_with_metadata, split_strategy_from_metadata, Strategy, STRATEGY_KEY,
-};
+pub use serde::serialize::PrettyField;
+pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
+
+use super::arrow::{DataType, Field};
 
 pub trait Sealed {}
 
@@ -287,9 +283,9 @@ pub trait SchemaLike: Sized + Sealed {
 ///
 /// It can be converted from / to arrow or arrow2 fields.
 ///
-#[derive(Default, Debug, PartialEq, Clone, Serialize)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct SerdeArrowSchema {
-    pub(crate) fields: Vec<GenericField>,
+    pub(crate) fields: Vec<Field>,
 }
 
 impl Sealed for SerdeArrowSchema {}
@@ -308,359 +304,250 @@ impl SchemaLike for SerdeArrowSchema {
     }
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
-pub struct GenericField {
-    pub name: String,
-    pub data_type: GenericDataType,
-
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub metadata: HashMap<String, String>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strategy: Option<Strategy>,
-
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub nullable: bool,
-
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub children: Vec<GenericField>,
+/// Wrapper around `SerdeArrowSchema::from_value` to convert a single field
+///
+/// This function takes anything that serialized into a field and converts it into a field.
+pub fn transmute_field(field: impl Serialize) -> Result<Field> {
+    let expected = SerdeArrowSchema::from_value(&[field])?;
+    let Some(field) = expected.fields.into_iter().next() else {
+        fail!("unexpected error in transmute_field: no field found");
+    };
+    Ok(field)
 }
 
-fn is_false(val: &bool) -> bool {
-    !*val
-}
-
-impl GenericField {
-    pub fn new(name: &str, data_type: GenericDataType, nullable: bool) -> Self {
-        Self {
-            name: name.to_string(),
-            data_type,
-            metadata: HashMap::new(),
-            nullable,
-            children: Vec::new(),
-            strategy: None,
+pub fn validate_field(field: &Field) -> Result<()> {
+    match &field.data_type {
+        DataType::Null => validate_null_field(field),
+        DataType::Boolean
+        | DataType::UInt8
+        | DataType::UInt16
+        | DataType::UInt32
+        | DataType::UInt64
+        | DataType::Int8
+        | DataType::Int16
+        | DataType::Int32
+        | DataType::Int64
+        | DataType::Float16
+        | DataType::Float32
+        | DataType::Float64
+        | DataType::Utf8
+        | DataType::LargeUtf8
+        | DataType::Decimal128(_, _)
+        | DataType::Date32
+        | DataType::Binary
+        | DataType::LargeBinary
+        | DataType::Duration(_) => validate_primitive_field(field),
+        DataType::FixedSizeBinary(n) => validate_fixed_size_binary_field(field, *n),
+        DataType::Date64 => validate_date64_field(field),
+        DataType::Timestamp(unit, tz) => validate_timestamp_field(field, *unit, tz.as_deref()),
+        DataType::Time32(unit) => validate_time32_field(field, *unit),
+        DataType::Time64(unit) => validate_time64_field(field, *unit),
+        DataType::Struct(fields) => validate_struct_field(field, fields.as_slice()),
+        DataType::Map(entry, _) => validate_map_field(field, entry.as_ref()),
+        DataType::List(entry) => validate_list_field(field, entry.as_ref()),
+        DataType::LargeList(entry) => validate_list_field(field, entry.as_ref()),
+        DataType::FixedSizeList(entry, n) => {
+            validate_fixed_size_list_field(field, entry.as_ref(), *n)
         }
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.validate().is_ok()
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        match self.data_type {
-            GenericDataType::Null => self.validate_null(),
-            GenericDataType::Bool => self.validate_primitive(),
-            GenericDataType::U8 => self.validate_primitive(),
-            GenericDataType::U16 => self.validate_primitive(),
-            GenericDataType::U32 => self.validate_primitive(),
-            GenericDataType::U64 => self.validate_primitive(),
-            GenericDataType::I8 => self.validate_primitive(),
-            GenericDataType::I16 => self.validate_primitive(),
-            GenericDataType::I32 => self.validate_primitive(),
-            GenericDataType::I64 => self.validate_primitive(),
-            GenericDataType::F16 => self.validate_primitive(),
-            GenericDataType::F32 => self.validate_primitive(),
-            GenericDataType::F64 => self.validate_primitive(),
-            GenericDataType::Utf8 => self.validate_primitive(),
-            GenericDataType::LargeUtf8 => self.validate_primitive(),
-            GenericDataType::Date32 => self.validate_date32(),
-            GenericDataType::Date64 => self.validate_date64(),
-            GenericDataType::Struct => self.validate_struct(),
-            GenericDataType::Map => self.validate_map(),
-            GenericDataType::List => self.validate_list(),
-            GenericDataType::LargeList => self.validate_list(),
-            GenericDataType::FixedSizeList(n) => self.validate_fixed_size_list(n),
-            GenericDataType::Binary => self.validate_binary(),
-            GenericDataType::LargeBinary => self.validate_binary(),
-            GenericDataType::FixedSizeBinary(n) => self.validate_fixed_size_binary(n),
-            GenericDataType::Union => self.validate_union(),
-            GenericDataType::Dictionary => self.validate_dictionary(),
-            GenericDataType::Timestamp(_, _) => self.validate_timestamp(),
-            GenericDataType::Time32(_) => self.validate_time32(),
-            GenericDataType::Time64(_) => self.validate_time64(),
-            GenericDataType::Duration(_) => self.validate_duration(),
-            GenericDataType::Decimal128(_, _) => self.validate_primitive(),
+        DataType::Union(fields, mode) => validate_union_field(field, fields.as_slice(), *mode),
+        DataType::Dictionary(key, values, _) => {
+            validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
-    }
-
-    pub fn is_utc(&self) -> Result<bool> {
-        match &self.data_type {
-            GenericDataType::Date64 => match &self.strategy {
-                None | Some(Strategy::UtcStrAsDate64) => Ok(true),
-                Some(Strategy::NaiveStrAsDate64) => Ok(false),
-                Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
-            },
-            GenericDataType::Timestamp(_, tz) => match tz {
-                Some(tz) => Ok(tz.to_lowercase() == "utc"),
-                None => Ok(false),
-            },
-            _ => fail!("non date time type {}", self.data_type),
-        }
-    }
-
-    pub fn with_child(mut self, child: GenericField) -> Self {
-        self.children.push(child);
-        self
-    }
-
-    pub fn with_strategy(mut self, strategy: Strategy) -> Self {
-        self.strategy = Some(strategy);
-        self
-    }
-
-    pub fn with_optional_strategy(mut self, strategy: Option<Strategy>) -> Self {
-        self.strategy = strategy;
-        self
     }
 }
 
-impl GenericField {
-    pub(crate) fn validate_null(&self) -> Result<()> {
-        if !matches!(
-            self.strategy,
-            None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant)
-        ) {
-            fail!(
-                "invalid strategy for Null field: {}",
-                self.strategy.as_ref().unwrap()
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("Null field must not have children");
-        }
-        Ok(())
+fn validate_null_field(field: &Field) -> Result<()> {
+    match get_strategy_from_metadata(&field.metadata)? {
+        None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant) => Ok(()),
+        Some(strategy) => fail!("invalid strategy for Null field: {strategy}"),
     }
+}
 
-    pub(crate) fn validate_primitive(&self) -> Result<()> {
-        self.validate_no_strategy_no_children()
+fn validate_primitive_field(field: &Field) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!(
+            "invalid strategy for {data_type}: {strategy}",
+            data_type = DataTypeDisplay(&field.data_type),
+        );
     }
+    Ok(())
+}
 
-    pub(crate) fn validate_date32(&self) -> Result<()> {
-        self.validate_no_strategy_no_children()
+fn validate_fixed_size_binary_field(field: &Field, n: i32) -> Result<()> {
+    if n < 0 {
+        fail!("Invalid FixedSizedBinary with negative number of elements");
     }
+    validate_primitive_field(field)
+}
 
-    pub(crate) fn validate_date64(&self) -> Result<()> {
-        match self.strategy.as_ref() {
-            None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => {}
-            Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        Ok(())
+fn validate_fixed_size_list_field(field: &Field, child: &Field, n: i32) -> Result<()> {
+    if n < 0 {
+        fail!("Invalid FixedSizeList with negative number of elements");
     }
+    validate_list_field(field, child)
+}
 
-    pub(crate) fn validate_timestamp(&self) -> Result<()> {
-        match &self.strategy {
-            None => Ok(()),
-            Some(strategy @ Strategy::UtcStrAsDate64) => {
-                if !matches!(&self.data_type, GenericDataType::Timestamp(_, Some(tz)) if tz.to_uppercase() == "UTC")
-                {
-                    fail!(
-                        "invalid strategy for timestamp field {}: {}",
-                        self.data_type,
-                        strategy,
-                    );
-                }
-                Ok(())
+fn validate_list_field(field: &Field, child: &Field) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for List field: {strategy}");
+    }
+    validate_field(child)
+}
+
+fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Dictionary field: {strategy}");
+    }
+    if !matches!(
+        key,
+        DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+    ) {
+        fail!(
+            "invalid child for Dictionary. Expected integer keys, found: {key}",
+            key = DataTypeDisplay(key),
+        );
+    }
+    if !matches!(value, DataType::Utf8 | DataType::LargeUtf8) {
+        fail!(
+            "invalid child for Dictionary. Expected string values, found: {value}",
+            value = DataTypeDisplay(value)
+        );
+    }
+    Ok(())
+}
+
+fn validate_date64_field(field: &Field) -> Result<()> {
+    match get_strategy_from_metadata(&field.metadata)? {
+        None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => Ok(()),
+        Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
+    }
+}
+
+fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
+    match get_strategy_from_metadata(&field.metadata)? {
+        None => {}
+        Some(strategy @ Strategy::UtcStrAsDate64) => {
+            if !matches!(tz, Some(tz) if tz.to_uppercase() == "UTC") {
+                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
             }
-            Some(strategy @ Strategy::NaiveStrAsDate64) => {
-                if !matches!(&self.data_type, GenericDataType::Timestamp(_, None)) {
-                    fail!(
-                        "invalid strategy for timestamp field {}: {}",
-                        self.data_type,
-                        strategy,
-                    );
-                }
-                Ok(())
+        }
+        Some(strategy @ Strategy::NaiveStrAsDate64) => {
+            if tz.is_some() {
+                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
             }
-            Some(strategy) => fail!(
-                "invalid strategy for timestamp field {}: {}",
-                self.data_type,
-                strategy
+        }
+        Some(strategy) => fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}"),
+    }
+    Ok(())
+}
+
+fn validate_time32_field(field: &Field, unit: TimeUnit) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Time32({unit}) field: {strategy}");
+    }
+    if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
+        fail!("Time32 field must have Second or Millisecond unit");
+    }
+    Ok(())
+}
+
+fn validate_time64_field(field: &Field, unit: TimeUnit) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Time64({unit}) field: {strategy}");
+    }
+    if !matches!(unit, TimeUnit::Microsecond | TimeUnit::Nanosecond) {
+        fail!("Time64 field must have Microsecond or Nanosecond unit");
+    }
+    Ok(())
+}
+
+fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
+    // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
+    match get_strategy_from_metadata(&field.metadata)? {
+        None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
+        Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
+    }
+    for child in children {
+        validate_field(child)?;
+    }
+    Ok(())
+}
+
+fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Map field: {strategy}");
+    }
+    let DataType::Map(entry, _) = &field.data_type else {
+        fail!("Invalid data type for map child, expected a map");
+    };
+    let DataType::Struct(entry_fields) = &entry.data_type else {
+        fail!("Invalid child data type for map, expected struct with 2 fields");
+    };
+    if entry_fields.len() != 2 {
+        fail!("Invalid child data type for map, expected struct with 2 fields");
+    }
+    Ok(())
+}
+
+fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMode) -> Result<()> {
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Union field: {strategy}");
+    }
+    for (_, child) in children {
+        validate_field(child)?;
+    }
+    Ok(())
+}
+
+pub struct DataTypeDisplay<'a>(pub &'a DataType);
+
+impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            DataType::Null => write!(f, "Null"),
+            DataType::Boolean => write!(f, "Boolean"),
+            DataType::Int8 => write!(f, "Int8"),
+            DataType::Int16 => write!(f, "Int16"),
+            DataType::Int32 => write!(f, "Int32"),
+            DataType::Int64 => write!(f, "Int64"),
+            DataType::UInt8 => write!(f, "UInt8"),
+            DataType::UInt16 => write!(f, "UInt16"),
+            DataType::UInt32 => write!(f, "UInt32"),
+            DataType::UInt64 => write!(f, "UInt64"),
+            DataType::Float16 => write!(f, "Float16"),
+            DataType::Float32 => write!(f, "Float32"),
+            DataType::Float64 => write!(f, "Float64"),
+            DataType::Utf8 => write!(f, "Utf8"),
+            DataType::LargeUtf8 => write!(f, "LargeUtf8"),
+            DataType::Binary => write!(f, "Binary"),
+            DataType::LargeBinary => write!(f, "LargeBinary"),
+            DataType::FixedSizeBinary(n) => write!(f, "FixedSizeBinary({n})"),
+            DataType::Date32 => write!(f, "Date32"),
+            DataType::Date64 => write!(f, "Date64"),
+            DataType::Time32(unit) => write!(f, "Time32({unit})"),
+            DataType::Time64(unit) => write!(f, "Time64({unit})"),
+            DataType::Timestamp(unit, tz) => write!(f, "Timestamp({unit}, {tz:?})"),
+            DataType::Duration(unit) => write!(f, "Duration({unit})"),
+            DataType::List(_) => write!(f, "List"),
+            DataType::LargeList(_) => write!(f, "LargeList"),
+            DataType::FixedSizeList(_, n) => write!(f, "FixedSizeList({n})"),
+            DataType::Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale}"),
+            DataType::Struct(_) => write!(f, "Struct"),
+            DataType::Map(_, sorted) => write!(f, "Map({sorted})"),
+            DataType::Dictionary(key, value, sorted) => write!(
+                f,
+                "Dictionary({key}, {value}, {sorted})",
+                key = DataTypeDisplay(key),
+                value = DataTypeDisplay(value),
             ),
+            DataType::Union(_, mode) => write!(f, "Union({mode})"),
         }
-    }
-
-    pub(crate) fn validate_time32(&self) -> Result<()> {
-        if self.strategy.is_some() {
-            fail!(
-                "invalid strategy for {}: {}",
-                self.data_type,
-                self.strategy.as_ref().unwrap()
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        if !matches!(
-            self.data_type,
-            GenericDataType::Time32(TimeUnit::Second | TimeUnit::Millisecond)
-        ) {
-            fail!("Time32 field must have Second or Millisecond unit");
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_time64(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!(
-                "invalid strategy for {data_type}: {strategy}",
-                data_type = self.data_type,
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        if !matches!(
-            self.data_type,
-            GenericDataType::Time64(TimeUnit::Microsecond | TimeUnit::Nanosecond)
-        ) {
-            fail!("Time64 field must have Microsecond or Nanosecond unit");
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_duration(&self) -> Result<()> {
-        self.validate_no_strategy_no_children()
-    }
-
-    pub(crate) fn validate_struct(&self) -> Result<()> {
-        // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
-        match self.strategy.as_ref() {
-            None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
-            Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
-        }
-        for child in &self.children {
-            child.validate()?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_map(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!("invalid strategy for Map field: {strategy}");
-        }
-        if self.children.len() != 1 {
-            fail!(
-                "invalid number of children for Map field: {}",
-                self.children.len()
-            );
-        }
-        if self.children[0].data_type != GenericDataType::Struct {
-            fail!(
-                "invalid child for Map field, expected Struct, found: {}",
-                self.children[0].data_type
-            );
-        }
-        if self.children[0].children.len() != 2 {
-            fail!("invalid child for Map field, expected Struct with two fields, found Struct wiht {} fields", self.children[0].children.len());
-        }
-
-        for child in &self.children {
-            child.validate()?;
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn validate_fixed_size_list(&self, n: i32) -> Result<()> {
-        if n < 0 {
-            fail!("Invalid FixedSizeList with negative number of elements");
-        }
-        self.validate_list()
-    }
-
-    pub(crate) fn validate_list(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!("invalid strategy for List field: {strategy}");
-        }
-        if self.children.len() != 1 {
-            fail!(
-                "invalid number of children for List field. Expected 1, found: {}",
-                self.children.len()
-            );
-        }
-        self.children[0].validate()?;
-
-        Ok(())
-    }
-
-    pub(crate) fn validate_fixed_size_binary(&self, n: i32) -> Result<()> {
-        if n < 0 {
-            fail!("Invalid FixedSizedBinary with negative number of elements");
-        }
-        self.validate_binary()
-    }
-
-    pub(crate) fn validate_binary(&self) -> Result<()> {
-        self.validate_no_strategy_no_children()
-    }
-
-    pub(crate) fn validate_union(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!("invalid strategy for Union field: {strategy}");
-        }
-        if self.children.is_empty() {
-            fail!("Union field without children");
-        }
-        for child in &self.children {
-            child.validate()?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_dictionary(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!("invalid strategy for Dictionary field: {strategy}");
-        }
-        if self.children.len() != 2 {
-            fail!(
-                "invalid number of children for Dictionary field. Expected 2, found: {}",
-                self.children.len()
-            );
-        }
-        if !matches!(
-            self.children[0].data_type,
-            GenericDataType::U8
-                | GenericDataType::U16
-                | GenericDataType::U32
-                | GenericDataType::U64
-                | GenericDataType::I8
-                | GenericDataType::I16
-                | GenericDataType::I32
-                | GenericDataType::I64
-        ) {
-            fail!(
-                "invalid child for Dictionary. Expected integer keys, found: {}",
-                self.children[0].data_type
-            );
-        }
-        if !matches!(
-            self.children[1].data_type,
-            GenericDataType::Utf8 | GenericDataType::LargeUtf8
-        ) {
-            fail!(
-                "invalid child for Dictionary. Expected string values, found: {}",
-                self.children[1].data_type
-            );
-        }
-        for child in &self.children {
-            child.validate()?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_no_strategy_no_children(&self) -> Result<()> {
-        if let Some(strategy) = self.strategy.as_ref() {
-            fail!(
-                "invalid strategy for {data_type}: {strategy}",
-                data_type = self.data_type,
-            );
-        }
-        if !self.children.is_empty() {
-            fail!("{} field must not have children", self.data_type);
-        }
-        Ok(())
     }
 }

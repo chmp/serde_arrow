@@ -9,12 +9,13 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::internal::error::{fail, Error, Result};
-
-use super::{
-    tracer::{StructField, StructMode, Tracer},
-    GenericDataType, TracingMode, TracingOptions,
+use crate::internal::{
+    arrow::DataType,
+    error::{fail, Error, Result},
+    schema::{TracingMode, TracingOptions},
 };
+
+use super::tracer::{StructField, StructMode, Tracer};
 
 impl Tracer {
     pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
@@ -58,82 +59,82 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Bool)?;
+        self.0.ensure_primitive(DataType::Boolean)?;
         visitor.visit_bool(Default::default())
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I8)?;
+        self.0.ensure_primitive(DataType::Int8)?;
         visitor.visit_i8(Default::default())
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I16)?;
+        self.0.ensure_primitive(DataType::Int16)?;
         visitor.visit_i16(Default::default())
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I32)?;
+        self.0.ensure_primitive(DataType::Int32)?;
         visitor.visit_i32(Default::default())
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I64)?;
+        self.0.ensure_primitive(DataType::Int64)?;
         visitor.visit_i64(Default::default())
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U8)?;
+        self.0.ensure_primitive(DataType::UInt8)?;
         visitor.visit_u8(Default::default())
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U16)?;
+        self.0.ensure_primitive(DataType::UInt16)?;
         visitor.visit_u16(Default::default())
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U32)?;
+        self.0.ensure_primitive(DataType::UInt32)?;
         visitor.visit_u32(Default::default())
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U64)?;
+        self.0.ensure_primitive(DataType::UInt64)?;
         visitor.visit_u64(Default::default())
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::F32)?;
+        self.0.ensure_primitive(DataType::Float32)?;
         visitor.visit_f32(Default::default())
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::F64)?;
+        self.0.ensure_primitive(DataType::Float64)?;
         visitor.visit_f64(Default::default())
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U32)?;
+        self.0.ensure_primitive(DataType::UInt32)?;
         visitor.visit_char(Default::default())
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
+        self.0.ensure_utf8(DataType::LargeUtf8, None)?;
         visitor.visit_borrowed_str("")
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
+        self.0.ensure_utf8(DataType::LargeUtf8, None)?;
         visitor.visit_string(Default::default())
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
+        self.0.ensure_primitive(DataType::LargeBinary)?;
         visitor.visit_borrowed_bytes(&[])
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
+        self.0.ensure_primitive(DataType::LargeBinary)?;
         visitor.visit_byte_buf(Default::default())
     }
 
@@ -143,7 +144,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Null)?;
+        self.0.ensure_primitive(DataType::Null)?;
         visitor.visit_unit()
     }
 
@@ -152,7 +153,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         _name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Null)?;
+        self.0.ensure_primitive(DataType::Null)?;
         visitor.visit_unit()
     }
 

@@ -2,11 +2,21 @@
 
 ## 0.12
 
+Refactor the underlying implementation to prepare for further development
+
+New features
+
 - Add `Binary` / `LargeBinary` support for `arrow2`
-- Remove `serde_arrow::schema::Schema`
-- Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
+
+API changes
+
 - Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
 - Use `&[FieldRef]` instead of `&[Field]` in arrow APIs
+
+Removed deprecated API
+
+- Remove `serde_arrow::schema::Schema`
+- Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
 - Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
   `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
 - Remove `SerdeArrowSchema::new()`, `Overwrites::new()`

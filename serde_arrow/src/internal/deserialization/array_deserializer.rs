@@ -231,7 +231,11 @@ impl<'a> ArrayDeserializer<'a> {
             },
             ArrayView::DenseUnion(view) => {
                 let mut fields = Vec::new();
-                for (field_view, field_meta) in view.fields {
+                for (idx, (type_id, field_view, field_meta)) in view.fields.into_iter().enumerate()
+                {
+                    if usize::try_from(type_id) != Ok(idx) {
+                        fail!("Only unions with consecutive type ids are currently supported in arrow2");
+                    }
                     let field_deserializer =
                         ArrayDeserializer::new(get_strategy(&field_meta)?.as_ref(), field_view)?;
                     fields.push((field_meta.name, field_deserializer))

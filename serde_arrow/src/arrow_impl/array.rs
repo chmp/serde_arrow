@@ -14,23 +14,22 @@ use crate::{
         datatypes::{
             ArrowDictionaryKeyType, ArrowNativeType, ArrowPrimitiveType, DataType, Date32Type,
             Date64Type, Decimal128Type, DurationMicrosecondType, DurationMillisecondType,
-            DurationNanosecondType, DurationSecondType, Field, Float16Type, Float32Type,
-            Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, Time32MillisecondType,
-            Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
+            DurationNanosecondType, DurationSecondType, Field as ArrowField, Float16Type,
+            Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+            Time32MillisecondType, Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
             TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
             TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionMode,
         },
     },
     internal::{
-        arrow::FieldMeta,
         arrow::{
             ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
             DenseUnionArrayView, DictionaryArrayView, FixedSizeListArrayView, ListArrayView,
             NullArrayView, PrimitiveArrayView, StructArrayView, TimeArrayView, TimeUnit,
             TimestampArrayView,
         },
+        arrow::{Field, FieldMeta},
         error::{fail, Error, Result},
-        schema::GenericField,
         utils::meta_from_field,
     },
 };
@@ -105,8 +104,9 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
 
                 for (field, meta) in arr.fields {
                     let child: ArrayData = field.try_into()?;
-                    let field = Field::new(meta.name, child.data_type().clone(), meta.nullable)
-                        .with_metadata(meta.metadata);
+                    let field =
+                        ArrowField::new(meta.name, child.data_type().clone(), meta.nullable)
+                            .with_metadata(meta.metadata);
                     fields.push(Arc::new(field));
                     data.push(child);
                 }
@@ -206,11 +206,11 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 let mut fields = Vec::new();
                 let mut child_data = Vec::new();
 
-                for (idx, (array, meta)) in arr.fields.into_iter().enumerate() {
+                for (type_id, array, meta) in arr.fields {
                     let child: ArrayData = array.try_into()?;
                     let field = field_from_data_and_meta(&child, meta);
 
-                    fields.push((idx as i8, Arc::new(field)));
+                    fields.push((type_id, Arc::new(field)));
                     child_data.push(child);
                 }
 
@@ -465,7 +465,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             let mut fields = Vec::new();
             for (field, array) in std::iter::zip(column_fields, array.columns()) {
                 let view = ArrayView::try_from(array.as_ref())?;
-                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
                 fields.push((view, meta));
             }
 
@@ -483,7 +483,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::Map(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                meta: meta_from_field(GenericField::try_from(entries_field.as_ref())?)?,
+                meta: meta_from_field(Field::try_from(entries_field.as_ref())?)?,
                 element: Box::new(entries_array.try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt8Type>>() {
@@ -508,14 +508,10 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             };
 
             let mut fields = Vec::new();
-            for (type_idx, (type_id, field)) in union_fields.iter().enumerate() {
-                if type_id < 0 || usize::try_from(type_id)? != type_idx {
-                    fail!("invalid union, only unions with consecutive variants are supported");
-                }
-
-                let meta = meta_from_field(GenericField::try_from(field.as_ref())?)?;
+            for (type_id, field) in union_fields.iter() {
+                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
                 let view: ArrayView = array.child(type_id).as_ref().try_into()?;
-                fields.push((view, meta));
+                fields.push((type_id, view, meta));
             }
             let Some(offsets) = array.offsets() else {
                 fail!("Dense unions must have an offset array");
@@ -535,8 +531,8 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
     }
 }
 
-fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> Field {
-    Field::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
+fn field_from_data_and_meta(data: &ArrayData, meta: FieldMeta) -> ArrowField {
+    ArrowField::new(meta.name, data.data_type().clone(), meta.nullable).with_metadata(meta.metadata)
 }
 
 fn primitive_into_data<T: ArrowNativeType>(

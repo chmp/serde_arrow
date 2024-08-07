@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    schema::{SchemaLike, Strategy, TracingOptions},
+use crate::internal::{
+    schema::{SchemaLike, TracingOptions},
     utils::{Item, Items},
 };
 
@@ -21,15 +20,20 @@ fn fieldless_unions() {
     type Ty = U;
 
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("A", GenericDataType::Null, true))
-        .with_child(GenericField::new("B", GenericDataType::Null, true))
-        .with_child(GenericField::new("C", GenericDataType::Null, true));
-
     let values = [Item(U::A), Item(U::B), Item(U::C), Item(U::A)];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "A", "data_type": "Null"},
+                    {"name": "B", "data_type": "Null"},
+                    {"name": "C", "data_type": "Null"},
+                ],
+            },
+        ]))
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
@@ -48,15 +52,20 @@ fn fieldless_union_out_of_order() {
     type Ty = U;
 
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("A", GenericDataType::Null, true))
-        .with_child(GenericField::new("B", GenericDataType::Null, true))
-        .with_child(GenericField::new("C", GenericDataType::Null, true));
-
     let values = [Item(U::B), Item(U::A), Item(U::C)];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "A", "data_type": "Null", "nullable": true},
+                    {"name": "B", "data_type": "Null", "nullable": true},
+                    {"name": "C", "data_type": "Null", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
@@ -75,11 +84,6 @@ fn union_simple() {
     type Ty = U;
 
     let tracing_options = TracingOptions::default();
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("U32", GenericDataType::U32, false))
-        .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
-        .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false));
-
     let values = [
         Item(U::U32(32)),
         Item(U::Bool(true)),
@@ -87,7 +91,17 @@ fn union_simple() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "U32", "data_type": "U32"},
+                    {"name": "Bool", "data_type": "Bool"},
+                    {"name": "Str", "data_type": "LargeUtf8"},
+                ],
+            },
+        ]))
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
@@ -110,19 +124,6 @@ fn union_mixed() {
     type Ty = U;
 
     let tracing_options = TracingOptions::default();
-    let field =
-        GenericField::new("item", GenericDataType::Union, false)
-            .with_child(
-                GenericField::new("V1", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("a", GenericDataType::U32, false))
-                    .with_child(GenericField::new("b", GenericDataType::U64, false)),
-            )
-            .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
-            .with_child(
-                GenericField::new("S", GenericDataType::Struct, false)
-                    .with_child(GenericField::new("s", GenericDataType::LargeUtf8, false)),
-            );
-
     let values = [
         Item(U::V1 { a: 32, b: 13 }),
         Item(U::Bool(true)),
@@ -132,7 +133,30 @@ fn union_mixed() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {
+                        "name": "V1",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "a", "data_type": "U32"},
+                            {"name": "b", "data_type": "U64"},
+                        ],
+                    },
+                    {"name": "Bool", "data_type": "Bool"},
+                    {
+                        "name": "S",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "s", "data_type": "LargeUtf8"},
+                        ]
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
@@ -153,17 +177,6 @@ fn union_nested() {
         Str(String),
     }
 
-    type Ty = U;
-
-    let tracing_options = TracingOptions::default();
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("U32", GenericDataType::U32, false))
-        .with_child(
-            GenericField::new("O", GenericDataType::Union, false)
-                .with_child(GenericField::new("Bool", GenericDataType::Bool, false))
-                .with_child(GenericField::new("Str", GenericDataType::LargeUtf8, false)),
-        );
-
     let values = [
         Item(U::U32(32)),
         Item(U::O(O::Bool(true))),
@@ -172,9 +185,25 @@ fn union_nested() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
-        .trace_schema_from_samples(&values, tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "U32", "data_type": "U32"},
+                    {
+                        "name": "O",
+                        "data_type": "Union",
+                        "children": [
+                            {"name": "Bool", "data_type": "Bool"},
+                            {"name": "Str", "data_type": "LargeUtf8"},
+                        ],
+                    },
+                ],
+            },
+        ]))
+        .trace_schema_from_type::<Item<U>>(TracingOptions::default())
+        .trace_schema_from_samples(&values, TracingOptions::default())
         .serialize(&values)
         .deserialize(&values);
 }
@@ -188,15 +217,8 @@ fn enums() {
         U32(u32),
         U64(u64),
     }
-    type Ty = U;
 
     let tracing_options = TracingOptions::default();
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("U8", GenericDataType::U8, false))
-        .with_child(GenericField::new("U16", GenericDataType::U16, false))
-        .with_child(GenericField::new("U32", GenericDataType::U32, false))
-        .with_child(GenericField::new("U64", GenericDataType::U64, false));
-
     let values = [
         Item(U::U32(2)),
         Item(U::U64(3)),
@@ -205,8 +227,19 @@ fn enums() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "U8", "data_type": "U8"},
+                    {"name": "U16", "data_type": "U16"},
+                    {"name": "U32", "data_type": "U32"},
+                    {"name": "U64", "data_type": "U64"}
+                ],
+            },
+        ]))
+        .trace_schema_from_type::<Item<U>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -219,29 +252,38 @@ fn enums_tuple() {
         A(u8, u32),
         B(u16, u64),
     }
-    type Ty = U;
-
-    let tracing_options = TracingOptions::default();
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(
-            GenericField::new("A", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
-                .with_child(GenericField::new("0", GenericDataType::U8, false))
-                .with_child(GenericField::new("1", GenericDataType::U32, false)),
-        )
-        .with_child(
-            GenericField::new("B", GenericDataType::Struct, false)
-                .with_strategy(Strategy::TupleAsStruct)
-                .with_child(GenericField::new("0", GenericDataType::U16, false))
-                .with_child(GenericField::new("1", GenericDataType::U64, false)),
-        );
 
     let values = [Item(U::A(2, 3)), Item(U::B(0, 1))];
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
-        .trace_schema_from_samples(&values, tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {
+                        "name": "A",
+                        "data_type": "Struct",
+                        "strategy": "TupleAsStruct",
+                        "children": [
+                            {"name": "0", "data_type": "U8"},
+                            {"name": "1", "data_type": "U32"},
+                        ],
+                    },
+                    {
+                        "name": "B",
+                        "data_type": "Struct",
+                        "strategy": "TupleAsStruct",
+                        "children": [
+                            {"name": "0", "data_type": "U16"},
+                            {"name": "1", "data_type": "U64"},
+                        ],
+                    },
+                ],
+            },
+        ]))
+        .trace_schema_from_type::<Item<U>>(TracingOptions::default())
+        .trace_schema_from_samples(&values, TracingOptions::default())
         .serialize(&values)
         .deserialize(&values);
 }
@@ -253,27 +295,35 @@ fn enums_struct() {
         A { a: u8, b: u32 },
         B { c: u16, d: u64 },
     }
-    type Ty = U;
-
-    let tracing_options = TracingOptions::default();
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(
-            GenericField::new("A", GenericDataType::Struct, false)
-                .with_child(GenericField::new("a", GenericDataType::U8, false))
-                .with_child(GenericField::new("b", GenericDataType::U32, false)),
-        )
-        .with_child(
-            GenericField::new("B", GenericDataType::Struct, false)
-                .with_child(GenericField::new("c", GenericDataType::U16, false))
-                .with_child(GenericField::new("d", GenericDataType::U64, false)),
-        );
-
     let values = [Item(U::A { a: 2, b: 3 }), Item(U::B { c: 0, d: 1 })];
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
-        .trace_schema_from_samples(&values, tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {
+                        "name": "A",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "a", "data_type": "U8"},
+                            {"name": "b", "data_type": "U32"},
+                        ],
+                    },
+                    {
+                        "name": "B",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "c", "data_type": "U16"},
+                            {"name": "d", "data_type": "U64"},
+                        ],
+                    },
+                ],
+            },
+        ]))
+        .trace_schema_from_type::<Item<U>>(TracingOptions::default())
+        .trace_schema_from_samples(&values, TracingOptions::default())
         .serialize(&values)
         .deserialize(&values);
 }
@@ -288,14 +338,19 @@ fn enums_union() {
     type Ty = U;
 
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Union, false)
-        .with_child(GenericField::new("A", GenericDataType::Null, true))
-        .with_child(GenericField::new("B", GenericDataType::Null, true));
-
     let values = [Item(U::A), Item(U::B)];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Union",
+                "children": [
+                    {"name": "A", "data_type": "Null", "nullable": true},
+                    {"name": "B", "data_type": "Null", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)

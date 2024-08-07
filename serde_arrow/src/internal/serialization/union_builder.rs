@@ -43,8 +43,8 @@ impl UnionBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
-        for (builder, meta) in self.fields {
-            fields.push((builder.into_array()?, meta));
+        for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
+            fields.push((idx.try_into()?, builder.into_array()?, meta));
         }
 
         Ok(Array::DenseUnion(DenseUnionArray {

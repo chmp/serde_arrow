@@ -6,16 +6,17 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    _impl::arrow2::{array::Array, datatypes::Field},
+    _impl::arrow2::{array::Array, datatypes::Field as ArrowField},
     internal::{
         array_builder::ArrayBuilder,
+        arrow::Field,
         deserialization::{
             array_deserializer::ArrayDeserializer,
             outer_sequence_deserializer::OuterSequenceDeserializer,
         },
         deserializer::Deserializer,
         error::{fail, Result},
-        schema::{GenericField, SerdeArrowSchema},
+        schema::{get_strategy_from_metadata, SerdeArrowSchema},
         serializer::Serializer,
     },
 };
@@ -55,7 +56,7 @@ use crate::{
 /// # }
 /// ```
 ///
-pub fn to_arrow2<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
+pub fn to_arrow2<T>(fields: &[ArrowField], items: &T) -> Result<Vec<Box<dyn Array>>>
 where
     T: Serialize + ?Sized,
 {
@@ -93,7 +94,7 @@ where
 /// # }
 /// ```
 ///
-pub fn from_arrow2<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+pub fn from_arrow2<'de, T, A>(fields: &[ArrowField], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
@@ -106,7 +107,7 @@ where
 impl crate::internal::array_builder::ArrayBuilder {
     /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
     /// `arrow2-*` features*)
-    pub fn from_arrow2(fields: &[Field]) -> Result<Self> {
+    pub fn from_arrow2(fields: &[ArrowField]) -> Result<Self> {
         Self::new(SerdeArrowSchema::try_from(fields)?)
     }
 
@@ -148,13 +149,13 @@ impl<'de> Deserializer<'de> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_arrow2<A>(fields: &[Field], arrays: &'de [A]) -> Result<Self>
+    pub fn from_arrow2<A>(fields: &[ArrowField], arrays: &'de [A]) -> Result<Self>
     where
         A: AsRef<dyn Array>,
     {
         let fields = fields
             .iter()
-            .map(GenericField::try_from)
+            .map(Field::try_from)
             .collect::<Result<Vec<_>>>()?;
         let arrays = arrays
             .iter()
@@ -175,7 +176,8 @@ impl<'de> Deserializer<'de> {
             if array.len() != len {
                 fail!("arrays of different lengths are not supported");
             }
-            let deserializer = ArrayDeserializer::new(field.strategy.as_ref(), array.try_into()?)?;
+            let strategy = get_strategy_from_metadata(&field.metadata)?;
+            let deserializer = ArrayDeserializer::new(strategy.as_ref(), array.try_into()?)?;
             deserializers.push((field.name.clone(), deserializer));
         }
 

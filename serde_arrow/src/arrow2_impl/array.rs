@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     _impl::arrow2::{
         array::{
@@ -109,7 +111,16 @@ impl TryFrom<Array> for ArrayRef {
                 arr.validity,
             ),
             A::Struct(arr) => {
-                let (values, fields) = array_with_meta_to_array_and_fields(arr.fields)?;
+                let mut values = Vec::new();
+                let mut fields = Vec::new();
+
+                for (child, meta) in arr.fields {
+                    let child: ArrayRef = child.try_into()?;
+                    let field = field_from_array_and_meta(child.as_ref(), meta);
+
+                    values.push(child);
+                    fields.push(field);
+                }
                 Ok(Box::new(StructArray::new(
                     T::Struct(fields),
                     values,
@@ -130,9 +141,21 @@ impl TryFrom<Array> for ArrayRef {
                 )))
             }
             A::DenseUnion(arr) => {
-                let (values, fields) = array_with_meta_to_array_and_fields(arr.fields)?;
+                let mut values = Vec::new();
+                let mut fields = Vec::new();
+                let mut type_ids = Vec::new();
+
+                for (type_id, child, meta) in arr.fields {
+                    let child: ArrayRef = child.try_into()?;
+                    let field = field_from_array_and_meta(child.as_ref(), meta);
+
+                    type_ids.push(type_id.try_into()?);
+                    values.push(child);
+                    fields.push(field);
+                }
+
                 Ok(Box::new(UnionArray::try_new(
-                    T::Union(fields, None, UnionMode::Dense),
+                    T::Union(fields, Some(type_ids), UnionMode::Dense),
                     arr.types.into(),
                     values,
                     Some(arr.offsets.into()),
@@ -329,9 +352,18 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 offsets: array.offsets().as_slice(),
             }))
         } else if let Some(array) = any.downcast_ref::<UnionArray>() {
-            // TODO: check type ids
-            let T::Union(union_fields, _, UnionMode::Dense) = array.data_type() else {
+            let T::Union(union_fields, type_ids, UnionMode::Dense) = array.data_type() else {
                 fail!("Invalid data type: only dense unions are supported");
+            };
+
+            let type_ids = if let Some(type_ids) = type_ids.as_ref() {
+                Cow::Borrowed(type_ids)
+            } else {
+                let mut type_ids = Vec::new();
+                for idx in 0..union_fields.len() {
+                    type_ids.push(idx.try_into()?);
+                }
+                Cow::Owned(type_ids)
             };
 
             let types = array.types().as_slice();
@@ -340,8 +372,11 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
             };
 
             let mut fields = Vec::new();
-            for (child, child_field) in array.fields().iter().zip(union_fields) {
+            for ((type_id, child), child_field) in
+                type_ids.iter().zip(array.fields().iter()).zip(union_fields)
+            {
                 fields.push((
+                    (*type_id).try_into()?,
                     child.as_ref().try_into()?,
                     meta_from_field(child_field.try_into()?)?,
                 ));
@@ -422,23 +457,6 @@ fn build_list_array<F: FnOnce(Box<Field>) -> DataType, O: Offset>(
 fn field_from_array_and_meta(arr: &dyn A2Array, meta: FieldMeta) -> Field {
     Field::new(meta.name, arr.data_type().clone(), meta.nullable)
         .with_metadata(meta.metadata.into_iter().collect())
-}
-
-fn array_with_meta_to_array_and_fields(
-    arrays: Vec<(Array, FieldMeta)>,
-) -> Result<(Vec<ArrayRef>, Vec<Field>)> {
-    let mut res_fields = Vec::new();
-    let mut res_arrays = Vec::new();
-
-    for (child, meta) in arrays {
-        let child: ArrayRef = child.try_into()?;
-        let field = field_from_array_and_meta(child.as_ref(), meta);
-
-        res_arrays.push(child);
-        res_fields.push(field);
-    }
-
-    Ok((res_arrays, res_fields))
 }
 
 fn build_dictionary_array<K: DictionaryKey>(

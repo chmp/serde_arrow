@@ -1,8 +1,6 @@
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    schema::TracingOptions,
-    utils::Item,
-};
+use serde_json::json;
+
+use crate::internal::{schema::TracingOptions, utils::Item};
 
 use super::utils::Test;
 
@@ -11,12 +9,11 @@ fn large_list_u32() {
     let items = [Item(vec![0_u32, 1, 2]), Item(vec![3, 4]), Item(vec![])];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            false,
-        )
-        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "children": [{"name": "element", "data_type": "U32"}],
+        }]))
         .trace_schema_from_type::<Item<Vec<u32>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -33,12 +30,11 @@ fn large_list_nullable_u64() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            false,
-        )
-        .with_child(GenericField::new("element", GenericDataType::U64, true))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "children": [{"name": "element", "data_type": "U64", "nullable": true}],
+        }]))
         .trace_schema_from_type::<Item<Vec<Option<u64>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -55,12 +51,12 @@ fn nullable_large_list_u32() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            true,
-        )
-        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "nullable": true,
+            "children": [{"name": "element", "data_type": "U32"}],
+        }]))
         .trace_schema_from_type::<Item<Option<Vec<u32>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -72,12 +68,11 @@ fn list_u32() {
     let items = [Item(vec![0_u32, 1, 2]), Item(vec![3, 4]), Item(vec![])];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::List,
-            false,
-        )
-        .with_child(GenericField::new("element", GenericDataType::U32, false))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "List",
+            "children": [{"name": "element", "data_type": "U32"}],
+        }]))
         .serialize(&items)
         .deserialize(&items);
 }
@@ -91,15 +86,18 @@ fn nested_large_list_u32() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            false,
-        )
-        .with_child(
-            GenericField::new("element", GenericDataType::LargeList, false)
-                .with_child(GenericField::new("element", GenericDataType::U32, false)),
-        )])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "children": [{
+                "name": "element",
+                "data_type": "LargeList",
+                "children": [{
+                    "name": "element",
+                    "data_type": "U32",
+                }],
+            }],
+        }]))
         .trace_schema_from_type::<Item<Vec<Vec<u32>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -115,12 +113,12 @@ fn nullable_vec_bool() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            true,
-        )
-        .with_child(GenericField::new("element", GenericDataType::Bool, false))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "nullable": true,
+            "children": [{"name": "element", "data_type": "Bool"}],
+        }]))
         .trace_schema_from_type::<Item<Option<Vec<bool>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -136,15 +134,16 @@ fn nullable_vec_bool_nested() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            true,
-        )
-        .with_child(
-            GenericField::new("element", GenericDataType::LargeList, false)
-                .with_child(GenericField::new("element", GenericDataType::Bool, false)),
-        )])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "nullable": true,
+            "children": [{
+                "name": "element",
+                "data_type": "LargeList",
+                "children": [{"name": "element", "data_type": "Bool"}],
+            }],
+        }]))
         .trace_schema_from_type::<Item<Option<Vec<Vec<bool>>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -160,12 +159,11 @@ fn vec_nullable_bool() {
     ];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            false,
-        )
-        .with_child(GenericField::new("element", GenericDataType::Bool, true))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "children": [{"name": "element", "data_type": "Bool", "nullable": true}],
+        }]))
         .trace_schema_from_type::<Item<Vec<Option<bool>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
@@ -177,12 +175,11 @@ fn byte_arrays() {
     let items = [Item(b"hello".to_vec()), Item(b"world!".to_vec())];
 
     Test::new()
-        .with_schema(vec![GenericField::new(
-            "item",
-            GenericDataType::LargeList,
-            false,
-        )
-        .with_child(GenericField::new("element", GenericDataType::U8, false))])
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "LargeList",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
         .trace_schema_from_type::<Item<Vec<u8>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)

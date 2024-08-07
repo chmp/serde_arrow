@@ -273,12 +273,12 @@ pub struct DictionaryArrayView<'a> {
 pub struct DenseUnionArray {
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
-    pub fields: Vec<(Array, FieldMeta)>,
+    pub fields: Vec<(i8, Array, FieldMeta)>,
 }
 
 #[derive(Clone, Debug)]
 pub struct DenseUnionArrayView<'a> {
     pub types: &'a [i8],
     pub offsets: &'a [i32],
-    pub fields: Vec<(ArrayView<'a>, FieldMeta)>,
+    pub fields: Vec<(i8, ArrayView<'a>, FieldMeta)>,
 }
