@@ -6,7 +6,7 @@ use crate::{
     internal::{
         arrow::{DataType, Field, TimeUnit, UnionMode},
         error::{fail, Error, Result},
-        schema::{validate_field, SchemaLike, Sealed, SerdeArrowSchema},
+        schema::{validate_field, DataTypeDisplay, SchemaLike, Sealed, SerdeArrowSchema},
     },
 };
 
@@ -151,7 +151,7 @@ impl TryFrom<&DataType> for ArrowDataType {
     type Error = Error;
 
     fn try_from(value: &DataType) -> std::result::Result<Self, Self::Error> {
-        use {ArrowDataType as AT, DataType as T};
+        use {ArrowDataType as AT, ArrowField as AF, DataType as T, IntegerType as I};
         match value {
             T::Null => Ok(AT::Null),
             T::Boolean => Ok(AT::Boolean),
@@ -177,6 +177,70 @@ impl TryFrom<&DataType> for ArrowDataType {
                     fail!("arrow2 does not support decimals with negative scale");
                 }
                 Ok(AT::Decimal((*precision).try_into()?, (*scale).try_into()?))
+            }
+            T::Binary => Ok(AT::Binary),
+            T::LargeBinary => Ok(AT::LargeBinary),
+            T::Utf8 => Ok(AT::Utf8),
+            T::LargeUtf8 => Ok(AT::LargeUtf8),
+            T::Dictionary(key, value, sorted) => match key.as_ref() {
+                T::Int8 => Ok(AT::Dictionary(
+                    I::Int8,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::Int16 => Ok(AT::Dictionary(
+                    I::Int16,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::Int32 => Ok(AT::Dictionary(
+                    I::Int32,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::Int64 => Ok(AT::Dictionary(
+                    I::Int64,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::UInt8 => Ok(AT::Dictionary(
+                    I::UInt8,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::UInt16 => Ok(AT::Dictionary(
+                    I::UInt16,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::UInt32 => Ok(AT::Dictionary(
+                    I::UInt32,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                T::UInt64 => Ok(AT::Dictionary(
+                    I::UInt64,
+                    AT::try_from(value.as_ref())?.into(),
+                    *sorted,
+                )),
+                dt => fail!(
+                    "unsupported dictionary key type {dt}",
+                    dt = DataTypeDisplay(dt)
+                ),
+            },
+            T::List(field) => Ok(AT::List(AF::try_from(field.as_ref())?.into())),
+            T::LargeList(field) => Ok(AT::LargeList(AF::try_from(field.as_ref())?.into())),
+            T::FixedSizeList(field, n) => Ok(AT::FixedSizeList(
+                AF::try_from(field.as_ref())?.into(),
+                (*n).try_into()?,
+            )),
+            T::Map(field, sorted) => Ok(AT::Map(AF::try_from(field.as_ref())?.into(), *sorted)),
+            T::Struct(in_fields) => {
+                let mut fields = Vec::new();
+                for field in in_fields {
+                    fields.push(AF::try_from(field)?);
+                }
+                Ok(AT::Struct(fields))
             }
             _ => todo!(),
         }

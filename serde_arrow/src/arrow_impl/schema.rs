@@ -121,7 +121,7 @@ impl TryFrom<&ArrowDataType> for DataType {
     type Error = Error;
 
     fn try_from(value: &ArrowDataType) -> Result<DataType> {
-        use {ArrowDataType as AT, DataType as T};
+        use {ArrowDataType as AT, DataType as T, Field as F};
         match value {
             AT::Boolean => Ok(T::Boolean),
             AT::Null => Ok(T::Null),
@@ -151,6 +151,19 @@ impl TryFrom<&ArrowDataType> for DataType {
             AT::Binary => Ok(T::Binary),
             AT::LargeBinary => Ok(T::LargeBinary),
             AT::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(*n)),
+            AT::List(field) => Ok(T::List(F::try_from(field.as_ref())?.into())),
+            AT::LargeList(field) => Ok(T::LargeList(F::try_from(field.as_ref())?.into())),
+            AT::FixedSizeList(field, n) => {
+                Ok(T::FixedSizeList(F::try_from(field.as_ref())?.into(), *n))
+            }
+            AT::Map(field, sorted) => Ok(T::Map(F::try_from(field.as_ref())?.into(), *sorted)),
+            AT::Struct(in_fields) => {
+                let mut fields = Vec::new();
+                for field in in_fields {
+                    fields.push(field.as_ref().try_into()?);
+                }
+                Ok(T::Struct(fields))
+            }
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
@@ -175,7 +188,7 @@ impl TryFrom<&DataType> for ArrowDataType {
     type Error = Error;
 
     fn try_from(value: &DataType) -> std::result::Result<Self, Self::Error> {
-        use {ArrowDataType as AT, DataType as T};
+        use {ArrowDataType as AT, ArrowField as AF, DataType as T};
         match value {
             T::Boolean => Ok(AT::Boolean),
             T::Null => Ok(AT::Null),
@@ -205,6 +218,19 @@ impl TryFrom<&DataType> for ArrowDataType {
             T::Binary => Ok(AT::Binary),
             T::LargeBinary => Ok(AT::LargeBinary),
             T::FixedSizeBinary(n) => Ok(AT::FixedSizeBinary(*n)),
+            T::List(field) => Ok(AT::List(AF::try_from(field.as_ref())?.into())),
+            T::LargeList(field) => Ok(AT::LargeList(AF::try_from(field.as_ref())?.into())),
+            T::FixedSizeList(field, n) => {
+                Ok(AT::FixedSizeList(AF::try_from(field.as_ref())?.into(), *n))
+            }
+            T::Map(field, sorted) => Ok(AT::Map(AF::try_from(field.as_ref())?.into(), *sorted)),
+            T::Struct(in_fields) => {
+                let mut fields: Vec<FieldRef> = Vec::new();
+                for field in in_fields {
+                    fields.push(AF::try_from(field)?.into());
+                }
+                Ok(AT::Struct(fields.into()))
+            }
             _ => fail!("Only primitive data types can be converted to T"),
         }
     }
