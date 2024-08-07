@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{DataType, Field},
     error::{fail, Error, Result},
-    schema::transmute_field,
+    schema::{transmute_field, PrettyField},
 };
 
 /// Easily construct a field for tensors with fixed shape
@@ -145,11 +145,9 @@ impl TryFrom<&FixedShapeTensorField> for Field {
 
 impl serde::ser::Serialize for FixedShapeTensorField {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        // use serde::ser::Error;
-        // Field::try_from(self)
-        //     .map_err(S::Error::custom)?
-        //     .serialize(serializer)
-        todo!()
+        use serde::ser::Error;
+        let field = Field::try_from(self).map_err(S::Error::custom)?;
+        PrettyField(&field).serialize(serializer)
     }
 }
 
@@ -312,11 +310,9 @@ impl TryFrom<&VariableShapeTensorField> for Field {
 
 impl serde::ser::Serialize for VariableShapeTensorField {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        // use serde::ser::Error;
-        // GenericField::try_from(self)
-        //     .map_err(S::Error::custom)?
-        //     .serialize(serializer)
-        todo!()
+        use serde::ser::Error;
+        let field = Field::try_from(self).map_err(S::Error::custom)?;
+        PrettyField(&field).serialize(serializer)
     }
 }
 

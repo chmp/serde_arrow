@@ -12,27 +12,29 @@ use crate::{
 impl serde::Serialize for SerdeArrowSchema {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("SerdeArrowSchema", 1)?;
-        s.serialize_field("fields", &SerializableFields(&self.fields))?;
+        s.serialize_field("fields", &PrettyFields(&self.fields))?;
         s.end()
     }
 }
 
-pub struct SerializableFields<'a>(pub &'a [Field]);
+/// A wrapper around fields to serialize into a more compact format
+pub struct PrettyFields<'a>(pub &'a [Field]);
 
-impl<'a> serde::Serialize for SerializableFields<'a> {
+impl<'a> serde::Serialize for PrettyFields<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_seq(Some(self.0.len()))?;
         for field in self.0 {
-            s.serialize_element(&SerializableField(field))?;
+            s.serialize_element(&PrettyField(field))?;
         }
 
         s.end()
     }
 }
 
-pub struct SerializableField<'a>(pub &'a Field);
+/// A wrapper around a single field to serialize into a more compact format
+pub struct PrettyField<'a>(pub &'a Field);
 
-impl<'a> serde::Serialize for SerializableField<'a> {
+impl<'a> serde::Serialize for PrettyField<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let non_strategy_metadata = self
             .0
@@ -57,7 +59,7 @@ impl<'a> serde::Serialize for SerializableField<'a> {
 
         let mut s = serializer.serialize_struct("Field", num_fields)?;
         s.serialize_field("name", &self.0.name)?;
-        s.serialize_field("data_type", &SerializableDataType(&self.0.data_type))?;
+        s.serialize_field("data_type", &PrettyFieldDataType(&self.0.data_type))?;
 
         if self.0.nullable {
             s.serialize_field("nullable", &self.0.nullable)?;
@@ -69,15 +71,15 @@ impl<'a> serde::Serialize for SerializableField<'a> {
             s.serialize_field("strategy", strategy)?;
         }
         if is_data_type_with_children(&self.0.data_type) {
-            s.serialize_field("children", &SerializableDataTypeChildren(&self.0.data_type))?;
+            s.serialize_field("children", &PrettyFieldChildren(&self.0.data_type))?;
         }
         s.end()
     }
 }
 
-pub struct SerializableDataType<'a>(pub &'a DataType);
+struct PrettyFieldDataType<'a>(pub &'a DataType);
 
-impl<'a> serde::Serialize for SerializableDataType<'a> {
+impl<'a> serde::Serialize for PrettyFieldDataType<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use DataType as T;
         match self.0 {
@@ -119,9 +121,9 @@ impl<'a> serde::Serialize for SerializableDataType<'a> {
     }
 }
 
-pub struct SerializableDataTypeChildren<'a>(pub &'a DataType);
+struct PrettyFieldChildren<'a>(pub &'a DataType);
 
-impl<'a> serde::Serialize for SerializableDataTypeChildren<'a> {
+impl<'a> serde::Serialize for PrettyFieldChildren<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use DataType as T;
 
@@ -131,20 +133,20 @@ impl<'a> serde::Serialize for SerializableDataTypeChildren<'a> {
             | T::LargeList(entry)
             | T::List(entry) => {
                 let mut s = serializer.serialize_seq(Some(1))?;
-                s.serialize_element(&SerializableField(entry.as_ref()))?;
+                s.serialize_element(&PrettyField(entry.as_ref()))?;
                 s.end()
             }
             T::Struct(fields) => {
                 let mut s = serializer.serialize_seq(Some(fields.len()))?;
                 for field in fields {
-                    s.serialize_element(&SerializableField(field))?;
+                    s.serialize_element(&PrettyField(field))?;
                 }
                 s.end()
             }
             T::Union(fields, _) => {
                 let mut s = serializer.serialize_seq(Some(fields.len()))?;
                 for (_, field) in fields {
-                    s.serialize_element(&SerializableField(field))?;
+                    s.serialize_element(&PrettyField(field))?;
                 }
                 s.end()
             }
@@ -166,7 +168,7 @@ impl<'a> serde::Serialize for DictionaryField<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Field", 2)?;
         s.serialize_field("name", self.0)?;
-        s.serialize_field("data_type", &SerializableDataType(self.1))?;
+        s.serialize_field("data_type", &PrettyFieldDataType(self.1))?;
         s.end()
     }
 }

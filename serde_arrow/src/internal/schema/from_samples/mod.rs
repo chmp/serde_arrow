@@ -590,10 +590,7 @@ mod test {
     use serde::Serialize;
     use serde_json::{json, Value};
 
-    use crate::{
-        internal::schema::{transmute_field, TracingOptions},
-        schema::SchemaLike,
-    };
+    use crate::internal::schema::{transmute_field, TracingOptions};
 
     use super::*;
 
