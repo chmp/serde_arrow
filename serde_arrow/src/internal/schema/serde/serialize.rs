@@ -84,7 +84,7 @@ impl<'a> serde::Serialize for PrettyFieldDataType<'a> {
         use DataType as T;
         match self.0 {
             T::Null => "Null".serialize(serializer),
-            T::Boolean => "Boolean".serialize(serializer),
+            T::Boolean => "Bool".serialize(serializer),
             T::Int8 => "I8".serialize(serializer),
             T::Int16 => "I16".serialize(serializer),
             T::Int32 => "I32".serialize(serializer),
