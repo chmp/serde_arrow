@@ -484,8 +484,15 @@ fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
         fail!("invalid strategy for Map field: {strategy}");
     }
-    // TODO: validate entry
-
+    let DataType::Map(entry, _) = &field.data_type else {
+        fail!("Invalid data type for map child, expected a map");
+    };
+    let DataType::Struct(entry_fields) = &entry.data_type else {
+        fail!("Invalid child data type for map, expected struct with 2 fields");
+    };
+    if entry_fields.len() != 2 {
+        fail!("Invalid child data type for map, expected struct with 2 fields");
+    }
     Ok(())
 }
 
