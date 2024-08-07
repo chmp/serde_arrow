@@ -60,9 +60,9 @@ fn fieldless_union_out_of_order() {
                 "name": "item",
                 "data_type": "Union",
                 "children": [
-                    {"name": "A", "data_type": "Null"},
-                    {"name": "B", "data_type": "Null"},
-                    {"name": "C", "data_type": "Null"},
+                    {"name": "A", "data_type": "Null", "nullable": true},
+                    {"name": "B", "data_type": "Null", "nullable": true},
+                    {"name": "C", "data_type": "Null", "nullable": true},
                 ],
             },
         ]))
@@ -346,8 +346,8 @@ fn enums_union() {
                 "name": "item",
                 "data_type": "Union",
                 "children": [
-                    {"name": "A", "data_type": "Null"},
-                    {"name": "B", "data_type": "Null"},
+                    {"name": "A", "data_type": "Null", "nullable": true},
+                    {"name": "B", "data_type": "Null", "nullable": true},
                 ],
             },
         ]))

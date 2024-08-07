@@ -94,9 +94,14 @@ impl CustomField {
         let data_type = self.data_type.into_data_type(children)?;
         let metadata = merge_strategy_with_metadata(self.metadata, self.strategy)?;
 
+        let nullable = match &data_type {
+            DataType::Null => true,
+            _ => self.nullable,
+        };
+
         let field = Field {
             name: self.name,
-            nullable: self.nullable,
+            nullable,
             data_type,
             metadata,
         };

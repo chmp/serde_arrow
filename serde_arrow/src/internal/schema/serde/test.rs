@@ -107,3 +107,28 @@ fn list_field_complex() -> PanicOnError<()> {
 
     Ok(())
 }
+
+#[test]
+fn null_fields_are_nullable_implicitly() -> PanicOnError<()> {
+    let expected = SerdeArrowSchema {
+        fields: vec![Field {
+            name: String::from("item"),
+            data_type: DataType::Null,
+            metadata: hash_map!(),
+            nullable: true,
+        }],
+    };
+    let schema = json!({
+        "fields": [
+            {
+                "name": "item",
+                "data_type": "Null",
+            }
+        ],
+    });
+
+    let actual = SerdeArrowSchema::from_value(&schema)?;
+    assert_eq!(actual, expected);
+
+    Ok(())
+}
