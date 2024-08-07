@@ -369,6 +369,7 @@ fn issue_57() {
                 "data_type": "Union",
                 "children": [
                     {"name": "", "data_type": "Null", "strategy": "UnknownVariant"},
+                    {"name": "Deduced", "data_type": "Null"},
                 ],
             },
             {"name": "file_index", "data_type": "U64"},

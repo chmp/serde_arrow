@@ -189,7 +189,7 @@ fn tuple_nullable_nested() {
                             {"name": "1", "data_type": "I64"},
                         ],
                     },
-                    {"name": "1", "data_type": "Bool"},
+                    {"name": "1", "data_type": "I64"},
                 ],
             }
         ]))
