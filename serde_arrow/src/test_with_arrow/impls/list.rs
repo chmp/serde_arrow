@@ -33,7 +33,7 @@ fn large_list_nullable_u64() {
         .with_schema(json!([{
             "name": "item",
             "data_type": "LargeList",
-            "children": [{"name": "element", "data_type": "U32", "nullable": true}],
+            "children": [{"name": "element", "data_type": "U64", "nullable": true}],
         }]))
         .trace_schema_from_type::<Item<Vec<Option<u64>>>>(TracingOptions::default())
         .trace_schema_from_samples(&items, TracingOptions::default())

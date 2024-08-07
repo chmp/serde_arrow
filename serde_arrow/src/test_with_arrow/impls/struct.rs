@@ -352,6 +352,7 @@ fn flattened_structures() {
             {
                 "name": "item",
                 "data_type": "Struct",
+                "strategy": "MapAsStruct",
                 "children": [
                     {"name": "a", "data_type": "I64"},
                     {"name": "b", "data_type": "F32"},
@@ -458,7 +459,7 @@ fn struct_nullable_nested() {
                 "children": [
                     {
                         "name": "inner",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "a", "data_type": "Bool"},
                             {"name": "b", "data_type": "I64"},

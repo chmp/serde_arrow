@@ -1,22 +1,25 @@
 use serde_json::json;
 
-use crate::{internal::{
-    arrow::{DataType, Field},
-    error::PanicOnError,
-    schema::STRATEGY_KEY,
-    testing::hash_map,
-}, schema::{SchemaLike, SerdeArrowSchema}};
+use crate::{
+    internal::{
+        arrow::{DataType, Field},
+        error::PanicOnError,
+        schema::STRATEGY_KEY,
+        testing::hash_map,
+    },
+    schema::{SchemaLike, SerdeArrowSchema},
+};
 
 #[test]
 fn i16_field_simple() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema { fields: vec![
-        Field {
+    let schema = SerdeArrowSchema {
+        fields: vec![Field {
             name: String::from("my_field_name"),
             data_type: DataType::Int16,
             metadata: hash_map!(),
             nullable: false,
-        },
-    ]};
+        }],
+    };
     let expected = json!({
         "fields": [
             {
@@ -25,8 +28,6 @@ fn i16_field_simple() -> PanicOnError<()> {
             }
         ],
     });
-
-
 
     let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
@@ -39,8 +40,8 @@ fn i16_field_simple() -> PanicOnError<()> {
 
 #[test]
 fn date64_field_complex() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema {fields: vec![ 
-        Field {
+    let schema = SerdeArrowSchema {
+        fields: vec![Field {
             name: String::from("my_field_name"),
             data_type: DataType::Date64,
             metadata: hash_map!(
@@ -48,8 +49,8 @@ fn date64_field_complex() -> PanicOnError<()> {
                 STRATEGY_KEY => "NaiveStrAsDate64",
             ),
             nullable: true,
-        },
-    ]};
+        }],
+    };
     let expected = json!({
         "fields": [{
             "name": "my_field_name",
@@ -73,8 +74,8 @@ fn date64_field_complex() -> PanicOnError<()> {
 
 #[test]
 fn list_field_complex() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema {fields: vec![
-        Field {
+    let schema = SerdeArrowSchema {
+        fields: vec![Field {
             name: String::from("my_field_name"),
             data_type: DataType::List(Box::new(Field {
                 name: String::from("element"),
@@ -84,8 +85,8 @@ fn list_field_complex() -> PanicOnError<()> {
             })),
             metadata: hash_map!("foo" => "bar"),
             nullable: true,
-        },
-    ]};
+        }],
+    };
     let expected = json!({
         "fields": [{
             "name": "my_field_name",

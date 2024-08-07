@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::internal::{
     arrow::{DataType, Field, UnionMode},
-    schema::{tracer::Tracer, Strategy, TracingOptions, STRATEGY_KEY},
+    schema::{tracer::Tracer, transmute_field, Strategy, TracingOptions, STRATEGY_KEY},
     testing::assert_error,
     utils::Item,
 };
@@ -40,19 +41,26 @@ fn issue_90() {
     }
 
     let actual = trace_type::<VectorMetric>(TracingOptions::default());
-    let expected = new_field(
-        "item",
-        false,
-        DataType::Struct(vec![
-            new_field(
-                "distribution",
-                true,
-                DataType::Struct(vec![new_field("element", false, DataType::Float64)]),
-            ),
-            new_field("statistic", false, DataType::LargeUtf8),
-        ]),
-    );
-
+    let expected = transmute_field(json!({
+        "name": "item",
+        "data_type": "Struct",
+        "children": [
+            {
+                "name": "distribution",
+                "nullable": true,
+                "data_type": "Struct",
+                "children": [
+                    {
+                        "name": "samples",
+                        "data_type": "LargeList",
+                        "children": [{"name": "element", "data_type": "F64"}],
+                    },
+                    {"name": "statistic", "data_type": "LargeUtf8"},
+                ],
+            },
+        ],
+    }))
+    .unwrap();
     assert_eq!(actual, expected);
 }
 

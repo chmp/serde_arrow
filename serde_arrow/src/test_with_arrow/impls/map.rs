@@ -214,7 +214,7 @@ fn map_as_map() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "LargeUtf8"},
                             {"name": "value", "data_type": "U32"},
@@ -247,7 +247,7 @@ fn map_as_map_empty() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "LargeUtf8"},
                             {"name": "value", "data_type": "U32"},
@@ -279,7 +279,7 @@ fn map_as_map_int_keys() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I32"},
                             {"name": "value", "data_type": "U32"},
@@ -312,7 +312,7 @@ fn hash_maps() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I64"},
                             {"name": "value", "data_type": "Bool"},
@@ -346,7 +346,7 @@ fn hash_maps_nullable() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I64"},
                             {"name": "value", "data_type": "Bool"},
@@ -379,7 +379,7 @@ fn hash_maps_nullable_keys() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I64", "nullable": true},
                             {"name": "value", "data_type": "Bool"},
@@ -412,7 +412,7 @@ fn hash_maps_nullable_values() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I64"},
                             {"name": "value", "data_type": "Bool", "nullable": true},
@@ -445,7 +445,7 @@ fn btree_maps() {
                 "children": [
                     {
                         "name": "entries",
-                        "type": "Struct",
+                        "data_type": "Struct",
                         "children": [
                             {"name": "key", "data_type": "I64"},
                             {"name": "value", "data_type": "Bool"},

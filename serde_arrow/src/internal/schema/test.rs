@@ -10,19 +10,22 @@ use crate::internal::{
 
 #[test]
 fn example() {
-    let mut schema = SerdeArrowSchema::default();
-    schema.fields.push(Field {
-        name: String::from("foo"),
-        data_type: DataType::UInt8,
-        nullable: false,
-        metadata: HashMap::new(),
-    });
-    schema.fields.push(Field {
-        name: String::from("bar"),
-        data_type: DataType::Utf8,
-        nullable: false,
-        metadata: Default::default(),
-    });
+    let schema = SerdeArrowSchema {
+        fields: vec![
+            Field {
+                name: String::from("foo"),
+                data_type: DataType::UInt8,
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+            Field {
+                name: String::from("bar"),
+                data_type: DataType::Utf8,
+                nullable: false,
+                metadata: Default::default(),
+            },
+        ],
+    };
 
     let actual = serde_json::to_string(&schema).unwrap();
     assert_eq!(
@@ -36,19 +39,22 @@ fn example() {
 
 #[test]
 fn example_without_wrapper() {
-    let mut expected = SerdeArrowSchema::default();
-    expected.fields.push(Field {
-        name: String::from("foo"),
-        data_type: DataType::UInt8,
-        nullable: false,
-        metadata: HashMap::new(),
-    });
-    expected.fields.push(Field {
-        name: String::from("bar"),
-        data_type: DataType::Utf8,
-        nullable: false,
-        metadata: Default::default(),
-    });
+    let expected = SerdeArrowSchema {
+        fields: vec![
+            Field {
+                name: String::from("foo"),
+                data_type: DataType::UInt8,
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+            Field {
+                name: String::from("bar"),
+                data_type: DataType::Utf8,
+                nullable: false,
+                metadata: Default::default(),
+            },
+        ],
+    };
 
     let input = r#"[{"name":"foo","data_type":"U8"},{"name":"bar","data_type":"Utf8"}]"#;
     let actual: SerdeArrowSchema = serde_json::from_str(&input).unwrap();
@@ -57,18 +63,19 @@ fn example_without_wrapper() {
 
 #[test]
 fn list() {
-    let mut schema = SerdeArrowSchema::default();
-    schema.fields.push(Field {
-        name: String::from("value"),
-        data_type: DataType::List(Box::new(Field {
-            name: String::from("element"),
-            data_type: DataType::Int32,
+    let schema = SerdeArrowSchema {
+        fields: vec![Field {
+            name: String::from("value"),
+            data_type: DataType::List(Box::new(Field {
+                name: String::from("element"),
+                data_type: DataType::Int32,
+                nullable: false,
+                metadata: Default::default(),
+            })),
             nullable: false,
             metadata: Default::default(),
-        })),
-        nullable: false,
-        metadata: Default::default(),
-    });
+        }],
+    };
 
     let actual = serde_json::to_string(&schema).unwrap();
     assert_eq!(
@@ -91,32 +98,36 @@ fn doc_schema() {
 
     let actual: SerdeArrowSchema = serde_json::from_str(&schema).unwrap();
 
-    let mut expected = SerdeArrowSchema::default();
-    expected.fields.push(Field {
-        name: String::from("foo"),
-        data_type: DataType::UInt8,
-        nullable: false,
-        metadata: HashMap::new(),
-    });
-    expected.fields.push(Field {
-        name: String::from("bar"),
-        data_type: DataType::Utf8,
-        nullable: false,
-        metadata: Default::default(),
-    });
+    let expected = SerdeArrowSchema {
+        fields: vec![
+            Field {
+                name: String::from("foo"),
+                data_type: DataType::UInt8,
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+            Field {
+                name: String::from("bar"),
+                data_type: DataType::Utf8,
+                nullable: false,
+                metadata: Default::default(),
+            },
+        ],
+    };
 
     assert_eq!(actual, expected);
 }
 
 #[test]
 fn date64_with_strategy() {
-    let mut schema = SerdeArrowSchema::default();
-    schema.fields.push(Field {
-        name: String::from("item"),
-        data_type: DataType::Date64,
-        nullable: false,
-        metadata: hash_map!( STRATEGY_KEY => Strategy::NaiveStrAsDate64 ),
-    });
+    let schema = SerdeArrowSchema {
+        fields: vec![Field {
+            name: String::from("item"),
+            data_type: DataType::Date64,
+            nullable: false,
+            metadata: hash_map!( STRATEGY_KEY => Strategy::NaiveStrAsDate64 ),
+        }],
+    };
 
     let actual = serde_json::to_string(&schema).unwrap();
     assert_eq!(

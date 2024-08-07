@@ -5,7 +5,7 @@ use serde::{de::Visitor, Deserialize};
 use crate::internal::{
     arrow::{DataType, Field, TimeUnit, UnionMode},
     error::{fail, Result},
-    schema::{SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    schema::{validate_field, SerdeArrowSchema, Strategy, STRATEGY_KEY},
     utils::dsl::Term,
 };
 
@@ -94,12 +94,14 @@ impl CustomField {
         let data_type = self.data_type.into_data_type(children)?;
         let metadata = merge_strategy_with_metadata(self.metadata, self.strategy)?;
 
-        Ok(Field {
+        let field = Field {
             name: self.name,
             nullable: self.nullable,
             data_type,
             metadata,
-        })
+        };
+        validate_field(&field)?;
+        Ok(field)
     }
 }
 
