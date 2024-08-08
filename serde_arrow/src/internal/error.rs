@@ -211,3 +211,12 @@ impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
         panic!("{value}");
     }
 }
+
+#[test]
+fn error_can_be_converted_to_anyhow() {
+    fn func() -> anyhow::Result<()> {
+        Err(error!("dummy"))?;
+        Ok(())
+    }
+    assert!(func().is_err());
+}
