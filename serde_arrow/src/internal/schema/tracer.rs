@@ -20,7 +20,7 @@ const RECURSIVE_TYPE_WARNING: &str =
 fn default_dictionary_field(name: &str, nullable: bool) -> Field {
     Field {
         name: name.to_owned(),
-        nullable: nullable,
+        nullable,
         metadata: HashMap::new(),
         data_type: DataType::Dictionary(
             Box::new(DataType::UInt32),
@@ -560,7 +560,7 @@ impl Tracer {
                     (ty, ev) => fail!(
                         "Cannot accept event {ev} for tracer of primitive type {ty}",
                         ev = DataTypeDisplay(&ev),
-                        ty = DataTypeDisplay(&ty),
+                        ty = DataTypeDisplay(ty),
                     ),
                 };
                 tracer.item_type = item_type;

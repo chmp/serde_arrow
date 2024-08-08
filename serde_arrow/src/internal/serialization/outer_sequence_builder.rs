@@ -114,7 +114,7 @@ impl OuterSequenceBuilder {
                     build_builder(entry_field.as_ref())?,
                     field.nullable,
                 )?),
-                T::Struct(children) => A::Struct(build_struct(&children, field.nullable)?),
+                T::Struct(children) => A::Struct(build_struct(children, field.nullable)?),
                 T::Dictionary(key, value, _) => {
                     let key_field = Field {
                         name: "key".to_string(),
