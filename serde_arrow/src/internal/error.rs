@@ -1,5 +1,6 @@
 use std::{
     backtrace::{Backtrace, BacktraceStatus},
+    collections::BTreeMap,
     convert::Infallible,
 };
 
@@ -21,6 +22,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[non_exhaustive]
 pub enum Error {
     Custom(CustomError),
+    Annotated(AnnotatedError),
 }
 
 impl Error {
@@ -45,16 +47,51 @@ impl Error {
 }
 
 impl Error {
+    pub(crate) fn empty() -> Self {
+        Self::Custom(CustomError {
+            message: String::new(),
+            backtrace: Backtrace::disabled(),
+            cause: None,
+        })
+    }
+
     pub fn message(&self) -> &str {
         match self {
             Self::Custom(err) => &err.message,
+            Self::Annotated(err) => err.error.message(),
         }
     }
 
     pub fn backtrace(&self) -> &Backtrace {
         match self {
             Self::Custom(err) => &err.backtrace,
+            Self::Annotated(err) => &err.error.backtrace(),
         }
+    }
+
+    pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
+        match self {
+            Self::Custom(_) => None,
+            Self::Annotated(err) => Some(&err.annotations),
+        }
+    }
+
+    /// Ensure the error is annotated and return a mutable reference to the annotations
+    pub(crate) fn annotations_mut(&mut self) -> &mut BTreeMap<String, String> {
+        if !matches!(self, Self::Annotated(_)) {
+            let mut this = Error::empty();
+            std::mem::swap(self, &mut this);
+
+            *self = Self::Annotated(AnnotatedError {
+                error: Box::new(this),
+                annotations: BTreeMap::new(),
+            });
+        }
+
+        let Self::Annotated(err) = self else {
+            unreachable!();
+        };
+        &mut err.annotations
     }
 }
 
@@ -70,6 +107,17 @@ impl std::cmp::PartialEq for CustomError {
     }
 }
 
+pub struct AnnotatedError {
+    pub(crate) error: Box<Error>,
+    pub(crate) annotations: BTreeMap<String, String>,
+}
+
+impl std::cmp::PartialEq for AnnotatedError {
+    fn eq(&self, other: &Self) -> bool {
+        self.error.eq(&other.error) && self.annotations == other.annotations
+    }
+}
+
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<{self}>")
@@ -78,14 +126,35 @@ impl std::fmt::Debug for Error {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Custom(e) => write!(
-                f,
-                "Error: {msg}\n{bt}",
-                msg = e.message,
-                bt = BacktraceDisplay(&e.backtrace),
-            ),
+        write!(
+            f,
+            "Error: {msg}{annotations}\n{bt}",
+            msg = self.message(),
+            annotations = AnnotationsDisplay(self.annotations()),
+            bt = BacktraceDisplay(self.backtrace()),
+        )
+    }
+}
+
+struct AnnotationsDisplay<'a>(Option<&'a BTreeMap<String, String>>);
+
+impl<'a> std::fmt::Display for AnnotationsDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Some(annotations) = self.0 else {
+            return Ok(());
+        };
+        if annotations.is_empty() {
+            return Ok(());
         }
+
+        write!(f, "(")?;
+        for (idx, (key, value)) in annotations.iter().enumerate() {
+            if idx != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{key}: {value:?}")?;
+        }
+        write!(f, ")")
     }
 }
 

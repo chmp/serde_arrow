@@ -1,8 +1,10 @@
 use crate::internal::{
     arrow::{Array, BytesArray},
     error::{fail, Result},
-    utils::array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-    utils::Offset,
+    utils::{
+        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
+        Offset,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
