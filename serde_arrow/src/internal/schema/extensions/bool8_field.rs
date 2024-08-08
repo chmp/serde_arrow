@@ -6,14 +6,44 @@ use crate::internal::{
     schema::PrettyField,
 };
 
-/// A helper to construct fields with the Bool8 extension type
+/// A helper to construct new `Bool8` fields (`arrow.bool8`)
+///
+/// This extension type can be used with `overwrites` in schema tracing:
+///
+/// ```rust
+/// # use serde_json::json;
+/// # use serde_arrow::{Result, schema::{SerdeArrowSchema, SchemaLike, TracingOptions, ext::Bool8Field}};
+/// # use serde::Deserialize;
+/// # fn main() -> Result<()> {
+/// ##[derive(Deserialize)]
+/// struct Record {
+///     int_field: i32,
+///     nested: Nested,
+/// }
+///
+/// ##[derive(Deserialize)]
+/// struct Nested {
+///     bool_field: bool,
+/// }
+///
+/// let tracing_options = TracingOptions::default()
+///     .overwrite("nested.bool_field", Bool8Field::new("bool_field"))?;
+///
+/// let schema = SerdeArrowSchema::from_type::<Record>(tracing_options)?;
+/// # std::mem::drop(schema);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// It can also be converted to a `arrow` `Field` for manual schema manipulation.
+///
 pub struct Bool8Field {
     name: String,
     nullable: bool,
 }
 
 impl Bool8Field {
-    /// Construct a new `Bool8Field``
+    /// Construct a new non-nullable `Bool8Field`
     pub fn new(name: &str) -> Self {
         Self {
             name: name.into(),

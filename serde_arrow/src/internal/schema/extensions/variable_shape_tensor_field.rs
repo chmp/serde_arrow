@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Helper to build fields for tensors with variable shape
+/// Helper to build variable shape tensor fields (`arrow.variable_shape_tensor`)
 ///
 /// See the [arrow docs][variable-shape-tensor-field-docs] for details on the
 /// different fields.
@@ -26,6 +26,7 @@ pub struct VariableShapeTensorField {
 }
 
 impl VariableShapeTensorField {
+    /// Create a new non-nullable `VariableShapeTensorField`
     pub fn new(name: &str, element: impl serde::ser::Serialize, ndim: usize) -> Result<Self> {
         let element = transmute_field(element)?;
         if element.name != "element" {
