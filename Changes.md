@@ -7,6 +7,8 @@ Refactor the underlying implementation to prepare for further development
 New features
 
 - Add `Binary` / `LargeBinary` support for `arrow2`
+- Add support to serialize / deserialize `bool` from integer arrays
+- Add a helper to construct `Bool8` arrays
 
 API changes
 
