@@ -135,22 +135,20 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self>;
 
-    /// Determine the schema from the given record type. See [`TracingOptions`]
-    /// for customization options.
+    /// Determine the schema from the given record type. See [`TracingOptions`] for customization
+    /// options.
     ///
-    /// This approach requires the type `T` to implement
-    /// [`Deserialize`][serde::Deserialize]. As only type information is used,
-    /// it is not possible to detect data dependent properties. Examples of
-    /// unsupported features:
+    /// This approach requires the type `T` to implement [`Deserialize`][::serde::Deserialize]. As
+    /// only type information is used, it is not possible to detect data dependent properties.
+    /// Examples of unsupported features:
     ///
     /// - auto detection of date time strings
     /// - non self-describing types such as `serde_json::Value`
     /// - flattened structure (`#[serde(flatten)]`)
-    /// - types that require specific data to be deserialized, such as the
-    ///   `DateTime` type of `chrono` or the `Uuid` type of the `uuid` package
+    /// - types that require specific data to be deserialized, such as the `DateTime` type of
+    ///   `chrono` or the `Uuid` type of the `uuid` package
     ///
-    /// Consider using [`from_samples`][SchemaLike::from_samples] in these
-    /// cases.
+    /// Consider using [`from_samples`][SchemaLike::from_samples] in these cases.
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -199,20 +197,17 @@ pub trait SchemaLike: Sized + Sealed {
     /// ```
     fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
 
-    /// Determine the schema from samples. See [`TracingOptions`] for
-    /// customization options.
+    /// Determine the schema from samples. See [`TracingOptions`] for customization options.
     ///
-    /// This approach requires the type `T` to implement
-    /// [`Serialize`][serde::Serialize] and the samples to include all relevant
-    /// values. It uses only the information encoded in the samples to generate
-    /// the schema. Therefore, the following requirements must be met:
+    /// This approach requires the type `T` to implement [`Serialize`][::serde::Serialize] and the
+    /// samples to include all relevant values. It uses only the information encoded in the samples
+    /// to generate the schema. Therefore, the following requirements must be met:
     ///
     /// - at least one `Some` value for `Option<..>` fields
     /// - all variants of enum fields
     /// - at least one element for sequence fields (e.g., `Vec<..>`)
-    /// - at least one example for map types (e.g., `HashMap<.., ..>`). All
-    ///   possible keys must be given, if [`options.map_as_struct ==
-    ///   true`][TracingOptions::map_as_struct]).
+    /// - at least one example for map types (e.g., `HashMap<.., ..>`). All possible keys must be
+    ///   given, if [`options.map_as_struct == true`][TracingOptions::map_as_struct]).
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]

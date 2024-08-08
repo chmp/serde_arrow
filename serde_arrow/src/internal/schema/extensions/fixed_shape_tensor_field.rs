@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Easily construct a field for tensors with fixed shape
+/// Easily construct a fixed shape tensor fields (`arrow.fixed_shape_tensor`)
 ///
 /// See the [arrow docs][fixed-shape-tensor-docs] for details on the different
 /// fields.
@@ -51,7 +51,7 @@ pub struct FixedShapeTensorField {
 }
 
 impl FixedShapeTensorField {
-    /// Construct a new instance
+    /// Construct a new non-nullable `FixedShapeTensorField`
     ///
     /// Note the element parameter must serialize into a valid field definition
     /// with the the name `"element"`. The field type can be any valid Arrow

@@ -1,8 +1,14 @@
 use serde::de::Visitor;
 
 use crate::internal::{
-    deserialization::outer_sequence_deserializer::OuterSequenceDeserializer,
+    arrow::{ArrayView, Field},
+    deserialization::{
+        array_deserializer::ArrayDeserializer,
+        outer_sequence_deserializer::OuterSequenceDeserializer,
+    },
     error::{fail, Error, Result},
+    schema::get_strategy_from_metadata,
+    utils::array_view_ext::ArrayViewExt,
 };
 
 /// A structure to deserialize Arrow arrays into Rust objects
@@ -13,6 +19,30 @@ use crate::internal::{
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`Deserializer::from_arrow2`]")]
 pub struct Deserializer<'de>(pub(crate) OuterSequenceDeserializer<'de>);
+
+impl<'de> Deserializer<'de> {
+    pub(crate) fn new(fields: &[Field], views: Vec<ArrayView<'de>>) -> Result<Self> {
+        let len = match views.first() {
+            Some(view) => view.len(),
+            None => 0,
+        };
+
+        let mut deserializers = Vec::new();
+        for (field, view) in std::iter::zip(fields, views) {
+            if view.len() != len {
+                fail!("Cannot deserialize from arrays with different lengths");
+            }
+            let strategy = get_strategy_from_metadata(&field.metadata)?;
+            let deserializer = ArrayDeserializer::new(strategy.as_ref(), view)?;
+            deserializers.push((field.name.clone(), deserializer));
+        }
+
+        let deserializer = OuterSequenceDeserializer::new(deserializers, len);
+        let deserializer = Deserializer(deserializer);
+
+        Ok(deserializer)
+    }
+}
 
 impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
     type Error = Error;

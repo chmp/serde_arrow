@@ -3,13 +3,11 @@ use serde::Serialize;
 use crate::internal::{
     arrow::{Array, FixedSizeBinaryArray},
     error::{fail, Result},
+    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
     utils::Mut,
 };
 
-use super::{
-    array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 

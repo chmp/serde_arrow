@@ -1,13 +1,11 @@
 use crate::internal::{
     arrow::{Array, DecimalArray, PrimitiveArray},
     error::Result,
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
     utils::decimal::{self, DecimalParser},
 };
 
-use super::{
-    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {

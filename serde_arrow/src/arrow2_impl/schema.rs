@@ -193,7 +193,7 @@ impl TryFrom<&DataType> for ArrowDataType {
                 if *scale < 0 {
                     fail!("arrow2 does not support decimals with negative scale");
                 }
-                Ok(AT::Decimal((*precision).try_into()?, (*scale).try_into()?))
+                Ok(AT::Decimal((*precision).into(), (*scale).try_into()?))
             }
             T::Binary => Ok(AT::Binary),
             T::LargeBinary => Ok(AT::LargeBinary),
@@ -266,7 +266,7 @@ impl TryFrom<&DataType> for ArrowDataType {
 
                 for (type_id, field) in in_fields {
                     fields.push(AF::try_from(field)?);
-                    type_ids.push((*type_id).try_into()?);
+                    type_ids.push((*type_id).into());
                 }
                 Ok(AT::Union(fields, Some(type_ids), (*mode).into()))
             }

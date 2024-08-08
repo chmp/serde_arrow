@@ -1,7 +1,6 @@
 //! A serialization implementation without the event model
 
 pub mod array_builder;
-pub mod array_ext;
 pub mod binary_builder;
 pub mod bool_builder;
 pub mod date32_builder;

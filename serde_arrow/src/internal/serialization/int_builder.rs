@@ -1,12 +1,10 @@
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
     error::{Error, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
-use super::{
-    array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    simple_serializer::SimpleSerializer,
-};
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct IntBuilder<I>(PrimitiveArray<I>);
@@ -75,6 +73,11 @@ where
 
     fn serialize_none(&mut self) -> Result<()> {
         self.0.push_scalar_none()
+    }
+
+    fn serialize_bool(&mut self, v: bool) -> Result<()> {
+        let v: u8 = if v { 1 } else { 0 };
+        self.0.push_scalar_value(I::try_from(v)?)
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {

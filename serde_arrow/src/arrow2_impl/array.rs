@@ -149,7 +149,7 @@ impl TryFrom<Array> for ArrayRef {
                     let child: ArrayRef = child.try_into()?;
                     let field = field_from_array_and_meta(child.as_ref(), meta);
 
-                    type_ids.push(type_id.try_into()?);
+                    type_ids.push(type_id.into());
                     values.push(child);
                     fields.push(field);
                 }

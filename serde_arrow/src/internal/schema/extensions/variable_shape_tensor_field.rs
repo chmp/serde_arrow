@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Helper to build fields for tensors with variable shape
+/// Helper to build variable shape tensor fields (`arrow.variable_shape_tensor`)
 ///
 /// See the [arrow docs][variable-shape-tensor-field-docs] for details on the
 /// different fields.
@@ -26,6 +26,7 @@ pub struct VariableShapeTensorField {
 }
 
 impl VariableShapeTensorField {
+    /// Create a new non-nullable `VariableShapeTensorField`
     pub fn new(name: &str, element: impl serde::ser::Serialize, ndim: usize) -> Result<Self> {
         let element = transmute_field(element)?;
         if element.name != "element" {
@@ -134,27 +135,28 @@ impl TryFrom<&VariableShapeTensorField> for Field {
         );
         metadata.insert("ARROW:extension:metadata".into(), value.get_ext_metadata()?);
 
-        let mut fields = Vec::new();
-        fields.push(Field {
-            name: String::from("data"),
-            data_type: DataType::List(Box::new(value.element.clone())),
-            nullable: false,
-            metadata: HashMap::new(),
-        });
-        fields.push(Field {
-            name: String::from("shape"),
-            data_type: DataType::FixedSizeList(
-                Box::new(Field {
-                    name: String::from("element"),
-                    data_type: DataType::Int32,
-                    nullable: false,
-                    metadata: HashMap::new(),
-                }),
-                value.ndim.try_into()?,
-            ),
-            nullable: false,
-            metadata: HashMap::new(),
-        });
+        let fields = vec![
+            Field {
+                name: String::from("data"),
+                data_type: DataType::List(Box::new(value.element.clone())),
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+            Field {
+                name: String::from("shape"),
+                data_type: DataType::FixedSizeList(
+                    Box::new(Field {
+                        name: String::from("element"),
+                        data_type: DataType::Int32,
+                        nullable: false,
+                        metadata: HashMap::new(),
+                    }),
+                    value.ndim.try_into()?,
+                ),
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+        ];
 
         Ok(Field {
             name: value.name.clone(),
