@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use serde::ser::{SerializeSeq, SerializeStruct};
 
-use crate::{
-    internal::arrow::{DataType, Field},
+use crate::internal::{
+    arrow::{DataType, Field},
     schema::{SerdeArrowSchema, STRATEGY_KEY},
 };
 

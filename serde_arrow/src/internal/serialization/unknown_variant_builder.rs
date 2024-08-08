@@ -1,11 +1,8 @@
 use serde::Serialize;
 
-use crate::{
-    internal::{
-        arrow::{Array, NullArray},
-        error::fail,
-    },
-    Result,
+use crate::internal::{
+    arrow::{Array, NullArray},
+    error::{fail, Result},
 };
 
 use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
