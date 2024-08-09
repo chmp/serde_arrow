@@ -16,7 +16,7 @@
 //! # #[cfg(has_arrow)]
 //! # fn main() {
 //! # use serde_arrow::_impl::arrow as arrow;
-//! use arrow::datatypes::{DataType, Field};
+//! use arrow::datatypes::{DataType, FieldRef};
 //! use serde_arrow::{
 //!     schema::{SchemaLike, Strategy, TracingOptions},
 //!     utils::{Item, Items},
@@ -37,7 +37,7 @@
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, FieldRef};
 //! # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
 //! use chrono::NaiveDateTime;
 //!
@@ -46,7 +46,7 @@
 //!     // ...
 //! ];
 //!
-//! let fields = Vec::<Field>::from_samples(items, TracingOptions::default())?;
+//! let fields = Vec::<FieldRef>::from_samples(items, TracingOptions::default())?;
 //! assert_eq!(fields[0].data_type(), &DataType::LargeUtf8);
 //! # Ok(())
 //! # }
@@ -74,6 +74,7 @@
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
+//! # use std::sync::Arc;
 //! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
 //! # use serde_arrow::utils::Item;
 //! let records: &[Item<i64>] = &[
@@ -81,7 +82,7 @@
 //!     Item(9 * 60 * 60 * 24 * 1000),
 //! ];
 //!
-//! let fields = vec![Field::new("item", DataType::Date64, false)];
+//! let fields = vec![Arc::new(Field::new("item", DataType::Date64, false))];
 //! let arrays = serde_arrow::to_arrow(&fields, records)?;
 //! # Ok(())
 //! # }
@@ -95,7 +96,7 @@
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-//! # use serde_arrow::_impl::arrow::datatypes::Field;
+//! # use serde_arrow::_impl::arrow::datatypes::FieldRef;
 //! # use serde_arrow::{schema::SchemaLike, utils::Item};
 //! use std::str::FromStr;
 //!
@@ -107,7 +108,7 @@
 //!     Item(BigDecimal::from_str("4.56").unwrap()),
 //! ];
 //!
-//! let fields = Vec::<Field>::from_value(&json!([
+//! let fields = Vec::<FieldRef>::from_value(&json!([
 //!     {"name": "item", "data_type": "Decimal128(5, 2)"},
 //! ]))?;
 //!
@@ -145,10 +146,10 @@
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
-//! # use serde_arrow::_impl::arrow::datatypes::Field;
+//! # use serde_arrow::_impl::arrow::datatypes::FieldRef;
 //! # use serde_arrow::{schema::{SchemaLike, TracingOptions}, utils::Item};
 //! let items = &[Item("foo"), Item("bar")];
-//! let fields = Vec::<Field>::from_samples(
+//! let fields = Vec::<FieldRef>::from_samples(
 //!     items,
 //!     TracingOptions::default().string_dictionary_encoding(true),
 //! )?;

@@ -1,36 +1,35 @@
 use serde::de::Visitor;
 
-use crate::internal::{error::fail, error::Result, utils::Mut};
+use crate::internal::{
+    arrow::BooleanArrayView,
+    error::{fail, Result},
+    utils::Mut,
+};
 
-use super::{simple_deserializer::SimpleDeserializer, utils::BitBuffer};
+use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BoolDeserializer<'a> {
-    pub buffer: BitBuffer<'a>,
-    pub validity: Option<BitBuffer<'a>>,
+    pub view: BooleanArrayView<'a>,
     pub next: usize,
 }
 
 impl<'a> BoolDeserializer<'a> {
-    pub fn new(buffer: BitBuffer<'a>, validity: Option<BitBuffer<'a>>) -> Self {
-        Self {
-            buffer,
-            validity,
-            next: 0,
-        }
+    pub fn new(view: BooleanArrayView<'a>) -> Self {
+        Self { view, next: 0 }
     }
 
     fn next(&mut self) -> Result<Option<bool>> {
-        if self.next >= self.buffer.len() {
+        if self.next >= self.view.len {
             fail!("Exhausted BoolDeserializer");
         }
-        if let Some(validty) = &self.validity {
-            if !validty.is_set(self.next) {
+        if let Some(validty) = &self.view.validity {
+            if !bitset_is_set(validty, self.next)? {
                 self.next += 1;
                 return Ok(None);
             }
         }
 
-        let val = self.buffer.is_set(self.next);
+        let val = bitset_is_set(&self.view.values, self.next)?;
         self.next += 1;
         Ok(Some(val))
     }
@@ -44,10 +43,10 @@ impl<'a> BoolDeserializer<'a> {
     }
 
     fn peek_next(&self) -> Result<bool> {
-        if self.next >= self.buffer.len() {
+        if self.next >= self.view.len {
             fail!("Exhausted BoolDeserializer");
-        } else if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next))
+        } else if let Some(validity) = &self.view.validity {
+            bitset_is_set(validity, self.next)
         } else {
             Ok(true)
         }

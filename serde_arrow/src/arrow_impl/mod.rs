@@ -5,7 +5,6 @@
 //!
 #![deny(missing_docs)]
 pub(crate) mod api;
-mod deserialization;
+mod array;
 mod schema;
-pub(crate) mod serialization;
 mod type_support;

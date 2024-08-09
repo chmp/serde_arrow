@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{
-    internal::testing::assert_error,
+use crate::internal::{
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+    testing::assert_error,
 };
 
 #[test]

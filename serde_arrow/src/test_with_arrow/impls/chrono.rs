@@ -10,6 +10,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[test]
+fn trace_from_type_does_not_work() {
+    let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
+    assert_error(&res, "premature end of input");
+}
+
+#[test]
 fn utc_as_str() {
     let items = [
         Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),

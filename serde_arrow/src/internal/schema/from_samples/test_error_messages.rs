@@ -1,8 +1,8 @@
 use serde::Serialize;
 
-use crate::{
-    internal::testing::assert_error,
+use crate::internal::{
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
+    testing::assert_error,
 };
 
 #[test]

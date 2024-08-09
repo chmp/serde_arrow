@@ -22,12 +22,12 @@ pub fn example_record_batch() -> crate::_impl::arrow::array::RecordBatch {
 }
 
 #[cfg(has_arrow)]
-pub fn example_arrow_arrays() -> (Vec<crate::_impl::arrow::datatypes::Field>, Vec<crate::_impl::arrow::array::ArrayRef>) {
+pub fn example_arrow_arrays() -> (Vec<crate::_impl::arrow::datatypes::FieldRef>, Vec<crate::_impl::arrow::array::ArrayRef>) {
     use crate::schema::{SchemaLike, TracingOptions};
 
     let items = example_records();
 
-    let fields = Vec::<crate::_impl::arrow::datatypes::Field>::from_type::<Record>(TracingOptions::default()).unwrap();
+    let fields = Vec::<crate::_impl::arrow::datatypes::FieldRef>::from_type::<Record>(TracingOptions::default()).unwrap();
     let arrays = crate::to_arrow(&fields, &items).unwrap();
 
     (fields, arrays)

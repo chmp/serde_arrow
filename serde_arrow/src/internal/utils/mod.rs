@@ -1,3 +1,5 @@
+pub mod array_ext;
+pub mod array_view_ext;
 pub mod decimal;
 pub mod dsl;
 pub mod value;
@@ -8,6 +10,8 @@ mod test_value;
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::error::Result;
+
+use super::arrow::{Field, FieldMeta};
 
 /// A wrapper around a sequence of items
 ///
@@ -151,7 +155,7 @@ impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
 pub struct Mut<'a, T>(pub &'a mut T);
 
 /// A trait to handle different offset types
-pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default {
+pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default + 'static {
     fn try_form_usize(val: usize) -> Result<Self>;
     fn try_into_usize(self) -> Result<usize>;
 }
@@ -174,4 +178,12 @@ impl Offset for i64 {
     fn try_into_usize(self) -> Result<usize> {
         Ok(self.try_into()?)
     }
+}
+
+pub fn meta_from_field(field: Field) -> Result<FieldMeta> {
+    Ok(FieldMeta {
+        name: field.name,
+        nullable: field.nullable,
+        metadata: field.metadata,
+    })
 }

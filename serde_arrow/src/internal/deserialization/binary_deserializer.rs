@@ -1,35 +1,29 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
+    arrow::BytesArrayView,
     error::{fail, Error, Result},
     utils::{Mut, Offset},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::BitBuffer};
+use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BinaryDeserializer<'a, O: Offset> {
-    pub buffer: &'a [u8],
-    pub offsets: &'a [O],
-    pub validity: Option<BitBuffer<'a>>,
+    pub view: BytesArrayView<'a, O>,
     pub next: (usize, usize),
 }
 
 impl<'a, O: Offset> BinaryDeserializer<'a, O> {
-    pub fn new(buffer: &'a [u8], offsets: &'a [O], validity: Option<BitBuffer<'a>>) -> Self {
-        Self {
-            buffer,
-            offsets,
-            validity,
-            next: (0, 0),
-        }
+    pub fn new(view: BytesArrayView<'a, O>) -> Self {
+        Self { view, next: (0, 0) }
     }
 
     pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 + 1 >= self.offsets.len() {
+        if self.next.0 + 1 >= self.view.offsets.len() {
             fail!("Exhausted ListDeserializer")
         }
-        if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next.0))
+        if let Some(validity) = &self.view.validity {
+            bitset_is_set(validity, self.next.0)
         } else {
             Ok(true)
         }
@@ -39,16 +33,21 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
         self.next = (self.next.0 + 1, 0);
     }
 
-    pub fn next_slice(&mut self) -> Result<&'a [u8]> {
+    pub fn peek_next_slice_range(&self) -> Result<(usize, usize)> {
         let (item, _) = self.next;
-        if item + 1 >= self.offsets.len() {
+        if item + 1 >= self.view.offsets.len() {
             fail!("called next_slices on exhausted BinaryDeserializer");
         }
-        let end = self.offsets[item + 1].try_into_usize()?;
-        let start = self.offsets[item].try_into_usize()?;
-        self.next = (item + 1, 0);
+        let end = self.view.offsets[item + 1].try_into_usize()?;
+        let start = self.view.offsets[item].try_into_usize()?;
+        Ok((start, end))
+    }
 
-        Ok(&self.buffer[start..end])
+    pub fn next_slice(&mut self) -> Result<&'a [u8]> {
+        let (start, end) = self.peek_next_slice_range()?;
+        let (item, _) = self.next;
+        self.next = (item + 1, 0);
+        Ok(&self.view.data[start..end])
     }
 }
 
@@ -96,11 +95,7 @@ impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
         seed: T,
     ) -> Result<Option<T::Value>> {
         let (item, offset) = self.next;
-        if item + 1 >= self.offsets.len() {
-            return Ok(None);
-        }
-        let end = self.offsets[item + 1].try_into_usize()?;
-        let start = self.offsets[item].try_into_usize()?;
+        let (start, end) = self.peek_next_slice_range()?;
 
         if offset >= end - start {
             self.next = (item + 1, 0);
@@ -108,7 +103,7 @@ impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
         }
         self.next = (item, offset + 1);
 
-        let mut item_deserializer = U8Deserializer(self.buffer[start + offset]);
+        let mut item_deserializer = U8Deserializer(self.view.data[start + offset]);
         let item = seed.deserialize(Mut(&mut item_deserializer))?;
         Ok(Some(item))
     }

@@ -1,52 +1,51 @@
 use serde::de::{IgnoredAny, SeqAccess, Visitor};
 
 use crate::internal::{
+    arrow::BitsWithOffset,
     error::{fail, Error, Result},
     utils::Mut,
 };
 
 use super::{
     array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::BitBuffer,
+    utils::bitset_is_set,
 };
 
 pub struct FixedSizeListDeserializer<'a> {
     pub item: Box<ArrayDeserializer<'a>>,
-    pub validity: Option<BitBuffer<'a>>,
-    pub n: usize,
-    pub len: usize,
+    pub validity: Option<BitsWithOffset<'a>>,
+    pub shape: (usize, usize),
     pub next: (usize, usize),
 }
 
 impl<'a> FixedSizeListDeserializer<'a> {
     pub fn new(
         item: ArrayDeserializer<'a>,
-        validity: Option<BitBuffer<'a>>,
+        validity: Option<BitsWithOffset<'a>>,
         n: usize,
         len: usize,
     ) -> Self {
         Self {
             item: Box::new(item),
             validity,
-            n,
-            len,
+            shape: (len, n),
             next: (0, 0),
         }
     }
 
     pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 >= self.len {
+        if self.next.0 >= self.shape.0 {
             fail!("Exhausted ListDeserializer")
         }
         if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next.0))
+            Ok(bitset_is_set(validity, self.next.0)?)
         } else {
             Ok(true)
         }
     }
 
     pub fn consume_next(&mut self) -> Result<()> {
-        for _ in 0..self.n {
+        for _ in 0..self.shape.1 {
             self.item.deserialize_ignored_any(IgnoredAny)?;
         }
 
@@ -91,11 +90,11 @@ impl<'de> SeqAccess<'de> for FixedSizeListDeserializer<'de> {
         seed: T,
     ) -> Result<Option<T::Value>> {
         let (item, offset) = self.next;
-        if item >= self.len {
+        if item >= self.shape.0 {
             return Ok(None);
         }
 
-        if offset >= self.n {
+        if offset >= self.shape.1 {
             self.next = (item + 1, 0);
             return Ok(None);
         }

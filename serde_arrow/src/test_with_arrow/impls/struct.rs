@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
-    utils::Item,
-};
+use crate::internal::{schema::TracingOptions, utils::Item};
 
 use super::utils::Test;
 
@@ -15,18 +12,21 @@ fn r#struct() {
         a: u32,
         b: bool,
     }
-
-    type Ty = S;
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::Bool, false));
-
     let values = [Item(S { a: 1, b: true }), Item(S { a: 2, b: false })];
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<S>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -34,16 +34,6 @@ fn r#struct() {
 
 #[test]
 fn struct_nested() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::Bool, false))
-        .with_child(
-            GenericField::new("c", GenericDataType::Struct, false)
-                .with_child(GenericField::new("d", GenericDataType::I32, false))
-                .with_child(GenericField::new("e", GenericDataType::U16, false)),
-        );
-
-    type Ty = S;
     let values = [Item(S::default()), Item(S::default())];
 
     #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
@@ -60,8 +50,25 @@ fn struct_nested() {
     }
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                    {
+                        "name": "c",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "d", "data_type": "I32"},
+                            {"name": "e", "data_type": "U16"},
+                        ],
+                    }
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<S>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -69,10 +76,6 @@ fn struct_nested() {
 
 #[test]
 fn struct_nullable_field() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::U32, true))
-        .with_child(GenericField::new("b", GenericDataType::Bool, false));
-    type Ty = S;
     let values = [
         Item(S {
             a: Some(1),
@@ -92,8 +95,17 @@ fn struct_nullable_field() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32", "nullable": true},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<S>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -101,10 +113,6 @@ fn struct_nullable_field() {
 
 #[test]
 fn nullable_struct() {
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::Bool, false));
-    type Ty = Option<S>;
     let values = [
         Item(Some(S { a: 1, b: true })),
         Item(None),
@@ -118,8 +126,18 @@ fn nullable_struct() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<S>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -127,15 +145,6 @@ fn nullable_struct() {
 
 #[test]
 fn nullable_nested_struct() {
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(
-            GenericField::new("b", GenericDataType::Struct, true)
-                .with_child(GenericField::new("c", GenericDataType::I16, false))
-                .with_child(GenericField::new("d", GenericDataType::F64, false)),
-        );
-    type Ty = Option<S1>;
-
     let values = [
         Item(Some(S1 { a: 1, b: None })),
         Item(None),
@@ -159,8 +168,26 @@ fn nullable_nested_struct() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {
+                        "name": "b",
+                        "data_type": "Struct",
+                        "nullable": true,
+                        "children": [
+                            {"name": "c", "data_type": "I16"},
+                            {"name": "d", "data_type": "F64"},
+                        ]
+                    },
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<S1>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -168,10 +195,6 @@ fn nullable_nested_struct() {
 
 #[test]
 fn nullable_struct_nullable_fields() {
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_child(GenericField::new("a", GenericDataType::U32, true))
-        .with_child(GenericField::new("b", GenericDataType::Bool, true));
-    type Ty = Option<S>;
     let values = [
         Item(Some(S {
             a: Some(1),
@@ -195,8 +218,18 @@ fn nullable_struct_nullable_fields() {
     }
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {"name": "a", "data_type": "U32", "nullable": true},
+                    {"name": "b", "data_type": "Bool", "nullable": true},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<S>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -204,14 +237,6 @@ fn nullable_struct_nullable_fields() {
 
 #[test]
 fn nullable_struct_list_field() {
-    let field =
-        GenericField::new("item", GenericDataType::Struct, true)
-            .with_child(GenericField::new("a", GenericDataType::U32, false))
-            .with_child(
-                GenericField::new("b", GenericDataType::LargeList, true)
-                    .with_child(GenericField::new("element", GenericDataType::Bool, false)),
-            );
-    type Ty = Option<S>;
     let values = [
         Item(Some(S { a: 1, b: None })),
         Item(Some(S {
@@ -232,8 +257,25 @@ fn nullable_struct_list_field() {
     }
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {
+                        "name": "b",
+                        "data_type": "LargeList",
+                        "nullable": true,
+                        "children": [
+                            {"name": "element", "data_type": "Bool"},
+                        ],
+                    },
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<S>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -241,10 +283,6 @@ fn nullable_struct_list_field() {
 
 #[test]
 fn serde_flatten() {
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::I8, false))
-        .with_child(GenericField::new("value", GenericDataType::Bool, false));
     let values = [Item(Some(LocalItem {
         a: 0,
         b: Inner { value: true },
@@ -263,7 +301,18 @@ fn serde_flatten() {
     }
     let tracing_options = TracingOptions::default().map_as_struct(true);
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "I8"},
+                    {"name": "value", "data_type": "Bool"},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -271,12 +320,6 @@ fn serde_flatten() {
 
 #[test]
 fn flattened_structures() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::I64, false))
-        .with_child(GenericField::new("b", GenericDataType::F32, false))
-        .with_child(GenericField::new("c", GenericDataType::F64, false))
-        .with_strategy(Strategy::MapAsStruct);
-
     let values = [
         Item(Outer {
             a: 0,
@@ -305,7 +348,18 @@ fn flattened_structures() {
     }
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "I64"},
+                    {"name": "b", "data_type": "F32"},
+                    {"name": "c", "data_type": "F64"},
+                ],
+            }
+        ]))
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -314,12 +368,6 @@ fn flattened_structures() {
 #[test]
 fn struct_nullable() {
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_child(GenericField::new("a", GenericDataType::Bool, false))
-        .with_child(GenericField::new("b", GenericDataType::I64, false))
-        .with_child(GenericField::new("c", GenericDataType::Null, true))
-        .with_child(GenericField::new("d", GenericDataType::LargeUtf8, false));
-    type Ty = Option<Struct>;
     let values = [
         Item(Some(Struct {
             a: true,
@@ -348,8 +396,20 @@ fn struct_nullable() {
         d: String,
     }
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {"name": "a", "data_type": "Bool"},
+                    {"name": "b", "data_type": "I64"},
+                    {"name": "c", "data_type": "Null"},
+                    {"name": "d", "data_type": "LargeUtf8"},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<Struct>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -358,14 +418,6 @@ fn struct_nullable() {
 #[test]
 fn struct_nullable_nested() {
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Struct, true).with_child(
-        GenericField::new("inner", GenericDataType::Struct, false)
-            .with_child(GenericField::new("a", GenericDataType::Bool, false))
-            .with_child(GenericField::new("b", GenericDataType::I64, false))
-            .with_child(GenericField::new("c", GenericDataType::Null, true))
-            .with_child(GenericField::new("d", GenericDataType::LargeUtf8, false)),
-    );
-    type Ty = Option<Outer>;
     let values = [
         Item(Some(Outer {
             inner: Struct {
@@ -399,8 +451,26 @@ fn struct_nullable_nested() {
     }
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "children": [
+                    {
+                        "name": "inner",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "a", "data_type": "Bool"},
+                            {"name": "b", "data_type": "I64"},
+                            {"name": "c", "data_type": "Null"},
+                            {"name": "d", "data_type": "LargeUtf8"},
+                        ]
+                    },
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<Option<Outer>>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);
@@ -409,12 +479,6 @@ fn struct_nullable_nested() {
 #[test]
 fn struct_nullable_item() {
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_child(GenericField::new("a", GenericDataType::Bool, true))
-        .with_child(GenericField::new("b", GenericDataType::I64, true))
-        .with_child(GenericField::new("c", GenericDataType::Null, true))
-        .with_child(GenericField::new("d", GenericDataType::LargeUtf8, true));
-    type Ty = StructNullable;
     let values = [
         Item(StructNullable {
             a: None,
@@ -439,8 +503,19 @@ fn struct_nullable_item() {
     }
 
     Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "Bool", "nullable": true},
+                    {"name": "b", "data_type": "I64", "nullable": true},
+                    {"name": "c", "data_type": "Null", "nullable": true},
+                    {"name": "d", "data_type": "LargeUtf8", "nullable": true},
+                ],
+            }
+        ]))
+        .trace_schema_from_type::<Item<StructNullable>>(tracing_options.clone())
         .trace_schema_from_samples(&values, tracing_options.clone())
         .serialize(&values)
         .deserialize(&values);

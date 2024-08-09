@@ -1,6 +1,9 @@
-use crate::Result;
+use crate::internal::{
+    arrow::{Array, NullArray},
+    error::Result,
+};
 
-use super::utils::SimpleSerializer;
+use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone, Default)]
 pub struct NullBuilder {
@@ -20,6 +23,10 @@ impl NullBuilder {
 
     pub fn is_nullable(&self) -> bool {
         true
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Null(NullArray { len: self.count }))
     }
 }
 

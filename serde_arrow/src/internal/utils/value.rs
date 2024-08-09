@@ -1,7 +1,7 @@
 //! Serialize values into a in-memory representation
 use serde::{de::DeserializeOwned, forward_to_deserialize_any, Serialize};
 
-use crate::{internal::error::fail, Error, Result};
+use crate::internal::error::{fail, Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variant(u32, &'static str);

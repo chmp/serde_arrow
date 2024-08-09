@@ -1,4 +1,5 @@
 pub mod array_builder;
+pub mod arrow;
 pub mod deserialization;
 pub mod deserializer;
 pub mod error;

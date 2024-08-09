@@ -1,5 +1,6 @@
 mod utils;
 
+mod bool8;
 mod bytes;
 mod chrono;
 mod dictionary;
@@ -14,6 +15,7 @@ mod tuple;
 mod r#union;
 mod wrappers;
 
+mod issue_203_uuid;
 mod issue_59_decimals;
 mod issue_74_unknown_fields;
 mod issue_79_declared_but_missing_fields;

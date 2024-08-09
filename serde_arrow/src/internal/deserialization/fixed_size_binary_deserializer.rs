@@ -1,35 +1,47 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
+    arrow::FixedSizeBinaryArrayView,
     error::{fail, Error, Result},
     utils::Mut,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::BitBuffer};
+use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct FixedSizeBinaryDeserializer<'a> {
-    pub buffer: &'a [u8],
-    pub validity: Option<BitBuffer<'a>>,
+    pub view: FixedSizeBinaryArrayView<'a>,
     pub next: (usize, usize),
     pub shape: (usize, usize),
 }
 
 impl<'a> FixedSizeBinaryDeserializer<'a> {
-    pub fn new(shape: (usize, usize), buffer: &'a [u8], validity: Option<BitBuffer<'a>>) -> Self {
-        Self {
-            buffer,
-            validity,
+    pub fn new(view: FixedSizeBinaryArrayView<'a>) -> Result<Self> {
+        let n = usize::try_from(view.n)?;
+        if view.data.len() % n != 0 {
+            fail!(
+                concat!(
+                    "Invalid FixedSizeBinary array: Data of len {len} is not ",
+                    "evenly divisible into chunks of size {n}",
+                ),
+                len = view.data.len(),
+                n = n,
+            );
+        }
+
+        let shape = (view.data.len() / n, n);
+        Ok(Self {
+            view,
             shape,
             next: (0, 0),
-        }
+        })
     }
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 >= self.shape.0 {
             fail!("Exhausted ListDeserializer")
         }
-        if let Some(validity) = &self.validity {
-            Ok(validity.is_set(self.next.0))
+        if let Some(validity) = &self.view.validity {
+            Ok(bitset_is_set(validity, self.next.0)?)
         } else {
             Ok(true)
         }
@@ -46,7 +58,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         }
         self.next = (item + 1, 0);
 
-        Ok(&self.buffer[item * self.shape.1..(item + 1) * self.shape.1])
+        Ok(&self.view.data[item * self.shape.1..(item + 1) * self.shape.1])
     }
 }
 
@@ -102,7 +114,7 @@ impl<'de> SeqAccess<'de> for FixedSizeBinaryDeserializer<'de> {
             return Ok(None);
         }
         self.next = (item, offset + 1);
-        let mut item_deserializer = U8Deserializer(self.buffer[item * self.shape.1 + offset]);
+        let mut item_deserializer = U8Deserializer(self.view.data[item * self.shape.1 + offset]);
         let item = seed.deserialize(Mut(&mut item_deserializer))?;
         Ok(Some(item))
     }

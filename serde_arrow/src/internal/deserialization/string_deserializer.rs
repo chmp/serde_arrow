@@ -1,43 +1,37 @@
 use crate::internal::{
+    arrow::BytesArrayView,
     error::{error, fail, Result},
     utils::{Mut, Offset},
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::BitBuffer,
+    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::bitset_is_set,
 };
 
 pub struct StringDeserializer<'a, O: Offset> {
-    pub data: &'a [u8],
-    pub offsets: &'a [O],
-    pub validity: Option<BitBuffer<'a>>,
+    pub view: BytesArrayView<'a, O>,
     pub next: usize,
 }
 
 impl<'a, O: Offset> StringDeserializer<'a, O> {
-    pub fn new(data: &'a [u8], offsets: &'a [O], validity: Option<BitBuffer<'a>>) -> Self {
-        Self {
-            data,
-            offsets,
-            validity,
-            next: 0,
-        }
+    pub fn new(view: BytesArrayView<'a, O>) -> Self {
+        Self { view, next: 0 }
     }
 
     pub fn next(&mut self) -> Result<Option<&'a str>> {
-        if self.next + 1 > self.offsets.len() {
+        if self.next + 1 > self.view.offsets.len() {
             fail!("Tried to deserialize a value from an exhausted StringDeserializer");
         }
 
-        if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+        if let Some(validity) = &self.view.validity {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(None);
             }
         }
 
-        let start = self.offsets[self.next].try_into_usize()?;
-        let end = self.offsets[self.next + 1].try_into_usize()?;
-        let s = std::str::from_utf8(&self.data[start..end])?;
+        let start = self.view.offsets[self.next].try_into_usize()?;
+        let end = self.view.offsets[self.next + 1].try_into_usize()?;
+        let s = std::str::from_utf8(&self.view.data[start..end])?;
 
         self.next += 1;
 
@@ -51,12 +45,12 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 
     pub fn peek_next(&self) -> Result<bool> {
-        if self.next + 1 > self.offsets.len() {
+        if self.next + 1 > self.view.offsets.len() {
             fail!("Tried to deserialize a value from an exhausted StringDeserializer");
         }
 
-        if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+        if let Some(validity) = &self.view.validity {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(false);
             }
         }

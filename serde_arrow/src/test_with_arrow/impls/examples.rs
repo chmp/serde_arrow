@@ -1,9 +1,5 @@
 use super::utils::Test;
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    schema::{Strategy, TracingOptions},
-    utils::Item,
-};
+use crate::internal::{schema::TracingOptions, utils::Item};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -296,14 +292,19 @@ fn fieldless_unions_in_a_struct() {
     ];
 
     Test::new()
-        .with_schema(vec![
-            GenericField::new("foo", GenericDataType::U32, false),
-            GenericField::new("bar", GenericDataType::Union, false)
-                .with_child(GenericField::new("A", GenericDataType::Null, true))
-                .with_child(GenericField::new("B", GenericDataType::Null, true))
-                .with_child(GenericField::new("C", GenericDataType::Null, true)),
-            GenericField::new("baz", GenericDataType::F32, false),
-        ])
+        .with_schema(json!([
+            {"name": "foo", "data_type": "U32"},
+            {
+                "name": "bar",
+                "data_type": "Union",
+                "children": [
+                    {"name": "A", "data_type": "Null"},
+                    {"name": "B", "data_type": "Null"},
+                    {"name": "C", "data_type": "Null"},
+                ],
+            },
+            {"name": "baz", "data_type": "F32"},
+        ]))
         .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
         .trace_schema_from_type::<S>(TracingOptions::default().allow_null_fields(true))
         .serialize(&items)
@@ -353,26 +354,26 @@ fn issue_57() {
     }];
 
     Test::new()
-        .with_schema(vec![
-            GenericField::new("filename", GenericDataType::LargeUtf8, false),
-            GenericField::new("game_type", GenericDataType::Union, false)
-                .with_child(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
-                )
-                .with_child(GenericField::new(
-                    "RegularSeason",
-                    GenericDataType::Null,
-                    true,
-                )),
-            GenericField::new("account_type", GenericDataType::Union, false)
-                .with_child(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
-                )
-                .with_child(GenericField::new("Deduced", GenericDataType::Null, true)),
-            GenericField::new("file_index", GenericDataType::U64, false),
-        ])
+        .with_schema(json!([
+            {"name": "filename", "data_type": "LargeUtf8"},
+            {
+                "name": "game_type",
+                "data_type": "Union",
+                "children": [
+                    {"name": "", "data_type": "Null", "strategy": "UnknownVariant"},
+                    {"name": "RegularSeason", "data_type": "Null"},
+                ],
+            },
+            {
+                "name": "account_type",
+                "data_type": "Union",
+                "children": [
+                    {"name": "", "data_type": "Null", "strategy": "UnknownVariant"},
+                    {"name": "Deduced", "data_type": "Null"},
+                ],
+            },
+            {"name": "file_index", "data_type": "U64"},
+        ]))
         .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
         // NOTE: trace_from_type discovers all variants
         // .trace_schema_from_type::<FileInfo>(TracingOptions::default().allow_null_fields(true))
@@ -392,10 +393,10 @@ fn simple_example() {
     let items = &[S { a: 2.0, b: 4 }, S { a: -123.0, b: 9 }];
 
     Test::new()
-        .with_schema(vec![
-            GenericField::new("a", GenericDataType::F32, false),
-            GenericField::new("b", GenericDataType::U32, false),
-        ])
+        .with_schema(json!([
+            {"name": "a", "data_type": "F32", "nullable": false},
+            {"name": "b", "data_type": "U32", "nullable": false},
+        ]))
         .trace_schema_from_samples(items, TracingOptions::default().allow_null_fields(true))
         .serialize(items)
         .deserialize(items)
@@ -422,10 +423,10 @@ fn top_level_nullables() {
     ];
 
     Test::new()
-        .with_schema(vec![
-            GenericField::new("a", GenericDataType::F32, true),
-            GenericField::new("b", GenericDataType::U32, true),
-        ])
+        .with_schema(json!([
+            {"name": "a", "data_type": "F32", "nullable": true},
+            {"name": "b", "data_type": "U32", "nullable": true},
+        ]))
         .trace_schema_from_samples(items, TracingOptions::default().allow_null_fields(true))
         .serialize(items)
         .deserialize(items)
@@ -440,7 +441,7 @@ fn new_type_wrappers() {
     let items = [Item(U64(0)), Item(U64(1)), Item(U64(2))];
 
     Test::new()
-        .with_schema(vec![GenericField::new("item", GenericDataType::U64, false)])
+        .with_schema(json!([{"name": "item", "data_type": "U64"}]))
         .trace_schema_from_samples(&items, TracingOptions::default().allow_null_fields(true))
         .trace_schema_from_type::<Item<U64>>(TracingOptions::default().allow_null_fields(true))
         .serialize(&items)

@@ -1,35 +1,36 @@
 use crate::internal::{
+    arrow::{Array, DenseUnionArray, FieldMeta},
     error::{fail, Result},
-    schema::GenericField,
     utils::Mut,
 };
 
-use super::{utils::SimpleSerializer, ArrayBuilder};
+use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
-    pub field: GenericField,
-    pub fields: Vec<ArrayBuilder>,
+    pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
     pub current_offset: Vec<i32>,
 }
 
 impl UnionBuilder {
-    pub fn new(field: GenericField, fields: Vec<ArrayBuilder>) -> Result<Self> {
-        Ok(Self {
-            field,
+    pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
+        Self {
             current_offset: vec![0; fields.len()],
             types: Vec::new(),
             offsets: Vec::new(),
             fields,
-        })
+        }
     }
 
     pub fn take(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
-            fields: self.fields.iter_mut().map(|field| field.take()).collect(),
+            fields: self
+                .fields
+                .iter_mut()
+                .map(|(field, meta)| (field.take(), meta.clone()))
+                .collect(),
             types: std::mem::take(&mut self.types),
             offsets: std::mem::take(&mut self.offsets),
             current_offset: std::mem::replace(&mut self.current_offset, vec![0; self.fields.len()]),
@@ -39,12 +40,25 @@ impl UnionBuilder {
     pub fn is_nullable(&self) -> bool {
         false
     }
+
+    pub fn into_array(self) -> Result<Array> {
+        let mut fields = Vec::new();
+        for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
+            fields.push((idx.try_into()?, builder.into_array()?, meta));
+        }
+
+        Ok(Array::DenseUnion(DenseUnionArray {
+            types: self.types,
+            offsets: self.offsets,
+            fields,
+        }))
+    }
 }
 
 impl UnionBuilder {
     pub fn serialize_variant(&mut self, variant_index: u32) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
-        let Some(variant_builder) = self.fields.get_mut(variant_index) else {
+        let Some((variant_builder, _)) = self.fields.get_mut(variant_index) else {
             fail!("Unknown variant {variant_index}");
         };
 

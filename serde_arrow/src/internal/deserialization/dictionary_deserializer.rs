@@ -1,15 +1,14 @@
 use serde::de::Visitor;
 
 use crate::internal::{
+    arrow::{BytesArrayView, PrimitiveArrayView},
     error::{fail, Result},
     utils::{Mut, Offset},
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess,
-    integer_deserializer::Integer,
-    simple_deserializer::SimpleDeserializer,
-    utils::{ArrayBufferIterator, BitBuffer},
+    enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
+    simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
@@ -19,17 +18,16 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
-    pub fn new(
-        keys_buffer: &'a [K],
-        keys_validity: Option<BitBuffer<'a>>,
-        data: &'a [u8],
-        offsets: &'a [V],
-    ) -> Self {
-        Self {
-            keys: ArrayBufferIterator::new(keys_buffer, keys_validity),
-            offsets,
-            data,
+    pub fn new(keys: PrimitiveArrayView<'a, K>, values: BytesArrayView<'a, V>) -> Result<Self> {
+        if values.validity.is_some() {
+            // TODO: check whether all values are defined?
+            fail!("dictionaries with nullable values are not supported");
         }
+        Ok(Self {
+            keys: ArrayBufferIterator::new(keys.values, keys.validity),
+            offsets: values.offsets,
+            data: values.data,
+        })
     }
 
     pub fn next_str(&mut self) -> Result<&str> {
