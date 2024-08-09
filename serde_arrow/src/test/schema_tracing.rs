@@ -266,3 +266,129 @@ mod json_date64_to_string_coercions {
     test!(null_str_naive, [{"date": null}, {"date": "baz"}, {"date": "2024-08-09T12:15:00"}]);
     test!(null_naive_str, [{"date": null}, {"date": "2024-08-09T12:15:00"}, {"date": "baz"}]);
 }
+
+mod untagged_enum_number_coercion {
+    use serde::Serialize;
+
+    use super::*;
+
+    #[derive(Debug, Serialize)]
+    #[serde(untagged)]
+    enum Num {
+        Null(()),
+        I8(i8),
+        I16(i16),
+        I32(i32),
+        I64(i64),
+        U8(u8),
+        U16(u16),
+        U32(u32),
+        U64(u64),
+        F32(f32),
+        F64(f64),
+    }
+
+    macro_rules! test_impl {
+        ($name:ident, $data_type:expr, $nullable:expr, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "0",
+                        "data_type": $data_type,
+                        "nullable": $nullable,
+                    },
+                ]))?;
+
+                let data = $($data)*;
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().coerce_numbers(true))?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    macro_rules! test {
+        ($name:ident, $data_type:expr, $nullable:expr, [$a:expr, $b:expr]) => {
+            mod $name {
+                use super::*;
+
+                test_impl!(ab, $data_type, $nullable, [$a, $b]);
+                test_impl!(ba, $data_type, $nullable, [$b, $a]);
+            }
+        };
+        ($name:ident, $data_type:expr, $nullable:expr, [$a:expr, $b:expr, $c:expr]) => {
+            mod $name {
+                use super::*;
+
+                test_impl!(abc, $data_type, $nullable, [$a, $b, $c]);
+                test_impl!(acb, $data_type, $nullable, [$a, $c, $b]);
+                test_impl!(bac, $data_type, $nullable, [$b, $a, $c]);
+                test_impl!(bca, $data_type, $nullable, [$b, $c, $a]);
+                test_impl!(cab, $data_type, $nullable, [$c, $a, $b]);
+                test_impl!(cba, $data_type, $nullable, [$c, $b, $a]);
+            }
+        };
+    }
+
+    test!(i32_i32_undecorated, "I32", false, [(0_i32,), (0_i32,)]);
+    test!(i8_i8, "I8", false, [(Num::I8(0),), (Num::I8(0),)]);
+    test!(i16_i16, "I16", false, [(Num::I16(0),), (Num::I16(0),)]);
+    test!(i32_i32, "I32", false, [(Num::I32(0),), (Num::I32(0),)]);
+    test!(i64_i64, "I64", false, [(Num::I64(0),), (Num::I64(0),)]);
+    test!(u8_u8, "U8", false, [(Num::U8(0),), (Num::U8(0),)]);
+    test!(u16_u16, "U16", false, [(Num::U16(0),), (Num::U16(0),)]);
+    test!(u32_u32, "U32", false, [(Num::U32(0),), (Num::U32(0),)]);
+    test!(u64_u64, "U64", false, [(Num::U64(0),), (Num::U64(0),)]);
+    test!(f32_f32, "F32", false, [(Num::F32(0.0),), (Num::F32(0.0),)]);
+    test!(f64_f64, "F64", false, [(Num::F64(0.0),), (Num::F64(0.0),)]);
+
+    // _, null -> nullable
+    test!(i8_null, "I8", true, [(Num::I8(0),), (Num::Null(()),)]);
+    test!(i16_null, "I16", true, [(Num::I16(0),), (Num::Null(()),)]);
+    test!(i32_null, "I32", true, [(Num::I32(0),), (Num::Null(()),)]);
+    test!(i64_null, "I64", true, [(Num::I64(0),), (Num::Null(()),)]);
+    test!(u8_null, "U8", true, [(Num::U8(0),), (Num::Null(()),)]);
+    test!(u16_null, "U16", true, [(Num::U16(0),), (Num::Null(()),)]);
+    test!(u32_null, "U32", true, [(Num::U32(0),), (Num::Null(()),)]);
+    test!(u64_null, "U64", true, [(Num::U64(0),), (Num::Null(()),)]);
+    test!(f32_null, "F32", true, [(Num::F32(0.0),), (Num::Null(()),)]);
+    test!(f64_null, "F64", true, [(Num::F64(0.0),), (Num::Null(()),)]);
+
+    // unsigned, unsigned -> u64
+    test!(u8_u16, "U64", false, [(Num::U8(0),), (Num::U16(0),)]);
+    test!(u8_u32, "U64", false, [(Num::U8(0),), (Num::U32(0),)]);
+    test!(u8_u64, "U64", false, [(Num::U8(0),), (Num::U64(0),)]);
+    test!(u16_u32, "U64", false, [(Num::U16(0),), (Num::U32(0),)]);
+    test!(u16_u64, "U64", false, [(Num::U16(0),), (Num::U64(0),)]);
+    test!(u32_u64, "U64", false, [(Num::U32(0),), (Num::U64(0),)]);
+
+    // signed,signed -> i64
+    test!(i8_i16, "I64", false, [(Num::I8(0),), (Num::I16(0),)]);
+    test!(i8_i32, "I64", false, [(Num::I8(0),), (Num::I32(0),)]);
+    test!(i8_i64, "I64", false, [(Num::I8(0),), (Num::I64(0),)]);
+    test!(i16_i32, "I64", false, [(Num::I16(0),), (Num::I32(0),)]);
+    test!(i16_i64, "I64", false, [(Num::I16(0),), (Num::I64(0),)]);
+    test!(i32_i64, "I64", false, [(Num::I32(0),), (Num::I64(0),)]);
+
+    // float, float -> f64
+    test!(f32_f64, "F64", false, [(Num::F32(0.0),), (Num::F64(0.0),)]);
+
+    // float, number -> f64
+    test!(f32_i8, "F64", false, [(Num::F32(0.0),), (Num::I8(0),)]);
+    test!(f32_i16, "F64", false, [(Num::F32(0.0),), (Num::I16(0),)]);
+    test!(f32_i32, "F64", false, [(Num::F32(0.0),), (Num::I32(0),)]);
+    test!(f32_i64, "F64", false, [(Num::F32(0.0),), (Num::I64(0),)]);
+    test!(f32_u8, "F64", false, [(Num::F32(0.0),), (Num::U8(0),)]);
+    test!(f32_u16, "F64", false, [(Num::F32(0.0),), (Num::U16(0),)]);
+    test!(f32_u32, "F64", false, [(Num::F32(0.0),), (Num::U32(0),)]);
+    test!(f32_u64, "F64", false, [(Num::F32(0.0),), (Num::U64(0),)]);
+    test!(f64_i8, "F64", false, [(Num::F64(0.0),), (Num::I8(0),)]);
+    test!(f64_i16, "F64", false, [(Num::F64(0.0),), (Num::I16(0),)]);
+    test!(f64_i32, "F64", false, [(Num::F64(0.0),), (Num::I32(0),)]);
+    test!(f64_i64, "F64", false, [(Num::F64(0.0),), (Num::I64(0),)]);
+    test!(f64_u8, "F64", false, [(Num::F64(0.0),), (Num::U8(0),)]);
+    test!(f64_u16, "F64", false, [(Num::F64(0.0),), (Num::U16(0),)]);
+    test!(f64_u32, "F64", false, [(Num::F64(0.0),), (Num::U32(0),)]);
+    test!(f64_u64, "F64", false, [(Num::F64(0.0),), (Num::U64(0),)]);
+}

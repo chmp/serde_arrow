@@ -518,6 +518,7 @@ fn coerce_primitive_type(
     };
 
     let res = match (prev, curr) {
+        ((prev_ty, nullable, prev_st), (curr_ty, curr_st)) if prev_ty == &curr_ty && prev_st == curr_st.as_ref() => (curr_ty, nullable, curr_st),
         ((Null, _, _), (curr_ty, curr_st)) => (curr_ty, true, curr_st),
         ((prev_ty, _, prev_st), (Null, _)) => (prev_ty.clone(), true, prev_st.cloned()),
         // unsigned x unsigned -> u64
@@ -538,7 +539,6 @@ fn coerce_primitive_type(
         ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
         ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => (LargeUtf8, nullable, None),
-        ((prev_ty, nullable, prev_st), (curr_ty, curr_st)) if *prev_ty == curr_ty && prev_st == curr_st.as_ref() => (curr_ty, nullable, curr_st),
         ((prev_ty, _, prev_st), (curr_ty, curr_st)) => fail!("Cannot accept event {curr_ty} with strategy {curr_st:?} for tracer of primitive type {prev_ty} with strategy {prev_st:?}"),
     };
     Ok(res)
