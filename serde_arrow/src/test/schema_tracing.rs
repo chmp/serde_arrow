@@ -42,7 +42,7 @@ mod json_i64_null {
                 ]))?;
 
                 let data = json!($($data)*);
-                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default())?;
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().coerce_numbers(true))?;
                 assert_eq!(actual, expected);
                 Ok(())
             }
@@ -54,7 +54,7 @@ mod json_i64_null {
     test!(null_neg_pos, [{"value": null}, {"value": -13}, {"value": 42}]);
     test!(null_pos_neg, [{"value": null}, {"value": 42}, {"value": -13}]);
     test!(neg_null_pos, [{"value": -13}, {"value": null}, {"value": 42}]);
-    test!(neg_pos, [{"value": -13}, {"value": 42}, {"value": null}]);
+    test!(neg_pos_null, [{"value": -13}, {"value": 42}, {"value": null}]);
 }
 
 // Positive ints are traced as u64

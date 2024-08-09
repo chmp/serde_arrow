@@ -442,110 +442,96 @@ impl Tracer {
         item_type: GenericDataType,
         strategy: Option<Strategy>,
     ) -> Result<()> {
-        if self.is_unknown() {
-            let tracer = dispatch_tracer!(self, tracer => PrimitiveTracer::new(
-                tracer.name.clone(),
-                tracer.path.clone(),
-                tracer.options.clone(),
-                item_type,
-                tracer.nullable,
-            ))
-            .with_strategy(strategy);
-            *self = Self::Primitive(tracer);
-        } else if let Tracer::Primitive(tracer) = self {
-            use {
-                GenericDataType::Date64, GenericDataType::LargeUtf8, Strategy::NaiveStrAsDate64,
-                Strategy::UtcStrAsDate64,
-            };
-            let (item_type, strategy) = match ((&tracer.item_type), (item_type)) {
-                (Date64, Date64) => match (&tracer.strategy, strategy) {
-                    (Some(NaiveStrAsDate64), Some(NaiveStrAsDate64)) => {
-                        (Date64, Some(NaiveStrAsDate64))
-                    }
-                    (Some(UtcStrAsDate64), Some(UtcStrAsDate64)) => (Date64, Some(UtcStrAsDate64)),
-                    // incompatible strategies, coerce to string
-                    (_, _) => (LargeUtf8, None),
-                },
-                (LargeUtf8, _) | (_, LargeUtf8) => (LargeUtf8, None),
-                (prev_ty, new_ty) => {
-                    fail!("mismatched types, previous {prev_ty}, current {new_ty}")
-                }
-            };
-            tracer.item_type = item_type;
-            tracer.strategy = strategy;
-        } else {
-            let Some(ty) = self.get_type() else {
-                unreachable!("tracer cannot be unknown");
-            };
-            fail!("mismatched types, previous {ty}, current {item_type}");
-        }
-        Ok(())
+        self.ensure_primitive_with_strategy(item_type, strategy)
     }
 
     pub fn ensure_primitive(&mut self, item_type: GenericDataType) -> Result<()> {
-        match self {
-            this @ Self::Unknown(_) => {
-                let tracer = dispatch_tracer!(this, tracer => PrimitiveTracer::new(
-                    tracer.name.clone(),
-                    tracer.path.clone(),
-                    tracer.options.clone(),
-                    item_type,
-                    tracer.nullable,
-                ));
-                *this = Self::Primitive(tracer);
-            }
-            Self::Primitive(tracer) if tracer.item_type == item_type => {}
-            _ => fail!(
-                "mismatched types, previous {:?}, current {:?}",
-                self.get_type(),
-                item_type
-            ),
-        }
-        Ok(())
+        self.ensure_primitive_with_strategy(item_type, None)
     }
 
     pub fn ensure_number(&mut self, item_type: GenericDataType) -> Result<()> {
+        self.ensure_primitive_with_strategy(item_type, None)
+    }
+
+    fn ensure_primitive_with_strategy(
+        &mut self,
+        item_type: GenericDataType,
+        strategy: Option<Strategy>,
+    ) -> Result<()> {
         match self {
             this @ Self::Unknown(_) => {
-                let tracer = dispatch_tracer!(this, tracer => PrimitiveTracer::new(
-                    tracer.name.clone(),
-                    tracer.path.clone(),
-                    tracer.options.clone(),
+                let is_null_type = matches!(item_type, GenericDataType::Null);
+                let tracer = dispatch_tracer!(this, tracer => PrimitiveTracer {
+                    name: tracer.name.clone(),
+                    path: tracer.path.clone(),
+                    options: tracer.options.clone(),
+                    nullable: tracer.nullable || is_null_type,
                     item_type,
-                    tracer.nullable,
-                ));
+                    strategy,
+                });
                 *this = Self::Primitive(tracer);
             }
-            Self::Primitive(tracer) if tracer.options.coerce_numbers => {
-                use GenericDataType::{F32, F64, I16, I32, I64, I8, U16, U32, U64, U8};
-                let item_type = match (&tracer.item_type, item_type) {
-                    // unsigned x unsigned -> u64
-                    (U8 | U16 | U32 | U64, U8 | U16 | U32 | U64) => U64,
-                    // signed x signed -> i64
-                    (I8 | I16 | I32 | I64, I8 | I16 | I32 | I64) => I64,
-                    // signed x unsigned -> i64
-                    (I8 | I16 | I32 | I64, U8 | U16 | U32 | U64) => I64,
-                    // unsigned x signed -> i64
-                    (U8 | U16 | U32 | U64, I8 | I16 | I32 | I64) => I64,
-                    // float x float -> f64
-                    (F32 | F64, F32 | F64) => F64,
-                    // int x float -> f64
-                    (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, F32 | F64) => F64,
-                    // float x int -> f64
-                    (F32 | F64, I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64) => F64,
-                    (ty, ev) => fail!("Cannot accept event {ev} for tracer of primitive type {ty}"),
-                };
-                tracer.item_type = item_type;
+            this @ (Self::List(_)
+            | Self::Map(_)
+            | Self::Struct(_)
+            | Self::Tuple(_)
+            | Self::Union(_)) => {
+                if matches!(item_type, GenericDataType::Null) {
+                    dispatch_tracer!(this, tracer => { tracer.nullable = true });
+                } else {
+                    fail!("Cannot merge {ty:?} with {item_type}", ty = this.get_type());
+                }
             }
-            Self::Primitive(tracer) if tracer.item_type == item_type => {}
-            _ => fail!(
-                "mismatched types, previous {:?}, current {:?}",
-                self.get_type(),
-                item_type
-            ),
+            Self::Primitive(tracer) => {
+                let (item_type, nullable, strategy) = coerce_primitive_type(
+                    (&tracer.item_type, tracer.nullable, tracer.strategy.as_ref()),
+                    (item_type, strategy),
+                    tracer.options.as_ref(),
+                )?;
+
+                tracer.item_type = item_type;
+                tracer.strategy = strategy;
+                tracer.nullable = nullable;
+            }
         }
         Ok(())
     }
+}
+
+fn coerce_primitive_type(
+    prev: (&GenericDataType, bool, Option<&Strategy>),
+    curr: (GenericDataType, Option<Strategy>),
+    options: &TracingOptions,
+) -> Result<(GenericDataType, bool, Option<Strategy>)> {
+    use GenericDataType::{
+        Date64, LargeUtf8, Null, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8,
+    };
+
+    let res = match (prev, curr) {
+        ((Null, _, _), (curr_ty, curr_st)) => (curr_ty, true, curr_st),
+        ((prev_ty, _, prev_st), (Null, _)) => (prev_ty.clone(), true, prev_st.cloned()),
+        // unsigned x unsigned -> u64
+        ((U8 | U16 | U32 | U64, nullable, _), (U8 | U16 | U32 | U64, _,)) if options.coerce_numbers => (U64, nullable, None),
+        // signed x signed -> i64
+        ((I8 | I16 | I32 | I64, nullable, _), (I8 | I16 | I32 | I64, _)) if options.coerce_numbers => (I64, nullable, None),
+        // signed x unsigned -> i64
+        ((I8 | I16 | I32 | I64, nullable, _), (U8 | U16 | U32 | U64, _)) if options.coerce_numbers => (I64, nullable, None),
+        // unsigned x signed -> i64
+        ((U8 | U16 | U32 | U64, nullable, _), (I8 | I16 | I32 | I64, _)) if options.coerce_numbers => (I64, nullable, None),
+        // float x float -> f64
+        ((F32 | F64, nullable, _), (F32 | F64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        // int x float -> f64
+        ((I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, nullable, _), (F32 | F64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        // float x int -> f64
+        ((F32 | F64, nullable, _), (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        // incompatible formats, coerce to string
+        ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
+        ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
+        ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => (LargeUtf8, nullable, None),
+        ((prev_ty, nullable, prev_st), (curr_ty, curr_st)) if *prev_ty == curr_ty && prev_st == curr_st.as_ref() => (curr_ty, nullable, curr_st),
+        ((prev_ty, _, prev_st), (curr_ty, curr_st)) => fail!("Cannot accept event {curr_ty} with strategy {curr_st:?} for tracer of primitive type {prev_ty} with strategy {prev_st:?}"),
+    };
+    Ok(res)
 }
 
 #[derive(Debug, PartialEq, Clone)]
