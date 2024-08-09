@@ -391,4 +391,30 @@ mod untagged_enum_number_coercion {
     test!(f64_u16, "F64", false, [(Num::F64(0.0),), (Num::U16(0),)]);
     test!(f64_u32, "F64", false, [(Num::F64(0.0),), (Num::U32(0),)]);
     test!(f64_u64, "F64", false, [(Num::F64(0.0),), (Num::U64(0),)]);
+
+    // some coercion + null examples
+    test!(
+        f64_u8_null,
+        "F64",
+        true,
+        [(Num::F64(0.0),), (Num::U8(0),), (Num::Null(()),)]
+    );
+    test!(
+        i32_i64_null,
+        "I64",
+        true,
+        [(Num::I32(0),), (Num::I64(0),), (Num::Null(()),)]
+    );
+    test!(
+        f32_f64_null,
+        "F64",
+        true,
+        [(Num::F32(0.0),), (Num::F64(0.0),), (Num::Null(()),)]
+    );
+    test!(
+        u8_u16_null,
+        "U64",
+        true,
+        [(Num::U8(0),), (Num::U16(0),), (Num::Null(()),)]
+    );
 }
