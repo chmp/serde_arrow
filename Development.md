@@ -28,3 +28,7 @@ modules can can be run without installing further packages.
 
 1. `python x.py add-arrow-version {VERSION}`
 2. `python x.py precommit`
+
+## Error format
+
+- Include the path to the field where sensible
