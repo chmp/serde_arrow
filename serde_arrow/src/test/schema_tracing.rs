@@ -116,8 +116,9 @@ mod json_struct_null {
                         "name": "value",
                         "data_type": "Struct",
                         "nullable": true,
+                        "strategy": "MapAsStruct",
                         "children": [
-                            {"name": "child", "data_type": "U32"},
+                            {"name": "child", "data_type": "U64"},
                         ]
                     },
                 ]))?;
@@ -147,7 +148,7 @@ mod json_list_null {
                         "data_type": "LargeList",
                         "nullable": true,
                         "children": [
-                            {"name": "element", "data_type": "U32"},
+                            {"name": "element", "data_type": "U64"},
                         ]
                     },
                 ]))?;

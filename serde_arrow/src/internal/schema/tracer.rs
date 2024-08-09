@@ -263,7 +263,9 @@ impl Tracer {
         self.enforce_depth_limit()?;
 
         match self {
-            this @ Self::Unknown(_) => {
+            this if matches!(this, Self::Unknown(_))
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+            {
                 let field_names = fields
                     .iter()
                     .map(|field| field.to_string())
@@ -314,7 +316,9 @@ impl Tracer {
         self.enforce_depth_limit()?;
 
         match self {
-            this @ Self::Unknown(_) => {
+            this if matches!(this, Self::Unknown(_))
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+            {
                 let tracer = dispatch_tracer!(this, tracer => TupleTracer {
                     name: tracer.name.clone(),
                     path: tracer.path.clone(),
@@ -346,7 +350,9 @@ impl Tracer {
         self.enforce_depth_limit()?;
 
         match self {
-            this @ Self::Unknown(_) => {
+            this if matches!(this, Self::Unknown(_))
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+            {
                 let tracer = dispatch_tracer!(this, tracer => UnionTracer {
                     name: tracer.name.clone(),
                     path: tracer.path.clone(),
@@ -382,7 +388,9 @@ impl Tracer {
         self.enforce_depth_limit()?;
 
         match self {
-            this @ Self::Unknown(_) => {
+            this if matches!(this, Self::Unknown(_))
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+            {
                 let tracer = dispatch_tracer!(this, tracer => ListTracer {
                     name: tracer.name.clone(),
                     path: tracer.path.clone(),
@@ -409,7 +417,9 @@ impl Tracer {
         self.enforce_depth_limit()?;
 
         match self {
-            this @ Self::Unknown(_) => {
+            this if matches!(this, Self::Unknown(_))
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+            {
                 let tracer = dispatch_tracer!(this, tracer => MapTracer {
                     name: tracer.name.clone(),
                     path: tracer.path.clone(),
@@ -521,9 +531,9 @@ fn coerce_primitive_type(
         // float x float -> f64
         ((F32 | F64, nullable, _), (F32 | F64, _)) if options.coerce_numbers=> (F64, nullable, None),
         // int x float -> f64
-        ((I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, nullable, _), (F32 | F64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        ((I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, nullable, _), (F32 | F64, _)) if options.coerce_numbers => (F64, nullable, None),
         // float x int -> f64
-        ((F32 | F64, nullable, _), (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        ((F32 | F64, nullable, _), (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, _)) if options.coerce_numbers => (F64, nullable, None),
         // incompatible formats, coerce to string
         ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
