@@ -80,3 +80,86 @@ mod json_u64_null {
     test!(pos_null, [{"value": 42}, {"value": null}]);
     test!(null_pos, [{"value": null}, {"value": 42}]);
 }
+
+mod json_bool_null {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {"name": "value", "data_type": "Bool", "nullable": true},
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default())?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(pos_null, [{"value": true}, {"value": null}]);
+    test!(null_pos, [{"value": null}, {"value": false}]);
+}
+
+mod json_struct_null {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "value",
+                        "data_type": "Struct",
+                        "nullable": true,
+                        "children": [
+                            {"name": "child", "data_type": "U32"},
+                        ]
+                    },
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default())?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(struct_null, [{"value": {"child": 13}}, {"value": null}]);
+    test!(null_struct, [{"value": null}, {"value": {"child": 13}}]);
+}
+
+mod json_list_null {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "value",
+                        "data_type": "LargeList",
+                        "nullable": true,
+                        "children": [
+                            {"name": "element", "data_type": "U32"},
+                        ]
+                    },
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default())?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(list_null, [{"value": [13]}, {"value": null}]);
+    test!(null_list, [{"value": null}, {"value": [13]}]);
+}
