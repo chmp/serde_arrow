@@ -164,3 +164,105 @@ mod json_list_null {
     test!(list_null, [{"value": [13]}, {"value": null}]);
     test!(null_list, [{"value": null}, {"value": [13]}]);
 }
+
+mod json_date64_naive_null {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "date",
+                        "data_type": "Date64",
+                        "strategy": "NaiveStrAsDate64",
+                        "nullable": true,
+                    },
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true))?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(str_null, [{"date": "2024-08-09T12:15:00"}, {"date": null}]);
+    test!(null_str, [{"date": null}, {"date": "2024-08-09T12:15:00"}]);
+}
+
+mod json_date64_utc_null {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "date",
+                        "data_type": "Date64",
+                        "strategy": "UtcStrAsDate64",
+                        "nullable": true,
+                    },
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true))?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(str_null, [{"date": "2024-08-09T12:15:00Z"}, {"date": null}]);
+    test!(null_str, [{"date": null}, {"date": "2024-08-09T12:15:00Z"}]);
+}
+
+/// Mixing different date formats or dates and non-dates, results in Strings
+mod json_date64_to_string_coercions {
+    use super::*;
+
+    macro_rules! test {
+        ($name:ident, $($data:tt)*) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "date",
+                        "data_type": "LargeUtf8",
+                        "nullable": true,
+                    },
+                ]))?;
+
+                let data = json!($($data)*);
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true))?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    test!(utc_naive_null, [{"date": "2024-08-09T12:15:00Z"}, {"date": "2024-08-09T12:15:00"}, {"date": null}]);
+    test!(utc_null_naive, [{"date": "2024-08-09T12:15:00Z"}, {"date": null}, {"date": "2024-08-09T12:15:00"}]);
+    test!(naive_utc_null, [{"date": "2024-08-09T12:15:00"}, {"date": "2024-08-09T12:15:00Z"}, {"date": null}]);
+    test!(naive_null_utc, [{"date": "2024-08-09T12:15:00"}, {"date": null}, {"date": "2024-08-09T12:15:00Z"}]);
+    test!(null_naive_utc, [{"date": null}, {"date": "2024-08-09T12:15:00"}, {"date": "2024-08-09T12:15:00Z"}]);
+    test!(null_utc_naive, [{"date": null}, {"date": "2024-08-09T12:15:00Z"}, {"date": "2024-08-09T12:15:00"}]);
+
+    test!(utc_str_null, [{"date": "2024-08-09T12:15:00Z"}, {"date": "foo"}, {"date": null}]);
+    test!(utc_null_str, [{"date": "2024-08-09T12:15:00Z"}, {"date": null}, {"date": "foo"}]);
+    test!(str_utc_null, [{"date": "bar"}, {"date": "2024-08-09T12:15:00Z"}, {"date": null}]);
+    test!(str_null_utc, [{"date": "bar"}, {"date": null}, {"date": "2024-08-09T12:15:00Z"}]);
+    test!(null_str_utc, [{"date": null}, {"date": "baz"}, {"date": "2024-08-09T12:15:00Z"}]);
+    test!(null_utc_str, [{"date": null}, {"date": "2024-08-09T12:15:00Z"}, {"date": "baz"}]);
+
+    test!(naive_str_null, [{"date": "2024-08-09T12:15:00"}, {"date": "foo"}, {"date": null}]);
+    test!(naive_null_str, [{"date": "2024-08-09T12:15:00"}, {"date": null}, {"date": "foo"}]);
+    test!(str_naive_null, [{"date": "bar"}, {"date": "2024-08-09T12:15:00"}, {"date": null}]);
+    test!(str_null_naive, [{"date": "bar"}, {"date": null}, {"date": "2024-08-09T12:15:00"}]);
+    test!(null_str_naive, [{"date": null}, {"date": "baz"}, {"date": "2024-08-09T12:15:00"}]);
+    test!(null_naive_str, [{"date": null}, {"date": "2024-08-09T12:15:00"}, {"date": "baz"}]);
+}
