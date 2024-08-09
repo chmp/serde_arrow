@@ -1,5 +1,9 @@
 # Change log
 
+## 0.11.7
+
+- Fix tracing of JSON mixing nulls with non-null data
+
 ## 0.11.6
 
 - Add `arrow=52` support
