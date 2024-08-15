@@ -820,6 +820,13 @@ mod test {
 
     use super::*;
 
+    /// Dummy enum used only for testing
+    #[derive(Serialize)]
+    enum Number {
+        Real { value: f32 },
+        Complex { i: f32, j: f32 },
+    }
+
     fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
         let tracer = Tracer::from_samples(items, options).unwrap();
         let field = tracer.to_field().unwrap();
@@ -916,6 +923,133 @@ mod test {
 
         test_to_tracer(
             &[(2.0_f64, "hello world")],
+            TracingOptions::default(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_enum_as_union() {
+        let expected = json!({
+          "name": "$",
+          "data_type": "Union",
+          "children": [
+            {
+              "name": "Real",
+              "data_type": "Struct",
+              "children": [
+                {
+                  "name": "value",
+                  "data_type": "F32",
+                }
+              ]
+            },
+            {
+              "name": "Complex",
+              "data_type": "Struct",
+              "children": [
+                {
+                  "name": "i",
+                  "data_type": "F32"
+                },
+                {
+                  "name": "j",
+                  "data_type": "F32"
+                }
+              ]
+            }
+          ]
+        });
+
+        test_to_tracer(
+            &[
+                Number::Real { value: 1.0 },
+                Number::Complex { i: 0.5, j: 0.5 },
+            ],
+            TracingOptions::default(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_enum_as_struct() {
+        let expected = json!({
+          "name": "$",
+          "data_type": "Struct",
+          "children": [
+            {
+              "name": "real_value",
+              "data_type": "F32",
+              "nullable": true
+            },
+            {
+              "name": "complex_i",
+              "data_type": "F32",
+              "nullable": true
+            },
+            {
+              "name": "complex_j",
+              "data_type": "F32",
+              "nullable": true
+            }
+          ]
+        });
+
+        let opts = TracingOptions::default().enums_with_data_as_structs(true);
+
+        test_to_tracer(
+            &[
+                Number::Real { value: 1.0 },
+                Number::Complex { i: 0.5, j: 0.5 },
+            ],
+            opts,
+            expected,
+        );
+    }
+
+    #[test]
+    fn example_struct_with_nullable_fields() {
+        #[derive(Serialize, Default)]
+        struct Number {
+            real_value: Option<f32>,
+            complex_i: Option<f32>,
+            complex_j: Option<f32>,
+        }
+
+        let expected = json!({
+          "name": "$",
+          "data_type": "Struct",
+          "children": [
+            {
+              "name": "real_value",
+              "data_type": "F32",
+              "nullable": true
+            },
+            {
+              "name": "complex_i",
+              "data_type": "F32",
+              "nullable": true
+            },
+            {
+              "name": "complex_j",
+              "data_type": "F32",
+              "nullable": true
+            }
+          ]
+        });
+
+        test_to_tracer(
+            &[
+                Number {
+                    real_value: Some(1.0),
+                    ..Default::default()
+                },
+                Number {
+                    complex_i: Some(0.5),
+                    complex_j: Some(0.5),
+                    ..Default::default()
+                },
+            ],
             TracingOptions::default(),
             expected,
         );
