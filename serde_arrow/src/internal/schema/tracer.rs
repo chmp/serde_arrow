@@ -1065,18 +1065,46 @@ impl UnionTracer {
             }
         }
 
-        let mut fields = Vec::new();
-        for (idx, variant) in self.variants.iter().enumerate() {
-            if let Some(variant) = variant {
-                fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
-            } else {
-                fields.push((i8::try_from(idx)?, unknown_variant_field()));
-            };
+        let data_type: DataType;
+
+        if self.options.enums_with_data_as_structs {
+            let mut fields = Vec::new();
+
+            // For this option, we want to merge the variant children up one level, combining the names
+            // For each variant with name variant_name
+            // For each variant_field with field_name
+            // Add field {variant_name}_{field_name} -> variant_field.to_field() that is nullable
+
+            for variant in &self.variants {
+                if let Some(variant) = variant {
+                    // TODO: does this break if there are no child fields?
+                    let schema = variant.tracer.to_schema()?;
+                    for mut field in schema.fields {
+                        field.name = format!("{}_{}", variant.name.to_lowercase(), field.name);
+                        field.nullable = true;
+                        fields.push(field)
+                    }
+                } else {
+                    fields.push(unknown_variant_field())
+                };
+            }
+
+            data_type = DataType::Struct(fields);
+        } else {
+            let mut fields = Vec::new();
+            for (idx, variant) in self.variants.iter().enumerate() {
+                if let Some(variant) = variant {
+                    fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
+                } else {
+                    fields.push((i8::try_from(idx)?, unknown_variant_field()));
+                };
+            }
+            data_type = DataType::Union(fields, UnionMode::Dense);
         }
 
         Ok(Field {
             name: self.name.to_owned(),
-            data_type: DataType::Union(fields, UnionMode::Dense),
+            data_type,
             nullable: self.nullable,
             metadata: HashMap::new(),
         })
