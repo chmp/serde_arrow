@@ -220,6 +220,15 @@ pub struct TracingOptions {
     /// Internal field to improve error messages for the different tracing
     /// functions
     pub(crate) tracing_mode: TracingMode,
+
+    /// Whether to encode enums with data as structs
+    ///
+    /// If `false` enums with data are encoded as Union arrays.
+    /// If `true` enums with data are encoded as Structs.
+    ///
+    /// TODO: example
+    /// ```
+    pub enums_with_data_as_structs: bool,
 }
 
 impl Default for TracingOptions {
@@ -232,6 +241,7 @@ impl Default for TracingOptions {
             guess_dates: false,
             from_type_budget: 100,
             enums_without_data_as_strings: false,
+            enums_with_data_as_structs: false,
             overwrites: Overwrites::default(),
             sequence_as_large_list: true,
             string_as_large_utf8: true,
@@ -296,6 +306,12 @@ impl TracingOptions {
     /// Set [`enums_without_data_as_strings`](#structfield.enums_without_data_as_strings)
     pub fn enums_without_data_as_strings(mut self, value: bool) -> Self {
         self.enums_without_data_as_strings = value;
+        self
+    }
+
+    /// Set [`enums_with_data_as_structs`](#structfield.enums_with_data_as_structs)
+    pub fn enums_with_data_as_structs(mut self, value: bool) -> Self {
+        self.enums_with_data_as_structs = value;
         self
     }
 
