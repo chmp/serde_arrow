@@ -813,12 +813,27 @@ mod impl_serialize_to_string {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     use serde::Serialize;
     use serde_json::{json, Value};
 
-    use crate::internal::schema::{transmute_field, TracingOptions};
+    use crate::{
+        internal::{
+            arrow::Field,
+            schema::{transmute_field, TracingOptions},
+        },
+        schema::STRATEGY_KEY,
+    };
 
     use super::*;
+
+    fn enum_with_named_fields_metadata() -> HashMap<String, String> {
+        HashMap::from([(
+            STRATEGY_KEY.to_string(),
+            Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+        )])
+    }
 
     fn test_to_tracer<T: Serialize + ?Sized>(items: &T, options: TracingOptions, expected: Value) {
         let tracer = Tracer::from_samples(items, options).unwrap();
@@ -929,38 +944,192 @@ mod test {
             Complex { i: f32, j: f32 },
         }
 
-        #[derive(Serialize, Default)]
-        struct StructNumber {
-            real_value: Option<f32>,
-            complex_i: Option<f32>,
-            complex_j: Option<f32>,
-        }
-
         let enum_items = [
             Number::Real { value: 1.0 },
             Number::Complex { i: 0.5, j: 0.5 },
         ];
 
-        let struct_items = [
-            StructNumber {
-                real_value: Some(1.0),
-                ..Default::default()
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_samples(&enum_items, opts).unwrap();
+
+        let expected_field = Field {
+            name: "$".to_string(),
+            data_type: DataType::Struct(vec![
+                Field {
+                    name: "Real::value".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Complex::i".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Complex::j".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+            ]),
+            nullable: false,
+            metadata: enum_with_named_fields_metadata(),
+        };
+
+        assert_eq!(enum_tracer.to_field().unwrap(), expected_field);
+    }
+
+    #[test]
+    fn example_enum_as_struct_no_fields() {
+        #[derive(Serialize)]
+        enum Coin {
+            Heads,
+            Tails,
+        }
+
+        let enum_items = [Coin::Heads, Coin::Tails];
+
+        // This should continue to maintain previously implemented behavior, serializing as a map
+        let opts = TracingOptions::default()
+            .enums_with_named_fields_as_structs(true)
+            .enums_without_data_as_strings(true);
+
+        let enum_tracer = Tracer::from_samples(&enum_items, opts).unwrap();
+
+        let expected_field = Field {
+            name: "$".to_string(),
+            data_type: DataType::Dictionary(
+                Box::new(DataType::UInt32),
+                Box::new(DataType::LargeUtf8),
+                false,
+            ),
+            nullable: false,
+            metadata: HashMap::new(),
+        };
+
+        assert_eq!(enum_tracer.to_field().unwrap(), expected_field);
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_no_fields_panics_when_opts_not_set() {
+        #[derive(Serialize)]
+        enum TrafficLight {
+            Red,
+            Yellow,
+            Green,
+        }
+
+        let enum_items = [TrafficLight::Red, TrafficLight::Yellow, TrafficLight::Green];
+
+        // This should continue to maintain previously implemented behavior,
+        // throwing an error because we detect Unions with no fields
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+
+        Tracer::from_samples(&enum_items, opts)
+            .unwrap()
+            .to_field()
+            .unwrap();
+    }
+
+    #[test]
+    fn example_enum_as_struct_all_fields_nullable() {
+        #[derive(Serialize)]
+        enum Optionals {
+            Something {
+                more: Option<usize>,
+                less: Option<usize>,
             },
-            StructNumber {
-                complex_i: Some(0.5),
-                complex_j: Some(0.5),
-                ..Default::default()
+            Else {
+                one: Option<usize>,
+                another: Option<usize>,
+            },
+        }
+
+        let enum_items = [
+            Optionals::Something {
+                more: Some(1),
+                less: None,
+            },
+            Optionals::Something {
+                more: None,
+                less: Some(0),
+            },
+            Optionals::Else {
+                one: None,
+                another: Some(0),
+            },
+            Optionals::Else {
+                one: Some(1),
+                another: None,
             },
         ];
 
-        let opts = TracingOptions::default().enums_with_data_as_structs(true);
-
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
         let enum_tracer = Tracer::from_samples(&enum_items, opts).unwrap();
-        let struct_tracer = Tracer::from_samples(&struct_items, TracingOptions::default()).unwrap();
 
-        assert_eq!(
-            enum_tracer.to_field().unwrap(),
-            struct_tracer.to_field().unwrap()
-        );
+        let expected_field = Field {
+            name: "$".to_string(),
+            data_type: DataType::Struct(vec![
+                Field {
+                    name: "Something::more".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Something::less".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Else::one".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Else::another".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+            ]),
+            nullable: false,
+            metadata: enum_with_named_fields_metadata(),
+        };
+
+        assert_eq!(enum_tracer.to_field().unwrap(), expected_field);
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_tuple_variants() {
+        #[derive(Serialize)]
+        enum Payment {
+            Cash(f32),                                 // amount
+            Check(String, f32),                        // name, amount
+            CreditCard(String, f32, [u8; 16], String), // name, amount, cc number, exp
+        }
+
+        let enum_items = [
+            Payment::Cash(0.42),
+            Payment::Check("Bob".to_string(), 0.42),
+            Payment::CreditCard(
+                "Sue".to_string(),
+                0.42,
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6],
+                "01/2024".to_string(),
+            ),
+        ];
+
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_samples(&enum_items, opts).unwrap();
+
+        // Currently panics when `to_schema()` is called on the variant tracer
+        enum_tracer.to_field().unwrap();
     }
 }
