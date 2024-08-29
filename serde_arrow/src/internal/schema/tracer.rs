@@ -1066,21 +1066,25 @@ impl UnionTracer {
         }
 
         let data_type: DataType;
+        let mut metadata = HashMap::new();
 
-        if self.options.enums_with_data_as_structs {
+        if self.options.enums_with_named_fields_as_structs {
+            metadata.insert(
+                STRATEGY_KEY.to_string(),
+                Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+            );
             let mut fields = Vec::new();
 
             // For this option, we want to merge the variant children up one level, combining the names
             // For each variant with name variant_name
             // For each variant_field with field_name
-            // Add field {variant_name}_{field_name} -> variant_field.to_field() that is nullable
+            // Add field {variant_name}::{field_name} -> variant_field.to_field() that is nullable
 
             for variant in &self.variants {
                 if let Some(variant) = variant {
-                    // TODO: does this break if there are no child fields?
                     let schema = variant.tracer.to_schema()?;
                     for mut field in schema.fields {
-                        field.name = format!("{}_{}", variant.name.to_lowercase(), field.name);
+                        field.name = format!("{}::{}", variant.name, field.name);
                         field.nullable = true;
                         fields.push(field)
                     }
@@ -1106,7 +1110,7 @@ impl UnionTracer {
             name: self.name.to_owned(),
             data_type,
             nullable: self.nullable,
-            metadata: HashMap::new(),
+            metadata,
         })
     }
 

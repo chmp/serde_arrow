@@ -585,3 +585,64 @@ impl<'de, 'a> serde::de::Deserializer<'de> for IdentifierDeserializer<'a> {
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_ignored_any);
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::{
+        internal::{
+            arrow::{DataType, Field},
+            schema::tracer::Tracer,
+        },
+        schema::{Strategy, TracingOptions, STRATEGY_KEY},
+    };
+
+    // TODO: combine these with the from_samples tests, dedup utility code, test all edge cases with from_type as well
+    #[test]
+    fn example_enum_as_struct_equal_to_struct_with_nullable_fields() {
+        // TODO: dedup?
+        #[derive(Serialize, Deserialize)]
+        enum Number {
+            Real { value: f32 },
+            Complex { i: f32, j: f32 },
+        }
+
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_type::<Number>(opts).unwrap();
+        let metadata = HashMap::from([(
+            STRATEGY_KEY.to_string(),
+            Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+        )]);
+
+        let expected_field = Field {
+            name: "$".to_string(),
+            data_type: DataType::Struct(vec![
+                Field {
+                    name: "Real::value".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Complex::i".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Complex::j".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+            ]),
+            nullable: false,
+            metadata,
+        };
+
+        assert_eq!(enum_tracer.to_field().unwrap(), expected_field);
+    }
+}
