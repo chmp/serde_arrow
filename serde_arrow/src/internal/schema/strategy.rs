@@ -63,6 +63,14 @@ pub enum Strategy {
     ///   polars does not support them)
     ///
     MapAsStruct,
+    /// Serialize Rust enums that contain named field data as flattened structs
+    ///
+    /// This strategy is a workaround for the fact that Unions are not supported in parquet.
+    /// Currently, only Serialization is supported. Deserialization is not.
+    /// When writing out the enum, it will be flattened into a Struct with
+    /// a list of Fields, where the names of those Fields are the field prefixed with
+    /// the name of the variant.
+    EnumsWithNamedFieldsAsStructs,
     /// Mark a variant as unknown
     ///
     /// This strategy applies only to fields with DataType Null. If
@@ -79,6 +87,7 @@ impl std::fmt::Display for Strategy {
             Self::NaiveStrAsDate64 => write!(f, "NaiveStrAsDate64"),
             Self::TupleAsStruct => write!(f, "TupleAsStruct"),
             Self::MapAsStruct => write!(f, "MapAsStruct"),
+            Self::EnumsWithNamedFieldsAsStructs => write!(f, "EnumsWithNamedFieldsAsStructs"),
             Self::UnknownVariant => write!(f, "UnknownVariant"),
         }
     }

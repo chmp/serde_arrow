@@ -218,7 +218,7 @@ pub struct TracingOptions {
     ///
     /// TODO: example
     /// ```
-    pub enums_with_data_as_structs: bool,
+    pub enums_with_named_fields_as_structs: bool,
 }
 
 impl Default for TracingOptions {
@@ -231,7 +231,7 @@ impl Default for TracingOptions {
             guess_dates: false,
             from_type_budget: 100,
             enums_without_data_as_strings: false,
-            enums_with_data_as_structs: false,
+            enums_with_named_fields_as_structs: false,
             overwrites: Overwrites::default(),
             tracing_mode: TracingMode::Unknown,
         }
@@ -285,9 +285,9 @@ impl TracingOptions {
         self
     }
 
-    /// Set [`enums_with_data_as_structs`](#structfield.enums_with_data_as_structs)
-    pub fn enums_with_data_as_structs(mut self, value: bool) -> Self {
-        self.enums_with_data_as_structs = value;
+    /// Set [`enums_with_named_fields_as_structs`](#structfield.enums_with_named_fields_as_structs)
+    pub fn enums_with_named_fields_as_structs(mut self, value: bool) -> Self {
+        self.enums_with_named_fields_as_structs = value;
         self
     }
 
