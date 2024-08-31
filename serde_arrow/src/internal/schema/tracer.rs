@@ -460,11 +460,7 @@ impl Tracer {
         Ok(())
     }
 
-    pub fn ensure_utf8(
-        &mut self,
-        item_type: DataType,
-        strategy: Option<Strategy>,
-    ) -> Result<()> {
+    pub fn ensure_utf8(&mut self, item_type: DataType, strategy: Option<Strategy>) -> Result<()> {
         self.ensure_primitive_with_strategy(item_type, strategy)
     }
 
@@ -502,7 +498,10 @@ impl Tracer {
                 if matches!(item_type, DataType::Null) {
                     dispatch_tracer!(this, tracer => { tracer.nullable = true });
                 } else {
-                    fail!("Cannot merge {ty:?} with {item_type:?}", ty = this.get_type());
+                    fail!(
+                        "Cannot merge {ty:?} with {item_type:?}",
+                        ty = this.get_type()
+                    );
                 }
             }
             Self::Primitive(tracer) => {
@@ -527,7 +526,8 @@ fn coerce_primitive_type(
     options: &TracingOptions,
 ) -> Result<(DataType, bool, Option<Strategy>)> {
     use DataType::{
-        Date64, LargeUtf8, Null, Float32, Float64, Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8,
+        Date64, Float32, Float64, Int16, Int32, Int64, Int8, LargeUtf8, Null, UInt16, UInt32,
+        UInt64, UInt8,
     };
 
     let res = match (prev, curr) {
