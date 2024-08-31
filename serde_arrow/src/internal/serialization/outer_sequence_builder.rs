@@ -28,126 +28,11 @@ pub struct OuterSequenceBuilder(StructBuilder);
 
 impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
-        return Ok(Self(build_struct(&schema.fields, false)?));
-
-        fn build_struct(struct_fields: &[Field], nullable: bool) -> Result<StructBuilder> {
-            let mut fields = Vec::new();
-            for field in struct_fields {
-                fields.push((build_builder(field)?, meta_from_field(field.clone())?));
-            }
-            StructBuilder::new(fields, nullable)
-        }
-
-        fn build_builder(field: &Field) -> Result<ArrayBuilder> {
-            use {ArrayBuilder as A, DataType as T};
-
-            let builder = match &field.data_type {
-                T::Null => match get_strategy_from_metadata(&field.metadata)? {
-                    Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
-                    _ => A::Null(NullBuilder::new()),
-                },
-                T::Boolean => A::Bool(BoolBuilder::new(field.nullable)),
-                T::Int8 => A::I8(IntBuilder::new(field.nullable)),
-                T::Int16 => A::I16(IntBuilder::new(field.nullable)),
-                T::Int32 => A::I32(IntBuilder::new(field.nullable)),
-                T::Int64 => A::I64(IntBuilder::new(field.nullable)),
-                T::UInt8 => A::U8(IntBuilder::new(field.nullable)),
-                T::UInt16 => A::U16(IntBuilder::new(field.nullable)),
-                T::UInt32 => A::U32(IntBuilder::new(field.nullable)),
-                T::UInt64 => A::U64(IntBuilder::new(field.nullable)),
-                T::Float16 => A::F16(FloatBuilder::new(field.nullable)),
-                T::Float32 => A::F32(FloatBuilder::new(field.nullable)),
-                T::Float64 => A::F64(FloatBuilder::new(field.nullable)),
-                T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
-                T::Date64 => A::Date64(Date64Builder::new(
-                    None,
-                    is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
-                    field.nullable,
-                )),
-                T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
-                    Some((*unit, tz.clone())),
-                    is_utc_tz(tz.as_deref())?,
-                    field.nullable,
-                )),
-                T::Time32(unit) => {
-                    if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
-                        fail!("Only timestamps with second or millisecond unit are supported");
-                    }
-                    A::Time32(TimeBuilder::new(*unit, field.nullable))
-                }
-                T::Time64(unit) => {
-                    if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
-                        fail!("Only timestamps with nanosecond or microsecond unit are supported");
-                    }
-                    A::Time64(TimeBuilder::new(*unit, field.nullable))
-                }
-                T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
-                T::Decimal128(precision, scale) => {
-                    A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))
-                }
-                T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
-                T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
-                T::List(child) => A::List(ListBuilder::new(
-                    meta_from_field(*child.clone())?,
-                    build_builder(child.as_ref())?,
-                    field.nullable,
-                )?),
-                T::LargeList(child) => A::LargeList(ListBuilder::new(
-                    meta_from_field(*child.clone())?,
-                    build_builder(child.as_ref())?,
-                    field.nullable,
-                )?),
-                T::FixedSizeList(child, n) => A::FixedSizedList(FixedSizeListBuilder::new(
-                    meta_from_field(*child.clone())?,
-                    build_builder(child.as_ref())?,
-                    (*n).try_into()?,
-                    field.nullable,
-                )),
-                T::Binary => A::Binary(BinaryBuilder::new(field.nullable)),
-                T::LargeBinary => A::LargeBinary(BinaryBuilder::new(field.nullable)),
-                T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
-                    (*n).try_into()?,
-                    field.nullable,
-                )),
-                T::Map(entry_field, _) => A::Map(MapBuilder::new(
-                    meta_from_field(*entry_field.clone())?,
-                    build_builder(entry_field.as_ref())?,
-                    field.nullable,
-                )?),
-                T::Struct(children) => A::Struct(build_struct(children, field.nullable)?),
-                T::Dictionary(key, value, _) => {
-                    let key_field = Field {
-                        name: "key".to_string(),
-                        data_type: *key.clone(),
-                        nullable: field.nullable,
-                        metadata: HashMap::new(),
-                    };
-                    let value_field = Field {
-                        name: "value".to_string(),
-                        data_type: *value.clone(),
-                        nullable: false,
-                        metadata: HashMap::new(),
-                    };
-
-                    A::DictionaryUtf8(DictionaryUtf8Builder::new(
-                        build_builder(&key_field)?,
-                        build_builder(&value_field)?,
-                    ))
-                }
-                T::Union(union_fields, _) => {
-                    let mut fields = Vec::new();
-                    for (idx, (type_id, field)) in union_fields.iter().enumerate() {
-                        if usize::try_from(*type_id) != Ok(idx) {
-                            fail!("non consecutive type ids are not supported");
-                        }
-                        fields.push((build_builder(field)?, meta_from_field(field.clone())?));
-                    }
-
-                    A::Union(UnionBuilder::new(fields))
-                }
-            };
-            Ok(builder)
-        }
+        Ok(Self(build_struct(
+            String::from("$"),
+            &schema.fields,
+            false,
+        )?))
     }
 
     /// Extract the contained struct fields
@@ -220,6 +105,145 @@ impl SimpleSerializer for OuterSequenceBuilder {
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         Ok(())
     }
+}
+
+fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result<StructBuilder> {
+    let mut fields = Vec::new();
+    for field in struct_fields {
+        let field_path = format!("{path}.{field_name}", field_name = field.name);
+        fields.push((
+            build_builder(field_path, field)?,
+            meta_from_field(field.clone())?,
+        ));
+    }
+    StructBuilder::new(path, fields, nullable)
+}
+
+fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
+    use {ArrayBuilder as A, DataType as T};
+
+    let builder = match &field.data_type {
+        T::Null => match get_strategy_from_metadata(&field.metadata)? {
+            Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
+            _ => A::Null(NullBuilder::new()),
+        },
+        T::Boolean => A::Bool(BoolBuilder::new(field.nullable)),
+        T::Int8 => A::I8(IntBuilder::new(path, field.nullable)),
+        T::Int16 => A::I16(IntBuilder::new(path, field.nullable)),
+        T::Int32 => A::I32(IntBuilder::new(path, field.nullable)),
+        T::Int64 => A::I64(IntBuilder::new(path, field.nullable)),
+        T::UInt8 => A::U8(IntBuilder::new(path, field.nullable)),
+        T::UInt16 => A::U16(IntBuilder::new(path, field.nullable)),
+        T::UInt32 => A::U32(IntBuilder::new(path, field.nullable)),
+        T::UInt64 => A::U64(IntBuilder::new(path, field.nullable)),
+        T::Float16 => A::F16(FloatBuilder::new(field.nullable)),
+        T::Float32 => A::F32(FloatBuilder::new(field.nullable)),
+        T::Float64 => A::F64(FloatBuilder::new(field.nullable)),
+        T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
+        T::Date64 => A::Date64(Date64Builder::new(
+            None,
+            is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
+            field.nullable,
+        )),
+        T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
+            Some((*unit, tz.clone())),
+            is_utc_tz(tz.as_deref())?,
+            field.nullable,
+        )),
+        T::Time32(unit) => {
+            if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
+                fail!("Only timestamps with second or millisecond unit are supported");
+            }
+            A::Time32(TimeBuilder::new(*unit, field.nullable))
+        }
+        T::Time64(unit) => {
+            if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
+                fail!("Only timestamps with nanosecond or microsecond unit are supported");
+            }
+            A::Time64(TimeBuilder::new(*unit, field.nullable))
+        }
+        T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
+        T::Decimal128(precision, scale) => {
+            A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))
+        }
+        T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
+        T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
+        T::List(child) => A::List(ListBuilder::new(
+            meta_from_field(*child.clone())?,
+            build_builder(
+                format!("{path}.{child_name}", child_name = child.name),
+                child.as_ref(),
+            )?,
+            field.nullable,
+        )?),
+        T::LargeList(child) => A::LargeList(ListBuilder::new(
+            meta_from_field(*child.clone())?,
+            build_builder(
+                format!("{path}.{child_name}", child_name = child.name),
+                child.as_ref(),
+            )?,
+            field.nullable,
+        )?),
+        T::FixedSizeList(child, n) => A::FixedSizedList(FixedSizeListBuilder::new(
+            meta_from_field(*child.clone())?,
+            build_builder(
+                format!("{path}.{child_name}", child_name = child.name),
+                child.as_ref(),
+            )?,
+            (*n).try_into()?,
+            field.nullable,
+        )),
+        T::Binary => A::Binary(BinaryBuilder::new(field.nullable)),
+        T::LargeBinary => A::LargeBinary(BinaryBuilder::new(field.nullable)),
+        T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
+            (*n).try_into()?,
+            field.nullable,
+        )),
+        T::Map(entry_field, _) => A::Map(MapBuilder::new(
+            meta_from_field(*entry_field.clone())?,
+            build_builder(
+                format!("{path}.{child_name}", child_name = entry_field.name),
+                entry_field.as_ref(),
+            )?,
+            field.nullable,
+        )?),
+        T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
+        T::Dictionary(key, value, _) => {
+            let key_field = Field {
+                name: "key".to_string(),
+                data_type: *key.clone(),
+                nullable: field.nullable,
+                metadata: HashMap::new(),
+            };
+            let value_field = Field {
+                name: "value".to_string(),
+                data_type: *value.clone(),
+                nullable: false,
+                metadata: HashMap::new(),
+            };
+
+            A::DictionaryUtf8(DictionaryUtf8Builder::new(
+                build_builder(format!("{path}.key"), &key_field)?,
+                build_builder(format!("{path}.value"), &value_field)?,
+            ))
+        }
+        T::Union(union_fields, _) => {
+            let mut fields = Vec::new();
+            for (idx, (type_id, field)) in union_fields.iter().enumerate() {
+                if usize::try_from(*type_id) != Ok(idx) {
+                    fail!("non consecutive type ids are not supported");
+                }
+                let field_path = format!("{path}.{field_name}", field_name = field.name);
+                fields.push((
+                    build_builder(field_path, field)?,
+                    meta_from_field(field.clone())?,
+                ));
+            }
+
+            A::Union(UnionBuilder::new(fields))
+        }
+    };
+    Ok(builder)
 }
 
 fn is_utc_tz(tz: Option<&str>) -> Result<bool> {

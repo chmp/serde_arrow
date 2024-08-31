@@ -498,7 +498,7 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     }
 }
 
-fn merge_annotations(mut err: Error, mut annotations_err: Error) -> Error {
+pub fn merge_annotations(mut err: Error, mut annotations_err: Error) -> Error {
     let extra_annotations = std::mem::take(annotations_err.annotations_mut());
     if extra_annotations.is_empty() {
         return err;

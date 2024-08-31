@@ -1,4 +1,3 @@
-use serde::Serialize;
 use serde_json::json;
 
 use crate::internal::{
@@ -20,26 +19,12 @@ fn push_validity_issue_202() -> PanicOnError<()> {
         },
     ]))?;
 
-    #[derive(Serialize)]
-    struct Record {
-        nested: Nested,
-    }
-
-    #[derive(Serialize)]
-    struct Nested {
-        field: Option<u32>,
-    }
-
     let mut array_builder = ArrayBuilder::new(schema)?;
-    let res = array_builder.push(&Record {
-        nested: Nested { field: Some(5) },
-    });
+    let res = array_builder.push(&json!({"nested": {"field": 32}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(&Record {
-        nested: Nested { field: None },
-    });
-    assert_error_contains(&res, "field: \"nested.field\"");
+    let res = array_builder.push(&json!({"nested": {"field": null}}));
+    assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
 }

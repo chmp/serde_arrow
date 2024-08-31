@@ -69,6 +69,20 @@ impl Error {
         }
     }
 
+    /// Turn the error into an annotated error and call the provided function with a mutable
+    /// reference to the annotations
+    pub(crate) fn annotate_unannotated<F: FnOnce(&mut BTreeMap<String, String>)>(
+        mut self,
+        func: F,
+    ) -> Self {
+        if matches!(self, Self::Annotated(_)) {
+            self
+        } else {
+            func(self.annotations_mut());
+            self
+        }
+    }
+
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
         match self {
             Self::Custom(_) => None,
@@ -147,7 +161,7 @@ impl<'a> std::fmt::Display for AnnotationsDisplay<'a> {
             return Ok(());
         }
 
-        write!(f, "(")?;
+        write!(f, " (")?;
         for (idx, (key, value)) in annotations.iter().enumerate() {
             if idx != 0 {
                 write!(f, ", ")?;

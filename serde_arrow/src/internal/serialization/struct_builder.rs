@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, StructArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
     utils::Mut,
 };
@@ -15,6 +15,7 @@ const UNKNOWN_KEY: usize = usize::MAX;
 
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
+    pub path: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub lookup: FieldLookup,
     pub next: usize,
@@ -23,10 +24,15 @@ pub struct StructBuilder {
 }
 
 impl StructBuilder {
-    pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>, is_nullable: bool) -> Result<Self> {
+    pub fn new(
+        path: String,
+        fields: Vec<(ArrayBuilder, FieldMeta)>,
+        is_nullable: bool,
+    ) -> Result<Self> {
         let lookup = FieldLookup::new(fields.iter().map(|(_, meta)| meta.name.clone()).collect())?;
 
         Ok(Self {
+            path,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             next: 0,
@@ -37,6 +43,7 @@ impl StructBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             fields: self
                 .fields
                 .iter_mut()
@@ -112,6 +119,12 @@ impl StructBuilder {
 impl SimpleSerializer for StructBuilder {
     fn name(&self) -> &str {
         "StructBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {
