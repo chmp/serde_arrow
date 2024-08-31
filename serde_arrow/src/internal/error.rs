@@ -72,14 +72,19 @@ impl Error {
     /// Turn the error into an annotated error and call the provided function with a mutable
     /// reference to the annotations
     pub(crate) fn annotate_unannotated<F: FnOnce(&mut BTreeMap<String, String>)>(
-        mut self,
+        self,
         func: F,
     ) -> Self {
-        if matches!(self, Self::Annotated(_)) {
-            self
-        } else {
-            func(self.annotations_mut());
-            self
+        match self {
+            Self::Annotated(err) => Self::Annotated(err),
+            non_annotated_err => {
+                let mut annotations = BTreeMap::new();
+                func(&mut annotations);
+                Self::Annotated(AnnotatedError {
+                    error: Box::new(non_annotated_err),
+                    annotations,
+                })
+            }
         }
     }
 
@@ -88,24 +93,6 @@ impl Error {
             Self::Custom(_) => None,
             Self::Annotated(err) => Some(&err.annotations),
         }
-    }
-
-    /// Ensure the error is annotated and return a mutable reference to the annotations
-    pub(crate) fn annotations_mut(&mut self) -> &mut BTreeMap<String, String> {
-        if !matches!(self, Self::Annotated(_)) {
-            let mut this = Error::empty();
-            std::mem::swap(self, &mut this);
-
-            *self = Self::Annotated(AnnotatedError {
-                error: Box::new(this),
-                annotations: BTreeMap::new(),
-            });
-        }
-
-        let Self::Annotated(err) = self else {
-            unreachable!();
-        };
-        &mut err.annotations
     }
 }
 

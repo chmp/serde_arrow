@@ -498,19 +498,13 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     }
 }
 
-pub fn merge_annotations(mut err: Error, mut annotations_err: Error) -> Error {
-    let extra_annotations = std::mem::take(annotations_err.annotations_mut());
-    if extra_annotations.is_empty() {
+pub fn merge_annotations(err: Error, annotations_err: Error) -> Error {
+    let Error::Annotated(annotations_err) = annotations_err else {
         return err;
-    }
-
-    let result_annotations = err.annotations_mut();
-    for (key, value) in extra_annotations {
-        if !result_annotations.contains_key(&key) {
-            result_annotations.insert(key, value);
-        }
-    }
-    err
+    };
+    err.annotate_unannotated(|annotations| {
+        *annotations = annotations_err.annotations;
+    })
 }
 
 impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
