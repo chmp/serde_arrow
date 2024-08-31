@@ -2,7 +2,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    internal::testing::assert_error,
+    internal::testing::assert_error_contains,
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
     utils::Item,
 };
@@ -30,5 +30,5 @@ fn example_as_list() {
 #[test]
 fn trace_from_type_does_not_work() {
     let res = SerdeArrowSchema::from_type::<Item<Uuid>>(TracingOptions::default());
-    assert_error(&res, "UUID parsing failed");
+    assert_error_contains(&res, "UUID parsing failed");
 }

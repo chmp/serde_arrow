@@ -1,5 +1,5 @@
 //! Support for tests
-pub fn assert_error<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
+pub fn assert_error_contains<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
     let Err(actual) = actual else {
         panic!("expected an error, but no error was raised");
     };

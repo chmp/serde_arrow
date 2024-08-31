@@ -6,7 +6,7 @@ use crate::internal::{
     arrow::{DataType, Field, TimeUnit},
     error::PanicOnError,
     schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
-    testing::{assert_error, hash_map},
+    testing::{assert_error_contains, hash_map},
 };
 
 fn type_from_str(s: &str) -> DataType {
@@ -449,7 +449,7 @@ fn test_invalid_metadata() {
         },
     ]));
 
-    assert_error(&res, "Duplicate strategy");
+    assert_error_contains(&res, "Duplicate strategy");
 }
 
 #[test]

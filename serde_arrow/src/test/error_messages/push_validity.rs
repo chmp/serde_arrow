@@ -5,7 +5,7 @@ use crate::internal::{
     array_builder::ArrayBuilder,
     error::PanicOnError,
     schema::{SchemaLike, SerdeArrowSchema},
-    testing::assert_error,
+    testing::assert_error_contains,
 };
 
 #[test]
@@ -39,7 +39,7 @@ fn push_validity_issue_202() -> PanicOnError<()> {
     let res = array_builder.push(&Record {
         nested: Nested { field: None },
     });
-    assert_error(&res, "field: \"nested.field\"");
+    assert_error_contains(&res, "field: \"nested.field\"");
 
     Ok(())
 }
