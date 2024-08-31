@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::{Array, DecimalArray, PrimitiveArray},
-    error::Result,
+    error::{Error, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
     utils::decimal::{self, DecimalParser},
 };
@@ -9,6 +9,7 @@ use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {
+    path: String,
     pub precision: u8,
     pub scale: i8,
     pub f32_factor: f32,
@@ -18,8 +19,9 @@ pub struct DecimalBuilder {
 }
 
 impl DecimalBuilder {
-    pub fn new(precision: u8, scale: i8, is_nullable: bool) -> Self {
+    pub fn new(path: String, precision: u8, scale: i8, is_nullable: bool) -> Self {
         Self {
+            path,
             precision,
             scale,
             f32_factor: (10.0_f32).powi(scale as i32),
@@ -31,6 +33,7 @@ impl DecimalBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             precision: self.precision,
             scale: self.scale,
             f32_factor: self.f32_factor,
@@ -57,6 +60,12 @@ impl DecimalBuilder {
 impl SimpleSerializer for DecimalBuilder {
     fn name(&self) -> &str {
         "DecimalBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

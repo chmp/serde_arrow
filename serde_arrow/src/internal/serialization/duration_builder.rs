@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::Result,
+    error::{Error, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
@@ -8,13 +8,15 @@ use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct DurationBuilder {
+    path: String,
     pub unit: TimeUnit,
     pub array: PrimitiveArray<i64>,
 }
 
 impl DurationBuilder {
-    pub fn new(unit: TimeUnit, is_nullable: bool) -> Self {
+    pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
+            path,
             unit,
             array: new_primitive_array(is_nullable),
         }
@@ -22,6 +24,7 @@ impl DurationBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             unit: self.unit,
             array: self.array.take(),
         }
@@ -43,6 +46,12 @@ impl DurationBuilder {
 impl SimpleSerializer for DurationBuilder {
     fn name(&self) -> &str {
         "DurationBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

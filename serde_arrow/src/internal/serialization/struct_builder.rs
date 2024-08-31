@@ -289,6 +289,10 @@ impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
         "KeyLookupSerializer"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        err
+    }
+
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.result = self.index.get(v).copied();
         Ok(())

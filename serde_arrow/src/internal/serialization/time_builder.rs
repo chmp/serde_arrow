@@ -10,13 +10,15 @@ use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
+    path: String,
     pub unit: TimeUnit,
     pub array: PrimitiveArray<I>,
 }
 
 impl<I: Default + 'static> TimeBuilder<I> {
-    pub fn new(unit: TimeUnit, is_nullable: bool) -> Self {
+    pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
+            path,
             unit,
             array: new_primitive_array(is_nullable),
         }
@@ -24,6 +26,7 @@ impl<I: Default + 'static> TimeBuilder<I> {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             unit: self.unit,
             array: self.array.take(),
         }
@@ -62,6 +65,12 @@ where
 {
     fn name(&self) -> &str {
         "Time64Builder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

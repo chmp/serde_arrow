@@ -2,7 +2,7 @@ use half::f16;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::Result,
+    error::{Error, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
     utils::Mut,
 };
@@ -10,19 +10,28 @@ use crate::internal::{
 use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
-pub struct FloatBuilder<I>(PrimitiveArray<I>);
+pub struct FloatBuilder<I> {
+    path: String,
+    array: PrimitiveArray<I>,
+}
 
 impl<F: Default + 'static> FloatBuilder<F> {
-    pub fn new(is_nullable: bool) -> Self {
-        Self(new_primitive_array(is_nullable))
+    pub fn new(path: String, is_nullable: bool) -> Self {
+        Self {
+            path,
+            array: new_primitive_array(is_nullable),
+        }
     }
 
     pub fn take(&mut self) -> Self {
-        Self(self.0.take())
+        Self {
+            path: self.path.clone(),
+            array: self.array.take(),
+        }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.0.validity.is_some()
+        self.array.validity.is_some()
     }
 }
 
@@ -30,7 +39,7 @@ macro_rules! impl_into_array {
     ($ty:ty, $var:ident) => {
         impl FloatBuilder<$ty> {
             pub fn into_array(self) -> Result<Array> {
-                Ok(Array::$var(self.0))
+                Ok(Array::$var(self.array))
             }
         }
     };
@@ -45,12 +54,18 @@ impl SimpleSerializer for FloatBuilder<f32> {
         "FloatBuilder<f32>"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
+    }
+
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none()
     }
 
     fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -58,43 +73,43 @@ impl SimpleSerializer for FloatBuilder<f32> {
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.0.push_scalar_value(v)
+        self.array.push_scalar_value(v)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.0.push_scalar_value(v as f32)
+        self.array.push_scalar_value(v as f32)
     }
 }
 
@@ -103,52 +118,58 @@ impl SimpleSerializer for FloatBuilder<f64> {
         "FloatBuilder<64>"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
+    }
+
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none()
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.0.push_scalar_value(v as f64)
+        self.array.push_scalar_value(v as f64)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.0.push_scalar_value(v)
+        self.array.push_scalar_value(v)
     }
 }
 
@@ -157,19 +178,25 @@ impl SimpleSerializer for FloatBuilder<f16> {
         "FloatBuilder<f16>"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
+    }
+
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none()
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.0.push_scalar_value(f16::from_f32(v))
+        self.array.push_scalar_value(f16::from_f32(v))
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.0.push_scalar_value(f16::from_f64(v))
+        self.array.push_scalar_value(f16::from_f64(v))
     }
 }

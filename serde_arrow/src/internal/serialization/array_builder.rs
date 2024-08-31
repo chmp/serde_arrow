@@ -151,6 +151,10 @@ impl SimpleSerializer for ArrayBuilder {
         "ArrayBuilder"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        dispatch!(self, Self(builder) => builder.annotate_error(err))
+    }
+
     fn serialize_default(&mut self) -> Result<()> {
         dispatch!(self, Self(builder) => builder.serialize_default().map_err(|err| builder.annotate_error(err)))
     }

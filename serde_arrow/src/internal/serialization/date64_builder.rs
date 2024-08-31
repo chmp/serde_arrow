@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
@@ -8,14 +8,21 @@ use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
+    path: String,
     pub meta: Option<(TimeUnit, Option<String>)>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
 }
 
 impl Date64Builder {
-    pub fn new(meta: Option<(TimeUnit, Option<String>)>, utc: bool, is_nullable: bool) -> Self {
+    pub fn new(
+        path: String,
+        meta: Option<(TimeUnit, Option<String>)>,
+        utc: bool,
+        is_nullable: bool,
+    ) -> Self {
         Self {
+            path,
             meta,
             utc,
             array: new_primitive_array(is_nullable),
@@ -24,6 +31,7 @@ impl Date64Builder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             meta: self.meta.clone(),
             utc: self.utc,
             array: self.array.take(),
@@ -54,6 +62,12 @@ impl Date64Builder {
 impl SimpleSerializer for Date64Builder {
     fn name(&self) -> &str {
         "Date64Builder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

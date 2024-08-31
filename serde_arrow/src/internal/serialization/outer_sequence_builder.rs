@@ -127,7 +127,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
             _ => A::Null(NullBuilder::new()),
         },
-        T::Boolean => A::Bool(BoolBuilder::new(field.nullable)),
+        T::Boolean => A::Bool(BoolBuilder::new(path, field.nullable)),
         T::Int8 => A::I8(IntBuilder::new(path, field.nullable)),
         T::Int16 => A::I16(IntBuilder::new(path, field.nullable)),
         T::Int32 => A::I32(IntBuilder::new(path, field.nullable)),
@@ -136,16 +136,18 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::UInt16 => A::U16(IntBuilder::new(path, field.nullable)),
         T::UInt32 => A::U32(IntBuilder::new(path, field.nullable)),
         T::UInt64 => A::U64(IntBuilder::new(path, field.nullable)),
-        T::Float16 => A::F16(FloatBuilder::new(field.nullable)),
-        T::Float32 => A::F32(FloatBuilder::new(field.nullable)),
-        T::Float64 => A::F64(FloatBuilder::new(field.nullable)),
-        T::Date32 => A::Date32(Date32Builder::new(field.nullable)),
+        T::Float16 => A::F16(FloatBuilder::new(path, field.nullable)),
+        T::Float32 => A::F32(FloatBuilder::new(path, field.nullable)),
+        T::Float64 => A::F64(FloatBuilder::new(path, field.nullable)),
+        T::Date32 => A::Date32(Date32Builder::new(path, field.nullable)),
         T::Date64 => A::Date64(Date64Builder::new(
+            path,
             None,
             is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
             field.nullable,
         )),
         T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
+            path,
             Some((*unit, tz.clone())),
             is_utc_tz(tz.as_deref())?,
             field.nullable,
@@ -154,18 +156,21 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                 fail!("Only timestamps with second or millisecond unit are supported");
             }
-            A::Time32(TimeBuilder::new(*unit, field.nullable))
+            A::Time32(TimeBuilder::new(path, *unit, field.nullable))
         }
         T::Time64(unit) => {
             if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
                 fail!("Only timestamps with nanosecond or microsecond unit are supported");
             }
-            A::Time64(TimeBuilder::new(*unit, field.nullable))
+            A::Time64(TimeBuilder::new(path, *unit, field.nullable))
         }
-        T::Duration(unit) => A::Duration(DurationBuilder::new(*unit, field.nullable)),
-        T::Decimal128(precision, scale) => {
-            A::Decimal128(DecimalBuilder::new(*precision, *scale, field.nullable))
-        }
+        T::Duration(unit) => A::Duration(DurationBuilder::new(path, *unit, field.nullable)),
+        T::Decimal128(precision, scale) => A::Decimal128(DecimalBuilder::new(
+            path,
+            *precision,
+            *scale,
+            field.nullable,
+        )),
         T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
         T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
         T::List(child) => A::List(ListBuilder::new(
@@ -193,8 +198,8 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             (*n).try_into()?,
             field.nullable,
         )),
-        T::Binary => A::Binary(BinaryBuilder::new(field.nullable)),
-        T::LargeBinary => A::LargeBinary(BinaryBuilder::new(field.nullable)),
+        T::Binary => A::Binary(BinaryBuilder::new(path, field.nullable)),
+        T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, field.nullable)),
         T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
             (*n).try_into()?,
             field.nullable,
@@ -209,12 +214,15 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         )?),
         T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
         T::Dictionary(key, value, _) => {
+            let key_path = format!("{path}.key");
             let key_field = Field {
                 name: "key".to_string(),
                 data_type: *key.clone(),
                 nullable: field.nullable,
                 metadata: HashMap::new(),
             };
+
+            let value_path = format!("{path}.value");
             let value_field = Field {
                 name: "value".to_string(),
                 data_type: *value.clone(),
@@ -223,8 +231,9 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             };
 
             A::DictionaryUtf8(DictionaryUtf8Builder::new(
-                build_builder(format!("{path}.key"), &key_field)?,
-                build_builder(format!("{path}.value"), &value_field)?,
+                path,
+                build_builder(key_path, &key_field)?,
+                build_builder(value_path, &value_field)?,
             ))
         }
         T::Union(union_fields, _) => {

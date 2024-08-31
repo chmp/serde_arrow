@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, DictionaryArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::Mut,
 };
 
@@ -12,14 +12,16 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {
+    path: String,
     pub indices: Box<ArrayBuilder>,
     pub values: Box<ArrayBuilder>,
     pub index: HashMap<String, usize>,
 }
 
 impl DictionaryUtf8Builder {
-    pub fn new(indices: ArrayBuilder, values: ArrayBuilder) -> Self {
+    pub fn new(path: String, indices: ArrayBuilder, values: ArrayBuilder) -> Self {
         Self {
+            path,
             indices: Box::new(indices),
             values: Box::new(values),
             index: HashMap::new(),
@@ -28,6 +30,7 @@ impl DictionaryUtf8Builder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             indices: Box::new(self.indices.take()),
             values: Box::new(self.values.take()),
             index: std::mem::take(&mut self.index),
@@ -49,6 +52,12 @@ impl DictionaryUtf8Builder {
 impl SimpleSerializer for DictionaryUtf8Builder {
     fn name(&self) -> &str {
         "DictionaryUtf8"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {
