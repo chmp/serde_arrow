@@ -5,7 +5,9 @@ use crate::internal::{
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
 };
 
-// see https://github.com/chmp/serde_arrow/issues/216
+/// A mixture of nulls and strings is parsed as a nullable LargeUtf8
+///
+/// see https://github.com/chmp/serde_arrow/issues/216
 mod json_utf8_null {
     use super::*;
 
@@ -29,7 +31,7 @@ mod json_utf8_null {
     test!(null_str, [{"flavor": null}, {"flavor": "delicious"}]);
 }
 
-// A mixture of negative and positive ints is traced as i64
+/// A mixture of negative, positive ints and nulls is traced as a nullable i64
 mod json_i64_null {
     use super::*;
 
@@ -57,7 +59,7 @@ mod json_i64_null {
     test!(neg_pos_null, [{"value": -13}, {"value": 42}, {"value": null}]);
 }
 
-// Positive ints are traced as u64
+/// Positive ints and nulls are traced as a nullable u64
 mod json_u64_null {
     use super::*;
 
@@ -81,6 +83,7 @@ mod json_u64_null {
     test!(null_pos, [{"value": null}, {"value": 42}]);
 }
 
+/// Bools and nulls are traced as a nullable Bool
 mod json_bool_null {
     use super::*;
 
@@ -104,6 +107,7 @@ mod json_bool_null {
     test!(null_pos, [{"value": null}, {"value": false}]);
 }
 
+/// Structs and nulls are traced as nullable structs
 mod json_struct_null {
     use super::*;
 
@@ -135,6 +139,7 @@ mod json_struct_null {
     test!(null_struct, [{"value": null}, {"value": {"child": 13}}]);
 }
 
+/// Lists and nulls are traced as nullable lists
 mod json_list_null {
     use super::*;
 
@@ -165,6 +170,7 @@ mod json_list_null {
     test!(null_list, [{"value": null}, {"value": [13]}]);
 }
 
+/// Strings encoding dates and nulls are traced as nullable Date64 fields
 mod json_date64_naive_null {
     use super::*;
 
@@ -193,6 +199,7 @@ mod json_date64_naive_null {
     test!(null_str, [{"date": null}, {"date": "2024-08-09T12:15:00"}]);
 }
 
+/// Strings encoding dates and nulls are traced as nullable Date64 fields
 mod json_date64_utc_null {
     use super::*;
 
@@ -267,6 +274,7 @@ mod json_date64_to_string_coercions {
     test!(null_naive_str, [{"date": null}, {"date": "2024-08-09T12:15:00"}, {"date": "baz"}]);
 }
 
+/// Test how different number and null types are coerced (using untagged enums)
 mod untagged_enum_number_coercion {
     use serde::Serialize;
 
