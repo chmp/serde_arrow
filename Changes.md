@@ -1,6 +1,6 @@
 # Change log
 
-## 0.12
+## 0.12.0
 
 Refactor the underlying implementation to prepare for further development
 
@@ -22,6 +22,10 @@ Removed deprecated API
 - Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
   `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
 - Remove `SerdeArrowSchema::new()`, `Overwrites::new()`
+
+## 0.11.7
+
+- Fix tracing of JSON mixing nulls with non-null data
 
 ## 0.11.6
 
