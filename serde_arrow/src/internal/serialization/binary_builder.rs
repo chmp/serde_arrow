@@ -7,7 +7,7 @@ use crate::internal::{
     error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-        btree_map, Mut, Offset,
+        btree_map, Mut, NamedType, Offset,
     },
 };
 
@@ -78,13 +78,18 @@ impl<O: Offset> BinaryBuilder<O> {
     }
 }
 
-impl<O: Offset> Context for BinaryBuilder<O> {
+impl<O: NamedType> Context for BinaryBuilder<O> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = match O::NAME {
+            "i32" => "Binary",
+            "i64" => "LargeBinary",
+            _ => "<unknown>",
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
-impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
+impl<O: NamedType + Offset> SimpleSerializer for BinaryBuilder<O> {
     fn serialize_default(&mut self) -> Result<()> {
         self.array.push_scalar_default().ctx(self)
     }

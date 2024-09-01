@@ -7,7 +7,7 @@ use crate::internal::{
     error::{Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
+        btree_map, NamedType,
     },
 };
 
@@ -70,15 +70,20 @@ impl TimeBuilder<i64> {
     }
 }
 
-impl<I> Context for TimeBuilder<I> {
+impl<I: NamedType> Context for TimeBuilder<I> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = match I::NAME {
+            "i32" => "Time32",
+            "i64" => "Time64",
+            _ => "<unknown>",
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
 impl<I> SimpleSerializer for TimeBuilder<I>
 where
-    I: TryFrom<i64> + TryFrom<i32> + Default + 'static,
+    I: NamedType + TryFrom<i64> + TryFrom<i32> + Default + 'static,
     Error: From<<I as TryFrom<i32>>::Error>,
     Error: From<<I as TryFrom<i64>>::Error>,
 {

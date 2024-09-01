@@ -95,7 +95,12 @@ impl Date64Builder {
 
 impl Context for Date64Builder {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = if self.meta.is_some() {
+            "Timestamp(..)"
+        } else {
+            "Date64"
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

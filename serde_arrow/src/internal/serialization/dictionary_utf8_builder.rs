@@ -51,7 +51,7 @@ impl DictionaryUtf8Builder {
 
 impl Context for DictionaryUtf8Builder {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        btree_map!("field" => self.path.clone(), "data_type" => "Dictionary(..)")
     }
 }
 

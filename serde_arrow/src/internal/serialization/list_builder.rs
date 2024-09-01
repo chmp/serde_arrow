@@ -7,7 +7,7 @@ use crate::internal::{
     error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        btree_map, Mut, Offset,
+        btree_map, Mut, NamedType, Offset,
     },
 };
 
@@ -76,7 +76,7 @@ impl ListBuilder<i64> {
     }
 }
 
-impl<O: Offset> ListBuilder<O> {
+impl<O: NamedType + Offset> ListBuilder<O> {
     fn start(&mut self) -> Result<()> {
         self.offsets.start_seq()
     }
@@ -91,13 +91,18 @@ impl<O: Offset> ListBuilder<O> {
     }
 }
 
-impl<O> Context for ListBuilder<O> {
+impl<O: NamedType> Context for ListBuilder<O> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = if O::NAME == "i32" {
+            "List"
+        } else {
+            "LargeList"
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
-impl<O: Offset> SimpleSerializer for ListBuilder<O> {
+impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
     fn serialize_default(&mut self) -> Result<()> {
         self.offsets.push_seq_default().ctx(self)
     }

@@ -77,7 +77,7 @@ impl UnionBuilder {
 
 impl Context for UnionBuilder {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        btree_map!("field" => self.path.clone(), "data_type" => "Union(..)")
     }
 }
 

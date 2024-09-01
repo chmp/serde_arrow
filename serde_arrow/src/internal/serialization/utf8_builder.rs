@@ -5,7 +5,7 @@ use crate::internal::{
     error::{fail, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-        btree_map, Offset,
+        btree_map, NamedType, Offset,
     },
 };
 
@@ -57,13 +57,19 @@ impl Utf8Builder<i64> {
     }
 }
 
-impl<O> Context for Utf8Builder<O> {
+impl<O: NamedType> Context for Utf8Builder<O> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = if O::NAME == "i32" {
+            "Utf8"
+        } else {
+            "LargeUtf8"
+        };
+
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
-impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
+impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
     fn serialize_default(&mut self) -> Result<()> {
         self.array.push_scalar_default().ctx(self)
     }

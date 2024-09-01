@@ -5,7 +5,7 @@ use crate::internal::{
     error::{Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
+        btree_map, NamedType,
     },
 };
 
@@ -60,9 +60,20 @@ impl_into_array!(u16, U16, UInt16);
 impl_into_array!(u32, U32, UInt32);
 impl_into_array!(u64, U64, UInt64);
 
-impl<I> Context for IntBuilder<I> {
+impl<I: NamedType> Context for IntBuilder<I> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        let data_type = match I::NAME {
+            "i8" => "Int8",
+            "i16" => "Int16",
+            "i32" => "Int32",
+            "i64" => "Int64",
+            "u8" => "UInt8",
+            "u16" => "UInt16",
+            "u32" => "UInt32",
+            "u64" => "UInt64",
+            _ => "<unknown>",
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
@@ -78,7 +89,8 @@ impl<I> IntBuilder<I> {
 
 impl<I> SimpleSerializer for IntBuilder<I>
 where
-    I: Default
+    I: NamedType
+        + Default
         + TryFrom<i8>
         + TryFrom<i16>
         + TryFrom<i32>

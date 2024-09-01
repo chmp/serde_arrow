@@ -57,9 +57,21 @@ impl_into_array!(f16, F16, Float16);
 impl_into_array!(f32, F32, Float32);
 impl_into_array!(f64, F64, Float64);
 
-impl<F> Context for FloatBuilder<F> {
+impl Context for FloatBuilder<f16> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
+        btree_map!("field" => self.path.clone(), "data_type" => "Float16")
+    }
+}
+
+impl Context for FloatBuilder<f32> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone(), "data_type" => "Float32")
+    }
+}
+
+impl Context for FloatBuilder<f64> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone(), "data_type" => "Float64")
     }
 }
 
