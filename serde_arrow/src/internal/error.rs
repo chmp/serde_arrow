@@ -290,3 +290,9 @@ fn error_can_be_converted_to_anyhow() {
     }
     assert!(func().is_err());
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl AssertSendSync for Error {}
+    impl<T: Send + Sync> AssertSendSync for Result<T> {}
+};

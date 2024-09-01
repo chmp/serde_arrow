@@ -546,3 +546,11 @@ impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
         }
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl AssertSendSync for SerdeArrowSchema {}
+    impl AssertSendSync for TracingOptions {}
+    impl AssertSendSync for Strategy {}
+    impl AssertSendSync for Overwrites {}
+};

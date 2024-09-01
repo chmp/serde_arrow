@@ -35,7 +35,7 @@ workflow_test_template = {
     "on": {
         "workflow_dispatch": {},
         "pull_request": {
-            "branches": ["main"],
+            "branches": ["main", "develop-*"],
             "types": [
                 "opened",
                 "edited",

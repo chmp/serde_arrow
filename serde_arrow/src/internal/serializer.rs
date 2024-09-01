@@ -281,3 +281,8 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSer
         Ok(Serializer(self.0))
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl<A: Send + Sync> AssertSendSync for Serializer<A> {}
+};
