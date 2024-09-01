@@ -4,7 +4,8 @@
     "workflow_dispatch": {},
     "pull_request": {
       "branches": [
-        "main"
+        "main",
+        "develop-*"
       ],
       "types": [
         "opened",

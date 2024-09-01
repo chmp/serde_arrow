@@ -194,3 +194,8 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         false
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl<'de> AssertSendSync for Deserializer<'de> {}
+};

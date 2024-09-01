@@ -95,3 +95,8 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
         self
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl AssertSendSync for ArrayBuilder {}
+};

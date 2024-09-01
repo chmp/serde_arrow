@@ -205,10 +205,21 @@ impl SimpleSerializer for StructBuilder {
     }
 }
 
+/// Optimize field lookups for static names
 #[derive(Debug, Clone)]
 pub struct FieldLookup {
-    pub cached_names: Vec<Option<(*const u8, usize)>>,
+    pub cached_names: Vec<Option<StaticFieldName>>,
     pub index: BTreeMap<String, usize>,
+}
+
+/// A wrapper around a static field name that compares using ptr and length
+#[derive(Debug, Clone)]
+pub struct StaticFieldName(&'static str);
+
+impl std::cmp::PartialEq for StaticFieldName {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.as_ptr(), self.0.len()) == (other.0.as_ptr(), other.0.len())
+    }
 }
 
 impl FieldLookup {
@@ -234,13 +245,12 @@ impl FieldLookup {
     }
 
     pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
-        let fast_key = (key.as_ptr(), key.len());
-        if self.cached_names.get(guess) == Some(&Some(fast_key)) {
+        if self.cached_names.get(guess) == Some(&Some(StaticFieldName(key))) {
             Some(guess)
         } else {
             let &idx = self.index.get(key)?;
             if self.cached_names[idx].is_none() {
-                self.cached_names[idx] = Some(fast_key);
+                self.cached_names[idx] = Some(StaticFieldName(key));
             }
             Some(idx)
         }
