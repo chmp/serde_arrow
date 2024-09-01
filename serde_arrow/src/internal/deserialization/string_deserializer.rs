@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{error, fail, Result},
+    error::{fail, Result},
     utils::{Mut, Offset},
 };
 
@@ -39,9 +39,10 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 
     pub fn next_required(&mut self) -> Result<&'a str> {
-        self.next()?.ok_or_else(|| {
-            error!("Tried to deserialize a value from StringDeserializer, but value is missing")
-        })
+        let Some(next) = self.next()? else {
+            fail!("Tried to deserialize a value from StringDeserializer, but value is missing")
+        };
+        Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {

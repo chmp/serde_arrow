@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{error, fail, Result},
+    error::{fail, Result},
     utils::Offset,
 };
 
@@ -44,7 +44,10 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
     }
 
     pub fn next_required(&mut self) -> Result<T> {
-        self.next()?.ok_or_else(|| error!("missing value"))
+        let Some(next) = self.next()? else {
+            fail!("missing value");
+        };
+        Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {

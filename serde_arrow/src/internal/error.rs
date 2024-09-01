@@ -211,25 +211,17 @@ impl serde::de::Error for Error {
     }
 }
 
-macro_rules! error {
-    ($($tt:tt)*) => {
-        $crate::internal::error::Error::custom(format!($($tt)*))
-    };
-}
-
-pub(crate) use error;
-
 macro_rules! fail {
     (in $context:expr, $($tt:tt)*) => {
         {
             #[allow(unused)]
             use $crate::internal::error::Context;
             let annotations = $context.annotations();
-            return Err($crate::internal::error::error!($($tt)*).with_annotations(annotations))
+            return Err($crate::internal::error::Error::custom(format!($($tt)*)).with_annotations(annotations))
         }
     };
     ($($tt:tt)*) => {
-        return Err($crate::internal::error::error!($($tt)*))
+        return Err($crate::internal::error::Error::custom(format!($($tt)*)))
     };
 }
 
@@ -305,7 +297,7 @@ impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
 #[test]
 fn error_can_be_converted_to_anyhow() {
     fn func() -> anyhow::Result<()> {
-        Err(error!("dummy"))?;
+        Err(Error::custom("dummy".to_string()))?;
         Ok(())
     }
     assert!(func().is_err());

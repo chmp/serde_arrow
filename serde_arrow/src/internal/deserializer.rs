@@ -81,19 +81,19 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single bools")
+        fail!("Cannot deserialize single bools")
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize byte buffers")
+        fail!("Cannot deserialize byte buffers")
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize byte arrays")
+        fail!("Cannot deserialize byte arrays")
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single chars")
+        fail!("Cannot deserialize single chars")
     }
 
     fn deserialize_enum<V: Visitor<'de>>(
@@ -102,55 +102,55 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         _: &'static [&'static str],
         _: V,
     ) -> Result<V::Value> {
-        fail!("cannot deserialize single enums")
+        fail!("Cannot deserialize single enums")
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single floats")
+        fail!("Cannot deserialize single floats")
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single floats")
+        fail!("Cannot deserialize single floats")
     }
 
     fn deserialize_i128<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single identifiers")
+        fail!("Cannot deserialize single identifiers")
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single maps")
+        fail!("Cannot deserialize single maps")
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single options")
+        fail!("Cannot deserialize single options")
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single strings")
+        fail!("Cannot deserialize single strings")
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single strings")
+        fail!("Cannot deserialize single strings")
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -159,35 +159,35 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         _: &'static [&'static str],
         _: V,
     ) -> Result<V::Value> {
-        fail!("cannot deserialize single structs")
+        fail!("Cannot deserialize single structs")
     }
 
     fn deserialize_u128<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("Cannot deserialize single integers")
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single units")
+        fail!("Cannot deserialize single units")
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(self, _: &'static str, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single units")
+        fail!("Cannot deserialize single units")
     }
 
     fn is_human_readable(&self) -> bool {
