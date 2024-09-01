@@ -39,3 +39,4 @@ Style:
 Common annotations:
 
 - `field`: the path of the field affected by the error
+- `data_type`: the Arrow data type of the field affected by the error
