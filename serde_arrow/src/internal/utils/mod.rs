@@ -180,12 +180,12 @@ impl Offset for i64 {
     }
 }
 
-pub fn meta_from_field(field: Field) -> Result<FieldMeta> {
-    Ok(FieldMeta {
+pub fn meta_from_field(field: Field) -> FieldMeta {
+    FieldMeta {
         name: field.name,
         nullable: field.nullable,
         metadata: field.metadata,
-    })
+    }
 }
 
 macro_rules! btree_map {

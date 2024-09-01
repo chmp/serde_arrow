@@ -298,7 +298,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 );
             };
             Ok(V::List(ListArrayView {
-                meta: meta_from_field(field.as_ref().try_into()?)?,
+                meta: meta_from_field(field.as_ref().try_into()?),
                 validity: bits_with_offset_from_bitmap(array.validity()),
                 offsets: array.offsets().as_slice(),
                 element: Box::new(array.values().as_ref().try_into()?),
@@ -311,7 +311,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 );
             };
             Ok(V::LargeList(ListArrayView {
-                meta: meta_from_field(field.as_ref().try_into()?)?,
+                meta: meta_from_field(field.as_ref().try_into()?),
                 validity: bits_with_offset_from_bitmap(array.validity()),
                 offsets: array.offsets().as_slice(),
                 element: Box::new(array.values().as_ref().try_into()?),
@@ -327,7 +327,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
             for (child_field, child) in child_fields.iter().zip(array.values()) {
                 fields.push((
                     child.as_ref().try_into()?,
-                    meta_from_field(child_field.try_into()?)?,
+                    meta_from_field(child_field.try_into()?),
                 ));
             }
             Ok(V::Struct(StructArrayView {
@@ -342,7 +342,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                     array.data_type(),
                 );
             };
-            let meta = meta_from_field(field.as_ref().try_into()?)?;
+            let meta = meta_from_field(field.as_ref().try_into()?);
             let element: ArrayView<'_> = array.field().as_ref().try_into()?;
 
             Ok(V::Map(ListArrayView {
@@ -378,7 +378,7 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 fields.push((
                     (*type_id).try_into()?,
                     child.as_ref().try_into()?,
-                    meta_from_field(child_field.try_into()?)?,
+                    meta_from_field(child_field.try_into()?),
                 ));
             }
 

@@ -115,7 +115,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
         let field_path = format!("{path}.{field_name}", field_name = field.name);
         fields.push((
             build_builder(field_path, field)?,
-            meta_from_field(field.clone())?,
+            meta_from_field(field.clone()),
         ));
     }
     StructBuilder::new(path, fields, nullable)
@@ -176,28 +176,28 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::Utf8 => A::Utf8(Utf8Builder::new(path, field.nullable)),
         T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(path, field.nullable)),
         T::List(child) => {
-            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             A::List(ListBuilder::new(
                 path,
-                meta_from_field(*child.clone())?,
+                meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
                 field.nullable,
             )?)
         }
         T::LargeList(child) => {
-            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             A::LargeList(ListBuilder::new(
                 path,
-                meta_from_field(*child.clone())?,
+                meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
                 field.nullable,
             )?)
         }
         T::FixedSizeList(child, n) => {
-            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             A::FixedSizedList(FixedSizeListBuilder::new(
                 path,
-                meta_from_field(*child.clone())?,
+                meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
                 (*n).try_into()?,
                 field.nullable,
@@ -211,10 +211,13 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             field.nullable,
         )),
         T::Map(entry_field, _) => {
-            let child_path = format!("{path}.{child_name}", child_name = entry_field.name);
+            let child_path = format!(
+                "{path}.{child_name}",
+                child_name = ChildName(&entry_field.name)
+            );
             A::Map(MapBuilder::new(
                 path,
-                meta_from_field(*entry_field.clone())?,
+                meta_from_field(*entry_field.clone()),
                 build_builder(child_path, entry_field.as_ref())?,
                 field.nullable,
             )?)
@@ -249,10 +252,11 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 if usize::try_from(*type_id) != Ok(idx) {
                     fail!("non consecutive type ids are not supported");
                 }
-                let field_path = format!("{path}.{field_name}", field_name = field.name);
+                let field_path =
+                    format!("{path}.{field_name}", field_name = ChildName(&field.name));
                 fields.push((
                     build_builder(field_path, field)?,
-                    meta_from_field(field.clone())?,
+                    meta_from_field(field.clone()),
                 ));
             }
 
@@ -275,5 +279,17 @@ fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
         Some(Strategy::UtcStrAsDate64) | None => Ok(true),
         Some(Strategy::NaiveStrAsDate64) => Ok(false),
         Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
+    }
+}
+
+struct ChildName<'a>(&'a str);
+
+impl<'a> std::fmt::Display for ChildName<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "<empty>")
+        }
     }
 }
