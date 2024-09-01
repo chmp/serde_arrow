@@ -11,7 +11,7 @@ use crate::internal::{
 
 impl From<ArrowError> for Error {
     fn from(err: ArrowError) -> Self {
-        Self::custom(err.to_string())
+        Self::custom_from(err.to_string(), err)
     }
 }
 
