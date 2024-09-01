@@ -499,10 +499,8 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
 }
 
 pub fn merge_annotations(err: Error, annotations_err: Error) -> Error {
-    let Error::Annotated(annotations_err) = annotations_err else {
-        return err;
-    };
     err.annotate_unannotated(|annotations| {
+        let Error::Custom(annotations_err) = annotations_err;
         *annotations = annotations_err.annotations;
     })
 }

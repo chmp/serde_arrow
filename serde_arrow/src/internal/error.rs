@@ -22,7 +22,6 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[non_exhaustive]
 pub enum Error {
     Custom(CustomError),
-    Annotated(AnnotatedError),
 }
 
 impl Error {
@@ -31,6 +30,7 @@ impl Error {
             message,
             backtrace: Backtrace::capture(),
             cause: None,
+            annotations: BTreeMap::new(),
         })
     }
 
@@ -42,6 +42,7 @@ impl Error {
             message,
             backtrace: Backtrace::capture(),
             cause: Some(Box::new(cause)),
+            annotations: BTreeMap::new(),
         })
     }
 }
@@ -52,20 +53,19 @@ impl Error {
             message: String::new(),
             backtrace: Backtrace::disabled(),
             cause: None,
+            annotations: BTreeMap::new(),
         })
     }
 
     pub fn message(&self) -> &str {
         match self {
             Self::Custom(err) => &err.message,
-            Self::Annotated(err) => err.error.message(),
         }
     }
 
     pub fn backtrace(&self) -> &Backtrace {
         match self {
             Self::Custom(err) => &err.backtrace,
-            Self::Annotated(err) => &err.error.backtrace(),
         }
     }
 
@@ -75,23 +75,16 @@ impl Error {
         self,
         func: F,
     ) -> Self {
-        match self {
-            Self::Annotated(err) => Self::Annotated(err),
-            non_annotated_err => {
-                let mut annotations = BTreeMap::new();
-                func(&mut annotations);
-                Self::Annotated(AnnotatedError {
-                    error: Box::new(non_annotated_err),
-                    annotations,
-                })
-            }
+        let Self::Custom(mut this) = self;
+        if this.annotations.is_empty() {
+            func(&mut this.annotations);
         }
+        Self::Custom(this)
     }
 
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
         match self {
-            Self::Custom(_) => None,
-            Self::Annotated(err) => Some(&err.annotations),
+            Self::Custom(err) => Some(&err.annotations),
         }
     }
 }
@@ -100,22 +93,12 @@ pub struct CustomError {
     message: String,
     backtrace: Backtrace,
     cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    pub(crate) annotations: BTreeMap<String, String>,
 }
 
 impl std::cmp::PartialEq for CustomError {
     fn eq(&self, other: &Self) -> bool {
-        self.message == other.message
-    }
-}
-
-pub struct AnnotatedError {
-    pub(crate) error: Box<Error>,
-    pub(crate) annotations: BTreeMap<String, String>,
-}
-
-impl std::cmp::PartialEq for AnnotatedError {
-    fn eq(&self, other: &Self) -> bool {
-        self.error.eq(&other.error) && self.annotations == other.annotations
+        self.message == other.message && self.annotations == other.annotations
     }
 }
 
@@ -173,11 +156,10 @@ impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Custom(CustomError {
-                cause: Some(err), ..
-            }) => Some(err.as_ref()),
-            _ => None,
+        let Self::Custom(this) = self;
+        match this.cause.as_ref() {
+            Some(cause) => Some(cause.as_ref()),
+            None => None,
         }
     }
 }
@@ -266,6 +248,7 @@ impl From<Infallible> for Error {
 
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
+        // Note: bytemuck::PodCastError does not implement std::error::Error
         Self::custom(format!("bytemuck::PodCastError: {err}"))
     }
 }
