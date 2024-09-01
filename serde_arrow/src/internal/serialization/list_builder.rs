@@ -23,18 +23,13 @@ pub struct ListBuilder<O> {
 }
 
 impl<O: Offset> ListBuilder<O> {
-    pub fn new(
-        path: String,
-        meta: FieldMeta,
-        element: ArrayBuilder,
-        is_nullable: bool,
-    ) -> Result<Self> {
-        Ok(Self {
+    pub fn new(path: String, meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Self {
+        Self {
             path,
             meta,
             element: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
-        })
+        }
     }
 
     pub fn take_self(&mut self) -> Self {

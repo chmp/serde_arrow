@@ -4,14 +4,14 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{DataType, Field, TimeUnit},
-    error::{fail, Context, Result},
+    error::{fail, Context, ContextSupport, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::{meta_from_field, Mut},
+    utils::{btree_map, meta_from_field, Mut},
 };
 
 use super::{
@@ -123,6 +123,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
 
 fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
+    let ctx: BTreeMap<String, String> = btree_map!("path" => path.clone());
 
     let builder = match &field.data_type {
         T::Null => match get_strategy_from_metadata(&field.metadata)? {
@@ -151,18 +152,18 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
             path,
             Some((*unit, tz.clone())),
-            is_utc_tz(tz.as_deref())?,
+            is_utc_tz(tz.as_deref()).ctx(&ctx)?,
             field.nullable,
         )),
         T::Time32(unit) => {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
-                fail!("Only timestamps with second or millisecond unit are supported");
+                fail!(in ctx, "Time32 only supports second or millisecond resolutions");
             }
             A::Time32(TimeBuilder::new(path, *unit, field.nullable))
         }
         T::Time64(unit) => {
             if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
-                fail!("Only timestamps with nanosecond or microsecond unit are supported");
+                fail!(in ctx, "Time64 only supports nanosecond or microsecond resolutions");
             }
             A::Time64(TimeBuilder::new(path, *unit, field.nullable))
         }
@@ -182,7 +183,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
                 field.nullable,
-            )?)
+            ))
         }
         T::LargeList(child) => {
             let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
@@ -191,36 +192,39 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
                 field.nullable,
-            )?)
+            ))
         }
         T::FixedSizeList(child, n) => {
             let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
+            let n = usize::try_from(*n).ctx(&ctx)?;
             A::FixedSizedList(FixedSizeListBuilder::new(
                 path,
                 meta_from_field(*child.clone()),
                 build_builder(child_path, child.as_ref())?,
-                (*n).try_into()?,
+                n,
                 field.nullable,
             ))
         }
         T::Binary => A::Binary(BinaryBuilder::new(path, field.nullable)),
         T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, field.nullable)),
-        T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
-            path,
-            (*n).try_into()?,
-            field.nullable,
-        )),
+        T::FixedSizeBinary(n) => {
+            let n = usize::try_from(*n).ctx(&ctx)?;
+            A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, field.nullable))
+        }
         T::Map(entry_field, _) => {
             let child_path = format!(
                 "{path}.{child_name}",
                 child_name = ChildName(&entry_field.name)
             );
-            A::Map(MapBuilder::new(
-                path,
-                meta_from_field(*entry_field.clone()),
-                build_builder(child_path, entry_field.as_ref())?,
-                field.nullable,
-            )?)
+            A::Map(
+                MapBuilder::new(
+                    path,
+                    meta_from_field(*entry_field.clone()),
+                    build_builder(child_path, entry_field.as_ref())?,
+                    field.nullable,
+                )
+                .ctx(&ctx)?,
+            )
         }
         T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
         T::Dictionary(key, value, _) => {
@@ -250,7 +254,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             let mut fields = Vec::new();
             for (idx, (type_id, field)) in union_fields.iter().enumerate() {
                 if usize::try_from(*type_id) != Ok(idx) {
-                    fail!("non consecutive type ids are not supported");
+                    fail!(in ctx, "Union with non consecutive type ids are not supported");
                 }
                 let field_path =
                     format!("{path}.{field_name}", field_name = ChildName(&field.name));

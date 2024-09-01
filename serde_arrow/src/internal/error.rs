@@ -9,17 +9,9 @@ pub trait Context {
     fn annotations(&self) -> BTreeMap<String, String>;
 }
 
-pub struct StaticContext(BTreeMap<String, String>);
-
-impl StaticContext {
-    pub fn from_context<C: Context>(context: &C) -> Self {
-        Self(context.annotations())
-    }
-}
-
-impl Context for StaticContext {
+impl Context for BTreeMap<String, String> {
     fn annotations(&self) -> BTreeMap<String, String> {
-        self.0.clone()
+        self.clone()
     }
 }
 
