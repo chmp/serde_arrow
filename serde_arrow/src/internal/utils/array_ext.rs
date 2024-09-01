@@ -262,7 +262,7 @@ impl SeqArrayExt for CountArray {
 
 pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
     let Some(last) = vec.last() else {
-        fail!("invalid offset array")
+        fail!("Invalid offset array: expected at least a single element")
     };
     vec.push(last.clone());
     Ok(())
@@ -270,7 +270,7 @@ pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
 
 pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     let Some(last) = vec.last_mut() else {
-        fail!("invalid offset array")
+        fail!("Invalid offset array: expected at least a single element")
     };
     *last = *last + O::try_form_usize(inc)?;
     Ok(())
@@ -283,7 +283,7 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     } else if value {
         Ok(())
     } else {
-        fail!("cannot push null for non-nullable array");
+        fail!("Cannot push null for non-nullable array");
     }
 }
 
