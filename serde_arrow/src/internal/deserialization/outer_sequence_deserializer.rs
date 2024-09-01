@@ -1,8 +1,8 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    error::{Error, Result},
-    utils::Mut,
+    error::{Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{
@@ -19,10 +19,16 @@ pub struct OuterSequenceDeserializer<'a> {
 impl<'a> OuterSequenceDeserializer<'a> {
     pub fn new(fields: Vec<(String, ArrayDeserializer<'a>)>, len: usize) -> Self {
         Self {
-            item: StructDeserializer::new(fields, None, len),
+            item: StructDeserializer::new(String::from("$"), fields, None, len),
             next: 0,
             len,
         }
+    }
+}
+
+impl<'de> Context for OuterSequenceDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!()
     }
 }
 

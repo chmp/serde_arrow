@@ -33,7 +33,7 @@ impl<'de> Deserializer<'de> {
                 fail!("Cannot deserialize from arrays with different lengths");
             }
             let strategy = get_strategy_from_metadata(&field.metadata)?;
-            let deserializer = ArrayDeserializer::new(strategy.as_ref(), view)?;
+            let deserializer = ArrayDeserializer::new(String::from("$"), strategy.as_ref(), view)?;
             deserializers.push((field.name.clone(), deserializer));
         }
 

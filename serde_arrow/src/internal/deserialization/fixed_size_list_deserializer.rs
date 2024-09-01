@@ -2,8 +2,8 @@ use serde::de::{IgnoredAny, SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{
@@ -12,6 +12,7 @@ use super::{
 };
 
 pub struct FixedSizeListDeserializer<'a> {
+    pub path: String,
     pub item: Box<ArrayDeserializer<'a>>,
     pub validity: Option<BitsWithOffset<'a>>,
     pub shape: (usize, usize),
@@ -20,12 +21,14 @@ pub struct FixedSizeListDeserializer<'a> {
 
 impl<'a> FixedSizeListDeserializer<'a> {
     pub fn new(
+        path: String,
         item: ArrayDeserializer<'a>,
         validity: Option<BitsWithOffset<'a>>,
         n: usize,
         len: usize,
     ) -> Self {
         Self {
+            path,
             item: Box::new(item),
             validity,
             shape: (len, n),
@@ -51,6 +54,12 @@ impl<'a> FixedSizeListDeserializer<'a> {
 
         self.next = (self.next.0 + 1, 0);
         Ok(())
+    }
+}
+
+impl<'a> Context for FixedSizeListDeserializer<'a> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "FixedSizeList(..)")
     }
 }
 

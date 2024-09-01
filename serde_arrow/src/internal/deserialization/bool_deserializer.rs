@@ -2,20 +2,25 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::BooleanArrayView,
-    error::{fail, Result},
-    utils::Mut,
+    error::{fail, Context, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BoolDeserializer<'a> {
+    pub path: String,
     pub view: BooleanArrayView<'a>,
     pub next: usize,
 }
 
 impl<'a> BoolDeserializer<'a> {
-    pub fn new(view: BooleanArrayView<'a>) -> Self {
-        Self { view, next: 0 }
+    pub fn new(path: String, view: BooleanArrayView<'a>) -> Self {
+        Self {
+            path,
+            view,
+            next: 0,
+        }
     }
 
     fn next(&mut self) -> Result<Option<bool>> {
@@ -54,6 +59,12 @@ impl<'a> BoolDeserializer<'a> {
 
     fn consume_next(&mut self) {
         self.next += 1;
+    }
+}
+
+impl<'de> Context for BoolDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "Boolean")
     }
 }
 

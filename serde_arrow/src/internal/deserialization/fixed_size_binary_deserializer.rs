@@ -2,20 +2,21 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::FixedSizeBinaryArrayView,
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct FixedSizeBinaryDeserializer<'a> {
+    pub path: String,
     pub view: FixedSizeBinaryArrayView<'a>,
     pub next: (usize, usize),
     pub shape: (usize, usize),
 }
 
 impl<'a> FixedSizeBinaryDeserializer<'a> {
-    pub fn new(view: FixedSizeBinaryArrayView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: FixedSizeBinaryArrayView<'a>) -> Result<Self> {
         let n = usize::try_from(view.n)?;
         if view.data.len() % n != 0 {
             fail!(
@@ -30,6 +31,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
 
         let shape = (view.data.len() / n, n);
         Ok(Self {
+            path,
             view,
             shape,
             next: (0, 0),
@@ -59,6 +61,12 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         self.next = (item + 1, 0);
 
         Ok(&self.view.data[item * self.shape.1..(item + 1) * self.shape.1])
+    }
+}
+
+impl<'a> Context for FixedSizeBinaryDeserializer<'a> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "FixedSizeBinary(..)")
     }
 }
 

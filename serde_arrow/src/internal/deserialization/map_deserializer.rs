@@ -2,8 +2,8 @@ use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{
@@ -13,6 +13,7 @@ use super::{
 };
 
 pub struct MapDeserializer<'a> {
+    path: String,
     key: Box<ArrayDeserializer<'a>>,
     value: Box<ArrayDeserializer<'a>>,
     offsets: &'a [i32],
@@ -22,6 +23,7 @@ pub struct MapDeserializer<'a> {
 
 impl<'a> MapDeserializer<'a> {
     pub fn new(
+        path: String,
         key: ArrayDeserializer<'a>,
         value: ArrayDeserializer<'a>,
         offsets: &'a [i32],
@@ -30,6 +32,7 @@ impl<'a> MapDeserializer<'a> {
         check_supported_list_layout(validity, offsets)?;
 
         Ok(Self {
+            path,
             key: Box::new(key),
             value: Box::new(value),
             offsets,
@@ -51,6 +54,12 @@ impl<'a> MapDeserializer<'a> {
 
     pub fn consume_next(&mut self) {
         self.next = (self.next.0 + 1, 0);
+    }
+}
+
+impl<'de> Context for MapDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "Map(..)")
     }
 }
 

@@ -11,7 +11,7 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::{btree_map, meta_from_field, Mut},
+    utils::{btree_map, meta_from_field, ChildName, Mut},
 };
 
 use super::{
@@ -283,17 +283,5 @@ fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
         Some(Strategy::UtcStrAsDate64) | None => Ok(true),
         Some(Strategy::NaiveStrAsDate64) => Ok(false),
         Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-    }
-}
-
-struct ChildName<'a>(&'a str);
-
-impl<'a> std::fmt::Display for ChildName<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.0.is_empty() {
-            write!(f, "{}", self.0)
-        } else {
-            write!(f, "<empty>")
-        }
     }
 }

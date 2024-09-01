@@ -2,20 +2,25 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, Error, Result},
-    utils::{Mut, Offset},
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut, NamedType, Offset},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BinaryDeserializer<'a, O: Offset> {
+    pub path: String,
     pub view: BytesArrayView<'a, O>,
     pub next: (usize, usize),
 }
 
 impl<'a, O: Offset> BinaryDeserializer<'a, O> {
-    pub fn new(view: BytesArrayView<'a, O>) -> Self {
-        Self { view, next: (0, 0) }
+    pub fn new(path: String, view: BytesArrayView<'a, O>) -> Self {
+        Self {
+            path,
+            view,
+            next: (0, 0),
+        }
     }
 
     pub fn peek_next(&self) -> Result<bool> {
@@ -51,7 +56,18 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: Offset> SimpleDeserializer<'a> for BinaryDeserializer<'a, O> {
+impl<'a, O: Offset + NamedType> Context for BinaryDeserializer<'a, O> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        let data_type = match O::NAME {
+            "i32" => "Binary",
+            "i64" => "LargeBinary",
+            _ => "<unknown>",
+        };
+        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+    }
+}
+
+impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a, O> {
     fn name() -> &'static str {
         "BinaryDeserializer"
     }

@@ -1,25 +1,37 @@
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
 pub struct EnumDeserializer<'a> {
+    pub path: String,
     pub type_ids: &'a [i8],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
     pub next: usize,
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(type_ids: &'a [i8], variants: Vec<(String, ArrayDeserializer<'a>)>) -> Self {
+    pub fn new(
+        path: String,
+        type_ids: &'a [i8],
+        variants: Vec<(String, ArrayDeserializer<'a>)>,
+    ) -> Self {
         Self {
+            path,
             type_ids,
             variants,
             next: 0,
         }
+    }
+}
+
+impl<'de> Context for EnumDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "Union(..)")
     }
 }
 

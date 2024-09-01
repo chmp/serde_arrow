@@ -2,8 +2,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{BytesArrayView, PrimitiveArrayView},
-    error::{fail, Result},
-    utils::{Mut, Offset},
+    error::{fail, Context, Result},
+    utils::{btree_map, Mut, Offset},
 };
 
 use super::{
@@ -12,18 +12,24 @@ use super::{
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
+    path: String,
     keys: ArrayBufferIterator<'a, K>,
     offsets: &'a [V],
     data: &'a [u8],
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
-    pub fn new(keys: PrimitiveArrayView<'a, K>, values: BytesArrayView<'a, V>) -> Result<Self> {
+    pub fn new(
+        path: String,
+        keys: PrimitiveArrayView<'a, K>,
+        values: BytesArrayView<'a, V>,
+    ) -> Result<Self> {
         if values.validity.is_some() {
             // TODO: check whether all values are defined?
             fail!("dictionaries with nullable values are not supported");
         }
         Ok(Self {
+            path,
             keys: ArrayBufferIterator::new(keys.values, keys.validity),
             offsets: values.offsets,
             data: values.data,
@@ -44,6 +50,12 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
 
         let s = std::str::from_utf8(&self.data[start..end])?;
         Ok(s)
+    }
+}
+
+impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "Dictionary(..)")
     }
 }
 

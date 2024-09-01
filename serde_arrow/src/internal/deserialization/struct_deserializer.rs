@@ -4,8 +4,8 @@ use serde::de::{
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{
@@ -14,6 +14,7 @@ use super::{
 };
 
 pub struct StructDeserializer<'a> {
+    pub path: String,
     pub fields: Vec<(String, ArrayDeserializer<'a>)>,
     pub validity: Option<BitsWithOffset<'a>>,
     pub next: (usize, usize),
@@ -22,11 +23,13 @@ pub struct StructDeserializer<'a> {
 
 impl<'a> StructDeserializer<'a> {
     pub fn new(
+        path: String,
         fields: Vec<(String, ArrayDeserializer<'a>)>,
         validity: Option<BitsWithOffset<'a>>,
         len: usize,
     ) -> Self {
         Self {
+            path,
             fields,
             validity,
             len,
@@ -47,6 +50,12 @@ impl<'a> StructDeserializer<'a> {
 
     pub fn consume_next(&mut self) {
         self.next = (self.next.0 + 1, 0)
+    }
+}
+
+impl<'de> Context for StructDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("path" => self.path.clone(), "data_type" => "Struct(..)")
     }
 }
 

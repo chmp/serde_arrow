@@ -2,8 +2,8 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Error, Result},
-    utils::{Mut, Offset},
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut, NamedType, Offset},
 };
 
 use super::{
@@ -13,6 +13,7 @@ use super::{
 };
 
 pub struct ListDeserializer<'a, O: Offset> {
+    pub path: String,
     pub item: Box<ArrayDeserializer<'a>>,
     pub offsets: &'a [O],
     pub validity: Option<BitsWithOffset<'a>>,
@@ -21,6 +22,7 @@ pub struct ListDeserializer<'a, O: Offset> {
 
 impl<'a, O: Offset> ListDeserializer<'a, O> {
     pub fn new(
+        path: String,
         item: ArrayDeserializer<'a>,
         offsets: &'a [O],
         validity: Option<BitsWithOffset<'a>>,
@@ -28,6 +30,7 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
         check_supported_list_layout(validity, offsets)?;
 
         Ok(Self {
+            path,
             item: Box::new(item),
             offsets,
             validity,
@@ -48,6 +51,17 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
 
     pub fn consume_next(&mut self) {
         self.next = (self.next.0 + 1, 0);
+    }
+}
+
+impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        let data_type = match O::NAME {
+            "i32" => "List(..)",
+            "i64" => "LargeList(..)",
+            _ => "<unknown>",
+        };
+        btree_map!("path" => self.path.clone(), "data_type" => data_type)
     }
 }
 
