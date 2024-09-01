@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 
@@ -28,7 +28,7 @@ impl<O: Offset> BinaryBuilder<O> {
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             array: self.array.take(),
@@ -41,12 +41,20 @@ impl<O: Offset> BinaryBuilder<O> {
 }
 
 impl BinaryBuilder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Binary(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Binary(self.array))
     }
 }
 
 impl BinaryBuilder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::LargeBinary(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::LargeBinary(self.array))
     }

@@ -106,43 +106,8 @@ impl ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    /// Take the contained array builder, while leaving structure intact
-    // TODO: use ArrayBuilder as return type for the impls and use dispatch here
     pub fn take(&mut self) -> ArrayBuilder {
-        match self {
-            Self::Null(builder) => Self::Null(builder.take()),
-            Self::Bool(builder) => Self::Bool(builder.take()),
-            Self::I8(builder) => Self::I8(builder.take()),
-            Self::I16(builder) => Self::I16(builder.take()),
-            Self::I32(builder) => Self::I32(builder.take()),
-            Self::I64(builder) => Self::I64(builder.take()),
-            Self::U8(builder) => Self::U8(builder.take()),
-            Self::U16(builder) => Self::U16(builder.take()),
-            Self::U32(builder) => Self::U32(builder.take()),
-            Self::U64(builder) => Self::U64(builder.take()),
-            Self::F16(builder) => Self::F16(builder.take()),
-            Self::F32(builder) => Self::F32(builder.take()),
-            Self::F64(builder) => Self::F64(builder.take()),
-            Self::Date32(builder) => Self::Date32(builder.take()),
-            Self::Date64(builder) => Self::Date64(builder.take()),
-            Self::Time32(builder) => Self::Time32(builder.take()),
-            Self::Time64(builder) => Self::Time64(builder.take()),
-            Self::Duration(builder) => Self::Duration(builder.take()),
-            Self::Decimal128(builder) => Self::Decimal128(builder.take()),
-            Self::Utf8(builder) => Self::Utf8(builder.take()),
-            Self::LargeUtf8(builder) => Self::LargeUtf8(builder.take()),
-            Self::List(builder) => Self::List(builder.take()),
-            Self::LargeList(builder) => Self::LargeList(builder.take()),
-            Self::FixedSizedList(builder) => Self::FixedSizedList(builder.take()),
-            Self::Binary(builder) => Self::Binary(builder.take()),
-            Self::LargeBinary(builder) => Self::LargeBinary(builder.take()),
-            Self::FixedSizeBinary(builder) => Self::FixedSizeBinary(builder.take()),
-            Self::Struct(builder) => Self::Struct(builder.take()),
-            Self::Map(builder) => Self::Map(builder.take()),
-            Self::DictionaryUtf8(builder) => Self::DictionaryUtf8(builder.take()),
-            Self::Union(builder) => Self::Union(builder.take()),
-            Self::UnknownVariant(builder) => Self::UnknownVariant(builder.take()),
-        }
+        dispatch!(self, Self(builder) => builder.take())
     }
 }
 

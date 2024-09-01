@@ -9,7 +9,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct IntBuilder<I> {
@@ -25,7 +25,7 @@ impl<I: Default + 'static> IntBuilder<I> {
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             array: self.array.take(),
@@ -38,23 +38,27 @@ impl<I: Default + 'static> IntBuilder<I> {
 }
 
 macro_rules! impl_into_array {
-    ($ty:ty, $var:ident) => {
+    ($ty:ty, $builder_var: ident, $array_var:ident) => {
         impl IntBuilder<$ty> {
+            pub fn take(&mut self) -> ArrayBuilder {
+                ArrayBuilder::$builder_var(self.take_self())
+            }
+
             pub fn into_array(self) -> Result<Array> {
-                Ok(Array::$var(self.array))
+                Ok(Array::$array_var(self.array))
             }
         }
     };
 }
 
-impl_into_array!(i8, Int8);
-impl_into_array!(i16, Int16);
-impl_into_array!(i32, Int32);
-impl_into_array!(i64, Int64);
-impl_into_array!(u8, UInt8);
-impl_into_array!(u16, UInt16);
-impl_into_array!(u32, UInt32);
-impl_into_array!(u64, UInt64);
+impl_into_array!(i8, I8, Int8);
+impl_into_array!(i16, I16, Int16);
+impl_into_array!(i32, I32, Int32);
+impl_into_array!(i64, I64, Int64);
+impl_into_array!(u8, U8, UInt8);
+impl_into_array!(u16, U16, UInt16);
+impl_into_array!(u32, U32, UInt32);
+impl_into_array!(u64, U64, UInt64);
 
 impl<I> Context for IntBuilder<I> {
     fn annotations(&self) -> BTreeMap<String, String> {

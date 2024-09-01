@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date32Builder {
@@ -27,11 +27,11 @@ impl Date32Builder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Date32(Self {
             path: self.path.clone(),
             array: self.array.take(),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

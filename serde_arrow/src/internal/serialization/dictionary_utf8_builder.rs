@@ -28,13 +28,13 @@ impl DictionaryUtf8Builder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::DictionaryUtf8(Self {
             path: self.path.clone(),
             indices: Box::new(self.indices.take()),
             values: Box::new(self.values.take()),
             index: std::mem::take(&mut self.index),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

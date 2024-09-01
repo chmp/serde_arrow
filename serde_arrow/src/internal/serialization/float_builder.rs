@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct FloatBuilder<I> {
@@ -27,7 +27,7 @@ impl<F: Default + 'static> FloatBuilder<F> {
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             array: self.array.take(),
@@ -40,18 +40,22 @@ impl<F: Default + 'static> FloatBuilder<F> {
 }
 
 macro_rules! impl_into_array {
-    ($ty:ty, $var:ident) => {
+    ($ty:ty, $builder_var:ident, $array_var:ident) => {
         impl FloatBuilder<$ty> {
+            pub fn take(&mut self) -> ArrayBuilder {
+                ArrayBuilder::$builder_var(self.take_self())
+            }
+
             pub fn into_array(self) -> Result<Array> {
-                Ok(Array::$var(self.array))
+                Ok(Array::$array_var(self.array))
             }
         }
     };
 }
 
-impl_into_array!(f16, Float16);
-impl_into_array!(f32, Float32);
-impl_into_array!(f64, Float64);
+impl_into_array!(f16, F16, Float16);
+impl_into_array!(f32, F32, Float32);
+impl_into_array!(f64, F64, Float64);
 
 impl<F> Context for FloatBuilder<F> {
     fn annotations(&self) -> BTreeMap<String, String> {

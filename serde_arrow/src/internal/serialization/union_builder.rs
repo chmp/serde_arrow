@@ -6,7 +6,7 @@ use crate::internal::{
     utils::{btree_map, Mut},
 };
 
-use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
@@ -28,8 +28,8 @@ impl UnionBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Union(Self {
             path: self.path.clone(),
             fields: self
                 .fields
@@ -39,7 +39,7 @@ impl UnionBuilder {
             types: std::mem::take(&mut self.types),
             offsets: std::mem::take(&mut self.offsets),
             current_offset: std::mem::replace(&mut self.current_offset, vec![0; self.fields.len()]),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

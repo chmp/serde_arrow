@@ -9,7 +9,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<O> {
@@ -25,7 +25,7 @@ impl<O: Offset> Utf8Builder<O> {
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             array: self.array.take(),
@@ -38,12 +38,20 @@ impl<O: Offset> Utf8Builder<O> {
 }
 
 impl Utf8Builder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Utf8(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Utf8(self.array))
     }
 }
 
 impl Utf8Builder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::LargeUtf8(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::LargeUtf8(self.array))
     }

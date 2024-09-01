@@ -42,15 +42,15 @@ impl FixedSizeListBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::FixedSizedList(Self {
             path: self.path.clone(),
             seq: self.seq.take(),
             meta: self.meta.clone(),
             n: self.n,
             current_count: std::mem::take(&mut self.current_count),
             element: Box::new(self.element.take()),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

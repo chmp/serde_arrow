@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
@@ -29,7 +29,7 @@ impl<I: Default + 'static> TimeBuilder<I> {
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             unit: self.unit,
@@ -43,6 +43,10 @@ impl<I: Default + 'static> TimeBuilder<I> {
 }
 
 impl TimeBuilder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Time32(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Time32(TimeArray {
             unit: self.unit,
@@ -53,6 +57,10 @@ impl TimeBuilder<i32> {
 }
 
 impl TimeBuilder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Time64(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Time64(TimeArray {
             unit: self.unit,

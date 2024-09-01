@@ -9,7 +9,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
@@ -34,13 +34,13 @@ impl Date64Builder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Date64(Self {
             path: self.path.clone(),
             meta: self.meta.clone(),
             utc: self.utc,
             array: self.array.take(),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

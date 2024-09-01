@@ -47,13 +47,13 @@ impl MapBuilder {
         Ok(())
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Map(Self {
             path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             entry: Box::new(self.entry.take()),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

@@ -43,7 +43,7 @@ impl StructBuilder {
         })
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             fields: self
@@ -56,6 +56,10 @@ impl StructBuilder {
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
         }
+    }
+
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Struct(self.take_self())
     }
 
     pub fn is_nullable(&self) -> bool {

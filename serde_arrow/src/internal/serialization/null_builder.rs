@@ -6,7 +6,7 @@ use crate::internal::{
     utils::btree_map,
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct NullBuilder {
@@ -19,11 +19,11 @@ impl NullBuilder {
         Self { path, count: 0 }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Null(Self {
             path: self.path.clone(),
             count: std::mem::take(&mut self.count),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

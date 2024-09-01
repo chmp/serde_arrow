@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 
@@ -34,14 +34,14 @@ impl FixedSizeBinaryBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::FixedSizeBinary(Self {
             path: self.path.clone(),
             seq: self.seq.take(),
             buffer: std::mem::take(&mut self.buffer),
             current_n: std::mem::take(&mut self.current_n),
             n: self.n,
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

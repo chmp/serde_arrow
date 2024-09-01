@@ -37,7 +37,7 @@ impl<O: Offset> ListBuilder<O> {
         })
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
             path: self.path.clone(),
             meta: self.meta.clone(),
@@ -52,6 +52,10 @@ impl<O: Offset> ListBuilder<O> {
 }
 
 impl ListBuilder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::List(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::List(ListArray {
             validity: self.offsets.validity,
@@ -63,6 +67,10 @@ impl ListBuilder<i32> {
 }
 
 impl ListBuilder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::LargeList(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::LargeList(ListArray {
             validity: self.offsets.validity,

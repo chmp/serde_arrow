@@ -38,7 +38,7 @@ impl OuterSequenceBuilder {
     /// Extract the contained struct fields
     pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
         let mut result = Vec::new();
-        for (builder, _) in self.0.take().fields {
+        for (builder, _) in self.0.take_self().fields {
             result.push(builder);
         }
         Ok(result)

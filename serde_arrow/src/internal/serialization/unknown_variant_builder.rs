@@ -8,7 +8,7 @@ use crate::internal::{
     utils::btree_map,
 };
 
-use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct UnknownVariantBuilder {
@@ -20,10 +20,10 @@ impl UnknownVariantBuilder {
         UnknownVariantBuilder { path }
     }
 
-    pub fn take(&mut self) -> Self {
-        UnknownVariantBuilder {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::UnknownVariant(UnknownVariantBuilder {
             path: self.path.clone(),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

@@ -9,7 +9,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder {
@@ -29,15 +29,15 @@ impl BoolBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Bool(Self {
             path: self.path.clone(),
             array: BooleanArray {
                 len: std::mem::take(&mut self.array.len),
                 validity: self.array.validity.as_mut().map(std::mem::take),
                 values: std::mem::take(&mut self.array.values),
             },
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {

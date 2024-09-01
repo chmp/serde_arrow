@@ -10,7 +10,7 @@ use crate::internal::{
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {
@@ -36,8 +36,8 @@ impl DecimalBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Decimal128(Self {
             path: self.path.clone(),
             precision: self.precision,
             scale: self.scale,
@@ -45,7 +45,7 @@ impl DecimalBuilder {
             f64_factor: self.f64_factor,
             parser: self.parser,
             array: self.array.take(),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
