@@ -4,7 +4,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Context, Error, Result},
+    error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
         btree_map,
@@ -41,6 +41,16 @@ impl Date32Builder {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Date32(self.array))
     }
+
+    fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<i32> {
+        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+
+        let date = s.parse::<NaiveDate>()?;
+        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
+        let days_since_epoch = duration_since_epoch.num_days().try_into()?;
+
+        Ok(days_since_epoch)
+    }
 }
 
 impl Context for Date32Builder {
@@ -50,35 +60,20 @@ impl Context for Date32Builder {
 }
 
 impl SimpleSerializer for Date32Builder {
-    fn name(&self) -> &str {
-        "Date32Builder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
-
-        let date = v.parse::<NaiveDate>()?;
-        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
-        let days_since_epoch = duration_since_epoch.num_days().try_into()?;
-
-        self.array.push_scalar_value(days_since_epoch)
+        let days_since_epoch = self.parse_str_to_days_since_epoch(v).ctx(self)?;
+        self.array.push_scalar_value(days_since_epoch).ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.array.push_scalar_value(v)
+        self.array.push_scalar_value(v).ctx(self)
     }
 }

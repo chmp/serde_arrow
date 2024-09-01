@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
         btree_map, Offset,
@@ -56,26 +56,16 @@ impl<O> Context for Utf8Builder<O> {
 }
 
 impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
-    fn name(&self) -> &str {
-        "Utf8Builder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.array.push_scalar_value(v.as_bytes())
+        self.array.push_scalar_value(v.as_bytes()).ctx(self)
     }
 
     fn serialize_unit_variant(
@@ -84,7 +74,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.array.push_scalar_value(variant.as_bytes())
+        self.array.push_scalar_value(variant.as_bytes()).ctx(self)
     }
 
     fn serialize_tuple_variant_start<'this>(
@@ -94,7 +84,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant_start<'this>(
@@ -104,7 +94,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -114,6 +104,6 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 }

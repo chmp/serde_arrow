@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, FixedSizeListArray},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         btree_map, Mut,
@@ -76,7 +76,7 @@ impl FixedSizeListBuilder {
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.current_count += 1;
-        self.seq.push_seq_elements(1)?;
+        self.seq.push_seq_elements(1).ctx(self)?;
         value.serialize(Mut(self.element.as_mut()))
     }
 
@@ -100,18 +100,8 @@ impl Context for FixedSizeListBuilder {
 }
 
 impl SimpleSerializer for FixedSizeListBuilder {
-    fn name(&self) -> &str {
-        "FixedSizeListBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.seq.push_seq_default()?;
+        self.seq.push_seq_default().ctx(self)?;
         for _ in 0..self.n {
             self.element.serialize_default()?;
         }
@@ -119,7 +109,7 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.seq.push_seq_none()?;
+        self.seq.push_seq_none().ctx(self)?;
         for _ in 0..self.n {
             self.element.serialize_default()?;
         }
@@ -127,7 +117,7 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -135,11 +125,11 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -147,11 +137,11 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -159,6 +149,6 @@ impl SimpleSerializer for FixedSizeListBuilder {
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 }

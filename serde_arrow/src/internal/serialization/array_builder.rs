@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::Array,
-    error::{Context, Error, Result},
+    error::{Context, Result},
 };
 
 use super::{
@@ -15,10 +15,9 @@ use super::{
     fixed_size_binary_builder::FixedSizeBinaryBuilder,
     fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
     int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
-    null_builder::NullBuilder, simple_serializer::merge_annotations,
-    simple_serializer::SimpleSerializer, struct_builder::StructBuilder, time_builder::TimeBuilder,
-    union_builder::UnionBuilder, unknown_variant_builder::UnknownVariantBuilder,
-    utf8_builder::Utf8Builder,
+    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
+    time_builder::TimeBuilder, union_builder::UnionBuilder,
+    unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
 #[derive(Debug, Clone)]
@@ -155,173 +154,163 @@ impl Context for ArrayBuilder {
 
 #[rustfmt::skip]
 impl SimpleSerializer for ArrayBuilder {
-    fn name(&self) -> &str {
-        "ArrayBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        dispatch!(self, Self(builder) => builder.annotate_error(err))
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_default().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_default())
     }
 
     fn serialize_unit_struct(&mut self, name: &'static str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit_struct(name).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_unit_struct(name))
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_none().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_none())
     }
 
     fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_some(value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_some(value))
     }
 
     fn serialize_unit(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_unit())
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_bool(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_bool(v))
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i8(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_i8(v))
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i16(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_i16(v))
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i32(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_i32(v))
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i64(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_i64(v))
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u8(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_u8(v))
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u16(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_u16(v))
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u32(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_u32(v))
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u64(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_u64(v))
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_f32(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_f32(v))
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_f64(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_f64(v))
     }
 
     fn serialize_char(&mut self, v: char) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_char(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_char(v))
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_str(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_str(v))
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_bytes(v).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_bytes(v))
     }
 
     fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_start(len).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_seq_start(len))
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_element(value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_seq_element(value))
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_end().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_seq_end())
     }
 
     fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_start(name, len).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_struct_start(name, len))
     }
 
     fn serialize_struct_field<V: Serialize + ?Sized>(&mut self, key: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_field(key, value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_struct_field(key, value))
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_end().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_struct_end())
     }
 
     fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_start(len).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_map_start(len))
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_key(key).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_map_key(key))
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_value(value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_map_value(value))
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_end().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_map_end())
     }
 
     fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_start(len).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_start(len))
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_element(value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_element(value))
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_end().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_end())
     }
 
     fn serialize_tuple_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_start(name, len).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_start(name, len))
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_field(value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_field(value))
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_end().map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_end())
     }
 
     fn serialize_newtype_struct<V: Serialize + ?Sized>(&mut self, name: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_newtype_struct(name, value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_newtype_struct(name, value))
     }
 
     fn serialize_newtype_variant<V: Serialize + ?Sized>(&mut self, name: &'static str, variant_index: u32, variant: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value))
     }
 
     fn serialize_unit_variant(&mut self, name: &'static str, variant_index: u32, variant: &'static str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit_variant(name, variant_index, variant).map_err(|err| builder.annotate_error(err)))
+        dispatch!(self, Self(builder) => builder.serialize_unit_variant(name, variant_index, variant))
     }
 
     fn serialize_struct_variant_start<'this>(&'this mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<&'this mut ArrayBuilder> {
-        let annotations_err = dispatch!(self, Self(builder) => builder.annotate_error(Error::empty()));
-        dispatch!(self, Self(builder) => builder.serialize_struct_variant_start(name, variant_index, variant, len).map_err(|err| merge_annotations(err, annotations_err)))
+        dispatch!(self, Self(builder) => builder.serialize_struct_variant_start(name, variant_index, variant, len))
     }
 
     fn serialize_tuple_variant_start<'this> (&'this mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<&'this mut ArrayBuilder> {
-        let annotations_err = dispatch!(self, Self(builder) => builder.annotate_error(Error::empty()));
-        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_start(name, variant_index, variant, len).map_err(|err| merge_annotations(err, annotations_err)))
+        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_start(name, variant_index, variant, len))
     }
 }

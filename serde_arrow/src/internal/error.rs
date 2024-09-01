@@ -4,8 +4,49 @@ use std::{
     convert::Infallible,
 };
 
+/// An object that offers additional context to an error
 pub trait Context {
     fn annotations(&self) -> BTreeMap<String, String>;
+}
+
+pub struct StaticContext(BTreeMap<String, String>);
+
+impl StaticContext {
+    pub fn from_context<C: Context>(context: &C) -> Self {
+        Self(context.annotations())
+    }
+}
+
+impl Context for StaticContext {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        self.0.clone()
+    }
+}
+
+/// Helpers to attach the metadata associated with a context to an error
+pub trait ContextSupport {
+    type Output;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output;
+}
+
+impl<T, E: Into<Error>> ContextSupport for Result<T, E> {
+    type Output = Result<T, Error>;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output {
+        match self {
+            Ok(value) => Ok(value),
+            Err(err) => Err(err.ctx(context)),
+        }
+    }
+}
+
+impl<E: Into<Error>> ContextSupport for E {
+    type Output = Error;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output {
+        self.into().with_annotations(context.annotations())
+    }
 }
 
 /// A Result type that defaults to `serde_arrow`'s [Error] type
@@ -50,31 +91,9 @@ impl Error {
             annotations: BTreeMap::new(),
         })))
     }
-
-    pub(crate) fn empty() -> Self {
-        Self::Custom(CustomError(Box::new(CustomErrorImpl {
-            message: String::new(),
-            backtrace: Backtrace::disabled(),
-            cause: None,
-            annotations: BTreeMap::new(),
-        })))
-    }
 }
 
 impl Error {
-    /// Call the function with a mutable reference to this errors annotations, if the error was not
-    /// annotated before
-    pub(crate) fn annotate_unannotated<F: FnOnce(&mut BTreeMap<String, String>)>(
-        self,
-        func: F,
-    ) -> Self {
-        let Self::Custom(mut this) = self;
-        if this.0.annotations.is_empty() {
-            func(&mut this.0.annotations);
-        }
-        Self::Custom(this)
-    }
-
     pub(crate) fn with_annotations(self, annotations: BTreeMap<String, String>) -> Self {
         let Self::Custom(mut this) = self;
         this.0.annotations = annotations;

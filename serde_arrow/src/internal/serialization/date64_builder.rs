@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
         btree_map,
@@ -64,43 +64,19 @@ impl Date64Builder {
     }
 }
 
-impl Context for Date64Builder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone())
-    }
-}
+impl Date64Builder {
+    fn parse_str_to_timestamp(&self, s: &str) -> Result<i64> {
+        use chrono::{DateTime, NaiveDateTime, Utc};
 
-impl SimpleSerializer for Date64Builder {
-    fn name(&self) -> &str {
-        "Date64Builder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
-    fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
         let date_time = if self.utc {
-            use chrono::{DateTime, Utc};
-            v.parse::<DateTime<Utc>>()?
+            s.parse::<DateTime<Utc>>()?
         } else {
-            use chrono::NaiveDateTime;
-            v.parse::<NaiveDateTime>()?.and_utc()
+            s.parse::<NaiveDateTime>()?.and_utc()
         };
 
-        let timestamp = match self.meta.as_ref() {
+        match self.meta.as_ref() {
             Some((TimeUnit::Nanosecond, _)) => match date_time.timestamp_nanos_opt() {
-                Some(timestamp) => timestamp,
+                Some(timestamp) => Ok(timestamp),
                 _ => fail!(
                     concat!(
                         "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
@@ -110,15 +86,34 @@ impl SimpleSerializer for Date64Builder {
                     date_time = date_time,
                 ),
             },
-            Some((TimeUnit::Microsecond, _)) => date_time.timestamp_micros(),
-            Some((TimeUnit::Millisecond, _)) | None => date_time.timestamp_millis(),
-            Some((TimeUnit::Second, _)) => date_time.timestamp(),
-        };
+            Some((TimeUnit::Microsecond, _)) => Ok(date_time.timestamp_micros()),
+            Some((TimeUnit::Millisecond, _)) | None => Ok(date_time.timestamp_millis()),
+            Some((TimeUnit::Second, _)) => Ok(date_time.timestamp()),
+        }
+    }
+}
 
+impl Context for Date64Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
+    }
+}
+
+impl SimpleSerializer for Date64Builder {
+    fn serialize_default(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    fn serialize_none(&mut self) -> Result<()> {
+        self.array.push_scalar_none().ctx(self)
+    }
+
+    fn serialize_str(&mut self, v: &str) -> Result<()> {
+        let timestamp = self.parse_str_to_timestamp(v).ctx(self)?;
         self.array.push_scalar_value(timestamp)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array.push_scalar_value(v)
+        self.array.push_scalar_value(v).ctx(self)
     }
 }

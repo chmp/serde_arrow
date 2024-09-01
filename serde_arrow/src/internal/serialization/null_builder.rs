@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, NullArray},
-    error::{Context, Error, Result},
+    error::{Context, Result},
     utils::btree_map,
 };
 
@@ -42,16 +42,6 @@ impl Context for NullBuilder {
 }
 
 impl SimpleSerializer for NullBuilder {
-    fn name(&self) -> &str {
-        "NullBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
         self.count += 1;
         Ok(())

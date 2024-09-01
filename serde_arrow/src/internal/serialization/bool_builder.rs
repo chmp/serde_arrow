@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BooleanArray},
-    error::{Context, Error, Result},
+    error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{set_bit_buffer, set_validity, set_validity_default},
         btree_map,
@@ -56,16 +56,6 @@ impl Context for BoolBuilder {
 }
 
 impl SimpleSerializer for BoolBuilder {
-    fn name(&self) -> &str {
-        "BoolBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
         set_validity_default(self.array.validity.as_mut(), self.array.len);
         set_bit_buffer(&mut self.array.values, self.array.len, false);
@@ -74,14 +64,14 @@ impl SimpleSerializer for BoolBuilder {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        set_validity(self.array.validity.as_mut(), self.array.len, false)?;
+        set_validity(self.array.validity.as_mut(), self.array.len, false).ctx(self)?;
         set_bit_buffer(&mut self.array.values, self.array.len, false);
         self.array.len += 1;
         Ok(())
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        set_validity(self.array.validity.as_mut(), self.array.len, true)?;
+        set_validity(self.array.validity.as_mut(), self.array.len, true).ctx(self)?;
         set_bit_buffer(&mut self.array.values, self.array.len, v);
         self.array.len += 1;
         Ok(())

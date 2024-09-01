@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{Context, Error, Result},
+    error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
         btree_map, Mut, Offset,
@@ -77,62 +77,52 @@ impl<O: Offset> Context for BinaryBuilder<O> {
 }
 
 impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
-    fn name(&self) -> &str {
-        "BinaryBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.array.push_scalar_value(v)
+        self.array.push_scalar_value(v).ctx(self)
     }
 }
 
@@ -145,14 +135,6 @@ impl Context for U8Serializer {
 }
 
 impl SimpleSerializer for U8Serializer {
-    fn name(&self) -> &str {
-        "SerializeU8"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err
-    }
-
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
         self.0 = v;
         Ok(())

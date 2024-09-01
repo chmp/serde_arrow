@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, DictionaryArray},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{btree_map, Mut},
 };
 
@@ -56,25 +56,16 @@ impl Context for DictionaryUtf8Builder {
 }
 
 impl SimpleSerializer for DictionaryUtf8Builder {
-    fn name(&self) -> &str {
-        "DictionaryUtf8"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.indices.serialize_none()
+        self.indices.serialize_none().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.indices.serialize_none()
+        self.indices.serialize_none().ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
+        // the only faillible operations concern children: do not apply the context
         let idx = match self.index.get(v) {
             Some(idx) => *idx,
             None => {
@@ -93,6 +84,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
+        // NOTE: context logic is implemented in serialize_str
         self.serialize_str(variant)
     }
 
@@ -103,7 +95,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant_start<'this>(
@@ -113,7 +105,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -123,6 +115,6 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 }

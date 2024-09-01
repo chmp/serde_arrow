@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, StructArray},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         btree_map, Mut,
@@ -106,9 +106,9 @@ impl StructBuilder {
     }
 
     fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
-        self.seq.push_seq_elements(1)?;
+        self.seq.push_seq_elements(1).ctx(self)?;
         if self.seen[idx] {
-            fail!("Duplicate field {key}", key = self.fields[idx].1.name);
+            fail!(in self, "Duplicate field {key}", key = self.fields[idx].1.name);
         }
 
         value.serialize(Mut(&mut self.fields[idx].0))?;
@@ -125,18 +125,8 @@ impl Context for StructBuilder {
 }
 
 impl SimpleSerializer for StructBuilder {
-    fn name(&self) -> &str {
-        "StructBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.seq.push_seq_default()?;
+        self.seq.push_seq_default().ctx(self)?;
         for (builder, _) in &mut self.fields {
             builder.serialize_default()?;
         }
@@ -145,7 +135,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.seq.push_seq_none()?;
+        self.seq.push_seq_none().ctx(self)?;
         for (builder, _) in &mut self.fields {
             builder.serialize_default()?;
         }
@@ -153,7 +143,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_struct_field<T: Serialize + ?Sized>(
@@ -169,11 +159,11 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -181,11 +171,11 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -197,7 +187,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
@@ -208,7 +198,11 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.next = self.lookup.lookup_serialize(key)?.unwrap_or(UNKNOWN_KEY);
+        self.next = self
+            .lookup
+            .lookup_serialize(key)
+            .ctx(self)?
+            .unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -222,7 +216,7 @@ impl SimpleSerializer for StructBuilder {
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 }
 
@@ -309,14 +303,6 @@ impl<'a> Context for KeyLookupSerializer<'a> {
 }
 
 impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
-    fn name(&self) -> &str {
-        "KeyLookupSerializer"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err
-    }
-
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.result = self.index.get(v).copied();
         Ok(())

@@ -23,10 +23,6 @@ use super::ArrayBuilder;
 ///
 #[allow(unused_variables)]
 pub trait SimpleSerializer: Sized + Context {
-    fn name(&self) -> &str;
-
-    fn annotate_error(&self, err: Error) -> Error;
-
     fn serialize_default(&mut self) -> Result<()> {
         fail!(in self, "serialize_default is not supported");
     }
@@ -274,105 +270,71 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     type SerializeTupleVariant = Mut<'a, ArrayBuilder>;
 
     fn serialize_unit(self) -> Result<()> {
-        self.0
-            .serialize_unit()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_unit()
     }
 
     fn serialize_none(self) -> Result<()> {
-        self.0
-            .serialize_none()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_none()
     }
 
     fn serialize_some<V: Serialize + ?Sized>(self, value: &V) -> Result<()> {
-        self.0
-            .serialize_some(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_some(value)
     }
 
     fn serialize_bool(self, v: bool) -> Result<()> {
-        self.0
-            .serialize_bool(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_bool(v)
     }
 
     fn serialize_char(self, v: char) -> Result<()> {
-        self.0
-            .serialize_char(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_char(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        self.0
-            .serialize_u8(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_u8(v)
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        self.0
-            .serialize_u16(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_u16(v)
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        self.0
-            .serialize_u32(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_u32(v)
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        self.0
-            .serialize_u64(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_u64(v)
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
-        self.0
-            .serialize_i8(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_i8(v)
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
-        self.0
-            .serialize_i16(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_i16(v)
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        self.0
-            .serialize_i32(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_i32(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        self.0
-            .serialize_i64(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_i64(v)
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        self.0
-            .serialize_f32(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_f32(v)
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        self.0
-            .serialize_f64(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_f64(v)
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        self.0
-            .serialize_bytes(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_bytes(v)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        self.0
-            .serialize_str(v)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_str(v)
     }
 
     fn serialize_newtype_struct<V: Serialize + ?Sized>(
@@ -380,9 +342,7 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         name: &'static str,
         value: &V,
     ) -> Result<()> {
-        self.0
-            .serialize_newtype_struct(name, value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_newtype_struct(name, value)
     }
 
     fn serialize_newtype_variant<V: Serialize + ?Sized>(
@@ -394,13 +354,10 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     ) -> Result<()> {
         self.0
             .serialize_newtype_variant(name, variant_index, variant, value)
-            .map_err(|err| self.0.annotate_error(err))
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
-        self.0
-            .serialize_unit_struct(name)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_unit_struct(name)
     }
 
     fn serialize_unit_variant(
@@ -409,36 +366,26 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         variant_index: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.0
-            .serialize_unit_variant(name, variant_index, variant)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_unit_variant(name, variant_index, variant)
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.0
-            .serialize_map_start(len)
-            .map_err(|err| self.0.annotate_error(err))?;
+        self.0.serialize_map_start(len)?;
         Ok(Mut(&mut *self.0))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.0
-            .serialize_seq_start(len)
-            .map_err(|err| self.0.annotate_error(err))?;
+        self.0.serialize_seq_start(len)?;
         Ok(Mut(&mut *self.0))
     }
 
     fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        self.0
-            .serialize_struct_start(name, len)
-            .map_err(|err| self.0.annotate_error(err))?;
+        self.0.serialize_struct_start(name, len)?;
         Ok(Mut(&mut *self.0))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        self.0
-            .serialize_tuple_start(len)
-            .map_err(|err| self.0.annotate_error(err))?;
+        self.0.serialize_tuple_start(len)?;
         Ok(Mut(&mut *self.0))
     }
 
@@ -447,9 +394,7 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        self.0
-            .serialize_tuple_struct_start(name, len)
-            .map_err(|err| self.0.annotate_error(err))?;
+        self.0.serialize_tuple_struct_start(name, len)?;
         Ok(Mut(&mut *self.0))
     }
 
@@ -460,16 +405,10 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        // cannot borrow self immutably, as the result will keep self.0 borrowed mutably
-        // TODO: figure out how to remove this hack
-        let annotations_error = self.0.annotate_error(Error::empty());
-        match self
-            .0
-            .serialize_struct_variant_start(name, variant_index, variant, len)
-        {
-            Ok(variant_builder) => Ok(Mut(variant_builder)),
-            Err(err) => Err(merge_annotations(err, annotations_error)),
-        }
+        let variant_builder =
+            self.0
+                .serialize_struct_variant_start(name, variant_index, variant, len)?;
+        Ok(Mut(variant_builder))
     }
 
     fn serialize_tuple_variant(
@@ -479,24 +418,11 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        // cannot borrow self immutably, as the result will keep self.0 borrowed mutably
-        // TODO: figure out how to remove this hack
-        let annotations_error = self.0.annotate_error(Error::empty());
-        match self
-            .0
-            .serialize_tuple_variant_start(name, variant_index, variant, len)
-        {
-            Ok(variant_builder) => Ok(Mut(variant_builder)),
-            Err(err) => Err(merge_annotations(err, annotations_error)),
-        }
+        let variant_builder =
+            self.0
+                .serialize_tuple_variant_start(name, variant_index, variant, len)?;
+        Ok(Mut(variant_builder))
     }
-}
-
-pub fn merge_annotations(err: Error, annotations_err: Error) -> Error {
-    err.annotate_unannotated(|annotations| {
-        let Error::Custom(annotations_err) = annotations_err;
-        *annotations = annotations_err.0.annotations;
-    })
 }
 
 impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
@@ -504,21 +430,15 @@ impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
     type Error = Error;
 
     fn serialize_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.0
-            .serialize_map_key(key)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_map_key(key)
     }
 
     fn serialize_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0
-            .serialize_map_value(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_map_value(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_map_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_map_end()
     }
 }
 
@@ -527,15 +447,11 @@ impl<'a, T: SimpleSerializer> SerializeSeq for Mut<'a, T> {
     type Error = Error;
 
     fn serialize_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0
-            .serialize_seq_element(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_seq_element(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_seq_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_seq_end()
     }
 }
 
@@ -548,15 +464,11 @@ impl<'a, T: SimpleSerializer> SerializeStruct for Mut<'a, T> {
         key: &'static str,
         value: &V,
     ) -> Result<()> {
-        self.0
-            .serialize_struct_field(key, value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_struct_field(key, value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_struct_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_struct_end()
     }
 }
 
@@ -565,15 +477,11 @@ impl<'a, T: SimpleSerializer> SerializeTuple for Mut<'a, T> {
     type Error = Error;
 
     fn serialize_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0
-            .serialize_tuple_element(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_element(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_tuple_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_end()
     }
 }
 
@@ -582,15 +490,11 @@ impl<'a, T: SimpleSerializer> SerializeTupleStruct for Mut<'a, T> {
     type Error = Error;
 
     fn serialize_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0
-            .serialize_tuple_struct_field(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_struct_field(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_tuple_struct_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_struct_end()
     }
 }
 
@@ -603,15 +507,11 @@ impl<'a, T: SimpleSerializer> SerializeStructVariant for Mut<'a, T> {
         key: &'static str,
         value: &V,
     ) -> Result<()> {
-        self.0
-            .serialize_struct_field(key, value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_struct_field(key, value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_struct_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_struct_end()
     }
 }
 
@@ -620,14 +520,10 @@ impl<'a, T: SimpleSerializer> SerializeTupleVariant for Mut<'a, T> {
     type Error = Error;
 
     fn serialize_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.0
-            .serialize_tuple_struct_field(value)
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_struct_field(value)
     }
 
     fn end(self) -> Result<()> {
-        self.0
-            .serialize_tuple_struct_end()
-            .map_err(|err| self.0.annotate_error(err))
+        self.0.serialize_tuple_struct_end()
     }
 }

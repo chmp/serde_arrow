@@ -4,7 +4,7 @@ use chrono::Timelike;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Context, Error, Result},
+    error::{Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
         btree_map,
@@ -74,22 +74,12 @@ where
     Error: From<<I as TryFrom<i32>>::Error>,
     Error: From<<I as TryFrom<i64>>::Error>,
 {
-    fn name(&self) -> &str {
-        "Time64Builder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
@@ -101,18 +91,24 @@ where
         };
 
         use chrono::naive::NaiveTime;
-        let time = v.parse::<NaiveTime>()?;
-        let timestamp = time.num_seconds_from_midnight() as i64 * seconds_factor
-            + time.nanosecond() as i64 / nanoseconds_factor;
+        let time = v.parse::<NaiveTime>().ctx(self)?;
+        let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
+            + i64::from(time.nanosecond()) / nanoseconds_factor;
 
-        self.array.push_scalar_value(timestamp.try_into()?)
+        self.array
+            .push_scalar_value(timestamp.try_into().ctx(self)?)
+            .ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.array.push_scalar_value(v.try_into()?)
+        self.array
+            .push_scalar_value(v.try_into().ctx(self)?)
+            .ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array.push_scalar_value(v.try_into()?)
+        self.array
+            .push_scalar_value(v.try_into().ctx(self)?)
+            .ctx(self)
     }
 }

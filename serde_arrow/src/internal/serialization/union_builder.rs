@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Result, StaticContext},
     utils::{btree_map, Mut},
 };
 
@@ -82,23 +82,16 @@ impl Context for UnionBuilder {
 }
 
 impl SimpleSerializer for UnionBuilder {
-    fn name(&self) -> &str {
-        "UnionBuilder"
-    }
-
-    fn annotate_error(&self, err: Error) -> Error {
-        err.annotate_unannotated(|annotations| {
-            annotations.insert(String::from("field"), self.path.clone());
-        })
-    }
-
     fn serialize_unit_variant(
         &mut self,
         _: &'static str,
         variant_index: u32,
         _: &'static str,
     ) -> Result<()> {
-        self.serialize_variant(variant_index)?.serialize_unit()
+        let ctx = StaticContext::from_context(self);
+        self.serialize_variant(variant_index)
+            .ctx(&ctx)?
+            .serialize_unit()
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -108,7 +101,8 @@ impl SimpleSerializer for UnionBuilder {
         _: &'static str,
         value: &V,
     ) -> Result<()> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = StaticContext::from_context(self);
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         value.serialize(Mut(variant_builder))
     }
 
@@ -119,7 +113,8 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = StaticContext::from_context(self);
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_struct_start(variant, len)?;
         Ok(variant_builder)
     }
@@ -131,7 +126,8 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = StaticContext::from_context(self);
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_tuple_struct_start(variant, len)?;
         Ok(variant_builder)
     }

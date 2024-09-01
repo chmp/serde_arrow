@@ -68,14 +68,6 @@ impl Context for OuterSequenceBuilder {
 }
 
 impl SimpleSerializer for OuterSequenceBuilder {
-    fn name(&self) -> &str {
-        "OuterSequenceBuilder"
-    }
-
-    fn annotate_error(&self, err: crate::Error) -> crate::Error {
-        self.0.annotate_error(err)
-    }
-
     fn serialize_none(&mut self) -> Result<()> {
         self.0.serialize_none()
     }
