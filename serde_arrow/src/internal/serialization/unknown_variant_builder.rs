@@ -2,17 +2,25 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, NullArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
 };
 
 use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
 
 #[derive(Debug, Clone)]
-pub struct UnknownVariantBuilder;
+pub struct UnknownVariantBuilder {
+    path: String,
+}
 
 impl UnknownVariantBuilder {
+    pub fn new(path: String) -> Self {
+        UnknownVariantBuilder { path }
+    }
+
     pub fn take(&mut self) -> Self {
-        UnknownVariantBuilder
+        UnknownVariantBuilder {
+            path: self.path.clone(),
+        }
     }
 
     pub fn is_nullable(&self) -> bool {
@@ -27,6 +35,12 @@ impl UnknownVariantBuilder {
 impl SimpleSerializer for UnknownVariantBuilder {
     fn name(&self) -> &str {
         "UnknownVariantBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

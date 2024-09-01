@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::Result,
+    error::{Error, Result},
     utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
     utils::{Mut, Offset},
 };
@@ -12,14 +12,21 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 #[derive(Debug, Clone)]
 
 pub struct ListBuilder<O> {
+    pub path: String,
     pub meta: FieldMeta,
     pub element: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<O>,
 }
 
 impl<O: Offset> ListBuilder<O> {
-    pub fn new(meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+    pub fn new(
+        path: String,
+        meta: FieldMeta,
+        element: ArrayBuilder,
+        is_nullable: bool,
+    ) -> Result<Self> {
         Ok(Self {
+            path,
             meta,
             element: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
@@ -28,6 +35,7 @@ impl<O: Offset> ListBuilder<O> {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             element: Box::new(self.element.take()),
@@ -79,6 +87,12 @@ impl<O: Offset> ListBuilder<O> {
 impl<O: Offset> SimpleSerializer for ListBuilder<O> {
     fn name(&self) -> &str {
         "ListBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

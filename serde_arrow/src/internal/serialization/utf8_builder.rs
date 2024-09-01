@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
         Offset,
@@ -10,31 +10,40 @@ use crate::internal::{
 use super::simple_serializer::SimpleSerializer;
 
 #[derive(Debug, Clone)]
-pub struct Utf8Builder<O>(BytesArray<O>);
+pub struct Utf8Builder<O> {
+    path: String,
+    array: BytesArray<O>,
+}
 
 impl<O: Offset> Utf8Builder<O> {
-    pub fn new(is_nullable: bool) -> Self {
-        Self(new_bytes_array(is_nullable))
+    pub fn new(path: String, is_nullable: bool) -> Self {
+        Self {
+            path,
+            array: new_bytes_array(is_nullable),
+        }
     }
 
     pub fn take(&mut self) -> Self {
-        Self(self.0.take())
+        Self {
+            path: self.path.clone(),
+            array: self.array.take(),
+        }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.0.validity.is_some()
+        self.array.validity.is_some()
     }
 }
 
 impl Utf8Builder<i32> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Utf8(self.0))
+        Ok(Array::Utf8(self.array))
     }
 }
 
 impl Utf8Builder<i64> {
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeUtf8(self.0))
+        Ok(Array::LargeUtf8(self.array))
     }
 }
 
@@ -43,16 +52,22 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         "Utf8Builder"
     }
 
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
+    }
+
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none()
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.0.push_scalar_value(v.as_bytes())
+        self.array.push_scalar_value(v.as_bytes())
     }
 
     fn serialize_unit_variant(
@@ -61,7 +76,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.0.push_scalar_value(variant.as_bytes())
+        self.array.push_scalar_value(variant.as_bytes())
     }
 
     fn serialize_tuple_variant_start<'this>(

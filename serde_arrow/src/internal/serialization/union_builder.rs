@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::Mut,
 };
 
@@ -8,6 +8,7 @@ use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
+    pub path: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
@@ -15,8 +16,9 @@ pub struct UnionBuilder {
 }
 
 impl UnionBuilder {
-    pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
+    pub fn new(path: String, fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
         Self {
+            path,
             current_offset: vec![0; fields.len()],
             types: Vec::new(),
             offsets: Vec::new(),
@@ -26,6 +28,7 @@ impl UnionBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             fields: self
                 .fields
                 .iter_mut()
@@ -73,6 +76,12 @@ impl UnionBuilder {
 impl SimpleSerializer for UnionBuilder {
     fn name(&self) -> &str {
         "UnionBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_unit_variant(

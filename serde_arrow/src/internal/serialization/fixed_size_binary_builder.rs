@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FixedSizeBinaryArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
     utils::Mut,
 };
@@ -12,6 +12,7 @@ use super::simple_serializer::SimpleSerializer;
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeBinaryBuilder {
+    pub path: String,
     pub seq: CountArray,
     pub buffer: Vec<u8>,
     pub current_n: usize,
@@ -19,8 +20,9 @@ pub struct FixedSizeBinaryBuilder {
 }
 
 impl FixedSizeBinaryBuilder {
-    pub fn new(n: usize, is_nullable: bool) -> Self {
+    pub fn new(path: String, n: usize, is_nullable: bool) -> Self {
         Self {
+            path,
             seq: CountArray::new(is_nullable),
             buffer: Vec::new(),
             n,
@@ -30,6 +32,7 @@ impl FixedSizeBinaryBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             seq: self.seq.take(),
             buffer: std::mem::take(&mut self.buffer),
             current_n: std::mem::take(&mut self.current_n),
@@ -81,6 +84,12 @@ impl FixedSizeBinaryBuilder {
 impl SimpleSerializer for FixedSizeBinaryBuilder {
     fn name(&self) -> &str {
         "FixedSizeBinaryBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {
@@ -155,6 +164,10 @@ struct U8Serializer(u8);
 impl SimpleSerializer for U8Serializer {
     fn name(&self) -> &str {
         "SerializeU8"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {

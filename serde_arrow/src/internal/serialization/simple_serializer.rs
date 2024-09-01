@@ -25,10 +25,7 @@ use super::ArrayBuilder;
 pub trait SimpleSerializer: Sized {
     fn name(&self) -> &str;
 
-    // TODO: remove default
-    fn annotate_error(&self, err: Error) -> Error {
-        err
-    }
+    fn annotate_error(&self, err: Error) -> Error;
 
     fn serialize_default(&mut self) -> Result<()> {
         fail!("serialize_default is not supported for {}", self.name());

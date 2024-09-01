@@ -66,6 +66,10 @@ impl SimpleSerializer for OuterSequenceBuilder {
         "OuterSequenceBuilder"
     }
 
+    fn annotate_error(&self, err: crate::Error) -> crate::Error {
+        self.0.annotate_error(err)
+    }
+
     fn serialize_none(&mut self) -> Result<()> {
         self.0.serialize_none()
     }
@@ -124,8 +128,8 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
 
     let builder = match &field.data_type {
         T::Null => match get_strategy_from_metadata(&field.metadata)? {
-            Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder),
-            _ => A::Null(NullBuilder::new()),
+            Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder::new(path)),
+            _ => A::Null(NullBuilder::new(path)),
         },
         T::Boolean => A::Bool(BoolBuilder::new(path, field.nullable)),
         T::Int8 => A::I8(IntBuilder::new(path, field.nullable)),
@@ -171,47 +175,52 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             *scale,
             field.nullable,
         )),
-        T::Utf8 => A::Utf8(Utf8Builder::new(field.nullable)),
-        T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(field.nullable)),
-        T::List(child) => A::List(ListBuilder::new(
-            meta_from_field(*child.clone())?,
-            build_builder(
-                format!("{path}.{child_name}", child_name = child.name),
-                child.as_ref(),
-            )?,
-            field.nullable,
-        )?),
-        T::LargeList(child) => A::LargeList(ListBuilder::new(
-            meta_from_field(*child.clone())?,
-            build_builder(
-                format!("{path}.{child_name}", child_name = child.name),
-                child.as_ref(),
-            )?,
-            field.nullable,
-        )?),
-        T::FixedSizeList(child, n) => A::FixedSizedList(FixedSizeListBuilder::new(
-            meta_from_field(*child.clone())?,
-            build_builder(
-                format!("{path}.{child_name}", child_name = child.name),
-                child.as_ref(),
-            )?,
-            (*n).try_into()?,
-            field.nullable,
-        )),
+        T::Utf8 => A::Utf8(Utf8Builder::new(path, field.nullable)),
+        T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(path, field.nullable)),
+        T::List(child) => {
+            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            A::List(ListBuilder::new(
+                path,
+                meta_from_field(*child.clone())?,
+                build_builder(child_path, child.as_ref())?,
+                field.nullable,
+            )?)
+        }
+        T::LargeList(child) => {
+            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            A::LargeList(ListBuilder::new(
+                path,
+                meta_from_field(*child.clone())?,
+                build_builder(child_path, child.as_ref())?,
+                field.nullable,
+            )?)
+        }
+        T::FixedSizeList(child, n) => {
+            let child_path = format!("{path}.{child_name}", child_name = child.name);
+            A::FixedSizedList(FixedSizeListBuilder::new(
+                path,
+                meta_from_field(*child.clone())?,
+                build_builder(child_path, child.as_ref())?,
+                (*n).try_into()?,
+                field.nullable,
+            ))
+        }
         T::Binary => A::Binary(BinaryBuilder::new(path, field.nullable)),
         T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, field.nullable)),
         T::FixedSizeBinary(n) => A::FixedSizeBinary(FixedSizeBinaryBuilder::new(
+            path,
             (*n).try_into()?,
             field.nullable,
         )),
-        T::Map(entry_field, _) => A::Map(MapBuilder::new(
-            meta_from_field(*entry_field.clone())?,
-            build_builder(
-                format!("{path}.{child_name}", child_name = entry_field.name),
-                entry_field.as_ref(),
-            )?,
-            field.nullable,
-        )?),
+        T::Map(entry_field, _) => {
+            let child_path = format!("{path}.{child_name}", child_name = entry_field.name);
+            A::Map(MapBuilder::new(
+                path,
+                meta_from_field(*entry_field.clone())?,
+                build_builder(child_path, entry_field.as_ref())?,
+                field.nullable,
+            )?)
+        }
         T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
         T::Dictionary(key, value, _) => {
             let key_path = format!("{path}.key");
@@ -249,7 +258,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 ));
             }
 
-            A::Union(UnionBuilder::new(fields))
+            A::Union(UnionBuilder::new(path, fields))
         }
     };
     Ok(builder)

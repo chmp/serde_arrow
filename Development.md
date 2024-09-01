@@ -32,3 +32,7 @@ modules can can be run without installing further packages.
 ## Error format
 
 - Include the path to the field where sensible
+
+Common annotations:
+
+- `field`: the path of the field affected by the error

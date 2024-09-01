@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, FixedSizeListArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
     utils::Mut,
 };
@@ -12,6 +12,7 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeListBuilder {
+    pub path: String,
     pub seq: CountArray,
     pub meta: FieldMeta,
     pub n: usize,
@@ -20,8 +21,15 @@ pub struct FixedSizeListBuilder {
 }
 
 impl FixedSizeListBuilder {
-    pub fn new(meta: FieldMeta, element: ArrayBuilder, n: usize, is_nullable: bool) -> Self {
+    pub fn new(
+        path: String,
+        meta: FieldMeta,
+        element: ArrayBuilder,
+        n: usize,
+        is_nullable: bool,
+    ) -> Self {
         Self {
+            path,
             seq: CountArray::new(is_nullable),
             meta,
             n,
@@ -32,6 +40,7 @@ impl FixedSizeListBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             seq: self.seq.take(),
             meta: self.meta.clone(),
             n: self.n,
@@ -83,6 +92,12 @@ impl FixedSizeListBuilder {
 impl SimpleSerializer for FixedSizeListBuilder {
     fn name(&self) -> &str {
         "FixedSizeListBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {

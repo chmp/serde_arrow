@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{fail, Result},
+    error::{fail, Error, Result},
     utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
@@ -10,15 +10,22 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
+    pub path: String,
     pub meta: FieldMeta,
     pub entry: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<i32>,
 }
 
 impl MapBuilder {
-    pub fn new(meta: FieldMeta, entry: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+    pub fn new(
+        path: String,
+        meta: FieldMeta,
+        entry: ArrayBuilder,
+        is_nullable: bool,
+    ) -> Result<Self> {
         Self::validate_entry(&entry)?;
         Ok(Self {
+            path,
             meta,
             offsets: OffsetsArray::new(is_nullable),
             entry: Box::new(entry),
@@ -37,6 +44,7 @@ impl MapBuilder {
 
     pub fn take(&mut self) -> Self {
         Self {
+            path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             entry: Box::new(self.entry.take()),
@@ -60,6 +68,12 @@ impl MapBuilder {
 impl SimpleSerializer for MapBuilder {
     fn name(&self) -> &str {
         "MapBuilder"
+    }
+
+    fn annotate_error(&self, err: Error) -> Error {
+        err.annotate_unannotated(|annotations| {
+            annotations.insert(String::from("field"), self.path.clone());
+        })
     }
 
     fn serialize_default(&mut self) -> Result<()> {
