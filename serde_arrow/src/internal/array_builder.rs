@@ -95,3 +95,11 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
         self
     }
 }
+
+
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {
+        ()
+    }
+    assert_send_sync::<ArrayBuilder>()
+};
