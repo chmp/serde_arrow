@@ -1,7 +1,12 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{fail, Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -56,6 +61,12 @@ impl Date64Builder {
                 values: self.array.values,
             }))
         }
+    }
+}
+
+impl Context for Date64Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

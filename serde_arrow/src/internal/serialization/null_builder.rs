@@ -1,6 +1,9 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, NullArray},
-    error::{Error, Result},
+    error::{Context, Error, Result},
+    utils::btree_map,
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -29,6 +32,12 @@ impl NullBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Null(NullArray { len: self.count }))
+    }
+}
+
+impl Context for NullBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

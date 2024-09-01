@@ -1,7 +1,12 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -51,6 +56,12 @@ impl_into_array!(u8, UInt8);
 impl_into_array!(u16, UInt16);
 impl_into_array!(u32, UInt32);
 impl_into_array!(u64, UInt64);
+
+impl<I> Context for IntBuilder<I> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
+    }
+}
 
 impl<I> SimpleSerializer for IntBuilder<I>
 where

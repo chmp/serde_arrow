@@ -1,9 +1,14 @@
+use std::collections::BTreeMap;
+
 use chrono::{NaiveDate, NaiveDateTime};
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -35,6 +40,12 @@ impl Date32Builder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Date32(self.array))
+    }
+}
+
+impl Context for Date32Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

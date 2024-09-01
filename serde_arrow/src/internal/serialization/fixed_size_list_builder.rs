@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, FixedSizeListArray},
-    error::{fail, Error, Result},
-    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{
+        array_ext::{ArrayExt, CountArray, SeqArrayExt},
+        btree_map, Mut,
+    },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -86,6 +90,12 @@ impl FixedSizeListBuilder {
             );
         }
         self.seq.end_seq()
+    }
+}
+
+impl Context for FixedSizeListBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

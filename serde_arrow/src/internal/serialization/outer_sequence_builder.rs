@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{DataType, Field, TimeUnit},
-    error::{fail, Result},
+    error::{fail, Context, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
@@ -58,6 +58,12 @@ impl OuterSequenceBuilder {
 impl OuterSequenceBuilder {
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         value.serialize(Mut(&mut self.0))
+    }
+}
+
+impl Context for OuterSequenceBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        self.0.annotations()
     }
 }
 

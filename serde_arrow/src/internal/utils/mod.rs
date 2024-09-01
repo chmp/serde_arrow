@@ -187,3 +187,18 @@ pub fn meta_from_field(field: Field) -> Result<FieldMeta> {
         metadata: field.metadata,
     })
 }
+
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),* $(,)?) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+pub(crate) use btree_map;

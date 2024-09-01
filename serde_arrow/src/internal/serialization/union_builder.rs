@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
@@ -70,6 +72,12 @@ impl UnionBuilder {
         self.current_offset[variant_index] += 1;
 
         Ok(variant_builder)
+    }
+}
+
+impl Context for UnionBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

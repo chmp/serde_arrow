@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, NullArray},
-    error::{fail, Error, Result},
+    error::{fail, Context, Error, Result},
+    utils::btree_map,
 };
 
 use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
@@ -29,6 +32,12 @@ impl UnknownVariantBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Null(NullArray { len: 0 }))
+    }
+}
+
+impl Context for UnknownVariantBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

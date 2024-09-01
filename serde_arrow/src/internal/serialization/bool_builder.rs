@@ -1,7 +1,12 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, BooleanArray},
-    error::{Error, Result},
-    utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{set_bit_buffer, set_validity, set_validity_default},
+        btree_map,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -41,6 +46,12 @@ impl BoolBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Boolean(self.array))
+    }
+}
+
+impl Context for BoolBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

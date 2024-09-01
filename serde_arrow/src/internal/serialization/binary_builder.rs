@@ -1,11 +1,13 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{Error, Result},
+    error::{Context, Error, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-        Mut, Offset,
+        btree_map, Mut, Offset,
     },
 };
 
@@ -65,6 +67,12 @@ impl<O: Offset> BinaryBuilder<O> {
 
     fn end(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+impl<O: Offset> Context for BinaryBuilder<O> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 
@@ -129,6 +137,12 @@ impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
 }
 
 struct U8Serializer(u8);
+
+impl Context for U8Serializer {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        Default::default()
+    }
+}
 
 impl SimpleSerializer for U8Serializer {
     fn name(&self) -> &str {

@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{Error, Result},
-    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-    utils::{Mut, Offset},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+        btree_map, Mut, Offset,
+    },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -81,6 +85,12 @@ impl<O: Offset> ListBuilder<O> {
 
     fn end(&mut self) -> Result<()> {
         self.offsets.end_seq()
+    }
+}
+
+impl<O> Context for ListBuilder<O> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

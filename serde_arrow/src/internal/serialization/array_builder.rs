@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
+
 use half::f16;
 use serde::Serialize;
 
 use crate::internal::{
     arrow::Array,
-    error::{Error, Result},
+    error::{Context, Error, Result},
 };
 
 use super::{
@@ -142,6 +144,12 @@ impl ArrayBuilder {
             Self::Union(builder) => Self::Union(builder.take()),
             Self::UnknownVariant(builder) => Self::UnknownVariant(builder.take()),
         }
+    }
+}
+
+impl Context for ArrayBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        dispatch!(self, Self(builder) => builder.annotations())
     }
 }
 

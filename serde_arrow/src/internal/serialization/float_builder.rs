@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
+
 use half::f16;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    utils::Mut,
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map, Mut,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -48,6 +52,12 @@ macro_rules! impl_into_array {
 impl_into_array!(f16, Float16);
 impl_into_array!(f32, Float32);
 impl_into_array!(f64, Float64);
+
+impl<F> Context for FloatBuilder<F> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
+    }
+}
 
 impl SimpleSerializer for FloatBuilder<f32> {
     fn name(&self) -> &str {

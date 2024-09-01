@@ -1,9 +1,14 @@
+use std::collections::BTreeMap;
+
 use chrono::Timelike;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -54,6 +59,12 @@ impl TimeBuilder<i64> {
             validity: self.array.validity,
             values: self.array.values,
         }))
+    }
+}
+
+impl<I> Context for TimeBuilder<I> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

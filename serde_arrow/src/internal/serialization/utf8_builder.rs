@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, Error, Result},
+    error::{fail, Context, Error, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-        Offset,
+        btree_map, Offset,
     },
 };
 
@@ -44,6 +46,12 @@ impl Utf8Builder<i32> {
 impl Utf8Builder<i64> {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::LargeUtf8(self.array))
+    }
+}
+
+impl<O> Context for Utf8Builder<O> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

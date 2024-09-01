@@ -1,10 +1,14 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FixedSizeBinaryArray},
-    error::{fail, Error, Result},
-    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{
+        array_ext::{ArrayExt, CountArray, SeqArrayExt},
+        btree_map, Mut,
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -78,6 +82,12 @@ impl FixedSizeBinaryBuilder {
             );
         }
         self.seq.end_seq()
+    }
+}
+
+impl Context for FixedSizeBinaryBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 
@@ -160,6 +170,12 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
 }
 
 struct U8Serializer(u8);
+
+impl Context for U8Serializer {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!()
+    }
+}
 
 impl SimpleSerializer for U8Serializer {
     fn name(&self) -> &str {

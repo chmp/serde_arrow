@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, DictionaryArray},
-    error::{fail, Error, Result},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -46,6 +46,12 @@ impl DictionaryUtf8Builder {
             indices: Box::new((*self.indices).into_array()?),
             values: Box::new((*self.values).into_array()?),
         }))
+    }
+}
+
+impl Context for DictionaryUtf8Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 

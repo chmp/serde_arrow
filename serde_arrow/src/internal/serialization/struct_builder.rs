@@ -4,9 +4,11 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, StructArray},
-    error::{fail, Error, Result},
-    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
-    utils::Mut,
+    error::{fail, Context, Error, Result},
+    utils::{
+        array_ext::{ArrayExt, CountArray, SeqArrayExt},
+        btree_map, Mut,
+    },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -113,6 +115,12 @@ impl StructBuilder {
         self.seen[idx] = true;
         self.next = idx + 1;
         Ok(())
+    }
+}
+
+impl Context for StructBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 
@@ -291,6 +299,12 @@ impl<'a> KeyLookupSerializer<'a> {
         };
         key.serialize(Mut(&mut this))?;
         Ok(this.result)
+    }
+}
+
+impl<'a> Context for KeyLookupSerializer<'a> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!()
     }
 }
 

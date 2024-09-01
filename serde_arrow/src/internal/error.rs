@@ -4,6 +4,10 @@ use std::{
     convert::Infallible,
 };
 
+pub trait Context {
+    fn annotations(&self) -> BTreeMap<String, String>;
+}
+
 /// A Result type that defaults to `serde_arrow`'s [Error] type
 ///
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -24,79 +28,93 @@ pub enum Error {
     Custom(CustomError),
 }
 
+/// Error creation
 impl Error {
     pub fn custom(message: String) -> Self {
-        Self::Custom(CustomError {
+        Self::Custom(CustomError(Box::new(CustomErrorImpl {
             message,
             backtrace: Backtrace::capture(),
             cause: None,
             annotations: BTreeMap::new(),
-        })
+        })))
     }
 
     pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
         message: String,
         cause: E,
     ) -> Self {
-        Self::Custom(CustomError {
+        Self::Custom(CustomError(Box::new(CustomErrorImpl {
             message,
             backtrace: Backtrace::capture(),
             cause: Some(Box::new(cause)),
             annotations: BTreeMap::new(),
-        })
+        })))
     }
-}
 
-impl Error {
     pub(crate) fn empty() -> Self {
-        Self::Custom(CustomError {
+        Self::Custom(CustomError(Box::new(CustomErrorImpl {
             message: String::new(),
             backtrace: Backtrace::disabled(),
             cause: None,
             annotations: BTreeMap::new(),
-        })
+        })))
     }
+}
 
-    pub fn message(&self) -> &str {
-        match self {
-            Self::Custom(err) => &err.message,
-        }
-    }
-
-    pub fn backtrace(&self) -> &Backtrace {
-        match self {
-            Self::Custom(err) => &err.backtrace,
-        }
-    }
-
-    /// Turn the error into an annotated error and call the provided function with a mutable
-    /// reference to the annotations
+impl Error {
+    /// Call the function with a mutable reference to this errors annotations, if the error was not
+    /// annotated before
     pub(crate) fn annotate_unannotated<F: FnOnce(&mut BTreeMap<String, String>)>(
         self,
         func: F,
     ) -> Self {
         let Self::Custom(mut this) = self;
-        if this.annotations.is_empty() {
-            func(&mut this.annotations);
+        if this.0.annotations.is_empty() {
+            func(&mut this.0.annotations);
         }
         Self::Custom(this)
     }
 
+    pub(crate) fn with_annotations(self, annotations: BTreeMap<String, String>) -> Self {
+        let Self::Custom(mut this) = self;
+        this.0.annotations = annotations;
+        Self::Custom(this)
+    }
+}
+
+/// Access information about the error
+impl Error {
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Custom(err) => &err.0.message,
+        }
+    }
+
+    pub fn backtrace(&self) -> &Backtrace {
+        match self {
+            Self::Custom(err) => &err.0.backtrace,
+        }
+    }
+
+    /// Get a reference to the annotations of this error
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
         match self {
-            Self::Custom(err) => Some(&err.annotations),
+            Self::Custom(err) => Some(&err.0.annotations),
         }
     }
 }
 
-pub struct CustomError {
+#[derive(PartialEq)]
+pub struct CustomError(pub(crate) Box<CustomErrorImpl>);
+
+pub struct CustomErrorImpl {
     message: String,
     backtrace: Backtrace,
     cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
     pub(crate) annotations: BTreeMap<String, String>,
 }
 
-impl std::cmp::PartialEq for CustomError {
+impl std::cmp::PartialEq for CustomErrorImpl {
     fn eq(&self, other: &Self) -> bool {
         self.message == other.message && self.annotations == other.annotations
     }
@@ -157,7 +175,7 @@ impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         let Self::Custom(this) = self;
-        match this.cause.as_ref() {
+        match this.0.cause.as_ref() {
             Some(cause) => Some(cause.as_ref()),
             None => None,
         }
@@ -191,6 +209,14 @@ macro_rules! error {
 pub(crate) use error;
 
 macro_rules! fail {
+    (in $context:expr, $($tt:tt)*) => {
+        {
+            #[allow(unused)]
+            use $crate::internal::error::Context;
+            let annotations = $context.annotations();
+            return Err($crate::internal::error::error!($($tt)*).with_annotations(annotations))
+        }
+    };
     ($($tt:tt)*) => {
         return Err($crate::internal::error::error!($($tt)*))
     };

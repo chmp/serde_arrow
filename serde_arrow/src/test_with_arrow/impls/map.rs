@@ -4,8 +4,8 @@ use serde_json::json;
 
 use crate::internal::{
     schema::TracingOptions,
-    testing::{btree_map, hash_map},
-    utils::Item,
+    testing::hash_map,
+    utils::{btree_map, Item},
 };
 
 use super::utils::Test;

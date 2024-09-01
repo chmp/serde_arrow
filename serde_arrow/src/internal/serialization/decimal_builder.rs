@@ -1,8 +1,13 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, DecimalArray, PrimitiveArray},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-    utils::decimal::{self, DecimalParser},
+    error::{Context, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+        decimal::{self, DecimalParser},
+    },
 };
 
 use super::simple_serializer::SimpleSerializer;
@@ -54,6 +59,12 @@ impl DecimalBuilder {
             validity: self.array.validity,
             values: self.array.values,
         }))
+    }
+}
+
+impl Context for DecimalBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone())
     }
 }
 
