@@ -64,7 +64,7 @@ impl UnionBuilder {
     pub fn serialize_variant(&mut self, variant_index: u32) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
         let Some((variant_builder, _)) = self.fields.get_mut(variant_index) else {
-            fail!("Unknown variant {variant_index}");
+            fail!("Could not find variant {variant_index} in Union");
         };
 
         self.offsets.push(self.current_offset[variant_index]);

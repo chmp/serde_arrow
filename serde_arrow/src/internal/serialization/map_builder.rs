@@ -39,10 +39,10 @@ impl MapBuilder {
 
     fn validate_entry(entry: &ArrayBuilder) -> Result<()> {
         let ArrayBuilder::Struct(entry) = entry else {
-            fail!("entry field of a map must be a struct field");
+            fail!("Entry field of a map must be a struct field");
         };
         if entry.fields.len() != 2 {
-            fail!("entry field of a map must be a struct field with 2 fields");
+            fail!("Entry field of a map must be a struct field with 2 fields");
         }
         Ok(())
     }

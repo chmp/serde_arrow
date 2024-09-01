@@ -98,7 +98,7 @@ impl StructBuilder {
             if !*seen {
                 if !self.fields[idx].1.nullable {
                     fail!(
-                        "missing non-nullable field {:?} in struct",
+                        "Missing non-nullable field {:?} in struct",
                         self.fields[idx].1.name
                     );
                 }
