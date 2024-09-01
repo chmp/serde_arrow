@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::PrimitiveArrayView,
-    error::{Context, Result},
+    error::{Context, ContextSupport, Result},
     utils::{btree_map, Mut, NamedType},
 };
 
@@ -46,6 +46,24 @@ impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
 
 impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_option_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_f32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_f32_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_f64_impl(visitor).ctx(self)
+    }
+}
+
+impl<'de, F: NamedType + Float> FloatDeserializer<'de, F> {
+    fn deserialize_any_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             F::deserialize_any(self, visitor)
         } else {
@@ -54,7 +72,7 @@ impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'d
         }
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
@@ -63,11 +81,11 @@ impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'d
         }
     }
 
-    fn deserialize_f32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f32_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_f32(self.array.next_required()?.into_f32()?)
     }
 
-    fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_f64_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_f64(self.array.next_required()?.into_f64()?)
     }
 }

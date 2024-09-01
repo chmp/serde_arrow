@@ -2,7 +2,7 @@ use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Error, Result},
     utils::{btree_map, Mut},
 };
 
@@ -65,20 +65,20 @@ impl<'de> Context for MapDeserializer<'de> {
 
 impl<'de> SimpleDeserializer<'de> for MapDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.peek_next().ctx(self)? {
             self.deserialize_map(visitor)
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.peek_next().ctx(self)? {
             visitor.visit_some(Mut(self))
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
@@ -96,10 +96,10 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
     ) -> Result<Option<K::Value>, Self::Error> {
         let (item, entry) = self.next;
         if item + 1 >= self.offsets.len() {
-            fail!("Exhausted MapDeserializer");
+            fail!(in self, "Exhausted MapDeserializer");
         }
-        let start: usize = self.offsets[item].try_into()?;
-        let end: usize = self.offsets[item + 1].try_into()?;
+        let start: usize = self.offsets[item].try_into().ctx(self)?;
+        let end: usize = self.offsets[item + 1].try_into().ctx(self)?;
 
         if entry >= (end - start) {
             self.next = (item + 1, 0);

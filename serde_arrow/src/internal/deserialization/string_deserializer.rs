@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, Context, Result},
+    error::{fail, Context, ContextSupport, Result},
     utils::{btree_map, Mut, NamedType, Offset},
 };
 
@@ -81,6 +81,34 @@ impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
 
 impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_option_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_str_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_string_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+        &mut self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_enum_impl(name, variants, visitor)
+            .ctx(self)
+    }
+}
+
+impl<'a, O: NamedType + Offset> StringDeserializer<'a, O> {
+    fn deserialize_any_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_str(visitor)
         } else {
@@ -89,7 +117,10 @@ impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a
         }
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option_impl<V: serde::de::Visitor<'a>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
         if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
@@ -98,15 +129,18 @@ impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a
         }
     }
 
-    fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_str_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_borrowed_str(self.next_required()?)
     }
 
-    fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_string_impl<V: serde::de::Visitor<'a>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
         visitor.visit_string(self.next_required()?.to_owned())
     }
 
-    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+    fn deserialize_enum_impl<V: serde::de::Visitor<'a>>(
         &mut self,
         _: &'static str,
         _: &'static [&'static str],

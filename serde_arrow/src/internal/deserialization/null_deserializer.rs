@@ -1,7 +1,7 @@
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{Context, Result},
+    error::{Context, ContextSupport, Error, Result},
     utils::btree_map,
 };
 
@@ -25,15 +25,15 @@ impl Context for NullDeserializer {
 
 impl<'de> SimpleDeserializer<'de> for NullDeserializer {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_unit()
+        visitor.visit_unit::<Error>().ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_none()
+        visitor.visit_none::<Error>().ctx(self)
     }
 
     fn deserialize_unit<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_unit()
+        visitor.visit_unit::<Error>().ctx(self)
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(
@@ -41,6 +41,6 @@ impl<'de> SimpleDeserializer<'de> for NullDeserializer {
         _: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_unit()
+        visitor.visit_unit::<Error>().ctx(self)
     }
 }

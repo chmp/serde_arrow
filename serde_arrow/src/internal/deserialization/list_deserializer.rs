@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Error, Result},
     utils::{btree_map, Mut, NamedType, Offset},
 };
 
@@ -67,20 +67,20 @@ impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
 
 impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.peek_next().ctx(self)? {
             self.deserialize_seq(visitor)
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
+        if self.peek_next().ctx(self)? {
             visitor.visit_some(Mut(self))
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
@@ -97,7 +97,7 @@ impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for ListDeserializer<'a, 
     }
 }
 
-impl<'de, O: Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
+impl<'de, O: NamedType + Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
     type Error = Error;
 
     fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -108,8 +108,8 @@ impl<'de, O: Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
         if item + 1 >= self.offsets.len() {
             return Ok(None);
         }
-        let end = self.offsets[item + 1].try_into_usize()?;
-        let start = self.offsets[item].try_into_usize()?;
+        let end = self.offsets[item + 1].try_into_usize().ctx(self)?;
+        let start = self.offsets[item].try_into_usize().ctx(self)?;
 
         if offset >= end - start {
             self.next = (item + 1, 0);
