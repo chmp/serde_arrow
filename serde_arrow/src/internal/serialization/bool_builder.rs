@@ -20,7 +20,7 @@ pub struct BoolBuilder {
 impl BoolBuilder {
     pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
-            path: path,
+            path,
             array: BooleanArray {
                 len: 0,
                 validity: is_nullable.then(Vec::new),
