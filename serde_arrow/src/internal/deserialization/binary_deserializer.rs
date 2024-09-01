@@ -68,10 +68,6 @@ impl<'a, O: Offset + NamedType> Context for BinaryDeserializer<'a, O> {
 }
 
 impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a, O> {
-    fn name() -> &'static str {
-        "BinaryDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_bytes(visitor)
@@ -127,11 +123,13 @@ impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
 
 struct U8Deserializer(u8);
 
-impl<'de> SimpleDeserializer<'de> for U8Deserializer {
-    fn name() -> &'static str {
-        "U8Deserializer"
+impl Context for U8Deserializer {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        btree_map!()
     }
+}
 
+impl<'de> SimpleDeserializer<'de> for U8Deserializer {
     fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_u8(self.0)
     }

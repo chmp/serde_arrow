@@ -24,10 +24,6 @@ impl Context for NullDeserializer {
 }
 
 impl<'de> SimpleDeserializer<'de> for NullDeserializer {
-    fn name() -> &'static str {
-        "NullDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_unit()
     }

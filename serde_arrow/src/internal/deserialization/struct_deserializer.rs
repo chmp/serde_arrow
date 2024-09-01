@@ -60,10 +60,6 @@ impl<'de> Context for StructDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
-    fn name() -> &'static str {
-        "StructDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             visitor.visit_map(self)

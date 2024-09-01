@@ -79,11 +79,7 @@ impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
-    fn name() -> &'static str {
-        "StringDeserializer"
-    }
-
+impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_str(visitor)

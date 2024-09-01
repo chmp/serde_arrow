@@ -59,10 +59,6 @@ impl<'de> Context for Date64Deserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for Date64Deserializer<'de> {
-    fn name() -> &'static str {
-        "Date64Deserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             self.deserialize_i64(visitor)

@@ -60,10 +60,6 @@ impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
 }
 
 impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
-    fn name() -> &'static str {
-        "DictionaryDeserializer"
-    }
-
     fn deserialize_any<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
         if self.keys.peek_next()? {
             self.deserialize_str(visitor)

@@ -64,10 +64,6 @@ impl<'de> Context for MapDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for MapDeserializer<'de> {
-    fn name() -> &'static str {
-        "MapDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_map(visitor)

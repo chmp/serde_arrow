@@ -45,10 +45,6 @@ impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
 }
 
 impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {
-    fn name() -> &'static str {
-        "FloatDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             F::deserialize_any(self, visitor)

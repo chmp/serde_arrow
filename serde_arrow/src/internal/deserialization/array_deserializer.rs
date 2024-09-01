@@ -3,7 +3,7 @@ use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
     arrow::{ArrayView, FieldMeta, PrimitiveArrayView, TimeUnit},
-    error::{fail, Error, Result},
+    error::{fail, Context, Error, Result},
     schema::{Strategy, STRATEGY_KEY},
     utils::{ChildName, Mut},
 };
@@ -373,11 +373,13 @@ macro_rules! dispatch {
     };
 }
 
-impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
-    fn name() -> &'static str {
-        "ArrayDeserializer"
+impl<'de> Context for ArrayDeserializer<'de> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        dispatch!(self, ArrayDeserializer(deser) => deser.annotations())
     }
+}
 
+impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         dispatch!(self, ArrayDeserializer(deser) => deser.deserialize_any(visitor))
     }

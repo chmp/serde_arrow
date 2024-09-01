@@ -33,10 +33,6 @@ impl<'de> Context for OuterSequenceDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
-    fn name() -> &'static str {
-        "OuterSequenceDeserializer"
-    }
-
     fn deserialize_newtype_struct<V: Visitor<'de>>(
         &mut self,
         _: &'static str,

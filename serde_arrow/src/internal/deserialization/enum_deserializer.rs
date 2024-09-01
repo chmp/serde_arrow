@@ -36,10 +36,6 @@ impl<'de> Context for EnumDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
-    fn name() -> &'static str {
-        "EnumDeserializer"
-    }
-
     fn deserialize_enum<V: Visitor<'de>>(
         &mut self,
         _: &'static str,

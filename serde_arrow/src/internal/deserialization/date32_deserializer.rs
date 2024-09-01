@@ -38,10 +38,6 @@ impl<'de> Context for Date32Deserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
-    fn name() -> &'static str {
-        "Date32Deserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             self.deserialize_i32(visitor)

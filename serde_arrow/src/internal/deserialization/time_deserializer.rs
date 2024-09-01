@@ -58,11 +58,7 @@ impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
     }
 }
 
-impl<'de, T: Integer> SimpleDeserializer<'de> for TimeDeserializer<'de, T> {
-    fn name() -> &'static str {
-        "Time64Deserializer"
-    }
-
+impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for TimeDeserializer<'de, T> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.array.peek_next()? {
             T::deserialize_any(self, visitor)

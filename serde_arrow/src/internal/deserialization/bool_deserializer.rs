@@ -69,10 +69,6 @@ impl<'de> Context for BoolDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
-    fn name() -> &'static str {
-        "BoolDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_bool(visitor)

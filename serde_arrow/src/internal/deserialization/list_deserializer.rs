@@ -65,11 +65,7 @@ impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
-    fn name() -> &'static str {
-        "ListDeserializer"
-    }
-
+impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_seq(visitor)

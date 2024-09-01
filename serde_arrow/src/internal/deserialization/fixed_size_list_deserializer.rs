@@ -64,10 +64,6 @@ impl<'a> Context for FixedSizeListDeserializer<'a> {
 }
 
 impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {
-    fn name() -> &'static str {
-        "ListDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_seq(visitor)

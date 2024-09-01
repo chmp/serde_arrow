@@ -31,10 +31,6 @@ impl<'de> Context for DecimalDeserializer<'de> {
 }
 
 impl<'de> SimpleDeserializer<'de> for DecimalDeserializer<'de> {
-    fn name() -> &'static str {
-        "DecimalDeserializer"
-    }
-
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.inner.peek_next()? {
             self.deserialize_str(visitor)
