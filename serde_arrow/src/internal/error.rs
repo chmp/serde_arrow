@@ -211,3 +211,9 @@ impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
         panic!("{value}");
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl AssertSendSync for Error {}
+    impl<T: Send + Sync> AssertSendSync for Result<T> {}
+};
