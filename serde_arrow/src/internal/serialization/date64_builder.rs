@@ -1,33 +1,46 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{fail, Context, ContextSupport, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map,
+    },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
+    path: String,
     pub meta: Option<(TimeUnit, Option<String>)>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
 }
 
 impl Date64Builder {
-    pub fn new(meta: Option<(TimeUnit, Option<String>)>, utc: bool, is_nullable: bool) -> Self {
+    pub fn new(
+        path: String,
+        meta: Option<(TimeUnit, Option<String>)>,
+        utc: bool,
+        is_nullable: bool,
+    ) -> Self {
         Self {
+            path,
             meta,
             utc,
             array: new_primitive_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Date64(Self {
+            path: self.path.clone(),
             meta: self.meta.clone(),
             utc: self.utc,
             array: self.array.take(),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
@@ -51,31 +64,19 @@ impl Date64Builder {
     }
 }
 
-impl SimpleSerializer for Date64Builder {
-    fn name(&self) -> &str {
-        "Date64Builder"
-    }
+impl Date64Builder {
+    fn parse_str_to_timestamp(&self, s: &str) -> Result<i64> {
+        use chrono::{DateTime, NaiveDateTime, Utc};
 
-    fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none()
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
         let date_time = if self.utc {
-            use chrono::{DateTime, Utc};
-            v.parse::<DateTime<Utc>>()?
+            s.parse::<DateTime<Utc>>()?
         } else {
-            use chrono::NaiveDateTime;
-            v.parse::<NaiveDateTime>()?.and_utc()
+            s.parse::<NaiveDateTime>()?.and_utc()
         };
 
-        let timestamp = match self.meta.as_ref() {
+        match self.meta.as_ref() {
             Some((TimeUnit::Nanosecond, _)) => match date_time.timestamp_nanos_opt() {
-                Some(timestamp) => timestamp,
+                Some(timestamp) => Ok(timestamp),
                 _ => fail!(
                     concat!(
                         "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
@@ -85,15 +86,39 @@ impl SimpleSerializer for Date64Builder {
                     date_time = date_time,
                 ),
             },
-            Some((TimeUnit::Microsecond, _)) => date_time.timestamp_micros(),
-            Some((TimeUnit::Millisecond, _)) | None => date_time.timestamp_millis(),
-            Some((TimeUnit::Second, _)) => date_time.timestamp(),
-        };
+            Some((TimeUnit::Microsecond, _)) => Ok(date_time.timestamp_micros()),
+            Some((TimeUnit::Millisecond, _)) | None => Ok(date_time.timestamp_millis()),
+            Some((TimeUnit::Second, _)) => Ok(date_time.timestamp()),
+        }
+    }
+}
 
+impl Context for Date64Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        let data_type = if self.meta.is_some() {
+            "Timestamp(..)"
+        } else {
+            "Date64"
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    }
+}
+
+impl SimpleSerializer for Date64Builder {
+    fn serialize_default(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    fn serialize_none(&mut self) -> Result<()> {
+        self.array.push_scalar_none().ctx(self)
+    }
+
+    fn serialize_str(&mut self, v: &str) -> Result<()> {
+        let timestamp = self.parse_str_to_timestamp(v).ctx(self)?;
         self.array.push_scalar_value(timestamp)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array.push_scalar_value(v)
+        self.array.push_scalar_value(v).ctx(self)
     }
 }

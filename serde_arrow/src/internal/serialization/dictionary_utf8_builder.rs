@@ -1,37 +1,40 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, DictionaryArray},
-    error::{fail, Result},
-    utils::Mut,
+    error::{fail, Context, ContextSupport, Result},
+    utils::{btree_map, Mut},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {
+    path: String,
     pub indices: Box<ArrayBuilder>,
     pub values: Box<ArrayBuilder>,
     pub index: HashMap<String, usize>,
 }
 
 impl DictionaryUtf8Builder {
-    pub fn new(indices: ArrayBuilder, values: ArrayBuilder) -> Self {
+    pub fn new(path: String, indices: ArrayBuilder, values: ArrayBuilder) -> Self {
         Self {
+            path,
             indices: Box::new(indices),
             values: Box::new(values),
             index: HashMap::new(),
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::DictionaryUtf8(Self {
+            path: self.path.clone(),
             indices: Box::new(self.indices.take()),
             values: Box::new(self.values.take()),
             index: std::mem::take(&mut self.index),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
@@ -46,20 +49,23 @@ impl DictionaryUtf8Builder {
     }
 }
 
-impl SimpleSerializer for DictionaryUtf8Builder {
-    fn name(&self) -> &str {
-        "DictionaryUtf8"
+impl Context for DictionaryUtf8Builder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone(), "data_type" => "Dictionary(..)")
     }
+}
 
+impl SimpleSerializer for DictionaryUtf8Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.indices.serialize_none()
+        self.indices.serialize_none().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.indices.serialize_none()
+        self.indices.serialize_none().ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
+        // the only faillible operations concern children: do not apply the context
         let idx = match self.index.get(v) {
             Some(idx) => *idx,
             None => {
@@ -78,6 +84,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
+        // NOTE: context logic is implemented in serialize_str
         self.serialize_str(variant)
     }
 
@@ -88,7 +95,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant_start<'this>(
@@ -98,7 +105,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -108,6 +115,6 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 }

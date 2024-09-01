@@ -433,7 +433,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::List(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                meta: meta_from_field(field.as_ref().try_into()?)?,
+                meta: meta_from_field(field.as_ref().try_into()?),
                 element: Box::new(array.values().as_ref().try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<GenericListArray<i64>>() {
@@ -443,7 +443,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::LargeList(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                meta: meta_from_field(field.as_ref().try_into()?)?,
+                meta: meta_from_field(field.as_ref().try_into()?),
                 element: Box::new(array.values().as_ref().try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<FixedSizeListArray>() {
@@ -454,7 +454,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
                 len: array.len(),
                 n: *n,
                 validity: get_bits_with_offset(array),
-                meta: meta_from_field(field.as_ref().try_into()?)?,
+                meta: meta_from_field(field.as_ref().try_into()?),
                 element: Box::new(array.values().as_ref().try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<StructArray>() {
@@ -465,7 +465,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             let mut fields = Vec::new();
             for (field, array) in std::iter::zip(column_fields, array.columns()) {
                 let view = ArrayView::try_from(array.as_ref())?;
-                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
+                let meta = meta_from_field(Field::try_from(field.as_ref())?);
                 fields.push((view, meta));
             }
 
@@ -483,7 +483,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
             Ok(ArrayView::Map(ListArrayView {
                 validity: get_bits_with_offset(array),
                 offsets: array.value_offsets(),
-                meta: meta_from_field(Field::try_from(entries_field.as_ref())?)?,
+                meta: meta_from_field(Field::try_from(entries_field.as_ref())?),
                 element: Box::new(entries_array.try_into()?),
             }))
         } else if let Some(array) = any.downcast_ref::<DictionaryArray<UInt8Type>>() {
@@ -509,7 +509,7 @@ impl<'a> TryFrom<&'a dyn Array> for ArrayView<'a> {
 
             let mut fields = Vec::new();
             for (type_id, field) in union_fields.iter() {
-                let meta = meta_from_field(Field::try_from(field.as_ref())?)?;
+                let meta = meta_from_field(Field::try_from(field.as_ref())?);
                 let view: ArrayView = array.child(type_id).as_ref().try_into()?;
                 fields.push((type_id, view, meta));
             }

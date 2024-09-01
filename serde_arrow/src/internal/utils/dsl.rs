@@ -18,16 +18,16 @@ impl Term {
     pub fn as_ident(&self) -> Result<&str> {
         match self.as_parts() {
             (name, false, []) => Ok(name),
-            (_, true, _) => fail!("expected identifier, found quoted string"),
-            (_, _, [_, ..]) => fail!("expected identifier, found call"),
+            (_, true, _) => fail!("Expected identifier, found quoted string"),
+            (_, _, [_, ..]) => fail!("Expected identifier, found call"),
         }
     }
 
     pub fn as_string(&self) -> Result<&str> {
         match self.as_parts() {
             (name, true, []) => Ok(name),
-            (_, false, _) => fail!("expected string, found identifier"),
-            (_, _, [_, ..]) => fail!("expected identifier, found call"),
+            (_, false, _) => fail!("Expected string, found identifier"),
+            (_, _, [_, ..]) => fail!("Expected identifier, found call"),
         }
     }
 
@@ -35,14 +35,14 @@ impl Term {
         match self.as_parts() {
             ("None", false, []) => Ok(None),
             ("Some", false, [arg]) => Ok(Some(arg)),
-            _ => fail!("expected Some(arg) or None found quoted string"),
+            _ => fail!("Expected Some(arg) or None found quoted string"),
         }
     }
 
     pub fn as_call(&self) -> Result<(&str, &[Term])> {
         match self.as_parts() {
             (name, false, args) => Ok((name, args)),
-            (_, true, _) => fail!("expected call, found quoted string"),
+            (_, true, _) => fail!("Expected call, found quoted string"),
         }
     }
 }
@@ -166,7 +166,7 @@ fn parse_ident_term_name(s: &str) -> Result<(String, &str)> {
     let rest = &s[pos..];
 
     if ident.is_empty() {
-        fail!("no identifier found");
+        fail!("No identifier found");
     }
 
     Ok((ident, rest))
@@ -196,7 +196,7 @@ fn parse_arguments(s: &str) -> Result<(Vec<Term>, &str)> {
 
     let s = s.trim_start();
     let Some(s) = s.strip_prefix(')') else {
-        fail!("mising ')'");
+        fail!("Missing ')'");
     };
 
     Ok((arguments, s))

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use crate::schema::TracingOptions;
+use crate::{internal::testing::assert_error_contains, schema::TracingOptions};
 
-use super::utils::{ResultAsserts, Test};
+use super::utils::Test;
 
 struct ApproxEq<'a>(&'a Value);
 
@@ -176,8 +176,11 @@ fn serde_json_nullable_strings_non_nullable_field() {
         {"name": "a", "data_type": "Utf8"},
     ]));
 
-    test.try_serialize_arrow(&items)
-        .assert_error("cannot push null for non-nullable array");
-    test.try_serialize_arrow2(&items)
-        .assert_error("cannot push null for non-nullable array");
+    let res = test.try_serialize_arrow(&items);
+    assert_error_contains(&res, "Cannot push null for non-nullable array");
+    assert_error_contains(&res, "field: \"$.a\"");
+
+    let res = test.try_serialize_arrow2(&items);
+    assert_error_contains(&res, "Cannot push null for non-nullable array");
+    assert_error_contains(&res, "field: \"$.a\"");
 }

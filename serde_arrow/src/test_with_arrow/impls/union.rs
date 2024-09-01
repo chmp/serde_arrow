@@ -361,7 +361,7 @@ fn enums_union() {
 fn missing_union_variants() {
     use crate::_impl::arrow::datatypes::FieldRef;
 
-    use crate::internal::testing::assert_error;
+    use crate::internal::testing::assert_error_contains;
     use crate::schema::TracingOptions;
     use serde::{Deserialize, Serialize};
 
@@ -377,7 +377,8 @@ fn missing_union_variants() {
 
     // NOTE: variant B was never encountered during tracing
     let res = crate::to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
-    assert_error(&res, "Serialization failed: an unknown variant");
+    assert_error_contains(&res, "Unknown variant does not support serialize_unit");
+    assert_error_contains(&res, "field: \"$.item.<empty>\"")
 }
 
 #[test]

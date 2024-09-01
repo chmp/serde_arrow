@@ -1,13 +1,16 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, Result},
-    utils::Mut,
+    error::{fail, Context, ContextSupport, Result},
+    utils::{btree_map, Mut},
 };
 
-use super::{simple_serializer::SimpleSerializer, ArrayBuilder};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
+    pub path: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
@@ -15,8 +18,9 @@ pub struct UnionBuilder {
 }
 
 impl UnionBuilder {
-    pub fn new(fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
+    pub fn new(path: String, fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
         Self {
+            path,
             current_offset: vec![0; fields.len()],
             types: Vec::new(),
             offsets: Vec::new(),
@@ -24,8 +28,9 @@ impl UnionBuilder {
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Union(Self {
+            path: self.path.clone(),
             fields: self
                 .fields
                 .iter_mut()
@@ -34,7 +39,7 @@ impl UnionBuilder {
             types: std::mem::take(&mut self.types),
             offsets: std::mem::take(&mut self.offsets),
             current_offset: std::mem::replace(&mut self.current_offset, vec![0; self.fields.len()]),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
@@ -59,7 +64,7 @@ impl UnionBuilder {
     pub fn serialize_variant(&mut self, variant_index: u32) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
         let Some((variant_builder, _)) = self.fields.get_mut(variant_index) else {
-            fail!("Unknown variant {variant_index}");
+            fail!("Could not find variant {variant_index} in Union");
         };
 
         self.offsets.push(self.current_offset[variant_index]);
@@ -70,18 +75,23 @@ impl UnionBuilder {
     }
 }
 
-impl SimpleSerializer for UnionBuilder {
-    fn name(&self) -> &str {
-        "UnionBuilder"
+impl Context for UnionBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone(), "data_type" => "Union(..)")
     }
+}
 
+impl SimpleSerializer for UnionBuilder {
     fn serialize_unit_variant(
         &mut self,
         _: &'static str,
         variant_index: u32,
         _: &'static str,
     ) -> Result<()> {
-        self.serialize_variant(variant_index)?.serialize_unit()
+        let ctx = self.annotations();
+        self.serialize_variant(variant_index)
+            .ctx(&ctx)?
+            .serialize_unit()
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -91,7 +101,8 @@ impl SimpleSerializer for UnionBuilder {
         _: &'static str,
         value: &V,
     ) -> Result<()> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = self.annotations();
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         value.serialize(Mut(variant_builder))
     }
 
@@ -102,7 +113,8 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = self.annotations();
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_struct_start(variant, len)?;
         Ok(variant_builder)
     }
@@ -114,7 +126,8 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let variant_builder = self.serialize_variant(variant_index)?;
+        let ctx = self.annotations();
+        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_tuple_struct_start(variant, len)?;
         Ok(variant_builder)
     }

@@ -1,50 +1,96 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Error, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    error::{Context, ContextSupport, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        btree_map, NamedType,
+    },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
-pub struct IntBuilder<I>(PrimitiveArray<I>);
+pub struct IntBuilder<I> {
+    path: String,
+    array: PrimitiveArray<I>,
+}
 
 impl<I: Default + 'static> IntBuilder<I> {
-    pub fn new(is_nullable: bool) -> Self {
-        Self(new_primitive_array(is_nullable))
+    pub fn new(path: String, is_nullable: bool) -> Self {
+        Self {
+            path,
+            array: new_primitive_array(is_nullable),
+        }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self(self.0.take())
+    pub fn take_self(&mut self) -> Self {
+        Self {
+            path: self.path.clone(),
+            array: self.array.take(),
+        }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.0.validity.is_some()
+        self.array.validity.is_some()
     }
 }
 
 macro_rules! impl_into_array {
-    ($ty:ty, $var:ident) => {
+    ($ty:ty, $builder_var: ident, $array_var:ident) => {
         impl IntBuilder<$ty> {
+            pub fn take(&mut self) -> ArrayBuilder {
+                ArrayBuilder::$builder_var(self.take_self())
+            }
+
             pub fn into_array(self) -> Result<Array> {
-                Ok(Array::$var(self.0))
+                Ok(Array::$array_var(self.array))
             }
         }
     };
 }
 
-impl_into_array!(i8, Int8);
-impl_into_array!(i16, Int16);
-impl_into_array!(i32, Int32);
-impl_into_array!(i64, Int64);
-impl_into_array!(u8, UInt8);
-impl_into_array!(u16, UInt16);
-impl_into_array!(u32, UInt32);
-impl_into_array!(u64, UInt64);
+impl_into_array!(i8, I8, Int8);
+impl_into_array!(i16, I16, Int16);
+impl_into_array!(i32, I32, Int32);
+impl_into_array!(i64, I64, Int64);
+impl_into_array!(u8, U8, UInt8);
+impl_into_array!(u16, U16, UInt16);
+impl_into_array!(u32, U32, UInt32);
+impl_into_array!(u64, U64, UInt64);
+
+impl<I: NamedType> Context for IntBuilder<I> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        let data_type = match I::NAME {
+            "i8" => "Int8",
+            "i16" => "Int16",
+            "i32" => "Int32",
+            "i64" => "Int64",
+            "u8" => "UInt8",
+            "u16" => "UInt16",
+            "u32" => "UInt32",
+            "u64" => "UInt64",
+            _ => "<unknown>",
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    }
+}
+
+impl<I> IntBuilder<I> {
+    fn push_value<J>(&mut self, v: J) -> Result<()>
+    where
+        I: Default + TryFrom<J> + 'static,
+        Error: From<<I as TryFrom<J>>::Error>,
+    {
+        self.array.push_scalar_value(I::try_from(v)?)
+    }
+}
 
 impl<I> SimpleSerializer for IntBuilder<I>
 where
-    I: Default
+    I: NamedType
+        + Default
         + TryFrom<i8>
         + TryFrom<i16>
         + TryFrom<i32>
@@ -63,56 +109,52 @@ where
     Error: From<<I as TryFrom<u32>>::Error>,
     Error: From<<I as TryFrom<u64>>::Error>,
 {
-    fn name(&self) -> &str {
-        "IntBuilder<()>"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
         let v: u8 = if v { 1 } else { 0 };
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(v)?)
+        self.push_value(v).ctx(self)
     }
 
     fn serialize_char(&mut self, v: char) -> Result<()> {
-        self.0.push_scalar_value(I::try_from(u32::from(v))?)
+        self.push_value(u32::from(v)).ctx(self)
     }
 }

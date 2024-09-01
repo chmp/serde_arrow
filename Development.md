@@ -28,3 +28,15 @@ modules can can be run without installing further packages.
 
 1. `python x.py add-arrow-version {VERSION}`
 2. `python x.py precommit`
+
+## Error format
+
+Style:
+
+- Use uppercase letters to start the error message
+- Do not include trailing punctuation (e.g., "Not supported", not "Not supported.")
+
+Common annotations:
+
+- `field`: the path of the field affected by the error
+- `data_type`: the Arrow data type of the field affected by the error

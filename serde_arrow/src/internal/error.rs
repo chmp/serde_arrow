@@ -1,7 +1,45 @@
 use std::{
     backtrace::{Backtrace, BacktraceStatus},
+    collections::BTreeMap,
     convert::Infallible,
 };
+
+/// An object that offers additional context to an error
+pub trait Context {
+    fn annotations(&self) -> BTreeMap<String, String>;
+}
+
+impl Context for BTreeMap<String, String> {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        self.clone()
+    }
+}
+
+/// Helpers to attach the metadata associated with a context to an error
+pub trait ContextSupport {
+    type Output;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output;
+}
+
+impl<T, E: Into<Error>> ContextSupport for Result<T, E> {
+    type Output = Result<T, Error>;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output {
+        match self {
+            Ok(value) => Ok(value),
+            Err(err) => Err(err.ctx(context)),
+        }
+    }
+}
+
+impl<E: Into<Error>> ContextSupport for E {
+    type Output = Error;
+
+    fn ctx<C: Context>(self, context: &C) -> Self::Output {
+        self.into().with_annotations(context.annotations())
+    }
+}
 
 /// A Result type that defaults to `serde_arrow`'s [Error] type
 ///
@@ -23,50 +61,73 @@ pub enum Error {
     Custom(CustomError),
 }
 
+/// Error creation
 impl Error {
     pub fn custom(message: String) -> Self {
-        Self::Custom(CustomError {
+        Self::Custom(CustomError(Box::new(CustomErrorImpl {
             message,
             backtrace: Backtrace::capture(),
             cause: None,
-        })
+            annotations: BTreeMap::new(),
+        })))
     }
 
     pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
         message: String,
         cause: E,
     ) -> Self {
-        Self::Custom(CustomError {
+        Self::Custom(CustomError(Box::new(CustomErrorImpl {
             message,
             backtrace: Backtrace::capture(),
             cause: Some(Box::new(cause)),
-        })
+            annotations: BTreeMap::new(),
+        })))
     }
 }
 
 impl Error {
+    pub(crate) fn with_annotations(self, annotations: BTreeMap<String, String>) -> Self {
+        let Self::Custom(mut this) = self;
+        this.0.annotations = annotations;
+        Self::Custom(this)
+    }
+}
+
+/// Access information about the error
+impl Error {
     pub fn message(&self) -> &str {
         match self {
-            Self::Custom(err) => &err.message,
+            Self::Custom(err) => &err.0.message,
         }
     }
 
     pub fn backtrace(&self) -> &Backtrace {
         match self {
-            Self::Custom(err) => &err.backtrace,
+            Self::Custom(err) => &err.0.backtrace,
+        }
+    }
+
+    /// Get a reference to the annotations of this error
+    pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
+        match self {
+            Self::Custom(err) => Some(&err.0.annotations),
         }
     }
 }
 
-pub struct CustomError {
+#[derive(PartialEq)]
+pub struct CustomError(pub(crate) Box<CustomErrorImpl>);
+
+pub struct CustomErrorImpl {
     message: String,
     backtrace: Backtrace,
     cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    pub(crate) annotations: BTreeMap<String, String>,
 }
 
-impl std::cmp::PartialEq for CustomError {
+impl std::cmp::PartialEq for CustomErrorImpl {
     fn eq(&self, other: &Self) -> bool {
-        self.message == other.message
+        self.message == other.message && self.annotations == other.annotations
     }
 }
 
@@ -78,14 +139,35 @@ impl std::fmt::Debug for Error {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Custom(e) => write!(
-                f,
-                "Error: {msg}\n{bt}",
-                msg = e.message,
-                bt = BacktraceDisplay(&e.backtrace),
-            ),
+        write!(
+            f,
+            "Error: {msg}{annotations}\n{bt}",
+            msg = self.message(),
+            annotations = AnnotationsDisplay(self.annotations()),
+            bt = BacktraceDisplay(self.backtrace()),
+        )
+    }
+}
+
+struct AnnotationsDisplay<'a>(Option<&'a BTreeMap<String, String>>);
+
+impl<'a> std::fmt::Display for AnnotationsDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Some(annotations) = self.0 else {
+            return Ok(());
+        };
+        if annotations.is_empty() {
+            return Ok(());
         }
+
+        write!(f, " (")?;
+        for (idx, (key, value)) in annotations.iter().enumerate() {
+            if idx != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{key}: {value:?}")?;
+        }
+        write!(f, ")")
     }
 }
 
@@ -103,11 +185,10 @@ impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Custom(CustomError {
-                cause: Some(err), ..
-            }) => Some(err.as_ref()),
-            _ => None,
+        let Self::Custom(this) = self;
+        match this.0.cause.as_ref() {
+            Some(cause) => Some(cause.as_ref()),
+            None => None,
         }
     }
 }
@@ -130,17 +211,17 @@ impl serde::de::Error for Error {
     }
 }
 
-macro_rules! error {
-    ($($tt:tt)*) => {
-        $crate::internal::error::Error::custom(format!($($tt)*))
-    };
-}
-
-pub(crate) use error;
-
 macro_rules! fail {
+    (in $context:expr, $($tt:tt)*) => {
+        {
+            #[allow(unused)]
+            use $crate::internal::error::Context;
+            let annotations = $context.annotations();
+            return Err($crate::internal::error::Error::custom(format!($($tt)*)).with_annotations(annotations))
+        }
+    };
     ($($tt:tt)*) => {
-        return Err($crate::internal::error::error!($($tt)*))
+        return Err($crate::internal::error::Error::custom(format!($($tt)*)))
     };
 }
 
@@ -196,6 +277,7 @@ impl From<Infallible> for Error {
 
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
+        // Note: bytemuck::PodCastError does not implement std::error::Error
         Self::custom(format!("bytemuck::PodCastError: {err}"))
     }
 }
@@ -210,6 +292,15 @@ impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
     fn from(value: E) -> Self {
         panic!("{value}");
     }
+}
+
+#[test]
+fn error_can_be_converted_to_anyhow() {
+    fn func() -> anyhow::Result<()> {
+        Err(Error::custom("dummy".to_string()))?;
+        Ok(())
+    }
+    assert!(func().is_err());
 }
 
 const _: () = {

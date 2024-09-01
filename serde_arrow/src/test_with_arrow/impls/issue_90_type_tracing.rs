@@ -6,7 +6,7 @@ use serde_json::json;
 use crate::internal::{
     arrow::{DataType, Field, UnionMode},
     schema::{tracer::Tracer, transmute_field, Strategy, TracingOptions, STRATEGY_KEY},
-    testing::assert_error,
+    testing::assert_error_contains,
     utils::Item,
 };
 
@@ -236,5 +236,5 @@ fn unsupported_recursive_types() {
     }
 
     let res = Tracer::from_type::<Tree>(TracingOptions::default());
-    assert_error(&res, "too deeply nested type detected");
+    assert_error_contains(&res, "too deeply nested type detected");
 }

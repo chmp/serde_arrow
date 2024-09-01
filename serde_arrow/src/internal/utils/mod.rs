@@ -7,6 +7,7 @@ pub mod value;
 #[cfg(test)]
 mod test_value;
 
+use half::f16;
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::error::Result;
@@ -154,6 +155,22 @@ impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
 /// A wrapper type to allow implementing foreign traits
 pub struct Mut<'a, T>(pub &'a mut T);
 
+pub trait NamedType {
+    const NAME: &'static str;
+}
+
+macro_rules! impl_named_type {
+    ($($ty:ty),*) => {
+        $(
+            impl NamedType for $ty {
+                const NAME: &'static str = stringify!($ty);
+            }
+        )*
+    };
+}
+
+impl_named_type!(i8, i16, i32, i64, u8, u16, u32, u64, f16, f32, f64);
+
 /// A trait to handle different offset types
 pub trait Offset: std::ops::Add<Self, Output = Self> + Clone + Copy + Default + 'static {
     fn try_form_usize(val: usize) -> Result<Self>;
@@ -180,10 +197,25 @@ impl Offset for i64 {
     }
 }
 
-pub fn meta_from_field(field: Field) -> Result<FieldMeta> {
-    Ok(FieldMeta {
+pub fn meta_from_field(field: Field) -> FieldMeta {
+    FieldMeta {
         name: field.name,
         nullable: field.nullable,
         metadata: field.metadata,
-    })
+    }
 }
+
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),* $(,)?) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+pub(crate) use btree_map;

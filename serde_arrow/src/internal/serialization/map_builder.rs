@@ -1,24 +1,36 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{fail, Result},
-    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+    error::{fail, Context, ContextSupport, Result},
+    utils::{
+        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+        btree_map,
+    },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
+    pub path: String,
     pub meta: FieldMeta,
     pub entry: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<i32>,
 }
 
 impl MapBuilder {
-    pub fn new(meta: FieldMeta, entry: ArrayBuilder, is_nullable: bool) -> Result<Self> {
+    pub fn new(
+        path: String,
+        meta: FieldMeta,
+        entry: ArrayBuilder,
+        is_nullable: bool,
+    ) -> Result<Self> {
         Self::validate_entry(&entry)?;
         Ok(Self {
+            path,
             meta,
             offsets: OffsetsArray::new(is_nullable),
             entry: Box::new(entry),
@@ -27,20 +39,21 @@ impl MapBuilder {
 
     fn validate_entry(entry: &ArrayBuilder) -> Result<()> {
         let ArrayBuilder::Struct(entry) = entry else {
-            fail!("entry field of a map must be a struct field");
+            fail!("Entry field of a map must be a struct field");
         };
         if entry.fields.len() != 2 {
-            fail!("entry field of a map must be a struct field with 2 fields");
+            fail!("Entry field of a map must be a struct field with 2 fields");
         }
         Ok(())
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Map(Self {
+            path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             entry: Box::new(self.entry.take()),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
@@ -57,35 +70,37 @@ impl MapBuilder {
     }
 }
 
-impl SimpleSerializer for MapBuilder {
-    fn name(&self) -> &str {
-        "MapBuilder"
+impl Context for MapBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        btree_map!("field" => self.path.clone(), "data_type" => "Map(..)")
     }
+}
 
+impl SimpleSerializer for MapBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.offsets.push_seq_default()
+        self.offsets.push_seq_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_seq_none()
+        self.offsets.push_seq_none().ctx(self)
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.offsets.start_seq()
+        self.offsets.start_seq().ctx(self)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.offsets.push_seq_elements(1)?;
-        self.entry.serialize_tuple_start(2)?;
+        self.offsets.push_seq_elements(1).ctx(self)?;
+        self.entry.serialize_tuple_start(2).ctx(self)?;
         self.entry.serialize_tuple_element(key)
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.entry.serialize_tuple_element(value)?;
-        self.entry.serialize_tuple_end()
+        self.entry.serialize_tuple_end().ctx(self)
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.offsets.end_seq()
+        self.offsets.end_seq().ctx(self)
     }
 }

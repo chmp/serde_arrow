@@ -1,57 +1,76 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::Result,
+    error::{Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-        Mut, Offset,
+        btree_map, Mut, NamedType, Offset,
     },
 };
 
-use super::simple_serializer::SimpleSerializer;
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 
-pub struct BinaryBuilder<O>(BytesArray<O>);
+pub struct BinaryBuilder<O> {
+    path: String,
+    array: BytesArray<O>,
+}
 
 impl<O: Offset> BinaryBuilder<O> {
-    pub fn new(is_nullable: bool) -> Self {
-        Self(new_bytes_array(is_nullable))
+    pub fn new(path: String, is_nullable: bool) -> Self {
+        Self {
+            path,
+            array: new_bytes_array(is_nullable),
+        }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self(self.0.take())
+    pub fn take_self(&mut self) -> Self {
+        Self {
+            path: self.path.clone(),
+            array: self.array.take(),
+        }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.0.validity.is_some()
+        self.array.validity.is_some()
     }
 }
 
 impl BinaryBuilder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Binary(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Binary(self.0))
+        Ok(Array::Binary(self.array))
     }
 }
 
 impl BinaryBuilder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::LargeBinary(self.take_self())
+    }
+
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeBinary(self.0))
+        Ok(Array::LargeBinary(self.array))
     }
 }
 
 impl<O: Offset> BinaryBuilder<O> {
     fn start(&mut self) -> Result<()> {
-        self.0.start_seq()
+        self.array.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         let mut u8_serializer = U8Serializer(0);
         value.serialize(Mut(&mut u8_serializer))?;
 
-        self.0.data.push(u8_serializer.0);
-        self.0.push_seq_elements(1)
+        self.array.data.push(u8_serializer.0);
+        self.array.push_seq_elements(1)
     }
 
     fn end(&mut self) -> Result<()> {
@@ -59,67 +78,76 @@ impl<O: Offset> BinaryBuilder<O> {
     }
 }
 
-impl<O: Offset> SimpleSerializer for BinaryBuilder<O> {
-    fn name(&self) -> &str {
-        "BinaryBuilder"
+impl<O: NamedType> Context for BinaryBuilder<O> {
+    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
+        let data_type = match O::NAME {
+            "i32" => "Binary",
+            "i64" => "LargeBinary",
+            _ => "<unknown>",
+        };
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
+}
 
+impl<O: NamedType + Offset> SimpleSerializer for BinaryBuilder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        self.0.push_scalar_default()
+        self.array.push_scalar_default().ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.0.push_scalar_none()
+        self.array.push_scalar_none().ctx(self)
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start()
+        self.start().ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        self.element(value).ctx(self)
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end()
+        self.end().ctx(self)
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.0.push_scalar_value(v)
+        self.array.push_scalar_value(v).ctx(self)
     }
 }
 
 struct U8Serializer(u8);
 
-impl SimpleSerializer for U8Serializer {
-    fn name(&self) -> &str {
-        "SerializeU8"
+impl Context for U8Serializer {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        Default::default()
     }
+}
 
+impl SimpleSerializer for U8Serializer {
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
         self.0 = v;
         Ok(())

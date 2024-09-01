@@ -1,7 +1,12 @@
+use std::collections::BTreeMap;
+
 use half::f16;
 use serde::Serialize;
 
-use crate::internal::{arrow::Array, error::Result};
+use crate::internal::{
+    arrow::Array,
+    error::{Context, Result},
+};
 
 use super::{
     binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date32_builder::Date32Builder,
@@ -91,43 +96,6 @@ macro_rules! dispatch {
 }
 
 impl ArrayBuilder {
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::Null(_) => "Null",
-            Self::Bool(_) => "Bool",
-            Self::I8(_) => "I8",
-            Self::I16(_) => "I16",
-            Self::I32(_) => "I32",
-            Self::I64(_) => "I64",
-            Self::U8(_) => "U8",
-            Self::U16(_) => "U16",
-            Self::U32(_) => "U32",
-            Self::U64(_) => "U64",
-            Self::F16(_) => "F16",
-            Self::F32(_) => "F32",
-            Self::F64(_) => "F64",
-            Self::Date32(_) => "Date32",
-            Self::Date64(_) => "Date64",
-            Self::Time32(_) => "Time32",
-            Self::Time64(_) => "Time64",
-            Self::Duration(_) => "Duration",
-            Self::Decimal128(_) => "Decimal128",
-            Self::Utf8(_) => "Utf8",
-            Self::LargeUtf8(_) => "LargeUtf8",
-            Self::List(_) => "List",
-            Self::LargeList(_) => "LargeList",
-            Self::FixedSizedList(_) => "FixedSizeList",
-            Self::Binary(_) => "Binary",
-            Self::LargeBinary(_) => "LargeBinary",
-            Self::FixedSizeBinary(_) => "FixedSizeBinary",
-            Self::Struct(_) => "Struct",
-            Self::Map(_) => "Map",
-            Self::DictionaryUtf8(_) => "DictionaryUtf8",
-            Self::Union(_) => "Union",
-            Self::UnknownVariant(_) => "UnknownVariant",
-        }
-    }
-
     pub fn is_nullable(&self) -> bool {
         dispatch!(self, Self(builder) => builder.is_nullable())
     }
@@ -138,52 +106,19 @@ impl ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    /// Take the contained array builder, while leaving structure intact
-    // TODO: use ArrayBuilder as return type for the impls and use dispatch here
     pub fn take(&mut self) -> ArrayBuilder {
-        match self {
-            Self::Null(builder) => Self::Null(builder.take()),
-            Self::Bool(builder) => Self::Bool(builder.take()),
-            Self::I8(builder) => Self::I8(builder.take()),
-            Self::I16(builder) => Self::I16(builder.take()),
-            Self::I32(builder) => Self::I32(builder.take()),
-            Self::I64(builder) => Self::I64(builder.take()),
-            Self::U8(builder) => Self::U8(builder.take()),
-            Self::U16(builder) => Self::U16(builder.take()),
-            Self::U32(builder) => Self::U32(builder.take()),
-            Self::U64(builder) => Self::U64(builder.take()),
-            Self::F16(builder) => Self::F16(builder.take()),
-            Self::F32(builder) => Self::F32(builder.take()),
-            Self::F64(builder) => Self::F64(builder.take()),
-            Self::Date32(builder) => Self::Date32(builder.take()),
-            Self::Date64(builder) => Self::Date64(builder.take()),
-            Self::Time32(builder) => Self::Time32(builder.take()),
-            Self::Time64(builder) => Self::Time64(builder.take()),
-            Self::Duration(builder) => Self::Duration(builder.take()),
-            Self::Decimal128(builder) => Self::Decimal128(builder.take()),
-            Self::Utf8(builder) => Self::Utf8(builder.take()),
-            Self::LargeUtf8(builder) => Self::LargeUtf8(builder.take()),
-            Self::List(builder) => Self::List(builder.take()),
-            Self::LargeList(builder) => Self::LargeList(builder.take()),
-            Self::FixedSizedList(builder) => Self::FixedSizedList(builder.take()),
-            Self::Binary(builder) => Self::Binary(builder.take()),
-            Self::LargeBinary(builder) => Self::LargeBinary(builder.take()),
-            Self::FixedSizeBinary(builder) => Self::FixedSizeBinary(builder.take()),
-            Self::Struct(builder) => Self::Struct(builder.take()),
-            Self::Map(builder) => Self::Map(builder.take()),
-            Self::DictionaryUtf8(builder) => Self::DictionaryUtf8(builder.take()),
-            Self::Union(builder) => Self::Union(builder.take()),
-            Self::UnknownVariant(builder) => Self::UnknownVariant(builder.take()),
-        }
+        dispatch!(self, Self(builder) => builder.take())
+    }
+}
+
+impl Context for ArrayBuilder {
+    fn annotations(&self) -> BTreeMap<String, String> {
+        dispatch!(self, Self(builder) => builder.annotations())
     }
 }
 
 #[rustfmt::skip]
 impl SimpleSerializer for ArrayBuilder {
-    fn name(&self) -> &str {
-        "ArrayBuilder"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
         dispatch!(self, Self(builder) => builder.serialize_default())
     }
