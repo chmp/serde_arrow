@@ -31,7 +31,10 @@ modules can can be run without installing further packages.
 
 ## Error format
 
-- Include the path to the field where sensible
+Style:
+
+- Use uppercase letters to start the error message
+- Do not include trailing punctuation (e.g., "Not supported", not "Not supported.")
 
 Common annotations:
 
