@@ -3,7 +3,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{Context, Result},
+    error::{Context, ContextSupport, Error, Result},
     utils::{btree_map, Mut},
 };
 
@@ -52,7 +52,7 @@ impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
             visitor.visit_some(Mut(self))
         } else {
             self.array.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 

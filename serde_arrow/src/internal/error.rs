@@ -4,6 +4,13 @@ use std::{
     convert::Infallible,
 };
 
+/// Execute a faillible function and return the result
+///
+/// This function is mostly useful to add annotations to a complex block of operations
+pub fn try_<T>(func: impl FnOnce() -> Result<T>) -> Result<T> {
+    func()
+}
+
 /// An object that offers additional context to an error
 pub trait Context {
     fn annotations(&self) -> BTreeMap<String, String>;
@@ -88,7 +95,11 @@ impl Error {
 impl Error {
     pub(crate) fn with_annotations(self, annotations: BTreeMap<String, String>) -> Self {
         let Self::Custom(mut this) = self;
-        this.0.annotations = annotations;
+        for (k, v) in annotations {
+            if !this.0.annotations.contains_key(&k) {
+                this.0.annotations.insert(k, v);
+            }
+        }
         Self::Custom(this)
     }
 }

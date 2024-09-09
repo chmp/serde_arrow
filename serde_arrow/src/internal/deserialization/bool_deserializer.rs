@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::BooleanArrayView,
-    error::{fail, Context, ContextSupport, Error, Result},
+    error::{fail, try_, Context, ContextSupport, Error, Result},
     utils::{btree_map, Mut},
 };
 
@@ -70,106 +70,62 @@ impl<'de> Context for BoolDeserializer<'de> {
 
 impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            self.deserialize_bool(visitor).ctx(self)
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_bool(visitor)
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            visitor.visit_some(Mut(self)).ctx(self)
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(self))
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_bool::<Error>(self.next_required().ctx(self)?)
-            .ctx(self)
+        try_(|| visitor.visit_bool::<Error>(self.next_required()?)).ctx(self)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_u8::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_u8::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_u16::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_u16::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_u32::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_u32::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_u64::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_u64::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_i8::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_i8::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_i16::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_i16::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_i32::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_i32::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor
-            .visit_i64::<Error>(if self.next_required().ctx(self)? {
-                1
-            } else {
-                0
-            })
-            .ctx(self)
+        try_(|| visitor.visit_i64::<Error>(if self.next_required()? { 1 } else { 0 })).ctx(self)
     }
 }
