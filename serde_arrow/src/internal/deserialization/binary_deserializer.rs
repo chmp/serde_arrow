@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, Context, Error, Result},
+    error::{fail, Context, ContextSupport, Error, Result},
     utils::{btree_map, Mut, NamedType, Offset},
 };
 
@@ -63,39 +63,43 @@ impl<'a, O: Offset + NamedType> Context for BinaryDeserializer<'a, O> {
             "i64" => "LargeBinary",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 
 impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a, O> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            self.deserialize_bytes(visitor)
+        if self.peek_next().ctx(self)? {
+            self.deserialize_bytes(visitor).ctx(self)
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
+        if self.peek_next().ctx(self)? {
+            visitor.visit_some(Mut(self)).ctx(self)
         } else {
             self.consume_next();
-            visitor.visit_none()
+            visitor.visit_none::<Error>().ctx(self)
         }
     }
 
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        visitor.visit_seq(&mut *self).ctx(self)
     }
 
     fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_borrowed_bytes(self.next_slice()?)
+        visitor
+            .visit_borrowed_bytes::<Error>(self.next_slice().ctx(self)?)
+            .ctx(self)
     }
 
     fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_borrowed_bytes(self.next_slice()?)
+        visitor
+            .visit_borrowed_bytes::<Error>(self.next_slice().ctx(self)?)
+            .ctx(self)
     }
 }
 

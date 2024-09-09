@@ -19,7 +19,7 @@ impl NullDeserializer {
 
 impl Context for NullDeserializer {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Null")
+        btree_map!("field" => self.path.clone(), "data_type" => "Null")
     }
 }
 

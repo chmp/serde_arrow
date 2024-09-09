@@ -11,6 +11,8 @@ use crate::internal::{
     utils::array_view_ext::ArrayViewExt,
 };
 
+use super::utils::ChildName;
+
 /// A structure to deserialize Arrow arrays into Rust objects
 ///
 #[cfg_attr(any(has_arrow, has_arrow2), doc = r"It can be constructed via")]
@@ -33,7 +35,11 @@ impl<'de> Deserializer<'de> {
                 fail!("Cannot deserialize from arrays with different lengths");
             }
             let strategy = get_strategy_from_metadata(&field.metadata)?;
-            let deserializer = ArrayDeserializer::new(String::from("$"), strategy.as_ref(), view)?;
+            let deserializer = ArrayDeserializer::new(
+                format!("$.{child}", child = ChildName(&field.name)),
+                strategy.as_ref(),
+                view,
+            )?;
             deserializers.push((field.name.clone(), deserializer));
         }
 

@@ -123,7 +123,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
 
 fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
-    let ctx: BTreeMap<String, String> = btree_map!("path" => path.clone());
+    let ctx: BTreeMap<String, String> = btree_map!("field" => path.clone());
 
     let builder = match &field.data_type {
         T::Null => match get_strategy_from_metadata(&field.metadata)? {

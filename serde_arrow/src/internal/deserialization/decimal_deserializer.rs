@@ -26,7 +26,7 @@ impl<'a> DecimalDeserializer<'a> {
 
 impl<'de> Context for DecimalDeserializer<'de> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Decimal128(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "Decimal128(..)")
     }
 }
 

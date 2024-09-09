@@ -54,7 +54,7 @@ impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
             "i64" => "Time64",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

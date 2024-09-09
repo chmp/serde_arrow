@@ -54,7 +54,7 @@ impl<'de, T: NamedType + Integer> Context for IntegerDeserializer<'de, T> {
             "u64" => "UInt64",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

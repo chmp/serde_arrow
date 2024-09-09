@@ -55,7 +55,7 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
 
 impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Dictionary(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "Dictionary(..)")
     }
 }
 

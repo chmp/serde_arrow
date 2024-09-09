@@ -59,7 +59,7 @@ impl<'a> FixedSizeListDeserializer<'a> {
 
 impl<'a> Context for FixedSizeListDeserializer<'a> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "FixedSizeList(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "FixedSizeList(..)")
     }
 }
 

@@ -66,7 +66,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
 
 impl<'a> Context for FixedSizeBinaryDeserializer<'a> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "FixedSizeBinary(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "FixedSizeBinary(..)")
     }
 }
 

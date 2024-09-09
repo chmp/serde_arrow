@@ -75,7 +75,7 @@ impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
             "i64" => "LargeUtf8",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

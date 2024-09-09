@@ -55,7 +55,7 @@ impl<'a> StructDeserializer<'a> {
 
 impl<'de> Context for StructDeserializer<'de> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Struct(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "Struct(..)")
     }
 }
 

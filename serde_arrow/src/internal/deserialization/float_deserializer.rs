@@ -40,7 +40,7 @@ impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
             "f64" => "Float64",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

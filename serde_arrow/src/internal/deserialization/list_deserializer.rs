@@ -61,7 +61,7 @@ impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
             "i64" => "LargeList(..)",
             _ => "<unknown>",
         };
-        btree_map!("path" => self.path.clone(), "data_type" => data_type)
+        btree_map!("field" => self.path.clone(), "data_type" => data_type)
     }
 }
 

@@ -31,7 +31,7 @@ impl<'a> EnumDeserializer<'a> {
 
 impl<'de> Context for EnumDeserializer<'de> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Union(..)")
+        btree_map!("field" => self.path.clone(), "data_type" => "Union(..)")
     }
 }
 

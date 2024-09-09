@@ -54,7 +54,7 @@ impl<'a> Date64Deserializer<'a> {
 
 impl<'de> Context for Date64Deserializer<'de> {
     fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("path" => self.path.clone(), "data_type" => "Date64")
+        btree_map!("field" => self.path.clone(), "data_type" => "Date64")
     }
 }
 
