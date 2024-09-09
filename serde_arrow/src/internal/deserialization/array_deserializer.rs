@@ -374,8 +374,8 @@ macro_rules! dispatch {
 }
 
 impl<'de> Context for ArrayDeserializer<'de> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        dispatch!(self, ArrayDeserializer(deser) => deser.annotations())
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        dispatch!(self, ArrayDeserializer(deser) => deser.annotate(annotations))
     }
 }
 

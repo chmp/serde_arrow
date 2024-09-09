@@ -3,8 +3,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{Context, ContextSupport, Error, Result},
-    utils::{btree_map, Mut},
+    error::{set_default, Context, ContextSupport, Error, Result},
+    utils::Mut,
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
@@ -32,8 +32,9 @@ impl<'a> Date32Deserializer<'a> {
 }
 
 impl<'de> Context for Date32Deserializer<'de> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Date32")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Date32");
     }
 }
 

@@ -2,8 +2,8 @@ use serde::de::{IgnoredAny, SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Context, Error, Result},
-    utils::{btree_map, Mut},
+    error::{fail, set_default, Context, Error, Result},
+    utils::Mut,
 };
 
 use super::{
@@ -58,8 +58,9 @@ impl<'a> FixedSizeListDeserializer<'a> {
 }
 
 impl<'a> Context for FixedSizeListDeserializer<'a> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "FixedSizeList(..)")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "FixedSizeList(..)");
     }
 }
 

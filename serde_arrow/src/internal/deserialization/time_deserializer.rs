@@ -3,8 +3,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{TimeArrayView, TimeUnit},
-    error::{fail, Context, ContextSupport, Result},
-    utils::{btree_map, Mut, NamedType},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::{Mut, NamedType},
 };
 
 use super::{
@@ -48,13 +48,17 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
 }
 
 impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match T::NAME {
-            "i32" => "Time32",
-            "i64" => "Time64",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match T::NAME {
+                "i32" => "Time32",
+                "i64" => "Time64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

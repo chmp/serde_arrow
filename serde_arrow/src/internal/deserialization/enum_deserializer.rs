@@ -1,8 +1,8 @@
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, Context, Error, Result},
-    utils::{btree_map, Mut},
+    error::{fail, set_default, Context, Error, Result},
+    utils::Mut,
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
@@ -30,8 +30,9 @@ impl<'a> EnumDeserializer<'a> {
 }
 
 impl<'de> Context for EnumDeserializer<'de> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Union(..)")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Union(..)");
     }
 }
 

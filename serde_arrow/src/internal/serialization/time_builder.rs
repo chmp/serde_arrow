@@ -4,10 +4,10 @@ use chrono::Timelike;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Context, ContextSupport, Error, Result},
+    error::{set_default, Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map, NamedType,
+        NamedType,
     },
 };
 
@@ -71,13 +71,17 @@ impl TimeBuilder<i64> {
 }
 
 impl<I: NamedType> Context for TimeBuilder<I> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = match I::NAME {
-            "i32" => "Time32",
-            "i64" => "Time64",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match I::NAME {
+                "i32" => "Time32",
+                "i64" => "Time64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

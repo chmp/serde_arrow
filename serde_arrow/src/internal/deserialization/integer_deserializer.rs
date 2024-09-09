@@ -2,8 +2,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::PrimitiveArrayView,
-    error::{Context, ContextSupport, Result},
-    utils::{btree_map, Mut, NamedType},
+    error::{set_default, Context, ContextSupport, Result},
+    utils::{Mut, NamedType},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
@@ -42,19 +42,23 @@ impl<'a, T: Integer> IntegerDeserializer<'a, T> {
 }
 
 impl<'de, T: NamedType + Integer> Context for IntegerDeserializer<'de, T> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match T::NAME {
-            "i8" => "Int8",
-            "i16" => "Int16",
-            "i32" => "Int32",
-            "i64" => "Int64",
-            "u8" => "UInt8",
-            "u16" => "UInt16",
-            "u32" => "UInt32",
-            "u64" => "UInt64",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match T::NAME {
+                "i8" => "Int8",
+                "i16" => "Int16",
+                "i32" => "Int32",
+                "i64" => "Int64",
+                "u8" => "UInt8",
+                "u16" => "UInt16",
+                "u32" => "UInt32",
+                "u64" => "UInt64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

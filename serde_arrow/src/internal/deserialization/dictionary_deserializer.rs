@@ -2,8 +2,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{BytesArrayView, PrimitiveArrayView},
-    error::{fail, Context, Result},
-    utils::{btree_map, Mut, Offset},
+    error::{fail, set_default, Context, Result},
+    utils::{Mut, Offset},
 };
 
 use super::{
@@ -54,8 +54,9 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
 }
 
 impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Dictionary(..)")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Dictionary(..)");
     }
 }
 

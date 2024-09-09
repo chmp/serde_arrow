@@ -1,9 +1,6 @@
 use serde::de::Visitor;
 
-use crate::internal::{
-    error::{Context, ContextSupport, Error, Result},
-    utils::btree_map,
-};
+use crate::internal::error::{set_default, Context, ContextSupport, Error, Result};
 
 use super::simple_deserializer::SimpleDeserializer;
 
@@ -18,8 +15,9 @@ impl NullDeserializer {
 }
 
 impl Context for NullDeserializer {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Null")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Null");
     }
 }
 

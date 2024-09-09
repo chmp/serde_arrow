@@ -2,11 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Context, ContextSupport, Result},
-    utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
-    },
+    error::{set_default, Context, ContextSupport, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -49,8 +46,9 @@ impl DurationBuilder {
 }
 
 impl Context for DurationBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Duration(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Duration(..)");
     }
 }
 

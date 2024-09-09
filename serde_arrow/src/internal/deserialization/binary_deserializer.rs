@@ -2,8 +2,8 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, try_, Context, ContextSupport, Error, Result},
-    utils::{btree_map, Mut, NamedType, Offset},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    utils::{Mut, NamedType, Offset},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
@@ -57,13 +57,17 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
 }
 
 impl<'a, O: Offset + NamedType> Context for BinaryDeserializer<'a, O> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match O::NAME {
-            "i32" => "Binary",
-            "i64" => "LargeBinary",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match O::NAME {
+                "i32" => "Binary",
+                "i64" => "LargeBinary",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 
@@ -130,9 +134,7 @@ impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
 struct U8Deserializer(u8);
 
 impl Context for U8Deserializer {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!()
-    }
+    fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
 }
 
 impl<'de> SimpleDeserializer<'de> for U8Deserializer {

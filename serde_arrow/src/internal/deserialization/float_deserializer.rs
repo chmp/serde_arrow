@@ -2,8 +2,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::PrimitiveArrayView,
-    error::{Context, ContextSupport, Result},
-    utils::{btree_map, Mut, NamedType},
+    error::{set_default, Context, ContextSupport, Result},
+    utils::{Mut, NamedType},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
@@ -33,14 +33,18 @@ impl<'a, F: Float> FloatDeserializer<'a, F> {
 }
 
 impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match F::NAME {
-            "f16" => "Float16",
-            "f32" => "Float32",
-            "f64" => "Float64",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match F::NAME {
+                "f16" => "Float16",
+                "f32" => "Float32",
+                "f64" => "Float64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

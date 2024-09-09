@@ -2,11 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BooleanArray},
-    error::{Context, ContextSupport, Result},
-    utils::{
-        array_ext::{set_bit_buffer, set_validity, set_validity_default},
-        btree_map,
-    },
+    error::{set_default, Context, ContextSupport, Result},
+    utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -50,8 +47,9 @@ impl BoolBuilder {
 }
 
 impl Context for BoolBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Boolean")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Boolean");
     }
 }
 

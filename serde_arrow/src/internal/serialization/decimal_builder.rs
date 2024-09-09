@@ -2,10 +2,9 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, DecimalArray, PrimitiveArray},
-    error::{Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
         decimal::{self, DecimalParser},
     },
 };
@@ -63,8 +62,9 @@ impl DecimalBuilder {
 }
 
 impl Context for DecimalBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Decimal128(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "filed", &self.path);
+        set_default(annotations, "data_type", "Decimal128(..)");
     }
 }
 

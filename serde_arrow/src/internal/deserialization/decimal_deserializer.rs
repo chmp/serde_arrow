@@ -2,8 +2,8 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::DecimalArrayView,
-    error::{Context, Result},
-    utils::{btree_map, decimal, Mut},
+    error::{set_default, Context, Result},
+    utils::{decimal, Mut},
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
@@ -25,8 +25,9 @@ impl<'a> DecimalDeserializer<'a> {
 }
 
 impl<'de> Context for DecimalDeserializer<'de> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Decimal128(..)")
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Decimal128(..)");
     }
 }
 

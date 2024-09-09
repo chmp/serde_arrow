@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, Context, ContextSupport, Result},
+    error::{fail, set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-        btree_map, NamedType, Offset,
+        NamedType, Offset,
     },
 };
 
@@ -58,14 +58,17 @@ impl Utf8Builder<i64> {
 }
 
 impl<O: NamedType> Context for Utf8Builder<O> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = if O::NAME == "i32" {
-            "Utf8"
-        } else {
-            "LargeUtf8"
-        };
-
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if O::NAME == "i32" {
+                "Utf8"
+            } else {
+                "LargeUtf8"
+            },
+        );
     }
 }
 

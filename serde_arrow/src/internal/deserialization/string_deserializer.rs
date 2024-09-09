@@ -1,7 +1,7 @@
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, Context, ContextSupport, Result},
-    utils::{btree_map, Mut, NamedType, Offset},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::{Mut, NamedType, Offset},
 };
 
 use super::{
@@ -69,13 +69,17 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
 }
 
 impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match O::NAME {
-            "i32" => "Utf8",
-            "i64" => "LargeUtf8",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match O::NAME {
+                "i32" => "Utf8",
+                "i64" => "LargeUtf8",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

@@ -62,8 +62,8 @@ impl OuterSequenceBuilder {
 }
 
 impl Context for OuterSequenceBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        self.0.annotations()
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
     }
 }
 

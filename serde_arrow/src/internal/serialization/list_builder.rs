@@ -4,10 +4,10 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        btree_map, Mut, NamedType, Offset,
+        Mut, NamedType, Offset,
     },
 };
 
@@ -92,13 +92,17 @@ impl<O: NamedType + Offset> ListBuilder<O> {
 }
 
 impl<O: NamedType> Context for ListBuilder<O> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = if O::NAME == "i32" {
-            "List"
-        } else {
-            "LargeList"
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if O::NAME == "i32" {
+                "List"
+            } else {
+                "LargeList"
+            },
+        );
     }
 }
 

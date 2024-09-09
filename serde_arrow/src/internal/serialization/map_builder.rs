@@ -4,11 +4,8 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{fail, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        btree_map,
-    },
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -71,8 +68,9 @@ impl MapBuilder {
 }
 
 impl Context for MapBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Map(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Map(..)");
     }
 }
 

@@ -4,6 +4,16 @@ use std::{
     convert::Infallible,
 };
 
+pub fn set_default<V: Into<String>>(
+    annotations: &mut BTreeMap<String, String>,
+    key: &str,
+    value: V,
+) {
+    if !annotations.contains_key(key) {
+        annotations.insert(String::from(key), value.into());
+    }
+}
+
 /// Execute a faillible function and return the result
 ///
 /// This function is mostly useful to add annotations to a complex block of operations
@@ -13,12 +23,16 @@ pub fn try_<T>(func: impl FnOnce() -> Result<T>) -> Result<T> {
 
 /// An object that offers additional context to an error
 pub trait Context {
-    fn annotations(&self) -> BTreeMap<String, String>;
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>);
 }
 
 impl Context for BTreeMap<String, String> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        self.clone()
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        for (k, v) in self {
+            if !annotations.contains_key(k) {
+                annotations.insert(k.to_owned(), v.to_owned());
+            }
+        }
     }
 }
 
@@ -44,7 +58,9 @@ impl<E: Into<Error>> ContextSupport for E {
     type Output = Error;
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
-        self.into().with_annotations(context.annotations())
+        let Error::Custom(mut error) = self.into();
+        context.annotate(&mut error.0.annotations);
+        Error::Custom(error)
     }
 }
 
@@ -89,18 +105,6 @@ impl Error {
             cause: Some(Box::new(cause)),
             annotations: BTreeMap::new(),
         })))
-    }
-}
-
-impl Error {
-    pub(crate) fn with_annotations(self, annotations: BTreeMap<String, String>) -> Self {
-        let Self::Custom(mut this) = self;
-        for (k, v) in annotations {
-            if !this.0.annotations.contains_key(&k) {
-                this.0.annotations.insert(k, v);
-            }
-        }
-        Self::Custom(this)
     }
 }
 
@@ -227,8 +231,9 @@ macro_rules! fail {
         {
             #[allow(unused)]
             use $crate::internal::error::Context;
-            let annotations = $context.annotations();
-            return Err($crate::internal::error::Error::custom(format!($($tt)*)).with_annotations(annotations))
+            let $crate::internal::error::Error::Custom(mut err) = $crate::internal::error::Error::custom(format!($($tt)*));
+            $context.annotate(&mut err.0.annotations);
+            return Err($crate::internal::error::Error::Custom(err));
         }
     };
     ($($tt:tt)*) => {

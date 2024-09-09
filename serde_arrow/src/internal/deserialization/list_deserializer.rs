@@ -2,8 +2,8 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Context, ContextSupport, Error, Result},
-    utils::{btree_map, Mut, NamedType, Offset},
+    error::{fail, set_default, Context, ContextSupport, Error, Result},
+    utils::{Mut, NamedType, Offset},
 };
 
 use super::{
@@ -55,13 +55,17 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
 }
 
 impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match O::NAME {
-            "i32" => "List(..)",
-            "i64" => "LargeList(..)",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "filed", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match O::NAME {
+                "i32" => "List(..)",
+                "i64" => "LargeList(..)",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 

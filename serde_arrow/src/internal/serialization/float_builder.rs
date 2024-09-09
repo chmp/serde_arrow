@@ -4,10 +4,10 @@ use half::f16;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map, Mut,
+        Mut,
     },
 };
 
@@ -58,20 +58,23 @@ impl_into_array!(f32, F32, Float32);
 impl_into_array!(f64, F64, Float64);
 
 impl Context for FloatBuilder<f16> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Float16")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float16");
     }
 }
 
 impl Context for FloatBuilder<f32> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Float32")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float32");
     }
 }
 
 impl Context for FloatBuilder<f64> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Float64")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float64");
     }
 }
 

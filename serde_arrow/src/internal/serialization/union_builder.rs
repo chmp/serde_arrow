@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, Context, ContextSupport, Result},
-    utils::{btree_map, Mut},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::Mut,
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -76,8 +76,9 @@ impl UnionBuilder {
 }
 
 impl Context for UnionBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Union(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Union(..)");
     }
 }
 
@@ -88,7 +89,9 @@ impl SimpleSerializer for UnionBuilder {
         variant_index: u32,
         _: &'static str,
     ) -> Result<()> {
-        let ctx = self.annotations();
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
         self.serialize_variant(variant_index)
             .ctx(&ctx)?
             .serialize_unit()
@@ -101,7 +104,9 @@ impl SimpleSerializer for UnionBuilder {
         _: &'static str,
         value: &V,
     ) -> Result<()> {
-        let ctx = self.annotations();
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
         let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         value.serialize(Mut(variant_builder))
     }
@@ -113,7 +118,9 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let ctx = self.annotations();
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
         let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_struct_start(variant, len)?;
         Ok(variant_builder)
@@ -126,7 +133,9 @@ impl SimpleSerializer for UnionBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
-        let ctx = self.annotations();
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
         let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
         variant_builder.serialize_tuple_struct_start(variant, len)?;
         Ok(variant_builder)

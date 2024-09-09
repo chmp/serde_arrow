@@ -2,11 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
-    },
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -94,13 +91,17 @@ impl Date64Builder {
 }
 
 impl Context for Date64Builder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = if self.meta.is_some() {
-            "Timestamp(..)"
-        } else {
-            "Date64"
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if self.meta.is_some() {
+                "Timestamp(..)"
+            } else {
+                "Date64"
+            },
+        );
     }
 }
 

@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     error::{Context, Error, Result},
-    utils::{btree_map, Mut},
+    utils::Mut,
 };
 
 use super::{
@@ -27,9 +27,7 @@ impl<'a> OuterSequenceDeserializer<'a> {
 }
 
 impl<'de> Context for OuterSequenceDeserializer<'de> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        btree_map!()
-    }
+    fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
 }
 
 impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
