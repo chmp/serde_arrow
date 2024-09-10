@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
@@ -76,29 +76,35 @@ impl Context for MapBuilder {
 
 impl SimpleSerializer for MapBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.offsets.push_seq_default().ctx(self)
+        try_(|| self.offsets.push_seq_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_seq_none().ctx(self)
+        try_(|| self.offsets.push_seq_none()).ctx(self)
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.offsets.start_seq().ctx(self)
+        try_(|| self.offsets.start_seq()).ctx(self)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.offsets.push_seq_elements(1).ctx(self)?;
-        self.entry.serialize_tuple_start(2).ctx(self)?;
-        self.entry.serialize_tuple_element(key)
+        try_(|| {
+            self.offsets.push_seq_elements(1)?;
+            self.entry.serialize_tuple_start(2)?;
+            self.entry.serialize_tuple_element(key)
+        })
+        .ctx(self)
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.entry.serialize_tuple_element(value)?;
-        self.entry.serialize_tuple_end().ctx(self)
+        try_(|| {
+            self.entry.serialize_tuple_element(value)?;
+            self.entry.serialize_tuple_end()
+        })
+        .ctx(self)
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.offsets.end_seq().ctx(self)
+        try_(|| self.offsets.end_seq()).ctx(self)
     }
 }

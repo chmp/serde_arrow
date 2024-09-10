@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{set_default, Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
         Mut, NamedType, Offset,
@@ -82,7 +82,7 @@ impl<O: NamedType + Offset> ListBuilder<O> {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.offsets.push_seq_elements(1).ctx(self)?;
+        self.offsets.push_seq_elements(1)?;
         value.serialize(Mut(self.element.as_mut()))
     }
 
@@ -108,54 +108,57 @@ impl<O: NamedType> Context for ListBuilder<O> {
 
 impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        self.offsets.push_seq_default().ctx(self)
+        try_(|| self.offsets.push_seq_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_seq_none().ctx(self)
+        try_(|| self.offsets.push_seq_none()).ctx(self)
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.start().ctx(self)?;
-        for item in v {
-            self.element(item)?;
-        }
-        self.end().ctx(self)
+        try_(|| {
+            self.start()?;
+            for item in v {
+                self.element(item)?;
+            }
+            self.end()
+        })
+        .ctx(self)
     }
 }

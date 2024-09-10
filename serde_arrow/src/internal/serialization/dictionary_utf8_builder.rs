@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, DictionaryArray},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };
 
@@ -58,25 +58,27 @@ impl Context for DictionaryUtf8Builder {
 
 impl SimpleSerializer for DictionaryUtf8Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.indices.serialize_none().ctx(self)
+        try_(|| self.indices.serialize_none()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.indices.serialize_none().ctx(self)
+        try_(|| self.indices.serialize_none().ctx(self)).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        // the only faillible operations concern children: do not apply the context
-        let idx = match self.index.get(v) {
-            Some(idx) => *idx,
-            None => {
-                let idx = self.index.len();
-                self.values.serialize_str(v)?;
-                self.index.insert(v.to_string(), idx);
-                idx
-            }
-        };
-        idx.serialize(Mut(self.indices.as_mut()))
+        try_(|| {
+            let idx = match self.index.get(v) {
+                Some(idx) => *idx,
+                None => {
+                    let idx = self.index.len();
+                    self.values.serialize_str(v)?;
+                    self.index.insert(v.to_string(), idx);
+                    idx
+                }
+            };
+            idx.serialize(Mut(self.indices.as_mut()))
+        })
+        .ctx(self)
     }
 
     fn serialize_unit_variant(
@@ -85,8 +87,7 @@ impl SimpleSerializer for DictionaryUtf8Builder {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        // NOTE: context logic is implemented in serialize_str
-        self.serialize_str(variant)
+        try_(|| self.serialize_str(variant)).ctx(self)
     }
 
     fn serialize_tuple_variant_start<'this>(

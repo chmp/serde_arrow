@@ -4,7 +4,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray},
-    error::{set_default, Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
@@ -59,19 +59,22 @@ impl Context for Date32Builder {
 
 impl SimpleSerializer for Date32Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let days_since_epoch = self.parse_str_to_days_since_epoch(v).ctx(self)?;
-        self.array.push_scalar_value(days_since_epoch).ctx(self)
+        try_(|| {
+            let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
+            self.array.push_scalar_value(days_since_epoch)
+        })
+        .ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }

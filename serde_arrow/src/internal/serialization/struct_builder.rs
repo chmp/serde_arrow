@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, StructArray},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         Mut,
@@ -110,7 +110,7 @@ impl StructBuilder {
     }
 
     fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
-        self.seq.push_seq_elements(1).ctx(self)?;
+        self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
             fail!(in self, "Duplicate field {key}", key = self.fields[idx].1.name);
         }
@@ -131,24 +131,30 @@ impl Context for StructBuilder {
 
 impl SimpleSerializer for StructBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.seq.push_seq_default().ctx(self)?;
-        for (builder, _) in &mut self.fields {
-            builder.serialize_default()?;
-        }
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for (builder, _) in &mut self.fields {
+                builder.serialize_default()?;
+            }
 
-        Ok(())
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.seq.push_seq_none().ctx(self)?;
-        for (builder, _) in &mut self.fields {
-            builder.serialize_default()?;
-        }
-        Ok(())
+        try_(|| {
+            self.seq.push_seq_none()?;
+            for (builder, _) in &mut self.fields {
+                builder.serialize_default()?;
+            }
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_struct_field<T: Serialize + ?Sized>(
@@ -156,72 +162,83 @@ impl SimpleSerializer for StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let Some(idx) = self.lookup.lookup(self.next, key) else {
-            // ignore unknown fields
-            return Ok(());
-        };
-        self.element(idx, value)
+        try_(|| {
+            let Some(idx) = self.lookup.lookup(self.next, key) else {
+                // ignore unknown fields
+                return Ok(());
+            };
+            self.element(idx, value)
+        })
+        .ctx(self)
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(self.next, value)
+        try_(|| self.element(self.next, value)).ctx(self)
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        // ignore extra tuple fields
-        if self.next < self.fields.len() {
-            self.element(self.next, value)?;
-        }
-        Ok(())
+        try_(|| {
+            // ignore extra tuple fields
+            if self.next < self.fields.len() {
+                self.element(self.next, value)?;
+            }
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start()?;
-        // always re-set to an invalid field to force that `_key()` is called before `_value()`.
-        self.next = UNKNOWN_KEY;
-        Ok(())
+        try_(|| {
+            self.start()?;
+            // always re-set to an invalid field to force that `_key()` is called before `_value()`.
+            self.next = UNKNOWN_KEY;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.next = self
-            .lookup
-            .lookup_serialize(key)
-            .ctx(self)?
-            .unwrap_or(UNKNOWN_KEY);
-        Ok(())
+        try_(|| {
+            self.next = self.lookup.lookup_serialize(key)?.unwrap_or(UNKNOWN_KEY);
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        if self.next != UNKNOWN_KEY {
-            self.element(self.next, value)?;
-        }
-        // see serialize_map_start
-        self.next = UNKNOWN_KEY;
-        Ok(())
+        try_(|| {
+            if self.next != UNKNOWN_KEY {
+                self.element(self.next, value)?;
+            }
+            // see serialize_map_start
+            self.next = UNKNOWN_KEY;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 }
 

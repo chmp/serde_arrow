@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
@@ -107,19 +107,22 @@ impl Context for Date64Builder {
 
 impl SimpleSerializer for Date64Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let timestamp = self.parse_str_to_timestamp(v).ctx(self)?;
-        self.array.push_scalar_value(timestamp)
+        try_(|| {
+            let timestamp = self.parse_str_to_timestamp(v)?;
+            self.array.push_scalar_value(timestamp)
+        })
+        .ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }

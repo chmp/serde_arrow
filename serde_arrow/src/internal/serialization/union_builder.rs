@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, DenseUnionArray, FieldMeta},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };
 
@@ -92,9 +92,7 @@ impl SimpleSerializer for UnionBuilder {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        self.serialize_variant(variant_index)
-            .ctx(&ctx)?
-            .serialize_unit()
+        try_(|| self.serialize_variant(variant_index)?.serialize_unit()).ctx(&ctx)
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -107,8 +105,11 @@ impl SimpleSerializer for UnionBuilder {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
-        value.serialize(Mut(variant_builder))
+        try_(|| {
+            let variant_builder = self.serialize_variant(variant_index)?;
+            value.serialize(Mut(variant_builder))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_struct_variant_start<'this>(
@@ -121,9 +122,12 @@ impl SimpleSerializer for UnionBuilder {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
-        variant_builder.serialize_struct_start(variant, len)?;
-        Ok(variant_builder)
+        try_(|| {
+            let variant_builder = self.serialize_variant(variant_index)?;
+            variant_builder.serialize_struct_start(variant, len)?;
+            Ok(variant_builder)
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_tuple_variant_start<'this>(
@@ -136,8 +140,11 @@ impl SimpleSerializer for UnionBuilder {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        let variant_builder = self.serialize_variant(variant_index).ctx(&ctx)?;
-        variant_builder.serialize_tuple_struct_start(variant, len)?;
-        Ok(variant_builder)
+        try_(|| {
+            let variant_builder = self.serialize_variant(variant_index)?;
+            variant_builder.serialize_tuple_struct_start(variant, len)?;
+            Ok(variant_builder)
+        })
+        .ctx(&ctx)
     }
 }

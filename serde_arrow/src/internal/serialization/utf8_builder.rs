@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
         NamedType, Offset,
@@ -74,15 +74,15 @@ impl<O: NamedType> Context for Utf8Builder<O> {
 
 impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.array.push_scalar_value(v.as_bytes()).ctx(self)
+        try_(|| self.array.push_scalar_value(v.as_bytes())).ctx(self)
     }
 
     fn serialize_unit_variant(
@@ -91,7 +91,7 @@ impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.array.push_scalar_value(variant.as_bytes()).ctx(self)
+        try_(|| self.array.push_scalar_value(variant.as_bytes())).ctx(self)
     }
 
     fn serialize_tuple_variant_start<'this>(
