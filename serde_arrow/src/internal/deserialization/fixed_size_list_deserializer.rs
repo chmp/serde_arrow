@@ -38,7 +38,7 @@ impl<'a> FixedSizeListDeserializer<'a> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 >= self.shape.0 {
-            fail!("Exhausted ListDeserializer")
+            fail!("Exhausted deserializer")
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, self.next.0)?)

@@ -39,7 +39,7 @@ impl<'a> StructDeserializer<'a> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, self.next.0)?)
@@ -138,7 +138,7 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         let (item, field) = self.next;
         if item >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);
@@ -166,7 +166,7 @@ impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
     ) -> Result<Option<T::Value>, Self::Error> {
         let (item, field) = self.next;
         if item >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);

@@ -40,7 +40,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 >= self.shape.0 {
-            fail!("Exhausted ListDeserializer")
+            fail!("Exhausted deserializer")
         }
         if let Some(validity) = &self.view.validity {
             Ok(bitset_is_set(validity, self.next.0)?)
@@ -56,7 +56,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
     pub fn next_slice(&mut self) -> Result<&'a [u8]> {
         let (item, _) = self.next;
         if item >= self.shape.0 {
-            fail!("called next_slices on exhausted BinaryDeserializer");
+            fail!("Exhausted deserializer");
         }
         self.next = (item + 1, 0);
 

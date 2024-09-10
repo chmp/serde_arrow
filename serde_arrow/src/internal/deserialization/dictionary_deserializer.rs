@@ -26,7 +26,7 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     ) -> Result<Self> {
         if values.validity.is_some() {
             // TODO: check whether all values are defined?
-            fail!("dictionaries with nullable values are not supported");
+            fail!("Null for non-nullable type: dictionaries do not support nullable values");
         }
         Ok(Self {
             path,
@@ -39,12 +39,12 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn next_str(&mut self) -> Result<&str> {
         let k: usize = self.keys.next_required()?.into_u64()?.try_into()?;
         let Some(start) = self.offsets.get(k) else {
-            fail!("invalid index");
+            fail!("Invalid index");
         };
         let start = start.try_into_usize()?;
 
         let Some(end) = self.offsets.get(k + 1) else {
-            fail!("invalid index");
+            fail!("Invalid index");
         };
         let end = end.try_into_usize()?;
 

@@ -58,7 +58,7 @@ impl<'a, 'de> EnumAccess<'de> for &'a mut EnumDeserializer<'de> {
 
     fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
         if self.next >= self.type_ids.len() {
-            fail!("Exhausted EnumDeserializer");
+            fail!("Exhausted deserializer");
         }
         let type_id = self.type_ids[self.next];
         self.next += 1;
@@ -79,7 +79,7 @@ struct VariantIdDeserializer<'a> {
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("{} is not implemented", stringify!($name))
+            fail!("Unsupported: EnumDeserializer does not implement {}", stringify!($name))
         }
     };
 }

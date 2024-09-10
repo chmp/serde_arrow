@@ -111,7 +111,9 @@ impl<'a> ArrayDeserializer<'a> {
                         is_utc_timestamp(view.timezone.as_deref())?,
                     )))
                 }
-                Some(strategy) => fail!("invalid strategy {strategy} for timestamp field"),
+                Some(strategy) => {
+                    fail!("Invalid strategy: {strategy} is not supported for timestamp field")
+                }
                 None => Ok(Self::Date64(Date64Deserializer::new(
                     path,
                     view.values,
@@ -197,10 +199,10 @@ impl<'a> ArrayDeserializer<'a> {
             }
             V::Map(view) => {
                 let ArrayView::Struct(entries_view) = *view.element else {
-                    fail!("invalid entries field in map array");
+                    fail!("Invalid entries field in map array");
                 };
                 let Ok(entries_fields) = <[_; 2]>::try_from(entries_view.fields) else {
-                    fail!("invalid entries field in map array")
+                    fail!("Invalid entries field in map array")
                 };
                 let [(keys_view, keys_meta), (values_view, values_meta)] = entries_fields;
                 let keys_path = format!("{path}.{child}", child = ChildName(&keys_meta.name));
@@ -274,14 +276,14 @@ impl<'a> ArrayDeserializer<'a> {
                 (V::UInt64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU64I64(
                     DictionaryDeserializer::new(path, keys, values)?,
                 )),
-                _ => fail!("unsupported dictionary array"),
+                _ => fail!("Unsupported dictionary array type"),
             },
             ArrayView::DenseUnion(view) => {
                 let mut fields = Vec::new();
                 for (idx, (type_id, field_view, field_meta)) in view.fields.into_iter().enumerate()
                 {
                     if usize::try_from(type_id) != Ok(idx) {
-                        fail!("Only unions with consecutive type ids are currently supported in arrow2");
+                        fail!("Only unions with consecutive type ids are currently supported");
                     }
                     let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
                     let field_deserializer = ArrayDeserializer::new(
@@ -301,7 +303,7 @@ impl<'a> ArrayDeserializer<'a> {
 fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
     match timezone {
         Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
-        Some(tz) => fail!("unsupported timezone {}", tz),
+        Some(tz) => fail!("Unsupported timezone: {} is not supported", tz),
         None => Ok(false),
     }
 }
@@ -310,7 +312,9 @@ fn is_utc_date64(strategy: Option<&Strategy>) -> Result<bool> {
     match strategy {
         None | Some(Strategy::UtcStrAsDate64) => Ok(true),
         Some(Strategy::NaiveStrAsDate64) => Ok(false),
-        Some(strategy) => fail!("invalid strategy for date64 deserializer: {strategy}"),
+        Some(strategy) => {
+            fail!("Invalid strategy: {strategy} is not supported for date64 deserializer")
+        }
     }
 }
 

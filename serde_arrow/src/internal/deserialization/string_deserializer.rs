@@ -25,7 +25,7 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
 
     pub fn next(&mut self) -> Result<Option<&'a str>> {
         if self.next + 1 > self.view.offsets.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
         }
 
         if let Some(validity) = &self.view.validity {
@@ -45,14 +45,14 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
 
     pub fn next_required(&mut self) -> Result<&'a str> {
         let Some(next) = self.next()? else {
-            fail!("Tried to deserialize a value from StringDeserializer, but value is missing")
+            fail!("Exhausted deserializer: tried to deserialize a value from StringDeserializer, but value is missing")
         };
         Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next + 1 > self.view.offsets.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
         }
 
         if let Some(validity) = &self.view.validity {

@@ -25,7 +25,7 @@ impl<'a> BoolDeserializer<'a> {
 
     fn next(&mut self) -> Result<Option<bool>> {
         if self.next >= self.view.len {
-            fail!("Exhausted Deserializer");
+            fail!("Exhausted deserializer");
         }
         if let Some(validty) = &self.view.validity {
             if !bitset_is_set(validty, self.next)? {
@@ -49,7 +49,7 @@ impl<'a> BoolDeserializer<'a> {
 
     fn peek_next(&self) -> Result<bool> {
         if self.next >= self.view.len {
-            fail!("Exhausted Deserializer");
+            fail!("Exhausted deserializer");
         } else if let Some(validity) = &self.view.validity {
             bitset_is_set(validity, self.next)
         } else {

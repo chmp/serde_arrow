@@ -43,7 +43,7 @@ impl<'a> MapDeserializer<'a> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 + 1 >= self.offsets.len() {
-            fail!("Exhausted ListDeserializer")
+            fail!("Exhausted deserializer")
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, self.next.0)?)
@@ -103,7 +103,7 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
     ) -> Result<Option<K::Value>, Self::Error> {
         let (item, entry) = self.next;
         if item + 1 >= self.offsets.len() {
-            fail!(in self, "Exhausted MapDeserializer");
+            fail!(in self, "Exhausted deserializer");
         }
         let start: usize = self.offsets[item].try_into()?;
         let end: usize = self.offsets[item + 1].try_into()?;

@@ -25,7 +25,7 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 + 1 >= self.view.offsets.len() {
-            fail!("Exhausted ListDeserializer")
+            fail!("Exhausted deserializer")
         }
         if let Some(validity) = &self.view.validity {
             bitset_is_set(validity, self.next.0)
@@ -41,7 +41,7 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
     pub fn peek_next_slice_range(&self) -> Result<(usize, usize)> {
         let (item, _) = self.next;
         if item + 1 >= self.view.offsets.len() {
-            fail!("called next_slices on exhausted BinaryDeserializer");
+            fail!("Exhausted deserializer");
         }
         let end = self.view.offsets[item + 1].try_into_usize()?;
         let start = self.view.offsets[item].try_into_usize()?;
