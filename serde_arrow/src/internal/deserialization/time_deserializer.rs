@@ -3,7 +3,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{TimeArrayView, TimeUnit},
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
 
@@ -64,63 +64,46 @@ impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
 
 impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for TimeDeserializer<'de, T> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_any_impl(visitor).ctx(self)
+        try_(|| {
+            if self.array.peek_next()? {
+                T::deserialize_any(&mut *self, visitor)
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_option_impl(visitor).ctx(self)
+        try_(|| {
+            if self.array.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i32_impl(visitor).ctx(self)
+        try_(|| visitor.visit_i32(self.array.next_required()?.into_i32()?)).ctx(self)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64_impl(visitor).ctx(self)
+        try_(|| visitor.visit_i64(self.array.next_required()?.into_i64()?)).ctx(self)
     }
 
     fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_str_impl(visitor).ctx(self)
+        try_(|| self.deserialize_string(visitor)).ctx(self)
     }
 
     fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_string_impl(visitor).ctx(self)
-    }
-}
-
-impl<'de, T: NamedType + Integer> TimeDeserializer<'de, T> {
-    fn deserialize_any_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            T::deserialize_any(self, visitor)
-        } else {
-            self.array.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_option_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.array.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_i32_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.array.next_required()?.into_i32()?)
-    }
-
-    fn deserialize_i64_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.array.next_required()?.into_i64()?)
-    }
-
-    fn deserialize_str_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_string(visitor)
-    }
-
-    fn deserialize_string_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        let ts = self.array.next_required()?.into_i64()?;
-        visitor.visit_string(self.get_string_repr(ts)?)
+        try_(|| {
+            let ts = self.array.next_required()?.into_i64()?;
+            visitor.visit_string(self.get_string_repr(ts)?)
+        })
+        .ctx(self)
     }
 }

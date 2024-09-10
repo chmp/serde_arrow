@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::FixedSizeBinaryArrayView,
-    error::{fail, set_default, Context, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -73,33 +73,39 @@ impl<'a> Context for FixedSizeBinaryDeserializer<'a> {
 
 impl<'a> SimpleDeserializer<'a> for FixedSizeBinaryDeserializer<'a> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            self.deserialize_bytes(visitor)
-        } else {
-            self.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_bytes(visitor)
+            } else {
+                self.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(self))
+            } else {
+                self.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
     }
 
     fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_borrowed_bytes(self.next_slice()?)
+        try_(|| visitor.visit_borrowed_bytes(self.next_slice()?)).ctx(self)
     }
 
     fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_borrowed_bytes(self.next_slice()?)
+        try_(|| visitor.visit_borrowed_bytes(self.next_slice()?)).ctx(self)
     }
 }
 

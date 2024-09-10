@@ -3,7 +3,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{set_default, Context, ContextSupport, Error, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -40,33 +40,42 @@ impl<'de> Context for Date32Deserializer<'de> {
 
 impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            self.deserialize_i32(visitor)
-        } else {
-            self.array.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.array.peek_next()? {
+                self.deserialize_i32(visitor)
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.array.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.array.peek_next()? {
+                visitor.visit_some(Mut(self))
+            } else {
+                self.array.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.array.next_required()?)
+        try_(|| visitor.visit_i32(self.array.next_required()?)).ctx(self)
     }
 
     fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_string(visitor)
+        try_(|| self.deserialize_string(visitor)).ctx(self)
     }
 
     fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        let ts = self.array.next_required()?;
-        visitor.visit_string(self.get_string_repr(ts)?)
+        try_(|| {
+            let ts = self.array.next_required()?;
+            visitor.visit_string(self.get_string_repr(ts)?)
+        })
+        .ctx(self)
     }
 }

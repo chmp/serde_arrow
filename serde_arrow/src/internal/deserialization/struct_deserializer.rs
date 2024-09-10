@@ -4,7 +4,7 @@ use serde::de::{
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, set_default, Context, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -62,31 +62,37 @@ impl<'de> Context for StructDeserializer<'de> {
 
 impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_map(self)
-        } else {
-            self.consume_next();
-            for (_, field) in &mut self.fields {
-                field.deserialize_ignored_any(IgnoredAny)?;
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_map(&mut *self)
+            } else {
+                self.consume_next();
+                for (_, field) in &mut self.fields {
+                    field.deserialize_ignored_any(IgnoredAny)?;
+                }
+                visitor.visit_none()
             }
-            visitor.visit_none()
-        }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            for (_, field) in &mut self.fields {
-                field.deserialize_ignored_any(IgnoredAny)?;
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.consume_next();
+                for (_, field) in &mut self.fields {
+                    field.deserialize_ignored_any(IgnoredAny)?;
+                }
+                visitor.visit_none()
             }
-            visitor.visit_none()
-        }
+        })
+        .ctx(self)
     }
 
     fn deserialize_map<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_map(self)
+        try_(|| visitor.visit_map(&mut *self)).ctx(self)
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -95,15 +101,18 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
         _: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_map(self)
+        try_(|| visitor.visit_map(&mut *self)).ctx(self)
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(&mut self, _: usize, visitor: V) -> Result<V::Value> {
-        let res = visitor.visit_seq(&mut *self)?;
+        try_(|| {
+            let res = visitor.visit_seq(&mut *self)?;
 
-        // tuples do not consume the sequence until none is raised
-        self.consume_next();
-        Ok(res)
+            // tuples do not consume the sequence until none is raised
+            self.consume_next();
+            Ok(res)
+        })
+        .ctx(self)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
@@ -112,11 +121,14 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
         _: usize,
         visitor: V,
     ) -> Result<V::Value> {
-        let res = visitor.visit_seq(&mut *self)?;
+        try_(|| {
+            let res = visitor.visit_seq(&mut *self)?;
 
-        // tuples do not consume the sequence until none is raised
-        self.consume_next();
-        Ok(res)
+            // tuples do not consume the sequence until none is raised
+            self.consume_next();
+            Ok(res)
+        })
+        .ctx(self)
     }
 }
 

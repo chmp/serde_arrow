@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::PrimitiveArrayView,
-    error::{set_default, Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
 
@@ -64,110 +64,66 @@ impl<'de, T: NamedType + Integer> Context for IntegerDeserializer<'de, T> {
 
 impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for IntegerDeserializer<'de, T> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_any_impl(visitor).ctx(self)
+        try_(|| {
+            if self.array.peek_next()? {
+                T::deserialize_any(&mut *self, visitor)
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_option_impl(visitor).ctx(self)
+        try_(|| {
+            if self.array.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_bool_impl(visitor).ctx(self)
+        try_(|| visitor.visit_bool(self.array.next_required()?.into_bool()?)).ctx(self)
     }
 
     fn deserialize_char<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_char_impl(visitor).ctx(self)
+        try_(|| visitor.visit_char(self.array.next_required()?.into_u32()?.try_into()?)).ctx(self)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u8_impl(visitor).ctx(self)
+        try_(|| visitor.visit_u8(self.array.next_required()?.into_u8()?)).ctx(self)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u16_impl(visitor).ctx(self)
+        try_(|| visitor.visit_u16(self.array.next_required()?.into_u16()?)).ctx(self)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u32_impl(visitor).ctx(self)
+        try_(|| visitor.visit_u32(self.array.next_required()?.into_u32()?)).ctx(self)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_u64_impl(visitor).ctx(self)
+        try_(|| visitor.visit_u64(self.array.next_required()?.into_u64()?)).ctx(self)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i8_impl(visitor).ctx(self)
+        try_(|| visitor.visit_i8(self.array.next_required()?.into_i8()?)).ctx(self)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i16_impl(visitor).ctx(self)
+        try_(|| visitor.visit_i16(self.array.next_required()?.into_i16()?)).ctx(self)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i32_impl(visitor).ctx(self)
+        try_(|| visitor.visit_i32(self.array.next_required()?.into_i32()?)).ctx(self)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_i64_impl(visitor).ctx(self)
-    }
-}
-
-impl<'de, T: NamedType + Integer> IntegerDeserializer<'de, T> {
-    fn deserialize_any_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            T::deserialize_any(self, visitor)
-        } else {
-            self.array.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_option_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.array.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.array.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_bool_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_bool(self.array.next_required()?.into_bool()?)
-    }
-
-    fn deserialize_char_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_char(self.array.next_required()?.into_u32()?.try_into()?)
-    }
-
-    fn deserialize_u8_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.array.next_required()?.into_u8()?)
-    }
-
-    fn deserialize_u16_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.array.next_required()?.into_u16()?)
-    }
-
-    fn deserialize_u32_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.array.next_required()?.into_u32()?)
-    }
-
-    fn deserialize_u64_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.array.next_required()?.into_u64()?)
-    }
-
-    fn deserialize_i8_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.array.next_required()?.into_i8()?)
-    }
-
-    fn deserialize_i16_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.array.next_required()?.into_i16()?)
-    }
-
-    fn deserialize_i32_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.array.next_required()?.into_i32()?)
-    }
-
-    fn deserialize_i64_impl<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.array.next_required()?.into_i64()?)
+        try_(|| visitor.visit_i64(self.array.next_required()?.into_i64()?)).ctx(self)
     }
 }

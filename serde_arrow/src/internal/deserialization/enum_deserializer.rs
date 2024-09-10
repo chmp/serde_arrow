@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, set_default, Context, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -43,7 +45,10 @@ impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
         _: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_enum(self)
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| visitor.visit_enum(self)).ctx(&ctx)
     }
 }
 

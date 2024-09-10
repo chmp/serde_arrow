@@ -2,7 +2,7 @@ use serde::de::{IgnoredAny, SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, set_default, Context, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -66,25 +66,31 @@ impl<'a> Context for FixedSizeListDeserializer<'a> {
 
 impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            self.deserialize_seq(visitor)
-        } else {
-            self.consume_next()?;
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_seq(visitor)
+            } else {
+                self.consume_next()?;
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next()?;
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.consume_next()?;
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
     }
 }
 

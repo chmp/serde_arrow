@@ -2,7 +2,7 @@ use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, set_default, Context, ContextSupport, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -66,25 +66,31 @@ impl<'de> Context for MapDeserializer<'de> {
 
 impl<'de> SimpleDeserializer<'de> for MapDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            self.deserialize_map(visitor)
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_map(visitor)
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_map<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_map(self)
+        try_(|| visitor.visit_map(&mut *self)).ctx(self)
     }
 }
 
@@ -99,8 +105,8 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
         if item + 1 >= self.offsets.len() {
             fail!(in self, "Exhausted MapDeserializer");
         }
-        let start: usize = self.offsets[item].try_into().ctx(self)?;
-        let end: usize = self.offsets[item + 1].try_into().ctx(self)?;
+        let start: usize = self.offsets[item].try_into()?;
+        let end: usize = self.offsets[item + 1].try_into()?;
 
         if entry >= (end - start) {
             self.next = (item + 1, 0);

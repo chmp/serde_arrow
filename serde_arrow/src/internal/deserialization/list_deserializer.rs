@@ -2,7 +2,7 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, set_default, Context, ContextSupport, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::{Mut, NamedType, Offset},
 };
 
@@ -71,33 +71,39 @@ impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
 
 impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            self.deserialize_seq(visitor)
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_seq(visitor)
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next().ctx(self)? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            visitor.visit_none::<Error>().ctx(self)
-        }
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.consume_next();
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
     }
 
     fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
     }
 
     fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_seq(self)
+        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
     }
 }
 
@@ -112,8 +118,8 @@ impl<'de, O: NamedType + Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
         if item + 1 >= self.offsets.len() {
             return Ok(None);
         }
-        let end = self.offsets[item + 1].try_into_usize().ctx(self)?;
-        let start = self.offsets[item].try_into_usize().ctx(self)?;
+        let end = self.offsets[item + 1].try_into_usize()?;
+        let start = self.offsets[item].try_into_usize()?;
 
         if offset >= end - start {
             self.next = (item + 1, 0);

@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{BytesArrayView, PrimitiveArrayView},
-    error::{fail, set_default, Context, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, Offset},
 };
 
@@ -62,29 +62,35 @@ impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
 
 impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
     fn deserialize_any<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        if self.keys.peek_next()? {
-            self.deserialize_str(visitor)
-        } else {
-            self.keys.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.keys.peek_next()? {
+                self.deserialize_str(visitor)
+            } else {
+                self.keys.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        if self.keys.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.keys.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.keys.peek_next()? {
+                visitor.visit_some(Mut(self))
+            } else {
+                self.keys.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_str<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        visitor.visit_str(self.next_str()?)
+        try_(|| visitor.visit_str(self.next_str()?)).ctx(self)
     }
 
     fn deserialize_string<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        visitor.visit_string(self.next_str()?.to_owned())
+        try_(|| visitor.visit_string(self.next_str()?.to_owned())).ctx(self)
     }
 
     fn deserialize_enum<VV: Visitor<'de>>(
@@ -93,7 +99,10 @@ impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeseriali
         _: &'static [&'static str],
         visitor: VV,
     ) -> Result<VV::Value> {
-        let variant = self.next_str()?;
-        visitor.visit_enum(EnumAccess(variant))
+        try_(|| {
+            let variant = self.next_str()?;
+            visitor.visit_enum(EnumAccess(variant))
+        })
+        .ctx(self)
     }
 }
