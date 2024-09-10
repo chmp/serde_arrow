@@ -11,7 +11,7 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::{btree_map, meta_from_field, Mut},
+    utils::{btree_map, meta_from_field, ChildName, Mut},
 };
 
 use super::{
@@ -62,8 +62,8 @@ impl OuterSequenceBuilder {
 }
 
 impl Context for OuterSequenceBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        self.0.annotations()
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
     }
 }
 
@@ -123,7 +123,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
 
 fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
-    let ctx: BTreeMap<String, String> = btree_map!("path" => path.clone());
+    let ctx: BTreeMap<String, String> = btree_map!("field" => path.clone());
 
     let builder = match &field.data_type {
         T::Null => match get_strategy_from_metadata(&field.metadata)? {
@@ -283,17 +283,5 @@ fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
         Some(Strategy::UtcStrAsDate64) | None => Ok(true),
         Some(Strategy::NaiveStrAsDate64) => Ok(false),
         Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-    }
-}
-
-struct ChildName<'a>(&'a str);
-
-impl<'a> std::fmt::Display for ChildName<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.0.is_empty() {
-            write!(f, "{}", self.0)
-        } else {
-            write!(f, "<empty>")
-        }
     }
 }

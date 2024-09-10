@@ -219,3 +219,15 @@ macro_rules! btree_map {
 }
 
 pub(crate) use btree_map;
+
+pub struct ChildName<'a>(pub &'a str);
+
+impl<'a> std::fmt::Display for ChildName<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "<empty>")
+        }
+    }
+}

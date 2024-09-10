@@ -16,17 +16,23 @@ fn example() {
         vec![
             (
                 String::from("a"),
-                ArrayDeserializer::I32(IntegerDeserializer::new(PrimitiveArrayView {
-                    values: &[1, 2, 3],
-                    validity: None,
-                })),
+                ArrayDeserializer::I32(IntegerDeserializer::new(
+                    String::from("$"),
+                    PrimitiveArrayView {
+                        values: &[1, 2, 3],
+                        validity: None,
+                    },
+                )),
             ),
             (
                 String::from("b"),
-                ArrayDeserializer::I32(IntegerDeserializer::new(PrimitiveArrayView {
-                    values: &[4, 5, 6],
-                    validity: None,
-                })),
+                ArrayDeserializer::I32(IntegerDeserializer::new(
+                    String::from("$"),
+                    PrimitiveArrayView {
+                        values: &[4, 5, 6],
+                        validity: None,
+                    },
+                )),
             ),
         ],
         3,

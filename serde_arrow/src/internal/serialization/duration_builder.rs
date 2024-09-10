@@ -2,11 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Context, ContextSupport, Result},
-    utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
-    },
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -49,51 +46,50 @@ impl DurationBuilder {
 }
 
 impl Context for DurationBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Duration(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Duration(..)");
     }
 }
 
 impl SimpleSerializer for DurationBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.array.push_scalar_value(i64::from(v)).ctx(self)
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.array
-            .push_scalar_value(i64::try_from(v).ctx(self)?)
-            .ctx(self)
+        try_(|| self.array.push_scalar_value(i64::try_from(v)?)).ctx(self)
     }
 }

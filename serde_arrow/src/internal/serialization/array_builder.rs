@@ -112,8 +112,8 @@ impl ArrayBuilder {
 }
 
 impl Context for ArrayBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        dispatch!(self, Self(builder) => builder.annotations())
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        dispatch!(self, Self(builder) => builder.annotate(annotations))
     }
 }
 

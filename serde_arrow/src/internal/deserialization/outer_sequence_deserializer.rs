@@ -1,7 +1,7 @@
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    error::{Error, Result},
+    error::{Context, Error, Result},
     utils::Mut,
 };
 
@@ -19,18 +19,18 @@ pub struct OuterSequenceDeserializer<'a> {
 impl<'a> OuterSequenceDeserializer<'a> {
     pub fn new(fields: Vec<(String, ArrayDeserializer<'a>)>, len: usize) -> Self {
         Self {
-            item: StructDeserializer::new(fields, None, len),
+            item: StructDeserializer::new(String::from("$"), fields, None, len),
             next: 0,
             len,
         }
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
-    fn name() -> &'static str {
-        "OuterSequenceDeserializer"
-    }
+impl<'de> Context for OuterSequenceDeserializer<'de> {
+    fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
+}
 
+impl<'de> SimpleDeserializer<'de> for OuterSequenceDeserializer<'de> {
     fn deserialize_newtype_struct<V: Visitor<'de>>(
         &mut self,
         _: &'static str,

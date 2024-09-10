@@ -2,10 +2,9 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, DecimalArray, PrimitiveArray},
-    error::{Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map,
         decimal::{self, DecimalParser},
     },
 };
@@ -63,39 +62,38 @@ impl DecimalBuilder {
 }
 
 impl Context for DecimalBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Decimal128(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "filed", &self.path);
+        set_default(annotations, "data_type", "Decimal128(..)");
     }
 }
 
 impl SimpleSerializer for DecimalBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.array
-            .push_scalar_value((v * self.f32_factor) as i128)
-            .ctx(self)
+        try_(|| self.array.push_scalar_value((v * self.f32_factor) as i128)).ctx(self)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.array
-            .push_scalar_value((v * self.f64_factor) as i128)
-            .ctx(self)
+        try_(|| self.array.push_scalar_value((v * self.f64_factor) as i128)).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
-        let val = self
-            .parser
-            .parse_decimal128(&mut parse_buffer, v.as_bytes())
-            .ctx(self)?;
+        try_(|| {
+            let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
+            let val = self
+                .parser
+                .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
 
-        self.array.push_scalar_value(val).ctx(self)
+            self.array.push_scalar_value(val)
+        })
+        .ctx(self)
     }
 }

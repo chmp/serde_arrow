@@ -4,7 +4,7 @@ use serde::de::{
 
 use crate::internal::{
     arrow::BitsWithOffset,
-    error::{fail, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
@@ -14,6 +14,7 @@ use super::{
 };
 
 pub struct StructDeserializer<'a> {
+    pub path: String,
     pub fields: Vec<(String, ArrayDeserializer<'a>)>,
     pub validity: Option<BitsWithOffset<'a>>,
     pub next: (usize, usize),
@@ -22,11 +23,13 @@ pub struct StructDeserializer<'a> {
 
 impl<'a> StructDeserializer<'a> {
     pub fn new(
+        path: String,
         fields: Vec<(String, ArrayDeserializer<'a>)>,
         validity: Option<BitsWithOffset<'a>>,
         len: usize,
     ) -> Self {
         Self {
+            path,
             fields,
             validity,
             len,
@@ -36,7 +39,7 @@ impl<'a> StructDeserializer<'a> {
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next.0 >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, self.next.0)?)
@@ -50,37 +53,46 @@ impl<'a> StructDeserializer<'a> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
-    fn name() -> &'static str {
-        "StructDeserializer"
+impl<'de> Context for StructDeserializer<'de> {
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Struct(..)");
     }
+}
 
+impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_map(self)
-        } else {
-            self.consume_next();
-            for (_, field) in &mut self.fields {
-                field.deserialize_ignored_any(IgnoredAny)?;
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_map(&mut *self)
+            } else {
+                self.consume_next();
+                for (_, field) in &mut self.fields {
+                    field.deserialize_ignored_any(IgnoredAny)?;
+                }
+                visitor.visit_none()
             }
-            visitor.visit_none()
-        }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            for (_, field) in &mut self.fields {
-                field.deserialize_ignored_any(IgnoredAny)?;
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.consume_next();
+                for (_, field) in &mut self.fields {
+                    field.deserialize_ignored_any(IgnoredAny)?;
+                }
+                visitor.visit_none()
             }
-            visitor.visit_none()
-        }
+        })
+        .ctx(self)
     }
 
     fn deserialize_map<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_map(self)
+        try_(|| visitor.visit_map(&mut *self)).ctx(self)
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -89,15 +101,18 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
         _: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_map(self)
+        try_(|| visitor.visit_map(&mut *self)).ctx(self)
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(&mut self, _: usize, visitor: V) -> Result<V::Value> {
-        let res = visitor.visit_seq(&mut *self)?;
+        try_(|| {
+            let res = visitor.visit_seq(&mut *self)?;
 
-        // tuples do not consume the sequence until none is raised
-        self.consume_next();
-        Ok(res)
+            // tuples do not consume the sequence until none is raised
+            self.consume_next();
+            Ok(res)
+        })
+        .ctx(self)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
@@ -106,11 +121,14 @@ impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {
         _: usize,
         visitor: V,
     ) -> Result<V::Value> {
-        let res = visitor.visit_seq(&mut *self)?;
+        try_(|| {
+            let res = visitor.visit_seq(&mut *self)?;
 
-        // tuples do not consume the sequence until none is raised
-        self.consume_next();
-        Ok(res)
+            // tuples do not consume the sequence until none is raised
+            self.consume_next();
+            Ok(res)
+        })
+        .ctx(self)
     }
 }
 
@@ -120,7 +138,7 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
         let (item, field) = self.next;
         if item >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);
@@ -148,7 +166,7 @@ impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
     ) -> Result<Option<T::Value>, Self::Error> {
         let (item, field) = self.next;
         if item >= self.len {
-            fail!("Exhausted StructDeserializer");
+            fail!("Exhausted deserializer");
         }
         if field >= self.fields.len() {
             self.next = (item + 1, 0);

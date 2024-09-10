@@ -4,10 +4,10 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-        btree_map, Mut, NamedType, Offset,
+        Mut, NamedType, Offset,
     },
 };
 
@@ -79,13 +79,17 @@ impl<O: Offset> BinaryBuilder<O> {
 }
 
 impl<O: NamedType> Context for BinaryBuilder<O> {
-    fn annotations(&self) -> std::collections::BTreeMap<String, String> {
-        let data_type = match O::NAME {
-            "i32" => "Binary",
-            "i64" => "LargeBinary",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match O::NAME {
+                "i32" => "Binary",
+                "i64" => "LargeBinary",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 
@@ -142,9 +146,7 @@ impl<O: NamedType + Offset> SimpleSerializer for BinaryBuilder<O> {
 struct U8Serializer(u8);
 
 impl Context for U8Serializer {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        Default::default()
-    }
+    fn annotate(&self, _: &mut BTreeMap<String, String>) {}
 }
 
 impl SimpleSerializer for U8Serializer {

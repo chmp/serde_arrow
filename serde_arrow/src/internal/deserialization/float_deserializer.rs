@@ -1,6 +1,10 @@
 use serde::de::Visitor;
 
-use crate::internal::{arrow::PrimitiveArrayView, error::Result, utils::Mut};
+use crate::internal::{
+    arrow::PrimitiveArrayView,
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::{Mut, NamedType},
+};
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
@@ -14,42 +18,66 @@ pub trait Float: Copy {
     fn into_f64(self) -> Result<f64>;
 }
 
-pub struct FloatDeserializer<'a, F: Float>(ArrayBufferIterator<'a, F>);
+pub struct FloatDeserializer<'a, F: Float> {
+    path: String,
+    array: ArrayBufferIterator<'a, F>,
+}
 
 impl<'a, F: Float> FloatDeserializer<'a, F> {
-    pub fn new(view: PrimitiveArrayView<'a, F>) -> Self {
-        Self(ArrayBufferIterator::new(view.values, view.validity))
+    pub fn new(path: String, view: PrimitiveArrayView<'a, F>) -> Self {
+        Self {
+            path,
+            array: ArrayBufferIterator::new(view.values, view.validity),
+        }
     }
 }
 
-impl<'de, F: Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {
-    fn name() -> &'static str {
-        "FloatDeserializer"
+impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match F::NAME {
+                "f16" => "Float16",
+                "f32" => "Float32",
+                "f64" => "Float64",
+                _ => "<unknown>",
+            },
+        );
     }
+}
 
+impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.0.peek_next()? {
-            F::deserialize_any(self, visitor)
-        } else {
-            self.0.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.array.peek_next()? {
+                F::deserialize_any(&mut *self, visitor)
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.0.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.0.consume_next();
-            visitor.visit_none()
-        }
+        try_(|| {
+            if self.array.peek_next()? {
+                visitor.visit_some(Mut(&mut *self))
+            } else {
+                self.array.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f32(self.0.next_required()?.into_f32()?)
+        try_(|| visitor.visit_f32(self.array.next_required()?.into_f32()?)).ctx(self)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_f64(self.0.next_required()?.into_f64()?)
+        try_(|| visitor.visit_f64(self.array.next_required()?.into_f64()?)).ctx(self)
     }
 }

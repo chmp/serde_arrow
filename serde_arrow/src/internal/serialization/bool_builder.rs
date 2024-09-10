@@ -2,11 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BooleanArray},
-    error::{Context, ContextSupport, Result},
-    utils::{
-        array_ext::{set_bit_buffer, set_validity, set_validity_default},
-        btree_map,
-    },
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -50,30 +47,40 @@ impl BoolBuilder {
 }
 
 impl Context for BoolBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Boolean")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Boolean");
     }
 }
 
 impl SimpleSerializer for BoolBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        set_validity_default(self.array.validity.as_mut(), self.array.len);
-        set_bit_buffer(&mut self.array.values, self.array.len, false);
-        self.array.len += 1;
-        Ok(())
+        try_(|| {
+            set_validity_default(self.array.validity.as_mut(), self.array.len);
+            set_bit_buffer(&mut self.array.values, self.array.len, false);
+            self.array.len += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        set_validity(self.array.validity.as_mut(), self.array.len, false).ctx(self)?;
-        set_bit_buffer(&mut self.array.values, self.array.len, false);
-        self.array.len += 1;
-        Ok(())
+        try_(|| {
+            set_validity(self.array.validity.as_mut(), self.array.len, false)?;
+            set_bit_buffer(&mut self.array.values, self.array.len, false);
+            self.array.len += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        set_validity(self.array.validity.as_mut(), self.array.len, true).ctx(self)?;
-        set_bit_buffer(&mut self.array.values, self.array.len, v);
-        self.array.len += 1;
-        Ok(())
+        try_(|| {
+            set_validity(self.array.validity.as_mut(), self.array.len, true)?;
+            set_bit_buffer(&mut self.array.values, self.array.len, v);
+            self.array.len += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 }

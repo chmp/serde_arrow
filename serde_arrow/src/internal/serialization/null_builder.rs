@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, NullArray},
-    error::{Context, Result},
-    utils::btree_map,
+    error::{set_default, Context, Result},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -36,8 +35,9 @@ impl NullBuilder {
 }
 
 impl Context for NullBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Null")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Null");
     }
 }
 

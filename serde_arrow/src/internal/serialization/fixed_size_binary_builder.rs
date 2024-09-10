@@ -4,10 +4,10 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FixedSizeBinaryArray},
-    error::{fail, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
-        btree_map, Mut,
+        Mut,
     },
 };
 
@@ -86,86 +86,93 @@ impl FixedSizeBinaryBuilder {
 }
 
 impl Context for FixedSizeBinaryBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "FixedSizeBinary(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "FixedSizeBinary(..)");
     }
 }
 
 impl SimpleSerializer for FixedSizeBinaryBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.seq.push_seq_default().ctx(self)?;
-        for _ in 0..self.n {
-            self.buffer.push(0);
-        }
-        Ok(())
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for _ in 0..self.n {
+                self.buffer.push(0);
+            }
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.seq.push_seq_none().ctx(self)?;
-        for _ in 0..self.n {
-            self.buffer.push(0);
-        }
-        Ok(())
+        try_(|| {
+            self.seq.push_seq_none()?;
+            for _ in 0..self.n {
+                self.buffer.push(0);
+            }
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
+        try_(|| self.start()).ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
+        try_(|| self.element(value)).ctx(self)
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
+        try_(|| self.end()).ctx(self)
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        if v.len() != self.n {
-            fail!(
-                in self,
-                "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
-                actual = v.len(),
-                expected = self.n,
-            );
-        }
+        try_(|| {
+            if v.len() != self.n {
+                fail!(
+                    in self,
+                    "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
+                    actual = v.len(),
+                    expected = self.n,
+                );
+            }
 
-        self.seq.start_seq().ctx(self)?;
-        self.buffer.extend(v);
-        self.seq.end_seq().ctx(self)
+            self.seq.start_seq()?;
+            self.buffer.extend(v);
+            self.seq.end_seq()
+        }).ctx(self)
     }
 }
 
 struct U8Serializer(u8);
 
 impl Context for U8Serializer {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!()
-    }
+    fn annotate(&self, _: &mut BTreeMap<String, String>) {}
 }
 
 impl SimpleSerializer for U8Serializer {

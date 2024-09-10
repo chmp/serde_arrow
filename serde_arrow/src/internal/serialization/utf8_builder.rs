@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, BytesArray},
-    error::{fail, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-        btree_map, NamedType, Offset,
+        NamedType, Offset,
     },
 };
 
@@ -58,28 +58,31 @@ impl Utf8Builder<i64> {
 }
 
 impl<O: NamedType> Context for Utf8Builder<O> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = if O::NAME == "i32" {
-            "Utf8"
-        } else {
-            "LargeUtf8"
-        };
-
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if O::NAME == "i32" {
+                "Utf8"
+            } else {
+                "LargeUtf8"
+            },
+        );
     }
 }
 
 impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.array.push_scalar_value(v.as_bytes()).ctx(self)
+        try_(|| self.array.push_scalar_value(v.as_bytes())).ctx(self)
     }
 
     fn serialize_unit_variant(
@@ -88,7 +91,7 @@ impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.array.push_scalar_value(variant.as_bytes()).ctx(self)
+        try_(|| self.array.push_scalar_value(variant.as_bytes())).ctx(self)
     }
 
     fn serialize_tuple_variant_start<'this>(

@@ -7,7 +7,7 @@ use crate::internal::{
 pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     let flag = 1 << ((idx + set.offset) % 8);
     let Some(byte) = set.data.get((idx + set.offset) / 8) else {
-        fail!("invalid access in bitset");
+        fail!("Invalid access in bitset");
     };
     Ok(byte & flag == flag)
 }
@@ -29,7 +29,7 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 
     pub fn next(&mut self) -> Result<Option<T>> {
         if self.next > self.buffer.len() {
-            fail!("Tried to deserialize a value from an exhausted FloatDeserializer");
+            fail!("Exhausted deserializer");
         }
 
         if let Some(validity) = &self.validity {
@@ -45,14 +45,14 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 
     pub fn next_required(&mut self) -> Result<T> {
         let Some(next) = self.next()? else {
-            fail!("missing value");
+            fail!("Exhausted deserializer");
         };
         Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next > self.buffer.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer");
         }
 
         if let Some(validity) = &self.validity {
@@ -86,14 +86,14 @@ pub fn check_supported_list_layout<'a, O: Offset>(
     };
 
     if offsets.is_empty() {
-        fail!("list offsets must be non empty");
+        fail!("Unsupported: list offsets must be non empty");
     }
 
     for i in 0..offsets.len().saturating_sub(1) {
         let curr = offsets[i].try_into_usize()?;
         let next = offsets[i + 1].try_into_usize()?;
         if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
-            fail!("lists with data in null values are currently not supported in deserialization");
+            fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
         }
     }
 

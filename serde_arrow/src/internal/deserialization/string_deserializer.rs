@@ -1,7 +1,7 @@
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, Result},
-    utils::{Mut, Offset},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    utils::{Mut, NamedType, Offset},
 };
 
 use super::{
@@ -9,18 +9,23 @@ use super::{
 };
 
 pub struct StringDeserializer<'a, O: Offset> {
+    pub path: String,
     pub view: BytesArrayView<'a, O>,
     pub next: usize,
 }
 
 impl<'a, O: Offset> StringDeserializer<'a, O> {
-    pub fn new(view: BytesArrayView<'a, O>) -> Self {
-        Self { view, next: 0 }
+    pub fn new(path: String, view: BytesArrayView<'a, O>) -> Self {
+        Self {
+            path,
+            view,
+            next: 0,
+        }
     }
 
     pub fn next(&mut self) -> Result<Option<&'a str>> {
         if self.next + 1 > self.view.offsets.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
         }
 
         if let Some(validity) = &self.view.validity {
@@ -40,14 +45,14 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
 
     pub fn next_required(&mut self) -> Result<&'a str> {
         let Some(next) = self.next()? else {
-            fail!("Tried to deserialize a value from StringDeserializer, but value is missing")
+            fail!("Exhausted deserializer: tried to deserialize a value from StringDeserializer, but value is missing")
         };
         Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next + 1 > self.view.offsets.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
         }
 
         if let Some(validity) = &self.view.validity {
@@ -63,12 +68,51 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
-    fn name() -> &'static str {
-        "StringDeserializer"
+impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match O::NAME {
+                "i32" => "Utf8",
+                "i64" => "LargeUtf8",
+                _ => "<unknown>",
+            },
+        );
+    }
+}
+
+impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
+    fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any_impl(visitor).ctx(self)
     }
 
-    fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_option_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_str_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.deserialize_string_impl(visitor).ctx(self)
+    }
+
+    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+        &mut self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_enum_impl(name, variants, visitor)
+            .ctx(self)
+    }
+}
+
+impl<'a, O: NamedType + Offset> StringDeserializer<'a, O> {
+    fn deserialize_any_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         if self.peek_next()? {
             self.deserialize_str(visitor)
         } else {
@@ -77,7 +121,10 @@ impl<'a, O: Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
         }
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_option_impl<V: serde::de::Visitor<'a>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
         if self.peek_next()? {
             visitor.visit_some(Mut(self))
         } else {
@@ -86,15 +133,18 @@ impl<'a, O: Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
         }
     }
 
-    fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_str_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_borrowed_str(self.next_required()?)
     }
 
-    fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_string_impl<V: serde::de::Visitor<'a>>(
+        &mut self,
+        visitor: V,
+    ) -> Result<V::Value> {
         visitor.visit_string(self.next_required()?.to_owned())
     }
 
-    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+    fn deserialize_enum_impl<V: serde::de::Visitor<'a>>(
         &mut self,
         _: &'static str,
         _: &'static [&'static str],

@@ -4,10 +4,10 @@ use chrono::Timelike;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
-    error::{Context, ContextSupport, Error, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
-        btree_map, NamedType,
+        NamedType,
     },
 };
 
@@ -71,13 +71,17 @@ impl TimeBuilder<i64> {
 }
 
 impl<I: NamedType> Context for TimeBuilder<I> {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        let data_type = match I::NAME {
-            "i32" => "Time32",
-            "i64" => "Time64",
-            _ => "<unknown>",
-        };
-        btree_map!("field" => self.path.clone(), "data_type" => data_type)
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match I::NAME {
+                "i32" => "Time32",
+                "i64" => "Time64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 
@@ -88,40 +92,37 @@ where
     Error: From<<I as TryFrom<i64>>::Error>,
 {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let (seconds_factor, nanoseconds_factor) = match self.unit {
-            TimeUnit::Nanosecond => (1_000_000_000, 1),
-            TimeUnit::Microsecond => (1_000_000, 1_000),
-            TimeUnit::Millisecond => (1_000, 1_000_000),
-            TimeUnit::Second => (1, 1_000_000_000),
-        };
+        try_(|| {
+            let (seconds_factor, nanoseconds_factor) = match self.unit {
+                TimeUnit::Nanosecond => (1_000_000_000, 1),
+                TimeUnit::Microsecond => (1_000_000, 1_000),
+                TimeUnit::Millisecond => (1_000, 1_000_000),
+                TimeUnit::Second => (1, 1_000_000_000),
+            };
 
-        use chrono::naive::NaiveTime;
-        let time = v.parse::<NaiveTime>().ctx(self)?;
-        let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
-            + i64::from(time.nanosecond()) / nanoseconds_factor;
+            use chrono::naive::NaiveTime;
+            let time = v.parse::<NaiveTime>()?;
+            let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
+                + i64::from(time.nanosecond()) / nanoseconds_factor;
 
-        self.array
-            .push_scalar_value(timestamp.try_into().ctx(self)?)
-            .ctx(self)
+            self.array.push_scalar_value(timestamp.try_into()?)
+        })
+        .ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.array
-            .push_scalar_value(v.try_into().ctx(self)?)
-            .ctx(self)
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.array
-            .push_scalar_value(v.try_into().ctx(self)?)
-            .ctx(self)
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 }

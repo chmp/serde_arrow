@@ -1,21 +1,29 @@
+use std::collections::BTreeMap;
+
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
 use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
 
 pub struct EnumDeserializer<'a> {
+    pub path: String,
     pub type_ids: &'a [i8],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
     pub next: usize,
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(type_ids: &'a [i8], variants: Vec<(String, ArrayDeserializer<'a>)>) -> Self {
+    pub fn new(
+        path: String,
+        type_ids: &'a [i8],
+        variants: Vec<(String, ArrayDeserializer<'a>)>,
+    ) -> Self {
         Self {
+            path,
             type_ids,
             variants,
             next: 0,
@@ -23,18 +31,24 @@ impl<'a> EnumDeserializer<'a> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
-    fn name() -> &'static str {
-        "EnumDeserializer"
+impl<'de> Context for EnumDeserializer<'de> {
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Union(..)");
     }
+}
 
+impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
     fn deserialize_enum<V: Visitor<'de>>(
         &mut self,
         _: &'static str,
         _: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_enum(self)
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| visitor.visit_enum(self)).ctx(&ctx)
     }
 }
 
@@ -44,7 +58,7 @@ impl<'a, 'de> EnumAccess<'de> for &'a mut EnumDeserializer<'de> {
 
     fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
         if self.next >= self.type_ids.len() {
-            fail!("Exhausted EnumDeserializer");
+            fail!("Exhausted deserializer");
         }
         let type_id = self.type_ids[self.next];
         self.next += 1;
@@ -65,7 +79,7 @@ struct VariantIdDeserializer<'a> {
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("{} is not implemented", stringify!($name))
+            fail!("Unsupported: EnumDeserializer does not implement {}", stringify!($name))
         }
     };
 }

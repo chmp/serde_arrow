@@ -4,11 +4,8 @@ use serde::Serialize;
 
 use crate::internal::{
     arrow::{Array, FieldMeta, ListArray},
-    error::{fail, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        btree_map,
-    },
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -71,36 +68,43 @@ impl MapBuilder {
 }
 
 impl Context for MapBuilder {
-    fn annotations(&self) -> BTreeMap<String, String> {
-        btree_map!("field" => self.path.clone(), "data_type" => "Map(..)")
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Map(..)");
     }
 }
 
 impl SimpleSerializer for MapBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.offsets.push_seq_default().ctx(self)
+        try_(|| self.offsets.push_seq_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        self.offsets.push_seq_none().ctx(self)
+        try_(|| self.offsets.push_seq_none()).ctx(self)
     }
 
     fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.offsets.start_seq().ctx(self)
+        try_(|| self.offsets.start_seq()).ctx(self)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        self.offsets.push_seq_elements(1).ctx(self)?;
-        self.entry.serialize_tuple_start(2).ctx(self)?;
-        self.entry.serialize_tuple_element(key)
+        try_(|| {
+            self.offsets.push_seq_elements(1)?;
+            self.entry.serialize_tuple_start(2)?;
+            self.entry.serialize_tuple_element(key)
+        })
+        .ctx(self)
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.entry.serialize_tuple_element(value)?;
-        self.entry.serialize_tuple_end().ctx(self)
+        try_(|| {
+            self.entry.serialize_tuple_element(value)?;
+            self.entry.serialize_tuple_end()
+        })
+        .ctx(self)
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        self.offsets.end_seq().ctx(self)
+        try_(|| self.offsets.end_seq()).ctx(self)
     }
 }

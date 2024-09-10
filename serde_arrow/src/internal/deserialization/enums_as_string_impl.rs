@@ -17,7 +17,7 @@ impl<'a, 'de> serde::de::EnumAccess<'de> for EnumAccess<'a> {
         macro_rules! unimplemented {
             ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
                 fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-                    fail!("{} is not implemented", stringify!($name))
+                    fail!("Unsupported: EnumDeserializer does not implement {}", stringify!($name))
                 }
             };
         }
@@ -78,15 +78,15 @@ impl<'de> serde::de::VariantAccess<'de> for UnitVariant {
     type Error = Error;
 
     fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(self, _: T) -> Result<T::Value> {
-        fail!("cannot deserialize enums with data from strings")
+        fail!("Unsupported: cannot deserialize enums with data from strings")
     }
 
     fn struct_variant<V: Visitor<'de>>(self, _: &'static [&'static str], _: V) -> Result<V::Value> {
-        fail!("cannot deserialize enums with data from strings")
+        fail!("Unsupported: cannot deserialize enums with data from strings")
     }
 
     fn tuple_variant<V: Visitor<'de>>(self, _: usize, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize enums with data from strings")
+        fail!("Unsupported: cannot deserialize enums with data from strings")
     }
 
     fn unit_variant(self) -> Result<(), Self::Error> {
