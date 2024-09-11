@@ -138,10 +138,6 @@ impl Tracer {
 }
 
 impl Tracer {
-    pub fn is_unknown(&self) -> bool {
-        matches!(self, Tracer::Unknown(_))
-    }
-
     pub fn is_complete(&self) -> bool {
         dispatch_tracer!(self, tracer => tracer.is_complete())
     }
@@ -995,28 +991,6 @@ pub struct PrimitiveTracer {
 }
 
 impl PrimitiveTracer {
-    pub fn new(
-        name: String,
-        path: String,
-        options: Arc<TracingOptions>,
-        item_type: DataType,
-        nullable: bool,
-    ) -> Self {
-        Self {
-            name,
-            path,
-            options,
-            item_type,
-            nullable,
-            strategy: None,
-        }
-    }
-
-    pub fn with_strategy(mut self, strategy: Option<Strategy>) -> Self {
-        self.strategy = strategy;
-        self
-    }
-
     pub fn finish(&mut self) -> Result<()> {
         Ok(())
     }

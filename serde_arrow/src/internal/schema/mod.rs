@@ -195,7 +195,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
-    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self>;
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self>;
 
     /// Determine the schema from samples. See [`TracingOptions`] for customization options.
     ///
@@ -290,7 +290,7 @@ impl SchemaLike for SerdeArrowSchema {
         value::transmute(value)
     }
 
-    fn from_type<'de, T: Deserialize<'de> + ?Sized>(options: TracingOptions) -> Result<Self> {
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         Tracer::from_type::<T>(options)?.to_schema()
     }
 
