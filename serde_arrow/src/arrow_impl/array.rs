@@ -51,7 +51,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 T::Boolean,
                 // NOTE: use the explicit len
                 arr.len,
-                arr.validity.map(Buffer::from),
+                arr.validity.map(Buffer::from_vec),
                 0,
                 vec![ScalarBuffer::from(arr.values).into_inner()],
                 vec![],
@@ -114,7 +114,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
 
                 Ok(ArrayData::builder(data_type)
                     .len(arr.len)
-                    .null_bit_buffer(arr.validity.map(Buffer::from))
+                    .null_bit_buffer(arr.validity.map(Buffer::from_vec))
                     .child_data(data)
                     .build()?)
             }
@@ -153,7 +153,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 Ok(ArrayData::try_new(
                     T::FixedSizeList(Arc::new(field), arr.n),
                     child.len() / usize::try_from(arr.n)?,
-                    arr.validity.map(Buffer::from),
+                    arr.validity.map(Buffer::from_vec),
                     0,
                     vec![],
                     vec![child],
@@ -170,7 +170,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 Ok(ArrayData::try_new(
                     T::FixedSizeBinary(arr.n),
                     arr.data.len() / usize::try_from(arr.n)?,
-                    arr.validity.map(Buffer::from),
+                    arr.validity.map(Buffer::from_vec),
                     0,
                     vec![ScalarBuffer::from(arr.data).into_inner()],
                     vec![],
@@ -196,7 +196,7 @@ impl TryFrom<crate::internal::arrow::Array> for ArrayData {
                 Ok(ArrayData::try_new(
                     T::Map(Arc::new(field), false),
                     arr.offsets.len().saturating_sub(1),
-                    arr.validity.map(Buffer::from),
+                    arr.validity.map(Buffer::from_vec),
                     0,
                     vec![ScalarBuffer::from(arr.offsets).into_inner()],
                     vec![child],
@@ -543,7 +543,7 @@ fn primitive_into_data<T: ArrowNativeType>(
     Ok(ArrayData::try_new(
         data_type,
         values.len(),
-        validity.map(Buffer::from),
+        validity.map(Buffer::from_vec),
         0,
         vec![ScalarBuffer::from(values).into_inner()],
         vec![],
@@ -559,7 +559,7 @@ fn bytes_into_data<O: ArrowNativeType>(
     Ok(ArrayData::try_new(
         data_type,
         offsets.len().saturating_sub(1),
-        validity.map(Buffer::from),
+        validity.map(Buffer::from_vec),
         0,
         vec![
             ScalarBuffer::from(offsets).into_inner(),
@@ -579,7 +579,7 @@ fn list_into_data<O: ArrowNativeType>(
     Ok(ArrayData::try_new(
         data_type,
         len,
-        validity.map(Buffer::from),
+        validity.map(Buffer::from_vec),
         0,
         vec![ScalarBuffer::from(offsets).into_inner()],
         vec![child_data],
