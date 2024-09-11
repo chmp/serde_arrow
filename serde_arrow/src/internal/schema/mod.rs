@@ -482,7 +482,10 @@ fn validate_time64_field(field: &Field, unit: TimeUnit) -> Result<()> {
 fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
     // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
     match get_strategy_from_metadata(&field.metadata)? {
-        None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
+        None
+        | Some(Strategy::MapAsStruct)
+        | Some(Strategy::TupleAsStruct)
+        | Some(Strategy::EnumsWithNamedFieldsAsStructs) => {}
         Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
     }
     for child in children {
