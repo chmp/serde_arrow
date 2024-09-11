@@ -117,6 +117,7 @@ impl FromStr for Strategy {
             "NaiveStrAsDate64" => Ok(Self::NaiveStrAsDate64),
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
             "MapAsStruct" => Ok(Self::MapAsStruct),
+            "EnumsWithNamedFieldsAsStructs" => Ok(Self::EnumsWithNamedFieldsAsStructs),
             "UnknownVariant" => Ok(Self::UnknownVariant),
             _ => fail!("Unknown strategy {s}"),
         }
