@@ -7,6 +7,7 @@ arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw
 
 all_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
+    "arrow-53",
     "arrow-52",
     "arrow-51",
     "arrow-50",
@@ -538,8 +539,8 @@ def add_arrow_version(version):
 
     for p in [
         self_path / "x.py",
-        *self_path.glob("serde_arrow/**/*.rs"),
-        *self_path.glob("serde_arrow/**/*.toml"),
+        *self_path.glob("*/**/*.rs"),
+        *self_path.glob("*/**/*.toml"),
     ]:
         content = p.read_text()
         if "arrow-version" not in content:

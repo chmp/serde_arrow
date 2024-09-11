@@ -141,13 +141,27 @@ impl TryFrom<&ArrowDataType> for DataType {
             AT::Date32 => Ok(T::Date32),
             AT::Date64 => Ok(T::Date64),
             AT::Decimal128(precision, scale) => Ok(T::Decimal128(*precision, *scale)),
-            AT::Time32(unit) => Ok(T::Time32(unit.clone().into())),
-            AT::Time64(unit) => Ok(T::Time64(unit.clone().into())),
+            AT::Time32(unit) => Ok(T::Time32(
+                // only some arrow version implement Copy for unit
+                #[allow(clippy::clone_on_copy)]
+                unit.clone().into(),
+            )),
+            AT::Time64(unit) => Ok(T::Time64(
+                // only some arrow version implement Copy for unit
+                #[allow(clippy::clone_on_copy)]
+                unit.clone().into(),
+            )),
             AT::Timestamp(unit, tz) => Ok(T::Timestamp(
+                // only some arrow version implement Copy for unit
+                #[allow(clippy::clone_on_copy)]
                 unit.clone().into(),
                 tz.as_ref().map(|s| s.to_string()),
             )),
-            AT::Duration(unit) => Ok(T::Duration(unit.clone().into())),
+            AT::Duration(unit) => Ok(T::Duration(
+                // only some arrow version implement Copy for unit
+                #[allow(clippy::clone_on_copy)]
+                unit.clone().into(),
+            )),
             AT::Binary => Ok(T::Binary),
             AT::LargeBinary => Ok(T::LargeBinary),
             AT::FixedSizeBinary(n) => Ok(T::FixedSizeBinary(*n)),
