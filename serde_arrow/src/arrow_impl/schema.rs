@@ -80,9 +80,7 @@ impl SchemaLike for Vec<ArrowField> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de>>(
-        options: TracingOptions,
-    ) -> Result<Self> {
+    fn from_type<'de, T: serde::Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
@@ -103,9 +101,7 @@ impl SchemaLike for Vec<FieldRef> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de>>(
-        options: TracingOptions,
-    ) -> Result<Self> {
+    fn from_type<'de, T: serde::Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 

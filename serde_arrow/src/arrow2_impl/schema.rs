@@ -6,7 +6,9 @@ use crate::{
     internal::{
         arrow::{DataType, Field, TimeUnit, UnionMode},
         error::{fail, Error, Result},
-        schema::{validate_field, DataTypeDisplay, SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
+        schema::{
+            validate_field, DataTypeDisplay, SchemaLike, Sealed, SerdeArrowSchema, TracingOptions,
+        },
     },
 };
 
