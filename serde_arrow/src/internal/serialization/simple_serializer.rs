@@ -169,7 +169,7 @@ pub trait SimpleSerializer: Sized + Context {
     fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
         fail!(
             in self,
-            "serialize_start_start is not supported",
+            "serialize_struct_start is not supported",
         )
     }
 
