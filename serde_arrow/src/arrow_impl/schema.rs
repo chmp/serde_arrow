@@ -8,7 +8,7 @@ use crate::{
     internal::{
         arrow::{DataType, Field, TimeUnit, UnionMode},
         error::{fail, Error, Result},
-        schema::{validate_field, SchemaLike, Sealed, SerdeArrowSchema},
+        schema::{validate_field, SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
     },
 };
 
@@ -80,15 +80,13 @@ impl SchemaLike for Vec<ArrowField> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
-        options: crate::schema::TracingOptions,
-    ) -> Result<Self> {
+    fn from_type<'de, T: serde::Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
     fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
-        options: crate::schema::TracingOptions,
+        options: TracingOptions,
     ) -> Result<Self> {
         SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
@@ -103,15 +101,13 @@ impl SchemaLike for Vec<FieldRef> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
 
-    fn from_type<'de, T: serde::Deserialize<'de> + ?Sized>(
-        options: crate::schema::TracingOptions,
-    ) -> Result<Self> {
+    fn from_type<'de, T: serde::Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
         SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
     fn from_samples<T: serde::Serialize + ?Sized>(
         samples: &T,
-        options: crate::schema::TracingOptions,
+        options: TracingOptions,
     ) -> Result<Self> {
         SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
