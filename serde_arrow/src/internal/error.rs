@@ -72,13 +72,18 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Common errors during `serde_arrow`'s usage
 ///
-/// At the moment only a generic string error is supported, but it is planned to
-/// offer concrete types to match against.
+/// At the moment only a generic string error is supported, but it is planned to offer concrete
+/// types to match against.
 ///
-/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`]
-/// for details. This backtrace is included when printing the error. If the
-/// error is caused by another error, that error can be retrieved with
-/// [`source()`][std::error::Error::source].
+/// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`] for details. This
+/// backtrace is included when printing the error. If the error is caused by another error, that
+/// error can be retrieved with [`source()`][std::error::Error::source].
+///
+/// # Display representation
+///
+/// This error type follows anyhow's display representation: when printed with display format (`{}`)
+/// (or converted to string) the error does not include a backtrace. Use the debug format (`{:?}`)
+/// to include the backtrace information.
 ///
 #[derive(PartialEq)]
 #[non_exhaustive]
@@ -150,7 +155,13 @@ impl std::cmp::PartialEq for CustomErrorImpl {
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{self}>")
+        write!(
+            f,
+            "Error: {msg}{annotations}\n{bt}",
+            msg = self.message(),
+            annotations = AnnotationsDisplay(self.annotations()),
+            bt = BacktraceDisplay(self.backtrace()),
+        )
     }
 }
 
@@ -158,10 +169,9 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Error: {msg}{annotations}\n{bt}",
+            "Error: {msg}{annotations}",
             msg = self.message(),
             annotations = AnnotationsDisplay(self.annotations()),
-            bt = BacktraceDisplay(self.backtrace()),
         )
     }
 }
@@ -194,8 +204,8 @@ impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0.status() {
             BacktraceStatus::Captured => write!(f, "Backtrace:\n{bt}", bt=self.0),
-            BacktraceStatus::Disabled => write!(f, "No backtrace captured. Set the `RUST_BACKTRACE=1` env variable to enable."),
-            _ => write!(f, "No backtrace captured. Most likely backtraces are not supported on the current platform."),
+            BacktraceStatus::Disabled => write!(f, "Backtrace not captured; set the `RUST_BACKTRACE=1` env variable to enable"),
+            _ => write!(f, "Backtrace not captured: most likely backtraces are not supported on the current platform"),
         }
     }
 }
