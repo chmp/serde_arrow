@@ -133,7 +133,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///   fields, named `"key"` of integer type and named `"value"` of string
     ///   type
     ///
-    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self>;
+    fn from_value<T: Serialize>(value: T) -> Result<Self>;
 
     /// Determine the schema from the given record type. See [`TracingOptions`] for customization
     /// options.
@@ -271,7 +271,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// # #[cfg(not(has_arrow))]
     /// # fn main() { }
     /// ```
-    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self>;
+    fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self>;
 }
 
 /// A collection of fields as understood by `serde_arrow`
@@ -286,7 +286,7 @@ pub struct SerdeArrowSchema {
 impl Sealed for SerdeArrowSchema {}
 
 impl SchemaLike for SerdeArrowSchema {
-    fn from_value<T: Serialize + ?Sized>(value: &T) -> Result<Self> {
+    fn from_value<T: Serialize>(value: T) -> Result<Self> {
         value::transmute(value)
     }
 
@@ -294,7 +294,7 @@ impl SchemaLike for SerdeArrowSchema {
         Tracer::from_type::<T>(options)?.to_schema()
     }
 
-    fn from_samples<T: Serialize + ?Sized>(samples: &T, options: TracingOptions) -> Result<Self> {
+    fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
         Tracer::from_samples(samples, options)?.to_schema()
     }
 }

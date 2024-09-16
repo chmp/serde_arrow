@@ -43,7 +43,7 @@ impl Sealed for Vec<ArrowField> {}
 /// Schema support for `Vec<arrow2::datatype::Field>` (*requires one of the
 /// `arrow2-*` features*)
 impl SchemaLike for Vec<ArrowField> {
-    fn from_value<T: serde::Serialize + ?Sized>(value: &T) -> Result<Self> {
+    fn from_value<T: serde::Serialize>(value: T) -> Result<Self> {
         SerdeArrowSchema::from_value(value)?.try_into()
     }
 
@@ -51,10 +51,7 @@ impl SchemaLike for Vec<ArrowField> {
         SerdeArrowSchema::from_type::<T>(options)?.try_into()
     }
 
-    fn from_samples<T: serde::Serialize + ?Sized>(
-        samples: &T,
-        options: TracingOptions,
-    ) -> Result<Self> {
+    fn from_samples<T: serde::Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
         SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
 }

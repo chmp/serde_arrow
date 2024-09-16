@@ -52,10 +52,7 @@ use crate::{
 /// # }
 /// ```
 ///
-pub fn to_arrow2<T>(fields: &[ArrowField], items: &T) -> Result<Vec<Box<dyn Array>>>
-where
-    T: Serialize + ?Sized,
-{
+pub fn to_arrow2<T: Serialize>(fields: &[ArrowField], items: T) -> Result<Vec<Box<dyn Array>>> {
     let builder = ArrayBuilder::from_arrow2(fields)?;
     items
         .serialize(Serializer::new(builder))?

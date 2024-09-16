@@ -57,7 +57,7 @@ use super::type_support::fields_from_field_refs;
 /// # }
 /// ```
 ///
-pub fn to_arrow<T: Serialize + ?Sized>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>> {
+pub fn to_arrow<T: Serialize>(fields: &[FieldRef], items: T) -> Result<Vec<ArrayRef>> {
     let builder = ArrayBuilder::from_arrow(fields)?;
     items
         .serialize(Serializer::new(builder))?
@@ -138,10 +138,7 @@ where
 /// # Ok(())
 /// # }
 /// ```
-pub fn to_record_batch<T: Serialize + ?Sized>(
-    fields: &[FieldRef],
-    items: &T,
-) -> Result<RecordBatch> {
+pub fn to_record_batch<T: Serialize>(fields: &[FieldRef], items: &T) -> Result<RecordBatch> {
     let builder = ArrayBuilder::from_arrow(fields)?;
     items
         .serialize(Serializer::new(builder))?
