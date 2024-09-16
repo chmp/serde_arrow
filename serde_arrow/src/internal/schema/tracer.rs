@@ -518,36 +518,7 @@ impl Tracer {
 
 impl Context for Tracer {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        match self {
-            Tracer::Unknown(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Unknown");
-            }
-            Tracer::Primitive(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Primitive");
-            }
-            Tracer::List(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "List");
-            }
-            Tracer::Map(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Map");
-            }
-            Tracer::Struct(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Struct");
-            }
-            Tracer::Tuple(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Tuple");
-            }
-            Tracer::Union(tracer) => {
-                set_default(annotations, "path", &tracer.path);
-                set_default(annotations, "tracer_type", "Union");
-            }
-        }
+        dispatch_tracer!(self, tracer => tracer.annotate(annotations))
     }
 }
 
@@ -594,6 +565,13 @@ pub struct UnknownTracer {
     pub path: String,
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
+}
+
+impl Context for UnknownTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Unknown");
+    }
 }
 
 impl UnknownTracer {
@@ -645,6 +623,13 @@ pub struct MapTracer {
     pub value_tracer: Box<Tracer>,
 }
 
+impl Context for MapTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Map");
+    }
+}
+
 impl MapTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -693,6 +678,13 @@ pub struct ListTracer {
     pub item_tracer: Box<Tracer>,
 }
 
+impl Context for ListTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "List");
+    }
+}
+
 impl ListTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -727,6 +719,13 @@ pub struct TupleTracer {
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub field_tracers: Vec<Tracer>,
+}
+
+impl Context for TupleTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Tuple");
+    }
 }
 
 impl TupleTracer {
@@ -805,6 +804,13 @@ pub struct StructField {
 pub enum StructMode {
     Struct,
     Map,
+}
+
+impl Context for StructTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Struct");
+    }
 }
 
 impl StructTracer {
@@ -920,6 +926,13 @@ impl UnionVariant {
     }
 }
 
+impl Context for UnionTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Union");
+    }
+}
+
 impl UnionTracer {
     pub fn ensure_variant<S: Into<String> + AsRef<str>>(
         &mut self,
@@ -1023,6 +1036,13 @@ pub struct PrimitiveTracer {
     pub nullable: bool,
     pub strategy: Option<Strategy>,
     pub item_type: DataType,
+}
+
+impl Context for PrimitiveTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Primitive");
+    }
 }
 
 impl PrimitiveTracer {

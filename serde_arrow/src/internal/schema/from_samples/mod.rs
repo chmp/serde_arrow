@@ -39,7 +39,7 @@ mod impl_outer_sequence_serializer {
 
     macro_rules! unimplemented_fn {
         ($ctx:ident ) => {
-            fail!(in $ctx, "Cannot trace non-sequences with `from_samples`. Consider wrapping the argument in an array.")
+            fail!(in $ctx, "Cannot trace non-sequences with `from_samples`: consider wrapping the argument in an array")
         };
     }
 
@@ -82,75 +82,75 @@ mod impl_outer_sequence_serializer {
         fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_char(self, _: char) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_unit(self) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_str(self, _: &str) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_none(self) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_struct_variant(
             self,
             _: &'static str,
@@ -160,7 +160,7 @@ mod impl_outer_sequence_serializer {
         ) -> Result<Self::SerializeStructVariant> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_tuple_struct(
             self,
             _: &'static str,
@@ -168,11 +168,11 @@ mod impl_outer_sequence_serializer {
         ) -> Result<Self::SerializeTupleStruct> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_unit_variant(
             self,
             _: &'static str,
@@ -181,11 +181,11 @@ mod impl_outer_sequence_serializer {
         ) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok> {
             unimplemented_fn!(self)
         }
-        
+
         fn serialize_newtype_struct<T: Serialize + ?Sized>(
             self,
             _: &'static str,
@@ -285,86 +285,95 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
     type SerializeTupleVariant = TupleSerializer<'a>;
 
     fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
-        self.0.ensure_primitive(DataType::Boolean)
+        try_(|| self.0.ensure_primitive(DataType::Boolean)).ctx(&self)
     }
 
     fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Int8)
+        try_(|| self.0.ensure_number(DataType::Int8)).ctx(&self)
     }
 
     fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Int16)
+        try_(|| self.0.ensure_number(DataType::Int16)).ctx(&self)
     }
 
     fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Int32)
+        try_(|| self.0.ensure_number(DataType::Int32)).ctx(&self)
     }
 
     fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Int64)
+        try_(|| self.0.ensure_number(DataType::Int64)).ctx(&self)
     }
 
     fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::UInt8)
+        try_(|| self.0.ensure_number(DataType::UInt8)).ctx(&self)
     }
 
     fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::UInt16)
+        try_(|| self.0.ensure_number(DataType::UInt16)).ctx(&self)
     }
 
     fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::UInt32)
+        try_(|| self.0.ensure_number(DataType::UInt32)).ctx(&self)
     }
 
     fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::UInt64)
+        try_(|| self.0.ensure_number(DataType::UInt64)).ctx(&self)
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Float32)
+        try_(|| self.0.ensure_number(DataType::Float32)).ctx(&self)
     }
 
     fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        self.0.ensure_number(DataType::Float64)
+        try_(|| self.0.ensure_number(DataType::Float64)).ctx(&self)
     }
 
     fn serialize_char(self, _: char) -> Result<Self::Ok> {
-        self.0.ensure_primitive(DataType::UInt32)
+        try_(|| self.0.ensure_primitive(DataType::UInt32)).ctx(&self)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        self.0.ensure_primitive(DataType::Null)
+        try_(|| self.0.ensure_primitive(DataType::Null)).ctx(&self)
     }
 
     fn serialize_str(self, s: &str) -> Result<Self::Ok> {
-        let guess_dates = self.0.get_options().guess_dates;
-        if guess_dates && chrono::matches_naive_datetime(s) {
-            self.0
-                .ensure_utf8(DataType::Date64, Some(Strategy::NaiveStrAsDate64))
-        } else if guess_dates && chrono::matches_utc_datetime(s) {
-            self.0
-                .ensure_utf8(DataType::Date64, Some(Strategy::UtcStrAsDate64))
-        } else {
-            self.0.ensure_utf8(DataType::LargeUtf8, None)
-        }
+        try_(|| {
+            let guess_dates = self.0.get_options().guess_dates;
+            if guess_dates && chrono::matches_naive_datetime(s) {
+                self.0
+                    .ensure_utf8(DataType::Date64, Some(Strategy::NaiveStrAsDate64))
+            } else if guess_dates && chrono::matches_utc_datetime(s) {
+                self.0
+                    .ensure_utf8(DataType::Date64, Some(Strategy::UtcStrAsDate64))
+            } else {
+                self.0.ensure_utf8(DataType::LargeUtf8, None)
+            }
+        })
+        .ctx(&self)
     }
 
     fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
-        self.0.ensure_primitive(DataType::LargeBinary)
+        try_(|| self.0.ensure_primitive(DataType::LargeBinary)).ctx(&self)
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        self.0.mark_nullable();
-        Ok(())
+        try_(|| {
+            self.0.mark_nullable();
+            Ok(())
+        })
+        .ctx(&self)
     }
 
     fn serialize_some<T: Serialize + ?Sized>(self, value: &T) -> Result<Self::Ok> {
-        self.0.mark_nullable();
-        value.serialize(self)
+        try_(|| {
+            self.0.mark_nullable();
+            value.serialize(TracerSerializer(&mut *self.0))
+        })
+        .ctx(&self)
     }
 
     fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
-        self.serialize_unit()
+        try_(|| TracerSerializer(&mut *self.0).serialize_unit()).ctx(&self)
     }
 
     fn serialize_newtype_struct<T: Serialize + ?Sized>(
@@ -372,47 +381,71 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         _: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        value.serialize(self)
+        try_(|| value.serialize(TracerSerializer(&mut *self.0))).ctx(&self)
     }
 
     fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap> {
-        if self.0.get_options().map_as_struct {
-            self.0.ensure_struct::<&str>(&[], StructMode::Map)?;
-            let Tracer::Struct(tracer) = self.0 else {
-                unreachable!();
-            };
-            Ok(MapSerializer::AsStruct(tracer, None))
-        } else {
-            self.0.ensure_map()?;
-            let Tracer::Map(tracer) = self.0 else {
-                unreachable!();
-            };
-            Ok(MapSerializer::AsMap(tracer))
-        }
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(move || {
+            if self.0.get_options().map_as_struct {
+                self.0.ensure_struct::<&str>(&[], StructMode::Map)?;
+                let Tracer::Struct(tracer) = self.0 else {
+                    unreachable!();
+                };
+                Ok(MapSerializer::AsStruct(tracer, None))
+            } else {
+                self.0.ensure_map()?;
+                let Tracer::Map(tracer) = self.0 else {
+                    unreachable!();
+                };
+                Ok(MapSerializer::AsMap(tracer))
+            }
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.0.ensure_list()?;
-        let Tracer::List(tracer) = self.0 else {
-            unreachable!();
-        };
-        Ok(ListSerializer(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(move || {
+            self.0.ensure_list()?;
+            let Tracer::List(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(ListSerializer(tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct> {
-        self.0.ensure_struct::<&str>(&[], StructMode::Struct)?;
-        let Tracer::Struct(tracer) = self.0 else {
-            unreachable!();
-        };
-        Ok(StructSerializer(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(move || {
+            self.0.ensure_struct::<&str>(&[], StructMode::Struct)?;
+            let Tracer::Struct(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(StructSerializer(tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        self.0.ensure_tuple(len)?;
-        let Tracer::Tuple(tracer) = self.0 else {
-            unreachable!();
-        };
-        Ok(TupleSerializer::new(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(move || {
+            self.0.ensure_tuple(len)?;
+            let Tracer::Tuple(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(TupleSerializer::new(tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_tuple_struct(
@@ -420,11 +453,17 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         _: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        self.0.ensure_tuple(len)?;
-        let Tracer::Tuple(tracer) = self.0 else {
-            unreachable!();
-        };
-        Ok(TupleSerializer::new(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(move || {
+            self.0.ensure_tuple(len)?;
+            let Tracer::Tuple(tracer) = self.0 else {
+                unreachable!();
+            };
+            Ok(TupleSerializer::new(tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_unit_variant(
@@ -433,8 +472,14 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         variant_index: u32,
         variant_name: &'static str,
     ) -> Result<Self::Ok> {
-        let variant = self.ensure_union_variant(variant_name, variant_index)?;
-        variant.tracer.ensure_primitive(DataType::Null)
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| {
+            let variant = self.ensure_union_variant(variant_name, variant_index)?;
+            variant.tracer.ensure_primitive(DataType::Null)
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
@@ -444,8 +489,14 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         variant_name: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        let variant = self.ensure_union_variant(variant_name, variant_index)?;
-        value.serialize(TracerSerializer(&mut variant.tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| {
+            let variant = self.ensure_union_variant(variant_name, variant_index)?;
+            value.serialize(TracerSerializer(&mut variant.tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_struct_variant(
@@ -455,14 +506,20 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         variant_name: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        let variant = self.ensure_union_variant(variant_name, variant_index)?;
-        variant
-            .tracer
-            .ensure_struct::<&str>(&[], StructMode::Struct)?;
-        let Tracer::Struct(tracer) = &mut variant.tracer else {
-            unreachable!();
-        };
-        Ok(StructSerializer(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| {
+            let variant = self.ensure_union_variant(variant_name, variant_index)?;
+            variant
+                .tracer
+                .ensure_struct::<&str>(&[], StructMode::Struct)?;
+            let Tracer::Struct(tracer) = &mut variant.tracer else {
+                unreachable!();
+            };
+            Ok(StructSerializer(tracer))
+        })
+        .ctx(&ctx)
     }
 
     fn serialize_tuple_variant(
@@ -472,16 +529,28 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         variant_name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        let variant = self.ensure_union_variant(variant_name, variant_index)?;
-        variant.tracer.ensure_tuple(len)?;
-        let Tracer::Tuple(tracer) = &mut variant.tracer else {
-            unreachable!();
-        };
-        Ok(TupleSerializer::new(tracer))
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| {
+            let variant = self.ensure_union_variant(variant_name, variant_index)?;
+            variant.tracer.ensure_tuple(len)?;
+            let Tracer::Tuple(tracer) = &mut variant.tracer else {
+                unreachable!();
+            };
+            Ok(TupleSerializer::new(tracer))
+        })
+        .ctx(&ctx)
     }
 }
 
 struct StructSerializer<'a>(&'a mut StructTracer);
+
+impl<'a> Context for StructSerializer<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
+    }
+}
 
 impl<'a> serde::ser::SerializeStruct for StructSerializer<'a> {
     type Ok = ();
@@ -492,15 +561,18 @@ impl<'a> serde::ser::SerializeStruct for StructSerializer<'a> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let field_idx = self.0.ensure_field(key)?;
-        let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
-            unreachable!();
-        };
-        value.serialize(TracerSerializer(field_tracer))
+        try_(|| {
+            let field_idx = self.0.ensure_field(key)?;
+            let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
+                unreachable!();
+            };
+            value.serialize(TracerSerializer(field_tracer))
+        })
+        .ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.0.end()
+        try_(|| self.0.end()).ctx(&self)
     }
 }
 
@@ -513,26 +585,35 @@ impl<'a> serde::ser::SerializeStructVariant for StructSerializer<'a> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let field_idx = self.0.ensure_field(key)?;
-        let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
-            unreachable!();
-        };
-        value.serialize(TracerSerializer(field_tracer))
+        try_(|| {
+            let field_idx = self.0.ensure_field(key)?;
+            let Some(field_tracer) = self.0.get_field_tracer_mut(field_idx) else {
+                unreachable!();
+            };
+            value.serialize(TracerSerializer(field_tracer))
+        })
+        .ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.0.end()
+        try_(|| self.0.end()).ctx(&self)
     }
 }
 
 struct ListSerializer<'a>(&'a mut ListTracer);
+
+impl<'a> Context for ListSerializer<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
+    }
+}
 
 impl<'a> serde::ser::SerializeSeq for ListSerializer<'a> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        value.serialize(TracerSerializer(&mut self.0.item_tracer))
+        try_(|| value.serialize(TracerSerializer(&mut self.0.item_tracer))).ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -541,6 +622,12 @@ impl<'a> serde::ser::SerializeSeq for ListSerializer<'a> {
 }
 
 struct TupleSerializer<'a>(&'a mut TupleTracer, usize);
+
+impl<'a> Context for TupleSerializer<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
+    }
+}
 
 impl<'a> TupleSerializer<'a> {
     fn new(tracer: &'a mut TupleTracer) -> Self {
@@ -553,10 +640,13 @@ impl<'a> serde::ser::SerializeTuple for TupleSerializer<'a> {
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        let pos = self.1;
-        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
-        self.1 += 1;
-        Ok(())
+        try_(|| {
+            let pos = self.1;
+            value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+            self.1 += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -569,10 +659,13 @@ impl<'a> serde::ser::SerializeTupleStruct for TupleSerializer<'a> {
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        let pos = self.1;
-        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
-        self.1 += 1;
-        Ok(())
+        try_(|| {
+            let pos = self.1;
+            value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+            self.1 += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -585,10 +678,13 @@ impl<'a> serde::ser::SerializeTupleVariant for TupleSerializer<'a> {
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> where {
-        let pos = self.1;
-        value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
-        self.1 += 1;
-        Ok(())
+        try_(|| {
+            let pos = self.1;
+            value.serialize(TracerSerializer(self.0.field_tracer(pos)))?;
+            self.1 += 1;
+            Ok(())
+        })
+        .ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -601,22 +697,32 @@ enum MapSerializer<'a> {
     AsMap(&'a mut MapTracer),
 }
 
+impl<'a> Context for MapSerializer<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        match self {
+            Self::AsStruct(tracer, _) => tracer.annotate(annotations),
+            Self::AsMap(tracer) => tracer.annotate(annotations),
+        }
+    }
+}
+
 impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<()> {
-        match self {
+        try_(|| match self {
             Self::AsStruct(_, next_key) => {
                 *next_key = Some(key.serialize(SerializeToString)?);
                 Ok(())
             }
             Self::AsMap(tracer) => key.serialize(TracerSerializer(&mut tracer.key_tracer)),
-        }
+        })
+        .ctx(self)
     }
 
     fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        match self {
+        try_(|| match self {
             Self::AsStruct(tracer, next_key) => {
                 let Some(next_key) = next_key.take() else {
                     fail!("invalid operations");
@@ -628,14 +734,16 @@ impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
                 value.serialize(TracerSerializer(field_tracer))
             }
             Self::AsMap(tracer) => value.serialize(TracerSerializer(&mut tracer.value_tracer)),
-        }
+        })
+        .ctx(self)
     }
 
-    fn end(self) -> Result<Self::Ok> {
-        match self {
+    fn end(mut self) -> Result<Self::Ok> {
+        try_(|| match &mut self {
             Self::AsStruct(tracer, _) => tracer.end(),
             Self::AsMap(_) => Ok(()),
-        }
+        })
+        .ctx(&self)
     }
 }
 
