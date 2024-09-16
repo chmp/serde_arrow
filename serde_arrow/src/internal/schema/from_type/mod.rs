@@ -328,11 +328,11 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
                 .position(|opt| !opt.as_ref().unwrap().tracer.is_complete())
                 .unwrap_or_default();
             if idx >= tracer.variants.len() {
-                fail!("invalid variant index");
+                fail!("Invalid variant index");
             }
 
             let Some(variant) = tracer.variants[idx].as_mut() else {
-                fail!("invalid state");
+                fail!("Invalid state");
             };
 
             let res = visitor.visit_enum(TraceEnum {

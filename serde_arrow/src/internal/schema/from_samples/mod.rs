@@ -725,7 +725,7 @@ impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
         try_(|| match self {
             Self::AsStruct(tracer, next_key) => {
                 let Some(next_key) = next_key.take() else {
-                    fail!("invalid operations");
+                    fail!("Invalid call to serialization methods: serialize_value called without prior call to serialize_key");
                 };
                 let field_idx = tracer.ensure_field(&next_key)?;
                 let Some(field_tracer) = tracer.get_field_tracer_mut(field_idx) else {

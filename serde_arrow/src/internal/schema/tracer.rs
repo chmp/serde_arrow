@@ -15,7 +15,7 @@ use crate::internal::{
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
-    "too deeply nested type detected. Recursive types are not supported in schema tracing";
+    "Too deeply nested type detected: recursive types are not supported in schema tracing";
 
 fn default_dictionary_field(name: &str, nullable: bool) -> Field {
     Field {
@@ -177,7 +177,7 @@ impl Tracer {
 
     pub fn check(&self) -> Result<()> {
         if dispatch_tracer!(self, tracer => tracer.name != "$") {
-            fail!("check must be called on the root tracer");
+            fail!("Check must be called on the root tracer");
         }
         let options = self.get_options();
         self.check_overwrites(&options.overwrites)
@@ -314,7 +314,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Struct(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types: previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -348,7 +348,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Tuple(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types, previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -386,7 +386,7 @@ impl Tracer {
             // TODO: check fields are equal or fill missing fields
             Self::Union(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current union",
+                "Mismatched types: previous {:?}, current union",
                 self.get_type()
             ),
         }
@@ -415,7 +415,7 @@ impl Tracer {
             }
             Self::List(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -449,7 +449,7 @@ impl Tracer {
             }
             Self::Map(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -821,7 +821,7 @@ impl StructTracer {
     pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
         if let Some(&field_idx) = self.index.get(key) {
             let Some(field) = self.fields.get_mut(field_idx) else {
-                fail!("invalid state");
+                fail!("Invalid state: no tracer found for field with name {key}");
             };
             field.last_seen_in_sample = self.seen_samples;
 

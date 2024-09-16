@@ -236,5 +236,7 @@ fn unsupported_recursive_types() {
     }
 
     let res = Tracer::from_type::<Tree>(TracingOptions::default());
-    assert_error_contains(&res, "too deeply nested type detected");
+    assert_error_contains(&res, "Too deeply nested type detected");
+    // NOTE: do not check the complete path, it depends on the recursion limit
+    assert_error_contains(&res, "path: \"$.left.left.left.left.left.left");
 }
