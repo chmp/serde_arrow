@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
 use crate::internal::{
     arrow::{DataType, Field, UnionMode},
-    error::{fail, Result},
+    error::{fail, set_default, Context, Result},
     schema::{
         DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
         STRATEGY_KEY,
@@ -15,7 +15,7 @@ use crate::internal::{
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
-    "too deeply nested type detected. Recursive types are not supported in schema tracing";
+    "Too deeply nested type detected: recursive types are not supported in schema tracing";
 
 fn default_dictionary_field(name: &str, nullable: bool) -> Field {
     Field {
@@ -177,7 +177,7 @@ impl Tracer {
 
     pub fn check(&self) -> Result<()> {
         if dispatch_tracer!(self, tracer => tracer.name != "$") {
-            fail!("check must be called on the root tracer");
+            fail!("Check must be called on the root tracer");
         }
         let options = self.get_options();
         self.check_overwrites(&options.overwrites)
@@ -314,7 +314,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Struct(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types: previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -348,7 +348,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Tuple(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types, previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -386,7 +386,7 @@ impl Tracer {
             // TODO: check fields are equal or fill missing fields
             Self::Union(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current union",
+                "Mismatched types: previous {:?}, current union",
                 self.get_type()
             ),
         }
@@ -415,7 +415,7 @@ impl Tracer {
             }
             Self::List(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -449,7 +449,7 @@ impl Tracer {
             }
             Self::Map(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -516,6 +516,12 @@ impl Tracer {
     }
 }
 
+impl Context for Tracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        dispatch_tracer!(self, tracer => tracer.annotate(annotations))
+    }
+}
+
 fn coerce_primitive_type(
     prev: (&DataType, bool, Option<&Strategy>),
     curr: (DataType, Option<Strategy>),
@@ -527,30 +533,98 @@ fn coerce_primitive_type(
     };
 
     let res = match (prev, curr) {
-        ((prev_ty, nullable, prev_st), (curr_ty, curr_st)) if prev_ty == &curr_ty && prev_st == curr_st.as_ref() => (curr_ty, nullable, curr_st),
+        ((prev_ty, nullable, prev_st), (curr_ty, curr_st))
+            if prev_ty == &curr_ty && prev_st == curr_st.as_ref() =>
+        {
+            (curr_ty, nullable, curr_st)
+        }
         ((Null, _, _), (curr_ty, curr_st)) => (curr_ty, true, curr_st),
         ((prev_ty, _, prev_st), (Null, _)) => (prev_ty.clone(), true, prev_st.cloned()),
         // unsigned x unsigned -> u64
-        ((UInt8 | UInt16 | UInt32 | UInt64, nullable, _), (UInt8 | UInt16 | UInt32 | UInt64, _,)) if options.coerce_numbers => (UInt64, nullable, None),
+        (
+            (UInt8 | UInt16 | UInt32 | UInt64, nullable, _),
+            (UInt8 | UInt16 | UInt32 | UInt64, _),
+        ) if options.coerce_numbers => (UInt64, nullable, None),
         // signed x signed -> i64
-        ((Int8 | Int16 | Int32 | Int64, nullable, _), (Int8 | Int16 | Int32 | Int64, _)) if options.coerce_numbers => (Int64, nullable, None),
+        ((Int8 | Int16 | Int32 | Int64, nullable, _), (Int8 | Int16 | Int32 | Int64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // signed x unsigned -> i64
-        ((Int8 | Int16 | Int32 | Int64, nullable, _), (UInt8 | UInt16 | UInt32 | UInt64, _)) if options.coerce_numbers => (Int64, nullable, None),
+        ((Int8 | Int16 | Int32 | Int64, nullable, _), (UInt8 | UInt16 | UInt32 | UInt64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // unsigned x signed -> i64
-        ((UInt8 | UInt16 | UInt32 | UInt64, nullable, _), (Int8 | Int16 | Int32 | Int64, _)) if options.coerce_numbers => (Int64, nullable, None),
+        ((UInt8 | UInt16 | UInt32 | UInt64, nullable, _), (Int8 | Int16 | Int32 | Int64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // float x float -> f64
-        ((Float32 | Float64, nullable, _), (Float32 | Float64, _)) if options.coerce_numbers=> (Float64, nullable, None),
+        ((Float32 | Float64, nullable, _), (Float32 | Float64, _)) if options.coerce_numbers => {
+            (Float64, nullable, None)
+        }
         // int x float -> f64
-        ((Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, nullable, _), (Float32 | Float64, _)) if options.coerce_numbers => (Float64, nullable, None),
+        (
+            (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, nullable, _),
+            (Float32 | Float64, _),
+        ) if options.coerce_numbers => (Float64, nullable, None),
         // float x int -> f64
-        ((Float32 | Float64, nullable, _), (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, _)) if options.coerce_numbers => (Float64, nullable, None),
+        (
+            (Float32 | Float64, nullable, _),
+            (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, _),
+        ) if options.coerce_numbers => (Float64, nullable, None),
         // incompatible formats, coerce to string
         ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
-        ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => (LargeUtf8, nullable, None),
-        ((prev_ty, _, prev_st), (curr_ty, curr_st)) => fail!("Cannot accept event {curr_ty:?} with strategy {curr_st:?} for tracer of primitive type {prev_ty:?} with strategy {prev_st:?}"),
+        ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => {
+            (LargeUtf8, nullable, None)
+        }
+        ((prev_ty, _, prev_st), (curr_ty, curr_st)) => {
+            let extra = if is_numeric(prev_ty) && is_numeric(&curr_ty) {
+                ": consider setting `coerce_numbers` to `true` to coerce different numeric types."
+            } else {
+                ""
+            };
+            fail!(
+                "Cannot accept {curr_ty:?} {curr_st} for tracer of primitive type {prev_ty:?} {prev_st}{extra}",
+                curr_st = OptionalStrategyDisplay(curr_st.as_ref()),
+                prev_st = OptionalStrategyDisplay(prev_st),
+            )
+        }
     };
     Ok(res)
+}
+
+struct OptionalStrategyDisplay<'a>(Option<&'a Strategy>);
+
+impl<'a> std::fmt::Display for OptionalStrategyDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            None => Ok(()),
+            Some(strategy) => write!(f, " with strategy {strategy}"),
+        }
+    }
+}
+
+fn is_numeric(dt: &DataType) -> bool {
+    matches!(
+        dt,
+        DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float16
+            | DataType::Float32
+            | DataType::Float64
+    )
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -559,6 +633,13 @@ pub struct UnknownTracer {
     pub path: String,
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
+}
+
+impl Context for UnknownTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Unknown");
+    }
 }
 
 impl UnknownTracer {
@@ -610,6 +691,13 @@ pub struct MapTracer {
     pub value_tracer: Box<Tracer>,
 }
 
+impl Context for MapTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Map");
+    }
+}
+
 impl MapTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -658,6 +746,13 @@ pub struct ListTracer {
     pub item_tracer: Box<Tracer>,
 }
 
+impl Context for ListTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "List");
+    }
+}
+
 impl ListTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -692,6 +787,13 @@ pub struct TupleTracer {
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub field_tracers: Vec<Tracer>,
+}
+
+impl Context for TupleTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Tuple");
+    }
 }
 
 impl TupleTracer {
@@ -772,6 +874,13 @@ pub enum StructMode {
     Map,
 }
 
+impl Context for StructTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Struct");
+    }
+}
+
 impl StructTracer {
     pub fn get_field_tracer_mut(&mut self, idx: usize) -> Option<&mut Tracer> {
         Some(&mut self.fields.get_mut(idx)?.tracer)
@@ -780,7 +889,7 @@ impl StructTracer {
     pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
         if let Some(&field_idx) = self.index.get(key) {
             let Some(field) = self.fields.get_mut(field_idx) else {
-                fail!("invalid state");
+                fail!("Invalid state: no tracer found for field with name {key}");
             };
             field.last_seen_in_sample = self.seen_samples;
 
@@ -882,6 +991,13 @@ impl UnionVariant {
             Tracer::Primitive(tracer) if matches!(tracer.item_type, DataType::Null) => true,
             _ => false,
         }
+    }
+}
+
+impl Context for UnionTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Union");
     }
 }
 
@@ -988,6 +1104,13 @@ pub struct PrimitiveTracer {
     pub nullable: bool,
     pub strategy: Option<Strategy>,
     pub item_type: DataType,
+}
+
+impl Context for PrimitiveTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Primitive");
+    }
 }
 
 impl PrimitiveTracer {

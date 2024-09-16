@@ -39,7 +39,7 @@ fn map_as_struct() {
         TracingOptions::default().map_as_struct(true),
     );
     assert_error_contains(&res, "Cannot trace maps as structs with `from_type`");
-    assert_error_contains(&res, "Consider using `from_samples`.");
+    assert_error_contains(&res, "Consider using `from_samples`");
 }
 
 #[test]
