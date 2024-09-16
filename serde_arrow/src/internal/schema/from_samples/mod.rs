@@ -3,13 +3,13 @@ mod chrono;
 #[cfg(test)]
 mod test_error_messages;
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
     arrow::DataType,
-    error::{fail, Error, Result},
+    error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{Strategy, TracingMode, TracingOptions},
 };
 
@@ -38,14 +38,17 @@ mod impl_outer_sequence_serializer {
     use super::*;
 
     macro_rules! unimplemented_fn {
-        ($name:ident $($args:tt)* ) => {
-            fn $name $($args)* {
-                fail!("Cannot trace non-sequences with `from_samples`. Consider wrapping the argument in an array.");
-            }
+        ($ctx:ident ) => {
+            fail!(in $ctx, "Cannot trace non-sequences with `from_samples`. Consider wrapping the argument in an array.")
         };
     }
 
-    #[rustfmt::skip]
+    impl<'a> Context for OuterSequenceSerializer<'a> {
+        fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+            self.0.annotate(annotations)
+        }
+    }
+
     impl<'a> serde::ser::Serializer for OuterSequenceSerializer<'a> {
         type Ok = ();
         type Error = Error;
@@ -61,7 +64,13 @@ mod impl_outer_sequence_serializer {
             Ok(self)
         }
 
-        fn serialize_tuple_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeTupleVariant> {
+        fn serialize_tuple_variant(
+            self,
+            _: &'static str,
+            _: u32,
+            _: &'static str,
+            _: usize,
+        ) -> Result<Self::SerializeTupleVariant> {
             Ok(self)
         }
 
@@ -70,31 +79,130 @@ mod impl_outer_sequence_serializer {
         type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
         type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
 
-        unimplemented_fn!(serialize_bool(self, _: bool) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_i8(self, _: i8) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_i16(self, _: i16) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_i32(self, _: i32) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_i64(self, _: i64) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_u8(self, _: u8) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_u16(self, _: u16) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_u32(self, _: u32) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_u64(self, _: u64) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_f32(self, _: f32) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_f64(self, _: f64) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_char(self, _: char) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_unit(self) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_str(self, _: &str) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_bytes(self, _: &[u8]) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_none(self) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap>);
-        unimplemented_fn!(serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct>);
-        unimplemented_fn!(serialize_struct_variant(self, _: &'static str, _: u32, _: &'static str, _: usize) -> Result<Self::SerializeStructVariant>);
-        unimplemented_fn!(serialize_tuple_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeTupleStruct>);
-        unimplemented_fn!(serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_newtype_struct<T: Serialize + ?Sized>(self, _: &'static str, _: &T) -> Result<Self::Ok>);
-        unimplemented_fn!(serialize_newtype_variant<T: Serialize + ?Sized>(self, _: &'static str, _: u32, _: &'static str, _: &T) -> Result<Self::Ok>);
+        fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_char(self, _: char) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_unit(self) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_str(self, _: &str) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_none(self) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_struct_variant(
+            self,
+            _: &'static str,
+            _: u32,
+            _: &'static str,
+            _: usize,
+        ) -> Result<Self::SerializeStructVariant> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_tuple_struct(
+            self,
+            _: &'static str,
+            _: usize,
+        ) -> Result<Self::SerializeTupleStruct> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_unit_variant(
+            self,
+            _: &'static str,
+            _: u32,
+            _: &'static str,
+        ) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+        
+        fn serialize_newtype_struct<T: Serialize + ?Sized>(
+            self,
+            _: &'static str,
+            _: &T,
+        ) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
+
+        fn serialize_newtype_variant<T: Serialize + ?Sized>(
+            self,
+            _: &'static str,
+            _: u32,
+            _: &'static str,
+            _: &T,
+        ) -> Result<Self::Ok> {
+            unimplemented_fn!(self)
+        }
     }
 }
 
@@ -103,7 +211,7 @@ impl<'a> serde::ser::SerializeSeq for OuterSequenceSerializer<'a> {
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        value.serialize(TracerSerializer(&mut *self.0))
+        try_(|| value.serialize(TracerSerializer(&mut *self.0))).ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -116,7 +224,7 @@ impl<'a> serde::ser::SerializeTuple for OuterSequenceSerializer<'a> {
     type Error = Error;
 
     fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        value.serialize(TracerSerializer(&mut *self.0))
+        try_(|| value.serialize(TracerSerializer(&mut *self.0))).ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -129,7 +237,7 @@ impl<'a> serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'a> {
     type Error = Error;
 
     fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        value.serialize(TracerSerializer(&mut *self.0))
+        try_(|| value.serialize(TracerSerializer(&mut *self.0))).ctx(self)
     }
 
     fn end(self) -> Result<Self::Ok> {
@@ -138,6 +246,12 @@ impl<'a> serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'a> {
 }
 
 struct TracerSerializer<'a>(&'a mut Tracer);
+
+impl<'a> Context for TracerSerializer<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
+    }
+}
 
 impl<'a> TracerSerializer<'a> {
     fn ensure_union_variant(
