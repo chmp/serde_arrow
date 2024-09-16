@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
 use crate::internal::{
     arrow::{DataType, Field, UnionMode},
-    error::{fail, Result},
+    error::{fail, set_default, Context, Result},
     schema::{
         DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
         STRATEGY_KEY,
@@ -513,6 +513,41 @@ impl Tracer {
             }
         }
         Ok(())
+    }
+}
+
+impl Context for Tracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        match self {
+            Tracer::Unknown(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Unknown");
+            }
+            Tracer::Primitive(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Primitive");
+            }
+            Tracer::List(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "List");
+            }
+            Tracer::Map(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Map");
+            }
+            Tracer::Struct(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Struct");
+            }
+            Tracer::Tuple(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Tuple");
+            }
+            Tracer::Union(tracer) => {
+                set_default(annotations, "path", &tracer.path);
+                set_default(annotations, "tracer_type", "Union");
+            }
+        }
     }
 }
 
