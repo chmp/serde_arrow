@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use crate::{
     _impl::arrow2::{
         array::{
-            Array as A2Array, BinaryArray, BooleanArray, DictionaryArray, DictionaryKey, ListArray,
-            MapArray, NullArray, PrimitiveArray, StructArray, UnionArray, Utf8Array,
+            Array as A2Array, BinaryArray, BooleanArray, DictionaryArray, DictionaryKey,
+            FixedSizeBinaryArray, FixedSizeListArray, ListArray, MapArray, NullArray,
+            PrimitiveArray, StructArray, UnionArray, Utf8Array,
         },
         bitmap::Bitmap,
         buffer::Buffer,
@@ -14,7 +15,8 @@ use crate::{
     internal::{
         arrow::{
             Array, ArrayView, BitsWithOffset, BooleanArrayView, BytesArrayView, DecimalArrayView,
-            DenseUnionArrayView, DictionaryArrayView, FieldMeta, ListArrayView, NullArrayView,
+            DenseUnionArrayView, DictionaryArrayView, FieldMeta, FixedSizeBinaryArrayView,
+            FixedSizeListArrayView, ListArrayView, NullArrayView,
             PrimitiveArray as InternalPrimitiveArray, PrimitiveArrayView, StructArrayView,
             TimeArrayView, TimestampArrayView,
         },
@@ -161,8 +163,27 @@ impl TryFrom<Array> for ArrayRef {
                     Some(arr.offsets.into()),
                 )?))
             }
-            A::FixedSizeList(_) => fail!("FixedSizeList is not supported by arrow2"),
-            A::FixedSizeBinary(_) => fail!("FixedSizeBinary is not supported by arrow2"),
+            A::FixedSizeList(arr) => {
+                let child: ArrayRef = (*arr.element).try_into()?;
+                let child_field = field_from_array_and_meta(child.as_ref(), arr.meta);
+                let data_type = T::FixedSizeList(Box::new(child_field), arr.n.try_into()?);
+                let validity = arr.validity.map(|v| Bitmap::from_u8_vec(v, arr.len));
+
+                Ok(Box::new(FixedSizeListArray::try_new(
+                    data_type, child, validity,
+                )?))
+            }
+            A::FixedSizeBinary(arr) => {
+                let n = usize::try_from(arr.n)?;
+                let len = arr.data.len() / n;
+                let validity = arr.validity.map(|v| Bitmap::from_u8_vec(v, len));
+
+                Ok(Box::new(FixedSizeBinaryArray::try_new(
+                    T::FixedSizeBinary(n),
+                    Buffer::from(arr.data),
+                    validity,
+                )?))
+            }
         }
     }
 }
@@ -386,6 +407,26 @@ impl<'a> TryFrom<&'a dyn A2Array> for ArrayView<'a> {
                 types,
                 offsets: offsets.as_slice(),
                 fields,
+            }))
+        } else if let Some(array) = any.downcast_ref::<FixedSizeListArray>() {
+            let T::FixedSizeList(field, _) = array.data_type() else {
+                fail!("Invalid type: expected FixedSizeList");
+            };
+
+            let child_view: ArrayView<'_> = array.values().as_ref().try_into()?;
+
+            Ok(V::FixedSizeList(FixedSizeListArrayView {
+                len: array.len(),
+                n: array.size().try_into()?,
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                meta: meta_from_field(field.as_ref().try_into()?),
+                element: Box::new(child_view),
+            }))
+        } else if let Some(array) = any.downcast_ref::<FixedSizeBinaryArray>() {
+            Ok(V::FixedSizeBinary(FixedSizeBinaryArrayView {
+                n: array.size().try_into()?,
+                validity: bits_with_offset_from_bitmap(array.validity()),
+                data: array.values().as_slice(),
             }))
         } else {
             fail!(
