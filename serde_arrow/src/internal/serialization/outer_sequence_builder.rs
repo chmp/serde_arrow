@@ -45,13 +45,13 @@ impl OuterSequenceBuilder {
     }
 
     /// Extend the builder with a sequence of items
-    pub fn extend<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+    pub fn extend<T: Serialize>(&mut self, value: T) -> Result<()> {
         value.serialize(Mut(self))
     }
 
     /// Push a single item into the builder
-    pub fn push<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        self.element(value)
+    pub fn push<T: Serialize>(&mut self, value: T) -> Result<()> {
+        self.element(&value)
     }
 }
 

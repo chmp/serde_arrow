@@ -73,13 +73,13 @@ impl std::fmt::Debug for ArrayBuilder {
 impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+    pub fn push<T: Serialize>(&mut self, item: T) -> Result<()> {
         self.builder.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+    pub fn extend<T: Serialize>(&mut self, items: T) -> Result<()> {
         self.builder.extend(items)
     }
 }
