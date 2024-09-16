@@ -11,6 +11,7 @@ New features
 - Add support to serialize / deserialize `bool` from integer arrays
 - Add a helper to construct `Bool8` arrays
 - Include the path of the field that caused an error in the error message
+- Include backtrace information only for the debug representations of errors
 
 API changes
 
