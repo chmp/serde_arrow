@@ -12,7 +12,6 @@ fn example() {
     let items = [Item(vec![0_u8, 1]), Item(vec![2, 3]), Item(vec![4, 5])];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",
@@ -27,7 +26,6 @@ fn example_nullable_no_nulls() {
     let items = [Item(vec![0_u16, 1]), Item(vec![2, 3]), Item(vec![4, 5])];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",
@@ -48,7 +46,6 @@ fn example_nullable_with_nulls() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",

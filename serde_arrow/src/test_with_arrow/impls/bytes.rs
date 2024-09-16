@@ -157,7 +157,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize(&items);
@@ -172,7 +171,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize(&items);
@@ -187,7 +185,6 @@ mod fixed_size_binary {
         ];
 
         Test::new()
-            .skip_arrow2()
             .with_schema(json!([{"name": "item", "data_type": "FixedSizeBinary(3)"}]))
             .serialize(&items)
             .deserialize_borrowed(&items);
