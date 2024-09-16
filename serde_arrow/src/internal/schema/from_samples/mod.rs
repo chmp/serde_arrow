@@ -18,10 +18,7 @@ use super::tracer::{
 };
 
 impl Tracer {
-    pub fn from_samples<T: Serialize + ?Sized>(
-        samples: &T,
-        options: TracingOptions,
-    ) -> Result<Self> {
+    pub fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
         let options = options.tracing_mode(TracingMode::FromSamples);
         let mut tracer = Tracer::new(String::from("$"), String::from("$"), Arc::new(options));
         samples.serialize(OuterSequenceSerializer(&mut tracer))?;

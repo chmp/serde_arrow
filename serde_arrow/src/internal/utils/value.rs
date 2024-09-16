@@ -82,7 +82,7 @@ impl std::hash::Hash for HashF64 {
     }
 }
 
-pub fn transmute<S: Serialize + ?Sized, T: DeserializeOwned>(value: &S) -> Result<T> {
+pub fn transmute<S: Serialize, T: DeserializeOwned>(value: S) -> Result<T> {
     let value = value.serialize(ValueSerializer)?;
     T::deserialize(ValueDeserializer::new(&value))
 }
