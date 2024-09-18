@@ -12,14 +12,45 @@ pub struct Field {
     pub metadata: HashMap<String, String>,
 }
 
+impl PartialOrd for Field {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.name.partial_cmp(&other.name)
+    }
+}
+
 impl Field {
-    pub fn from_flattened_enum(&self) -> bool {
+    pub fn to_flattened_union_field(mut self, variant_name: &str) -> Self {
+        self.name = format!("{}::{}", variant_name, self.name);
+        self.nullable = true;
+        self
+    }
+
+    fn from_flattened_union(&self) -> bool {
         self.name.contains("::")
     }
 
-    pub fn enum_variant_name(&self) -> Option<&str> {
-        if self.from_flattened_enum() {
+    pub fn union_variant_name(&self) -> Option<&str> {
+        if self.from_flattened_union() {
             self.name.split("::").next()
+        } else {
+            None
+        }
+    }
+
+    pub fn union_field_name(&self) -> Option<String> {
+        if self.from_flattened_union() {
+            Some(
+                self.name
+                    .split("::")
+                    .skip(1)
+                    .fold(String::new(), |acc: String, e| {
+                        if acc.is_empty() {
+                            String::from(e)
+                        } else {
+                            format!("{acc}::{e}")
+                        }
+                    }),
+            )
         } else {
             None
         }

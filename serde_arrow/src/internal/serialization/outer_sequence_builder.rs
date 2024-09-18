@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
+    arrow::{DataType, Field, FieldMeta, TimeUnit},
     error::{fail, Context, ContextSupport, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
@@ -231,23 +231,41 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             if let Some(Strategy::EnumsWithNamedFieldsAsStructs) =
                 get_strategy_from_metadata(&field.metadata)?
             {
-                let mut related_fields: HashMap<&str, Vec<Field>> = HashMap::new();
-                let mut builders: Vec<ArrayBuilder> = Vec::new();
+                let mut related_fields: BTreeMap<&str, Vec<Field>> = BTreeMap::new();
+                let mut builders: Vec<(ArrayBuilder, FieldMeta)> = Vec::new();
 
                 for field in children {
-                    let Some(variant_name) = field.enum_variant_name() else {
-                        // TODO: warning? fail! ?
+                    let Some(variant_name) = field.union_variant_name() else {
+                        // TODO: failure message
                         continue;
                     };
+
+                    let Some(field_name) = field.union_field_name() else {
+                        // TODO: failure message
+                        continue;
+                    };
+
+                    let mut new_field = field.clone();
+                    new_field.name = field_name;
+
                     related_fields
                         .entry(variant_name)
                         .or_default()
-                        .push(field.clone());
+                        .push(new_field);
                 }
 
                 for (variant_name, fields) in related_fields {
-                    let sub_struct_name = format!("{}.{}", path, variant_name);
-                    builders.push(build_struct(sub_struct_name, fields.as_slice(), true)?.take());
+                    let builder = build_struct(
+                        format!("{}.{}", path.to_owned(), variant_name),
+                        fields.as_slice(),
+                        true,
+                    )?
+                    .take();
+
+                    let mut meta = meta_from_field(field.clone());
+                    meta.name = variant_name.to_owned();
+
+                    builders.push((builder, meta));
                 }
 
                 A::FlattenedUnion(FlattenedUnionBuilder::new(path, builders))

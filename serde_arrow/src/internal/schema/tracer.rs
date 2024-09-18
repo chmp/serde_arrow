@@ -1093,10 +1093,8 @@ impl UnionTracer {
             for variant in &self.variants {
                 if let Some(variant) = variant {
                     let schema = variant.tracer.to_schema()?;
-                    for mut field in schema.fields {
-                        field.name = format!("{}::{}", variant.name, field.name);
-                        field.nullable = true;
-                        fields.push(field)
+                    for field in schema.fields {
+                        fields.push(field.to_flattened_union_field(variant.name.as_str()))
                     }
                 } else {
                     fields.push(unknown_variant_field())
