@@ -112,7 +112,17 @@ impl Tracer {
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);
 
         let fields = match root.data_type {
-            DataType::Struct(children) => children,
+            DataType::Struct(children) => {
+                if let Some(strategy) = root
+                    .metadata.get(STRATEGY_KEY) {
+                     if *strategy == Strategy::EnumsWithNamedFieldsAsStructs.to_string() {
+                         // TODO: combine with fail messaging below
+                        fail!("Schema tracing is not directly supported for the root data Union. Consider using the `Item` / `Items` wrappers.");
+                    }
+                }
+
+                children
+            }
             DataType::Null => fail!("No records found to determine schema"),
             dt => fail!(
                 concat!(

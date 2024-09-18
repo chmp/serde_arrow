@@ -10,6 +10,7 @@ use crate::internal::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
+        flattened_union_builder::FlattenedUnionBuilder,
     },
     utils::{btree_map, meta_from_field, ChildName, Mut},
 };
@@ -226,7 +227,34 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 .ctx(&ctx)?,
             )
         }
-        T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
+        T::Struct(children) => {
+            if let Some(Strategy::EnumsWithNamedFieldsAsStructs) =
+                get_strategy_from_metadata(&field.metadata)?
+            {
+                let mut related_fields: HashMap<&str, Vec<Field>> = HashMap::new();
+                let mut builders: Vec<ArrayBuilder> = Vec::new();
+
+                for field in children {
+                    let Some(variant_name) = field.enum_variant_name() else {
+                        // TODO: warning? fail! ?
+                        continue;
+                    };
+                    related_fields
+                        .entry(variant_name)
+                        .or_default()
+                        .push(field.clone());
+                }
+
+                for (variant_name, fields) in related_fields {
+                    let sub_struct_name = format!("{}.{}", path, variant_name);
+                    builders.push(build_struct(sub_struct_name, fields.as_slice(), true)?.take());
+                }
+
+                A::FlattenedUnion(FlattenedUnionBuilder::new(path, builders))
+            } else {
+                A::Struct(build_struct(path, children, field.nullable)?)
+            }
+        }
         T::Dictionary(key, value, _) => {
             let key_path = format!("{path}.key");
             let key_field = Field {
