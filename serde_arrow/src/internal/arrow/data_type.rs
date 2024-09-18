@@ -12,6 +12,20 @@ pub struct Field {
     pub metadata: HashMap<String, String>,
 }
 
+impl Field {
+    pub fn from_flattened_enum(&self) -> bool {
+        self.name.contains("::")
+    }
+
+    pub fn enum_variant_name(&self) -> Option<&str> {
+        if self.from_flattened_enum() {
+            self.name.split("::").next()
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum DataType {
