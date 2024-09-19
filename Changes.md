@@ -1,6 +1,6 @@
 # Change log
 
-## 0.11.7
+## 0.11.8
 
 - Add `arrow=53` support
 
