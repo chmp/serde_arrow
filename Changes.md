@@ -2,6 +2,10 @@
 
 ## 0.11.7
 
+- Add `arrow=53` support
+
+## 0.11.7
+
 - Fix tracing of JSON mixing nulls with non-null data
 
 ## 0.11.6

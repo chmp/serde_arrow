@@ -155,7 +155,7 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             );
             let child_data = build_array_data(*builder.element)?;
             let validity = if let Some(validity) = builder.validity {
-                Some(Buffer::from(validity.buffer))
+                Some(Buffer::from_vec(validity.buffer))
             } else {
                 None
             };
@@ -178,7 +178,7 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         A::FixedSizeBinary(builder) => {
             let data_buffer = ScalarBuffer::from(builder.buffer).into_inner();
             let validity = if let Some(validity) = builder.validity {
-                Some(Buffer::from(validity.buffer))
+                Some(Buffer::from_vec(validity.buffer))
             } else {
                 None
             };
@@ -198,7 +198,7 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
             }
 
             let (validity, len) = if let Some(validity) = builder.validity {
-                (Some(Buffer::from(validity.buffer)), validity.len)
+                (Some(Buffer::from_vec(validity.buffer)), validity.len)
             } else {
                 if data.is_empty() {
                     fail!("cannot built non-nullable structs without fields");
@@ -226,7 +226,7 @@ fn build_array_data(builder: ArrayBuilder) -> Result<ArrayData> {
         .len(builder.offsets.offsets.len() - 1)
         .add_buffer(ScalarBuffer::from(builder.offsets.offsets).into_inner())
         .add_child_data(build_array_data(*builder.entry)?)
-        .null_bit_buffer(builder.validity.map(|b| Buffer::from(b.buffer)))
+        .null_bit_buffer(builder.validity.map(|b| Buffer::from_vec(b.buffer)))
         .build()?),
         A::DictionaryUtf8(builder) => {
             let indices = build_array_data(*builder.indices)?;
@@ -276,7 +276,7 @@ fn build_array_data_primitive_with_len<T: ArrowNativeType>(
     Ok(ArrayData::try_new(
         data_type,
         len,
-        validity.map(|b| Buffer::from(b.buffer)),
+        validity.map(|b| Buffer::from_vec(b.buffer)),
         0,
         vec![ScalarBuffer::from(data).into_inner()],
         vec![],
@@ -293,7 +293,7 @@ fn build_array_data_utf8<O: ArrowNativeType>(
 
     let offsets = ScalarBuffer::from(offsets).into_inner();
     let data = ScalarBuffer::from(data).into_inner();
-    let validity = validity.map(|b| Buffer::from(b.buffer));
+    let validity = validity.map(|b| Buffer::from_vec(b.buffer));
 
     Ok(ArrayData::try_new(
         data_type,
@@ -315,7 +315,7 @@ fn build_array_data_binary<O: ArrowNativeType + Offset>(
     let offset_buffer = ScalarBuffer::from(offsets.offsets).into_inner();
     let data_buffer = ScalarBuffer::from(data).into_inner();
     let validity = if let Some(validity) = validity {
-        Some(Buffer::from(validity.buffer))
+        Some(Buffer::from_vec(validity.buffer))
     } else {
         None
     };
@@ -335,7 +335,7 @@ fn build_array_data_list<O: ArrowNativeType>(
     validity: Option<MutableBitBuffer>,
 ) -> Result<ArrayData> {
     let offset_buffer = ScalarBuffer::from(offsets).into_inner();
-    let validity = validity.map(|b| Buffer::from(b.buffer));
+    let validity = validity.map(|b| Buffer::from_vec(b.buffer));
 
     Ok(ArrayData::builder(data_type)
         .len(len)
