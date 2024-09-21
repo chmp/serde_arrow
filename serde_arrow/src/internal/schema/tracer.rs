@@ -1083,7 +1083,7 @@ impl UnionTracer {
                 STRATEGY_KEY.to_string(),
                 Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
             );
-            let mut fields = Vec::new();
+            let mut fields = BTreeMap::new();
 
             // For this option, we want to merge the variant children up one level, combining the names
             // For each variant with name variant_name
@@ -1094,14 +1094,16 @@ impl UnionTracer {
                 if let Some(variant) = variant {
                     let schema = variant.tracer.to_schema()?;
                     for field in schema.fields {
-                        fields.push(field.to_flattened_union_field(variant.name.as_str()))
+                        let flat_field = field.to_flattened_union_field(variant.name.as_str());
+                        fields.insert(flat_field.name.to_string(), flat_field);
                     }
                 } else {
-                    fields.push(unknown_variant_field())
+                    let uf = unknown_variant_field();
+                    fields.insert(uf.name, unknown_variant_field());
                 };
             }
 
-            data_type = DataType::Struct(fields);
+            data_type = DataType::Struct(fields.into_values().collect());
         } else {
             let mut fields = Vec::new();
             for (idx, variant) in self.variants.iter().enumerate() {

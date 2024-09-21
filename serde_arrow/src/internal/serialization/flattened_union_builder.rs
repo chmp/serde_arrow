@@ -40,7 +40,7 @@ impl FlattenedUnionBuilder {
     }
 
     pub fn into_array(self) -> Result<Array> {
-        let mut fields = Vec::new();
+        let mut fields = BTreeMap::new();
 
         for (builder, meta) in self.fields.into_iter() {
             let ArrayBuilder::Struct(builder) = builder else {
@@ -53,13 +53,16 @@ impl FlattenedUnionBuilder {
                 // Name change is currently needed for struct field lookup to work correctly.
 
                 sub_meta.name = format!("{}::{}", meta.name, sub_meta.name);
-                fields.push((sub_builder.into_array()?, sub_meta));
+                fields.insert(
+                    sub_meta.name.to_owned(),
+                    (sub_builder.into_array()?, sub_meta),
+                );
             }
         }
 
         Ok(Array::Struct(StructArray {
             len: self.row_count,
-            fields,
+            fields: fields.into_values().collect(),
             // TODO: is this ok to hardcode?
             // assuming so because when testing manually,
             // validity of struct with nullable fields was None
