@@ -122,7 +122,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
     StructBuilder::new(path, fields, nullable)
 }
 
-fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
+pub(crate) fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
     let ctx: BTreeMap<String, String> = btree_map!("field" => path.clone());
 
