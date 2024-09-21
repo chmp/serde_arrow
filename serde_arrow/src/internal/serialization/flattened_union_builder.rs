@@ -9,13 +9,18 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct FlattenedUnionBuilder {
-    pub path: String,
-    pub fields: Vec<(ArrayBuilder, FieldMeta)>,
+    path: String,
+    fields: Vec<(ArrayBuilder, FieldMeta)>,
+    row_count: usize,
 }
 
 impl FlattenedUnionBuilder {
     pub fn new(path: String, fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
-        Self { path, fields }
+        Self {
+            path,
+            fields,
+            row_count: 0,
+        }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
@@ -26,6 +31,7 @@ impl FlattenedUnionBuilder {
                 .iter_mut()
                 .map(|(field, meta)| (field.take(), meta.clone()))
                 .collect(),
+            row_count: self.row_count,
         })
     }
 
@@ -35,7 +41,6 @@ impl FlattenedUnionBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
-        let num_fields = self.fields.len();
 
         for (builder, meta) in self.fields.into_iter() {
             let ArrayBuilder::Struct(builder) = builder else {
@@ -53,12 +58,12 @@ impl FlattenedUnionBuilder {
         }
 
         Ok(Array::Struct(StructArray {
-            len: num_fields,
+            len: self.row_count,
+            fields,
             // TODO: is this ok to hardcode?
             // assuming so because when testing manually,
             // validity of struct with nullable fields was None
             validity: None,
-            fields,
         }))
     }
 }
@@ -77,6 +82,8 @@ impl FlattenedUnionBuilder {
         let Some((variant_builder, _variant_meta)) = self.fields.get_mut(variant_index) else {
             fail!("Could not find variant {variant_index} in Union");
         };
+
+        self.row_count += 1;
 
         Ok(variant_builder)
     }
