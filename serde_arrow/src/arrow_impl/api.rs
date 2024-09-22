@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow::{
-        array::{make_array, Array, ArrayRef, RecordBatch},
+        array::{Array, ArrayRef, RecordBatch},
         datatypes::{FieldRef, Schema},
     },
     internal::{
@@ -186,12 +186,10 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        let mut arrays = Vec::new();
-        for field in self.builder.take_records()? {
-            let data = field.into_array()?.try_into()?;
-            arrays.push(make_array(data));
-        }
-        Ok(arrays)
+        self.to_arrays()?
+            .into_iter()
+            .map(ArrayRef::try_from)
+            .collect()
     }
 
     /// Construct a [`RecordBatch`] and reset the builder (*requires one of the

@@ -6,9 +6,9 @@ use half::f16;
 use crate::{
     _impl::arrow::{
         array::{
-            Array, ArrayData, BooleanArray, DictionaryArray, FixedSizeBinaryArray,
-            FixedSizeListArray, GenericBinaryArray, GenericListArray, GenericStringArray, MapArray,
-            NullArray, PrimitiveArray, StructArray, UnionArray,
+            make_array, Array, ArrayData, ArrayRef, BooleanArray, DictionaryArray,
+            FixedSizeBinaryArray, FixedSizeListArray, GenericBinaryArray, GenericListArray,
+            GenericStringArray, MapArray, NullArray, PrimitiveArray, StructArray, UnionArray,
         },
         buffer::{Buffer, ScalarBuffer},
         datatypes::{
@@ -33,6 +33,14 @@ use crate::{
         utils::meta_from_field,
     },
 };
+
+impl TryFrom<crate::internal::arrow::Array> for ArrayRef {
+    type Error = Error;
+
+    fn try_from(value: crate::internal::arrow::Array) -> Result<Self> {
+        Ok(make_array(ArrayData::try_from(value)?))
+    }
+}
 
 impl TryFrom<crate::internal::arrow::Array> for ArrayData {
     type Error = Error;
