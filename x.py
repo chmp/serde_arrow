@@ -223,9 +223,11 @@ def test_unit(test_name=None, backtrace=False, full=False):
 
     else:
         feature_selections = [
-            f"--features {', '.join(arrow_feature + arrow2_feature)}"
-            if arrow_feature or arrow2_feature
-            else ""
+            (
+                f"--features {', '.join(arrow_feature + arrow2_feature)}"
+                if arrow_feature or arrow2_feature
+                else ""
+            )
             for arrow_feature in [[], *([feat] for feat in all_arrow_features)]
             for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]

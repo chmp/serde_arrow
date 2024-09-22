@@ -6,7 +6,6 @@ Refactor the underlying implementation to prepare for further development
 
 New features
 
-- Add `arrow=53` support
 - Add `Binary`, `LargeBinary`, `FixedSizeBinary(n)`, `FixedSizeList(n)` support for `arrow2`
 - Add support to serialize / deserialize `bool` from integer arrays
 - Add a helper to construct `Bool8` arrays
@@ -25,6 +24,17 @@ Removed deprecated API
 - Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
   `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
 - Remove `SerdeArrowSchema::new()`, `Overwrites::new()`
+
+## 0.11.8
+
+- Add `arrow=53` support
+
+### Thanks
+
+The following people contributed to this release:
+
+- [shehabgamin](https://github.com/shehabgamin) prepared this release
+  ([pr](https://github.com/chmp/serde_arrow/pull/235))
 
 ## 0.11.7
 

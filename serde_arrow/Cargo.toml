@@ -1,6 +1,6 @@
 [package]
 name = "serde_arrow"
-version = "0.11.7"
+version = "0.11.8"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2021"
 description  = "Convert sequences of Rust objects to Arrow arrays and back again"
