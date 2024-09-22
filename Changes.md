@@ -4,6 +4,13 @@
 
 - Add `arrow=53` support
 
+### Thanks
+
+The following people contributed to this release:
+
+- [shehabgamin](https://github.com/shehabgamin) prepared this release
+  ([pr](https://github.com/chmp/serde_arrow/pull/235))
+
 ## 0.11.7
 
 - Fix tracing of JSON mixing nulls with non-null data
