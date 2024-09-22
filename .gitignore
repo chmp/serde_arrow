@@ -3,3 +3,6 @@ target/
 
 __pycache__/
 .ipynb_checkpoints/
+
+# Editor directories and files
+.idea/
