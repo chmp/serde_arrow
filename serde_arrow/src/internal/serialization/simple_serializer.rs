@@ -7,113 +7,11 @@ use serde::{
 };
 
 use crate::internal::{
-    error::{fail, Error, Result},
-    utils::{Mut, Offset},
+    error::{fail, Context, Error, Result},
+    utils::Mut,
 };
 
 use super::ArrayBuilder;
-
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct MutableBitBuffer {
-    pub(crate) buffer: Vec<u8>,
-    pub(crate) len: usize,
-    pub(crate) capacity: usize,
-}
-
-impl MutableBitBuffer {
-    pub fn as_bool(&self) -> Vec<bool> {
-        (0..self.len())
-            .map(|i| {
-                let flag = 1 << i;
-                (self.buffer[i / 8] & flag) == flag
-            })
-            .collect()
-    }
-
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn push(&mut self, value: bool) {
-        while self.len >= self.capacity {
-            for _ in 0..64 {
-                self.buffer.push(0);
-                self.capacity += 8;
-            }
-        }
-
-        if value {
-            self.buffer[self.len / 8] |= 1 << (self.len % 8);
-        }
-        self.len += 1;
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MutableOffsetBuffer<O> {
-    pub(crate) offsets: Vec<O>,
-    pub(crate) current_items: O,
-}
-
-impl<O: Offset> std::default::Default for MutableOffsetBuffer<O> {
-    fn default() -> Self {
-        Self {
-            offsets: vec![O::default()],
-            current_items: O::default(),
-        }
-    }
-}
-
-impl<O: Offset> MutableOffsetBuffer<O> {
-    /// The number of items pushed (one less than the number of offsets)
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.offsets.len() - 1
-    }
-
-    // push a new item with the given number of children
-    pub fn push(&mut self, num_children: usize) -> Result<()> {
-        self.current_items = self.current_items + O::try_form_usize(num_children)?;
-        self.offsets.push(self.current_items);
-
-        Ok(())
-    }
-
-    pub fn push_current_items(&mut self) {
-        self.offsets.push(self.current_items);
-    }
-
-    pub fn inc_current_items(&mut self) -> Result<()> {
-        self.current_items = self.current_items + O::try_form_usize(1)?;
-        Ok(())
-    }
-
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-pub fn push_validity(buffer: &mut Option<MutableBitBuffer>, value: bool) -> Result<()> {
-    if let Some(buffer) = buffer.as_mut() {
-        buffer.push(value);
-        Ok(())
-    } else if value {
-        Ok(())
-    } else {
-        fail!("cannot push null for non-nullable array");
-    }
-}
-
-pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
-    if let Some(buffer) = buffer.as_mut() {
-        buffer.push(false);
-    }
-}
 
 /// A simplified serialization trait with default implementations raising an
 /// error
@@ -124,11 +22,9 @@ pub fn push_validity_default(buffer: &mut Option<MutableBitBuffer>) {
 /// start call.
 ///
 #[allow(unused_variables)]
-pub trait SimpleSerializer: Sized {
-    fn name(&self) -> &str;
-
+pub trait SimpleSerializer: Sized + Context {
     fn serialize_default(&mut self) -> Result<()> {
-        fail!("serialize_default is not supported for {}", self.name());
+        fail!(in self, "serialize_default is not supported");
     }
 
     fn serialize_unit(&mut self) -> Result<()> {
@@ -136,10 +32,7 @@ pub trait SimpleSerializer: Sized {
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        fail!(
-            "serialize_unit/serialize_none is not supported for {}",
-            self.name()
-        );
+        fail!(in self, "serialize_unit/serialize_none is not supported");
     }
 
     fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -147,59 +40,59 @@ pub trait SimpleSerializer: Sized {
     }
 
     fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        fail!("serialize_bool is not implemented for {}", self.name())
+        fail!(in self, "serialize_bool is not supported")
     }
 
     fn serialize_char(&mut self, v: char) -> Result<()> {
-        fail!("serialize_char is not implemented for {}", self.name())
+        fail!(in self, "serialize_char is not supported ")
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        fail!("serialize_u8 is not implemented for {}", self.name())
+        fail!(in self, "serialize_u8 is not supported ")
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        fail!("serialize_u16 is not implemented for {}", self.name())
+        fail!(in self, "serialize_u16 is not supported ")
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        fail!("serialize_u32 is not implemented for {}", self.name())
+        fail!(in self, "serialize_u32 is not supported ")
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        fail!("serialize_u64 is not implemented for {}", self.name())
+        fail!(in self, "serialize_u64 is not supported ")
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        fail!("serialize_i8 is not implemented for {}", self.name())
+        fail!(in self, "serialize_i8 is not supported ")
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        fail!("serialize_i16 is not implemented for {}", self.name())
+        fail!(in self, "serialize_i16 is not supported ")
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        fail!("serialize_i32 is not implemented for {}", self.name())
+        fail!(in self, "serialize_i32 is not supported ")
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        fail!("serialize_i64 is not implemented for {}", self.name())
+        fail!(in self, "serialize_i64 is not supported ")
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        fail!("serialize_f32 is not implemented for {}", self.name())
+        fail!(in self, "serialize_f32 is not supported ")
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        fail!("serialize_f64 is not implemented for {}", self.name())
+        fail!(in self, "serialize_f64 is not supported ")
     }
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        fail!("serialize_bytes is not implemented for {}", self.name())
+        fail!(in self, "serialize_bytes is not supported ")
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        fail!("serialize_str is not implemented for {}", self.name())
+        fail!(in self, "serialize_str is not supported ")
     }
 
     fn serialize_newtype_struct<V: Serialize + ?Sized>(
@@ -218,15 +111,15 @@ pub trait SimpleSerializer: Sized {
         value: &V,
     ) -> Result<()> {
         fail!(
-            "serialize_newtype_variant is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_newtype_variant is not supported",
         )
     }
 
     fn serialize_unit_struct(&mut self, name: &'static str) -> Result<()> {
         fail!(
-            "serialize_unit_struct is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_unit_struct is not supported",
         )
     }
 
@@ -237,46 +130,46 @@ pub trait SimpleSerializer: Sized {
         variant: &'static str,
     ) -> Result<()> {
         fail!(
-            "serialize_unit_variant is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_unit_variant is not supported",
         )
     }
 
     fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
-        fail!("serialize_map_start is not implemented for {}", self.name())
+        fail!(in self, "serialize_map_start is not supported ")
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        fail!("serialize_map_key is not implemented for {}", self.name());
+        fail!(in self, "serialize_map_key is not supported ");
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        fail!("serialize_map_value is not implemented for {}", self.name())
+        fail!(in self, "serialize_map_value is not supported ")
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {
-        fail!("serialize_map_end is not implemented for {}", self.name())
+        fail!(in self, "serialize_map_end is not supported ")
     }
 
     fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        fail!("serialize_seq_start is not implemented for {}", self.name())
+        fail!(in self, "serialize_seq_start is not supported ")
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         fail!(
-            "serialize_seq_element is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_seq_element is not supported",
         );
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        fail!("serialize_seq_end is not implemented for {}", self.name());
+        fail!(in self, "serialize_seq_end is not supported ");
     }
 
     fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
         fail!(
-            "serialize_start_start is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_start_start is not supported",
         )
     }
 
@@ -286,54 +179,54 @@ pub trait SimpleSerializer: Sized {
         value: &V,
     ) -> Result<()> {
         fail!(
-            "serialize_struct_field is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_struct_field is not supported",
         );
     }
 
     fn serialize_struct_end(&mut self) -> Result<()> {
         fail!(
-            "serialize_struct_end is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_struct_end is not supported",
         );
     }
 
     fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
         fail!(
-            "serialize_tuple_start is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_start is not supported",
         )
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         fail!(
-            "serialize_tuple_element is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_element is not supported",
         );
     }
 
     fn serialize_tuple_end(&mut self) -> Result<()> {
-        fail!("serialize_tuple_end is not implemented for {}", self.name())
+        fail!(in self, "serialize_tuple_end is not supported ")
     }
 
     fn serialize_tuple_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
         fail!(
-            "serialize_tuple_struct_start is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_struct_start is not supported",
         )
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         fail!(
-            "serialize_tuple_struct_field is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_struct_field is not supported",
         );
     }
 
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         fail!(
-            "serialize_tuple_struct_end is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_struct_end is not supported",
         );
     }
 
@@ -345,8 +238,8 @@ pub trait SimpleSerializer: Sized {
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
         fail!(
-            "serialize_struct_variant_start is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_struct_variant_start is not supported",
         )
     }
 
@@ -358,8 +251,8 @@ pub trait SimpleSerializer: Sized {
         len: usize,
     ) -> Result<&'this mut ArrayBuilder> {
         fail!(
-            "serialize_tuple_variant_start is not implemented for {}",
-            self.name()
+            in self,
+            "serialize_tuple_variant_start is not supported",
         )
     }
 }

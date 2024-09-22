@@ -166,7 +166,7 @@
 //! | `arrow2-0-16` | `arrow2=0.16` |
 
 // be more forgiving without any active implementation
-#[cfg_attr(all(not(has_arrow), not(has_arrow2)), allow(unused))]
+#[cfg_attr(not(any(has_arrow, has_arrow2)), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
@@ -326,19 +326,11 @@ mod arrow_impl;
 #[cfg(has_arrow)]
 pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 
-#[cfg(has_arrow)]
-#[allow(deprecated)]
-pub use arrow_impl::api::ArrowBuilder;
-
 #[cfg(has_arrow2)]
 mod arrow2_impl;
 
 #[cfg(has_arrow2)]
 pub use arrow2_impl::api::{from_arrow2, to_arrow2};
-
-#[cfg(has_arrow2)]
-#[allow(deprecated)]
-pub use arrow2_impl::api::Arrow2Builder;
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`
@@ -396,16 +388,12 @@ pub mod schema {
         Overwrites, SchemaLike, SerdeArrowSchema, Strategy, TracingOptions, STRATEGY_KEY,
     };
 
-    /// Renamed to [`SerdeArrowSchema`]
-    #[deprecated = "serde_arrow::schema::Schema is deprecated. Use serde_arrow::schema::SerdeArrowSchema instead"]
-    pub type Schema = SerdeArrowSchema;
-
     /// Support for [canonical extension types][ext-docs]. This module is experimental without semver guarantees.
     ///
     /// [ext-docs]: https://arrow.apache.org/docs/format/CanonicalExtensions.html
     pub mod ext {
         pub use crate::internal::schema::extensions::{
-            FixedShapeTensorField, VariableShapeTensorField,
+            Bool8Field, FixedShapeTensorField, VariableShapeTensorField,
         };
     }
 }

@@ -198,9 +198,9 @@ fn find_period(s: &[u8]) -> (usize, usize) {
 fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
     if s.iter().any(|c| *c != b'0') {
         if leading {
-            fail!("invalid decimal: not enough precision");
+            fail!("Invalid decimal: not enough precision");
         } else {
-            fail!("invalid decimal: not enough scale, the given number would be truncated");
+            fail!("Invalid decimal: not enough scale, the given number would be truncated");
         }
     }
     Ok(())
@@ -208,7 +208,7 @@ fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
 
 fn check_all_ascii_digit(s: &[u8]) -> Result<()> {
     if s.iter().any(|c| *c < b'0' || *c > b'9') {
-        fail!("invalid decimal");
+        fail!("Invalid decimal: only ascii digits are supported");
     }
     Ok(())
 }

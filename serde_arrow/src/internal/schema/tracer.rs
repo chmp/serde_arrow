@@ -1,31 +1,44 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
 use crate::internal::{
-    error::{fail, Result},
-    schema::{GenericDataType, GenericField, SerdeArrowSchema, Strategy},
-};
-
-use super::{
-    tracing_options::{TracingMode, TracingOptions},
-    Overwrites,
+    arrow::{DataType, Field, UnionMode},
+    error::{fail, set_default, Context, Result},
+    schema::{
+        DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
+        STRATEGY_KEY,
+    },
 };
 
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
-    "too deeply nested type detected. Recursive types are not supported in schema tracing";
+    "Too deeply nested type detected: recursive types are not supported in schema tracing";
 
-fn default_dictionary_field(name: &str, nullable: bool) -> GenericField {
-    GenericField::new(name, GenericDataType::Dictionary, nullable)
-        .with_child(GenericField::new("key", GenericDataType::U32, nullable))
-        .with_child(GenericField::new(
-            "value",
-            GenericDataType::LargeUtf8,
+fn default_dictionary_field(name: &str, nullable: bool) -> Field {
+    Field {
+        name: name.to_owned(),
+        nullable,
+        metadata: HashMap::new(),
+        data_type: DataType::Dictionary(
+            Box::new(DataType::UInt32),
+            Box::new(DataType::LargeUtf8),
             false,
-        ))
+        ),
+    }
+}
+
+fn unknown_variant_field() -> Field {
+    let mut metadata = HashMap::new();
+    metadata.insert(STRATEGY_KEY.into(), Strategy::UnknownVariant.into());
+    Field {
+        name: String::from(""),
+        nullable: true,
+        data_type: DataType::Null,
+        metadata,
+    }
 }
 
 struct NullFieldMessage<'a>(&'a str);
@@ -103,15 +116,15 @@ impl Tracer {
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);
 
         let fields = match root.data_type {
-            GenericDataType::Struct => root.children,
-            GenericDataType::Null => fail!("No records found to determine schema"),
+            DataType::Struct(children) => children,
+            DataType::Null => fail!("No records found to determine schema"),
             dt => fail!(
                 concat!(
                     "Schema tracing is not directly supported for the root data type {dt}. ",
                     "Only struct-like types are supported as root types in schema tracing. ",
                     "{mitigation}",
                 ),
-                dt = dt,
+                dt = DataTypeDisplay(&dt),
                 mitigation = match tracing_mode {
                     TracingMode::FromType => "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`.",
                     TracingMode::FromSamples => "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`.",
@@ -125,19 +138,15 @@ impl Tracer {
 }
 
 impl Tracer {
-    pub fn is_unknown(&self) -> bool {
-        matches!(self, Tracer::Unknown(_))
-    }
-
     pub fn is_complete(&self) -> bool {
         dispatch_tracer!(self, tracer => tracer.is_complete())
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
+    pub fn get_type(&self) -> Option<&str> {
         dispatch_tracer!(self, tracer => tracer.get_type())
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
+    pub fn to_field(&self) -> Result<Field> {
         let path = dispatch_tracer!(self, tracer => &tracer.path);
         if let Some(overwrite) =
             dispatch_tracer!(self, tracer => tracer.options.get_overwrite(path))
@@ -168,7 +177,7 @@ impl Tracer {
 
     pub fn check(&self) -> Result<()> {
         if dispatch_tracer!(self, tracer => tracer.name != "$") {
-            fail!("check must be called on the root tracer");
+            fail!("Check must be called on the root tracer");
         }
         let options = self.get_options();
         self.check_overwrites(&options.overwrites)
@@ -264,7 +273,7 @@ impl Tracer {
 
         match self {
             this if matches!(this, Self::Unknown(_))
-                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == DataType::Null) =>
             {
                 let field_names = fields
                     .iter()
@@ -305,7 +314,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Struct(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types: previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -317,7 +326,7 @@ impl Tracer {
 
         match self {
             this if matches!(this, Self::Unknown(_))
-                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == DataType::Null) =>
             {
                 let tracer = dispatch_tracer!(this, tracer => TupleTracer {
                     name: tracer.name.clone(),
@@ -339,7 +348,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Tuple(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "Mismatched types, previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -351,7 +360,7 @@ impl Tracer {
 
         match self {
             this if matches!(this, Self::Unknown(_))
-                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == DataType::Null) =>
             {
                 let tracer = dispatch_tracer!(this, tracer => UnionTracer {
                     name: tracer.name.clone(),
@@ -377,7 +386,7 @@ impl Tracer {
             // TODO: check fields are equal or fill missing fields
             Self::Union(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current union",
+                "Mismatched types: previous {:?}, current union",
                 self.get_type()
             ),
         }
@@ -389,7 +398,7 @@ impl Tracer {
 
         match self {
             this if matches!(this, Self::Unknown(_))
-                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == DataType::Null) =>
             {
                 let tracer = dispatch_tracer!(this, tracer => ListTracer {
                     name: tracer.name.clone(),
@@ -406,7 +415,7 @@ impl Tracer {
             }
             Self::List(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -418,7 +427,7 @@ impl Tracer {
 
         match self {
             this if matches!(this, Self::Unknown(_))
-                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == GenericDataType::Null) =>
+                || matches!(this, Self::Primitive(ref tracer) if tracer.item_type == DataType::Null) =>
             {
                 let tracer = dispatch_tracer!(this, tracer => MapTracer {
                     name: tracer.name.clone(),
@@ -440,37 +449,33 @@ impl Tracer {
             }
             Self::Map(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current list",
+                "Mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
         Ok(())
     }
 
-    pub fn ensure_utf8(
-        &mut self,
-        item_type: GenericDataType,
-        strategy: Option<Strategy>,
-    ) -> Result<()> {
+    pub fn ensure_utf8(&mut self, item_type: DataType, strategy: Option<Strategy>) -> Result<()> {
         self.ensure_primitive_with_strategy(item_type, strategy)
     }
 
-    pub fn ensure_primitive(&mut self, item_type: GenericDataType) -> Result<()> {
+    pub fn ensure_primitive(&mut self, item_type: DataType) -> Result<()> {
         self.ensure_primitive_with_strategy(item_type, None)
     }
 
-    pub fn ensure_number(&mut self, item_type: GenericDataType) -> Result<()> {
+    pub fn ensure_number(&mut self, item_type: DataType) -> Result<()> {
         self.ensure_primitive_with_strategy(item_type, None)
     }
 
     fn ensure_primitive_with_strategy(
         &mut self,
-        item_type: GenericDataType,
+        item_type: DataType,
         strategy: Option<Strategy>,
     ) -> Result<()> {
         match self {
             this @ Self::Unknown(_) => {
-                let is_null_type = matches!(item_type, GenericDataType::Null);
+                let is_null_type = matches!(item_type, DataType::Null);
                 let tracer = dispatch_tracer!(this, tracer => PrimitiveTracer {
                     name: tracer.name.clone(),
                     path: tracer.path.clone(),
@@ -486,10 +491,13 @@ impl Tracer {
             | Self::Struct(_)
             | Self::Tuple(_)
             | Self::Union(_)) => {
-                if matches!(item_type, GenericDataType::Null) {
+                if matches!(item_type, DataType::Null) {
                     dispatch_tracer!(this, tracer => { tracer.nullable = true });
                 } else {
-                    fail!("Cannot merge {ty:?} with {item_type}", ty = this.get_type());
+                    fail!(
+                        "Cannot merge {ty:?} with {item_type:?}",
+                        ty = this.get_type()
+                    );
                 }
             }
             Self::Primitive(tracer) => {
@@ -508,40 +516,115 @@ impl Tracer {
     }
 }
 
+impl Context for Tracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        dispatch_tracer!(self, tracer => tracer.annotate(annotations))
+    }
+}
+
 fn coerce_primitive_type(
-    prev: (&GenericDataType, bool, Option<&Strategy>),
-    curr: (GenericDataType, Option<Strategy>),
+    prev: (&DataType, bool, Option<&Strategy>),
+    curr: (DataType, Option<Strategy>),
     options: &TracingOptions,
-) -> Result<(GenericDataType, bool, Option<Strategy>)> {
-    use GenericDataType::{
-        Date64, LargeUtf8, Null, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8,
+) -> Result<(DataType, bool, Option<Strategy>)> {
+    use DataType::{
+        Date64, Float32, Float64, Int16, Int32, Int64, Int8, LargeUtf8, Null, UInt16, UInt32,
+        UInt64, UInt8,
     };
 
     let res = match (prev, curr) {
-        ((prev_ty, nullable, prev_st), (curr_ty, curr_st)) if prev_ty == &curr_ty && prev_st == curr_st.as_ref() => (curr_ty, nullable, curr_st),
+        ((prev_ty, nullable, prev_st), (curr_ty, curr_st))
+            if prev_ty == &curr_ty && prev_st == curr_st.as_ref() =>
+        {
+            (curr_ty, nullable, curr_st)
+        }
         ((Null, _, _), (curr_ty, curr_st)) => (curr_ty, true, curr_st),
         ((prev_ty, _, prev_st), (Null, _)) => (prev_ty.clone(), true, prev_st.cloned()),
         // unsigned x unsigned -> u64
-        ((U8 | U16 | U32 | U64, nullable, _), (U8 | U16 | U32 | U64, _,)) if options.coerce_numbers => (U64, nullable, None),
+        (
+            (UInt8 | UInt16 | UInt32 | UInt64, nullable, _),
+            (UInt8 | UInt16 | UInt32 | UInt64, _),
+        ) if options.coerce_numbers => (UInt64, nullable, None),
         // signed x signed -> i64
-        ((I8 | I16 | I32 | I64, nullable, _), (I8 | I16 | I32 | I64, _)) if options.coerce_numbers => (I64, nullable, None),
+        ((Int8 | Int16 | Int32 | Int64, nullable, _), (Int8 | Int16 | Int32 | Int64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // signed x unsigned -> i64
-        ((I8 | I16 | I32 | I64, nullable, _), (U8 | U16 | U32 | U64, _)) if options.coerce_numbers => (I64, nullable, None),
+        ((Int8 | Int16 | Int32 | Int64, nullable, _), (UInt8 | UInt16 | UInt32 | UInt64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // unsigned x signed -> i64
-        ((U8 | U16 | U32 | U64, nullable, _), (I8 | I16 | I32 | I64, _)) if options.coerce_numbers => (I64, nullable, None),
+        ((UInt8 | UInt16 | UInt32 | UInt64, nullable, _), (Int8 | Int16 | Int32 | Int64, _))
+            if options.coerce_numbers =>
+        {
+            (Int64, nullable, None)
+        }
         // float x float -> f64
-        ((F32 | F64, nullable, _), (F32 | F64, _)) if options.coerce_numbers=> (F64, nullable, None),
+        ((Float32 | Float64, nullable, _), (Float32 | Float64, _)) if options.coerce_numbers => {
+            (Float64, nullable, None)
+        }
         // int x float -> f64
-        ((I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, nullable, _), (F32 | F64, _)) if options.coerce_numbers => (F64, nullable, None),
+        (
+            (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, nullable, _),
+            (Float32 | Float64, _),
+        ) if options.coerce_numbers => (Float64, nullable, None),
         // float x int -> f64
-        ((F32 | F64, nullable, _), (I8 | I16 | I32 | I64 | U8 | U16 | U32 | U64, _)) if options.coerce_numbers => (F64, nullable, None),
+        (
+            (Float32 | Float64, nullable, _),
+            (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, _),
+        ) if options.coerce_numbers => (Float64, nullable, None),
         // incompatible formats, coerce to string
         ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
-        ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => (LargeUtf8, nullable, None),
-        ((prev_ty, _, prev_st), (curr_ty, curr_st)) => fail!("Cannot accept event {curr_ty} with strategy {curr_st:?} for tracer of primitive type {prev_ty} with strategy {prev_st:?}"),
+        ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => {
+            (LargeUtf8, nullable, None)
+        }
+        ((prev_ty, _, prev_st), (curr_ty, curr_st)) => {
+            let extra = if is_numeric(prev_ty) && is_numeric(&curr_ty) {
+                ": consider setting `coerce_numbers` to `true` to coerce different numeric types."
+            } else {
+                ""
+            };
+            fail!(
+                "Cannot accept {curr_ty:?} {curr_st} for tracer of primitive type {prev_ty:?} {prev_st}{extra}",
+                curr_st = OptionalStrategyDisplay(curr_st.as_ref()),
+                prev_st = OptionalStrategyDisplay(prev_st),
+            )
+        }
     };
     Ok(res)
+}
+
+struct OptionalStrategyDisplay<'a>(Option<&'a Strategy>);
+
+impl<'a> std::fmt::Display for OptionalStrategyDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            None => Ok(()),
+            Some(strategy) => write!(f, " with strategy {strategy}"),
+        }
+    }
+}
+
+fn is_numeric(dt: &DataType) -> bool {
+    matches!(
+        dt,
+        DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float16
+            | DataType::Float32
+            | DataType::Float64
+    )
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -550,6 +633,13 @@ pub struct UnknownTracer {
     pub path: String,
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
+}
+
+impl Context for UnknownTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Unknown");
+    }
 }
 
 impl UnknownTracer {
@@ -562,15 +652,16 @@ impl UnknownTracer {
         }
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
+    pub fn to_field(&self) -> Result<Field> {
         if !self.options.allow_null_fields {
             fail!("{}", NullFieldMessage(&self.name));
         }
-        Ok(GenericField::new(
-            &self.name,
-            GenericDataType::Null,
-            self.nullable,
-        ))
+        Ok(Field {
+            name: self.name.to_owned(),
+            data_type: DataType::Null,
+            nullable: self.nullable,
+            metadata: HashMap::new(),
+        })
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -585,7 +676,7 @@ impl UnknownTracer {
         false
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
+    pub fn get_type(&self) -> Option<&str> {
         None
     }
 }
@@ -600,6 +691,13 @@ pub struct MapTracer {
     pub value_tracer: Box<Tracer>,
 }
 
+impl Context for MapTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Map");
+    }
+}
+
 impl MapTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -609,19 +707,27 @@ impl MapTracer {
         self.key_tracer.is_complete() && self.value_tracer.is_complete()
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&GenericDataType::Map)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("Map")
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
-        let mut entries = GenericField::new("entries", GenericDataType::Struct, false);
-        entries.children.push(self.key_tracer.to_field()?);
-        entries.children.push(self.value_tracer.to_field()?);
+    pub fn to_field(&self) -> Result<Field> {
+        let entry = Field {
+            name: String::from("entries"),
+            nullable: false,
+            metadata: HashMap::new(),
+            data_type: DataType::Struct(vec![
+                self.key_tracer.to_field()?,
+                self.value_tracer.to_field()?,
+            ]),
+        };
 
-        let mut field = GenericField::new(&self.name, GenericDataType::Map, self.nullable);
-        field.children.push(entries);
-
-        Ok(field)
+        Ok(Field {
+            name: self.name.to_owned(),
+            data_type: DataType::Map(Box::new(entry), false),
+            nullable: self.nullable,
+            metadata: HashMap::new(),
+        })
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -640,6 +746,13 @@ pub struct ListTracer {
     pub item_tracer: Box<Tracer>,
 }
 
+impl Context for ListTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "List");
+    }
+}
+
 impl ListTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -649,15 +762,17 @@ impl ListTracer {
         self.item_tracer.is_complete()
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&GenericDataType::LargeList)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("List")
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
-        let mut field = GenericField::new(&self.name, GenericDataType::LargeList, self.nullable);
-        field.children.push(self.item_tracer.to_field()?);
-
-        Ok(field)
+    pub fn to_field(&self) -> Result<Field> {
+        Ok(Field {
+            name: self.name.to_owned(),
+            nullable: self.nullable,
+            metadata: HashMap::new(),
+            data_type: DataType::LargeList(Box::new(self.item_tracer.to_field()?)),
+        })
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -674,6 +789,13 @@ pub struct TupleTracer {
     pub field_tracers: Vec<Tracer>,
 }
 
+impl Context for TupleTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Tuple");
+    }
+}
+
 impl TupleTracer {
     pub fn get_path(&self) -> &str {
         &self.path
@@ -683,17 +805,28 @@ impl TupleTracer {
         self.field_tracers.iter().all(|tracer| tracer.is_complete())
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
-        let mut field = GenericField::new(&self.name, GenericDataType::Struct, self.nullable);
+    pub fn to_field(&self) -> Result<Field> {
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            STRATEGY_KEY.to_string(),
+            Strategy::TupleAsStruct.to_string(),
+        );
+
+        let mut fields = Vec::new();
         for tracer in &self.field_tracers {
-            field.children.push(tracer.to_field()?);
+            fields.push(tracer.to_field()?);
         }
-        field.strategy = Some(Strategy::TupleAsStruct);
-        Ok(field)
+
+        Ok(Field {
+            name: self.name.to_owned(),
+            data_type: DataType::Struct(fields),
+            nullable: self.nullable,
+            metadata,
+        })
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&GenericDataType::Struct)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("Struct")
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -741,6 +874,13 @@ pub enum StructMode {
     Map,
 }
 
+impl Context for StructTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Struct");
+    }
+}
+
 impl StructTracer {
     pub fn get_field_tracer_mut(&mut self, idx: usize) -> Option<&mut Tracer> {
         Some(&mut self.fields.get_mut(idx)?.tracer)
@@ -749,7 +889,7 @@ impl StructTracer {
     pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
         if let Some(&field_idx) = self.index.get(key) {
             let Some(field) = self.fields.get_mut(field_idx) else {
-                fail!("invalid state");
+                fail!("Invalid state: no tracer found for field with name {key}");
             };
             field.last_seen_in_sample = self.seen_samples;
 
@@ -796,21 +936,28 @@ impl StructTracer {
         self.fields.iter().all(|field| field.tracer.is_complete())
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
-        let mut res_field = GenericField::new(&self.name, GenericDataType::Struct, self.nullable);
+    pub fn to_field(&self) -> Result<Field> {
+        let mut fields = Vec::new();
         for field in &self.fields {
-            res_field.children.push(field.tracer.to_field()?);
+            fields.push(field.tracer.to_field()?);
         }
 
+        let mut metadata = HashMap::new();
         if let StructMode::Map = self.mode {
-            res_field.children.sort_by(|a, b| a.name.cmp(&b.name));
-            res_field.strategy = Some(Strategy::MapAsStruct);
+            fields.sort_by(|a, b| a.name.cmp(&b.name));
+            metadata.insert(STRATEGY_KEY.to_string(), Strategy::MapAsStruct.to_string());
         }
-        Ok(res_field)
+
+        Ok(Field {
+            name: self.name.to_owned(),
+            data_type: DataType::Struct(fields),
+            nullable: self.nullable,
+            metadata,
+        })
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&GenericDataType::Struct)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("Struct")
     }
 
     pub fn finish(&mut self) -> Result<()> {
@@ -839,8 +986,18 @@ pub struct UnionVariant {
 
 impl UnionVariant {
     fn is_null_variant(&self) -> bool {
-        // Note: unknown tracers are treated as Null tracers
-        matches!(self.tracer.get_type(), None | Some(GenericDataType::Null))
+        match &self.tracer {
+            Tracer::Unknown(_) => true,
+            Tracer::Primitive(tracer) if matches!(tracer.item_type, DataType::Null) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Context for UnionTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Union");
     }
 }
 
@@ -887,11 +1044,11 @@ impl UnionTracer {
             .all(|variant| variant.tracer.is_complete())
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&GenericDataType::Union)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("Union")
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
+    pub fn to_field(&self) -> Result<Field> {
         if self.is_without_data() {
             if self.options.enums_without_data_as_strings {
                 return Ok(default_dictionary_field(&self.name, self.nullable));
@@ -901,19 +1058,21 @@ impl UnionTracer {
             }
         }
 
-        let mut field = GenericField::new(&self.name, GenericDataType::Union, self.nullable);
-        for variant in &self.variants {
+        let mut fields = Vec::new();
+        for (idx, variant) in self.variants.iter().enumerate() {
             if let Some(variant) = variant {
-                field.children.push(variant.tracer.to_field()?);
+                fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
             } else {
-                field.children.push(
-                    GenericField::new("", GenericDataType::Null, true)
-                        .with_strategy(Strategy::UnknownVariant),
-                );
+                fields.push((i8::try_from(idx)?, unknown_variant_field()));
             };
         }
 
-        Ok(field)
+        Ok(Field {
+            name: self.name.to_owned(),
+            data_type: DataType::Union(fields, UnionMode::Dense),
+            nullable: self.nullable,
+            metadata: HashMap::new(),
+        })
     }
 
     pub fn is_without_data(&self) -> bool {
@@ -944,54 +1103,59 @@ pub struct PrimitiveTracer {
     pub options: Arc<TracingOptions>,
     pub nullable: bool,
     pub strategy: Option<Strategy>,
-    pub item_type: GenericDataType,
+    pub item_type: DataType,
+}
+
+impl Context for PrimitiveTracer {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "path", &self.path);
+        set_default(annotations, "tracer_type", "Primitive");
+    }
 }
 
 impl PrimitiveTracer {
-    pub fn new(
-        name: String,
-        path: String,
-        options: Arc<TracingOptions>,
-        item_type: GenericDataType,
-        nullable: bool,
-    ) -> Self {
-        Self {
-            name,
-            path,
-            options,
-            item_type,
-            nullable,
-            strategy: None,
-        }
-    }
-
-    pub fn with_strategy(mut self, strategy: Option<Strategy>) -> Self {
-        self.strategy = strategy;
-        self
-    }
-
     pub fn finish(&mut self) -> Result<()> {
         Ok(())
     }
 
-    pub fn to_field(&self) -> Result<GenericField> {
-        type D = GenericDataType;
+    pub fn to_field(&self) -> Result<Field> {
+        type D = DataType;
 
         if !self.options.allow_null_fields && matches!(self.item_type, D::Null) {
             fail!("{}", NullFieldMessage(&self.name));
         }
 
         match &self.item_type {
-            D::Null => Ok(GenericField::new(&self.name, D::Null, true)),
+            D::Null => Ok(Field {
+                name: self.name.to_owned(),
+                data_type: DataType::Null,
+                nullable: true,
+                metadata: HashMap::new(),
+            }),
             dt @ (D::LargeUtf8 | D::Utf8) => {
                 if !self.options.string_dictionary_encoding {
-                    Ok(GenericField::new(&self.name, dt.clone(), self.nullable))
+                    Ok(Field {
+                        name: self.name.to_owned(),
+                        data_type: dt.clone(),
+                        nullable: self.nullable,
+                        metadata: HashMap::new(),
+                    })
                 } else {
                     Ok(default_dictionary_field(&self.name, self.nullable))
                 }
             }
-            dt => Ok(GenericField::new(&self.name, dt.clone(), self.nullable)
-                .with_optional_strategy(self.strategy.clone())),
+            dt => {
+                let mut metadata = HashMap::new();
+                if let Some(strategy) = self.strategy.as_ref() {
+                    metadata.insert(STRATEGY_KEY.to_string(), strategy.to_string());
+                }
+                Ok(Field {
+                    name: self.name.to_owned(),
+                    data_type: dt.clone(),
+                    nullable: self.nullable,
+                    metadata,
+                })
+            }
         }
     }
 }
@@ -1005,7 +1169,7 @@ impl PrimitiveTracer {
         true
     }
 
-    pub fn get_type(&self) -> Option<&GenericDataType> {
-        Some(&self.item_type)
+    pub fn get_type(&self) -> Option<&str> {
+        Some("Primitive")
     }
 }

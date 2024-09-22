@@ -1,70 +1,80 @@
+use std::collections::BTreeMap;
+
 use chrono::{NaiveDate, NaiveDateTime};
 
-use crate::internal::{error::Result, schema::GenericField};
+use crate::internal::{
+    arrow::{Array, PrimitiveArray},
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+};
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date32Builder {
-    pub field: GenericField,
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<i32>,
+    path: String,
+    array: PrimitiveArray<i32>,
 }
 
 impl Date32Builder {
-    pub fn new(field: GenericField, nullable: bool) -> Self {
+    pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
-            field,
-            validity: nullable.then(MutableBitBuffer::default),
-            buffer: Vec::new(),
+            path,
+            array: new_primitive_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
-            field: self.field.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Date32(Self {
+            path: self.path.clone(),
+            array: self.array.take(),
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Date32(self.array))
+    }
+
+    fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<i32> {
+        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+
+        let date = s.parse::<NaiveDate>()?;
+        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
+        let days_since_epoch = duration_since_epoch.num_days().try_into()?;
+
+        Ok(days_since_epoch)
+    }
+}
+
+impl Context for Date32Builder {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Date32");
     }
 }
 
 impl SimpleSerializer for Date32Builder {
-    fn name(&self) -> &str {
-        "Date32Builder"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(0);
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0);
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
-
-        let date = v.parse::<NaiveDate>()?;
-        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH);
-        let days_since_epoch = duration_since_epoch.num_days().try_into()?;
-
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(days_since_epoch);
-        Ok(())
+        try_(|| {
+            let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
+            self.array.push_scalar_value(days_since_epoch)
+        })
+        .ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
-        Ok(())
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }

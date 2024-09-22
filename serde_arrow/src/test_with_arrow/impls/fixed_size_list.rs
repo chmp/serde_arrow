@@ -3,7 +3,7 @@ use serde_json::json;
 use super::utils::Test;
 
 use crate::_impl::arrow::datatypes::FieldRef;
-use crate::internal::testing::assert_error;
+use crate::internal::testing::assert_error_contains;
 use crate::internal::utils::Item;
 use crate::schema::SchemaLike;
 
@@ -12,7 +12,6 @@ fn example() {
     let items = [Item(vec![0_u8, 1]), Item(vec![2, 3]), Item(vec![4, 5])];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",
@@ -27,7 +26,6 @@ fn example_nullable_no_nulls() {
     let items = [Item(vec![0_u16, 1]), Item(vec![2, 3]), Item(vec![4, 5])];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",
@@ -48,7 +46,6 @@ fn example_nullable_with_nulls() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{
             "name": "item",
             "data_type": "FixedSizeList(2)",
@@ -72,7 +69,7 @@ fn incorrect_number_of_elements() {
     .unwrap();
 
     let res = crate::to_record_batch(&fields, &items);
-    assert_error(&res, "Invalid number of elements for FixedSizedList(2).");
+    assert_error_contains(&res, "Invalid number of elements for FixedSizedList(2).");
 }
 
 #[test]

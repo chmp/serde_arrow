@@ -1,5 +1,30 @@
 # Change log
 
+## 0.12.0
+
+Refactor the underlying implementation to prepare for further development
+
+New features
+
+- Add `Binary`, `LargeBinary`, `FixedSizeBinary(n)`, `FixedSizeList(n)` support for `arrow2`
+- Add support to serialize / deserialize `bool` from integer arrays
+- Add a helper to construct `Bool8` arrays
+- Include the path of the field that caused an error in the error message
+- Include backtrace information only for the debug representations of errors
+
+API changes
+
+- Use `impl serde::Serialize` instead of `&(impl serde::Serialize + ?Sized)`
+- Use `&[FieldRef]` instead of `&[Field]` in arrow APIs
+
+Removed deprecated API
+
+- Remove `serde_arrow::schema::Schema`
+- Remove `serde_arrow::ArrowBuilder` and `serde_arrow::Arrow2Builder`
+- Remove `from_arrow_fields` / `to_arrow_fields` for `SerdeArrowSchema`, use the
+  `TryFrom` conversions to convert between fields and `SerdeArrowSchema`
+- Remove `SerdeArrowSchema::new()`, `Overwrites::new()`
+
 ## 0.11.8
 
 - Add `arrow=53` support

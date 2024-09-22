@@ -2,19 +2,20 @@
 #[cfg(test)]
 mod test_error_messages;
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde::{
     de::{DeserializeSeed, Visitor},
     Deserialize, Deserializer,
 };
 
-use crate::internal::error::{fail, Error, Result};
-
-use super::{
-    tracer::{StructField, StructMode, Tracer},
-    GenericDataType, TracingMode, TracingOptions,
+use crate::internal::{
+    arrow::DataType,
+    error::{fail, try_, Context, ContextSupport, Error, Result},
+    schema::{TracingMode, TracingOptions},
 };
+
+use super::tracer::{StructField, StructMode, Tracer};
 
 impl Tracer {
     pub fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
@@ -45,11 +46,19 @@ impl Tracer {
 
 struct TraceAny<'a>(&'a mut Tracer);
 
+impl<'a> Context for TraceAny<'a> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        self.0.annotate(annotations)
+    }
+}
+
 impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
-        fail!(concat!(
+        fail!(
+            in self,
+            concat!(
             "Non self describing types cannot be traced with `from_type`. ",
             "Consider using `from_samples`. ",
             "One example is `serde_json::Value`. ",
@@ -58,93 +67,147 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Bool)?;
-        visitor.visit_bool(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Boolean)?;
+            visitor.visit_bool(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I8)?;
-        visitor.visit_i8(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Int8)?;
+            visitor.visit_i8(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I16)?;
-        visitor.visit_i16(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Int16)?;
+            visitor.visit_i16(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I32)?;
-        visitor.visit_i32(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Int32)?;
+            visitor.visit_i32(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::I64)?;
-        visitor.visit_i64(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Int64)?;
+            visitor.visit_i64(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U8)?;
-        visitor.visit_u8(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::UInt8)?;
+            visitor.visit_u8(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U16)?;
-        visitor.visit_u16(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::UInt16)?;
+            visitor.visit_u16(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U32)?;
-        visitor.visit_u32(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::UInt32)?;
+            visitor.visit_u32(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U64)?;
-        visitor.visit_u64(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::UInt64)?;
+            visitor.visit_u64(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::F32)?;
-        visitor.visit_f32(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Float32)?;
+            visitor.visit_f32(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::F64)?;
-        visitor.visit_f64(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::Float64)?;
+            visitor.visit_f64(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::U32)?;
-        visitor.visit_char(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::UInt32)?;
+            visitor.visit_char(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
-        visitor.visit_borrowed_str("")
+        try_(|| {
+            self.0.ensure_utf8(DataType::LargeUtf8, None)?;
+            visitor.visit_borrowed_str("")
+        })
+        .ctx(&self)
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_utf8(GenericDataType::LargeUtf8, None)?;
-        visitor.visit_string(Default::default())
+        try_(|| {
+            self.0.ensure_utf8(DataType::LargeUtf8, None)?;
+            visitor.visit_string(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
-        visitor.visit_borrowed_bytes(&[])
+        try_(|| {
+            self.0.ensure_primitive(DataType::LargeBinary)?;
+            visitor.visit_borrowed_bytes(&[])
+        })
+        .ctx(&self)
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::LargeBinary)?;
-        visitor.visit_byte_buf(Default::default())
+        try_(|| {
+            self.0.ensure_primitive(DataType::LargeBinary)?;
+            visitor.visit_byte_buf(Default::default())
+        })
+        .ctx(&self)
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.mark_nullable();
-        visitor.visit_some(self)
+        try_(|| {
+            self.0.mark_nullable();
+            visitor.visit_some(TraceAny(&mut *self.0))
+        })
+        .ctx(&self)
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Null)?;
-        visitor.visit_unit()
+        try_(|| {
+            self.0.ensure_primitive(DataType::Null)?;
+            visitor.visit_unit()
+        })
+        .ctx(&self)
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(
@@ -152,8 +215,11 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         _name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        self.0.ensure_primitive(GenericDataType::Null)?;
-        visitor.visit_unit()
+        try_(|| {
+            self.0.ensure_primitive(DataType::Null)?;
+            visitor.visit_unit()
+        })
+        .ctx(&self)
     }
 
     fn deserialize_newtype_struct<V: Visitor<'de>>(
@@ -161,28 +227,34 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         _name: &'static str,
         visitor: V,
     ) -> Result<V::Value> {
-        visitor.visit_newtype_struct(self)
+        try_(|| visitor.visit_newtype_struct(TraceAny(&mut *self.0))).ctx(&self)
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.0.ensure_list()?;
-        let Tracer::List(tracer) = self.0 else {
-            unreachable!()
-        };
+        try_(|| {
+            self.0.ensure_list()?;
+            let Tracer::List(tracer) = self.0 else {
+                unreachable!()
+            };
 
-        visitor.visit_seq(TraceSeq(&mut tracer.item_tracer, true))
+            visitor.visit_seq(TraceSeq(&mut tracer.item_tracer, true))
+        })
+        .ctx(&self)
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
-        self.0.ensure_tuple(len)?;
-        let Tracer::Tuple(tracer) = self.0 else {
-            unreachable!();
-        };
+        try_(|| {
+            self.0.ensure_tuple(len)?;
+            let Tracer::Tuple(tracer) = self.0 else {
+                unreachable!();
+            };
 
-        visitor.visit_seq(TraceTupleStruct {
-            tracers: &mut tracer.field_tracers,
-            pos: 0,
+            visitor.visit_seq(TraceTupleStruct {
+                tracers: &mut tracer.field_tracers,
+                pos: 0,
+            })
         })
+        .ctx(&self)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
@@ -191,27 +263,30 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         len: usize,
         visitor: V,
     ) -> Result<V::Value> {
-        self.deserialize_tuple(len, visitor)
+        try_(|| TraceAny(&mut *self.0).deserialize_tuple(len, visitor)).ctx(&self)
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        if self.0.get_options().map_as_struct {
-            fail!(concat!(
-                "Cannot trace maps as structs with `from_type`. ",
-                "The struct fields cannot be known from the type alone.",
-                "Consider using `from_samples`. ",
-            ));
-        }
+        try_(|| {
+            if self.0.get_options().map_as_struct {
+                fail!(concat!(
+                    "Cannot trace maps as structs with `from_type`. ",
+                    "The struct fields cannot be known from the type alone.",
+                    "Consider using `from_samples`. ",
+                ));
+            }
 
-        self.0.ensure_map()?;
-        let Tracer::Map(tracer) = self.0 else {
-            unreachable!()
-        };
-        visitor.visit_map(TraceMap {
-            key_tracer: &mut tracer.key_tracer,
-            value_tracer: &mut tracer.value_tracer,
-            active: true,
+            self.0.ensure_map()?;
+            let Tracer::Map(tracer) = self.0 else {
+                unreachable!()
+            };
+            visitor.visit_map(TraceMap {
+                key_tracer: &mut tracer.key_tracer,
+                value_tracer: &mut tracer.value_tracer,
+                active: true,
+            })
         })
+        .ctx(&self)
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -220,16 +295,19 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.0.ensure_struct(fields, StructMode::Struct)?;
-        let Tracer::Struct(tracer) = self.0 else {
-            unreachable!()
-        };
+        try_(|| {
+            self.0.ensure_struct(fields, StructMode::Struct)?;
+            let Tracer::Struct(tracer) = self.0 else {
+                unreachable!()
+            };
 
-        visitor.visit_map(TraceStruct {
-            fields: &mut tracer.fields,
-            pos: 0,
-            names: fields,
+            visitor.visit_map(TraceStruct {
+                fields: &mut tracer.fields,
+                pos: 0,
+                names: fields,
+            })
         })
+        .ctx(&self)
     }
 
     fn deserialize_enum<V: Visitor<'de>>(
@@ -238,39 +316,45 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
         variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.0.ensure_union(variants)?;
-        let Tracer::Union(tracer) = self.0 else {
-            unreachable!();
-        };
+        try_(|| {
+            self.0.ensure_union(variants)?;
+            let Tracer::Union(tracer) = self.0 else {
+                unreachable!();
+            };
 
-        let idx = tracer
-            .variants
-            .iter()
-            .position(|opt| !opt.as_ref().unwrap().tracer.is_complete())
-            .unwrap_or_default();
-        if idx >= tracer.variants.len() {
-            fail!("invalid variant index");
-        }
+            let idx = tracer
+                .variants
+                .iter()
+                .position(|opt| !opt.as_ref().unwrap().tracer.is_complete())
+                .unwrap_or_default();
+            if idx >= tracer.variants.len() {
+                fail!("Invalid variant index");
+            }
 
-        let Some(variant) = tracer.variants[idx].as_mut() else {
-            fail!("invalid state");
-        };
+            let Some(variant) = tracer.variants[idx].as_mut() else {
+                fail!("Invalid state");
+            };
 
-        let res = visitor.visit_enum(TraceEnum {
-            tracer: &mut variant.tracer,
-            pos: idx,
-            variant: &variant.name,
-        })?;
-        Ok(res)
+            let res = visitor.visit_enum(TraceEnum {
+                tracer: &mut variant.tracer,
+                pos: idx,
+                variant: &variant.name,
+            })?;
+            Ok(res)
+        })
+        .ctx(&self)
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        self.deserialize_str(visitor)
+        try_(|| TraceAny(&mut *self.0).deserialize_str(visitor)).ctx(&self)
     }
 
     fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        // TODO: is this correct?
-        visitor.visit_unit()
+        try_(|| {
+            // TODO: is this correct?
+            visitor.visit_unit()
+        })
+        .ctx(&self)
     }
 }
 

@@ -1,64 +1,88 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
-    error::{fail, Result},
-    utils::Offset,
+    arrow::{Array, BytesArray},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    utils::{
+        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
+        NamedType, Offset,
+    },
 };
 
-use super::utils::{
-    push_validity, push_validity_default, MutableBitBuffer, MutableOffsetBuffer, SimpleSerializer,
-};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<O> {
-    pub validity: Option<MutableBitBuffer>,
-    pub offsets: MutableOffsetBuffer<O>,
-    pub buffer: Vec<u8>,
+    path: String,
+    array: BytesArray<O>,
 }
 
 impl<O: Offset> Utf8Builder<O> {
-    pub fn new(is_nullable: bool) -> Self {
+    pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
-            offsets: MutableOffsetBuffer::default(),
-            buffer: Vec::new(),
+            path,
+            array: new_bytes_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
-            validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::take(&mut self.offsets),
-            buffer: std::mem::take(&mut self.buffer),
+            path: self.path.clone(),
+            array: self.array.take(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
     }
 }
 
-impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
-    fn name(&self) -> &str {
-        "Utf8Builder"
+impl Utf8Builder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Utf8(self.take_self())
     }
 
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Utf8(self.array))
+    }
+}
+
+impl Utf8Builder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::LargeUtf8(self.take_self())
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::LargeUtf8(self.array))
+    }
+}
+
+impl<O: NamedType> Context for Utf8Builder<O> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if O::NAME == "i32" {
+                "Utf8"
+            } else {
+                "LargeUtf8"
+            },
+        );
+    }
+}
+
+impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.offsets.push_current_items();
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.offsets.push_current_items();
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.offsets.push(v.len())?;
-        self.buffer.extend(v.as_bytes());
-
-        Ok(())
+        try_(|| self.array.push_scalar_value(v.as_bytes())).ctx(self)
     }
 
     fn serialize_unit_variant(
@@ -67,7 +91,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: u32,
         variant: &'static str,
     ) -> Result<()> {
-        self.serialize_str(variant)
+        try_(|| self.array.push_scalar_value(variant.as_bytes())).ctx(self)
     }
 
     fn serialize_tuple_variant_start<'this>(
@@ -77,7 +101,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant_start<'this>(
@@ -87,7 +111,7 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: usize,
     ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -97,6 +121,6 @@ impl<O: Offset> SimpleSerializer for Utf8Builder<O> {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!(in self, "Cannot serialize enum with data as string");
     }
 }

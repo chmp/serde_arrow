@@ -16,7 +16,7 @@ pub struct Arrays {
 
 #[derive(Default)]
 pub struct Fields {
-    pub arrow: Option<Vec<arrow::datatypes::Field>>,
+    pub arrow: Option<Vec<arrow::datatypes::FieldRef>>,
     pub arrow2: Option<Vec<arrow2::datatypes::Field>>,
 }
 
@@ -34,19 +34,6 @@ impl std::default::Default for Impls {
             arrow: !skip_arrow_tests,
             arrow2: !skip_arrow2_tests,
         }
-    }
-}
-
-pub trait ResultAsserts {
-    fn assert_error(&self, message: &str);
-}
-
-impl<T> ResultAsserts for Result<T> {
-    fn assert_error(&self, message: &str) {
-        let Err(err) = self else {
-            panic!("Expected error");
-        };
-        assert!(err.to_string().contains(message), "unexpected error: {err}");
     }
 }
 
@@ -77,11 +64,10 @@ impl Test {
 }
 
 impl Test {
-    pub fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::Field>> {
+    pub fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::FieldRef>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
-                schema
-                    .to_arrow_fields()
+                Vec::<arrow::datatypes::FieldRef>::try_from(schema)
                     .expect("Cannot covert schema to arrow fields"),
             ),
             None => Cow::Borrowed(
@@ -96,8 +82,7 @@ impl Test {
     pub fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
         match self.schema.as_ref() {
             Some(schema) => Cow::Owned(
-                schema
-                    .to_arrow2_fields()
+                Vec::<arrow2::datatypes::Field>::try_from(schema)
                     .expect("Cannot covert schema to arrow fields"),
             ),
             None => Cow::Borrowed(
@@ -146,10 +131,6 @@ impl Test {
 
     pub fn try_serialize_arrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
         let fields = self.get_arrow_fields().to_vec();
-        let field_refs = fields
-            .iter()
-            .map(|f| Arc::new(f.clone()))
-            .collect::<Vec<_>>();
         let arrays = crate::to_arrow(&fields, items)?;
 
         assert_eq!(fields.len(), arrays.len());
@@ -168,10 +149,15 @@ impl Test {
 
         self.arrays.arrow = Some(arrays);
 
-        let mut builder = crate::ArrayBuilder::from_arrow(&field_refs)?;
+        let mut builder = crate::ArrayBuilder::from_arrow(&fields)?;
         builder.extend(items)?;
         let arrays = builder.to_arrow()?;
-        assert_eq!(self.arrays.arrow, Some(arrays));
+        assert_eq!(self.arrays.arrow.as_ref(), Some(&arrays));
+
+        assert_eq!(fields.len(), arrays.len());
+        for (field, array) in std::iter::zip(&fields, &arrays) {
+            assert_eq!(field.data_type(), array.data_type());
+        }
 
         Ok(())
     }
@@ -190,10 +176,12 @@ impl Test {
         let mut builder = crate::ArrayBuilder::from_arrow2(&fields)?;
         builder.extend(items)?;
         let arrays = builder.to_arrow2()?;
-        assert_eq!(self.arrays.arrow2, Some(arrays));
+        assert_eq!(self.arrays.arrow2.as_ref(), Some(&arrays));
 
-        // TODO: test that the result arrays has the fields as the schema
-
+        assert_eq!(fields.len(), arrays.len());
+        for (field, array) in std::iter::zip(&fields, &arrays) {
+            assert_eq!(field.data_type(), array.data_type());
+        }
         Ok(())
     }
 

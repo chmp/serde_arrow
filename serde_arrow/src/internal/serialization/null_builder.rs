@@ -1,33 +1,47 @@
-use crate::Result;
+use std::collections::BTreeMap;
 
-use super::utils::SimpleSerializer;
+use crate::internal::{
+    arrow::{Array, NullArray},
+    error::{set_default, Context, Result},
+};
 
-#[derive(Debug, Clone, Default)]
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+
+#[derive(Debug, Clone)]
 pub struct NullBuilder {
+    pub path: String,
     pub count: usize,
 }
 
 impl NullBuilder {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(path: String) -> Self {
+        Self { path, count: 0 }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Null(Self {
+            path: self.path.clone(),
             count: std::mem::take(&mut self.count),
-        }
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
         true
     }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Null(NullArray { len: self.count }))
+    }
+}
+
+impl Context for NullBuilder {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Null");
+    }
 }
 
 impl SimpleSerializer for NullBuilder {
-    fn name(&self) -> &str {
-        "NullBuilder"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
         self.count += 1;
         Ok(())

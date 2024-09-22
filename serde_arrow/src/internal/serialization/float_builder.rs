@@ -1,182 +1,201 @@
+use std::collections::BTreeMap;
+
 use half::f16;
 
-use crate::internal::{error::Result, utils::Mut};
+use crate::internal::{
+    arrow::{Array, PrimitiveArray},
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        Mut,
+    },
+};
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct FloatBuilder<I> {
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<I>,
+    path: String,
+    array: PrimitiveArray<I>,
 }
 
-impl<I> FloatBuilder<I> {
-    pub fn new(is_nullable: bool) -> Self {
+impl<F: Default + 'static> FloatBuilder<F> {
+    pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
-            validity: is_nullable.then(MutableBitBuffer::default),
-            buffer: Default::default(),
+            path,
+            array: new_primitive_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
+            path: self.path.clone(),
+            array: self.array.take(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
     }
+}
 
-    fn serialize_value(&mut self, value: I) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(value);
-        Ok(())
+macro_rules! impl_into_array {
+    ($ty:ty, $builder_var:ident, $array_var:ident) => {
+        impl FloatBuilder<$ty> {
+            pub fn take(&mut self) -> ArrayBuilder {
+                ArrayBuilder::$builder_var(self.take_self())
+            }
+
+            pub fn into_array(self) -> Result<Array> {
+                Ok(Array::$array_var(self.array))
+            }
+        }
+    };
+}
+
+impl_into_array!(f16, F16, Float16);
+impl_into_array!(f32, F32, Float32);
+impl_into_array!(f64, F64, Float64);
+
+impl Context for FloatBuilder<f16> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float16");
+    }
+}
+
+impl Context for FloatBuilder<f32> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float32");
+    }
+}
+
+impl Context for FloatBuilder<f64> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(annotations, "data_type", "Float64");
     }
 }
 
 impl SimpleSerializer for FloatBuilder<f32> {
-    fn name(&self) -> &str {
-        "FloatBuilder<f32>"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        self.buffer.push(0.0);
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0.0);
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_some<V: serde::Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(self))
+        try_(|| value.serialize(Mut(&mut *self))).ctx(self)
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.serialize_value(v)
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.serialize_value(v as f32)
+        try_(|| self.array.push_scalar_value(v as f32)).ctx(self)
     }
 }
 
 impl SimpleSerializer for FloatBuilder<f64> {
-    fn name(&self) -> &str {
-        "FloatBuilder<64>"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(0.0);
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0.0);
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.serialize_value(v as f64)
+        try_(|| self.array.push_scalar_value(v as f64)).ctx(self)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.serialize_value(v)
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }
 
 impl SimpleSerializer for FloatBuilder<f16> {
-    fn name(&self) -> &str {
-        "FloatBuilder<f16>"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(f16::ZERO);
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(f16::ZERO);
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        self.serialize_value(f16::from_f32(v))
+        try_(|| self.array.push_scalar_value(f16::from_f32(v))).ctx(self)
     }
 
     fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        self.serialize_value(f16::from_f64(v))
+        try_(|| self.array.push_scalar_value(f16::from_f64(v))).ctx(self)
     }
 }

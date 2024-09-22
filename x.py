@@ -36,7 +36,7 @@ workflow_test_template = {
     "on": {
         "workflow_dispatch": {},
         "pull_request": {
-            "branches": ["main"],
+            "branches": ["main", "develop-*"],
             "types": [
                 "opened",
                 "edited",
@@ -170,13 +170,13 @@ def format():
 
 
 @cmd(help="Run the linters")
-@arg("--fast", action="store_true")
-def check(fast=False):
+@arg("--all", action="store_true")
+def check(all=False):
     check_cargo_toml()
     _sh(f"cargo check --features {default_features}")
     _sh(f"cargo clippy --features {default_features}")
 
-    if not fast:
+    if all:
         for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
             _sh(f"cargo check --features {arrow2_feature}")
 
@@ -541,8 +541,8 @@ def add_arrow_version(version):
 
     for p in [
         self_path / "x.py",
-        *self_path.glob("serde_arrow/**/*.rs"),
-        *self_path.glob("serde_arrow/**/*.toml"),
+        *self_path.glob("*/**/*.rs"),
+        *self_path.glob("*/**/*.toml"),
     ]:
         content = p.read_text()
         if "arrow-version" not in content:

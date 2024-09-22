@@ -1,88 +1,128 @@
+use std::collections::BTreeMap;
+
 use crate::internal::{
-    error::{Error, Result},
-    schema::{GenericDataType, GenericField, GenericTimeUnit},
+    arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct Date64Builder {
-    pub field: GenericField,
+    path: String,
+    pub meta: Option<(TimeUnit, Option<String>)>,
     pub utc: bool,
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<i64>,
+    pub array: PrimitiveArray<i64>,
 }
 
 impl Date64Builder {
-    pub fn new(field: GenericField, utc: bool, nullable: bool) -> Self {
+    pub fn new(
+        path: String,
+        meta: Option<(TimeUnit, Option<String>)>,
+        utc: bool,
+        is_nullable: bool,
+    ) -> Self {
         Self {
-            field,
+            path,
+            meta,
             utc,
-            validity: nullable.then(MutableBitBuffer::default),
-            buffer: Vec::new(),
+            array: new_primitive_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
-        Self {
-            field: self.field.clone(),
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Date64(Self {
+            path: self.path.clone(),
+            meta: self.meta.clone(),
             utc: self.utc,
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
-        }
+            array: self.array.take(),
+        })
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        if let Some((unit, timezone)) = self.meta {
+            Ok(Array::Timestamp(TimestampArray {
+                unit,
+                timezone,
+                validity: self.array.validity,
+                values: self.array.values,
+            }))
+        } else {
+            Ok(Array::Date64(PrimitiveArray {
+                validity: self.array.validity,
+                values: self.array.values,
+            }))
+        }
+    }
+}
+
+impl Date64Builder {
+    fn parse_str_to_timestamp(&self, s: &str) -> Result<i64> {
+        use chrono::{DateTime, NaiveDateTime, Utc};
+
+        let date_time = if self.utc {
+            s.parse::<DateTime<Utc>>()?
+        } else {
+            s.parse::<NaiveDateTime>()?.and_utc()
+        };
+
+        match self.meta.as_ref() {
+            Some((TimeUnit::Nanosecond, _)) => match date_time.timestamp_nanos_opt() {
+                Some(timestamp) => Ok(timestamp),
+                _ => fail!(
+                    concat!(
+                        "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
+                        "The dates that can be represented as nanoseconds are between ",
+                        "1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.",
+                    ),
+                    date_time = date_time,
+                ),
+            },
+            Some((TimeUnit::Microsecond, _)) => Ok(date_time.timestamp_micros()),
+            Some((TimeUnit::Millisecond, _)) | None => Ok(date_time.timestamp_millis()),
+            Some((TimeUnit::Second, _)) => Ok(date_time.timestamp()),
+        }
+    }
+}
+
+impl Context for Date64Builder {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            if self.meta.is_some() {
+                "Timestamp(..)"
+            } else {
+                "Date64"
+            },
+        );
     }
 }
 
 impl SimpleSerializer for Date64Builder {
-    fn name(&self) -> &str {
-        "Date64Builder"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(0);
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(0);
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        let date_time = if self.utc {
-            use chrono::{DateTime, Utc};
-            v.parse::<DateTime<Utc>>()?
-        } else {
-            use chrono::NaiveDateTime;
-            v.parse::<NaiveDateTime>()?.and_utc()
-        };
-
-        let timestamp = match self.field.data_type {
-            GenericDataType::Timestamp(GenericTimeUnit::Nanosecond, _) => {
-                date_time
-                    .timestamp_nanos_opt()
-                    .ok_or_else(|| Error::custom(format!("Timestamp '{v}' cannot be converted to nanoseconds. The dates that can be represented as nanoseconds are between 1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.")))?
-            },
-            GenericDataType::Timestamp(GenericTimeUnit::Microsecond, _) => date_time.timestamp_micros(),
-            GenericDataType::Timestamp(GenericTimeUnit::Millisecond, _) => date_time.timestamp_millis(),
-            GenericDataType::Timestamp(GenericTimeUnit::Second, _) => date_time.timestamp(),
-            _ => date_time.timestamp_millis(),
-        };
-
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(timestamp);
-        Ok(())
+        try_(|| {
+            let timestamp = self.parse_str_to_timestamp(v)?;
+            self.array.push_scalar_value(timestamp)
+        })
+        .ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v);
-        Ok(())
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }

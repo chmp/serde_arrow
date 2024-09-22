@@ -1,32 +1,25 @@
-use crate::internal::error::{error, fail, Result};
+use crate::internal::{
+    arrow::BitsWithOffset,
+    error::{fail, Result},
+    utils::Offset,
+};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct BitBuffer<'a> {
-    pub data: &'a [u8],
-    pub offset: usize,
-    pub number_of_bits: usize,
-}
-
-impl<'a> BitBuffer<'a> {
-    pub fn is_set(&self, idx: usize) -> bool {
-        let flag = 1 << ((idx + self.offset) % 8);
-        let byte = self.data[(idx + self.offset) / 8];
-        byte & flag == flag
-    }
-
-    pub fn len(&self) -> usize {
-        self.number_of_bits
-    }
+pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
+    let flag = 1 << ((idx + set.offset) % 8);
+    let Some(byte) = set.data.get((idx + set.offset) / 8) else {
+        fail!("Invalid access in bitset");
+    };
+    Ok(byte & flag == flag)
 }
 
 pub struct ArrayBufferIterator<'a, T: Copy> {
     pub buffer: &'a [T],
-    pub validity: Option<BitBuffer<'a>>,
+    pub validity: Option<BitsWithOffset<'a>>,
     pub next: usize,
 }
 
 impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitBuffer<'a>>) -> Self {
+    pub fn new(buffer: &'a [T], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self {
             buffer,
             validity,
@@ -36,11 +29,11 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 
     pub fn next(&mut self) -> Result<Option<T>> {
         if self.next > self.buffer.len() {
-            fail!("Tried to deserialize a value from an exhausted FloatDeserializer");
+            fail!("Exhausted deserializer");
         }
 
         if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(None);
             }
         }
@@ -51,16 +44,19 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
     }
 
     pub fn next_required(&mut self) -> Result<T> {
-        self.next()?.ok_or_else(|| error!("missing value"))
+        let Some(next) = self.next()? else {
+            fail!("Exhausted deserializer");
+        };
+        Ok(next)
     }
 
     pub fn peek_next(&self) -> Result<bool> {
         if self.next > self.buffer.len() {
-            fail!("Tried to deserialize a value from an exhausted StringDeserializer");
+            fail!("Exhausted deserializer");
         }
 
         if let Some(validity) = &self.validity {
-            if !validity.is_set(self.next) {
+            if !bitset_is_set(validity, self.next)? {
                 return Ok(false);
             }
         }
@@ -81,28 +77,23 @@ impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
 /// **non-empty** segment in the child array."
 ///
 /// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
-pub fn check_supported_list_layout<'a, O>(
-    validity: Option<BitBuffer<'a>>,
+pub fn check_supported_list_layout<'a, O: Offset>(
+    validity: Option<BitsWithOffset<'a>>,
     offsets: &'a [O],
-) -> Result<()>
-where
-    O: std::ops::Sub<Output = O> + std::cmp::PartialEq + From<i32> + Copy,
-{
+) -> Result<()> {
     let Some(validity) = validity else {
         return Ok(());
     };
 
-    if offsets.len() != validity.len() + 1 {
-        fail!(
-            "validity length {val} and offsets length {off} do not match (expected {val}, {exp})",
-            val = validity.len(),
-            off = offsets.len(),
-            exp = validity.len() + 1,
-        );
+    if offsets.is_empty() {
+        fail!("Unsupported: list offsets must be non empty");
     }
-    for i in 0..validity.len() {
-        if !validity.is_set(i) && (offsets[i + 1] - offsets[i]) != O::from(0) {
-            fail!("lists with data in null values are currently not supported in deserialization");
+
+    for i in 0..offsets.len().saturating_sub(1) {
+        let curr = offsets[i].try_into_usize()?;
+        let next = offsets[i + 1].try_into_usize()?;
+        if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
+            fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
         }
     }
 

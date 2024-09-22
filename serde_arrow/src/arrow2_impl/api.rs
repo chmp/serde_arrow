@@ -2,102 +2,20 @@
 //!
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
+#![deny(missing_docs)]
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    _impl::arrow2::{array::Array, datatypes::Field},
+    _impl::arrow2::{array::Array, datatypes::Field as ArrowField},
     internal::{
-        array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
-        schema::SerdeArrowSchema, serializer::Serializer,
+        array_builder::ArrayBuilder,
+        arrow::Field,
+        deserializer::Deserializer,
+        error::{fail, Result},
+        schema::SerdeArrowSchema,
+        serializer::Serializer,
     },
 };
-
-/// Build arrow2 arrays record by record (*requires one of the `arrow2-*`
-/// features*)
-///
-/// The given items should be records (e.g., structs). To serialize items
-/// encoding single values consider the [`Items`][crate::utils::Items] and
-/// [`Item`][crate::utils::Item] wrappers.
-///
-/// Example:
-///
-/// ```rust
-/// # fn main() -> serde_arrow::Result<()> {
-/// # use serde_arrow::_impl::arrow2 as arrow2;
-/// use arrow2::datatypes::{DataType, Field};
-/// use serde::Serialize;
-/// use serde_arrow::Arrow2Builder;
-///
-/// ##[derive(Serialize)]
-/// struct Record {
-///     a: Option<f32>,
-///     b: u64,
-/// }
-///
-/// let mut builder = Arrow2Builder::new(&[
-///     Field::new("a", DataType::Float32, true),
-///     Field::new("b", DataType::UInt64, false),
-/// ])?;
-///
-/// builder.push(&Record { a: Some(1.0), b: 2})?;
-/// builder.push(&Record { a: Some(3.0), b: 4})?;
-/// builder.push(&Record { a: Some(5.0), b: 5})?;
-///
-/// builder.extend(&[
-///     Record { a: Some(6.0), b: 7},
-///     Record { a: Some(8.0), b: 9},
-///     Record { a: Some(10.0), b: 11},
-/// ])?;
-///
-/// let arrays = builder.build_arrays()?;
-/// #
-/// # assert_eq!(arrays.len(), 2);
-/// # assert_eq!(arrays[0].len(), 6);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated = "`Arrow2Builder` is deprecated. Use `ArrayBuilder` instead"]
-pub struct Arrow2Builder(ArrayBuilder);
-
-#[allow(deprecated)]
-impl std::fmt::Debug for Arrow2Builder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Arrow2Builder<...>")
-    }
-}
-
-#[allow(deprecated)]
-impl Arrow2Builder {
-    /// Build a new Arrow2Builder for the given fields
-    ///
-    /// This method may fail when unsupported data types are encountered in the
-    /// given fields.
-    ///
-    pub fn new(fields: &[Field]) -> Result<Self> {
-        let schema = SerdeArrowSchema::from_arrow2_fields(fields)?;
-        Ok(Self(ArrayBuilder::new(schema)?))
-    }
-
-    /// Add a single record to the arrays
-    ///
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
-        self.0.push(item)
-    }
-
-    /// Add multiple records to the arrays
-    ///
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
-        self.0.extend(items)
-    }
-
-    /// Build the arrays from the rows pushed to far.
-    ///
-    /// This operation will reset the underlying buffers and start a new batch.
-    ///
-    pub fn build_arrays(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.0.to_arrow2()
-    }
-}
 
 /// Build arrow2 arrays from the given items  (*requires one of the `arrow2-*`
 /// features*)
@@ -106,7 +24,7 @@ impl Arrow2Builder {
 /// structs). To serialize items encoding single values consider the
 /// [`Items`][crate::utils::Items] wrapper.
 ///
-/// To build arrays record by record use [`Arrow2Builder`].
+/// To build arrays record by record use [`ArrayBuilder`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -134,10 +52,7 @@ impl Arrow2Builder {
 /// # }
 /// ```
 ///
-pub fn to_arrow2<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
-where
-    T: Serialize + ?Sized,
-{
+pub fn to_arrow2<T: Serialize>(fields: &[ArrowField], items: T) -> Result<Vec<Box<dyn Array>>> {
     let builder = ArrayBuilder::from_arrow2(fields)?;
     items
         .serialize(Serializer::new(builder))?
@@ -172,11 +87,83 @@ where
 /// # }
 /// ```
 ///
-pub fn from_arrow2<'de, T, A>(fields: &[Field], arrays: &'de [A]) -> Result<T>
+pub fn from_arrow2<'de, T, A>(fields: &[ArrowField], arrays: &'de [A]) -> Result<T>
 where
     T: Deserialize<'de>,
     A: AsRef<dyn Array>,
 {
     let deserializer = Deserializer::from_arrow2(fields, arrays)?;
     T::deserialize(deserializer)
+}
+
+/// Support `arrow2` (*requires one of the `arrow2-*` features*)
+impl crate::internal::array_builder::ArrayBuilder {
+    /// Build an ArrayBuilder from `arrow2` fields (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn from_arrow2(fields: &[ArrowField]) -> Result<Self> {
+        Self::new(SerdeArrowSchema::try_from(fields)?)
+    }
+
+    /// Construct `arrow2` arrays and reset the builder (*requires one of the
+    /// `arrow2-*` features*)
+    pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
+        self.to_arrays()?
+            .into_iter()
+            .map(Box::<dyn Array>::try_from)
+            .collect()
+    }
+}
+
+impl<'de> Deserializer<'de> {
+    /// Build a deserializer from `arrow2` arrays (*requires one of the
+    /// `arrow2-*` features*)
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow2;
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+    /// use arrow2::datatypes::Field;
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};
+    ///
+    /// ##[derive(Deserialize, Serialize)]
+    /// struct Record {
+    ///     a: Option<f32>,
+    ///     b: u64,
+    /// }
+    ///
+    /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
+    ///
+    /// let deserializer = Deserializer::from_arrow2(&fields, &arrays)?;
+    /// let items = Vec::<Record>::deserialize(deserializer)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_arrow2<A>(fields: &[ArrowField], arrays: &'de [A]) -> Result<Self>
+    where
+        A: AsRef<dyn Array>,
+    {
+        use crate::internal::arrow::ArrayView;
+
+        if fields.len() != arrays.len() {
+            fail!(
+                "different number of fields ({}) and arrays ({})",
+                fields.len(),
+                arrays.len()
+            );
+        }
+
+        let fields = fields
+            .iter()
+            .map(Field::try_from)
+            .collect::<Result<Vec<_>>>()?;
+        let views = arrays
+            .iter()
+            .map(|array| ArrayView::try_from(array.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
+
+        Deserializer::new(&fields, views)
+    }
 }

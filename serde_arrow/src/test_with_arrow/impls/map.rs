@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{
-    internal::schema::{GenericDataType, GenericField},
-    internal::testing::{btree_map, hash_map},
-    schema::{Strategy, TracingOptions},
-    utils::Item,
+use serde_json::json;
+
+use crate::internal::{
+    schema::TracingOptions,
+    testing::hash_map,
+    utils::{btree_map, Item},
 };
 
 use super::utils::Test;
@@ -13,12 +14,7 @@ use super::utils::Test;
 
 #[test]
 fn map_as_struct() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = BTreeMap<String, u32>;
-
     let values: &[Item<Ty>] = &[
         Item(btree_map! { "a" => 1_u32, "b" => 2_u32 }),
         Item(btree_map! { "a" => 3_u32, "b" => 4_u32 }),
@@ -26,7 +22,17 @@ fn map_as_struct() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "U32"},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values)
         .deserialize(values);
@@ -34,10 +40,6 @@ fn map_as_struct() {
 
 #[test]
 fn hash_map_as_struct() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = HashMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(hash_map! { "a" => 1_u32, "b" => 2_u32 }),
@@ -46,7 +48,17 @@ fn hash_map_as_struct() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "U32"},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values)
         .deserialize(values);
@@ -54,10 +66,6 @@ fn hash_map_as_struct() {
 
 #[test]
 fn map_as_struct_nullable() {
-    let field = GenericField::new("item", GenericDataType::Struct, true)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::U32, false));
     type Ty = Option<BTreeMap<String, u32>>;
     let values: &[Item<Ty>] = &[
         Item(Some(btree_map! { "a" => 1_u32, "b" => 2_u32 })),
@@ -67,7 +75,18 @@ fn map_as_struct_nullable() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "nullable": true,
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "U32"},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values)
         .deserialize(values);
@@ -75,10 +94,6 @@ fn map_as_struct_nullable() {
 
 #[test]
 fn map_as_struct_missing_fields() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, false))
-        .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! { "a" => 1_u32 }),
@@ -87,17 +102,23 @@ fn map_as_struct_missing_fields() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "U32", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values);
 }
 
 #[test]
 fn map_as_struct_missing_fields_2() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, true))
-        .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! { "a" => 1_u32, "b" => 2_u32 }),
@@ -108,17 +129,23 @@ fn map_as_struct_missing_fields_2() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32", "nullable": true},
+                    {"name": "b", "data_type": "U32", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values);
 }
 
 #[test]
 fn map_as_struct_missing_fields_3() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, true))
-        .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! {}),
@@ -129,17 +156,23 @@ fn map_as_struct_missing_fields_3() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32", "nullable": true},
+                    {"name": "b", "data_type": "U32", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values);
 }
 
 #[test]
 fn map_as_struct_nullable_fields() {
-    let field = GenericField::new("item", GenericDataType::Struct, false)
-        .with_strategy(Strategy::MapAsStruct)
-        .with_child(GenericField::new("a", GenericDataType::U32, true))
-        .with_child(GenericField::new("b", GenericDataType::U32, true));
     type Ty = BTreeMap<String, Option<u32>>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! { "a" => Some(1_u32), "b" => Some(4_u32) }),
@@ -148,7 +181,17 @@ fn map_as_struct_nullable_fields() {
 
     let tracing_options = TracingOptions::default();
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "strategy": "MapAsStruct",
+                "children": [
+                    {"name": "a", "data_type": "U32", "nullable": true},
+                    {"name": "b", "data_type": "U32", "nullable": true},
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .serialize(values)
         .deserialize(values);
@@ -157,11 +200,6 @@ fn map_as_struct_nullable_fields() {
 #[test]
 fn map_as_map() {
     let tracing_options = TracingOptions::default().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
-            .with_child(GenericField::new("value", GenericDataType::U32, false)),
-    );
     type Ty = BTreeMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! { "a" => 1_u32, "b" => 2_u32 }),
@@ -169,7 +207,22 @@ fn map_as_map() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "LargeUtf8"},
+                            {"name": "value", "data_type": "U32"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -179,11 +232,6 @@ fn map_as_map() {
 #[test]
 fn map_as_map_empty() {
     let tracing_options = TracingOptions::default().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::LargeUtf8, false))
-            .with_child(GenericField::new("value", GenericDataType::U32, false)),
-    );
     type Ty = BTreeMap<String, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! {}),
@@ -192,7 +240,22 @@ fn map_as_map_empty() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "LargeUtf8"},
+                            {"name": "value", "data_type": "U32"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -202,11 +265,6 @@ fn map_as_map_empty() {
 #[test]
 fn map_as_map_int_keys() {
     let tracing_options = TracingOptions::default().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I32, false))
-            .with_child(GenericField::new("value", GenericDataType::U32, false)),
-    );
     type Ty = BTreeMap<i32, u32>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! { -1_i32 => 1_u32, -2_i32 => 2_u32 }),
@@ -214,7 +272,22 @@ fn map_as_map_int_keys() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I32"},
+                            {"name": "value", "data_type": "U32"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -224,11 +297,6 @@ fn map_as_map_int_keys() {
 #[test]
 fn hash_maps() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I64, false))
-            .with_child(GenericField::new("value", GenericDataType::Bool, false)),
-    );
     type Ty = HashMap<i64, bool>;
     let values: &[Item<Ty>] = &[
         Item(hash_map! {0 => true, 1 => false, 2 => true}),
@@ -237,7 +305,22 @@ fn hash_maps() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I64"},
+                            {"name": "value", "data_type": "Bool"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -247,11 +330,6 @@ fn hash_maps() {
 #[test]
 fn hash_maps_nullable() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, true).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I64, false))
-            .with_child(GenericField::new("value", GenericDataType::Bool, false)),
-    );
     type Ty = Option<HashMap<i64, bool>>;
     let values: &[Item<Ty>] = &[
         Item(Some(hash_map! {0 => true, 1 => false, 2 => true})),
@@ -260,7 +338,23 @@ fn hash_maps_nullable() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "nullable": true,
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I64"},
+                            {"name": "value", "data_type": "Bool"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -270,11 +364,6 @@ fn hash_maps_nullable() {
 #[test]
 fn hash_maps_nullable_keys() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I64, true))
-            .with_child(GenericField::new("value", GenericDataType::Bool, false)),
-    );
     type Ty = HashMap<Option<i64>, bool>;
     let values: &[Item<Ty>] = &[
         Item(hash_map! {Some(0) => true, Some(1) => false, Some(2) => true}),
@@ -283,7 +372,22 @@ fn hash_maps_nullable_keys() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I64", "nullable": true},
+                            {"name": "value", "data_type": "Bool"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -293,11 +397,6 @@ fn hash_maps_nullable_keys() {
 #[test]
 fn hash_maps_nullable_values() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I64, false))
-            .with_child(GenericField::new("value", GenericDataType::Bool, true)),
-    );
     type Ty = HashMap<i64, Option<bool>>;
     let values: &[Item<Ty>] = &[
         Item(hash_map! {0 => Some(true), 1 => Some(false), 2 => Some(true)}),
@@ -306,7 +405,22 @@ fn hash_maps_nullable_values() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I64"},
+                            {"name": "value", "data_type": "Bool", "nullable": true},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)
@@ -316,11 +430,6 @@ fn hash_maps_nullable_values() {
 #[test]
 fn btree_maps() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
-    let field = GenericField::new("item", GenericDataType::Map, false).with_child(
-        GenericField::new("entries", GenericDataType::Struct, false)
-            .with_child(GenericField::new("key", GenericDataType::I64, false))
-            .with_child(GenericField::new("value", GenericDataType::Bool, false)),
-    );
     type Ty = BTreeMap<i64, bool>;
     let values: &[Item<Ty>] = &[
         Item(btree_map! {0 => true, 1 => false, 2 => true}),
@@ -329,7 +438,22 @@ fn btree_maps() {
     ];
 
     Test::new()
-        .with_schema(vec![field])
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            {"name": "key", "data_type": "I64"},
+                            {"name": "value", "data_type": "Bool"},
+                        ],
+                    },
+                ],
+            },
+        ]))
         .trace_schema_from_samples(values, tracing_options.clone())
         .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
         .serialize(values)

@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::internal::{
-    error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
+    arrow::Array, error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
 };
 
 /// Construct arrays by pushing individual records
@@ -73,14 +73,22 @@ impl std::fmt::Debug for ArrayBuilder {
 impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
-    pub fn push<T: Serialize + ?Sized>(&mut self, item: &T) -> Result<()> {
+    pub fn push<T: Serialize>(&mut self, item: T) -> Result<()> {
         self.builder.push(item)
     }
 
     /// Add multiple records to the arrays
     ///
-    pub fn extend<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+    pub fn extend<T: Serialize>(&mut self, items: T) -> Result<()> {
         self.builder.extend(items)
+    }
+
+    pub(crate) fn to_arrays(&mut self) -> Result<Vec<Array>> {
+        let mut arrays = Vec::new();
+        for field in self.builder.take_records()? {
+            arrays.push(field.into_array()?);
+        }
+        Ok(arrays)
     }
 }
 
@@ -95,3 +103,8 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
         self
     }
 }
+
+const _: () = {
+    trait AssertSendSync: Send + Sync {}
+    impl AssertSendSync for ArrayBuilder {}
+};

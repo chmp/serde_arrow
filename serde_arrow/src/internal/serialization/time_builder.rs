@@ -1,91 +1,128 @@
+use std::collections::BTreeMap;
+
 use chrono::Timelike;
 
 use crate::internal::{
-    error::{Error, Result},
-    schema::{GenericField, GenericTimeUnit},
+    arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    utils::{
+        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        NamedType,
+    },
 };
 
-use super::utils::{push_validity, push_validity_default, MutableBitBuffer, SimpleSerializer};
+use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
-    pub field: GenericField,
-    pub validity: Option<MutableBitBuffer>,
-    pub buffer: Vec<I>,
-    pub seconds_factor: i64,
-    pub nanoseconds_factor: i64,
+    path: String,
+    pub unit: TimeUnit,
+    pub array: PrimitiveArray<I>,
 }
 
-impl<I> TimeBuilder<I> {
-    pub fn new(field: GenericField, nullable: bool, unit: GenericTimeUnit) -> Self {
-        let (seconds_factor, nanoseconds_factor) = unit.get_factors();
-
+impl<I: Default + 'static> TimeBuilder<I> {
+    pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
-            field,
-            validity: nullable.then(MutableBitBuffer::default),
-            buffer: Vec::new(),
-            seconds_factor,
-            nanoseconds_factor,
+            path,
+            unit,
+            array: new_primitive_array(is_nullable),
         }
     }
 
-    pub fn take(&mut self) -> Self {
+    pub fn take_self(&mut self) -> Self {
         Self {
-            field: self.field.clone(),
-            validity: self.validity.as_mut().map(std::mem::take),
-            buffer: std::mem::take(&mut self.buffer),
-            seconds_factor: self.seconds_factor,
-            nanoseconds_factor: self.nanoseconds_factor,
+            path: self.path.clone(),
+            unit: self.unit,
+            array: self.array.take(),
         }
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.validity.is_some()
+        self.array.validity.is_some()
+    }
+}
+
+impl TimeBuilder<i32> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Time32(self.take_self())
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Time32(TimeArray {
+            unit: self.unit,
+            validity: self.array.validity,
+            values: self.array.values,
+        }))
+    }
+}
+
+impl TimeBuilder<i64> {
+    pub fn take(&mut self) -> ArrayBuilder {
+        ArrayBuilder::Time64(self.take_self())
+    }
+
+    pub fn into_array(self) -> Result<Array> {
+        Ok(Array::Time64(TimeArray {
+            unit: self.unit,
+            validity: self.array.validity,
+            values: self.array.values,
+        }))
+    }
+}
+
+impl<I: NamedType> Context for TimeBuilder<I> {
+    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+        set_default(annotations, "field", &self.path);
+        set_default(
+            annotations,
+            "data_type",
+            match I::NAME {
+                "i32" => "Time32",
+                "i64" => "Time64",
+                _ => "<unknown>",
+            },
+        );
     }
 }
 
 impl<I> SimpleSerializer for TimeBuilder<I>
 where
-    I: TryFrom<i64> + TryFrom<i32> + Default,
+    I: NamedType + TryFrom<i64> + TryFrom<i32> + Default + 'static,
     Error: From<<I as TryFrom<i32>>::Error>,
     Error: From<<I as TryFrom<i64>>::Error>,
 {
-    fn name(&self) -> &str {
-        "Time64Builder"
-    }
-
     fn serialize_default(&mut self) -> Result<()> {
-        push_validity_default(&mut self.validity);
-        self.buffer.push(I::default());
-        Ok(())
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
-        push_validity(&mut self.validity, false)?;
-        self.buffer.push(I::default());
-        Ok(())
+        try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        use chrono::naive::NaiveTime;
-        let time = v.parse::<NaiveTime>()?;
-        let timestamp = time.num_seconds_from_midnight() as i64 * self.seconds_factor
-            + time.nanosecond() as i64 / self.nanoseconds_factor;
+        try_(|| {
+            let (seconds_factor, nanoseconds_factor) = match self.unit {
+                TimeUnit::Nanosecond => (1_000_000_000, 1),
+                TimeUnit::Microsecond => (1_000_000, 1_000),
+                TimeUnit::Millisecond => (1_000, 1_000_000),
+                TimeUnit::Second => (1, 1_000_000_000),
+            };
 
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(timestamp.try_into()?);
-        Ok(())
+            use chrono::naive::NaiveTime;
+            let time = v.parse::<NaiveTime>()?;
+            let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
+                + i64::from(time.nanosecond()) / nanoseconds_factor;
+
+            self.array.push_scalar_value(timestamp.try_into()?)
+        })
+        .ctx(self)
     }
 
     fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v.try_into()?);
-        Ok(())
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        push_validity(&mut self.validity, true)?;
-        self.buffer.push(v.try_into()?);
-        Ok(())
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 }

@@ -1,7 +1,7 @@
 //! Serialize values into a in-memory representation
 use serde::{de::DeserializeOwned, forward_to_deserialize_any, Serialize};
 
-use crate::{internal::error::fail, Error, Result};
+use crate::internal::error::{fail, Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variant(u32, &'static str);
@@ -82,7 +82,7 @@ impl std::hash::Hash for HashF64 {
     }
 }
 
-pub fn transmute<S: Serialize + ?Sized, T: DeserializeOwned>(value: &S) -> Result<T> {
+pub fn transmute<S: Serialize, T: DeserializeOwned>(value: S) -> Result<T> {
     let value = value.serialize(ValueSerializer)?;
     T::deserialize(ValueDeserializer::new(&value))
 }
@@ -94,7 +94,7 @@ impl<'a> TryFrom<&'a Value> for &'a str {
         match value {
             Value::StaticStr(s) => Ok(s),
             Value::String(s) => Ok(s),
-            _ => fail!("cannot extract string from non-string value"),
+            _ => fail!("Cannot extract string from non-string value"),
         }
     }
 }
@@ -114,7 +114,7 @@ macro_rules! impl_try_from_value_for_int {
                     &Value::I16(v) => Ok(v.try_into()?),
                     &Value::I32(v) => Ok(v.try_into()?),
                     &Value::I64(v) => Ok(v.try_into()?),
-                    _ => fail!("cannot extract integer from non-integer value"),
+                    _ => fail!("Cannot extract integer from non-integer value"),
                 }
             }
         }
@@ -577,21 +577,21 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
     fn deserialize_byte_buf<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_byte_buf(v.to_owned()),
-            v => fail!("cannot deserialize bytes from non-bytes value {v:?}"),
+            v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
 
     fn deserialize_bytes<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_bytes(v),
-            v => fail!("cannot deserialize bytes from non-bytes value {v:?}"),
+            v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
 
     fn deserialize_char<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             &Value::Char(v) => visitor.visit_char(v),
-            v => fail!("cannot deserializer char from non-char value {v:?}"),
+            v => fail!("Cannot deserializer char from non-char value {v:?}"),
         }
     }
 
@@ -612,13 +612,13 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
             Value::StructVariant(variant, fields) => {
                 visitor.visit_enum(StructVariantDeserializer(*variant, fields))
             }
-            v => fail!("cannot deserialize enum from non-enum value {v:?}"),
+            v => fail!("Cannot deserialize enum from non-enum value {v:?}"),
         }
     }
 
     fn deserialize_bool<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let &Value::Bool(v) = self.0 else {
-            fail!("cannot deserialize bool from non-bool {:?}", self.0);
+            fail!("Cannot deserialize bool from non-bool {:?}", self.0);
         };
         visitor.visit_bool(v)
     }
@@ -659,7 +659,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f32(v.0),
             &Value::F64(v) => visitor.visit_f32(v.0 as f32),
-            v => fail!("cannot deserialize f32 from non-float value {v:?}"),
+            v => fail!("Cannot deserialize f32 from non-float value {v:?}"),
         }
     }
 
@@ -667,7 +667,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f64(v.0 as f64),
             &Value::F64(v) => visitor.visit_f64(v.0),
-            v => fail!("cannot deserialize f64 from non-float value {v:?}"),
+            v => fail!("Cannot deserialize f64 from non-float value {v:?}"),
         }
     }
 
@@ -679,7 +679,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             Value::Map(entries) => visitor.visit_map(MapDeserializer::new(entries)),
             Value::Struct(_, fields) => visitor.visit_map(StructDeserializer::new(fields)),
-            v => fail!("cannot deserialize a map from a non-map value {:?}", v),
+            v => fail!("Cannot deserialize a map from a non-map value {:?}", v),
         }
     }
 
@@ -709,7 +709,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             Value::Seq(values) => visitor.visit_seq(SeqDeserializer::new(values)),
             Value::Tuple(values) => visitor.visit_seq(SeqDeserializer::new(values)),
-            v => fail!("cannot deserialize sequence from non-sequence value {v:?}"),
+            v => fail!("Cannot deserialize sequence from non-sequence value {v:?}"),
         }
     }
 
@@ -730,7 +730,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             Value::Struct(_name, fields) => visitor.visit_map(StructDeserializer::new(fields)),
             Value::Map(entries) => visitor.visit_map(MapDeserializer::new(entries)),
-            v => fail!("cannot deserialize struct from non-struct value {v:?}"),
+            v => fail!("Cannot deserialize struct from non-struct value {v:?}"),
         }
     }
 
@@ -742,7 +742,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
         match self.0 {
             Value::Seq(values) => visitor.visit_seq(SeqDeserializer::new(values)),
             Value::Tuple(values) => visitor.visit_seq(SeqDeserializer::new(values)),
-            v => fail!("cannot deserialize tuple from non-sequence value {v:?}"),
+            v => fail!("Cannot deserialize tuple from non-sequence value {v:?}"),
         }
     }
 
@@ -754,14 +754,14 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
     ) -> Result<V::Value> {
         match self.0 {
             Value::TupleStruct(_, values) => visitor.visit_seq(SeqDeserializer::new(values)),
-            v => fail!("cannot deserialize tuple struct from non-tuple-struct value {v:?}"),
+            v => fail!("Cannot deserialize tuple struct from non-tuple-struct value {v:?}"),
         }
     }
 
     fn deserialize_unit<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Unit => visitor.visit_unit(),
-            v => fail!("cannot deserialize unit from non-unit value {v:?}"),
+            v => fail!("Cannot deserialize unit from non-unit value {v:?}"),
         }
     }
 
@@ -772,7 +772,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
     ) -> Result<V::Value> {
         match self.0 {
             Value::UnitStruct(_) => visitor.visit_unit(),
-            v => fail!("cannot deserialize unit from non-unit value {v:?}"),
+            v => fail!("Cannot deserialize unit from non-unit value {v:?}"),
         }
     }
 
@@ -809,7 +809,7 @@ impl<'de, 'a> serde::de::MapAccess<'de> for StructDeserializer<'a> {
 
     fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let Some(value) = self.1.take() else {
-            fail!("invalid usage");
+            fail!("Invalid usage");
         };
         seed.deserialize(ValueDeserializer::new(value))
     }
@@ -865,7 +865,7 @@ impl<'de, 'a> serde::de::MapAccess<'de> for MapDeserializer<'a> {
 
     fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let Some(value) = self.1.take() else {
-            fail!("invalid usage");
+            fail!("Invalid usage");
         };
         seed.deserialize(ValueDeserializer::new(value))
     }
@@ -895,7 +895,7 @@ impl<'de> serde::de::VariantAccess<'de> for UnitVariantVariant {
         self,
         _seed: T,
     ) -> Result<T::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected unit variant found newtype variant")
     }
 
     fn struct_variant<V: serde::de::Visitor<'de>>(
@@ -903,7 +903,7 @@ impl<'de> serde::de::VariantAccess<'de> for UnitVariantVariant {
         _fields: &'static [&'static str],
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected unit variant found struct variant")
     }
 
     fn tuple_variant<V: serde::de::Visitor<'de>>(
@@ -911,7 +911,7 @@ impl<'de> serde::de::VariantAccess<'de> for UnitVariantVariant {
         _len: usize,
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected unit variant, found tuple variant")
     }
 
     fn unit_variant(self) -> Result<()> {
@@ -943,11 +943,11 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for TupleVariantVariant<'a> {
         self,
         _seed: T,
     ) -> Result<T::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected tuple variant, found newtype variant")
     }
 
     fn unit_variant(self) -> std::prelude::v1::Result<(), Self::Error> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected tuple variant, found unit variant")
     }
 
     fn struct_variant<V: serde::de::Visitor<'de>>(
@@ -955,7 +955,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for TupleVariantVariant<'a> {
         _fields: &'static [&'static str],
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected tuple variant, found struct variant")
     }
 
     fn tuple_variant<V: serde::de::Visitor<'de>>(
@@ -992,7 +992,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for NewTypeVariantVariant<'a> {
     }
 
     fn unit_variant(self) -> std::prelude::v1::Result<(), Self::Error> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected newtype variant, found unit variant")
     }
 
     fn struct_variant<V: serde::de::Visitor<'de>>(
@@ -1000,7 +1000,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for NewTypeVariantVariant<'a> {
         _fields: &'static [&'static str],
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected newtype variant, found struct variant")
     }
 
     fn tuple_variant<V: serde::de::Visitor<'de>>(
@@ -1008,7 +1008,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for NewTypeVariantVariant<'a> {
         _len: usize,
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected newtype variant, found tuple variant")
     }
 }
 
@@ -1036,7 +1036,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for StructVariantVariant<'a> {
         self,
         _seed: T,
     ) -> Result<T::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected struct variant, found newtype variant")
     }
 
     fn struct_variant<V: serde::de::Visitor<'de>>(
@@ -1052,11 +1052,11 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for StructVariantVariant<'a> {
         _len: usize,
         _visitor: V,
     ) -> Result<V::Value> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected struct variant, found tuple variant")
     }
 
     fn unit_variant(self) -> Result<()> {
-        fail!("invalid variant")
+        fail!("Invalid variant: expected struct variant, found unit variant")
     }
 }
 

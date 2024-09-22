@@ -1,7 +1,9 @@
 use serde::Serialize;
 use serde_json::json;
 
-use super::utils::{ResultAsserts, Test};
+use crate::internal::testing::assert_error_contains;
+
+use super::utils::Test;
 
 #[test]
 fn declared_but_missing_fields() {
@@ -43,8 +45,11 @@ fn declared_but_missing_fields_non_nullable() {
         {"name": "b", "data_type": "U8"},
     ]));
 
-    test.try_serialize_arrow(&items)
-        .assert_error("missing non-nullable field \"b\" in struct");
-    test.try_serialize_arrow2(&items)
-        .assert_error("missing non-nullable field \"b\" in struct");
+    let res = test.try_serialize_arrow(&items);
+    assert_error_contains(&res, "Missing non-nullable field \"b\" in struct");
+    assert_error_contains(&res, "field: \"$\"");
+
+    let res = test.try_serialize_arrow2(&items);
+    assert_error_contains(&res, "Missing non-nullable field \"b\" in struct");
+    assert_error_contains(&res, "field: \"$\"");
 }
