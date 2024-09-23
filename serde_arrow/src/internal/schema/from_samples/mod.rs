@@ -955,12 +955,6 @@ mod test {
             name: "$".to_string(),
             data_type: DataType::Struct(vec![
                 Field {
-                    name: "Real::value".to_string(),
-                    data_type: DataType::Float32,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-                Field {
                     name: "Complex::i".to_string(),
                     data_type: DataType::Float32,
                     nullable: true,
@@ -968,6 +962,12 @@ mod test {
                 },
                 Field {
                     name: "Complex::j".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Real::value".to_string(),
                     data_type: DataType::Float32,
                     nullable: true,
                     metadata: HashMap::new(),
@@ -1073,13 +1073,7 @@ mod test {
             name: "$".to_string(),
             data_type: DataType::Struct(vec![
                 Field {
-                    name: "Something::more".to_string(),
-                    data_type: DataType::UInt64,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-                Field {
-                    name: "Something::less".to_string(),
+                    name: "Else::another".to_string(),
                     data_type: DataType::UInt64,
                     nullable: true,
                     metadata: HashMap::new(),
@@ -1091,7 +1085,13 @@ mod test {
                     metadata: HashMap::new(),
                 },
                 Field {
-                    name: "Else::another".to_string(),
+                    name: "Something::less".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Something::more".to_string(),
                     data_type: DataType::UInt64,
                     nullable: true,
                     metadata: HashMap::new(),
