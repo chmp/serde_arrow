@@ -621,12 +621,6 @@ mod test {
             name: "$".to_string(),
             data_type: DataType::Struct(vec![
                 Field {
-                    name: "Real::value".to_string(),
-                    data_type: DataType::Float32,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-                Field {
                     name: "Complex::i".to_string(),
                     data_type: DataType::Float32,
                     nullable: true,
@@ -634,6 +628,12 @@ mod test {
                 },
                 Field {
                     name: "Complex::j".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Real::value".to_string(),
                     data_type: DataType::Float32,
                     nullable: true,
                     metadata: HashMap::new(),

@@ -236,13 +236,11 @@ pub(crate) fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder>
 
                 for field in children {
                     let Some(variant_name) = field.union_variant_name() else {
-                        // TODO: failure message
-                        continue;
+                        todo!("union variant did not have a name");
                     };
 
                     let Some(field_name) = field.union_field_name() else {
-                        // TODO: failure message
-                        continue;
+                        todo!("union field did not have a name");
                     };
 
                     let mut new_field = field.clone();
