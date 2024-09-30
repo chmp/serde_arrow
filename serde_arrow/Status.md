@@ -49,7 +49,7 @@ Supported arrow data types:
   serialization error.
 - [ ] [`Decimal256(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal256)
 
-Supported Serde / Rust types:
+Native / standard Rust types:
 
 - [x] `bool`
 - [x] `i8`, `i16`, `i32`, `i64`
@@ -71,22 +71,44 @@ Supported Serde / Rust types:
   supported. All types of union variants (unit, newtype, tuple, struct) are
   supported
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
-- [x] `chrono::DateTime<Utc>`: depends on the configured strategy:
-  - mapped to UTF8 arrays without configuration
-  - mapped to `Date64` with `Strategy::UtcStrAsDate64` and field data type `Date64`
-  - mapped to `Date64` with field data type `Date64` and chrono configured to
-    serialize to timestamps using
-    [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
-- [x] `chrono::NaiveDateTime`: depends on the configured strategy:
-  - mapped to UTF8 arrays without configuration
-  - mapped to `Date64` with `Strategy::NaiveStrAsDate64` and field data type `Date64`
-  - mapped to `Date64` with field data type `Date64` and chrono configured to
-    serialize to timestamps using
-    [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]
+
+Non-standard Rust types
+
+- [x] `chrono::DateTime<Utc>`:
+  - is serialized / deserialized as strings
+  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` with strategy `UtcStrAsDate64`
+  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
+    strategy `UtcStrAsDate64` when setting `guess_dates = true`
+  - `from_type` is not supported, as the type is not self-describing
+- [x] `chrono::DateTime<Utc>` using [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
+  - is serialized / deserialized  as `i64`
+  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` without Strategy,
+    `Date64` with strategy `UtcStrAsDate64`
+  - `from_samples` and `from_type` detect the type `Int64`
+- [x] `chrono::NaiveDateTime`:
+  - is serialized / deserialized as strings
+  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`, `Date64` with strategy `NaiveStrAsDate64`
+  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
+    strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+  - `from_type` is not supported, as the type is not self-describing
+- [x] `chrono::NaiveTime`:
+  - serialized / deserialized as strings
+  - can be mapped to `Utf8`, `LargeUtf8`, `Time32(..)` and `Time64` arrays
+  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Time64(Nanosecond)`
+    when setting `guess_dates = true` 
+  - `from_type` is not supported, as the type is not self-describing
+- [x] `chrono::NaiveDate`: 
+  - is serialized as Serde strings
+  - can be mapped to `Utf8`, `LargeUtf8`, `Date32` arrays
+  - `from_samples` detects the type `LargeUtf8` without configuration, to `Date32` when setting
+    `guess_dates = true`
+  - `from_type` is not supported, as the type is not self-describing
+- [ ] `chrono::Duration`: does not support Serde and is therefore not supported
 - [x] [`rust_decimal::Decimal`][rust_decimal::Decimal] for the `float` and `str`
   (de)serialization options when using the `Decimal128(..)` data type
 - [x] [`bigdecimal::BigDecimal`][bigdecimal::BigDecimal] when using the
   `Decimal128(..)` data type
+
 
 [crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
 [crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
