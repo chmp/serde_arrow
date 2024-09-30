@@ -1,5 +1,12 @@
 # Change log
 
+## `development`
+
+New features
+
+- Add support to auto-detect dates (`2024-09-30`, mapped to `Date32`) and times (`12:00:00`, mapped
+  to `Time64(Nanosecond))`) in `from_samples`
+
 ## 0.12.0
 
 Refactor the underlying implementation to prepare for further development
