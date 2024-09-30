@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
-    arrow::DataType,
+    arrow::{DataType, TimeUnit},
     error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{Strategy, TracingMode, TracingOptions},
 };
@@ -335,16 +335,22 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
     fn serialize_str(self, s: &str) -> Result<Self::Ok> {
         try_(|| {
-            let guess_dates = self.0.get_options().guess_dates;
-            if guess_dates && chrono::matches_naive_datetime(s) {
-                self.0
-                    .ensure_utf8(DataType::Date64, Some(Strategy::NaiveStrAsDate64))
-            } else if guess_dates && chrono::matches_utc_datetime(s) {
-                self.0
-                    .ensure_utf8(DataType::Date64, Some(Strategy::UtcStrAsDate64))
+            let (ty, st) = if !self.0.get_options().guess_dates {
+                (DataType::LargeUtf8, None)
             } else {
-                self.0.ensure_utf8(DataType::LargeUtf8, None)
-            }
+                if chrono::matches_naive_datetime(s) {
+                    (DataType::Date64, Some(Strategy::NaiveStrAsDate64))
+                } else if chrono::matches_utc_datetime(s) {
+                    (DataType::Date64, Some(Strategy::UtcStrAsDate64))
+                } else if chrono::matches_naive_time(s) {
+                    (DataType::Time64(TimeUnit::Nanosecond), None)
+                } else if chrono::matches_naive_date(s) {
+                    (DataType::Date32, None)
+                } else {
+                    (DataType::LargeUtf8, None)
+                }
+            };
+            self.0.ensure_primitive_with_strategy(ty, st)
         })
         .ctx(&self)
     }

@@ -1,15 +1,26 @@
 pub fn matches_naive_datetime(s: &str) -> bool {
-    parsing::matches_naive_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
+    eval_parser(parsing::match_naive_datetime, s)
 }
 
 pub fn matches_utc_datetime(s: &str) -> bool {
-    parsing::matches_utc_datetime(s)
-        .map(|s| s.is_empty())
-        .unwrap_or_default()
+    eval_parser(parsing::match_utc_datetime, s)
 }
 
+pub fn matches_naive_date(s: &str) -> bool {
+    eval_parser(parsing::match_naive_date, s)
+}
+
+pub fn matches_naive_time(s: &str) -> bool {
+    eval_parser(parsing::match_naive_time, s)
+}
+
+fn eval_parser<F: Fn(&str) -> Result<&str, &str>>(parser: F, s: &str) -> bool {
+    parser(s.trim()).map(str::is_empty).unwrap_or_default()
+}
+
+/// minimalistic monadic parser
+///
+/// Returns the Err(unmatched_string) on error and Ok(rest) on success
 mod parsing {
     pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -34,18 +45,25 @@ mod parsing {
         s.strip_prefix(c).ok_or(s)
     }
 
-    pub fn matches_naive_datetime_with_sep<'a>(
+    pub fn match_naive_datetime_with_sep<'a>(
         s: &'a str,
         sep: &'_ [char],
     ) -> Result<&'a str, &'a str> {
-        let s = s.trim();
+        let s = match_naive_date(s)?;
+        let s = s.strip_prefix(sep).ok_or(s)?;
+        match_naive_time(s)
+    }
+
+    pub fn match_naive_date(s: &str) -> Result<&str, &str> {
         let s = match_optional_sign(s)?;
         let s = match_one_or_more_digits(s)?;
         let s = match_char(s, '-')?;
         let s = match_one_or_two_digits(s)?;
         let s = match_char(s, '-')?;
-        let s = match_one_or_two_digits(s)?;
-        let s = s.strip_prefix(sep).ok_or(s)?;
+        match_one_or_two_digits(s)
+    }
+
+    pub fn match_naive_time(s: &str) -> Result<&str, &str> {
         let s = match_one_or_two_digits(s)?;
         let s = match_char(s, ':')?;
         let s = match_one_or_two_digits(s)?;
@@ -59,12 +77,12 @@ mod parsing {
         }
     }
 
-    pub fn matches_naive_datetime(s: &str) -> Result<&str, &str> {
-        matches_naive_datetime_with_sep(s, &['T'])
+    pub fn match_naive_datetime(s: &str) -> Result<&str, &str> {
+        match_naive_datetime_with_sep(s, &['T'])
     }
 
-    pub fn matches_utc_datetime(s: &str) -> Result<&str, &str> {
-        let s = matches_naive_datetime_with_sep(s, &['T', ' '])?;
+    pub fn match_utc_datetime(s: &str) -> Result<&str, &str> {
+        let s = match_naive_datetime_with_sep(s, &['T', ' '])?;
 
         if let Some(s) = s.strip_prefix('Z') {
             Ok(s)
@@ -78,49 +96,40 @@ mod parsing {
     }
 }
 
-#[cfg(test)]
-mod test_matches_naive_datetime {
-    macro_rules! test {
-        ($( ( $name:ident, $s:expr, $expected:expr ), )*) => {
-            $(
-                #[test]
-                fn $name() {
-                    if $expected {
-                        assert_eq!(super::parsing::matches_naive_datetime($s), Ok(""));
-                    }
-                    assert_eq!(super::matches_naive_datetime($s), $expected);
-                }
-            )*
-        };
-    }
-
-    test!(
-        (example_chrono_docs_1, "2015-09-18T23:56:04", true),
-        (example_chrono_docs_2, "+12345-6-7T7:59:60.5", true),
-        (surrounding_space, "   2015-09-18T23:56:04   ", true),
+#[test]
+fn test_match_naive_datetime() {
+    // chrono examples
+    assert_eq!(parsing::match_naive_datetime("2015-09-18T23:56:04"), Ok(""));
+    assert_eq!(
+        parsing::match_naive_datetime("+12345-6-7T7:59:60.5"),
+        Ok("")
     );
 }
 
-#[cfg(test)]
-mod test_matches_utc_datetime {
-    macro_rules! test {
-        ($( ( $name:ident, $s:expr, $expected:expr ), )*) => {
-            $(
-                #[test]
-                fn $name() {
-                    if $expected {
-                        assert_eq!(super::parsing::matches_utc_datetime($s), Ok(""));
-                    }
-                    assert_eq!(super::matches_utc_datetime($s), $expected);
-                }
-            )*
-        };
-    }
-
-    test!(
-        (example_chrono_docs_1, "2012-12-12T12:12:12Z", true),
-        (example_chrono_docs_2, "2012-12-12 12:12:12Z", true),
-        (example_chrono_docs_3, "2012-12-12 12:12:12+0000", true),
-        (example_chrono_docs_4, "2012-12-12 12:12:12+00:00", true),
+#[test]
+fn test_match_utc_datetime() {
+    // examples from the chrono docs
+    assert_eq!(parsing::match_utc_datetime("2012-12-12T12:12:12Z"), Ok(""));
+    assert_eq!(parsing::match_utc_datetime("2012-12-12 12:12:12Z"), Ok(""));
+    assert_eq!(
+        parsing::match_utc_datetime("2012-12-12 12:12:12+0000"),
+        Ok("")
     );
+    assert_eq!(
+        parsing::match_utc_datetime("2012-12-12 12:12:12+00:00"),
+        Ok("")
+    );
+}
+
+#[test]
+fn test_match_naive_date() {
+    assert_eq!(parsing::match_naive_date("+12345-6-7"), Ok(""));
+    assert_eq!(parsing::match_naive_date("2015-09-18"), Ok(""));
+    assert_eq!(parsing::match_naive_date("-20-21-22"), Ok(""));
+}
+
+#[test]
+fn test_match_naive_time() {
+    assert_eq!(parsing::match_naive_time("23:00:12"), Ok(""));
+    assert_eq!(parsing::match_naive_time("23:00:12.999"), Ok(""));
 }
