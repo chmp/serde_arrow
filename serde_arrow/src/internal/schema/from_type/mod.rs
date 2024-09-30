@@ -33,7 +33,30 @@ impl Tracer {
                     budget = tracer.get_options().from_type_budget,
                 );
             }
-            T::deserialize(TraceAny(&mut tracer))?;
+            let res = T::deserialize(TraceAny(&mut tracer));
+            if let Err(err) = res {
+                if !is_non_self_describing_error(err.message()) {
+                    return Err(err);
+                }
+                let mut err = err;
+                err.modify_message(|message| {
+                    *message = format!(
+                        concat!(
+                            "{message}{maybe_period} ",
+                            "It seems that `from_type` encountered a non self describing type. ",
+                            "Consider using `from_samples` instead. ",
+                        ),
+                        message = message,
+                        maybe_period = if message.trim_end().ends_with('.') {
+                            ""
+                        } else {
+                            "."
+                        },
+                    );
+                });
+                return Err(err);
+            }
+
             budget -= 1;
         }
 
@@ -42,6 +65,11 @@ impl Tracer {
 
         Ok(tracer)
     }
+}
+
+// check for known error messages of non self describing types
+fn is_non_self_describing_error(s: &str) -> bool {
+    s.contains("premature end of input")
 }
 
 struct TraceAny<'a>(&'a mut Tracer);
@@ -61,7 +89,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
             concat!(
             "Non self describing types cannot be traced with `from_type`. ",
             "Consider using `from_samples`. ",
-            "One example is `serde_json::Value`. ",
+            "One example is `serde_json::Value`: ",
             "the schema depends on the JSON content and cannot be determined from the type alone."
         ));
     }
