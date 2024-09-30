@@ -43,6 +43,13 @@ fn chrono_types_are_not_self_describing() {
 }
 
 #[test]
+fn net_ip_addr_is_not_self_describing() {
+    let res = SerdeArrowSchema::from_type::<Item<std::net::IpAddr>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
+}
+
+#[test]
 fn unsupported_recursive_types() {
     #[allow(unused)]
     #[derive(Deserialize)]

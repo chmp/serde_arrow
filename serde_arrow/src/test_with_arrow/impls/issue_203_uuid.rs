@@ -31,4 +31,5 @@ fn example_as_list() {
 fn trace_from_type_does_not_work() {
     let res = SerdeArrowSchema::from_type::<Item<Uuid>>(TracingOptions::default());
     assert_error_contains(&res, "UUID parsing failed");
+    assert_error_contains(&res, "non self describing type");
 }

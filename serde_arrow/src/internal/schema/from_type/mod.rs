@@ -69,7 +69,12 @@ impl Tracer {
 
 // check for known error messages of non self describing types
 fn is_non_self_describing_error(s: &str) -> bool {
+    // chrono::*
     s.contains("premature end of input")
+        // uuid::Uuid
+        || s.contains("UUID parsing failed")
+        // std::net::IpAddr
+        || s.contains("invalid IP address syntax")
 }
 
 struct TraceAny<'a>(&'a mut Tracer);
