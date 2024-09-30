@@ -6,6 +6,8 @@ New features
 
 - Add support to auto-detect dates (`2024-09-30`, mapped to `Date32`) and times (`12:00:00`, mapped
   to `Time64(Nanosecond))`) in `from_samples`
+- Improved error messages for non self describing types (`chrono::*`, `uuid::Uuid`,
+  `std::net::IpAddr`)
 
 ## 0.12.0
 

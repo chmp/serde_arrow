@@ -15,6 +15,10 @@ use crate::{
 fn example() {
     // NOTE: Value cannot be traced with from_type, as it is not self-describing
     let res = SerdeArrowSchema::from_type::<Item<Vec<Value>>>(TracingOptions::default());
+    assert_error_contains(
+        &res,
+        "Non self describing types cannot be traced with `from_type`.",
+    );
     assert_error_contains(&res, "path: \"$.item.element\"");
     assert_error_contains(&res, "tracer_type: \"Unknown\"");
 }
@@ -23,15 +27,26 @@ fn example() {
 fn chrono_types_are_not_self_describing() {
     let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
     assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
 
     let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default());
     assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
 
     let res = SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default());
     assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
 
     let res = SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default());
     assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
+}
+
+#[test]
+fn net_ip_addr_is_not_self_describing() {
+    let res = SerdeArrowSchema::from_type::<Item<std::net::IpAddr>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&res, "non self describing type");
 }
 
 #[test]

@@ -135,15 +135,21 @@ impl Error {
             Self::Custom(err) => Some(&err.0.annotations),
         }
     }
+
+    pub(crate) fn modify_message<F: FnOnce(&mut String)>(&mut self, func: F) {
+        let Error::Custom(this) = self;
+        let inner = this.0.as_mut();
+        func(&mut inner.message);
+    }
 }
 
 #[derive(PartialEq)]
 pub struct CustomError(pub(crate) Box<CustomErrorImpl>);
 
 pub struct CustomErrorImpl {
-    message: String,
-    backtrace: Backtrace,
-    cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    pub(crate) message: String,
+    pub(crate) backtrace: Backtrace,
+    pub(crate) cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
     pub(crate) annotations: BTreeMap<String, String>,
 }
 
