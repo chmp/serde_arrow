@@ -468,7 +468,7 @@ impl Tracer {
         self.ensure_primitive_with_strategy(item_type, None)
     }
 
-    fn ensure_primitive_with_strategy(
+    pub fn ensure_primitive_with_strategy(
         &mut self,
         item_type: DataType,
         strategy: Option<Strategy>,

@@ -299,6 +299,22 @@ impl SchemaLike for SerdeArrowSchema {
     }
 }
 
+impl Sealed for Vec<Field> {}
+
+impl SchemaLike for Vec<Field> {
+    fn from_value<T: Serialize>(value: T) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_value(value)?.fields)
+    }
+
+    fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_samples(samples, options)?.fields)
+    }
+
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        Ok(SerdeArrowSchema::from_type::<T>(options)?.fields)
+    }
+}
+
 /// Wrapper around `SerdeArrowSchema::from_value` to convert a single field
 ///
 /// This function takes anything that serialized into a field and converts it into a field.

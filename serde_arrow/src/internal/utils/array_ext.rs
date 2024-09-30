@@ -307,6 +307,14 @@ pub fn set_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
     }
 }
 
+pub fn get_bit_buffer(data: &[u8], offset: usize, idx: usize) -> Result<bool> {
+    let flag = 1 << ((idx + offset) % 8);
+    let Some(byte) = data.get((idx + offset) / 8) else {
+        fail!("Invalid access in bitset");
+    };
+    Ok(byte & flag == flag)
+}
+
 #[test]
 fn test_set_bit_buffer() {
     let mut buffer = vec![];

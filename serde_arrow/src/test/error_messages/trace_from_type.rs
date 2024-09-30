@@ -1,3 +1,4 @@
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -16,6 +17,21 @@ fn example() {
     let res = SerdeArrowSchema::from_type::<Item<Vec<Value>>>(TracingOptions::default());
     assert_error_contains(&res, "path: \"$.item.element\"");
     assert_error_contains(&res, "tracer_type: \"Unknown\"");
+}
+
+#[test]
+fn chrono_types_are_not_self_describing() {
+    let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
+
+    let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
+
+    let res = SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
+
+    let res = SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default());
+    assert_error_contains(&res, "path: \"$.item\"");
 }
 
 #[test]

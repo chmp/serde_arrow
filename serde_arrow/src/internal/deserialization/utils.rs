@@ -1,15 +1,11 @@
 use crate::internal::{
     arrow::BitsWithOffset,
     error::{fail, Result},
-    utils::Offset,
+    utils::{array_ext::get_bit_buffer, Offset},
 };
 
 pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
-    let flag = 1 << ((idx + set.offset) % 8);
-    let Some(byte) = set.data.get((idx + set.offset) / 8) else {
-        fail!("Invalid access in bitset");
-    };
-    Ok(byte & flag == flag)
+    get_bit_buffer(set.data, set.offset, idx)
 }
 
 pub struct ArrayBufferIterator<'a, T: Copy> {

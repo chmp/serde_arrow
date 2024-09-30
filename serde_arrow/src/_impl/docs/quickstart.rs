@@ -3,12 +3,11 @@
 //!
 //! **Contents**
 //!
-//! 1. [Working with date time objects](#working-with-date-time-objects)
+//! 1. [Modifying data types](#modifying-data-types)
 //! 2. [Decimals](#decimals)
 //! 3. [Dictionary encoding for strings](#dictionary-encoding-for-strings)
 //! 4. [Working with enums](#working-with-enums)
-//! 5. [Convert from arrow2 to arrow
-//!    arrays](#convert-from-arrow2-to-arrow-arrays)
+//! 5. [Convert from arrow2 to arrow arrays](#convert-from-arrow2-to-arrow-arrays)
 //!
 //! The examples assume the following items to be in scope:
 //!
@@ -25,11 +24,11 @@
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! ## Working with date time objects
+//! ## Modifying data types
 //!
-//! When using `chrono`'s `DateTime<Utc>` or  `NaiveDateTime`, the values are
-//! per default encoded as strings. To stores them as  `Date64` columns, the
-//! data type has to be modified.
+//! When using `chrono`'s types, such as `NaiveDate`, `NaiveTime`, `DateTime<Utc>`, or
+//! `NaiveDateTime`, the values are per default encoded as strings. To store them compactly as
+//! integer columns, the data type has to be modified.
 //!
 //! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime]
 //! objects. The traced field `val` will be of type `Utf8`.

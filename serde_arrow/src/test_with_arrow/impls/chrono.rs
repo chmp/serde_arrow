@@ -1,8 +1,14 @@
+use core::str;
+
 use super::utils::Test;
 use crate::{
-    internal::testing::assert_error_contains,
+    internal::{
+        arrow::DataType,
+        testing::{assert_error_contains, ArrayAccess},
+    },
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
     utils::Item,
+    ArrayBuilder,
 };
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
@@ -611,4 +617,84 @@ fn incompatible_date_formats_tracing() {
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false]]);
+}
+
+#[test]
+fn duration_example_as_string_details() {
+    let items = [
+        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+    ];
+
+    let schema = SerdeArrowSchema::from_samples(&items, TracingOptions::default()).unwrap();
+    assert_eq!(schema.fields[0].data_type, DataType::LargeUtf8);
+
+    let mut builder = ArrayBuilder::new(schema).unwrap();
+    builder.extend(&items).unwrap();
+
+    let arrays = builder.to_arrays().unwrap();
+    let [array] = arrays.try_into().unwrap();
+
+    assert_eq!(array.get_utf8(0).unwrap(), Some("12:10:42"));
+    assert_eq!(array.get_utf8(1).unwrap(), Some("22:10:00"));
+    assert_eq!(array.get_utf8(2).unwrap(), Some("23:59:59.999"));
+}
+
+#[test]
+fn duration_example_as_string() {
+    let items = [
+        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
+
+#[test]
+fn duration_example_as_time64() {
+    let items = [
+        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items);
+}
+
+#[test]
+fn naive_date_example_as_string() {
+    let items = [
+        Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
+        Item(NaiveDate::from_ymd_opt(-1000, 9, 30).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default())
+        .serialize(&items)
+        .deserialize(&items);
+}
+
+#[test]
+fn naive_date_example_as_time64() {
+    let items = [
+        Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
+        Item(NaiveDate::from_ymd_opt(-1000, 9, 30).unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
+        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+        .serialize(&items)
+        .deserialize(&items);
 }
