@@ -115,4 +115,32 @@ fn invalid_utc_formats() {
     assert_error_contains(&value::transmute::<Zoned>("2023-12-31T18:30:00+00:00"), "");
     assert_error_contains(&value::transmute::<Zoned>("2023-12-31T18:30:00Z"), "");
 }
+
+#[test]
+fn test_naive_time() {
+    let items = [
+        Item(time(12, 0, 0, 0)),
+        Item(time(23, 31, 12, 0)),
+        Item(time(3, 2, 58, 0)),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Time32(Second)"}]))
+        .serialize(&items)
+        .deserialize(&items);
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Time32(Millisecond)"}]))
+        .serialize(&items)
+        .deserialize(&items);
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Time64(Microsecond)"}]))
+        .serialize(&items)
+        .deserialize(&items);
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
+        .serialize(&items)
+        .deserialize(&items);
 }
