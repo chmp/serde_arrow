@@ -18,15 +18,23 @@ fn string_repr_examples() {
     let obj = date(2023, 12, 31);
     assert_eq!(value::transmute::<String>(&obj).unwrap(), "2023-12-31");
 
+    let obj = date(-10, 10, 30);
+    assert_eq!(value::transmute::<String>(&obj).unwrap(), "-000010-10-30");
+    assert_eq!(value::transmute::<Date>("-000010-10-30").unwrap(), obj);
+    assert_error_contains(
+        &value::transmute::<Date>("-0010-10-30"),
+        "six digit integer",
+    );
+
     // date time without time zone
-    let obj = obj.at(18, 30, 0, 0);
+    let obj = date(2023, 12, 31).at(18, 30, 0, 0);
     assert_eq!(
         value::transmute::<String>(&obj).unwrap(),
         "2023-12-31T18:30:00"
     );
 
-    // date time wiht timezone
-    let obj = obj.intz("UTC").unwrap();
+    // date time with timezone
+    let obj = date(2023, 12, 31).at(18, 30, 0, 0).intz("UTC").unwrap();
     assert_eq!(
         value::transmute::<String>(&obj).unwrap(),
         "2023-12-31T18:30:00+00:00[UTC]"
@@ -117,12 +125,24 @@ fn invalid_utc_formats() {
 }
 
 #[test]
-fn test_naive_time() {
+fn empty_string_errors() {
+    assert_error_contains(&value::transmute::<Date>(""), "found end of input");
+    assert_error_contains(&value::transmute::<Time>(""), "found end of input");
+    assert_error_contains(&value::transmute::<Zoned>(""), "found end of input");
+}
+
+#[test]
+fn test_time() {
     let items = [
         Item(time(12, 0, 0, 0)),
         Item(time(23, 31, 12, 0)),
         Item(time(3, 2, 58, 0)),
     ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .serialize(&items)
+        .deserialize(&items);
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "Time32(Second)"}]))
@@ -141,6 +161,26 @@ fn test_naive_time() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
+        .serialize(&items)
+        .deserialize(&items);
+}
+
+#[test]
+fn test_date() {
+    let items = [
+        Item(date(1234, 5, 6)),
+        // NOTE: chrono uses 4 digits for the year, jiff requires 6
+        // Item(date(-10, 10, 30)),
+        Item(date(2024, 10, 1)),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+        .serialize(&items)
+        .deserialize(&items);
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
         .serialize(&items)
         .deserialize(&items);
 }

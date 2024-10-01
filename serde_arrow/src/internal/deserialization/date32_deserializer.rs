@@ -78,4 +78,16 @@ impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
         })
         .ctx(self)
     }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| self.deserialize_byte_buf(visitor)).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.next_required()?;
+            visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
+        })
+        .ctx(self)
+    }
 }

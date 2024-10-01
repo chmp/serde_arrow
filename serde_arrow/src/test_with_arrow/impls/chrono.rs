@@ -28,6 +28,20 @@ fn temporal_formats() {
         &value::transmute::<DateTime<Utc>>("2023-12-01T12:22:33[UTC]"),
         "",
     );
+
+    assert_eq!(
+        value::transmute::<String>(NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()).unwrap(),
+        "-0010-10-30"
+    );
+    assert_eq!(
+        value::transmute::<NaiveDate>("-0010-10-30").unwrap(),
+        NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()
+    );
+    // chrono also supports 6 digit dates, jiff requires them
+    assert_eq!(
+        value::transmute::<NaiveDate>("-000010-10-30").unwrap(),
+        NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()
+    );
 }
 
 #[test]
@@ -681,10 +695,11 @@ fn duration_example_as_time64() {
 }
 
 #[test]
-fn naive_date_example_as_string() {
+fn naive_date() {
     let items = [
         Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
-        Item(NaiveDate::from_ymd_opt(-1000, 9, 30).unwrap()),
+        Item(NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()),
+        Item(NaiveDate::from_ymd_opt(-1000, 9, 23).unwrap()),
     ];
 
     Test::new()
@@ -692,14 +707,6 @@ fn naive_date_example_as_string() {
         .trace_schema_from_samples(&items, TracingOptions::default())
         .serialize(&items)
         .deserialize(&items);
-}
-
-#[test]
-fn naive_date_example_as_time64() {
-    let items = [
-        Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
-        Item(NaiveDate::from_ymd_opt(-1000, 9, 30).unwrap()),
-    ];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
