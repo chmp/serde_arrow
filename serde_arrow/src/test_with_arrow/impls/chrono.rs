@@ -5,6 +5,7 @@ use crate::{
     internal::{
         arrow::DataType,
         testing::{assert_error_contains, ArrayAccess},
+        utils::value,
     },
     schema::{SchemaLike, SerdeArrowSchema, TracingOptions},
     utils::Item,
@@ -19,6 +20,14 @@ use serde_json::json;
 fn trace_from_type_does_not_work() {
     let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
     assert_error_contains(&res, "premature end of input");
+}
+
+#[test]
+fn temporal_formats() {
+    assert_error_contains(
+        &value::transmute::<DateTime<Utc>>("2023-12-01T12:22:33[UTC]"),
+        "",
+    );
 }
 
 #[test]
