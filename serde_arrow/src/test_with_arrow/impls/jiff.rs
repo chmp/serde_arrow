@@ -1,6 +1,6 @@
 use jiff::{
     civil::{date, time, Date, DateTime, Time},
-    Span, Zoned,
+    Span, Timestamp, Zoned,
 };
 use serde_json::json;
 
@@ -109,12 +109,23 @@ fn transmute_jiff_chrono() {
         .and_hms_opt(7, 8, 9)
         .unwrap()
         .and_utc();
-    assert_error_contains(&value::transmute::<Zoned>(&chrono), "");
-
     let jiff = date(1234, 5, 6).at(7, 8, 9, 0).intz("UTC").unwrap();
+
+    assert_error_contains(&value::transmute::<Zoned>(&chrono), "");
     assert_error_contains(
         &value::transmute::<chrono::DateTime<chrono::Utc>>(&jiff),
         "",
+    );
+
+    // use timestamp
+    let jiff_timestamp = jiff.timestamp();
+    assert_eq!(
+        value::transmute::<Timestamp>(&chrono).unwrap(),
+        jiff_timestamp
+    );
+    assert_eq!(
+        value::transmute::<chrono::DateTime<chrono::Utc>>(&jiff_timestamp).unwrap(),
+        chrono
     );
 }
 
