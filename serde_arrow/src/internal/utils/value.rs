@@ -82,7 +82,7 @@ impl std::hash::Hash for HashF64 {
     }
 }
 
-pub fn transmute<S: Serialize, T: DeserializeOwned>(value: S) -> Result<T> {
+pub fn transmute<T: DeserializeOwned>(value: impl Serialize) -> Result<T> {
     let value = value.serialize(ValueSerializer)?;
     T::deserialize(ValueDeserializer::new(&value))
 }
@@ -577,6 +577,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
     fn deserialize_byte_buf<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_byte_buf(v.to_owned()),
+            Value::String(v) => visitor.visit_byte_buf(v.as_bytes().to_owned()),
             v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
@@ -584,6 +585,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
     fn deserialize_bytes<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_bytes(v),
+            Value::String(v) => visitor.visit_bytes(v.as_bytes()),
             v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
