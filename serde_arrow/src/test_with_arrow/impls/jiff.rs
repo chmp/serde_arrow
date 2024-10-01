@@ -76,7 +76,10 @@ fn transmute_jiff_chrono() {
     );
 
     // datetime
-    let chrono = chrono::NaiveDate::from_ymd_opt(1234, 5, 6).unwrap().and_hms_opt(7, 8, 9).unwrap();
+    let chrono = chrono::NaiveDate::from_ymd_opt(1234, 5, 6)
+        .unwrap()
+        .and_hms_opt(7, 8, 9)
+        .unwrap();
     let jiff = date(1234, 5, 6).at(7, 8, 9, 0);
 
     assert_eq!(value::transmute::<DateTime>(&chrono).unwrap(), jiff);
