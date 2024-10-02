@@ -6,6 +6,7 @@ use serde_json::json;
 
 use crate::{
     internal::{
+        schema::TracingOptions,
         testing::assert_error_contains,
         utils::{value, Item},
     },
@@ -142,55 +143,102 @@ fn empty_string_errors() {
     assert_error_contains(&value::transmute::<Zoned>(""), "found end of input");
 }
 
-#[test]
-fn test_time() {
-    let items = [
-        Item(time(12, 0, 0, 0)),
-        Item(time(23, 31, 12, 0)),
-        Item(time(3, 2, 58, 0)),
-    ];
+mod time {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    fn items() -> Vec<Item<Time>> {
+        vec![
+            Item(time(12, 0, 0, 0)),
+            Item(time(23, 31, 12, 0)),
+            Item(time(3, 2, 58, 0)),
+        ]
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Time32(Second)"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_large_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Time32(Millisecond)"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Time64(Microsecond)"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_time32_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time32(Second)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_time32_miliseconds() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time32(Millisecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time32_microseconds() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time64(Microsecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time64_nanosecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
 
-#[test]
-fn test_date() {
-    let items = [
-        Item(date(1234, 5, 6)),
-        Item(date(-10, 10, 30)),
-        Item(date(2024, 10, 1)),
-    ];
+mod date {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    fn items() -> Vec<Item<Date>> {
+        vec![
+            Item(date(1234, 5, 6)),
+            Item(date(-10, 10, 30)),
+            Item(date(2024, 10, 1)),
+        ]
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_large_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_date32() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
