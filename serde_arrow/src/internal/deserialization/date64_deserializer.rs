@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, Datelike, Utc};
 use serde::de::Visitor;
 
 use crate::internal::{
@@ -43,11 +43,37 @@ impl<'a> Date64Deserializer<'a> {
         };
 
         if self.is_utc {
+            Ok(self.format_utc(date_time))
+        } else {
+            Ok(self.format_non_utc(date_time))
+        }
+    }
+
+    pub fn format_utc(&self, date_time: DateTime<Utc>) -> String {
+        // NOTE: chrono documents that Debug, not Display, can be parsed
+        format!("{:?}", date_time)
+    }
+
+    pub fn format_non_utc(&self, date_time: DateTime<Utc>) -> String {
+        let date_time = date_time.naive_utc();
+        // special handling of negative dates:
+        //
+        // - jiff expects 6 digits years in this case
+        // - chrono allows an arbitrary number of digits, when prefixed with a sign
+        //
+        // https://github.com/chronotope/chrono/blob/05a6ce68cf18a01274cef211b080a7170c7c1a1f/src/format/parse.rs#L368
+        if date_time.year() < 0 {
             // NOTE: chrono documents that Debug, not Display, can be parsed
-            Ok(format!("{:?}", date_time))
+            format!(
+                "-{positive_year:06}-{month:02}-{day:02}T{time:?}",
+                positive_year = -date_time.year(),
+                month = date_time.month(),
+                day = date_time.day(),
+                time = date_time.time(),
+            )
         } else {
             // NOTE: chrono documents that Debug, not Display, can be parsed
-            Ok(format!("{:?}", date_time.naive_utc()))
+            format!("{:?}", date_time)
         }
     }
 }
@@ -96,6 +122,18 @@ impl<'de> SimpleDeserializer<'de> for Date64Deserializer<'de> {
         try_(|| {
             let ts = self.array.next_required()?;
             visitor.visit_string(self.get_string_repr(ts)?)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| self.deserialize_byte_buf(visitor).ctx(self))
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.next_required()?;
+            visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
         })
         .ctx(self)
     }

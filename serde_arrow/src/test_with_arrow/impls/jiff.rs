@@ -233,10 +233,102 @@ mod date {
     }
 
     #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
     fn as_date32() {
         let items = items();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+}
+
+mod date_time {
+    use super::*;
+
+    fn items() -> Vec<Item<DateTime>> {
+        vec![
+            Item(date(2024, 10, 2).at(20, 26, 12, 0)),
+            Item(date(-10, 10, 30).at(0, 0, 0, 0)),
+            Item(date(-1000, 1, 12).at(23, 59, 59, 0)),
+        ]
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_timestamp_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Second, None)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_timestamp_millisecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_timestamp_microsecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Microsecond, None)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_timestamp_nanosecond() {
+        // the make sure the date can be represented as i64 with nanosecond resolution
+        let items = items()
+            .into_iter()
+            .filter(|Item(dt)| *dt >= date(1677, 9, 21).at(0, 12, 44, 0))
+            .collect::<Vec<_>>();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Nanosecond, None)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_date64() {
+        let items = items();
+        Test::new()
+            .with_schema(
+                json!([{"name": "item", "data_type": "Date64", "strategy": "NaiveStrAsDate64"}]),
+            )
             .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
