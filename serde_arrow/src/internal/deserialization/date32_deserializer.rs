@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use serde::de::Visitor;
 
 use crate::internal::{
@@ -27,7 +27,23 @@ impl<'a> Date32Deserializer<'a> {
         #[allow(deprecated)]
         let delta = Duration::days(ts as i64);
         let date = UNIX_EPOCH + delta;
-        Ok(date.to_string())
+
+        // special handling of negative dates:
+        //
+        // - jiff expects 6 digits years in this case
+        // - chrono allows an arbitrary number of digits, when prefixed with a sign
+        //
+        // https://github.com/chronotope/chrono/blob/05a6ce68cf18a01274cef211b080a7170c7c1a1f/src/format/parse.rs#L368
+        if date.year() < 0 {
+            Ok(format!(
+                "-{positive_year:06}-{month:02}-{day:02}",
+                positive_year = -date.year(),
+                month = date.month(),
+                day = date.day(),
+            ))
+        } else {
+            Ok(date.to_string())
+        }
     }
 }
 

@@ -180,8 +180,7 @@ fn test_time() {
 fn test_date() {
     let items = [
         Item(date(1234, 5, 6)),
-        // NOTE: chrono uses 4 digits for the year, jiff requires 6
-        // Item(date(-10, 10, 30)),
+        Item(date(-10, 10, 30)),
         Item(date(2024, 10, 1)),
     ];
 
