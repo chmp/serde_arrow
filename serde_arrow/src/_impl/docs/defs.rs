@@ -28,7 +28,7 @@ pub fn example_arrow_arrays() -> (Vec<crate::_impl::arrow::datatypes::FieldRef>,
     let items = example_records();
 
     let fields = Vec::<crate::_impl::arrow::datatypes::FieldRef>::from_type::<Record>(TracingOptions::default()).unwrap();
-    let arrays = crate::to_arrow(&fields, &items).unwrap();
+    let arrays = crate::to_arrow(&fields, items).unwrap();
 
     (fields, arrays)
 }
@@ -40,7 +40,7 @@ pub fn example_arrow2_arrays() -> (Vec<crate::_impl::arrow2::datatypes::Field>, 
     let items = example_records();
 
     let fields = Vec::<crate::_impl::arrow2::datatypes::Field>::from_type::<Record>(TracingOptions::default()).unwrap();
-    let arrays = crate::to_arrow2(&fields, &items).unwrap();
+    let arrays = crate::to_arrow2(&fields, items).unwrap();
 
     (fields, arrays)
 }

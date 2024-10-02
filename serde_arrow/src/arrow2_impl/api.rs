@@ -107,7 +107,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow2` arrays and reset the builder (*requires one of the
     /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.to_arrays()?
+        self.build_arrays()?
             .into_iter()
             .map(Box::<dyn Array>::try_from)
             .collect()

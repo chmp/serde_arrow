@@ -186,7 +186,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        self.to_arrays()?
+        self.build_arrays()?
             .into_iter()
             .map(ArrayRef::try_from)
             .collect()
