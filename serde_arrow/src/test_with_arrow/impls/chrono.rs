@@ -664,53 +664,84 @@ fn duration_example_as_string_details() {
     assert_eq!(array.get_utf8(2).unwrap(), Some("23:59:59.999"));
 }
 
-#[test]
-fn duration_example_as_string() {
-    let items = [
-        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
-        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
-        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
-    ];
+mod naive_time {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default())
-        .serialize(&items)
-        .deserialize(&items);
+    fn items() -> Vec<Item<NaiveTime>> {
+        vec![
+            Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+            Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+            Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+        ]
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let items = &items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time64() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
 
-#[test]
-fn duration_example_as_time64() {
-    let items = [
-        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
-        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
-        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
-    ];
+mod naive_date {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items);
-}
+    fn items() -> Vec<Item<NaiveDate>> {
+        vec![
+            Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
+            Item(NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()),
+            Item(NaiveDate::from_ymd_opt(-1000, 9, 23).unwrap()),
+        ]
+    }
 
-#[test]
-fn naive_date() {
-    let items = [
-        Item(NaiveDate::from_ymd_opt(2024, 9, 30).unwrap()),
-        Item(NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()),
-        Item(NaiveDate::from_ymd_opt(-1000, 9, 23).unwrap()),
-    ];
+    #[test]
+    fn as_large_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default())
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items);
+    #[test]
+    fn as_date32() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
