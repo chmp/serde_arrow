@@ -51,7 +51,9 @@ impl<'a> Date64Deserializer<'a> {
 
     pub fn format_utc(&self, date_time: DateTime<Utc>) -> String {
         // NOTE: chrono documents that Debug, not Display, can be parsed
-        format!("{:?}", date_time)
+        let mut s = self.format_non_utc(date_time);
+        s.push('Z');
+        s
     }
 
     pub fn format_non_utc(&self, date_time: DateTime<Utc>) -> String {
