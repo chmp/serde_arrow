@@ -5,6 +5,7 @@ pub mod date32_deserializer;
 pub mod date64_deserializer;
 pub mod decimal_deserializer;
 pub mod dictionary_deserializer;
+pub mod duration_deserializer;
 pub mod enum_deserializer;
 pub mod enums_as_string_impl;
 pub mod fixed_size_binary_deserializer;

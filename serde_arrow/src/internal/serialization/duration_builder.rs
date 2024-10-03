@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::internal::{
     arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
+    chrono,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };
@@ -91,5 +92,13 @@ impl SimpleSerializer for DurationBuilder {
 
     fn serialize_u64(&mut self, v: u64) -> Result<()> {
         try_(|| self.array.push_scalar_value(i64::try_from(v)?)).ctx(self)
+    }
+
+    fn serialize_str(&mut self, v: &str) -> Result<()> {
+        try_(|| {
+            let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
+            self.array.push_scalar_value(value)
+        })
+        .ctx(self)
     }
 }

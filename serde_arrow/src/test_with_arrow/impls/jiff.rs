@@ -447,3 +447,69 @@ mod timestamp {
             .deserialize(&items);
     }
 }
+
+mod span {
+    use serde::{Deserialize, Serialize};
+    use super::*;
+
+    // wrapper around spans that uses compare for PartialEq
+    #[derive(Debug, Serialize, Deserialize)]
+    struct EquivalentSpan(Span);
+
+    impl From<Span> for EquivalentSpan {
+        fn from(value: Span) -> Self {
+            Self(value)
+        }
+    }
+
+    impl std::cmp::PartialEq for EquivalentSpan {
+        fn eq(&self, other: &Self) -> bool {
+            match self.0.compare(&other.0) {
+                Ok(ordering) => ordering == std::cmp::Ordering::Equal,
+                Err(_) => false,
+            }
+        }
+    }
+
+    fn items() -> Vec<Item<EquivalentSpan>> {
+        // use std::ops::Neg;
+
+        // Note: weeks are always considered non-uniform
+        vec![
+            Item(Span::new().hours(5).seconds(20).into()),
+            Item(Span::new().minutes(20).seconds(32).into()),
+            Item(Span::new().days(5).hours(12).into()),
+            // TODO: negative spans are not yet supported
+            // Item(Span::new().days(1).hours(2).minutes(3).seconds(4).neg().into()),
+            // TODO: examples with subsecond resolution
+        ]
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Second)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+}

@@ -1,10 +1,12 @@
 //! Support for Parsing datetime related quantities
 //!
-use crate::internal::error::Result;
+use crate::internal::{arrow::TimeUnit, error::Result};
 
 use parsing::ParseResult;
 
 pub use parsing::Span;
+
+use super::error::fail;
 
 /// Check whether `s` can be parsed as a naive datetime
 pub fn matches_naive_datetime(s: &str) -> bool {
@@ -26,17 +28,57 @@ pub fn matches_naive_time(s: &str) -> bool {
     parsing::match_naive_time(s).matches()
 }
 
-/// Check whether `s` can be parsed as a span
-pub fn matches_span(s: &str) -> bool {
-    parsing::match_span(s).matches()
-}
-
 /// Parse `s` as a span
 pub fn parse_span(s: &str) -> Result<Span<'_>> {
     parsing::match_span(s).into_result("Span")
 }
 
-/// minimalistic monadic parsers for datetime objects
+// TODO: handle signs
+impl<'a> parsing::Span<'a> {
+    pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
+        if get_value(self.year)? != 0 || get_value(self.month)? != 0 {
+            fail!("Cannot convert interval style spans to a duration");
+        }
+
+        // TODO: perform check here?
+        let second_value = get_value(self.week)? * 7 * 24 * 60 * 60
+            + get_value(self.day)? * 24 * 60 * 60
+            + get_value(self.hour)? * 60 * 60
+            + get_value(self.minute)? * 60
+            + get_value(self.second)?;
+
+        // TODO: implement subsecond values
+
+        checked_unit_cast(second_value, unit)
+    }
+}
+
+fn get_value(s: Option<&str>) -> Result<i64> {
+    match s {
+        Some(s) => Ok(s.parse()?),
+        None => Ok(0),
+    }
+}
+
+fn checked_unit_cast(second_value: i64, unit: TimeUnit) -> Result<i64> {
+    match unit {
+        TimeUnit::Second => Ok(second_value),
+        TimeUnit::Microsecond => match second_value.checked_mul(1_000_i64) {
+            Some(res) => Ok(res),
+            None => fail!("Cannot represent {second_value} with Microsecond resolution"),
+        },
+        TimeUnit::Millisecond => match second_value.checked_mul(1_000_000_i64) {
+            Some(res) => Ok(res),
+            None => fail!("Cannot represent {second_value} with Millisecond resolution"),
+        },
+        TimeUnit::Nanosecond => match second_value.checked_mul(1_000_000_000_i64) {
+            Some(res) => Ok(res),
+            None => fail!("Cannot represent {second_value} with Nanosecond resolution"),
+        },
+    }
+}
+
+/// Minimalistic monadic parsers for datetime objects
 ///
 /// Each parser has the the following interface:
 ///
