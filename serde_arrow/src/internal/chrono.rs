@@ -1,28 +1,39 @@
 //! Support for Parsing datetime related quantities
 //!
+use crate::internal::error::Result;
 
+use parsing::ParseResult;
+
+pub use parsing::Span;
+
+/// Check whether `s` can be parsed as a naive datetime
 pub fn matches_naive_datetime(s: &str) -> bool {
-    parsing::match_naive_datetime(s)
-        .map(|(rest, _)| rest.is_empty())
-        .unwrap_or_default()
+    parsing::match_naive_datetime(s).matches()
 }
 
+/// Check whether `s` can be parsed as a UTC datetime
 pub fn matches_utc_datetime(s: &str) -> bool {
-    parsing::match_utc_datetime(s)
-        .map(|(rest, _)| rest.is_empty())
-        .unwrap_or_default()
+    parsing::match_utc_datetime(s).matches()
 }
 
+/// Check whether `s` can be parsed as a naive date
 pub fn matches_naive_date(s: &str) -> bool {
-    parsing::match_naive_date(s)
-        .map(|(rest, _)| rest.is_empty())
-        .unwrap_or_default()
+    parsing::match_naive_date(s).matches()
 }
 
+/// Check whether `s` can be parsed as a naive time
 pub fn matches_naive_time(s: &str) -> bool {
-    parsing::match_naive_time(s)
-        .map(|(rest, _)| rest.is_empty())
-        .unwrap_or_default()
+    parsing::match_naive_time(s).matches()
+}
+
+/// Check whether `s` can be parsed as a span
+pub fn matches_span(s: &str) -> bool {
+    parsing::match_span(s).matches()
+}
+
+/// Parse `s` as a span
+pub fn parse_span(s: &str) -> Result<Span<'_>> {
+    parsing::match_span(s).into_result("Span")
 }
 
 /// minimalistic monadic parsers for datetime objects
@@ -34,7 +45,34 @@ pub fn matches_naive_time(s: &str) -> bool {
 mod parsing {
     pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub trait ParseResult {
+        type Output;
+
+        fn matches(&self) -> bool;
+        fn into_result(self, output_type: &str) -> crate::internal::error::Result<Self::Output>;
+    }
+
+    impl<'a, 'e, R> ParseResult for Result<(&'a str, R), &'e str> {
+        type Output = R;
+
+        fn matches(&self) -> bool {
+            match self {
+                Ok((rest, _)) => rest.is_empty(),
+                Err(_) => false,
+            }
+        }
+
+        fn into_result(self, output_type: &str) -> crate::internal::error::Result<Self::Output> {
+            match self {
+                Ok((rest, output)) if rest.is_empty() => Ok(output),
+                Ok((unmatched, _)) | Err(unmatched) => crate::internal::error::fail!(
+                    "Could not parse the string as {output_type}, unmatched content: {unmatched:?}"
+                ),
+            }
+        }
+    }
+
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct Date<'a> {
         pub sign: Option<char>,
         pub year: &'a str,
@@ -42,7 +80,7 @@ mod parsing {
         pub day: &'a str,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct Time<'a> {
         pub hour: &'a str,
         pub minute: &'a str,
@@ -50,17 +88,29 @@ mod parsing {
         pub subsecond: Option<&'a str>,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct DateTime<'a> {
         pub date: Date<'a>,
         pub time: Time<'a>,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct DateTimeUtc<'a> {
         pub date: Date<'a>,
         pub time: Time<'a>,
         pub timezone: &'a str,
+    }
+
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
+    pub struct Span<'a> {
+        pub year: Option<&'a str>,
+        pub month: Option<&'a str>,
+        pub day: Option<&'a str>,
+        pub week: Option<&'a str>,
+        pub hour: Option<&'a str>,
+        pub minute: Option<&'a str>,
+        pub second: Option<&'a str>,
+        pub subsecond: Option<&'a str>,
     }
 
     pub fn match_utc_datetime(s: &str) -> Result<(&str, DateTimeUtc<'_>), &str> {
@@ -123,6 +173,60 @@ mod parsing {
         ))
     }
 
+    pub fn match_span(s: &str) -> Result<(&str, Span<'_>), &str> {
+        let (s, _) = match_char_case_insensitive(s, 'P')?;
+        let (s, year) = match_optional_span_value(s, 'Y')?;
+        let (s, month) = match_optional_span_value(s, 'M')?;
+        let (s, week) = match_optional_span_value(s, 'W')?;
+        let (s, day) = match_optional_span_value(s, 'D')?;
+
+        let (s, hour, minute, second, subsecond) = if let Some(s) = s.strip_prefix(['t', 'T']) {
+            let (s, hour) = match_optional_span_value(s, 'H')?;
+            let (s, minute) = match_optional_span_value(s, 'M')?;
+            let (s, second, subsecond) = match_optional_span_seconds(s)?;
+            (s, hour, minute, second, subsecond)
+        } else {
+            (s, None, None, None, None)
+        };
+
+        Ok((
+            s,
+            Span {
+                year,
+                month,
+                week,
+                day,
+                hour,
+                minute,
+                second,
+                subsecond,
+            },
+        ))
+    }
+
+    pub fn match_optional_span_seconds(
+        s: &str,
+    ) -> Result<(&str, Option<&str>, Option<&str>), &str> {
+        let Ok((rest, second)) = match_one_or_more_digits(s) else {
+            return Ok((s, None, None));
+        };
+        let second = Some(second);
+
+        let (rest, subsecond) = if let Some(rest) = rest.strip_prefix('.') {
+            // Q: is a subsecond part really required after a '.'?
+            let (rest, subsecond) = match_one_or_more_digits(rest)?;
+            (rest, Some(subsecond))
+        } else {
+            (rest, None)
+        };
+
+        let Ok((rest, _)) = match_char_case_insensitive(rest, 'S') else {
+            return Ok((s, None, None));
+        };
+
+        Ok((rest, second, subsecond))
+    }
+
     pub fn match_naive_datetime_with_sep<'a>(
         s: &'a str,
         sep: &'_ [char],
@@ -149,6 +253,17 @@ mod parsing {
         debug_assert!(s.ends_with(rest), "Invalid call to get prefix");
         let len_prefix = s.len() - rest.len();
         &s[..len_prefix]
+    }
+
+    /// Match a value in a span
+    pub fn match_optional_span_value(s: &str, unit: char) -> Result<(&str, Option<&str>), &str> {
+        let Ok((rest, value)) = match_one_or_more_digits(s) else {
+            return Ok((s, None));
+        };
+        let Ok((rest, _)) = match_char_case_insensitive(rest, unit) else {
+            return Ok((s, None));
+        };
+        Ok((rest, Some(value)))
     }
 
     pub fn match_optional_sign(s: &str) -> Result<(&str, Option<char>), &str> {
@@ -178,6 +293,24 @@ mod parsing {
     pub fn match_char(s: &str, c: char) -> Result<(&str, char), &str> {
         if let Some(rest) = s.strip_prefix(c) {
             Ok((rest, c))
+        } else {
+            Err(s)
+        }
+    }
+
+    /// Match a character case insensitive
+    ///
+    /// Note: `c` must be an ASCII character and must be uppercase
+    pub fn match_char_case_insensitive(s: &str, c: char) -> Result<(&str, char), &str> {
+        debug_assert!(c.is_ascii());
+        debug_assert!(c.is_ascii_uppercase());
+
+        let c_lowercase = c.to_ascii_lowercase();
+
+        if let Some(rest) = s.strip_prefix(c) {
+            Ok((rest, c))
+        } else if let Some(rest) = s.strip_prefix(c_lowercase) {
+            Ok((rest, c_lowercase))
         } else {
             Err(s)
         }
@@ -401,6 +534,144 @@ fn test_match_naive_time() {
                 minute: "00",
                 second: "12",
                 subsecond: Some("999")
+            }
+        ))
+    );
+}
+
+#[test]
+fn match_span() {
+    // jiff examples
+    assert_eq!(
+        parsing::match_span("P40D"),
+        Ok((
+            "",
+            parsing::Span {
+                day: Some("40"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P1y1d"),
+        Ok((
+            "",
+            parsing::Span {
+                year: Some("1"),
+                day: Some("1"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P1m"),
+        Ok((
+            "",
+            parsing::Span {
+                month: Some("1"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P1w"),
+        Ok((
+            "",
+            parsing::Span {
+                week: Some("1"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P1w4d"),
+        Ok((
+            "",
+            parsing::Span {
+                week: Some("1"),
+                day: Some("4"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P0d"),
+        Ok((
+            "",
+            parsing::Span {
+                day: Some("0"),
+                ..Default::default()
+            }
+        ))
+    );
+
+    assert_eq!(
+        parsing::match_span("P3dT4h59m"),
+        Ok((
+            "",
+            parsing::Span {
+                day: Some("3"),
+                hour: Some("4"),
+                minute: Some("59"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("PT2H30M"),
+        Ok((
+            "",
+            parsing::Span {
+                hour: Some("2"),
+                minute: Some("30"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("PT1m"),
+        Ok((
+            "",
+            parsing::Span {
+                minute: Some("1"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("PT0s"),
+        Ok((
+            "",
+            parsing::Span {
+                second: Some("0"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("PT0.0021s"),
+        Ok((
+            "",
+            parsing::Span {
+                second: Some("0"),
+                subsecond: Some("0021"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("P1y1m1dT1h1m1.1s"),
+        Ok((
+            "",
+            parsing::Span {
+                year: Some("1"),
+                month: Some("1"),
+                day: Some("1"),
+                hour: Some("1"),
+                minute: Some("1"),
+                second: Some("1"),
+                subsecond: Some("1"),
+                ..Default::default()
             }
         ))
     );
