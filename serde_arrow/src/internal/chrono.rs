@@ -48,8 +48,41 @@ impl<'a> parsing::Span<'a> {
             + get_value(self.second)?;
 
         // TODO: implement subsecond values
+        let unsigned_result = checked_unit_cast(second_value, unit)?;
 
-        checked_unit_cast(second_value, unit)
+        if self.sign == Some('-') {
+            Ok(-unsigned_result)
+        } else {
+            Ok(unsigned_result)
+        }
+    }
+}
+
+/// Format a duration in the given unit as a Span string
+pub fn format_arrow_duration_as_span(value: i64, unit: TimeUnit) -> String {
+    let (value, sign) = if value < 0 {
+        (-value, "-")
+    } else {
+        (value, "")
+    };
+
+    match unit {
+        TimeUnit::Second => format!("{sign}PT{value}s"),
+        TimeUnit::Microsecond => format!(
+            "{sign}PT{second}.{subsecond:03}s",
+            second = value / 1_000,
+            subsecond = value % 1000
+        ),
+        TimeUnit::Millisecond => format!(
+            "{sign}PT{second}.{subsecond:06}s",
+            second = value / 1_000_000,
+            subsecond = value % 1_000_000
+        ),
+        TimeUnit::Nanosecond => format!(
+            "{sign}PT{second}.{subsecond:09}s",
+            second = value / 1_000_000_000,
+            subsecond = value % 1_000_000_000
+        ),
     }
 }
 
@@ -145,6 +178,7 @@ mod parsing {
 
     #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct Span<'a> {
+        pub sign: Option<char>,
         pub year: Option<&'a str>,
         pub month: Option<&'a str>,
         pub day: Option<&'a str>,
@@ -216,6 +250,7 @@ mod parsing {
     }
 
     pub fn match_span(s: &str) -> Result<(&str, Span<'_>), &str> {
+        let (s, sign) = match_optional_sign(s)?;
         let (s, _) = match_char_case_insensitive(s, 'P')?;
         let (s, year) = match_optional_span_value(s, 'Y')?;
         let (s, month) = match_optional_span_value(s, 'M')?;
@@ -234,6 +269,7 @@ mod parsing {
         Ok((
             s,
             Span {
+                sign,
                 year,
                 month,
                 week,
@@ -713,6 +749,31 @@ fn match_span() {
                 minute: Some("1"),
                 second: Some("1"),
                 subsecond: Some("1"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("+P3dT4h59m"),
+        Ok((
+            "",
+            parsing::Span {
+                sign: Some('+'),
+                day: Some("3"),
+                hour: Some("4"),
+                minute: Some("59"),
+                ..Default::default()
+            }
+        ))
+    );
+    assert_eq!(
+        parsing::match_span("-P1w4d"),
+        Ok((
+            "",
+            parsing::Span {
+                sign: Some('-'),
+                week: Some("1"),
+                day: Some("4"),
                 ..Default::default()
             }
         ))

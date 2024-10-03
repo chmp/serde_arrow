@@ -2,6 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     arrow::{PrimitiveArrayView, TimeUnit},
+    chrono,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };
@@ -25,28 +26,7 @@ impl<'a> DurationDeserializer<'a> {
 
     pub fn next_string_value_required(&mut self) -> Result<String> {
         let value = self.array.next_required()?;
-        Ok(self.format_string_value(value))
-    }
-
-    pub fn format_string_value(&self, value: i64) -> String {
-        match self.unit {
-            TimeUnit::Second => format!("PT{value}s"),
-            TimeUnit::Microsecond => format!(
-                "PT{second}.{subsecond:03}s",
-                second = value / 1_000,
-                subsecond = value % 1000
-            ),
-            TimeUnit::Millisecond => format!(
-                "PT{second}.{subsecond:06}s",
-                second = value / 1_000_000,
-                subsecond = value % 1_000_000
-            ),
-            TimeUnit::Nanosecond => format!(
-                "PT{second}.{subsecond:09}s",
-                second = value / 1_000_000_000,
-                subsecond = value % 1_000_000_000
-            ),
-        }
+        Ok(chrono::format_arrow_duration_as_span(value, self.unit))
     }
 }
 
