@@ -58,8 +58,13 @@ impl<'a> parsing::Span<'a> {
             return Ok(0);
         };
         let subsecond_val: i64 = subsecond.parse()?;
-        // TODO: handle subsecond.len() > 9 gracefully
-        Ok(subsecond_val * 10_i64.pow(9 - u32::try_from(subsecond.len())?))
+        let subsecond_len = u32::try_from(subsecond.len())?;
+
+        if subsecond_len <= 9 {
+            Ok(subsecond_val * 10_i64.pow(9 - subsecond_len))
+        } else {
+            Ok(subsecond_val / 10_i64.pow(subsecond_len - 9))
+        }
     }
 
     fn build_duration(
