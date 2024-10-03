@@ -456,7 +456,7 @@ mod span {
 
     // wrapper around spans that uses compare for PartialEq
     #[derive(Debug, Serialize, Deserialize)]
-    struct EquivalentSpan(Span);
+    pub struct EquivalentSpan(pub Span);
 
     impl EquivalentSpan {
         pub fn round(self, unit: TimeUnit) -> Self {
@@ -483,7 +483,7 @@ mod span {
         }
     }
 
-    fn items(unit: TimeUnit) -> Vec<Item<EquivalentSpan>> {
+    pub fn items(unit: TimeUnit) -> Vec<Item<EquivalentSpan>> {
         use std::ops::Neg;
 
         // Note: weeks are always considered non-uniform
@@ -507,6 +507,74 @@ mod span {
         items
             .into_iter()
             .map(|span| Item(EquivalentSpan(span).round(unit)))
+            .collect()
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let items = items(TimeUnit::Nanosecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default())
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let items = items(TimeUnit::Nanosecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_second() {
+        let items = items(TimeUnit::Second);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Second)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_microsecond() {
+        let items = items(TimeUnit::Microsecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Microsecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_millisecond() {
+        let items = items(TimeUnit::Millisecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Millisecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_nanosecond() {
+        let items = items(TimeUnit::Nanosecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Nanosecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+}
+
+mod signed_duration {
+    use super::*;
+    use crate::internal::arrow::TimeUnit;
+    use jiff::SignedDuration;
+
+    fn items(unit: TimeUnit) -> Vec<Item<SignedDuration>> {
+        super::span::items(unit)
+            .into_iter()
+            .map(|span| Item(SignedDuration::try_from(span.0 .0).unwrap()))
             .collect()
     }
 
