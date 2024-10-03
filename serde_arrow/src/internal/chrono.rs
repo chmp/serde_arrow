@@ -1,39 +1,57 @@
+//! Support for Parsing datetime related quantities
+//!
+
 pub fn matches_naive_datetime(s: &str) -> bool {
-    eval_parser(parsing::match_naive_datetime, s)
+    match_parser(parsing::match_naive_datetime, s)
 }
 
 pub fn matches_utc_datetime(s: &str) -> bool {
-    eval_parser(parsing::match_utc_datetime, s)
+    match_parser(parsing::match_utc_datetime, s)
 }
 
 pub fn matches_naive_date(s: &str) -> bool {
-    eval_parser(parsing::match_naive_date, s)
+    match_parser(parsing::match_naive_date, s)
 }
 
 pub fn matches_naive_time(s: &str) -> bool {
-    eval_parser(parsing::match_naive_time, s)
+    match_parser(parsing::match_naive_time, s)
 }
 
-fn eval_parser<F: Fn(&str) -> Result<&str, &str>>(parser: F, s: &str) -> bool {
+fn match_parser<F: Fn(&str) -> Result<&str, &str>>(parser: F, s: &str) -> bool {
     parser(s.trim()).map(str::is_empty).unwrap_or_default()
 }
 
-/// minimalistic monadic parser
+/// minimalistic monadic parsers for datetime objects
 ///
-/// Returns the Err(unmatched_string) on error and Ok(rest) on success
+/// Each parser has the the following interface:
+///
+/// `fn (string_to_parser, ..extra_args) -> Result<(rest, result), unmatched_string>`
+///
 mod parsing {
     pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-    pub fn match_optional_sign(s: &str) -> Result<&str, &str> {
-        Ok(s.strip_prefix(['+', '-']).unwrap_or(s))
+    fn get_prefix<'a>(s: &'a str, rest: &str) -> &'a str {
+        debug_assert!(s.ends_with(rest), "Invalid call to get prefix");
+        let len_prefix = s.len() - rest.len();
+        &s[..len_prefix]
     }
 
-    pub fn match_one_or_more_digits(s: &str) -> Result<&str, &str> {
-        let mut s = s.strip_prefix(DIGIT).ok_or(s)?;
-        while let Some(new_s) = s.strip_prefix(DIGIT) {
-            s = new_s;
+    pub fn match_optional_sign(s: &str) -> Result<(&str, Option<char>), &str> {
+        if let Some(rest) = s.strip_prefix('+') {
+            Ok((rest, Some('+')))
+        } else if let Some(rest) = s.strip_prefix('-') {
+            Ok((rest, Some('-')))
+        } else {
+            Ok((s, None))
         }
-        Ok(s)
+    }
+
+    pub fn match_one_or_more_digits(s: &str) -> Result<(&str, &str), &str> {
+        let mut rest = s.strip_prefix(DIGIT).ok_or(s)?;
+        while let Some(new_rest) = rest.strip_prefix(DIGIT) {
+            rest = new_rest;
+        }
+        Ok((rest, get_prefix(s, rest)))
     }
 
     pub fn match_one_or_two_digits(s: &str) -> Result<&str, &str> {
@@ -55,8 +73,8 @@ mod parsing {
     }
 
     pub fn match_naive_date(s: &str) -> Result<&str, &str> {
-        let s = match_optional_sign(s)?;
-        let s = match_one_or_more_digits(s)?;
+        let (s, _sign) = match_optional_sign(s)?;
+        let (s, _year) = match_one_or_more_digits(s)?;
         let s = match_char(s, '-')?;
         let s = match_one_or_two_digits(s)?;
         let s = match_char(s, '-')?;
@@ -71,7 +89,8 @@ mod parsing {
         let s = match_one_or_two_digits(s)?;
 
         if let Some(s) = s.strip_prefix('.') {
-            match_one_or_more_digits(s)
+            let (s, _subsecond) = match_one_or_more_digits(s)?;
+            Ok(s)
         } else {
             Ok(s)
         }
@@ -132,4 +151,31 @@ fn test_match_naive_date() {
 fn test_match_naive_time() {
     assert_eq!(parsing::match_naive_time("23:00:12"), Ok(""));
     assert_eq!(parsing::match_naive_time("23:00:12.999"), Ok(""));
+}
+
+#[test]
+fn match_optional_sign() {
+    assert_eq!(parsing::match_optional_sign("foo"), Ok(("foo", None)));
+    assert_eq!(parsing::match_optional_sign("?foo"), Ok(("?foo", None)));
+    assert_eq!(parsing::match_optional_sign("+foo"), Ok(("foo", Some('+'))));
+    assert_eq!(parsing::match_optional_sign("-foo"), Ok(("foo", Some('-'))));
+}
+
+#[test]
+fn match_one_or_more_digits() {
+    assert_eq!(parsing::match_one_or_more_digits("foo"), Err("foo"));
+    assert_eq!(parsing::match_one_or_more_digits(" 1foo"), Err(" 1foo"));
+    assert_eq!(parsing::match_one_or_more_digits("1foo"), Ok(("foo", "1")));
+    assert_eq!(
+        parsing::match_one_or_more_digits("12foo"),
+        Ok(("foo", "12"))
+    );
+    assert_eq!(
+        parsing::match_one_or_more_digits("123foo"),
+        Ok(("foo", "123"))
+    );
+    assert_eq!(
+        parsing::match_one_or_more_digits("1234foo"),
+        Ok(("foo", "1234"))
+    );
 }

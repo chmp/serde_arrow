@@ -1,5 +1,4 @@
 //! Support for `from_samples`
-mod chrono;
 #[cfg(test)]
 mod test_error_messages;
 
@@ -9,6 +8,7 @@ use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
     arrow::{DataType, TimeUnit},
+    chrono,
     error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{Strategy, TracingMode, TracingOptions},
 };
