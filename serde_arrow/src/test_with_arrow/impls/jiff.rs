@@ -450,15 +450,27 @@ mod timestamp {
 
 mod span {
     use super::*;
+    use crate::internal::arrow::TimeUnit;
+    use jiff::{RoundMode, SpanRound, Unit};
     use serde::{Deserialize, Serialize};
 
     // wrapper around spans that uses compare for PartialEq
     #[derive(Debug, Serialize, Deserialize)]
     struct EquivalentSpan(Span);
 
-    impl From<Span> for EquivalentSpan {
-        fn from(value: Span) -> Self {
-            Self(value)
+    impl EquivalentSpan {
+        pub fn round(self, unit: TimeUnit) -> Self {
+            let unit = match unit {
+                TimeUnit::Second => Unit::Second,
+                TimeUnit::Millisecond => Unit::Millisecond,
+                TimeUnit::Microsecond => Unit::Microsecond,
+                TimeUnit::Nanosecond => Unit::Nanosecond,
+            };
+            Self(
+                self.0
+                    .round(SpanRound::new().smallest(unit).mode(RoundMode::Trunc))
+                    .unwrap(),
+            )
         }
     }
 
@@ -471,30 +483,36 @@ mod span {
         }
     }
 
-    fn items() -> Vec<Item<EquivalentSpan>> {
+    fn items(unit: TimeUnit) -> Vec<Item<EquivalentSpan>> {
         use std::ops::Neg;
 
         // Note: weeks are always considered non-uniform
-        vec![
-            Item(Span::new().hours(5).seconds(20).into()),
-            Item(Span::new().minutes(20).seconds(32).into()),
-            Item(Span::new().days(5).hours(12).into()),
-            Item(
-                Span::new()
-                    .days(1)
-                    .hours(2)
-                    .minutes(3)
-                    .seconds(4)
-                    .neg()
-                    .into(),
-            ),
-            // TODO: examples with subsecond resolution
-        ]
+        let items = vec![
+            Span::new().hours(5).seconds(20),
+            Span::new().minutes(20).seconds(32),
+            Span::new().days(5).hours(12),
+            Span::new().days(1).hours(2).minutes(3).seconds(4).neg(),
+            Span::new()
+                .hours(5)
+                .milliseconds(10)
+                .microseconds(20)
+                .nanoseconds(30),
+            Span::new()
+                .hours(5)
+                .milliseconds(10)
+                .microseconds(20)
+                .nanoseconds(30)
+                .neg(),
+        ];
+        items
+            .into_iter()
+            .map(|span| Item(EquivalentSpan(span).round(unit)))
+            .collect()
     }
 
     #[test]
     fn as_large_utf8() {
-        let items = items();
+        let items = items(TimeUnit::Nanosecond);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
             .trace_schema_from_samples(&items, TracingOptions::default())
@@ -504,7 +522,7 @@ mod span {
 
     #[test]
     fn as_utf8() {
-        let items = items();
+        let items = items(TimeUnit::Nanosecond);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
             .serialize(&items)
@@ -513,9 +531,36 @@ mod span {
 
     #[test]
     fn as_duration_second() {
-        let items = items();
+        let items = items(TimeUnit::Second);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Duration(Second)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_microsecond() {
+        let items = items(TimeUnit::Microsecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Microsecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_millisecond() {
+        let items = items(TimeUnit::Millisecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Millisecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_duration_nanosecond() {
+        let items = items(TimeUnit::Nanosecond);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Duration(Nanosecond)"}]))
             .serialize(&items)
             .deserialize(&items);
     }

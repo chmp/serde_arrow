@@ -36,24 +36,58 @@ pub fn parse_span(s: &str) -> Result<Span<'_>> {
 // TODO: handle signs
 impl<'a> parsing::Span<'a> {
     pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
-        if get_value(self.year)? != 0 || get_value(self.month)? != 0 {
+        if get_optional_digit_value(self.year)? != 0 || get_optional_digit_value(self.month)? != 0 {
             fail!("Cannot convert interval style spans to a duration");
         }
 
-        // TODO: perform check here?
-        let second_value = get_value(self.week)? * 7 * 24 * 60 * 60
-            + get_value(self.day)? * 24 * 60 * 60
-            + get_value(self.hour)? * 60 * 60
-            + get_value(self.minute)? * 60
-            + get_value(self.second)?;
+        let second_value = self.get_second_value()?;
+        let nanosecond_value = self.get_nanosecond_value()?;
+        Self::build_duration(self.sign, second_value, nanosecond_value, unit)
+    }
 
-        // TODO: implement subsecond values
-        let unsigned_result = checked_unit_cast(second_value, unit)?;
+    fn get_second_value(&self) -> Result<i64> {
+        Ok(get_optional_digit_value(self.week)? * 7 * 24 * 60 * 60
+            + get_optional_digit_value(self.day)? * 24 * 60 * 60
+            + get_optional_digit_value(self.hour)? * 60 * 60
+            + get_optional_digit_value(self.minute)? * 60
+            + get_optional_digit_value(self.second)?)
+    }
 
-        if self.sign == Some('-') {
-            Ok(-unsigned_result)
+    fn get_nanosecond_value(&self) -> Result<i64> {
+        let Some(subsecond) = self.subsecond else {
+            return Ok(0);
+        };
+        let subsecond_val: i64 = subsecond.parse()?;
+        // TODO: handle subsecond.len() > 9 gracefully
+        Ok(subsecond_val * 10_i64.pow(9 - u32::try_from(subsecond.len())?))
+    }
+
+    fn build_duration(
+        sign: Option<char>,
+        second_value: i64,
+        nanosecond_value: i64,
+        unit: TimeUnit,
+    ) -> Result<i64> {
+        let unsigned_duration = match unit {
+            TimeUnit::Second => second_value,
+            TimeUnit::Millisecond => match second_value.checked_mul(1_000_i64) {
+                Some(res) => res + nanosecond_value / 1_000_000,
+                None => fail!("Cannot represent {second_value} with Microsecond resolution"),
+            },
+            TimeUnit::Microsecond => match second_value.checked_mul(1_000_000_i64) {
+                Some(res) => res + nanosecond_value / 1_000,
+                None => fail!("Cannot represent {second_value} with Millisecond resolution"),
+            },
+            TimeUnit::Nanosecond => match second_value.checked_mul(1_000_000_000_i64) {
+                Some(res) => res + nanosecond_value,
+                None => fail!("Cannot represent {second_value} with Nanosecond resolution"),
+            },
+        };
+
+        if sign == Some('-') {
+            Ok(-unsigned_duration)
         } else {
-            Ok(unsigned_result)
+            Ok(unsigned_duration)
         }
     }
 }
@@ -68,12 +102,12 @@ pub fn format_arrow_duration_as_span(value: i64, unit: TimeUnit) -> String {
 
     match unit {
         TimeUnit::Second => format!("{sign}PT{value}s"),
-        TimeUnit::Microsecond => format!(
+        TimeUnit::Millisecond => format!(
             "{sign}PT{second}.{subsecond:03}s",
             second = value / 1_000,
-            subsecond = value % 1000
+            subsecond = value % 1_000
         ),
-        TimeUnit::Millisecond => format!(
+        TimeUnit::Microsecond => format!(
             "{sign}PT{second}.{subsecond:06}s",
             second = value / 1_000_000,
             subsecond = value % 1_000_000
@@ -86,28 +120,10 @@ pub fn format_arrow_duration_as_span(value: i64, unit: TimeUnit) -> String {
     }
 }
 
-fn get_value(s: Option<&str>) -> Result<i64> {
+fn get_optional_digit_value(s: Option<&str>) -> Result<i64> {
     match s {
         Some(s) => Ok(s.parse()?),
         None => Ok(0),
-    }
-}
-
-fn checked_unit_cast(second_value: i64, unit: TimeUnit) -> Result<i64> {
-    match unit {
-        TimeUnit::Second => Ok(second_value),
-        TimeUnit::Microsecond => match second_value.checked_mul(1_000_i64) {
-            Some(res) => Ok(res),
-            None => fail!("Cannot represent {second_value} with Microsecond resolution"),
-        },
-        TimeUnit::Millisecond => match second_value.checked_mul(1_000_000_i64) {
-            Some(res) => Ok(res),
-            None => fail!("Cannot represent {second_value} with Millisecond resolution"),
-        },
-        TimeUnit::Nanosecond => match second_value.checked_mul(1_000_000_000_i64) {
-            Some(res) => Ok(res),
-            None => fail!("Cannot represent {second_value} with Nanosecond resolution"),
-        },
     }
 }
 
@@ -778,6 +794,17 @@ fn match_span() {
             }
         ))
     );
+    assert_eq!(
+        parsing::match_span("PT0.020s"),
+        Ok((
+            "",
+            parsing::Span {
+                second: Some("0"),
+                subsecond: Some("020"),
+                ..Default::default()
+            }
+        ))
+    )
 }
 
 #[test]
@@ -820,5 +847,152 @@ fn match_one_or_two_digits() {
     assert_eq!(
         parsing::match_one_or_two_digits("1234foo"),
         Ok(("34foo", "12"))
+    );
+}
+
+#[test]
+fn test_parse_and_format_duration() {
+    fn parse_as_duration(s: &str, unit: TimeUnit) -> i64 {
+        parse_span(s).unwrap().to_arrow_duration(unit).unwrap()
+    }
+
+    assert_eq!(format_arrow_duration_as_span(20, TimeUnit::Second), "PT20s");
+    assert_eq!(
+        format_arrow_duration_as_span(20, TimeUnit::Millisecond),
+        "PT0.020s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(20, TimeUnit::Microsecond),
+        "PT0.000020s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(20, TimeUnit::Nanosecond),
+        "PT0.000000020s"
+    );
+
+    assert_eq!(parse_as_duration("PT20s", TimeUnit::Second), 20);
+    assert_eq!(parse_as_duration("PT0.020s", TimeUnit::Millisecond), 20);
+    assert_eq!(parse_as_duration("PT0.000020s", TimeUnit::Microsecond), 20);
+    assert_eq!(
+        parse_as_duration("PT0.000000020s", TimeUnit::Nanosecond),
+        20
+    );
+
+    assert_eq!(
+        format_arrow_duration_as_span(-13, TimeUnit::Second),
+        "-PT13s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-13, TimeUnit::Millisecond),
+        "-PT0.013s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-13, TimeUnit::Microsecond),
+        "-PT0.000013s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-13, TimeUnit::Nanosecond),
+        "-PT0.000000013s"
+    );
+
+    assert_eq!(parse_as_duration("-PT13s", TimeUnit::Second), -13);
+    assert_eq!(parse_as_duration("-PT0.013s", TimeUnit::Millisecond), -13);
+    assert_eq!(
+        parse_as_duration("-PT0.000013s", TimeUnit::Microsecond),
+        -13
+    );
+    assert_eq!(
+        parse_as_duration("-PT0.000000013s", TimeUnit::Nanosecond),
+        -13
+    );
+
+    assert_eq!(
+        format_arrow_duration_as_span(1234, TimeUnit::Second),
+        "PT1234s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(1234, TimeUnit::Millisecond),
+        "PT1.234s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(1234, TimeUnit::Microsecond),
+        "PT0.001234s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(1234, TimeUnit::Nanosecond),
+        "PT0.000001234s"
+    );
+
+    assert_eq!(parse_as_duration("PT1234s", TimeUnit::Second), 1234);
+    assert_eq!(parse_as_duration("PT1.234s", TimeUnit::Millisecond), 1234);
+    assert_eq!(
+        parse_as_duration("PT0.001234s", TimeUnit::Microsecond),
+        1234
+    );
+    assert_eq!(
+        parse_as_duration("PT0.000001234s", TimeUnit::Nanosecond),
+        1234
+    );
+
+    assert_eq!(
+        format_arrow_duration_as_span(-2010, TimeUnit::Second),
+        "-PT2010s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-2010, TimeUnit::Millisecond),
+        "-PT2.010s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-2010, TimeUnit::Microsecond),
+        "-PT0.002010s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(-2010, TimeUnit::Nanosecond),
+        "-PT0.000002010s"
+    );
+
+    assert_eq!(parse_as_duration("-PT2010s", TimeUnit::Second), -2010);
+    assert_eq!(parse_as_duration("-PT2.010s", TimeUnit::Millisecond), -2010);
+    assert_eq!(
+        parse_as_duration("-PT0.002010s", TimeUnit::Microsecond),
+        -2010
+    );
+    assert_eq!(
+        parse_as_duration("-PT0.000002010s", TimeUnit::Nanosecond),
+        -2010
+    );
+
+    assert_eq!(
+        format_arrow_duration_as_span(123456789, TimeUnit::Second),
+        "PT123456789s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(123456789, TimeUnit::Millisecond),
+        "PT123456.789s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(123456789, TimeUnit::Microsecond),
+        "PT123.456789s"
+    );
+    assert_eq!(
+        format_arrow_duration_as_span(123456789, TimeUnit::Nanosecond),
+        "PT0.123456789s"
+    );
+
+    assert_eq!(
+        parse_as_duration("PT123456789s", TimeUnit::Second),
+        123456789
+    );
+    assert_eq!(
+        parse_as_duration("PT123456.789s", TimeUnit::Millisecond),
+        123456789
+    );
+    assert_eq!(
+        parse_as_duration("PT123.456789s", TimeUnit::Microsecond),
+        123456789
+    );
+    assert_eq!(
+        parse_as_duration("PT0.123456789s", TimeUnit::Nanosecond),
+        123456789
     );
 }
