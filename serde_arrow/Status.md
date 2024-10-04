@@ -1,6 +1,15 @@
 # Status
 
-Supported arrow data types:
+The page documents the supported types both from an Arrow and a Rust perspective.
+
+- [Arrow data types](#arrow-data-types)
+- [Rust types](#rust-types)
+  - [Native / standard types](#native--standard-types)
+  - [`chrono` types](#chrono-types)
+  - [`jiff` types](#jiff-types)
+  - [`rust_decimal` and `bigdecimal` types](#rust_decimal-and-bigdecimal-types)
+
+## Arrow data types
 
 - [x] [`Null`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Null)
 - [x] [`Boolean`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Boolean)
@@ -49,7 +58,9 @@ Supported arrow data types:
   serialization error.
 - [ ] [`Decimal256(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal256)
 
-Native / standard Rust types:
+## Rust types
+
+### Native / standard types
 
 - [x] `bool`
 - [x] `i8`, `i16`, `i32`, `i64`
@@ -72,85 +83,118 @@ Native / standard Rust types:
   supported
 - [x] `struct S(T)`: newtype structs are supported, if `T` is supported
 
-Non-standard Rust types
+### `chrono` types
 
-- [x] `chrono::DateTime<Utc>`:
-  - is serialized / deserialized as strings
-  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` with strategy `UtcStrAsDate64`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
-    strategy `UtcStrAsDate64` when setting `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `chrono::DateTime<Utc>` using [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
-  - is serialized / deserialized  as `i64`
-  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` without Strategy,
-    `Date64` with strategy `UtcStrAsDate64`
-  - `from_samples` and `from_type` detect the type `Int64`
-- [x] `chrono::NaiveDateTime`:
-  - is serialized / deserialized as strings
-  - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`, `Date64` with strategy `NaiveStrAsDate64`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
-    strategy `NaiveStrAsDate64` when setting `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `chrono::NaiveTime`:
-  - serialized / deserialized as strings
-  - can be mapped to `Utf8`, `LargeUtf8`, `Time32(..)` and `Time64` arrays
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Time64(Nanosecond)`
-    when setting `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `chrono::NaiveDate`:
-  - is serialized as Serde strings
-  - can be mapped to `Utf8`, `LargeUtf8`, `Date32` arrays
-  - `from_samples` detects the type `LargeUtf8` without configuration, to `Date32` when setting
-    `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [ ] `chrono::Duration`: does not support Serde and is therefore not supported
-- [x] `jiff::Date`
-  - is serialized as Serde strings
-  - can me mapped to `Utf8`, `LargeUtf8`, `Date32`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date32` when
-    setting `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `jiff::Time`
-  - is serialized as Serde strings
-  - can me mapped to `Utf8`, `LargeUtf8`, `Time32(..)`, `Time64(..)`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Time64(Nanosecond)`
-    when setitng `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `jiff::DateTime`
-  - is serialized as Serde strings
-  - can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`, `Date64` with strategy
-    `NaiveStrAsDate64`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
-    strategy `NaiveStrAsDate64` when setting `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `jiff::Timestamp`
-  - is serialized as Serde strings
-  - can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`, `Date64` with strategy
-    `UtcStrAsDate64`
-  - `from_samples` detects the type `LargeUtf8` without configuration, the type `Date64` with
-    strategy `UtcStrDate64` when setting  `guess_dates = true`
-  - `from_type` is not supported, as the type is not self-describing
-- [x] `jiff::Span`, `jiff::SignedDuration`
-  - is serialized as Serde strings
-  - can me mapped to `Utf8`, `LargeUtf8`, `Duration(..)`
-  - `from_samples` detects the type `LargeUtf8`
-  - `from_type` is not supported, as the type is not self-describing
-- [ ] `jiff::Zoned` is not supported as there is no clear way of implementation
-- [x] [`rust_decimal::Decimal`][rust_decimal::Decimal] for the `float` and `str`
-  (de)serialization options when using the `Decimal128(..)` data type
-- [x] [`bigdecimal::BigDecimal`][bigdecimal::BigDecimal] when using the
-  `Decimal128(..)` data type
+#### `chrono::DateTime<Utc>`
 
-[crate::base::Event]: https://docs.rs/serde_arrow/latest/serde_arrow/event/enum.Event.html
-[crate::to_record_batch]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.to_record_batch.html
-[crate::trace_schema]: https://docs.rs/serde_arrow/latest/serde_arrow/fn.trace_schema.html
-[serde::Serialize]: https://docs.serde.rs/serde/trait.Serialize.html
-[serde::Deserialize]: https://docs.serde.rs/serde/trait.Deserialize.html
-[crate::Schema::from_records]: https://docs.rs/serde_arrow/latest/serde_arrow/struct.Schema.html#method.from_records
-[chrono]: https://docs.rs/chrono/latest/chrono/
+- is serialized / deserialized as strings
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` with strategy `UtcStrAsDate64`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date64` with strategy `UtcStrAsDate64` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
 
-[crate::base::EventSource]: https://docs.rs/serde_arrow
-[crate::base::EventSink]: https://docs.rs/serde_arrow
+With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
+
+- is serialized / deserialized  as `i64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` without Strategy,
+  `Date64` with strategy `UtcStrAsDate64`
+- `from_samples` and `from_type` detect `Int64`
+
+#### `chrono::NaiveDateTime`
+
+- is serialized / deserialized as strings
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`, `Date64` with strategy `NaiveStrAsDate64`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `chrono::NaiveTime`
+
+- serialized / deserialized as strings
+- can be mapped to `Utf8`, `LargeUtf8`, `Time32(..)` and `Time64` arrays
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Time64(Nanosecond)` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `chrono::NaiveDate`
+
+- is serialized as Serde strings
+- can be mapped to `Utf8`, `LargeUtf8`, `Date32` arrays
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date32` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+`chrono::Duration` does not support Serde and is therefore not supported
+
+###  `jiff` types
+
+#### `jiff::Date`
+
+- is serialized as Serde strings
+- can me mapped to `Utf8`, `LargeUtf8`, `Date32`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date32` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `jiff::Time`
+
+- is serialized as Serde strings
+- can me mapped to `Utf8`, `LargeUtf8`, `Time32(..)`, `Time64(..)`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Time64(Nanosecond)` when setitng `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `jiff::DateTime`
+
+- is serialized as Serde strings
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`, `Date64` with strategy
+  `NaiveStrAsDate64`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `jiff::Timestamp`
+
+- is serialized as Serde strings
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`, `Date64` with strategy
+  `UtcStrAsDate64`
+- `from_samples` detects
+  - `LargeUtf8` without configuration
+  - `Date64` with strategy `UtcStrDate64` when setting  `guess_dates = true`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `jiff::Span`
+
+- is serialized as Serde strings
+- can me mapped to `Utf8`, `LargeUtf8`, `Duration(..)`
+- `from_samples` detects `LargeUtf8`
+- `from_type` is not supported, as the type is not self-describing
+
+#### `jiff::SignedDuration`
+
+Same as `jiff::Span`
+
+#### `jiff::Zoned`
+
+is not supported as there is no clear way of implementation
+
+###  `rust_decimal` and `bigdecimal` types
+
+### [`rust_decimal::Decimal`][rust_decimal::Decimal]
+
+- for the `float` and `str` (de)serialization options when using the `Decimal128(..)` data type
+
+### [`bigdecimal::BigDecimal`][bigdecimal::BigDecimal]
+
+- when using the `Decimal128(..)` data type
+
 [chrono-ts-microseconds]: https://docs.rs/chrono/latest/chrono/serde/ts_microseconds/
 [rust_decimal::Decimal]: https://docs.rs/rust_decimal/latest/rust_decimal/struct.Decimal.html
 [bigdecimal::BigDecimal]: https://docs.rs/bigdecimal/0.4.2/bigdecimal/struct.BigDecimal.html
