@@ -33,8 +33,8 @@ pub fn parse_span(s: &str) -> Result<Span<'_>> {
     parsing::match_span(s).into_result("Span")
 }
 
-// TODO: handle signs
 impl<'a> parsing::Span<'a> {
+    /// Convert the `Span` into an `i64`` with the given `unit`
     pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
         if get_optional_digit_value(self.year)? != 0 || get_optional_digit_value(self.month)? != 0 {
             fail!("Cannot convert interval style spans to a duration");
@@ -136,7 +136,7 @@ fn get_optional_digit_value(s: Option<&str>) -> Result<i64> {
 ///
 /// Each parser has the the following interface:
 ///
-/// `fn (string_to_parser, ..extra_args) -> Result<(rest, result), unmatched_string>`
+/// `fn (string_to_parse, ..extra_args) -> Result<(rest, result), unmatched_string>`
 ///
 mod parsing {
     pub const DIGIT: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];

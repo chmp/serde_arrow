@@ -43,20 +43,13 @@ impl<'a> Date64Deserializer<'a> {
         };
 
         if self.is_utc {
-            Ok(self.format_utc(date_time))
+            Ok(self.format_with_suffix(date_time, "Z"))
         } else {
-            Ok(self.format_non_utc(date_time))
+            Ok(self.format_with_suffix(date_time, ""))
         }
     }
 
-    pub fn format_utc(&self, date_time: DateTime<Utc>) -> String {
-        // NOTE: chrono documents that Debug, not Display, can be parsed
-        let mut s = self.format_non_utc(date_time);
-        s.push('Z');
-        s
-    }
-
-    pub fn format_non_utc(&self, date_time: DateTime<Utc>) -> String {
+    pub fn format_with_suffix(&self, date_time: DateTime<Utc>, suffix: &str) -> String {
         let date_time = date_time.naive_utc();
         // special handling of negative dates:
         //
@@ -67,7 +60,7 @@ impl<'a> Date64Deserializer<'a> {
         if date_time.year() < 0 {
             // NOTE: chrono documents that Debug, not Display, can be parsed
             format!(
-                "-{positive_year:06}-{month:02}-{day:02}T{time:?}",
+                "-{positive_year:06}-{month:02}-{day:02}T{time:?}{suffix}",
                 positive_year = -date_time.year(),
                 month = date_time.month(),
                 day = date_time.day(),
@@ -75,7 +68,7 @@ impl<'a> Date64Deserializer<'a> {
             )
         } else {
             // NOTE: chrono documents that Debug, not Display, can be parsed
-            format!("{:?}", date_time)
+            format!("{:?}{suffix}", date_time)
         }
     }
 }
