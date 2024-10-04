@@ -160,7 +160,7 @@ mod parsing {
 
         fn into_result(self, output_type: &str) -> crate::internal::error::Result<Self::Output> {
             match self {
-                Ok((rest, output)) if rest.is_empty() => Ok(output),
+                Ok(("", output)) => Ok(output),
                 Ok((unmatched, _)) | Err(unmatched) => crate::internal::error::fail!(
                     "Could not parse the string as {output_type}, unmatched content: {unmatched:?}"
                 ),
