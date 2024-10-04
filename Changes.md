@@ -8,6 +8,8 @@ New features
   to `Time64(Nanosecond))`) in `from_samples`
 - Improved error messages for non self describing types (`chrono::*`, `uuid::Uuid`,
   `std::net::IpAddr`)
+- Add support for various `jiff` types (`jiff::Date`, `jiff::Time`, `jiff::DateTime`,
+  `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
 
 ## 0.12.0
 
