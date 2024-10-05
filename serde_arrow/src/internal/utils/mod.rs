@@ -90,7 +90,6 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Item<T> {
     }
 }
 
-// TODO: implement for all types?
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Items<Vec<T>> {
     fn deserialize<D: serde::Deserializer<'de>>(
         deserializer: D,

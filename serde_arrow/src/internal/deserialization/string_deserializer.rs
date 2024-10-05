@@ -1,6 +1,6 @@
 use crate::internal::{
     arrow::BytesArrayView,
-    error::{fail, set_default, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType, Offset},
 };
 
@@ -85,72 +85,55 @@ impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
 
 impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
     fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_any_impl(visitor).ctx(self)
+        try_(|| {
+            if self.peek_next()? {
+                self.deserialize_str(visitor)
+            } else {
+                self.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_option_impl(visitor).ctx(self)
+        try_(|| {
+            if self.peek_next()? {
+                visitor.visit_some(Mut(self))
+            } else {
+                self.consume_next();
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_str_impl(visitor).ctx(self)
+        try_(|| visitor.visit_borrowed_str(self.next_required()?)).ctx(self)
     }
 
     fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        self.deserialize_string_impl(visitor).ctx(self)
+        try_(|| visitor.visit_string(self.next_required()?.to_owned())).ctx(self)
+    }
+
+    fn deserialize_bytes<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| visitor.visit_bytes(self.next_required()?.as_bytes())).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| visitor.visit_byte_buf(self.next_required()?.to_owned().into_bytes())).ctx(self)
     }
 
     fn deserialize_enum<V: serde::de::Visitor<'a>>(
         &mut self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
-        self.deserialize_enum_impl(name, variants, visitor)
-            .ctx(self)
-    }
-}
-
-impl<'a, O: NamedType + Offset> StringDeserializer<'a, O> {
-    fn deserialize_any_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        if self.peek_next()? {
-            self.deserialize_str(visitor)
-        } else {
-            self.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_option_impl<V: serde::de::Visitor<'a>>(
-        &mut self,
-        visitor: V,
-    ) -> Result<V::Value> {
-        if self.peek_next()? {
-            visitor.visit_some(Mut(self))
-        } else {
-            self.consume_next();
-            visitor.visit_none()
-        }
-    }
-
-    fn deserialize_str_impl<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_borrowed_str(self.next_required()?)
-    }
-
-    fn deserialize_string_impl<V: serde::de::Visitor<'a>>(
-        &mut self,
-        visitor: V,
-    ) -> Result<V::Value> {
-        visitor.visit_string(self.next_required()?.to_owned())
-    }
-
-    fn deserialize_enum_impl<V: serde::de::Visitor<'a>>(
-        &mut self,
-        _: &'static str,
-        _: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value> {
-        let variant = self.next_required()?;
-        visitor.visit_enum(EnumAccess(variant))
+        try_(|| {
+            let variant = self.next_required()?;
+            visitor.visit_enum(EnumAccess(variant))
+        })
+        .ctx(self)
     }
 }

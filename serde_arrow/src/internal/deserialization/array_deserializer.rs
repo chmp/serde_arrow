@@ -12,7 +12,7 @@ use super::{
     binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
     date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
     decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
-    enum_deserializer::EnumDeserializer,
+    duration_deserializer::DurationDeserializer, enum_deserializer::EnumDeserializer,
     fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
     fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
     integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
@@ -36,6 +36,7 @@ pub enum ArrayDeserializer<'a> {
     F32(FloatDeserializer<'a, f32>),
     F64(FloatDeserializer<'a, f64>),
     Decimal128(DecimalDeserializer<'a>),
+    Duration(DurationDeserializer<'a>),
     Date32(Date32Deserializer<'a>),
     Date64(Date64Deserializer<'a>),
     Time32(TimeDeserializer<'a, i32>),
@@ -122,8 +123,9 @@ impl<'a> ArrayDeserializer<'a> {
                     is_utc_timestamp(view.timezone.as_deref())?,
                 ))),
             },
-            V::Duration(view) => Ok(D::I64(IntegerDeserializer::new(
+            V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(
                 path,
+                view.unit,
                 PrimitiveArrayView {
                     values: view.values,
                     validity: view.validity,
@@ -342,6 +344,7 @@ macro_rules! dispatch {
             $wrapper::F32($name) => $expr,
             $wrapper::F64($name) => $expr,
             $wrapper::Decimal128($name) => $expr,
+            $wrapper::Duration($name) => $expr,
             $wrapper::Date32($name) => $expr,
             $wrapper::Date64($name) => $expr,
             $wrapper::Time32($name) => $expr,

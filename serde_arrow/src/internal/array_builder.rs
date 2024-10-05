@@ -83,7 +83,7 @@ impl ArrayBuilder {
         self.builder.extend(items)
     }
 
-    pub(crate) fn to_arrays(&mut self) -> Result<Vec<Array>> {
+    pub(crate) fn build_arrays(&mut self) -> Result<Vec<Array>> {
         let mut arrays = Vec::new();
         for field in self.builder.take_records()? {
             arrays.push(field.into_array()?);

@@ -221,7 +221,7 @@ impl Test {
                     .expect("Deserialization requires known arrow arrays"),
             )
             .expect("Failed arrow deserialization");
-            assert_eq!(roundtripped, items);
+            assert_eq!(roundtripped, items, "left: roundtripped, right: items");
         }
 
         if self.impls.arrow2 {
@@ -234,7 +234,7 @@ impl Test {
                     .expect("Deserialization requires known arrow2 arrays"),
             )
             .expect("Failed arrow2 deserialization");
-            assert_eq!(roundtripped, items);
+            assert_eq!(roundtripped, items, "left: roundtripped, right: items");
         }
     }
 

@@ -190,3 +190,42 @@ mod fixed_size_binary {
             .deserialize_borrowed(&items);
     }
 }
+
+/// test that byte can be deserialized from string arrays
+mod deserialize_bytes_from_strings {
+    use super::*;
+
+    fn items() -> (Vec<Item<String>>, Vec<Item<ByteBuf>>) {
+        let input = vec![
+            Item(String::from("foo")),
+            Item(String::from("bar")),
+            Item(String::from("baz")),
+        ];
+        let output = vec![
+            Item(ByteBuf::from(b"foo")),
+            Item(ByteBuf::from(b"bar")),
+            Item(ByteBuf::from(b"baz")),
+        ];
+        (input, output)
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let (input, output) = items();
+
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .serialize(&input)
+            .deserialize(&output);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let (input, output) = items();
+
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+            .serialize(&input)
+            .deserialize(&output);
+    }
+}

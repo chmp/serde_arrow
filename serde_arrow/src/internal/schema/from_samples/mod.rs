@@ -1,5 +1,4 @@
 //! Support for `from_samples`
-mod chrono;
 #[cfg(test)]
 mod test_error_messages;
 
@@ -9,6 +8,7 @@ use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
     arrow::{DataType, TimeUnit},
+    chrono,
     error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{Strategy, TracingMode, TracingOptions},
 };
@@ -335,6 +335,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
     fn serialize_str(self, s: &str) -> Result<Self::Ok> {
         try_(|| {
+            #[allow(clippy::collapsible_else_if)]
             let (ty, st) = if !self.0.get_options().guess_dates {
                 (DataType::LargeUtf8, None)
             } else {
