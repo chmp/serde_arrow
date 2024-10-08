@@ -73,6 +73,13 @@ fn list_u32() {
             "data_type": "List",
             "children": [{"name": "element", "data_type": "U32"}],
         }]))
+        .trace_schema_from_type::<Item<Vec<u32>>>(
+            TracingOptions::default().sequence_as_large_list(false),
+        )
+        .trace_schema_from_samples(
+            &items,
+            TracingOptions::default().sequence_as_large_list(false),
+        )
         .serialize(&items)
         .deserialize(&items);
 }

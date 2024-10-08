@@ -767,11 +767,16 @@ impl ListTracer {
     }
 
     pub fn to_field(&self) -> Result<Field> {
+        let data_type = if self.options.sequence_as_large_list {
+            DataType::LargeList(Box::new(self.item_tracer.to_field()?))
+        } else {
+            DataType::List(Box::new(self.item_tracer.to_field()?))
+        };
         Ok(Field {
             name: self.name.to_owned(),
             nullable: self.nullable,
             metadata: HashMap::new(),
-            data_type: DataType::LargeList(Box::new(self.item_tracer.to_field()?)),
+            data_type,
         })
     }
 
