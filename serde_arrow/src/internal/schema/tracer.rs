@@ -17,16 +17,12 @@ const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
     "Too deeply nested type detected: recursive types are not supported in schema tracing";
 
-fn default_dictionary_field(name: &str, nullable: bool) -> Field {
+fn default_dictionary_field(name: &str, nullable: bool, string_type: DataType) -> Field {
     Field {
         name: name.to_owned(),
         nullable,
         metadata: HashMap::new(),
-        data_type: DataType::Dictionary(
-            Box::new(DataType::UInt32),
-            Box::new(DataType::LargeUtf8),
-            false,
-        ),
+        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type), false),
     }
 }
 
@@ -1056,7 +1052,11 @@ impl UnionTracer {
     pub fn to_field(&self) -> Result<Field> {
         if self.is_without_data() {
             if self.options.enums_without_data_as_strings {
-                return Ok(default_dictionary_field(&self.name, self.nullable));
+                return Ok(default_dictionary_field(
+                    &self.name,
+                    self.nullable,
+                    self.options.string_type(),
+                ));
             }
             if !self.options.allow_null_fields {
                 fail!("{}", EnumWithoutDataMessage(&self.name));
@@ -1146,7 +1146,11 @@ impl PrimitiveTracer {
                         metadata: HashMap::new(),
                     })
                 } else {
-                    Ok(default_dictionary_field(&self.name, self.nullable))
+                    Ok(default_dictionary_field(
+                        &self.name,
+                        self.nullable,
+                        self.options.string_type(),
+                    ))
                 }
             }
             dt => {

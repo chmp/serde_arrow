@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::internal::arrow::DataType;
 use crate::internal::{arrow::Field, error::Result, schema::transmute_field};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,6 +33,7 @@ pub enum TracingMode {
 ///         .allow_null_fields(false)
 ///         .map_as_struct(true)
 ///         .sequence_as_large_list(true)
+///         .strings_as_large_utf8(true)
 ///         .string_dictionary_encoding(false)
 ///         .coerce_numbers(false)
 ///         .guess_dates(false)
@@ -52,6 +54,9 @@ pub struct TracingOptions {
 
     /// If `true` trace lists as LargeLists (the default).
     pub sequence_as_large_list: bool,
+
+    /// If `true` trace strings as Utf8Large (the default).
+    pub string_as_large_utf8: bool,
 
     /// If `true` trace strings with dictionary encoding. The default is `false`.
     ///
@@ -228,6 +233,7 @@ impl Default for TracingOptions {
             enums_without_data_as_strings: false,
             overwrites: Overwrites::default(),
             sequence_as_large_list: true,
+            string_as_large_utf8: true,
             tracing_mode: TracingMode::Unknown,
         }
     }
@@ -253,6 +259,12 @@ impl TracingOptions {
     /// Set [`sequence_as_large_list`](#structfield.sequence_as_large_list)
     pub fn sequence_as_large_list(mut self, value: bool) -> Self {
         self.sequence_as_large_list = value;
+        self
+    }
+
+    /// Set [`string_as_large_utf8`](#structfield.string_as_large_utf8)
+    pub fn strings_as_large_utf8(mut self, value: bool) -> Self {
+        self.string_as_large_utf8 = value;
         self
     }
 
@@ -302,6 +314,14 @@ impl TracingOptions {
 
     pub(crate) fn get_overwrite(&self, path: &str) -> Option<&Field> {
         self.overwrites.0.get(path)
+    }
+
+    pub(crate) fn string_type(&self) -> DataType {
+        if self.string_as_large_utf8 {
+            DataType::LargeUtf8
+        } else {
+            DataType::Utf8
+        }
     }
 }
 

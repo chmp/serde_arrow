@@ -370,6 +370,28 @@ fn str() {
 }
 
 #[test]
+fn str_utf8() {
+    let field = new_field("item", DataType::Utf8, false);
+    type Ty = String;
+    let values = [
+        Item(String::from("a")),
+        Item(String::from("b")),
+        Item(String::from("c")),
+        Item(String::from("d")),
+    ];
+
+    Test::new()
+        .with_schema(vec![field])
+        .trace_schema_from_samples(
+            &values,
+            TracingOptions::default().strings_as_large_utf8(false),
+        )
+        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default().strings_as_large_utf8(false))
+        .serialize(&values)
+        .deserialize(&values);
+}
+
+#[test]
 fn nullable_str() {
     let field = new_field("item", DataType::LargeUtf8, true);
     type Ty = Option<String>;

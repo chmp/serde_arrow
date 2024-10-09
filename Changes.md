@@ -12,9 +12,12 @@ New features
   `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
 - Add support for tracing lists as `List` instead of `LargeList` by setting
   `sequence_as_large_list` to `false` in `TracingOptions`
+- Add support for tracing strings and strings in dictionaries as `Utf8` instead of
+  `LargeUtf8` by setting `strings_as_large_utf8` to `false` in `TracingOptions`
 
 ### Thanks
 - [@jkylling](https://github.com/jkylling) added support for tracing lists as `List`
+  and strings as `Utf8` 
 
 ## 0.12.0
 
