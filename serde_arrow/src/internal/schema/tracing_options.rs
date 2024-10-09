@@ -46,14 +46,14 @@ pub struct TracingOptions {
     /// case.
     pub allow_null_fields: bool,
 
-    /// If `true` serialize maps as structs (the default). See
+    /// If `true` trace maps as structs (the default). See
     /// [`Strategy::MapAsStruct`][crate::schema::Strategy] for details.
     pub map_as_struct: bool,
 
     /// If `true` trace lists as LargeLists (the default).
     pub sequence_as_large_list: bool,
 
-    /// If `true` serialize strings dictionary encoded. The default is `false`.
+    /// If `true` trace strings with dictionary encoding. The default is `false`.
     ///
     /// If `true`, strings are traced as `Dictionary(UInt32, LargeUtf8)`. If
     /// `false`, strings are traced as `LargeUtf8`.
