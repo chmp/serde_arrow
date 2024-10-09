@@ -10,11 +10,11 @@ New features
   `std::net::IpAddr`)
 - Add support for various `jiff` types (`jiff::Date`, `jiff::Time`, `jiff::DateTime`,
   `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
-- Add support for tracing lists as List instead of LargeList by setting
+- Add support for tracing lists as `List` instead of `LargeList` by setting
   `sequence_as_large_list` to `false` in `TracingOptions`
 
 ### Thanks
-- [@jkylling](https://github.com/jkylling) added support for tracing lists as List
+- [@jkylling](https://github.com/jkylling) added support for tracing lists as `List`
 
 ## 0.12.0
 
