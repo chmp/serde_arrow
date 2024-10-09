@@ -31,6 +31,7 @@ pub enum TracingMode {
 ///     TracingOptions::new()
 ///         .allow_null_fields(false)
 ///         .map_as_struct(true)
+///         .sequence_as_large_list(true)
 ///         .string_dictionary_encoding(false)
 ///         .coerce_numbers(false)
 ///         .guess_dates(false)
@@ -45,11 +46,14 @@ pub struct TracingOptions {
     /// case.
     pub allow_null_fields: bool,
 
-    /// If `true` serialize maps as structs (the default). See
+    /// If `true` trace maps as structs (the default). See
     /// [`Strategy::MapAsStruct`][crate::schema::Strategy] for details.
     pub map_as_struct: bool,
 
-    /// If `true` serialize strings dictionary encoded. The default is `false`.
+    /// If `true` trace lists as LargeLists (the default).
+    pub sequence_as_large_list: bool,
+
+    /// If `true` trace strings with dictionary encoding. The default is `false`.
     ///
     /// If `true`, strings are traced as `Dictionary(UInt32, LargeUtf8)`. If
     /// `false`, strings are traced as `LargeUtf8`.
@@ -223,6 +227,7 @@ impl Default for TracingOptions {
             from_type_budget: 100,
             enums_without_data_as_strings: false,
             overwrites: Overwrites::default(),
+            sequence_as_large_list: true,
             tracing_mode: TracingMode::Unknown,
         }
     }
@@ -242,6 +247,12 @@ impl TracingOptions {
     /// Set [`map_as_struct`](#structfield.map_as_struct)
     pub fn map_as_struct(mut self, value: bool) -> Self {
         self.map_as_struct = value;
+        self
+    }
+
+    /// Set [`sequence_as_large_list`](#structfield.sequence_as_large_list)
+    pub fn sequence_as_large_list(mut self, value: bool) -> Self {
+        self.sequence_as_large_list = value;
         self
     }
 
