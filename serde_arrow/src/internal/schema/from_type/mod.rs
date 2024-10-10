@@ -197,7 +197,8 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            self.0.ensure_utf8(DataType::LargeUtf8, None)?;
+            self.0
+                .ensure_utf8(self.0.get_options().string_type(), None)?;
             visitor.visit_borrowed_str("")
         })
         .ctx(&self)
@@ -205,7 +206,8 @@ impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            self.0.ensure_utf8(DataType::LargeUtf8, None)?;
+            self.0
+                .ensure_utf8(self.0.get_options().string_type(), None)?;
             visitor.visit_string(Default::default())
         })
         .ctx(&self)

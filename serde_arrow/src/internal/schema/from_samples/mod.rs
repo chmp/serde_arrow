@@ -337,7 +337,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
         try_(|| {
             #[allow(clippy::collapsible_else_if)]
             let (ty, st) = if !self.0.get_options().guess_dates {
-                (DataType::LargeUtf8, None)
+                (self.0.get_options().string_type(), None)
             } else {
                 if chrono::matches_naive_datetime(s) {
                     (DataType::Date64, Some(Strategy::NaiveStrAsDate64))
@@ -348,7 +348,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
                 } else if chrono::matches_naive_date(s) {
                     (DataType::Date32, None)
                 } else {
-                    (DataType::LargeUtf8, None)
+                    (self.0.get_options().string_type(), None)
                 }
             };
             self.0.ensure_primitive_with_strategy(ty, st)

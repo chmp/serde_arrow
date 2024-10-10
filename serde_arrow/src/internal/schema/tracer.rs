@@ -17,16 +17,12 @@ const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
     "Too deeply nested type detected: recursive types are not supported in schema tracing";
 
-fn default_dictionary_field(name: &str, nullable: bool) -> Field {
+fn default_dictionary_field(name: &str, nullable: bool, string_type: DataType) -> Field {
     Field {
         name: name.to_owned(),
         nullable,
         metadata: HashMap::new(),
-        data_type: DataType::Dictionary(
-            Box::new(DataType::UInt32),
-            Box::new(DataType::LargeUtf8),
-            false,
-        ),
+        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type), false),
     }
 }
 
@@ -529,7 +525,7 @@ fn coerce_primitive_type(
 ) -> Result<(DataType, bool, Option<Strategy>)> {
     use DataType::{
         Date64, Float32, Float64, Int16, Int32, Int64, Int8, LargeUtf8, Null, UInt16, UInt32,
-        UInt64, UInt8,
+        UInt64, UInt8, Utf8,
     };
 
     let res = match (prev, curr) {
@@ -580,8 +576,10 @@ fn coerce_primitive_type(
         // incompatible formats, coerce to string
         ((Date64, nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Date64, _)) => (LargeUtf8, nullable, None),
+        ((Date64, nullable, _), (Utf8, _)) => (Utf8, nullable, None),
+        ((Utf8, nullable, _), (Date64, _)) => (Utf8, nullable, None),
         ((Date64, nullable, prev_st), (Date64, curr_st)) if prev_st != curr_st.as_ref() => {
-            (LargeUtf8, nullable, None)
+            (options.string_type(), nullable, None)
         }
         ((prev_ty, _, prev_st), (curr_ty, curr_st)) => {
             let extra = if is_numeric(prev_ty) && is_numeric(&curr_ty) {
@@ -1056,7 +1054,11 @@ impl UnionTracer {
     pub fn to_field(&self) -> Result<Field> {
         if self.is_without_data() {
             if self.options.enums_without_data_as_strings {
-                return Ok(default_dictionary_field(&self.name, self.nullable));
+                return Ok(default_dictionary_field(
+                    &self.name,
+                    self.nullable,
+                    self.options.string_type(),
+                ));
             }
             if !self.options.allow_null_fields {
                 fail!("{}", EnumWithoutDataMessage(&self.name));
@@ -1146,7 +1148,11 @@ impl PrimitiveTracer {
                         metadata: HashMap::new(),
                     })
                 } else {
-                    Ok(default_dictionary_field(&self.name, self.nullable))
+                    Ok(default_dictionary_field(
+                        &self.name,
+                        self.nullable,
+                        self.options.string_type(),
+                    ))
                 }
             }
             dt => {
