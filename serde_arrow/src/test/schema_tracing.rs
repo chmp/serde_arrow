@@ -230,24 +230,41 @@ mod json_date64_utc_null {
 
 /// Mixing different date formats or dates and non-dates, results in Strings
 mod json_date64_to_string_coercions {
-    use super::*;
-
     macro_rules! test {
         ($name:ident, $($data:tt)*) => {
-            #[test]
-            fn $name() -> PanicOnError<()> {
-                let expected = SerdeArrowSchema::from_value(&json!([
-                    {
-                        "name": "date",
-                        "data_type": "LargeUtf8",
-                        "nullable": true,
-                    },
-                ]))?;
+            mod $name {
+                use super::super::*;
 
-                let data = json!($($data)*);
-                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true))?;
-                assert_eq!(actual, expected);
-                Ok(())
+                #[test]
+                fn large_utf8() -> PanicOnError<()> {
+                    let expected = SerdeArrowSchema::from_value(&json!([
+                       {
+                          "name": "date",
+                          "data_type": "LargeUtf8",
+                          "nullable": true,
+                      },
+                  ]))?;
+
+                  let data = json!($($data)*);
+                  let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true))?;
+                  assert_eq!(actual, expected);
+                  Ok(())
+              }
+              #[test]
+                fn utf8() -> PanicOnError<()> {
+                    let expected = SerdeArrowSchema::from_value(&json!([
+                       {
+                          "name": "date",
+                          "data_type": "Utf8",
+                          "nullable": true,
+                      },
+                  ]))?;
+
+                  let data = json!($($data)*);
+                  let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().guess_dates(true).strings_as_large_utf8(false))?;
+                  assert_eq!(actual, expected);
+                  Ok(())
+              }
             }
         };
     }
