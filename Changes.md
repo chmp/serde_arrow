@@ -1,23 +1,26 @@
 # Change log
 
-## `development`
+## 0.12.1
 
 New features
 
+- Add support for various `jiff` types (`jiff::Date`, `jiff::Time`, `jiff::DateTime`,
+  `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
+- Add support for tracing lists as `List` instead of `LargeList` by setting `sequence_as_large_list`
+  to `false` in `TracingOptions`
+- Add support for tracing strings and strings in dictionaries as `Utf8` instead of `LargeUtf8` by
+  setting `strings_as_large_utf8` to `false` in `TracingOptions`
 - Add support to auto-detect dates (`2024-09-30`, mapped to `Date32`) and times (`12:00:00`, mapped
   to `Time64(Nanosecond))`) in `from_samples`
 - Improved error messages for non self describing types (`chrono::*`, `uuid::Uuid`,
   `std::net::IpAddr`)
-- Add support for various `jiff` types (`jiff::Date`, `jiff::Time`, `jiff::DateTime`,
-  `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
-- Add support for tracing lists as `List` instead of `LargeList` by setting
-  `sequence_as_large_list` to `false` in `TracingOptions`
-- Add support for tracing strings and strings in dictionaries as `Utf8` instead of
-  `LargeUtf8` by setting `strings_as_large_utf8` to `false` in `TracingOptions`
 
 ### Thanks
-- [@jkylling](https://github.com/jkylling) added support for tracing lists as `List`
-  and strings as `Utf8` 
+
+The following people contributed to this release:
+
+- [@jkylling](https://github.com/jkylling) added support for tracing lists as `List` and strings as
+  `Utf8`
 
 ## 0.12.0
 
