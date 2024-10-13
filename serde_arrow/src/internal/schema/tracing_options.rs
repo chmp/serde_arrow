@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::internal::arrow::DataType;
 use crate::internal::{arrow::Field, error::Result, schema::transmute_field};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -11,7 +12,7 @@ pub enum TracingMode {
     FromSamples,
 }
 
-/// Configure how the schema is traced
+/// Configure schema tracing
 ///
 /// Example:
 ///
@@ -32,6 +33,7 @@ pub enum TracingMode {
 ///         .allow_null_fields(false)
 ///         .map_as_struct(true)
 ///         .sequence_as_large_list(true)
+///         .strings_as_large_utf8(true)
 ///         .string_dictionary_encoding(false)
 ///         .coerce_numbers(false)
 ///         .guess_dates(false)
@@ -42,31 +44,37 @@ pub enum TracingMode {
 #[non_exhaustive]
 pub struct TracingOptions {
     /// If `true`, accept null-only fields (e.g., fields with type `()` or fields
-    /// with only `None` entries). If `false`, schema tracing will fail in this
+    /// with only `None` entries). If `false` (the default), schema tracing will fail in this
     /// case.
     pub allow_null_fields: bool,
 
     /// If `true` trace maps as structs (the default). See
-    /// [`Strategy::MapAsStruct`][crate::schema::Strategy] for details.
+    /// [`Strategy::MapAsStruct`][crate::schema::Strategy::MapAsStruct] for details.
     pub map_as_struct: bool,
 
-    /// If `true` trace lists as LargeLists (the default).
+    /// If `true` trace lists as `LargeLists` (the default). Otherwise lists are traced `List`.
     pub sequence_as_large_list: bool,
 
-    /// If `true` trace strings with dictionary encoding. The default is `false`.
+    /// If `true` trace strings as `LargeUtf8` (the default). Otherwise strings are traced as `Utf8`.
+    pub string_as_large_utf8: bool,
+
+    /// If `true` trace strings with dictionary encoding. If `false` (the default), strings are
+    /// traced as either `LargeUtf8` or `Utf8` according to
+    /// [`string_as_large_utf8`][TracingOptions::string_as_large_utf8].
     ///
-    /// If `true`, strings are traced as `Dictionary(UInt32, LargeUtf8)`. If
-    /// `false`, strings are traced as `LargeUtf8`.
+    /// With dictionary encoding, strings are stored as an array of unique string values and indices
+    /// into this array. This encoding helps to reduce memory consumption with repeated values. This
+    /// encoding corresponds to the categorical data types of Pandas or Polars.
     ///
-    /// Note: the 32 bit offsets are chosen, as they are supported by the
-    /// default polars package.
+    /// The dictionary data type is either `Dictionary(UInt32, LargeUtf8)`  or `Dictionary(UInt32,
+    /// Utf8)` depending on [`string_as_large_utf8`][TracingOptions::string_as_large_utf8]. 32 bit
+    ///indices are used, as they are the default index type in `polars`.
     pub string_dictionary_encoding: bool,
 
-    /// If `true`, coerce different numeric types.
+    /// If `true`, coerce different numeric types. The default is `false`.
     ///
-    /// This option may be helpful when dealing with data formats that do not
-    /// encode the complete numeric type, e.g., JSON. The following rules are
-    /// used:
+    /// This option may be helpful when dealing with data formats with varying numeric types numeric
+    /// type, e.g., JSON. The following rules are used:
     ///
     /// - unsigned + other unsigned -> u64
     /// - signed + other signed -> i64
@@ -76,7 +84,7 @@ pub struct TracingOptions {
     /// - signed  + float -> f64
     pub coerce_numbers: bool,
 
-    /// If `true`, try to auto detect datetimes in string columns
+    /// If `true`, try to auto detect datetimes in string columns. The default is `false`.
     ///
     /// Currently the naive datetime (`YYYY-MM-DDThh:mm:ss`) and UTC datetimes
     /// (`YYYY-MM-DDThh:mm:ssZ`) are understood.
@@ -89,14 +97,12 @@ pub struct TracingOptions {
 
     /// How many tracing iterations to perform in `from_type`.
     ///
-    /// The default value may be too conservative for deeply nested types or
-    /// enums with many variants.
+    /// The default value (`100`) may be too conservative for deeply nested types or enums with many
+    /// variants.
     pub from_type_budget: usize,
 
-    /// Whether to encode enums without data as strings
-    ///
-    /// If `false` enums without data are encoded as Union arrays with Null
-    /// fields. If `true` enums without data are encoded as dictionaries.
+    /// If `true`, encode enums without data as dictionary encoded strings. If `false` (the
+    /// default), enums without data are encoded as Union arrays with `Null` fields.
     ///
     /// Example:
     ///
@@ -130,14 +136,14 @@ pub struct TracingOptions {
 
     /// A mapping of field paths to field definitions
     ///
-    /// Overwrites can be added with `options.overwrite(path, field)`. The
-    /// `field` parameter must serialize to a valid field. Examples are
-    /// instances of `serde_json::Value` with the correct content or of
-    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using
-    /// dotted paths, e.g.m `"foo.bar"`.
+    /// Overwrites can be added with `options.overwrite(path, field)`. The `field` parameter must
+    /// serialize to a valid field. See [`from_value`][crate::schema::SchemaLike::from_value] for
+    /// details. Examples are instances of `serde_json::Value` with the correct content or of
+    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using dotted paths, e.g.m
+    /// `"foo.bar"`.
     ///
-    /// Overwrites can be used to change the data type of field, e.g., to ensure
-    /// a field is a `Timestamp`:
+    /// Overwrites can be used to change the data type of field, e.g., to ensure a field is a
+    /// `Timestamp`:
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -228,6 +234,7 @@ impl Default for TracingOptions {
             enums_without_data_as_strings: false,
             overwrites: Overwrites::default(),
             sequence_as_large_list: true,
+            string_as_large_utf8: true,
             tracing_mode: TracingMode::Unknown,
         }
     }
@@ -253,6 +260,12 @@ impl TracingOptions {
     /// Set [`sequence_as_large_list`](#structfield.sequence_as_large_list)
     pub fn sequence_as_large_list(mut self, value: bool) -> Self {
         self.sequence_as_large_list = value;
+        self
+    }
+
+    /// Set [`string_as_large_utf8`](#structfield.string_as_large_utf8)
+    pub fn strings_as_large_utf8(mut self, value: bool) -> Self {
+        self.string_as_large_utf8 = value;
         self
     }
 
@@ -302,6 +315,14 @@ impl TracingOptions {
 
     pub(crate) fn get_overwrite(&self, path: &str) -> Option<&Field> {
         self.overwrites.0.get(path)
+    }
+
+    pub(crate) fn string_type(&self) -> DataType {
+        if self.string_as_large_utf8 {
+            DataType::LargeUtf8
+        } else {
+            DataType::Utf8
+        }
     }
 }
 
