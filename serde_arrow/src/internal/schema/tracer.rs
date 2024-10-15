@@ -112,7 +112,17 @@ impl Tracer {
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);
 
         let fields = match root.data_type {
-            DataType::Struct(children) => children,
+            DataType::Struct(children) => {
+                if let Some(strategy) = root
+                    .metadata.get(STRATEGY_KEY) {
+                     if *strategy == Strategy::EnumsWithNamedFieldsAsStructs.to_string() {
+                         // TODO: combine with fail messaging below
+                        fail!("Schema tracing is not directly supported for the root data Union. Consider using the `Item` / `Items` wrappers.");
+                    }
+                }
+
+                children
+            }
             DataType::Null => fail!("No records found to determine schema"),
             dt => fail!(
                 concat!(
@@ -1065,20 +1075,52 @@ impl UnionTracer {
             }
         }
 
-        let mut fields = Vec::new();
-        for (idx, variant) in self.variants.iter().enumerate() {
-            if let Some(variant) = variant {
-                fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
-            } else {
-                fields.push((i8::try_from(idx)?, unknown_variant_field()));
-            };
+        let data_type: DataType;
+        let mut metadata = HashMap::new();
+
+        if self.options.enums_with_named_fields_as_structs {
+            metadata.insert(
+                STRATEGY_KEY.to_string(),
+                Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+            );
+            let mut fields = BTreeMap::new();
+
+            // For this option, we want to merge the variant children up one level, combining the names
+            // For each variant with name variant_name
+            // For each variant_field with field_name
+            // Add field {variant_name}::{field_name} -> variant_field.to_field() that is nullable
+
+            for variant in &self.variants {
+                if let Some(variant) = variant {
+                    let schema = variant.tracer.to_schema()?;
+                    for field in schema.fields {
+                        let flat_field = field.to_flattened_union_field(variant.name.as_str());
+                        fields.insert(flat_field.name.to_string(), flat_field);
+                    }
+                } else {
+                    let uf = unknown_variant_field();
+                    fields.insert(uf.name, unknown_variant_field());
+                };
+            }
+
+            data_type = DataType::Struct(fields.into_values().collect());
+        } else {
+            let mut fields = Vec::new();
+            for (idx, variant) in self.variants.iter().enumerate() {
+                if let Some(variant) = variant {
+                    fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
+                } else {
+                    fields.push((i8::try_from(idx)?, unknown_variant_field()));
+                };
+            }
+            data_type = DataType::Union(fields, UnionMode::Dense);
         }
 
         Ok(Field {
             name: self.name.to_owned(),
-            data_type: DataType::Union(fields, UnionMode::Dense),
+            data_type,
             nullable: self.nullable,
-            metadata: HashMap::new(),
+            metadata,
         })
     }
 
