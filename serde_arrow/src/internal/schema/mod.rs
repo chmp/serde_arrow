@@ -17,7 +17,7 @@ use crate::internal::{
 
 use ::serde::{Deserialize, Serialize};
 
-pub use serde::serialize::PrettyField;
+pub use self::serde::serialize::PrettyField;
 pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
