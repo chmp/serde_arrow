@@ -1,11 +1,35 @@
 use std::collections::HashMap;
 
+use serde_json::json;
+
 use crate::_impl::arrow::datatypes::FieldRef;
 use crate::internal::testing::hash_map;
 use crate::{
     self as serde_arrow,
     schema::{SchemaLike, TracingOptions},
 };
+
+#[test]
+fn bytes_as_list() {
+    #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+    struct Struct {
+        string: Vec<u8>,
+    }
+    let data = (1..=10)
+        .map(|x| Struct {
+            string: x.to_string().into_bytes(),
+        })
+        .collect::<Vec<_>>();
+    let fields = Vec::<FieldRef>::from_value(json!([
+        {"name": "string", "data_type": "Binary"},
+    ]))
+    .unwrap();
+    let batch = serde_arrow::to_record_batch(&fields, &data).unwrap();
+    let batch = batch.slice(5, 5);
+
+    let actual: Vec<Struct> = serde_arrow::from_record_batch(&batch).unwrap();
+    assert_eq!(data[5..10], actual);
+}
 
 #[test]
 fn strings() {
