@@ -23,11 +23,16 @@ pub struct ListDeserializer<'a, O: Offset> {
 impl<'a, O: Offset> ListDeserializer<'a, O> {
     pub fn new(
         path: String,
-        item: ArrayDeserializer<'a>,
+        mut item: ArrayDeserializer<'a>,
         offsets: &'a [O],
         validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
+
+        // skip any unused values up front
+        for _ in 0..offsets[0].try_into_usize()? {
+            item.deserialize_ignored_any(serde::de::IgnoredAny)?;
+        }
 
         Ok(Self {
             path,
