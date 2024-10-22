@@ -106,7 +106,7 @@ impl Tracer {
         let root = self.to_field()?;
 
         if root.nullable {
-            fail!("The root type cannot be nullable");
+            fail!("The root type cannot be nullable: {root:#?}");
         }
 
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);

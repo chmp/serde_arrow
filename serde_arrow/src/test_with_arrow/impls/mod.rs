@@ -6,6 +6,7 @@ mod chrono;
 mod dictionary;
 mod examples;
 mod fixed_size_list;
+mod flattened_union;
 mod jiff;
 mod json_values;
 mod list;
