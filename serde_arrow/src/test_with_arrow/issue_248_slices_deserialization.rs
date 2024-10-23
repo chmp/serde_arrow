@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::_impl::arrow::datatypes::FieldRef;
 use crate::internal::testing::hash_map;
+use crate::utils::Item;
 use crate::{
     self as serde_arrow,
     schema::{SchemaLike, TracingOptions},
@@ -88,4 +89,28 @@ fn map_of_strings() {
 
     let actual: Vec<Struct> = serde_arrow::from_record_batch(&batch).unwrap();
     assert_eq!(data[5..10], actual);
+}
+
+#[test]
+fn enums() {
+    #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+    enum Value {
+        I64(i64),
+        I32(i32),
+        Str(String),
+    }
+
+    let data = vec![
+        Item(Value::I64(0)),
+        Item(Value::I64(1)),
+        Item(Value::I32(2)),
+        Item(Value::Str(String::from("3"))),
+    ];
+    let fields = Vec::<FieldRef>::from_type::<Item<Value>>(TracingOptions::default()).unwrap();
+
+    let batch = serde_arrow::to_record_batch(&fields, &data).unwrap();
+    let batch = batch.slice(2, 2);
+
+    let actual: Vec<Item<Value>> = serde_arrow::from_record_batch(&batch).unwrap();
+    assert_eq!(data[2..4], actual);
 }

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
@@ -20,15 +20,48 @@ impl<'a> EnumDeserializer<'a> {
     pub fn new(
         path: String,
         type_ids: &'a [i8],
+        offsets: &'a [i32],
         variants: Vec<(String, ArrayDeserializer<'a>)>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        verify_offsets(type_ids, offsets)?;
+
+        Ok(Self {
             path,
             type_ids,
             variants,
             next: 0,
+        })
+    }
+}
+
+fn verify_offsets(type_ids: &[i8], offsets: &[i32]) -> Result<()> {
+    if type_ids.len() != offsets.len() {
+        fail!("Offsets and type ids must have the same length")
+    }
+
+    let mut last_offsets = HashMap::<i8, i32>::new();
+    for (idx, (&type_id, &offset)) in std::iter::zip(type_ids, offsets).enumerate() {
+        if let Some(last_offset) = last_offsets.get(&type_id).copied() {
+            if offset.checked_sub(last_offset) != Some(1) {
+                fail!(
+                    concat!(
+                        "Invalid offsets in enum array for item {idx}:",
+                        "serde_arrow only supports consecutive offsets.",
+                        "Current offset for type {type_id}: {offset}, previous offset {last_offset}",
+                    ),
+                    idx = idx,
+                    type_id = type_id,
+                    offset = offset,
+                    last_offset = last_offset,
+                );
+            }
+            last_offsets.insert(type_id, offset);
+        } else {
+            last_offsets.insert(type_id, offset);
         }
     }
+
+    Ok(())
 }
 
 impl<'de> Context for EnumDeserializer<'de> {
