@@ -296,7 +296,12 @@ impl<'a> ArrayDeserializer<'a> {
                     fields.push((field_meta.name, field_deserializer))
                 }
 
-                Ok(Self::Enum(EnumDeserializer::new(path, view.types, fields)))
+                Ok(Self::Enum(EnumDeserializer::new(
+                    path,
+                    view.types,
+                    view.offsets,
+                    fields,
+                )?))
             }
         }
     }

@@ -24,12 +24,18 @@ pub struct MapDeserializer<'a> {
 impl<'a> MapDeserializer<'a> {
     pub fn new(
         path: String,
-        key: ArrayDeserializer<'a>,
-        value: ArrayDeserializer<'a>,
+        mut key: ArrayDeserializer<'a>,
+        mut value: ArrayDeserializer<'a>,
         offsets: &'a [i32],
         validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
+
+        // skip any unused values up front
+        for _ in 0..usize::try_from(offsets[0])? {
+            key.deserialize_ignored_any(serde::de::IgnoredAny)?;
+            value.deserialize_ignored_any(serde::de::IgnoredAny)?;
+        }
 
         Ok(Self {
             path,

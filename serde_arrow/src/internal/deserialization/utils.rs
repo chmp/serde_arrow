@@ -77,10 +77,6 @@ pub fn check_supported_list_layout<'a, O: Offset>(
     validity: Option<BitsWithOffset<'a>>,
     offsets: &'a [O],
 ) -> Result<()> {
-    let Some(validity) = validity else {
-        return Ok(());
-    };
-
     if offsets.is_empty() {
         fail!("Unsupported: list offsets must be non empty");
     }
@@ -88,10 +84,37 @@ pub fn check_supported_list_layout<'a, O: Offset>(
     for i in 0..offsets.len().saturating_sub(1) {
         let curr = offsets[i].try_into_usize()?;
         let next = offsets[i + 1].try_into_usize()?;
-        if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
-            fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
+
+        if next < curr {
+            fail!("Unsupported: list offsets are assumed to be monotonically increasing");
+        }
+        if let Some(validity) = validity.as_ref() {
+            if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
+                fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
+            }
         }
     }
 
     Ok(())
+}
+
+#[test]
+fn test_check_supported_list_layout() {
+    use crate::internal::testing::assert_error_contains;
+
+    assert_error_contains(&check_supported_list_layout::<i32>(None, &[]), "non empty");
+    assert_error_contains(
+        &check_supported_list_layout::<i32>(None, &[0, 1, 0]),
+        "monotonically increasing",
+    );
+    assert_error_contains(
+        &check_supported_list_layout::<i32>(
+            Some(BitsWithOffset {
+                offset: 0,
+                data: &[0b_101],
+            }),
+            &[0, 5, 10, 15],
+        ),
+        "data in null values",
+    );
 }
