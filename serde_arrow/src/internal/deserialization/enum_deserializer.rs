@@ -57,6 +57,18 @@ fn verify_offsets(type_ids: &[i8], offsets: &[i32]) -> Result<()> {
             }
             last_offsets.insert(type_id, offset);
         } else {
+            if offset != 0 {
+                fail!(
+                    concat!(
+                        "Invalid offsets in enum array for item {idx}:",
+                        "serde_arrow only supports initial zero offsets.",
+                        "Current offset for type {type_id}: {offset}",
+                    ),
+                    idx = idx,
+                    type_id = type_id,
+                    offset = offset,
+                );
+            }
             last_offsets.insert(type_id, offset);
         }
     }
