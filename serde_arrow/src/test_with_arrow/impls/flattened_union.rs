@@ -155,3 +155,75 @@ fn test_record_batch_flattened_union_builder() {
         .to_record_batch()
         .expect("failed to create record batch");
 }
+
+#[derive(Serialize, Deserialize)]
+struct ComplexMessage {
+    data: MsgData,
+}
+
+#[derive(Serialize, Deserialize)]
+enum MsgData {
+    One { data: usize },
+    Two { opts: MsgOptions },
+}
+
+#[derive(Serialize, Deserialize)]
+struct MsgOptions {
+    loc: Location,
+}
+
+#[derive(Serialize, Deserialize)]
+enum Location {
+    Left,
+    Right,
+}
+
+fn nested_enum_schema() -> SerdeArrowSchema {
+    let options = TracingOptions::default()
+        .allow_null_fields(true)
+        .enums_without_data_as_strings(true)
+        .enums_with_named_fields_as_structs(true);
+
+    SerdeArrowSchema::from_type::<ComplexMessage>(options).unwrap()
+}
+
+fn nested_enum_data() -> Vec<ComplexMessage> {
+    vec![
+        ComplexMessage {
+            data: MsgData::One { data: 3 },
+        },
+        ComplexMessage {
+            data: MsgData::Two {
+                opts: MsgOptions {
+                    loc: Location::Right,
+                },
+            },
+        },
+    ]
+}
+
+#[test]
+fn test_flattened_union_with_nested_enum() {
+    let mut builder = ArrayBuilder::new(nested_enum_schema()).unwrap();
+
+    // One struct in the array
+    let arrays = builder.build_arrays().unwrap();
+
+    println!("{arrays:#?}");
+
+    assert_eq!(arrays.len(), 1);
+
+    let array = &arrays[0];
+
+    let Array::Struct(ref struct_array) = array else {
+        panic!("expected a struct array, found {array:#?}");
+    };
+
+    let serializer = Serializer::new(builder);
+    nested_enum_data()
+        .serialize(serializer)
+        .expect("failed to serialize")
+        .into_inner()
+        .to_arrow()
+        .expect("failed to serialize to arrow");
+}
