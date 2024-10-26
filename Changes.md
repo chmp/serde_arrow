@@ -1,5 +1,19 @@
 # Change log
 
+## 0.12.2
+
+Bug fixes:
+
+- Fixed deserialization from sliced arrays ([#248](https://github.com/chmp/serde_arrow/issues/248)).
+  Note that the current solution requires up front work when constructing the array deserializers,
+  as described in the issue. The removal of the performance penality is tracked in
+  ([#250](https://github.com/chmp/serde_arrow/issues/250))
+
+### Thanks
+
+- [@jkylling](https://github.com/jkylling) for reporting
+  ([#248](https://github.com/chmp/serde_arrow/issues/248)) and for discussing potential solutions
+
 ## 0.12.1
 
 New features
