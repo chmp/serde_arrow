@@ -6,7 +6,7 @@ Bug fixes:
 
 - Fixed deserialization from sliced arrays ([#248](https://github.com/chmp/serde_arrow/issues/248)).
   Note that the current solution requires up front work when constructing the array deserializers,
-  as described in the issue. The removal of the performance penality is tracked in
+  as described in the issue. The removal of the performance penalty is tracked in
   ([#250](https://github.com/chmp/serde_arrow/issues/250))
 
 ### Thanks
