@@ -28,11 +28,7 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
         validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
-
-        // skip any unused values up front
-        for _ in 0..offsets[0].try_into_usize()? {
-            item.deserialize_ignored_any(serde::de::IgnoredAny)?;
-        }
+        item.skip(offsets[0].try_into_usize()?)?;
 
         Ok(Self {
             path,

@@ -33,17 +33,6 @@ fn non_consecutive_offsets() {
         ),
     ];
 
-    // second type does not start at 0
-    let view = ArrayView::DenseUnion(DenseUnionArrayView {
-        types: &[0, 0, 1],
-        offsets: &[0, 1, 2],
-        fields: fields.clone(),
-    });
-    assert_error_contains(
-        &ArrayDeserializer::new(String::from("foo"), None, view),
-        "initial zero offsets",
-    );
-
     // first type has an unused element
     let view = ArrayView::DenseUnion(DenseUnionArrayView {
         types: &[0, 0, 1],

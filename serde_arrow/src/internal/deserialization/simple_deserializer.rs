@@ -1,4 +1,7 @@
-use serde::{de::Visitor, Deserializer};
+use serde::{
+    de::{IgnoredAny, Visitor},
+    Deserializer,
+};
 
 use crate::internal::{
     error::{fail, Context, Error, Result},
@@ -7,6 +10,13 @@ use crate::internal::{
 
 #[allow(unused)]
 pub trait SimpleDeserializer<'de>: Context + Sized {
+    fn skip(&mut self, n: usize) -> Result<()> {
+        for _ in 0..n {
+            self.deserialize_any(IgnoredAny)?;
+        }
+        Ok(())
+    }
+
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         fail!(in self, "Deserializer does not implement deserialize_any");
     }

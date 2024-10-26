@@ -100,11 +100,38 @@ fn enums() {
         Str(String),
     }
 
+    // Note: this works, as the initial offset for the remaining variants is 0
     let data = vec![
         Item(Value::I64(0)),
         Item(Value::I64(1)),
         Item(Value::I32(2)),
         Item(Value::Str(String::from("3"))),
+    ];
+    let fields = Vec::<FieldRef>::from_type::<Item<Value>>(TracingOptions::default()).unwrap();
+
+    let batch = serde_arrow::to_record_batch(&fields, &data).unwrap();
+    let batch = batch.slice(2, 2);
+
+    let actual: Vec<Item<Value>> = serde_arrow::from_record_batch(&batch).unwrap();
+    assert_eq!(data[2..4], actual);
+}
+
+#[test]
+fn enums_2() {
+    #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+    enum Value {
+        I64(i64),
+        I32(i32),
+        Str(String),
+    }
+
+    // note use always the same variant to force the sliced offsets to result in non-zero initial
+    // offset for type 0
+    let data = vec![
+        Item(Value::I64(0)),
+        Item(Value::I64(1)),
+        Item(Value::I64(2)),
+        Item(Value::I64(3)),
     ];
     let fields = Vec::<FieldRef>::from_type::<Item<Value>>(TracingOptions::default()).unwrap();
 

@@ -31,11 +31,9 @@ impl<'a> MapDeserializer<'a> {
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
 
-        // skip any unused values up front
-        for _ in 0..usize::try_from(offsets[0])? {
-            key.deserialize_ignored_any(serde::de::IgnoredAny)?;
-            value.deserialize_ignored_any(serde::de::IgnoredAny)?;
-        }
+        let initial_offset = usize::try_from(offsets[0])?;
+        key.skip(initial_offset)?;
+        value.skip(initial_offset)?;
 
         Ok(Self {
             path,

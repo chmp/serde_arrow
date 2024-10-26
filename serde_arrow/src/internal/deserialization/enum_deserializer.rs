@@ -21,9 +21,16 @@ impl<'a> EnumDeserializer<'a> {
         path: String,
         type_ids: &'a [i8],
         offsets: &'a [i32],
-        variants: Vec<(String, ArrayDeserializer<'a>)>,
+        mut variants: Vec<(String, ArrayDeserializer<'a>)>,
     ) -> Result<Self> {
-        verify_offsets(type_ids, offsets)?;
+        let initial_offsets = verify_offsets(type_ids, offsets, variants.len())?;
+
+        for (type_id, initial_offset) in initial_offsets {
+            let Some((_, variant)) = variants.get_mut(type_id as usize) else {
+                fail!("Unexpected error: could not retrieve variant {type_id}");
+            };
+            variant.skip(initial_offset as usize)?;
+        }
 
         Ok(Self {
             path,
@@ -34,13 +41,37 @@ impl<'a> EnumDeserializer<'a> {
     }
 }
 
-fn verify_offsets(type_ids: &[i8], offsets: &[i32]) -> Result<()> {
+fn verify_offsets(type_ids: &[i8], offsets: &[i32], num_fields: usize) -> Result<HashMap<i8, i32>> {
     if type_ids.len() != offsets.len() {
         fail!("Offsets and type ids must have the same length")
     }
 
+    for &type_id in type_ids {
+        if type_id as usize >= num_fields {
+            fail!(
+                concat!(
+                    "Invalid enum array:",
+                    "type id ({type_id}) larger the number of fields ({num_fields})",
+                ),
+                type_id = type_id,
+                num_fields = num_fields,
+            );
+        }
+    }
+
     let mut last_offsets = HashMap::<i8, i32>::new();
+    let mut initial_offsets = HashMap::<i8, i32>::new();
     for (idx, (&type_id, &offset)) in std::iter::zip(type_ids, offsets).enumerate() {
+        if offset < 0 {
+            fail!(
+                concat!(
+                    "Invalid offsets in enum array for item {idx}:",
+                    "negative offsets ({offset}) is not supports",
+                ),
+                idx = idx,
+                offset = offset,
+            );
+        }
         if let Some(last_offset) = last_offsets.get(&type_id).copied() {
             if offset.checked_sub(last_offset) != Some(1) {
                 fail!(
@@ -57,23 +88,12 @@ fn verify_offsets(type_ids: &[i8], offsets: &[i32]) -> Result<()> {
             }
             last_offsets.insert(type_id, offset);
         } else {
-            if offset != 0 {
-                fail!(
-                    concat!(
-                        "Invalid offsets in enum array for item {idx}:",
-                        "serde_arrow only supports initial zero offsets.",
-                        "Current offset for type {type_id}: {offset}",
-                    ),
-                    idx = idx,
-                    type_id = type_id,
-                    offset = offset,
-                );
-            }
+            initial_offsets.insert(type_id, offset);
             last_offsets.insert(type_id, offset);
         }
     }
 
-    Ok(())
+    Ok(initial_offsets)
 }
 
 impl<'de> Context for EnumDeserializer<'de> {
