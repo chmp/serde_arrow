@@ -89,7 +89,7 @@ pub fn check_supported_list_layout<'a, O: Offset>(
             fail!("Unsupported: list offsets are assumed to be monotonically increasing");
         }
         if let Some(validity) = validity.as_ref() {
-            if !bitset_is_set(&validity, i)? && (next - curr) != 0 {
+            if !bitset_is_set(validity, i)? && (next - curr) != 0 {
                 fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
             }
         }
