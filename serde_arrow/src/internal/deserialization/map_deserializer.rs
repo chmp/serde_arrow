@@ -24,12 +24,16 @@ pub struct MapDeserializer<'a> {
 impl<'a> MapDeserializer<'a> {
     pub fn new(
         path: String,
-        key: ArrayDeserializer<'a>,
-        value: ArrayDeserializer<'a>,
+        mut key: ArrayDeserializer<'a>,
+        mut value: ArrayDeserializer<'a>,
         offsets: &'a [i32],
         validity: Option<BitsWithOffset<'a>>,
     ) -> Result<Self> {
         check_supported_list_layout(validity, offsets)?;
+
+        let initial_offset = usize::try_from(offsets[0])?;
+        key.skip(initial_offset)?;
+        value.skip(initial_offset)?;
 
         Ok(Self {
             path,
