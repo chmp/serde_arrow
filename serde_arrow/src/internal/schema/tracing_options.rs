@@ -226,7 +226,20 @@ pub struct TracingOptions {
     /// If `false` enums with data are encoded as Union arrays.
     /// If `true` enums with data are encoded as Structs.
     ///
-    /// TODO: example
+    /// ```
+    /// # fn main() -> serde_arrow::Result<()> {
+    /// # use serde_arrow::_impl::arrow;
+    /// # use arrow::datatypes::{FieldRef, Field, DataType, TimeUnit};
+    /// # use serde_arrow::schema::{SchemaLike, TracingOptions};
+    /// # use serde::{Serialize, Deserialize};
+    /// #[derive(Serialize, Deserialize)]
+    /// enum Number {
+    ///     Real { value: f32 },
+    ///     Complex { i: f32, j: f32 },
+    /// }
+    /// let options = TracingOptions::default().enums_with_named_fields_as_structs(true);
+    /// let fields = Tracer::from_type::<Number>(options)?;
+    /// # }
     /// ```
     pub enums_with_named_fields_as_structs: bool,
 }
