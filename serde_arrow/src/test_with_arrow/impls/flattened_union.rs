@@ -215,7 +215,7 @@ fn test_flattened_union_with_nested_enum() {
 
     let array = &arrays[0];
 
-    let Array::Struct(ref struct_array) = array else {
+    let Array::Struct(ref _struct_array) = array else {
         panic!("expected a struct array, found {array:#?}");
     };
 

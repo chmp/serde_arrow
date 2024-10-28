@@ -7,8 +7,8 @@ use crate::internal::{
     arrow::{DataType, Field, UnionMode},
     error::{fail, set_default, Context, Result},
     schema::{
-        DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
-        STRATEGY_KEY,
+        extensions::fix_dictionaries, DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy,
+        TracingMode, TracingOptions, STRATEGY_KEY,
     },
 };
 
@@ -101,6 +101,30 @@ impl Tracer {
         Self::Unknown(UnknownTracer::new(name, path, options))
     }
 
+    fn schema_tracing_error(
+        failed_data_type: impl std::fmt::Display,
+        tracing_mode: TracingMode,
+    ) -> Result<SerdeArrowSchema> {
+        fail!(
+            concat!(
+                "Schema tracing is not directly supported for the root data type {failed_data_type}. ",
+                "Only struct-like types are supported as root types in schema tracing. ",
+                "{mitigation}",
+            ),
+            failed_data_type = failed_data_type,
+            mitigation = match tracing_mode {
+                TracingMode::FromType => {
+                    "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`."
+                }
+                TracingMode::FromSamples => {
+                    "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`."
+                }
+                TracingMode::Unknown => "Consider using the `Item` / `Items` wrappers.",
+            },
+
+        )
+    }
+
     /// Convert the traced schema into a schema object
     pub fn to_schema(&self) -> Result<SerdeArrowSchema> {
         let root = self.to_field()?;
@@ -113,30 +137,16 @@ impl Tracer {
 
         let fields = match root.data_type {
             DataType::Struct(children) => {
-                if let Some(strategy) = root
-                    .metadata.get(STRATEGY_KEY) {
-                     if *strategy == Strategy::EnumsWithNamedFieldsAsStructs.to_string() {
-                         // TODO: combine with fail messaging below
-                        fail!("Schema tracing is not directly supported for the root data Union. Consider using the `Item` / `Items` wrappers.");
+                if let Some(strategy) = root.metadata.get(STRATEGY_KEY) {
+                    if *strategy == Strategy::EnumsWithNamedFieldsAsStructs.to_string() {
+                        return Self::schema_tracing_error("Union", tracing_mode);
                     }
                 }
 
                 children
             }
             DataType::Null => fail!("No records found to determine schema"),
-            dt => fail!(
-                concat!(
-                    "Schema tracing is not directly supported for the root data type {dt}. ",
-                    "Only struct-like types are supported as root types in schema tracing. ",
-                    "{mitigation}",
-                ),
-                dt = DataTypeDisplay(&dt),
-                mitigation = match tracing_mode {
-                    TracingMode::FromType => "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`.",
-                    TracingMode::FromSamples => "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`.",
-                    TracingMode::Unknown => "Consider using the `Item` / `Items` wrappers.",
-                },
-            ),
+            dt => return Self::schema_tracing_error(DataTypeDisplay(&dt), tracing_mode),
         };
 
         Ok(SerdeArrowSchema { fields })
@@ -1094,7 +1104,8 @@ impl UnionTracer {
                 if let Some(variant) = variant {
                     let schema = variant.tracer.to_schema()?;
                     for field in schema.fields {
-                        let flat_field = field.to_flattened_union_field(variant.name.as_str());
+                        let mut flat_field = field.to_flattened_union_field(variant.name.as_str());
+                        fix_dictionaries(&mut flat_field);
                         fields.insert(flat_field.name.to_string(), flat_field);
                     }
                 } else {
