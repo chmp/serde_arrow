@@ -588,61 +588,56 @@ impl<'de, 'a> serde::de::Deserializer<'de> for IdentifierDeserializer<'a> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use serde::{Deserialize, Serialize};
-
     use crate::{
         internal::{
-            arrow::{DataType, Field},
             schema::tracer::Tracer,
+            testing::{Coin, Number, Optionals, Payment},
         },
-        schema::{Strategy, TracingOptions, STRATEGY_KEY},
+        schema::TracingOptions,
     };
 
-    // TODO: combine these with the from_samples tests, dedup utility code, test all edge cases with from_type as well
     #[test]
     fn example_enum_as_struct_equal_to_struct_with_nullable_fields() {
-        // TODO: dedup?
-        #[derive(Serialize, Deserialize)]
-        enum Number {
-            Real { value: f32 },
-            Complex { i: f32, j: f32 },
-        }
-
         let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
         let enum_tracer = Tracer::from_type::<Number>(opts).unwrap();
-        let metadata = HashMap::from([(
-            STRATEGY_KEY.to_string(),
-            Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
-        )]);
+        assert_eq!(enum_tracer.to_field().unwrap(), Number::expected_field());
+    }
 
-        let expected_field = Field {
-            name: "$".to_string(),
-            data_type: DataType::Struct(vec![
-                Field {
-                    name: "Complex::i".to_string(),
-                    data_type: DataType::Float32,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-                Field {
-                    name: "Complex::j".to_string(),
-                    data_type: DataType::Float32,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-                Field {
-                    name: "Real::value".to_string(),
-                    data_type: DataType::Float32,
-                    nullable: true,
-                    metadata: HashMap::new(),
-                },
-            ]),
-            nullable: false,
-            metadata,
-        };
+    #[test]
+    fn example_enum_as_struct_no_fields() {
+        // This should continue to maintain previously implemented behavior, serializing as a map
+        let opts = TracingOptions::default()
+            .enums_with_named_fields_as_structs(true)
+            .enums_without_data_as_strings(true);
 
-        assert_eq!(enum_tracer.to_field().unwrap(), expected_field);
+        let enum_tracer = Tracer::from_type::<Coin>(opts).unwrap();
+        assert_eq!(enum_tracer.to_field().unwrap(), Coin::expected_field());
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_no_fields_panics_when_opts_not_set() {
+        // This should continue to maintain previously implemented behavior,
+        // throwing an error because we detect Unions with no fields
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+
+        Tracer::from_type::<Coin>(opts).unwrap().to_field().unwrap();
+    }
+
+    #[test]
+    fn example_enum_as_struct_all_fields_nullable() {
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_type::<Optionals>(opts).unwrap();
+        assert_eq!(enum_tracer.to_field().unwrap(), Optionals::expected_field());
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_tuple_variants() {
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_type::<Payment>(opts).unwrap();
+
+        // Currently panics when `to_schema()` is called on the variant tracer
+        enum_tracer.to_field().unwrap();
     }
 }
