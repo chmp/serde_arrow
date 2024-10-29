@@ -5,6 +5,7 @@ mod variable_shape_tensor_field;
 
 pub use bool8_field::Bool8Field;
 pub use fixed_shape_tensor_field::FixedShapeTensorField;
+pub(crate) use utils::fix_dictionaries;
 pub use variable_shape_tensor_field::VariableShapeTensorField;
 
 const _: () = {

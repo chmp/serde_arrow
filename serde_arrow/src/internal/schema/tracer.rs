@@ -7,8 +7,8 @@ use crate::internal::{
     arrow::{DataType, Field, UnionMode},
     error::{fail, set_default, Context, Result},
     schema::{
-        DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
-        STRATEGY_KEY,
+        extensions::fix_dictionaries, DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy,
+        TracingMode, TracingOptions, STRATEGY_KEY,
     },
 };
 
@@ -101,32 +101,52 @@ impl Tracer {
         Self::Unknown(UnknownTracer::new(name, path, options))
     }
 
+    fn schema_tracing_error(
+        failed_data_type: impl std::fmt::Display,
+        tracing_mode: TracingMode,
+    ) -> Result<SerdeArrowSchema> {
+        fail!(
+            concat!(
+                "Schema tracing is not directly supported for the root data type {failed_data_type}. ",
+                "Only struct-like types are supported as root types in schema tracing. ",
+                "{mitigation}",
+            ),
+            failed_data_type = failed_data_type,
+            mitigation = match tracing_mode {
+                TracingMode::FromType => {
+                    "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`."
+                }
+                TracingMode::FromSamples => {
+                    "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`."
+                }
+                TracingMode::Unknown => "Consider using the `Item` / `Items` wrappers.",
+            },
+
+        )
+    }
+
     /// Convert the traced schema into a schema object
     pub fn to_schema(&self) -> Result<SerdeArrowSchema> {
         let root = self.to_field()?;
 
         if root.nullable {
-            fail!("The root type cannot be nullable");
+            fail!("The root type cannot be nullable: {root:#?}");
         }
 
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);
 
         let fields = match root.data_type {
-            DataType::Struct(children) => children,
+            DataType::Struct(children) => {
+                if let Some(strategy) = root.metadata.get(STRATEGY_KEY) {
+                    if *strategy == Strategy::EnumsWithNamedFieldsAsStructs.to_string() {
+                        return Self::schema_tracing_error("Union", tracing_mode);
+                    }
+                }
+
+                children
+            }
             DataType::Null => fail!("No records found to determine schema"),
-            dt => fail!(
-                concat!(
-                    "Schema tracing is not directly supported for the root data type {dt}. ",
-                    "Only struct-like types are supported as root types in schema tracing. ",
-                    "{mitigation}",
-                ),
-                dt = DataTypeDisplay(&dt),
-                mitigation = match tracing_mode {
-                    TracingMode::FromType => "Consider using the `Item` wrapper, i.e., `::from_type<Item<T>>()`.",
-                    TracingMode::FromSamples => "Consider using the `Items` wrapper, i.e., `::from_samples(Items(samples))`.",
-                    TracingMode::Unknown => "Consider using the `Item` / `Items` wrappers.",
-                },
-            ),
+            dt => return Self::schema_tracing_error(DataTypeDisplay(&dt), tracing_mode),
         };
 
         Ok(SerdeArrowSchema { fields })
@@ -1065,20 +1085,53 @@ impl UnionTracer {
             }
         }
 
-        let mut fields = Vec::new();
-        for (idx, variant) in self.variants.iter().enumerate() {
-            if let Some(variant) = variant {
-                fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
-            } else {
-                fields.push((i8::try_from(idx)?, unknown_variant_field()));
-            };
+        let data_type: DataType;
+        let mut metadata = HashMap::new();
+
+        if self.options.enums_with_named_fields_as_structs {
+            metadata.insert(
+                STRATEGY_KEY.to_string(),
+                Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+            );
+            let mut fields = BTreeMap::new();
+
+            // For this option, we want to merge the variant children up one level, combining the names
+            // For each variant with name variant_name
+            // For each variant_field with field_name
+            // Add field {variant_name}::{field_name} -> variant_field.to_field() that is nullable
+
+            for variant in &self.variants {
+                if let Some(variant) = variant {
+                    let schema = variant.tracer.to_schema()?;
+                    for field in schema.fields {
+                        let mut flat_field = field.to_flattened_union_field(variant.name.as_str());
+                        fix_dictionaries(&mut flat_field);
+                        fields.insert(flat_field.name.to_string(), flat_field);
+                    }
+                } else {
+                    let uf = unknown_variant_field();
+                    fields.insert(uf.name, unknown_variant_field());
+                };
+            }
+
+            data_type = DataType::Struct(fields.into_values().collect());
+        } else {
+            let mut fields = Vec::new();
+            for (idx, variant) in self.variants.iter().enumerate() {
+                if let Some(variant) = variant {
+                    fields.push((i8::try_from(idx)?, variant.tracer.to_field()?));
+                } else {
+                    fields.push((i8::try_from(idx)?, unknown_variant_field()));
+                };
+            }
+            data_type = DataType::Union(fields, UnionMode::Dense);
         }
 
         Ok(Field {
             name: self.name.to_owned(),
-            data_type: DataType::Union(fields, UnionMode::Dense),
+            data_type,
             nullable: self.nullable,
-            metadata: HashMap::new(),
+            metadata,
         })
     }
 
