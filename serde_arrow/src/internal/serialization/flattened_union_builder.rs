@@ -44,7 +44,7 @@ impl FlattenedUnionBuilder {
 
         for (builder, meta) in self.fields.into_iter() {
             let ArrayBuilder::Struct(builder) = builder else {
-                fail!("enum variant not built as a struct") // TODO: better failure message
+                fail!("Attempting to flatten a not-struct builder: {builder:?}");
             };
 
             for (sub_builder, mut sub_meta) in builder.fields.into_iter() {
@@ -63,9 +63,8 @@ impl FlattenedUnionBuilder {
         Ok(Array::Struct(StructArray {
             len: self.row_count,
             fields: fields.into_values().collect(),
-            // TODO: is this ok to hardcode?
-            // assuming so because when testing manually,
-            // validity of struct with nullable fields was None
+            // assuming this is OK to hardcode because empirically,
+            // the validity of struct with nullable fields was always None
             validity: None,
         }))
     }
