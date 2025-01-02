@@ -1,5 +1,9 @@
 # Change log
 
+## 0.12.3
+
+- Add `arrow=54` support
+
 ## 0.12.2
 
 Bug fixes:
