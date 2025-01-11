@@ -12,7 +12,7 @@ use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use crate::internal::error::Result;
 
-use super::arrow::{Field, FieldMeta};
+use marrow::datatypes::{Field, FieldMeta};
 
 /// A wrapper around a sequence of items
 ///

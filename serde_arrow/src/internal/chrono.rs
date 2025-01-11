@@ -1,6 +1,7 @@
 //! Support for Parsing datetime related quantities
-//!
-use crate::internal::{arrow::TimeUnit, error::Result};
+use marrow::datatypes::TimeUnit;
+
+use crate::internal::error::Result;
 
 use parsing::ParseResult;
 

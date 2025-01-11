@@ -1,14 +1,15 @@
 use serde::de::Visitor;
 
+use marrow::{datatypes::Field, view::View};
+
 use crate::internal::{
-    arrow::{ArrayView, Field},
     deserialization::{
         array_deserializer::ArrayDeserializer,
         outer_sequence_deserializer::OuterSequenceDeserializer,
     },
     error::{fail, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::array_view_ext::ArrayViewExt,
+    utils::array_view_ext::ViewExt,
 };
 
 use super::utils::ChildName;
@@ -23,7 +24,7 @@ use super::utils::ChildName;
 pub struct Deserializer<'de>(pub(crate) OuterSequenceDeserializer<'de>);
 
 impl<'de> Deserializer<'de> {
-    pub(crate) fn new(fields: &[Field], views: Vec<ArrayView<'de>>) -> Result<Self> {
+    pub(crate) fn new(fields: &[Field], views: Vec<View<'de>>) -> Result<Self> {
         let len = match views.first() {
             Some(view) => view.len(),
             None => 0,

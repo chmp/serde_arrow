@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use chrono::{NaiveDate, NaiveDateTime};
+use marrow::array::{Array, PrimitiveArray};
 
 use crate::internal::{
-    arrow::{Array, PrimitiveArray},
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };

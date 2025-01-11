@@ -2,12 +2,10 @@
 
 use std::collections::HashMap;
 
-use serde::ser::{SerializeSeq, SerializeStruct};
+use marrow::datatypes::{DataType, Field};
+use serde::ser::{Error, SerializeSeq, SerializeStruct};
 
-use crate::internal::{
-    arrow::{DataType, Field},
-    schema::{SerdeArrowSchema, STRATEGY_KEY},
-};
+use crate::internal::schema::{SerdeArrowSchema, STRATEGY_KEY};
 
 impl serde::Serialize for SerdeArrowSchema {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -114,9 +112,10 @@ impl<'a> serde::Serialize for PrettyFieldDataType<'a> {
             T::Struct(_) => "Struct".serialize(serializer),
             T::Map(_, _) => "Map".serialize(serializer),
             T::Union(_, _) => "Union".serialize(serializer),
-            T::Dictionary(_, _, _) => "Dictionary".serialize(serializer),
+            T::Dictionary(_, _) => "Dictionary".serialize(serializer),
             T::LargeList(_) => "LargeList".serialize(serializer),
             T::List(_) => "List".serialize(serializer),
+            dt => Err(S::Error::custom(format!("unknown marrow data type {dt:?}"))),
         }
     }
 }
@@ -150,7 +149,7 @@ impl<'a> serde::Serialize for PrettyFieldChildren<'a> {
                 }
                 s.end()
             }
-            T::Dictionary(key, value, _) => {
+            T::Dictionary(key, value) => {
                 let mut s = serializer.serialize_seq(Some(2))?;
                 s.serialize_element(&DictionaryField("key", key))?;
                 s.serialize_element(&DictionaryField("value", value))?;
@@ -180,7 +179,7 @@ fn is_data_type_with_children(data_type: &DataType) -> bool {
             | T::Struct(_)
             | T::Map(_, _)
             | T::Union(_, _)
-            | T::Dictionary(_, _, _)
+            | T::Dictionary(_, _)
             | T::LargeList(_)
             | T::List(_)
     )

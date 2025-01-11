@@ -1,5 +1,10 @@
 # Change log
 
+## 0.13.0
+
+- Migrate internal array abstraction to `marrow`
+  - Breaking change: Dictionary data types no longer support sorting
+
 ## 0.12.3
 
 - Add `arrow=54` support

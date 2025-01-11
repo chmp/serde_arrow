@@ -3,8 +3,9 @@ use std::{
     sync::Arc,
 };
 
+use marrow::datatypes::{DataType, Field, UnionMode};
+
 use crate::internal::{
-    arrow::{DataType, Field, UnionMode},
     error::{fail, set_default, Context, Result},
     schema::{
         DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
@@ -22,7 +23,7 @@ fn default_dictionary_field(name: &str, nullable: bool, string_type: DataType) -
         name: name.to_owned(),
         nullable,
         metadata: HashMap::new(),
-        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type), false),
+        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type)),
     }
 }
 

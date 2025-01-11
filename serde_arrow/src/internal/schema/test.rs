@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use marrow::datatypes::{DataType, Field, TimeUnit};
+
 use serde_json::{json, Value};
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
     error::PanicOnError,
     schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
     testing::{assert_error_contains, hash_map},

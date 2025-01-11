@@ -3,10 +3,9 @@ use std::collections::BTreeMap;
 use half::f16;
 use serde::Serialize;
 
-use crate::internal::{
-    arrow::Array,
-    error::{Context, Result},
-};
+use marrow::array::Array;
+
+use crate::internal::error::{Context, Result};
 
 use super::{
     binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date32_builder::Date32Builder,

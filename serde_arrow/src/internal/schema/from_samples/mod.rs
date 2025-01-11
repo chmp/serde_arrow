@@ -4,10 +4,10 @@ mod test_error_messages;
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use marrow::datatypes::{DataType, TimeUnit};
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
-    arrow::{DataType, TimeUnit},
     chrono,
     error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{Strategy, TracingMode, TracingOptions},

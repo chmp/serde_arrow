@@ -1858,6 +1858,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
+name = "marrow"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93dbb14b3363874b4b6b679a56bfe9f31559ff1802a3b697b813c1b4d6e55130"
+dependencies = [
+ "bytemuck",
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2372,6 +2383,7 @@ dependencies = [
  "criterion",
  "half",
  "jiff",
+ "marrow",
  "rand",
  "rust_decimal",
  "serde",

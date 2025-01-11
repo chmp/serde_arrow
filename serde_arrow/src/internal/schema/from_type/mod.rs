@@ -9,8 +9,9 @@ use serde::{
     Deserialize, Deserializer,
 };
 
+use marrow::datatypes::DataType;
+
 use crate::internal::{
-    arrow::DataType,
     error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::{TracingMode, TracingOptions},
 };

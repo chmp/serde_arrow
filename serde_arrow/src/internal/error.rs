@@ -261,6 +261,12 @@ macro_rules! fail {
 
 pub(crate) use fail;
 
+impl From<marrow::error::MarrowError> for Error {
+    fn from(err: marrow::error::MarrowError) -> Self {
+        Self::custom_from(format!("marrow::error::MarrowError: {err}"), err)
+    }
+}
+
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {
         Self::custom_from(format!("chrono::ParseError: {err}"), err)

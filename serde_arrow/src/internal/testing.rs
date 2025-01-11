@@ -1,10 +1,9 @@
 //! Support for tests
 use core::str;
 
-use crate::internal::{
-    arrow::{Array, BytesArray},
-    error::{fail, Error, Result},
-};
+use marrow::array::{Array, BytesArray};
+
+use crate::internal::error::{fail, Error, Result};
 
 pub fn assert_error_contains<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
     let Err(actual) = actual else {

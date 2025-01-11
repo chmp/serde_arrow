@@ -10,7 +10,6 @@ mod tracing_options;
 mod test;
 
 use crate::internal::{
-    arrow::{TimeUnit, UnionMode},
     error::{fail, Result},
     utils::value,
 };
@@ -22,7 +21,7 @@ pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
-use super::arrow::{DataType, Field};
+use marrow::datatypes::{DataType, Field, TimeUnit, UnionMode};
 
 pub trait Sealed {}
 
@@ -361,9 +360,10 @@ pub fn validate_field(field: &Field) -> Result<()> {
             validate_fixed_size_list_field(field, entry.as_ref(), *n)
         }
         DataType::Union(fields, mode) => validate_union_field(field, fields.as_slice(), *mode),
-        DataType::Dictionary(key, values, _) => {
+        DataType::Dictionary(key, values) => {
             validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
+        dt => fail!("Unsupported data type {dt:?}"),
     }
 }
 
@@ -552,13 +552,14 @@ impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
             DataType::Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale}"),
             DataType::Struct(_) => write!(f, "Struct"),
             DataType::Map(_, sorted) => write!(f, "Map({sorted})"),
-            DataType::Dictionary(key, value, sorted) => write!(
+            DataType::Dictionary(key, value) => write!(
                 f,
-                "Dictionary({key}, {value}, {sorted})",
+                "Dictionary({key}, {value})",
                 key = DataTypeDisplay(key),
                 value = DataTypeDisplay(value),
             ),
             DataType::Union(_, mode) => write!(f, "Union({mode})"),
+            _ => write!(f, "<unknown marrow data type>"),
         }
     }
 }

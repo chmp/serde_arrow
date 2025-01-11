@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, PrimitiveArray, TimestampArray},
+    datatypes::TimeUnit,
+};
+
 use crate::internal::{
-    arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
 };

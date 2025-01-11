@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use marrow::array::{Array, BytesArray};
+
 use crate::internal::{
-    arrow::{Array, BytesArray},
     error::{set_default, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},

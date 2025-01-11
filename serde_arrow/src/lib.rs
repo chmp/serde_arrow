@@ -399,3 +399,6 @@ pub mod schema {
         };
     }
 }
+
+/// Re-export of the used marrow version
+pub use marrow;

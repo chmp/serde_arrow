@@ -1,12 +1,12 @@
-use crate::internal::arrow::ArrayView;
+use marrow::view::View;
 
-pub trait ArrayViewExt {
+pub trait ViewExt {
     fn len(&self) -> usize;
 }
 
-impl<'a> ArrayViewExt for ArrayView<'a> {
+impl<'a> ViewExt for View<'a> {
     fn len(&self) -> usize {
-        use ArrayView as V;
+        use View as V;
         match self {
             V::Null(view) => view.len,
             V::Boolean(view) => view.len,
@@ -39,10 +39,10 @@ impl<'a> ArrayViewExt for ArrayView<'a> {
             V::FixedSizeList(view) => view.len,
             V::List(view) => view.offsets.len().saturating_sub(1),
             V::LargeList(view) => view.offsets.len().saturating_sub(1),
-            V::DenseUnion(view) => view.types.len(),
+            V::Union(view) => view.types.len(),
             V::Map(view) => view.offsets.len().saturating_sub(1),
             V::Struct(view) => view.len,
-            V::Dictionary(view) => view.indices.len(),
+            V::Dictionary(view) => view.keys.len(),
         }
     }
 }

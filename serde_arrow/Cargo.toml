@@ -46,6 +46,8 @@ arrow-38 = ["dep:arrow-array-38", "dep:arrow-schema-38", "dep:arrow-data-38", "d
 arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "dep:arrow-data-37", "dep:arrow-buffer-37"]
 
 [dependencies]
+marrow = { version = "0.2.1", features = ["serde"] }
+
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
 chrono = { version = "0.4", features = ["std"], default-features = false }

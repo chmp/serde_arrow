@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use marrow::datatypes::{DataType, Field};
+
 use crate::internal::{
-    arrow::{DataType, Field},
     error::{Error, Result},
     schema::PrettyField,
 };
