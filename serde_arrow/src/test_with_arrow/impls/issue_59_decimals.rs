@@ -13,7 +13,7 @@ fn get_i128_values(test: &Test) -> &[i128] {
     let arrays = test.arrays.arrow.as_ref().unwrap();
     let arr = arrays[0]
         .as_any()
-        .downcast_ref::<arrow::array::PrimitiveArray<arrow::datatypes::Decimal128Type>>()
+        .downcast_ref::<arrow::_raw::array::PrimitiveArray<arrow::_raw::array::types::Decimal128Type>>()
         .unwrap();
     arr.values()
 }

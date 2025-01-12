@@ -188,7 +188,7 @@ pub mod _impl {
 
     #[allow(unused)]
     macro_rules! build_arrow_crate {
-        ($arrow_array:ident, $arrow_buffer:ident, $arrow_data:ident, $arrow_schema:ident) => {
+        ($arrow_array:ident, $arrow_schema:ident) => {
             /// A "fake" arrow crate re-exporting the relevant definitions of the
             /// used arrow-* subcrates
             #[doc(hidden)]
@@ -196,8 +196,6 @@ pub mod _impl {
                 /// The raw arrow packages
                 pub mod _raw {
                     pub use $arrow_array as array;
-                    pub use $arrow_buffer as buffer;
-                    pub use $arrow_data as data;
                     pub use $arrow_schema as schema;
                 }
                 pub mod array {
@@ -205,61 +203,9 @@ pub mod _impl {
                     pub use $arrow_array::array::{
                         Array,
                         ArrayRef,
-                        ArrowPrimitiveType,
-                        BooleanArray,
-                        DictionaryArray,
-                        FixedSizeBinaryArray,
-                        FixedSizeListArray,
-                        GenericListArray,
-                        GenericBinaryArray,
-                        GenericStringArray,
-                        LargeStringArray,
-                        make_array,
-                        MapArray,
-                        NullArray,
-                        OffsetSizeTrait,
-                        PrimitiveArray,
-                        StringArray,
-                        StructArray,
-                        UnionArray,
                     };
-                    pub use $arrow_data::ArrayData;
-                }
-                pub mod buffer {
-                    pub use $arrow_buffer::buffer::{Buffer, ScalarBuffer};
                 }
                 pub mod datatypes {
-                    pub use $arrow_array::types::{
-                        ArrowDictionaryKeyType,
-                        ArrowPrimitiveType,
-                        Date32Type,
-                        Date64Type,
-                        Decimal128Type,
-                        DurationMicrosecondType,
-                        DurationMillisecondType,
-                        DurationNanosecondType,
-                        DurationSecondType,
-                        Float16Type,
-                        Float32Type,
-                        Float64Type,
-                        Int16Type,
-                        Int32Type,
-                        Int64Type,
-                        Int8Type,
-                        Time32MillisecondType,
-                        Time32SecondType,
-                        Time64MicrosecondType,
-                        Time64NanosecondType,
-                        TimestampMicrosecondType,
-                        TimestampMillisecondType,
-                        TimestampNanosecondType,
-                        TimestampSecondType,
-                        UInt16Type,
-                        UInt32Type,
-                        UInt64Type,
-                        UInt8Type,
-                    };
-                    pub use $arrow_buffer::ArrowNativeType;
                     pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit, UnionMode};
                 }
                 pub mod error {
@@ -269,25 +215,25 @@ pub mod _impl {
         };
     }
 
-    // arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_buffer_{version}, arrow_data_{version}, arrow_schema_{version});
-#[cfg(has_arrow_54)] build_arrow_crate!(arrow_array_54, arrow_buffer_54, arrow_data_54, arrow_schema_54);
-#[cfg(has_arrow_53)] build_arrow_crate!(arrow_array_53, arrow_buffer_53, arrow_data_53, arrow_schema_53);
-    #[cfg(has_arrow_52)] build_arrow_crate!(arrow_array_52, arrow_buffer_52, arrow_data_52, arrow_schema_52);
-    #[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_buffer_51, arrow_data_51, arrow_schema_51);
-    #[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_buffer_50, arrow_data_50, arrow_schema_50);
-    #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_buffer_49, arrow_data_49, arrow_schema_49);
-    #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_buffer_48, arrow_data_48, arrow_schema_48);
-    #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_buffer_47, arrow_data_47, arrow_schema_47);
-    #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_buffer_46, arrow_data_46, arrow_schema_46);
-    #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_buffer_45, arrow_data_45, arrow_schema_45);
-    #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_buffer_44, arrow_data_44, arrow_schema_44);
-    #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_buffer_43, arrow_data_43, arrow_schema_43);
-    #[cfg(has_arrow_42)] build_arrow_crate!(arrow_array_42, arrow_buffer_42, arrow_data_42, arrow_schema_42);
-    #[cfg(has_arrow_41)] build_arrow_crate!(arrow_array_41, arrow_buffer_41, arrow_data_41, arrow_schema_41);
-    #[cfg(has_arrow_40)] build_arrow_crate!(arrow_array_40, arrow_buffer_40, arrow_data_40, arrow_schema_40);
-    #[cfg(has_arrow_39)] build_arrow_crate!(arrow_array_39, arrow_buffer_39, arrow_data_39, arrow_schema_39);
-    #[cfg(has_arrow_38)] build_arrow_crate!(arrow_array_38, arrow_buffer_38, arrow_data_38, arrow_schema_38);
-    #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_buffer_37, arrow_data_37, arrow_schema_37);
+    // arrow-version:insert: #[cfg(has_arrow_{version})] build_arrow_crate!(arrow_array_{version}, arrow_schema_{version});
+#[cfg(has_arrow_54)] build_arrow_crate!(arrow_array_54, arrow_schema_54);
+#[cfg(has_arrow_53)] build_arrow_crate!(arrow_array_53, arrow_schema_53);
+    #[cfg(has_arrow_52)] build_arrow_crate!(arrow_array_52, arrow_schema_52);
+    #[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_schema_51);
+    #[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_schema_50);
+    #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_schema_49);
+    #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_schema_48);
+    #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_schema_47);
+    #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_schema_46);
+    #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_schema_45);
+    #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_schema_44);
+    #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_schema_43);
+    #[cfg(has_arrow_42)] build_arrow_crate!(arrow_array_42, arrow_schema_42);
+    #[cfg(has_arrow_41)] build_arrow_crate!(arrow_array_41, arrow_schema_41);
+    #[cfg(has_arrow_40)] build_arrow_crate!(arrow_array_40, arrow_schema_40);
+    #[cfg(has_arrow_39)] build_arrow_crate!(arrow_array_39, arrow_schema_39);
+    #[cfg(has_arrow_38)] build_arrow_crate!(arrow_array_38, arrow_schema_38);
+    #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_schema_37);
 
     /// Documentation
     pub mod docs {
