@@ -212,14 +212,8 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, field.nullable))
         }
         T::Map(field, sorted) => {
-            let DataType::List(struct_field) = &field.data_type else {
-                fail!("unexpected data type for map: {:?}", field.data_type);
-            };
-            let DataType::Struct(entries_field) = &struct_field.data_type else {
-                fail!(
-                    "unexpected inner data type for map: {:?}",
-                    struct_field.data_type
-                );
+            let DataType::Struct(entries_field) = &field.data_type else {
+                fail!("unexpected data type for map array: {:?}", field.data_type);
             };
             let Some(keys_field) = entries_field.get(0) else {
                 fail!("Missing keys field for map");
@@ -228,21 +222,19 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 fail!("Missing values field for map");
             };
             let keys_path = format!(
-                "{path}.{self_name}.{entries_name}.{keys__name}",
-                self_name = ChildName(&field.name),
-                entries_name = ChildName(&struct_field.name),
+                "{path}.{entries_name}.{keys__name}",
+                entries_name = ChildName(&field.name),
                 keys__name = ChildName(&keys_field.name),
             );
             let values_path = format!(
-                "{path}.{self_name}.{entries_name}.{values_name}",
-                self_name = ChildName(&field.name),
-                entries_name = ChildName(&struct_field.name),
+                "{path}.{entries_name}.{values_name}",
+                entries_name = ChildName(&field.name),
                 values_name = ChildName(&values_field.name),
             );
 
             let meta = MapMeta {
                 sorted: *sorted,
-                entries_name: struct_field.name.clone(),
+                entries_name: field.name.clone(),
                 keys: meta_from_field(keys_field.clone()),
                 values: meta_from_field(values_field.clone()),
             };
