@@ -34,7 +34,7 @@ pub fn parse_span(s: &str) -> Result<Span<'_>> {
     parsing::match_span(s).into_result("Span")
 }
 
-impl<'a> parsing::Span<'a> {
+impl parsing::Span<'_> {
     /// Convert the `Span` into an `i64`` with the given `unit`
     pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
         if get_optional_digit_value(self.year)? != 0 || get_optional_digit_value(self.month)? != 0 {
@@ -149,7 +149,7 @@ mod parsing {
         fn into_result(self, output_type: &str) -> crate::internal::error::Result<Self::Output>;
     }
 
-    impl<'a, 'e, R> ParseResult for Result<(&'a str, R), &'e str> {
+    impl<R> ParseResult for Result<(&str, R), &str> {
         type Output = R;
 
         fn matches(&self) -> bool {

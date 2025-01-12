@@ -215,7 +215,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             let DataType::Struct(entries_field) = &field.data_type else {
                 fail!("unexpected data type for map array: {:?}", field.data_type);
             };
-            let Some(keys_field) = entries_field.get(0) else {
+            let Some(keys_field) = entries_field.first() else {
                 fail!("Missing keys field for map");
             };
             let Some(values_field) = entries_field.get(1) else {

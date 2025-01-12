@@ -519,7 +519,7 @@ fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMod
 
 pub struct DataTypeDisplay<'a>(pub &'a DataType);
 
-impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
+impl std::fmt::Display for DataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             DataType::Null => write!(f, "Null"),

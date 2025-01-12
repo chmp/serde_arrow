@@ -47,7 +47,7 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
     }
 }
 
-impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
+impl<T: NamedType + Integer> Context for TimeDeserializer<'_, T> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

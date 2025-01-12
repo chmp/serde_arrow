@@ -172,10 +172,11 @@ def format():
 
 @cmd(help="Run the linters")
 @arg("--all", action="store_true")
-def check(all=False):
+@arg("--fix", action="store_true")
+def check(all=False, fix=False):
     check_cargo_toml()
     _sh(f"cargo check --features {default_features}")
-    _sh(f"cargo clippy --features {default_features}")
+    _sh(f"cargo clippy --features {default_features} {'--fix' if fix else ''}")
 
     if all:
         for arrow2_feature in (*all_arrow2_features, *all_arrow_features):

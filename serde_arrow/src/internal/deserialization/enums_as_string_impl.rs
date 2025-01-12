@@ -4,7 +4,7 @@ use crate::internal::error::{fail, Error, Result};
 
 pub struct EnumAccess<'de>(pub &'de str);
 
-impl<'a, 'de> serde::de::EnumAccess<'de> for EnumAccess<'a> {
+impl<'de> serde::de::EnumAccess<'de> for EnumAccess<'_> {
     type Error = Error;
     type Variant = UnitVariant;
 
@@ -22,7 +22,7 @@ impl<'a, 'de> serde::de::EnumAccess<'de> for EnumAccess<'a> {
             };
         }
 
-        impl<'de, 'a> serde::de::Deserializer<'de> for SeedDeserializer<'a> {
+        impl<'de> serde::de::Deserializer<'de> for SeedDeserializer<'_> {
             type Error = Error;
 
             fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

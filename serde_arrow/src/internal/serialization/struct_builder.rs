@@ -321,11 +321,11 @@ impl<'a> KeyLookupSerializer<'a> {
     }
 }
 
-impl<'a> Context for KeyLookupSerializer<'a> {
+impl Context for KeyLookupSerializer<'_> {
     fn annotate(&self, _: &mut BTreeMap<String, String>) {}
 }
 
-impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
+impl SimpleSerializer for KeyLookupSerializer<'_> {
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.result = self.index.get(v).copied();
         Ok(())

@@ -383,7 +383,6 @@ pub mod utils {
 /// # #[cfg(not(feature="has_arrow2"))]
 /// # fn main() {}
 /// ```
-
 #[deny(missing_docs)]
 pub mod schema {
     pub use crate::internal::schema::{

@@ -18,7 +18,7 @@ impl serde::Serialize for SerdeArrowSchema {
 /// A wrapper around fields to serialize into a more compact format
 pub struct PrettyFields<'a>(pub &'a [Field]);
 
-impl<'a> serde::Serialize for PrettyFields<'a> {
+impl serde::Serialize for PrettyFields<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_seq(Some(self.0.len()))?;
         for field in self.0 {
@@ -32,7 +32,7 @@ impl<'a> serde::Serialize for PrettyFields<'a> {
 /// A wrapper around a single field to serialize into a more compact format
 pub struct PrettyField<'a>(pub &'a Field);
 
-impl<'a> serde::Serialize for PrettyField<'a> {
+impl serde::Serialize for PrettyField<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let non_strategy_metadata = self
             .0
@@ -77,7 +77,7 @@ impl<'a> serde::Serialize for PrettyField<'a> {
 
 struct PrettyFieldDataType<'a>(pub &'a DataType);
 
-impl<'a> serde::Serialize for PrettyFieldDataType<'a> {
+impl serde::Serialize for PrettyFieldDataType<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use DataType as T;
         match self.0 {
@@ -122,7 +122,7 @@ impl<'a> serde::Serialize for PrettyFieldDataType<'a> {
 
 struct PrettyFieldChildren<'a>(pub &'a DataType);
 
-impl<'a> serde::Serialize for PrettyFieldChildren<'a> {
+impl serde::Serialize for PrettyFieldChildren<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use DataType as T;
 
@@ -162,7 +162,7 @@ impl<'a> serde::Serialize for PrettyFieldChildren<'a> {
 
 struct DictionaryField<'a>(&'a str, &'a DataType);
 
-impl<'a> serde::Serialize for DictionaryField<'a> {
+impl serde::Serialize for DictionaryField<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Field", 2)?;
         s.serialize_field("name", self.0)?;

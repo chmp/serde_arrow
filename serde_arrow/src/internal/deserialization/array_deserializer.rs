@@ -390,7 +390,7 @@ macro_rules! dispatch {
     };
 }
 
-impl<'de> Context for ArrayDeserializer<'de> {
+impl Context for ArrayDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         dispatch!(self, ArrayDeserializer(deser) => deser.annotate(annotations))
     }
@@ -537,7 +537,7 @@ impl<'de> SimpleDeserializer<'de> for ArrayDeserializer<'de> {
     }
 }
 
-impl<'a, 'de> VariantAccess<'de> for Mut<'a, ArrayDeserializer<'de>> {
+impl<'de> VariantAccess<'de> for Mut<'_, ArrayDeserializer<'de>> {
     type Error = Error;
 
     fn newtype_variant_seed<T: DeserializeSeed<'de>>(self, seed: T) -> Result<T::Value> {

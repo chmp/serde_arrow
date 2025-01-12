@@ -4,7 +4,7 @@ pub trait ViewExt {
     fn len(&self) -> usize;
 }
 
-impl<'a> ViewExt for View<'a> {
+impl ViewExt for View<'_> {
     fn len(&self) -> usize {
         use View as V;
         match self {

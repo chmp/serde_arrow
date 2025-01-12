@@ -47,7 +47,7 @@ impl<'a> Date32Deserializer<'a> {
     }
 }
 
-impl<'de> Context for Date32Deserializer<'de> {
+impl Context for Date32Deserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Date32");

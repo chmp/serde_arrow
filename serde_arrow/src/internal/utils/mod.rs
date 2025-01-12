@@ -111,7 +111,7 @@ impl<T: Serialize> Serialize for Items<Vec<T>> {
     }
 }
 
-impl<'a, T: Serialize> Serialize for Items<&'a Vec<T>> {
+impl<T: Serialize> Serialize for Items<&Vec<T>> {
     fn serialize<S: serde::Serializer>(
         &self,
         serializer: S,
@@ -129,7 +129,7 @@ impl<const N: usize, T: Serialize> Serialize for Items<[T; N]> {
     }
 }
 
-impl<'a, const N: usize, T: Serialize> Serialize for Items<&'a [T; N]> {
+impl<const N: usize, T: Serialize> Serialize for Items<&[T; N]> {
     fn serialize<S: serde::Serializer>(
         &self,
         serializer: S,
@@ -138,7 +138,7 @@ impl<'a, const N: usize, T: Serialize> Serialize for Items<&'a [T; N]> {
     }
 }
 
-impl<'a, T: Serialize> Serialize for Items<&'a [T]> {
+impl<T: Serialize> Serialize for Items<&[T]> {
     fn serialize<S: serde::Serializer>(
         &self,
         serializer: S,
@@ -221,7 +221,7 @@ pub(crate) use btree_map;
 
 pub struct ChildName<'a>(pub &'a str);
 
-impl<'a> std::fmt::Display for ChildName<'a> {
+impl std::fmt::Display for ChildName<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if !self.0.is_empty() {
             write!(f, "{}", self.0)

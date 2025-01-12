@@ -204,5 +204,5 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
 
 const _: () = {
     trait AssertSendSync: Send + Sync {}
-    impl<'de> AssertSendSync for Deserializer<'de> {}
+    impl AssertSendSync for Deserializer<'_> {}
 };

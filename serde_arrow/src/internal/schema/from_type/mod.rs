@@ -80,13 +80,13 @@ fn is_non_self_describing_error(s: &str) -> bool {
 
 struct TraceAny<'a>(&'a mut Tracer);
 
-impl<'a> Context for TraceAny<'a> {
+impl Context for TraceAny<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
     }
 }
 
-impl<'de, 'a> serde::de::Deserializer<'de> for TraceAny<'a> {
+impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value> {
@@ -400,7 +400,7 @@ struct TraceMap<'a> {
     active: bool,
 }
 
-impl<'de, 'a> serde::de::MapAccess<'de> for TraceMap<'a> {
+impl<'de> serde::de::MapAccess<'de> for TraceMap<'_> {
     type Error = Error;
 
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
@@ -423,7 +423,7 @@ struct TraceTupleStruct<'a> {
     pos: usize,
 }
 
-impl<'de, 'a> serde::de::SeqAccess<'de> for TraceTupleStruct<'a> {
+impl<'de> serde::de::SeqAccess<'de> for TraceTupleStruct<'_> {
     type Error = Error;
 
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
@@ -444,7 +444,7 @@ struct TraceStruct<'a> {
     names: &'static [&'static str],
 }
 
-impl<'de, 'a> serde::de::MapAccess<'de> for TraceStruct<'a> {
+impl<'de> serde::de::MapAccess<'de> for TraceStruct<'_> {
     type Error = Error;
 
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
@@ -485,7 +485,7 @@ impl<'de, 'a> serde::de::EnumAccess<'de> for TraceEnum<'a> {
     }
 }
 
-impl<'de, 'a> serde::de::VariantAccess<'de> for TraceAny<'a> {
+impl<'de> serde::de::VariantAccess<'de> for TraceAny<'_> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
@@ -511,7 +511,7 @@ impl<'de, 'a> serde::de::VariantAccess<'de> for TraceAny<'a> {
 
 struct TraceSeq<'a>(&'a mut Tracer, bool);
 
-impl<'de, 'a> serde::de::SeqAccess<'de> for TraceSeq<'a> {
+impl<'de> serde::de::SeqAccess<'de> for TraceSeq<'_> {
     type Error = Error;
 
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
@@ -538,7 +538,7 @@ macro_rules! unimplemented {
     };
 }
 
-impl<'de, 'a> serde::de::Deserializer<'de> for IdentifierDeserializer<'a> {
+impl<'de> serde::de::Deserializer<'de> for IdentifierDeserializer<'_> {
     type Error = Error;
 
     fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

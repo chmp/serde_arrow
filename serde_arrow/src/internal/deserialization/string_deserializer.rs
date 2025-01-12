@@ -69,7 +69,7 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
+impl<O: NamedType + Offset> Context for StringDeserializer<'_, O> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

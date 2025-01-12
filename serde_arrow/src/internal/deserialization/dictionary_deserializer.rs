@@ -49,7 +49,7 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     }
 }
 
-impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
+impl<K: Integer, V: Offset> Context for DictionaryDeserializer<'_, K, V> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Dictionary(..)");
