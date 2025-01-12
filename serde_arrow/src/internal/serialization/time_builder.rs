@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
 use chrono::Timelike;
+use marrow::{
+    array::{Array, PrimitiveArray, TimeArray},
+    datatypes::TimeUnit,
+};
 
 use crate::internal::{
-    arrow::{Array, PrimitiveArray, TimeArray, TimeUnit},
     error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},

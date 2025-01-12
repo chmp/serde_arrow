@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
+use marrow::datatypes::{DataType, Field, MapMeta, TimeUnit};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
     error::{fail, Context, ContextSupport, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
@@ -211,23 +211,55 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
             let n = usize::try_from(*n).ctx(&ctx)?;
             A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, field.nullable))
         }
-        T::Map(entry_field, _) => {
-            let child_path = format!(
-                "{path}.{child_name}",
-                child_name = ChildName(&entry_field.name)
+        T::Map(field, sorted) => {
+            let DataType::List(struct_field) = &field.data_type else {
+                fail!("unexpected data type for map: {:?}", field.data_type);
+            };
+            let DataType::Struct(entries_field) = &struct_field.data_type else {
+                fail!(
+                    "unexpected inner data type for map: {:?}",
+                    struct_field.data_type
+                );
+            };
+            let Some(keys_field) = entries_field.get(0) else {
+                fail!("Missing keys field for map");
+            };
+            let Some(values_field) = entries_field.get(1) else {
+                fail!("Missing values field for map");
+            };
+            let keys_path = format!(
+                "{path}.{self_name}.{entries_name}.{keys__name}",
+                self_name = ChildName(&field.name),
+                entries_name = ChildName(&struct_field.name),
+                keys__name = ChildName(&keys_field.name),
             );
+            let values_path = format!(
+                "{path}.{self_name}.{entries_name}.{values_name}",
+                self_name = ChildName(&field.name),
+                entries_name = ChildName(&struct_field.name),
+                values_name = ChildName(&values_field.name),
+            );
+
+            let meta = MapMeta {
+                sorted: *sorted,
+                entries_name: struct_field.name.clone(),
+                keys: meta_from_field(keys_field.clone()),
+                values: meta_from_field(values_field.clone()),
+            };
+
             A::Map(
                 MapBuilder::new(
                     path,
-                    meta_from_field(*entry_field.clone()),
-                    build_builder(child_path, entry_field.as_ref())?,
+                    meta,
+                    build_builder(keys_path, keys_field)?,
+                    build_builder(values_path, values_field)?,
                     field.nullable,
                 )
                 .ctx(&ctx)?,
             )
         }
         T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
-        T::Dictionary(key, value, _) => {
+        T::Dictionary(key, value) => {
             let key_path = format!("{path}.key");
             let key_field = Field {
                 name: "key".to_string(),
@@ -266,6 +298,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
 
             A::Union(UnionBuilder::new(path, fields))
         }
+        dt => fail!("Unsupported data type {dt:?}"),
     };
     Ok(builder)
 }
