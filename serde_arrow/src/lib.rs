@@ -195,18 +195,13 @@ pub mod _impl {
             pub mod arrow {
                 /// The raw arrow packages
                 pub mod _raw {
-                    pub use $arrow_array as array;
-                    pub use $arrow_schema as schema;
+                    pub use {$arrow_array as array, $arrow_schema as schema};
                 }
                 pub mod array {
-                    pub use $arrow_array::RecordBatch;
-                    pub use $arrow_array::array::{
-                        Array,
-                        ArrayRef,
-                    };
+                    pub use $arrow_array::{RecordBatch, array::{Array, ArrayRef}};
                 }
                 pub mod datatypes {
-                    pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit, UnionMode};
+                    pub use $arrow_schema::{DataType, Field, FieldRef, Schema, TimeUnit};
                 }
                 pub mod error {
                     pub use $arrow_schema::ArrowError;
