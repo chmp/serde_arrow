@@ -19,6 +19,11 @@ fn example_exhausted() {
         len: 5,
         validity: None,
         fields: vec![(
+            FieldMeta {
+                name: String::from("nested"),
+                nullable: false,
+                metadata: HashMap::new(),
+            },
             View::Boolean(BooleanView {
                 len: 2,
                 validity: None,
@@ -27,11 +32,6 @@ fn example_exhausted() {
                     offset: 0,
                 },
             }),
-            FieldMeta {
-                name: String::from("nested"),
-                nullable: false,
-                metadata: HashMap::new(),
-            },
         )],
     })];
 
