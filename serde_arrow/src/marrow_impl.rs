@@ -2,22 +2,22 @@ use marrow::{array::Array, datatypes::Field, view::View};
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
-    array_builder::ArrayBuilder,
-    deserializer::Deserializer,
-    error::Result,
-    serializer::Serializer,
-    schema::SerdeArrowSchema
+    array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
+    schema::SerdeArrowSchema, serializer::Serializer,
 };
 
 /// TODO
 pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>> {
     let builder = ArrayBuilder::from_marrow(fields)?;
-    items.serialize(Serializer::new(builder))?.into_inner().to_marrow()
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .to_marrow()
 }
 
 /// TODO
 pub fn from_marrow<'de, T>(fields: &[Field], views: &'de [View]) -> Result<T>
-where   
+where
     T: Deserialize<'de>,
 {
     T::deserialize(Deserializer::from_marrow(fields, views)?)
@@ -26,7 +26,9 @@ where
 impl ArrayBuilder {
     /// TODO
     pub fn from_marrow(fields: &[Field]) -> Result<Self> {
-        ArrayBuilder::new(SerdeArrowSchema { fields: fields.to_vec() })
+        ArrayBuilder::new(SerdeArrowSchema {
+            fields: fields.to_vec(),
+        })
     }
 
     /// TODO
