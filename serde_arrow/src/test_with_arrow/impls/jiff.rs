@@ -316,8 +316,8 @@ mod timestamp {
 
 mod span {
     use super::*;
-    use crate::internal::arrow::TimeUnit;
     use jiff::{RoundMode, SpanRound, Unit};
+    use marrow::datatypes::TimeUnit;
     use serde::{Deserialize, Serialize};
 
     // wrapper around spans that uses compare for PartialEq
@@ -434,8 +434,8 @@ mod span {
 
 mod signed_duration {
     use super::*;
-    use crate::internal::arrow::TimeUnit;
     use jiff::SignedDuration;
+    use marrow::datatypes::TimeUnit;
 
     fn items(unit: TimeUnit) -> Vec<Item<SignedDuration>> {
         super::span::items(unit)

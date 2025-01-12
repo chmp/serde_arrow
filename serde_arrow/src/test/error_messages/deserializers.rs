@@ -1,24 +1,25 @@
 use std::collections::HashMap;
 
+use marrow::{
+    datatypes::FieldMeta,
+    view::{BitsWithOffset, BooleanView, StructView, View},
+};
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    internal::{
-        arrow::{ArrayView, BitsWithOffset, BooleanArrayView, FieldMeta, StructArrayView},
-        testing::assert_error_contains,
-    },
+    internal::testing::assert_error_contains,
     schema::{SchemaLike, SerdeArrowSchema},
     Deserializer,
 };
 
 #[test]
 fn example_exhausted() {
-    let views = vec![ArrayView::Struct(StructArrayView {
+    let views = vec![View::Struct(StructView {
         len: 5,
         validity: None,
         fields: vec![(
-            ArrayView::Boolean(BooleanArrayView {
+            View::Boolean(BooleanView {
                 len: 2,
                 validity: None,
                 values: BitsWithOffset {

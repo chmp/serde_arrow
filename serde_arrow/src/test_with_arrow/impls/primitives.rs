@@ -1,11 +1,8 @@
+use marrow::datatypes::{DataType, Field};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::internal::{
-    arrow::{DataType, Field},
-    schema::TracingOptions,
-    utils::Item,
-};
+use crate::internal::{schema::TracingOptions, utils::Item};
 
 use super::utils::Test;
 

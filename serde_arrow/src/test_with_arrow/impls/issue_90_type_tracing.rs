@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
+use marrow::datatypes::{DataType, Field, UnionMode};
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::internal::{
-    arrow::{DataType, Field, UnionMode},
     schema::{tracer::Tracer, transmute_field, Strategy, TracingOptions, STRATEGY_KEY},
     utils::Item,
 };

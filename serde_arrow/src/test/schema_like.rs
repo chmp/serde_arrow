@@ -1,9 +1,7 @@
+use marrow::datatypes::{DataType, Field};
 use serde_json::json;
 
-use crate::internal::{
-    arrow::{DataType, Field},
-    schema::{SchemaLike, SerdeArrowSchema},
-};
+use crate::internal::schema::{SchemaLike, SerdeArrowSchema};
 
 #[test]
 fn extra_attributes_trailing() {
