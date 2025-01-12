@@ -276,6 +276,11 @@ mod arrow2_impl;
 pub use arrow2_impl::api::{from_arrow2, to_arrow2};
 
 #[deny(missing_docs)]
+mod marrow_impl;
+
+pub use marrow_impl::{from_marrow, to_marrow};
+
+#[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`
 pub mod utils {
     pub use crate::internal::utils::{Item, Items};

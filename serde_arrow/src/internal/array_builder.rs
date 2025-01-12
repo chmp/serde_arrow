@@ -64,11 +64,6 @@ impl ArrayBuilder {
             schema,
         })
     }
-
-    /// Construct an array builder from `marrow` fields
-    pub fn from_marrow(_fields: Vec<marrow::datatypes::Field>) -> Result<Self> {
-        todo!()
-    }
 }
 
 impl std::fmt::Debug for ArrayBuilder {
