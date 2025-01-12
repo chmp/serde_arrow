@@ -299,8 +299,6 @@ def check_cargo_toml():
             [
                 f"dep:arrow-array-{version}",
                 f"dep:arrow-schema-{version}",
-                f"dep:arrow-data-{version}",
-                f"dep:arrow-buffer-{version}",
                 f"marrow/arrow-{version}",
             ]
         )
@@ -311,7 +309,7 @@ def check_cargo_toml():
                 f"Expected: {expected_feature_def}, found: {actual_feature_def}"
             )
 
-        for component in ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]:
+        for component in ["arrow-array", "arrow-schema"]:
             expected_dep = {
                 "package": component,
                 "version": version,
