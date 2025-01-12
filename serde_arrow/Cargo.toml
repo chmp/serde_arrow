@@ -49,7 +49,7 @@ arrow2-0-17 = ["dep:arrow2-0-17", "marrow/arrow2-0-17"]
 arrow2-0-16 = ["dep:arrow2-0-16", "marrow/arrow2-0-16"]
 
 [dependencies]
-marrow = { version = "0.2.1", features = ["serde"] }
+marrow = { version = "0.2.1", default-features = false, features = ["serde"] }
 
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions

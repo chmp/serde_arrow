@@ -300,6 +300,7 @@ def check_cargo_toml():
                 f"dep:arrow-schema-{version}",
                 f"dep:arrow-data-{version}",
                 f"dep:arrow-buffer-{version}",
+                f"marrow/arrow-{version}",
             ]
         )
 

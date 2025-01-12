@@ -4,6 +4,5 @@
 //!
 #![deny(missing_docs)]
 pub(crate) mod api;
-mod array;
 mod schema;
 mod type_support;

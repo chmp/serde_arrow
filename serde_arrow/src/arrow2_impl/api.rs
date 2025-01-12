@@ -5,11 +5,12 @@
 #![deny(missing_docs)]
 use serde::{Deserialize, Serialize};
 
+use marrow::{datatypes::Field, error::MarrowError, view::View};
+
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field as ArrowField},
     internal::{
         array_builder::ArrayBuilder,
-        arrow::Field,
         deserializer::Deserializer,
         error::{fail, Result},
         schema::SerdeArrowSchema,
@@ -107,10 +108,11 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow2` arrays and reset the builder (*requires one of the
     /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.build_arrays()?
+        Ok(self
+            .build_arrays()?
             .into_iter()
             .map(Box::<dyn Array>::try_from)
-            .collect()
+            .collect::<Result<_, MarrowError>>()?)
     }
 }
 
@@ -145,8 +147,6 @@ impl<'de> Deserializer<'de> {
     where
         A: AsRef<dyn Array>,
     {
-        use crate::internal::arrow::ArrayView;
-
         if fields.len() != arrays.len() {
             fail!(
                 "different number of fields ({}) and arrays ({})",
@@ -158,11 +158,11 @@ impl<'de> Deserializer<'de> {
         let fields = fields
             .iter()
             .map(Field::try_from)
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, MarrowError>>()?;
         let views = arrays
             .iter()
-            .map(|array| ArrayView::try_from(array.as_ref()))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|array| View::try_from(array.as_ref()))
+            .collect::<Result<Vec<_>, MarrowError>>()?;
 
         Deserializer::new(&fields, views)
     }

@@ -43,6 +43,7 @@ impl<'a> ViewExt for View<'a> {
             V::Map(view) => view.offsets.len().saturating_sub(1),
             V::Struct(view) => view.len,
             V::Dictionary(view) => view.keys.len(),
+            _ => 0,
         }
     }
 }

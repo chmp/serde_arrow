@@ -307,6 +307,7 @@ impl<'a> ArrayDeserializer<'a> {
                     path, view.types, offsets, fields,
                 )?))
             }
+            _ => fail!("Unknown view"),
         }
     }
 }

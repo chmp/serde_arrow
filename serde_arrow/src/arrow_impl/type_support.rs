@@ -1,10 +1,11 @@
+use marrow::{datatypes::Field, error::MarrowError};
+
 use crate::_impl::arrow::{
     datatypes::{Field as ArrowField, FieldRef},
     error::ArrowError,
 };
 
 use crate::internal::{
-    arrow::Field,
     error::{Error, Result},
     schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
 };
@@ -21,7 +22,7 @@ macro_rules! impl_try_from_ext_type {
             type Error = Error;
 
             fn try_from(value: &$ty) -> Result<Self, Self::Error> {
-                Self::try_from(&Field::try_from(value)?)
+                Ok(Self::try_from(&Field::try_from(value)?)?)
             }
         }
 
@@ -40,8 +41,8 @@ impl_try_from_ext_type!(FixedShapeTensorField);
 impl_try_from_ext_type!(VariableShapeTensorField);
 
 pub fn fields_from_field_refs(fields: &[FieldRef]) -> Result<Vec<Field>> {
-    fields
+    Ok(fields
         .iter()
         .map(|field| Field::try_from(field.as_ref()))
-        .collect()
+        .collect::<Result<_, MarrowError>>()?)
 }

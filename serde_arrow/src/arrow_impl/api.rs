@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 use std::sync::Arc;
 
+use marrow::{error::MarrowError, view::View};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -186,10 +187,11 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        self.build_arrays()?
+        Ok(self
+            .build_arrays()?
             .into_iter()
             .map(ArrayRef::try_from)
-            .collect()
+            .collect::<Result<_, MarrowError>>()?)
     }
 
     /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
@@ -232,8 +234,6 @@ impl<'de> Deserializer<'de> {
     where
         A: AsRef<dyn Array>,
     {
-        use crate::internal::arrow::ArrayView;
-
         if fields.len() != arrays.len() {
             fail!(
                 "different number of fields ({}) and arrays ({})",
@@ -246,7 +246,7 @@ impl<'de> Deserializer<'de> {
 
         let mut views = Vec::new();
         for array in arrays {
-            views.push(ArrayView::try_from(array.as_ref())?);
+            views.push(View::try_from(array.as_ref())?);
         }
 
         Deserializer::new(&fields, views)
