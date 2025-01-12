@@ -1,7 +1,7 @@
+use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::PrimitiveArrayView,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
@@ -24,7 +24,7 @@ pub struct FloatDeserializer<'a, F: Float> {
 }
 
 impl<'a, F: Float> FloatDeserializer<'a, F> {
-    pub fn new(path: String, view: PrimitiveArrayView<'a, F>) -> Self {
+    pub fn new(path: String, view: PrimitiveView<'a, F>) -> Self {
         Self {
             path,
             array: ArrayBufferIterator::new(view.values, view.validity),

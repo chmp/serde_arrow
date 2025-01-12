@@ -1,8 +1,8 @@
 use chrono::{DateTime, Datelike, Utc};
+use marrow::{datatypes::TimeUnit, view::BitsWithOffset};
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::{BitsWithOffset, TimeUnit},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };

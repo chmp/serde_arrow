@@ -1,7 +1,7 @@
+use marrow::view::FixedSizeBinaryView;
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    arrow::FixedSizeBinaryArrayView,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
@@ -10,13 +10,13 @@ use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct FixedSizeBinaryDeserializer<'a> {
     pub path: String,
-    pub view: FixedSizeBinaryArrayView<'a>,
+    pub view: FixedSizeBinaryView<'a>,
     pub next: (usize, usize),
     pub shape: (usize, usize),
 }
 
 impl<'a> FixedSizeBinaryDeserializer<'a> {
-    pub fn new(path: String, view: FixedSizeBinaryArrayView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: FixedSizeBinaryView<'a>) -> Result<Self> {
         let n = usize::try_from(view.n)?;
         if view.data.len() % n != 0 {
             fail!(

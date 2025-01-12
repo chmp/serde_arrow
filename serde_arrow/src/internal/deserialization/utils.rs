@@ -1,5 +1,6 @@
+use marrow::view::BitsWithOffset;
+
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{fail, Result},
     utils::{array_ext::get_bit_buffer, Offset},
 };

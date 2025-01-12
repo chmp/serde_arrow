@@ -1,8 +1,11 @@
 use half::f16;
+use marrow::{
+    datatypes::{FieldMeta, TimeUnit},
+    view::{PrimitiveView, View},
+};
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
 use crate::internal::{
-    arrow::{ArrayView, FieldMeta, PrimitiveArrayView, TimeUnit},
     error::{fail, Context, Error, Result},
     schema::{Strategy, STRATEGY_KEY},
     utils::{ChildName, Mut},
@@ -71,10 +74,10 @@ pub enum ArrayDeserializer<'a> {
 }
 
 impl<'a> ArrayDeserializer<'a> {
-    pub fn new(path: String, strategy: Option<&Strategy>, array: ArrayView<'a>) -> Result<Self> {
-        use {ArrayDeserializer as D, ArrayView as V};
+    pub fn new(path: String, strategy: Option<&Strategy>, array: View<'a>) -> Result<Self> {
+        use {ArrayDeserializer as D, View as V};
         match array {
-            ArrayView::Null(_) => Ok(Self::Null(NullDeserializer::new(path))),
+            View::Null(_) => Ok(Self::Null(NullDeserializer::new(path))),
             V::Boolean(view) => Ok(D::Bool(BoolDeserializer::new(path, view))),
             V::Int8(view) => Ok(D::I8(IntegerDeserializer::new(path, view))),
             V::Int16(view) => Ok(D::I16(IntegerDeserializer::new(path, view))),
@@ -88,12 +91,12 @@ impl<'a> ArrayDeserializer<'a> {
             V::Float32(view) => Ok(D::F32(FloatDeserializer::new(path, view))),
             V::Float64(view) => Ok(D::F64(FloatDeserializer::new(path, view))),
             V::Decimal128(view) => Ok(D::Decimal128(DecimalDeserializer::new(path, view))),
-            ArrayView::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
+            View::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
                 path,
                 view.values,
                 view.validity,
             ))),
-            ArrayView::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
+            View::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
                 path,
                 view.values,
                 view.validity,
@@ -102,7 +105,7 @@ impl<'a> ArrayDeserializer<'a> {
             ))),
             V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(path, view))),
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
-            ArrayView::Timestamp(view) => match strategy {
+            View::Timestamp(view) => match strategy {
                 Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
                     Ok(Self::Date64(Date64Deserializer::new(
                         path,
@@ -126,7 +129,7 @@ impl<'a> ArrayDeserializer<'a> {
             V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(
                 path,
                 view.unit,
-                PrimitiveArrayView {
+                PrimitiveView {
                     values: view.values,
                     validity: view.validity,
                 },
@@ -145,7 +148,7 @@ impl<'a> ArrayDeserializer<'a> {
                     ArrayDeserializer::new(
                         child_path,
                         get_strategy(&view.meta)?.as_ref(),
-                        *view.element,
+                        *view.elements,
                     )?,
                     view.offsets,
                     view.validity,
@@ -158,7 +161,7 @@ impl<'a> ArrayDeserializer<'a> {
                     ArrayDeserializer::new(
                         child_path,
                         get_strategy(&view.meta)?.as_ref(),
-                        *view.element,
+                        *view.elements,
                     )?,
                     view.offsets,
                     view.validity,
@@ -171,7 +174,7 @@ impl<'a> ArrayDeserializer<'a> {
                     ArrayDeserializer::new(
                         child_path,
                         get_strategy(&view.meta)?.as_ref(),
-                        *view.element,
+                        *view.elements,
                     )?,
                     view.validity,
                     view.n.try_into()?,
@@ -180,7 +183,7 @@ impl<'a> ArrayDeserializer<'a> {
             }
             V::Struct(view) => {
                 let mut fields = Vec::new();
-                for (field_view, field_meta) in view.fields {
+                for (field_meta, field_view) in view.fields {
                     let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
                     let field_deserializer = ArrayDeserializer::new(
                         child_path,
@@ -200,25 +203,26 @@ impl<'a> ArrayDeserializer<'a> {
                 )))
             }
             V::Map(view) => {
-                let ArrayView::Struct(entries_view) = *view.element else {
-                    fail!("Invalid entries field in map array");
-                };
-                let Ok(entries_fields) = <[_; 2]>::try_from(entries_view.fields) else {
-                    fail!("Invalid entries field in map array")
-                };
-                let [(keys_view, keys_meta), (values_view, values_meta)] = entries_fields;
-                let keys_path = format!("{path}.{child}", child = ChildName(&keys_meta.name));
+                let keys_path = format!(
+                    "{path}.{entries}.{keys}",
+                    entries = ChildName(&view.meta.entries_name),
+                    keys = ChildName(&view.meta.keys.name),
+                );
                 let keys = ArrayDeserializer::new(
                     keys_path,
-                    get_strategy(&keys_meta)?.as_ref(),
-                    keys_view,
+                    get_strategy(&view.meta.keys)?.as_ref(),
+                    *view.keys,
                 )?;
 
-                let values_path = format!("{path}.{child}", child = ChildName(&values_meta.name));
+                let values_path = format!(
+                    "{path}.{entries}.{values}",
+                    entries = ChildName(&view.meta.entries_name),
+                    values = ChildName(&view.meta.values.name),
+                );
                 let values = ArrayDeserializer::new(
                     values_path,
-                    get_strategy(&values_meta)?.as_ref(),
-                    values_view,
+                    get_strategy(&view.meta.values)?.as_ref(),
+                    *view.values,
                 )?;
 
                 Ok(D::Map(MapDeserializer::new(
@@ -229,7 +233,7 @@ impl<'a> ArrayDeserializer<'a> {
                     view.validity,
                 )?))
             }
-            V::Dictionary(view) => match (*view.indices, *view.values) {
+            V::Dictionary(view) => match (*view.keys, *view.values) {
                 (V::Int8(keys), V::Utf8(values)) => Ok(D::DictionaryI8I32(
                     DictionaryDeserializer::new(path, keys, values)?,
                 )),
@@ -280,9 +284,9 @@ impl<'a> ArrayDeserializer<'a> {
                 )),
                 _ => fail!("Unsupported dictionary array type"),
             },
-            ArrayView::DenseUnion(view) => {
+            View::Union(view) => {
                 let mut fields = Vec::new();
-                for (idx, (type_id, field_view, field_meta)) in view.fields.into_iter().enumerate()
+                for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate()
                 {
                     if usize::try_from(type_id) != Ok(idx) {
                         fail!("Only unions with consecutive type ids are currently supported");
@@ -295,12 +299,12 @@ impl<'a> ArrayDeserializer<'a> {
                     )?;
                     fields.push((field_meta.name, field_deserializer))
                 }
+                let Some(offsets) = view.offsets else {
+                    fail!("Sparse unions are currently not supported");
+                };
 
                 Ok(Self::Enum(EnumDeserializer::new(
-                    path,
-                    view.types,
-                    view.offsets,
-                    fields,
+                    path, view.types, offsets, fields,
                 )?))
             }
         }

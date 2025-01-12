@@ -1,7 +1,7 @@
+use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::PrimitiveArrayView,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
@@ -33,7 +33,7 @@ pub struct IntegerDeserializer<'a, T: Integer> {
 }
 
 impl<'a, T: Integer> IntegerDeserializer<'a, T> {
-    pub fn new(path: String, view: PrimitiveArrayView<'a, T>) -> Self {
+    pub fn new(path: String, view: PrimitiveView<'a, T>) -> Self {
         Self {
             path,
             array: ArrayBufferIterator::new(view.values, view.validity),

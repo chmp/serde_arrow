@@ -1,7 +1,7 @@
+use marrow::view::BooleanView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::BooleanArrayView,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
@@ -10,12 +10,12 @@ use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BoolDeserializer<'a> {
     pub path: String,
-    pub view: BooleanArrayView<'a>,
+    pub view: BooleanView<'a>,
     pub next: usize,
 }
 
 impl<'a> BoolDeserializer<'a> {
-    pub fn new(path: String, view: BooleanArrayView<'a>) -> Self {
+    pub fn new(path: String, view: BooleanView<'a>) -> Self {
         Self {
             path,
             view,

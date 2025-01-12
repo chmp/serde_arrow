@@ -1,8 +1,8 @@
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use marrow::view::BitsWithOffset;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };

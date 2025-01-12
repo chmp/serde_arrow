@@ -1,7 +1,7 @@
+use marrow::view::BitsWithOffset;
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::{Mut, NamedType, Offset},
 };
