@@ -28,13 +28,13 @@
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             |
-|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     |
-| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       |
-| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       |
+| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             | `marrow`                                            |
+|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|:----------------------------------------------------|
+| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       | [`to_marrow`]                                       |
+| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     | [`from_marrow`]                                     |
+| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       | [`ArrayBuilder::from_marrow`]                       |
+| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
+| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       | [`Deserializer::from_marrow`]                       |
 "#
 )]
 //!
