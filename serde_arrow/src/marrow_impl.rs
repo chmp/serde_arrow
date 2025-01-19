@@ -36,16 +36,19 @@ use crate::internal::{
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 /// let arrays = serde_arrow::to_marrow(&fields, &items)?;
 ///
-/// assert_eq!(arrays, vec![
-///     Array::Float32(PrimitiveArray {
-///         validity: Some(vec![0b_1]),
-///         values: vec![1.0],
-///     }),
-///     Array::UInt64(PrimitiveArray {
-///         validity: None,
-///         values: vec![2],
-///     }),
-/// ]);
+/// assert_eq!(
+///     arrays,
+///     vec![
+///         Array::Float32(PrimitiveArray {
+///             validity: Some(marrow::bit_vec![true]),
+///             values: vec![1.0],
+///         }),
+///         Array::UInt64(PrimitiveArray {
+///             validity: None,
+///             values: vec![2],
+///         }),
+///     ],
+/// );
 /// # Ok(())
 /// # }
 /// ```
@@ -80,23 +83,27 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
 ///     View::Float32(PrimitiveView {
 ///         validity: Some(BitsWithOffset {
 ///             offset: 0,
-///             data: &[0b01],
+///             data: &const { marrow::bit_array![true, false, true] },
 ///         }),
-///         values: &[13.0, 0.0],
+///         values: &[13.0, 0.0, 17.0],
 ///     }),
 ///     View::UInt64(PrimitiveView {
 ///         validity: None,
-///         values: &[21, 42],
+///         values: &[21, 42, 84],
 ///     }),
 /// ];
 ///
 /// let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
 /// let items: Vec<Record> = serde_arrow::from_marrow(&fields, &views)?;
 ///
-/// assert_eq!(items, vec![
-///     Record { a: Some(13.0), b: 21 },
-///     Record { a: None, b: 42 },
-/// ]);
+/// assert_eq!(
+///     items,
+///     vec![
+///         Record { a: Some(13.0), b: 21 },
+///         Record { a: None, b: 42 },
+///         Record { a: Some(17.0), b: 84 },
+///     ],
+/// );
 /// # Ok(())
 /// # }
 /// ```
