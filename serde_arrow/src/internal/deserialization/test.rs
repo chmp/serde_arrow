@@ -1,7 +1,7 @@
+use marrow::view::PrimitiveView;
 use serde::Deserialize;
 
 use crate::internal::{
-    arrow::PrimitiveArrayView,
     deserialization::{
         array_deserializer::ArrayDeserializer, integer_deserializer::IntegerDeserializer,
     },
@@ -18,7 +18,7 @@ fn example() {
                 String::from("a"),
                 ArrayDeserializer::I32(IntegerDeserializer::new(
                     String::from("$"),
-                    PrimitiveArrayView {
+                    PrimitiveView {
                         values: &[1, 2, 3],
                         validity: None,
                     },
@@ -28,7 +28,7 @@ fn example() {
                 String::from("b"),
                 ArrayDeserializer::I32(IntegerDeserializer::new(
                     String::from("$"),
-                    PrimitiveArrayView {
+                    PrimitiveView {
                         values: &[4, 5, 6],
                         validity: None,
                     },

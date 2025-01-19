@@ -26,7 +26,7 @@ impl<'a> OuterSequenceDeserializer<'a> {
     }
 }
 
-impl<'de> Context for OuterSequenceDeserializer<'de> {
+impl Context for OuterSequenceDeserializer<'_> {
     fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
 }
 

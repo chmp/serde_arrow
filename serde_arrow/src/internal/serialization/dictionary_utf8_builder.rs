@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
+use marrow::array::{Array, DictionaryArray};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, DictionaryArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };
@@ -43,7 +43,7 @@ impl DictionaryUtf8Builder {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Dictionary(DictionaryArray {
-            indices: Box::new((*self.indices).into_array()?),
+            keys: Box::new((*self.indices).into_array()?),
             values: Box::new((*self.values).into_array()?),
         }))
     }

@@ -1,9 +1,9 @@
+use marrow::view::BitsWithOffset;
 use serde::de::{
     value::StrDeserializer, DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor,
 };
 
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
@@ -53,7 +53,7 @@ impl<'a> StructDeserializer<'a> {
     }
 }
 
-impl<'de> Context for StructDeserializer<'de> {
+impl Context for StructDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Struct(..)");

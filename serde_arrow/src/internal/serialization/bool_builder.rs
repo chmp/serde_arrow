@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
+use marrow::array::{Array, BooleanArray};
+
 use crate::internal::{
-    arrow::{Array, BooleanArray},
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
 };

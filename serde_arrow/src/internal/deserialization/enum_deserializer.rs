@@ -96,7 +96,7 @@ fn verify_offsets(type_ids: &[i8], offsets: &[i32], num_fields: usize) -> Result
     Ok(initial_offsets)
 }
 
-impl<'de> Context for EnumDeserializer<'de> {
+impl Context for EnumDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Union(..)");
@@ -149,7 +149,7 @@ macro_rules! unimplemented {
     };
 }
 
-impl<'de, 'a> Deserializer<'de> for VariantIdDeserializer<'a> {
+impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     type Error = Error;
 
     fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

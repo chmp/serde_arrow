@@ -525,7 +525,7 @@ impl<'a> ValueDeserializer<'a> {
     }
 }
 
-impl<'de, 'a> serde::de::Deserializer<'de> for ValueDeserializer<'a> {
+impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
     type Error = Error;
 
     fn deserialize_any<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -791,7 +791,7 @@ impl<'a> StructDeserializer<'a> {
     }
 }
 
-impl<'de, 'a> serde::de::MapAccess<'de> for StructDeserializer<'a> {
+impl<'de> serde::de::MapAccess<'de> for StructDeserializer<'_> {
     type Error = Error;
 
     fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
@@ -825,7 +825,7 @@ impl<'a> SeqDeserializer<'a> {
     }
 }
 
-impl<'de, 'a> serde::de::SeqAccess<'de> for SeqDeserializer<'a> {
+impl<'de> serde::de::SeqAccess<'de> for SeqDeserializer<'_> {
     type Error = Error;
 
     fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -849,7 +849,7 @@ impl<'a> MapDeserializer<'a> {
     }
 }
 
-impl<'de, 'a> serde::de::MapAccess<'de> for MapDeserializer<'a> {
+impl<'de> serde::de::MapAccess<'de> for MapDeserializer<'_> {
     type Error = Error;
 
     fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
@@ -938,7 +938,7 @@ impl<'de, 'a> serde::de::EnumAccess<'de> for TupleVariantDeserializer<'a> {
 
 struct TupleVariantVariant<'a>(&'a [Value]);
 
-impl<'de, 'a> serde::de::VariantAccess<'de> for TupleVariantVariant<'a> {
+impl<'de> serde::de::VariantAccess<'de> for TupleVariantVariant<'_> {
     type Error = Error;
 
     fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -986,7 +986,7 @@ impl<'de, 'a> serde::de::EnumAccess<'de> for NewTypeVariantDeserializer<'a> {
 
 struct NewTypeVariantVariant<'a>(&'a Value);
 
-impl<'de, 'a> serde::de::VariantAccess<'de> for NewTypeVariantVariant<'a> {
+impl<'de> serde::de::VariantAccess<'de> for NewTypeVariantVariant<'_> {
     type Error = Error;
 
     fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(self, seed: T) -> Result<T::Value> {
@@ -1031,7 +1031,7 @@ impl<'de, 'a> serde::de::EnumAccess<'de> for StructVariantDeserializer<'a> {
 
 struct StructVariantVariant<'a>(&'a [(&'static str, Value)]);
 
-impl<'de, 'a> serde::de::VariantAccess<'de> for StructVariantVariant<'a> {
+impl<'de> serde::de::VariantAccess<'de> for StructVariantVariant<'_> {
     type Error = Error;
 
     fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(

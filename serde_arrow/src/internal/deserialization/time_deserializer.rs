@@ -1,8 +1,8 @@
 use chrono::NaiveTime;
+use marrow::{datatypes::TimeUnit, view::TimeView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::{TimeArrayView, TimeUnit},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
@@ -20,7 +20,7 @@ pub struct TimeDeserializer<'a, T: Integer> {
 }
 
 impl<'a, T: Integer> TimeDeserializer<'a, T> {
-    pub fn new(path: String, view: TimeArrayView<'a, T>) -> Self {
+    pub fn new(path: String, view: TimeView<'a, T>) -> Self {
         let (seconds_factor, nanoseconds_factor) = match view.unit {
             TimeUnit::Nanosecond => (1_000_000_000, 1),
             TimeUnit::Microsecond => (1_000_000, 1_000),
@@ -47,7 +47,7 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
     }
 }
 
-impl<'de, T: NamedType + Integer> Context for TimeDeserializer<'de, T> {
+impl<T: NamedType + Integer> Context for TimeDeserializer<'_, T> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

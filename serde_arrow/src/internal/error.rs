@@ -184,7 +184,7 @@ impl std::fmt::Display for Error {
 
 struct AnnotationsDisplay<'a>(Option<&'a BTreeMap<String, String>>);
 
-impl<'a> std::fmt::Display for AnnotationsDisplay<'a> {
+impl std::fmt::Display for AnnotationsDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Some(annotations) = self.0 else {
             return Ok(());
@@ -206,7 +206,7 @@ impl<'a> std::fmt::Display for AnnotationsDisplay<'a> {
 
 struct BacktraceDisplay<'a>(&'a Backtrace);
 
-impl<'a> std::fmt::Display for BacktraceDisplay<'a> {
+impl std::fmt::Display for BacktraceDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0.status() {
             BacktraceStatus::Captured => write!(f, "Backtrace:\n{bt}", bt=self.0),
@@ -260,6 +260,12 @@ macro_rules! fail {
 }
 
 pub(crate) use fail;
+
+impl From<marrow::error::MarrowError> for Error {
+    fn from(err: marrow::error::MarrowError) -> Self {
+        Self::custom_from(format!("marrow::error::MarrowError: {err}"), err)
+    }
+}
 
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {

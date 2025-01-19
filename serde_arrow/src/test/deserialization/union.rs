@@ -1,7 +1,10 @@
+use marrow::{
+    datatypes::FieldMeta,
+    view::{PrimitiveView, UnionView, View},
+};
+
 use crate::internal::{
-    arrow::{ArrayView, DenseUnionArrayView, FieldMeta, PrimitiveArrayView},
-    deserialization::array_deserializer::ArrayDeserializer,
-    testing::assert_error_contains,
+    deserialization::array_deserializer::ArrayDeserializer, testing::assert_error_contains,
 };
 
 #[test]
@@ -9,34 +12,34 @@ fn non_consecutive_offsets() {
     let fields = vec![
         (
             0,
-            ArrayView::Int32(PrimitiveArrayView {
-                validity: None,
-                values: &[1, 2, 3, 4, 5, 6],
-            }),
             FieldMeta {
                 name: String::from("foo"),
                 nullable: false,
                 metadata: Default::default(),
             },
+            View::Int32(PrimitiveView {
+                validity: None,
+                values: &[1, 2, 3, 4, 5, 6],
+            }),
         ),
         (
             1,
-            ArrayView::Int32(PrimitiveArrayView {
-                validity: None,
-                values: &[1, 2, 3, 4, 5, 6],
-            }),
             FieldMeta {
                 name: String::from("foo"),
                 nullable: false,
                 metadata: Default::default(),
             },
+            View::Int32(PrimitiveView {
+                validity: None,
+                values: &[1, 2, 3, 4, 5, 6],
+            }),
         ),
     ];
 
     // first type has an unused element
-    let view = ArrayView::DenseUnion(DenseUnionArrayView {
+    let view = View::Union(UnionView {
         types: &[0, 0, 1],
-        offsets: &[0, 2, 0],
+        offsets: Some(&[0, 2, 0]),
         fields: fields.clone(),
     });
     assert_error_contains(
@@ -45,9 +48,9 @@ fn non_consecutive_offsets() {
     );
 
     // first type has an unused element
-    let view = ArrayView::DenseUnion(DenseUnionArrayView {
+    let view = View::Union(UnionView {
         types: &[0, 0, 0],
-        offsets: &[0, 1, 4],
+        offsets: Some(&[0, 1, 4]),
         fields: fields.clone(),
     });
     assert_error_contains(

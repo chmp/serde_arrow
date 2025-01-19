@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, ListArray},
+    datatypes::FieldMeta,
+};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FieldMeta, ListArray},
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
@@ -18,7 +21,7 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 pub struct ListBuilder<O> {
     pub path: String,
     pub meta: FieldMeta,
-    pub element: Box<ArrayBuilder>,
+    pub elements: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<O>,
 }
 
@@ -27,7 +30,7 @@ impl<O: Offset> ListBuilder<O> {
         Self {
             path,
             meta,
-            element: Box::new(element),
+            elements: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
         }
     }
@@ -37,7 +40,7 @@ impl<O: Offset> ListBuilder<O> {
             path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
-            element: Box::new(self.element.take()),
+            elements: Box::new(self.elements.take()),
         }
     }
 
@@ -55,7 +58,7 @@ impl ListBuilder<i32> {
         Ok(Array::List(ListArray {
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
-            element: Box::new(self.element.into_array()?),
+            elements: Box::new(self.elements.into_array()?),
             meta: self.meta,
         }))
     }
@@ -70,7 +73,7 @@ impl ListBuilder<i64> {
         Ok(Array::LargeList(ListArray {
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
-            element: Box::new(self.element.into_array()?),
+            elements: Box::new(self.elements.into_array()?),
             meta: self.meta,
         }))
     }
@@ -83,7 +86,7 @@ impl<O: NamedType + Offset> ListBuilder<O> {
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.offsets.push_seq_elements(1)?;
-        value.serialize(Mut(self.element.as_mut()))
+        value.serialize(Mut(self.elements.as_mut()))
     }
 
     fn end(&mut self) -> Result<()> {

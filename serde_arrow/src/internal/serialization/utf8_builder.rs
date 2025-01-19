@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
+use marrow::array::{Array, BytesArray};
+
 use crate::internal::{
-    arrow::{Array, BytesArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},

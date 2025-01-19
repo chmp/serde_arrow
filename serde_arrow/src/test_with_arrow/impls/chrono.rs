@@ -1,9 +1,8 @@
-use core::str;
+use marrow::datatypes::DataType;
 
 use super::utils::Test;
 use crate::{
     internal::{
-        arrow::DataType,
         testing::{assert_error_contains, ArrayAccess},
         utils::value,
     },

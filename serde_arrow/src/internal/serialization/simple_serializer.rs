@@ -425,7 +425,7 @@ impl<'a, T: SimpleSerializer> Serializer for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeMap for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -442,7 +442,7 @@ impl<'a, T: SimpleSerializer> SerializeMap for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeSeq for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeSeq for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -455,7 +455,7 @@ impl<'a, T: SimpleSerializer> SerializeSeq for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeStruct for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeStruct for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -472,7 +472,7 @@ impl<'a, T: SimpleSerializer> SerializeStruct for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeTuple for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeTuple for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -485,7 +485,7 @@ impl<'a, T: SimpleSerializer> SerializeTuple for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeTupleStruct for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeTupleStruct for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -498,7 +498,7 @@ impl<'a, T: SimpleSerializer> SerializeTupleStruct for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeStructVariant for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeStructVariant for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 
@@ -515,7 +515,7 @@ impl<'a, T: SimpleSerializer> SerializeStructVariant for Mut<'a, T> {
     }
 }
 
-impl<'a, T: SimpleSerializer> SerializeTupleVariant for Mut<'a, T> {
+impl<T: SimpleSerializer> SerializeTupleVariant for Mut<'_, T> {
     type Ok = ();
     type Error = Error;
 

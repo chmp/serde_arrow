@@ -1,9 +1,9 @@
 use std::{collections::HashMap, str::FromStr};
 
+use marrow::datatypes::{DataType, Field, TimeUnit, UnionMode};
 use serde::{de::Visitor, Deserialize};
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit, UnionMode},
     error::{fail, Result},
     schema::{validate_field, SerdeArrowSchema, Strategy, STRATEGY_KEY},
     utils::dsl::Term,
@@ -191,7 +191,7 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
             let Ok([key, value]) = <[_; 2]>::try_from(children) else {
                 fail!("Invalid children for Dictionary: expected two children");
             };
-            T::Dictionary(Box::new(key.data_type), Box::new(value.data_type), false)
+            T::Dictionary(Box::new(key.data_type), Box::new(value.data_type))
         }
         ("Map", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {

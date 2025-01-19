@@ -161,7 +161,7 @@ pub trait SimpleDeserializer<'de>: Context + Sized {
     }
 }
 
-impl<'a, 'de, D: SimpleDeserializer<'de>> Deserializer<'de> for Mut<'a, D> {
+impl<'de, D: SimpleDeserializer<'de>> Deserializer<'de> for Mut<'_, D> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {

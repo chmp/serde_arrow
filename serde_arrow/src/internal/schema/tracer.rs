@@ -3,8 +3,9 @@ use std::{
     sync::Arc,
 };
 
+use marrow::datatypes::{DataType, Field, UnionMode};
+
 use crate::internal::{
-    arrow::{DataType, Field, UnionMode},
     error::{fail, set_default, Context, Result},
     schema::{
         DataTypeDisplay, Overwrites, SerdeArrowSchema, Strategy, TracingMode, TracingOptions,
@@ -22,7 +23,7 @@ fn default_dictionary_field(name: &str, nullable: bool, string_type: DataType) -
         name: name.to_owned(),
         nullable,
         metadata: HashMap::new(),
-        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type), false),
+        data_type: DataType::Dictionary(Box::new(DataType::UInt32), Box::new(string_type)),
     }
 }
 
@@ -39,7 +40,7 @@ fn unknown_variant_field() -> Field {
 
 struct NullFieldMessage<'a>(&'a str);
 
-impl<'a> std::fmt::Display for NullFieldMessage<'a> {
+impl std::fmt::Display for NullFieldMessage<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -54,7 +55,7 @@ impl<'a> std::fmt::Display for NullFieldMessage<'a> {
 
 struct EnumWithoutDataMessage<'a>(&'a str);
 
-impl<'a> std::fmt::Display for EnumWithoutDataMessage<'a> {
+impl std::fmt::Display for EnumWithoutDataMessage<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,
             concat!(
@@ -599,7 +600,7 @@ fn coerce_primitive_type(
 
 struct OptionalStrategyDisplay<'a>(Option<&'a Strategy>);
 
-impl<'a> std::fmt::Display for OptionalStrategyDisplay<'a> {
+impl std::fmt::Display for OptionalStrategyDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             None => Ok(()),

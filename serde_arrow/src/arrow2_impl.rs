@@ -5,14 +5,15 @@
 #![deny(missing_docs)]
 use serde::{Deserialize, Serialize};
 
+use marrow::{datatypes::Field, error::MarrowError, view::View};
+
 use crate::{
     _impl::arrow2::{array::Array, datatypes::Field as ArrowField},
     internal::{
         array_builder::ArrayBuilder,
-        arrow::Field,
         deserializer::Deserializer,
-        error::{fail, Result},
-        schema::SerdeArrowSchema,
+        error::{fail, Error, Result},
+        schema::{SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
         serializer::Serializer,
     },
 };
@@ -107,10 +108,11 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow2` arrays and reset the builder (*requires one of the
     /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
-        self.build_arrays()?
+        Ok(self
+            .build_arrays()?
             .into_iter()
             .map(Box::<dyn Array>::try_from)
-            .collect()
+            .collect::<Result<_, MarrowError>>()?)
     }
 }
 
@@ -145,8 +147,6 @@ impl<'de> Deserializer<'de> {
     where
         A: AsRef<dyn Array>,
     {
-        use crate::internal::arrow::ArrayView;
-
         if fields.len() != arrays.len() {
             fail!(
                 "different number of fields ({}) and arrays ({})",
@@ -158,12 +158,63 @@ impl<'de> Deserializer<'de> {
         let fields = fields
             .iter()
             .map(Field::try_from)
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, MarrowError>>()?;
         let views = arrays
             .iter()
-            .map(|array| ArrayView::try_from(array.as_ref()))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|array| View::try_from(array.as_ref()))
+            .collect::<Result<Vec<_>, MarrowError>>()?;
 
         Deserializer::new(&fields, views)
+    }
+}
+
+impl TryFrom<SerdeArrowSchema> for Vec<ArrowField> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        Vec::<ArrowField>::try_from(&value)
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<ArrowField> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        Ok(value
+            .fields
+            .iter()
+            .map(ArrowField::try_from)
+            .collect::<Result<_, MarrowError>>()?)
+    }
+}
+
+impl<'a> TryFrom<&'a [ArrowField]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [ArrowField]) -> std::prelude::v1::Result<Self, Self::Error> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(Field::try_from)
+                .collect::<Result<_, MarrowError>>()?,
+        })
+    }
+}
+
+impl Sealed for Vec<ArrowField> {}
+
+/// Schema support for `Vec<arrow2::datatype::Field>` (*requires one of the
+/// `arrow2-*` features*)
+impl SchemaLike for Vec<ArrowField> {
+    fn from_value<T: serde::Serialize>(value: T) -> Result<Self> {
+        SerdeArrowSchema::from_value(value)?.try_into()
+    }
+
+    fn from_type<'de, T: serde::Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_type::<T>(options)?.try_into()
+    }
+
+    fn from_samples<T: serde::Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_samples(samples, options)?.try_into()
     }
 }

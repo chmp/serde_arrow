@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
+use marrow::array::{Array, FixedSizeBinaryArray};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FixedSizeBinaryArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},

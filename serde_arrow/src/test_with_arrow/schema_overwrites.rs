@@ -125,7 +125,7 @@ fn example_nested_struct_overwrite_outer() -> PanicOnError<()> {
 
 #[test]
 fn example_with_arrow_field() {
-    use crate::_impl::arrow::datatypes::{DataType, Field};
+    use crate::_impl::arrow::_raw::schema::{DataType, Field};
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Example {
