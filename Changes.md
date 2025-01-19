@@ -4,6 +4,9 @@
 
 - Migrate internal array abstraction to `marrow`
   - Breaking change: Dictionary data types no longer support sorting
+  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
+  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`
+- Add APIs to interact with `marorw` arrays directly
 
 ## 0.12.3
 
