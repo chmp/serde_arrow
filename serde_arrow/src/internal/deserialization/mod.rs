@@ -1,8 +1,7 @@
 pub mod array_deserializer;
 pub mod binary_deserializer;
 pub mod bool_deserializer;
-pub mod date32_deserializer;
-pub mod date64_deserializer;
+pub mod date_deserializer;
 pub mod decimal_deserializer;
 pub mod dictionary_deserializer;
 pub mod duration_deserializer;
@@ -22,6 +21,7 @@ pub mod simple_deserializer;
 pub mod string_deserializer;
 pub mod struct_deserializer;
 pub mod time_deserializer;
+pub mod timestamp_deserializer;
 pub mod utils;
 
 #[cfg(test)]

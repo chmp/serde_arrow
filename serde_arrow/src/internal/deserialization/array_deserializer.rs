@@ -1,6 +1,6 @@
 use half::f16;
 use marrow::{
-    datatypes::{FieldMeta, TimeUnit},
+    datatypes::FieldMeta,
     view::{PrimitiveView, View},
 };
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
@@ -13,15 +13,16 @@ use crate::internal::{
 
 use super::{
     binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
-    date32_deserializer::Date32Deserializer, date64_deserializer::Date64Deserializer,
-    decimal_deserializer::DecimalDeserializer, dictionary_deserializer::DictionaryDeserializer,
-    duration_deserializer::DurationDeserializer, enum_deserializer::EnumDeserializer,
+    date_deserializer::DateDeserializer, decimal_deserializer::DecimalDeserializer,
+    dictionary_deserializer::DictionaryDeserializer, duration_deserializer::DurationDeserializer,
+    enum_deserializer::EnumDeserializer,
     fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
     fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
     integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
     map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
     simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
     struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
+    timestamp_deserializer::TimestampDeserializer,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -40,10 +41,11 @@ pub enum ArrayDeserializer<'a> {
     F64(FloatDeserializer<'a, f64>),
     Decimal128(DecimalDeserializer<'a>),
     Duration(DurationDeserializer<'a>),
-    Date32(Date32Deserializer<'a>),
-    Date64(Date64Deserializer<'a>),
+    Date32(DateDeserializer<'a, i32>),
+    Date64(DateDeserializer<'a, i64>),
     Time32(TimeDeserializer<'a, i32>),
     Time64(TimeDeserializer<'a, i64>),
+    Timestamp(TimestampDeserializer<'a>),
     Utf8(StringDeserializer<'a, i32>),
     LargeUtf8(StringDeserializer<'a, i64>),
     DictionaryU8I32(DictionaryDeserializer<'a, u8, i32>),
@@ -92,21 +94,19 @@ impl<'a> ArrayDeserializer<'a> {
             V::Float32(view) => Ok(D::F32(FloatDeserializer::new(path, view))),
             V::Float64(view) => Ok(D::F64(FloatDeserializer::new(path, view))),
             V::Decimal128(view) => Ok(D::Decimal128(DecimalDeserializer::new(path, view))),
-            View::Date32(view) => Ok(Self::Date32(Date32Deserializer::new(
+            View::Date32(view) => Ok(Self::Date32(DateDeserializer::new(
                 path,
                 view.values,
                 view.validity,
             ))),
-            View::Date64(view) => Ok(Self::Date64(Date64Deserializer::new(
+            View::Date64(view) => Ok(Self::Date64(DateDeserializer::new(
                 path,
                 view.values,
                 view.validity,
-                TimeUnit::Millisecond,
-                false,
             ))),
             V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(path, view))),
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
-            V::Timestamp(view) => Ok(Self::Date64(Date64Deserializer::new(
+            V::Timestamp(view) => Ok(Self::Timestamp(TimestampDeserializer::new(
                 path,
                 view.values,
                 view.validity,
@@ -336,6 +336,7 @@ macro_rules! dispatch {
             $wrapper::Date64($name) => $expr,
             $wrapper::Time32($name) => $expr,
             $wrapper::Time64($name) => $expr,
+            $wrapper::Timestamp($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
             $wrapper::Struct($name) => $expr,

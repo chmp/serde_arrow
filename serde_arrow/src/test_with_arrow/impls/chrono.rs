@@ -75,7 +75,7 @@ fn naive_as_str() {
 }
 
 #[test]
-fn utc_as_date64() {
+fn utc_as_timestamp() {
     let items = [
         Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
         Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
@@ -87,23 +87,6 @@ fn utc_as_date64() {
             "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
         }]))
         .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn utc_as_date64_without_strategy() {
-    let items = [
-        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
-        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-        }]))
         .serialize(&items)
         .deserialize(&items)
         .check_nulls(&[&[false, false]]);
@@ -340,33 +323,6 @@ fn time64_type_invalid_units() {
 }
 
 #[test]
-fn utc_as_date64_as_millis() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        #[serde(with = "chrono::serde::ts_milliseconds")]
-        item: DateTime<Utc>,
-    }
-
-    let items = [
-        T {
-            item: Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap(),
-        },
-        T {
-            item: Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap(),
-        },
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Date64",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
 fn utc_str_as_date64_as_timestamp() {
     let items = [
         Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
@@ -499,7 +455,7 @@ fn utc_as_timestamp_tracing_string_nullable() {
 }
 
 #[test]
-fn utc_as_date64_tracing_string_only_with_invalid() {
+fn utc_tracing_string_only_with_invalid() {
     let items = [
         Item(String::from("2015-09-18T23:56:04Z")),
         Item(String::from("2023-08-14T17:00:04Z")),
@@ -553,7 +509,7 @@ fn naive_as_timestamp_tracing_string_nullable() {
 }
 
 #[test]
-fn naive_as_date64_tracing_string_with_invalid() {
+fn naive_tracing_string_with_invalid() {
     let items = [
         Item(String::from("2015-09-18T23:56:04")),
         Item(String::from("2023-08-14T17:00:04")),
@@ -682,6 +638,15 @@ mod naive_date {
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Date32"}]))
             .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_date64() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date64"}]))
             .serialize(&items)
             .deserialize(&items);
     }

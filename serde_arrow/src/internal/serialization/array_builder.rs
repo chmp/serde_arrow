@@ -8,14 +8,13 @@ use marrow::array::Array;
 use crate::internal::error::{Context, Result};
 
 use super::{
-    binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date32_builder::Date32Builder,
-    date64_builder::Date64Builder, decimal_builder::DecimalBuilder,
-    dictionary_utf8_builder::DictionaryUtf8Builder, duration_builder::DurationBuilder,
-    fixed_size_binary_builder::FixedSizeBinaryBuilder,
+    binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date_builder::DateBuilder,
+    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
+    duration_builder::DurationBuilder, fixed_size_binary_builder::FixedSizeBinaryBuilder,
     fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
     int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
     null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, union_builder::UnionBuilder,
+    time_builder::TimeBuilder, timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
@@ -34,11 +33,12 @@ pub enum ArrayBuilder {
     F16(FloatBuilder<f16>),
     F32(FloatBuilder<f32>),
     F64(FloatBuilder<f64>),
-    Date32(Date32Builder),
-    Date64(Date64Builder),
+    Date32(DateBuilder<i32>),
+    Date64(DateBuilder<i64>),
     Time32(TimeBuilder<i32>),
     Time64(TimeBuilder<i64>),
     Duration(DurationBuilder),
+    Timestamp(TimestampBuilder),
     Decimal128(DecimalBuilder),
     List(ListBuilder<i32>),
     LargeList(ListBuilder<i64>),
@@ -76,6 +76,7 @@ macro_rules! dispatch {
             $wrapper::Time32($name) => $expr,
             $wrapper::Time64($name) => $expr,
             $wrapper::Duration($name) => $expr,
+            $wrapper::Timestamp($name) => $expr,
             $wrapper::Decimal128($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,

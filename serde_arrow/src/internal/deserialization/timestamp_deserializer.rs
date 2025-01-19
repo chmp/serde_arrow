@@ -9,14 +9,14 @@ use crate::internal::{
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
-pub struct Date64Deserializer<'a> {
+pub struct TimestampDeserializer<'a> {
     path: String,
     array: ArrayBufferIterator<'a, i64>,
     unit: TimeUnit,
     is_utc: bool,
 }
 
-impl<'a> Date64Deserializer<'a> {
+impl<'a> TimestampDeserializer<'a> {
     pub fn new(
         path: String,
         buffer: &'a [i64],
@@ -73,14 +73,14 @@ impl<'a> Date64Deserializer<'a> {
     }
 }
 
-impl Context for Date64Deserializer<'_> {
+impl Context for TimestampDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Date64");
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for Date64Deserializer<'de> {
+impl<'de> SimpleDeserializer<'de> for TimestampDeserializer<'de> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
             if self.array.peek_next()? {

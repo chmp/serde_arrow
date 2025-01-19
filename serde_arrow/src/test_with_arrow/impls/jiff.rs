@@ -116,6 +116,15 @@ mod date {
             .serialize(&items)
             .deserialize(&items);
     }
+
+    #[test]
+    fn as_date64() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date64"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
 
 mod date_time {
