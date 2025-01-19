@@ -40,10 +40,9 @@
 //!
 //! See also:
 //!
-//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how
-//!   to use this package
-//! - the [status summary][_impl::docs::status] for an overview over the
-//!   supported Arrow and Rust constructs
+//! - the [quickstart guide][_impl::docs::quickstart] for more examples of how to use this package
+//! - the [status summary][_impl::docs::status] for an overview over the supported Arrow and Rust
+//!   constructs
 //!
 //! ## `arrow` Example
 //!
@@ -78,10 +77,11 @@
 //! # fn main() { }
 //! ```
 //!
-//! The `RecordBatch` can then be written to disk, e.g., as parquet using
-//! the [`ArrowWriter`] from the [`parquet`] crate.
+//! The `RecordBatch` can then be written to disk, e.g., as parquet using the [`ArrowWriter`] from
+//! the [`parquet`] crate.
 //!
-//! [`ArrowWriter`]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
+//! [`ArrowWriter`]:
+//!     https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
 //!
 //! ## `arrow2` Example
@@ -131,14 +131,19 @@
 //!
 //! # Features:
 //!
-//! The version of `arrow` or `arrow2` used can be selected via features. Per
-//! default no arrow implementation is used. In that case only the base features
-//! of `serde_arrow` are available.
+//! The version of `arrow` or `arrow2` used can be selected via features. Per default no arrow
+//! implementation is used. In that case only the base features of `serde_arrow` are available.
 //!
-//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other.
-//! I.e., it is possible to use `arrow` and `arrow2` together. Within each group
-//! the highest version is selected, if multiple features are activated. E.g,
-//! when selecting  `arrow2-0-16` and `arrow2-0-17`, `arrow2=0.17` will be used.
+//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other. I.e., it is possible
+//! to use `arrow` and `arrow2` together. Within each group the highest version is selected, if
+//! multiple features are activated. E.g, when selecting  `arrow2-0-16` and `arrow2-0-17`,
+//! `arrow2=0.17` will be used.
+//!
+//! Note that because the highest version is selected, the features are not additive. In particular,
+//! it is not possible to use `serde_arrow::to_arrow` for multiple different `arrow` versions at the
+//! same time. Therefore it is not recommended to use the `arrow` and `arrow2` functions directly in
+//! libraries, but rather rely on the [`marrow`] based functionality. The features of `marrow` are
+//! designed to be strictly additive.
 //!
 //! Available features:
 //!
@@ -267,13 +272,13 @@ pub use crate::internal::array_builder::ArrayBuilder;
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::api::{from_arrow, from_record_batch, to_arrow, to_record_batch};
+pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 
 #[cfg(has_arrow2)]
 mod arrow2_impl;
 
 #[cfg(has_arrow2)]
-pub use arrow2_impl::api::{from_arrow2, to_arrow2};
+pub use arrow2_impl::{from_arrow2, to_arrow2};
 
 #[deny(missing_docs)]
 mod marrow_impl;

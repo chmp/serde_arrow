@@ -1,24 +1,28 @@
+//! Support for the `arrow` crate (*requires one the `arrow-*` features*)
+//!
+//! Functions to convert Rust objects into arrow Arrays. Deserialization from
+//! `arrow` arrays to Rust objects is not yet supported.
+//!
 #![deny(missing_docs)]
 use std::sync::Arc;
 
-use marrow::{error::MarrowError, view::View};
+use marrow::{datatypes::Field, error::MarrowError, view::View};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     _impl::arrow::{
         array::{Array, ArrayRef, RecordBatch},
-        datatypes::{FieldRef, Schema},
+        datatypes::{Field as ArrowField, FieldRef, Schema},
     },
     internal::{
         array_builder::ArrayBuilder,
         deserializer::Deserializer,
-        error::{fail, Result},
-        schema::SerdeArrowSchema,
+        error::{fail, Error, Result},
+        schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
+        schema::{SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
         serializer::Serializer,
     },
 };
-
-use super::type_support::fields_from_field_refs;
 
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
 /// features*)
@@ -200,7 +204,8 @@ impl crate::internal::array_builder::ArrayBuilder {
         let arrays = self.to_arrow()?;
         let fields = Vec::<FieldRef>::try_from(&self.schema)?;
         let schema = Schema::new(fields);
-        Ok(RecordBatch::try_new(Arc::new(schema), arrays)?)
+        RecordBatch::try_new(Arc::new(schema), arrays)
+            .map_err(|err| Error::custom_from(err.to_string(), err))
     }
 }
 
@@ -281,3 +286,136 @@ impl<'de> Deserializer<'de> {
         Deserializer::from_arrow(schema.fields(), record_batch.columns())
     }
 }
+
+fn fields_from_field_refs(fields: &[FieldRef]) -> Result<Vec<Field>> {
+    Ok(fields
+        .iter()
+        .map(|field| Field::try_from(field.as_ref()))
+        .collect::<Result<_, MarrowError>>()?)
+}
+
+impl TryFrom<SerdeArrowSchema> for Vec<ArrowField> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        (&value).try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<ArrowField> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        Ok(value
+            .fields
+            .iter()
+            .map(ArrowField::try_from)
+            .collect::<Result<_, MarrowError>>()?)
+    }
+}
+
+impl TryFrom<SerdeArrowSchema> for Vec<FieldRef> {
+    type Error = Error;
+
+    fn try_from(value: SerdeArrowSchema) -> Result<Self> {
+        (&value).try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a SerdeArrowSchema> for Vec<FieldRef> {
+    type Error = Error;
+
+    fn try_from(value: &'a SerdeArrowSchema) -> Result<Self> {
+        Ok(value
+            .fields
+            .iter()
+            .map(|f| Ok(Arc::new(ArrowField::try_from(f)?)))
+            .collect::<Result<_, MarrowError>>()?)
+    }
+}
+
+impl<'a> TryFrom<&'a [ArrowField]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [ArrowField]) -> Result<Self> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(Field::try_from)
+                .collect::<Result<_, MarrowError>>()?,
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a [FieldRef]> for SerdeArrowSchema {
+    type Error = Error;
+
+    fn try_from(fields: &'a [FieldRef]) -> Result<Self, Self::Error> {
+        Ok(Self {
+            fields: fields
+                .iter()
+                .map(|f| Field::try_from(f.as_ref()))
+                .collect::<Result<_, MarrowError>>()?,
+        })
+    }
+}
+
+impl Sealed for Vec<ArrowField> {}
+
+/// Schema support for `Vec<arrow::datatype::Field>` (*requires one of the
+/// `arrow-*` features*)
+impl SchemaLike for Vec<ArrowField> {
+    fn from_value<T: Serialize>(value: T) -> Result<Self> {
+        SerdeArrowSchema::from_value(value)?.try_into()
+    }
+
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_type::<T>(options)?.try_into()
+    }
+
+    fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_samples(samples, options)?.try_into()
+    }
+}
+
+impl Sealed for Vec<FieldRef> {}
+
+/// Schema support for `Vec<arrow::datatype::FieldRef>` (*requires one of the
+/// `arrow-*` features*)
+impl SchemaLike for Vec<FieldRef> {
+    fn from_value<T: Serialize>(value: T) -> Result<Self> {
+        SerdeArrowSchema::from_value(value)?.try_into()
+    }
+
+    fn from_type<'de, T: Deserialize<'de>>(options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_type::<T>(options)?.try_into()
+    }
+
+    fn from_samples<T: Serialize>(samples: T, options: TracingOptions) -> Result<Self> {
+        SerdeArrowSchema::from_samples(samples, options)?.try_into()
+    }
+}
+
+macro_rules! impl_try_from_ext_type {
+    ($ty:ty) => {
+        impl TryFrom<&$ty> for ArrowField {
+            type Error = Error;
+
+            fn try_from(value: &$ty) -> Result<Self, Self::Error> {
+                Ok(Self::try_from(&Field::try_from(value)?)?)
+            }
+        }
+
+        impl TryFrom<$ty> for ArrowField {
+            type Error = Error;
+
+            fn try_from(value: $ty) -> Result<Self, Self::Error> {
+                Self::try_from(&value)
+            }
+        }
+    };
+}
+
+impl_try_from_ext_type!(Bool8Field);
+impl_try_from_ext_type!(FixedShapeTensorField);
+impl_try_from_ext_type!(VariableShapeTensorField);
