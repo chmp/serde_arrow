@@ -162,15 +162,6 @@ mod date_time {
         let items = items();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)"}]))
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_timestamp_millisecond_with_strategy() {
-        let items = items();
-        Test::new()
-            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)", "strategy": "DateTimeAsStr"}]))
             .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
@@ -262,17 +253,6 @@ mod timestamp {
         Test::new()
             .with_schema(
                 json!([{"name": "item", "data_type": "Timestamp(Millisecond, Some(\"UTC\"))"}]),
-            )
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_timestamp_millisecond_with_strategy() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Timestamp(Millisecond, Some(\"UTC\"))", "strategy": "DateTimeAsStr"}]),
             )
             .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)

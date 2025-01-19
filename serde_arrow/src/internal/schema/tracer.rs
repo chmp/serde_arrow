@@ -579,8 +579,8 @@ fn coerce_primitive_type(
         ((LargeUtf8, nullable, _), (Timestamp(_, _), _)) => (LargeUtf8, nullable, None),
         ((Timestamp(_, _), nullable, _), (Utf8, _)) => (Utf8, nullable, None),
         ((Utf8, nullable, _), (Timestamp(_, _), _)) => (Utf8, nullable, None),
-        ((Timestamp(_, _), nullable, prev_st), (Timestamp(_, _), curr_st))
-            if prev_st != curr_st.as_ref() =>
+        ((Timestamp(_, prev_tz), nullable, _), (Timestamp(_, curr_tz), _))
+            if prev_tz.as_ref() != curr_tz.as_ref() =>
         {
             (options.string_type(), nullable, None)
         }

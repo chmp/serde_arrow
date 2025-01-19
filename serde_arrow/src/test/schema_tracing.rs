@@ -171,7 +171,7 @@ mod json_list_null {
 }
 
 /// Strings encoding dates and nulls are traced as nullable Date64 fields
-mod json_date64_naive_null {
+mod json_timestamp_naive_null {
     use super::*;
 
     macro_rules! test {
@@ -182,7 +182,6 @@ mod json_date64_naive_null {
                     {
                         "name": "date",
                         "data_type": "Timestamp(Millisecond, None)",
-                        "strategy": "DateTimeAsStr",
                         "nullable": true,
                     },
                 ]))?;
@@ -200,7 +199,7 @@ mod json_date64_naive_null {
 }
 
 /// Strings encoding dates and nulls are traced as nullable Date64 fields
-mod json_date64_utc_null {
+mod json_timestamp_utc_null {
     use super::*;
 
     macro_rules! test {
@@ -211,7 +210,6 @@ mod json_date64_utc_null {
                     {
                         "name": "date",
                         "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-                        "strategy": "DateTimeAsStr",
                         "nullable": true,
                     },
                 ]))?;

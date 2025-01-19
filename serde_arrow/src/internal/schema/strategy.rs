@@ -56,8 +56,6 @@ pub enum Strategy {
     /// serialization or deserialization of such a field is attempted, it will
     /// result in an error.
     UnknownVariant,
-    /// Serialize date time types as strings
-    DateTimeAsStr,
 }
 
 impl std::fmt::Display for Strategy {
@@ -67,7 +65,6 @@ impl std::fmt::Display for Strategy {
             Self::TupleAsStruct => write!(f, "TupleAsStruct"),
             Self::MapAsStruct => write!(f, "MapAsStruct"),
             Self::UnknownVariant => write!(f, "UnknownVariant"),
-            Self::DateTimeAsStr => write!(f, "DateTimeAsStr"),
         }
     }
 }
@@ -95,7 +92,6 @@ impl FromStr for Strategy {
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
             "MapAsStruct" => Ok(Self::MapAsStruct),
             "UnknownVariant" => Ok(Self::UnknownVariant),
-            "DateTimeAsStr" => Ok(Self::DateTimeAsStr),
             _ => fail!("Unknown strategy {s}"),
         }
     }

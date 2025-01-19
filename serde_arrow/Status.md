@@ -88,26 +88,25 @@ The page documents the supported types both from an Arrow and a Rust perspective
 #### `chrono::DateTime<Utc>`
 
 - is serialized / deserialized as strings
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` with strategy `UtcStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `UtcStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 
 - is serialized / deserialized  as `i64`
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` without Strategy,
-  `Date64` with strategy `UtcStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` and `from_type` detect `Int64`
 
 #### `chrono::NaiveDateTime`
 
 - is serialized / deserialized as strings
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`, `Date64` with strategy `NaiveStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, None)` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `chrono::NaiveTime`
@@ -153,21 +152,19 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 #### `jiff::DateTime`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`, `Date64` with strategy
-  `NaiveStrAsDate64`
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, None)` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Timestamp`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`, `Date64` with strategy
-  `UtcStrAsDate64`
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `UtcStrDate64` when setting  `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting  `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Span`

@@ -74,7 +74,8 @@ pub enum ArrayDeserializer<'a> {
 }
 
 impl<'a> ArrayDeserializer<'a> {
-    pub fn new(path: String, strategy: Option<&Strategy>, array: View<'a>) -> Result<Self> {
+    // TODO: decide whether to keep strategy parameter
+    pub fn new(path: String, _strategy: Option<&Strategy>, array: View<'a>) -> Result<Self> {
         use {ArrayDeserializer as D, View as V};
         match array {
             View::Null(_) => Ok(Self::Null(NullDeserializer::new(path))),
@@ -105,26 +106,13 @@ impl<'a> ArrayDeserializer<'a> {
             ))),
             V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(path, view))),
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
-            V::Timestamp(view) => match strategy {
-                // TODO: fix this: move functionality into timestamp deserializer
-                Some(Strategy::DateTimeAsStr) => Ok(Self::Date64(Date64Deserializer::new(
-                    path,
-                    view.values,
-                    view.validity,
-                    view.unit,
-                    is_utc_timestamp(view.timezone.as_deref())?,
-                ))),
-                Some(strategy) => {
-                    fail!("Invalid strategy: {strategy} is not supported for timestamp field")
-                }
-                None => Ok(Self::Date64(Date64Deserializer::new(
-                    path,
-                    view.values,
-                    view.validity,
-                    view.unit,
-                    is_utc_timestamp(view.timezone.as_deref())?,
-                ))),
-            },
+            V::Timestamp(view) => Ok(Self::Date64(Date64Deserializer::new(
+                path,
+                view.values,
+                view.validity,
+                view.unit,
+                is_utc_timestamp(view.timezone.as_deref())?,
+            ))),
             V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(
                 path,
                 view.unit,

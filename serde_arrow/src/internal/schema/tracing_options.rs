@@ -90,10 +90,8 @@ pub struct TracingOptions {
     /// Currently the naive datetime (`YYYY-MM-DDThh:mm:ss`) and UTC datetimes
     /// (`YYYY-MM-DDThh:mm:ssZ`) are understood.
     ///
-    /// For string fields where all values are either missing or conform to one
-    /// of the format the data type is set as `Date64` with strategy
-    /// [`NaiveStrAsDate64`][crate::schema::Strategy::NaiveStrAsDate64] or
-    /// [`UtcStrAsDate64`][crate::schema::Strategy::UtcStrAsDate64].
+    /// For string fields where all values are either missing or conform to one of the format the
+    /// data type is set as `Timestamp(Millisecond, tz)` with timezone `tz` `Some("UTC")` or `None`.
     pub guess_dates: bool,
 
     /// How many tracing iterations to perform in `from_type`.

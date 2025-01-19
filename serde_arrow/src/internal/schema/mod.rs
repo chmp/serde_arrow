@@ -68,8 +68,7 @@ pub trait Sealed {}
 /// ```
 ///
 pub trait SchemaLike: Sized + Sealed {
-    /// Build the schema from an object that implements serialize (e.g.,
-    /// `serde_json::Value`)
+    /// Build the schema from an object that implements serialize (e.g., `serde_json::Value`)
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -99,12 +98,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// - `"name"` (**required**): the name of the field
     /// - `"data_type"` (**required**): the data type of the field as a string
-    /// - `"nullable"` (**optional**): if `true`, the field can contain null
-    ///   values
-    /// - `"strategy"` (**optional**): if given a string describing the strategy
-    ///   to use (e.g., "NaiveStrAsDate64").
-    /// - `"children"` (**optional**): a list of child fields, the semantics
-    ///   depend on the data type
+    /// - `"nullable"` (**optional**): if `true`, the field can contain null values
+    /// - `"strategy"` (**optional**): if given a string describing the strategy to use
+    /// - `"children"` (**optional**): a list of child fields, the semantics depend on the data type
     ///
     /// The following data types are supported:
     ///
@@ -115,22 +111,20 @@ pub trait SchemaLike: Sized + Sealed {
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
     /// - date objects: `"Date32"`
-    /// - date time objects: , `"Date64"`, `"Timestamp(unit, timezone)"` with
-    ///   unit being one of `Second`, `Millisecond`, `Microsecond`,
-    ///   `Nanosecond`.
-    /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one
-    ///   of `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
-    /// - durations: `"Duration(unit)"` with unit being one of `Second`,
+    /// - date time objects: , `"Date64"`, `"Timestamp(unit, timezone)"` with unit being one of
+    ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
+    /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
-    /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
-    ///   field named `"element"` that describes the element type
+    /// - durations: `"Duration(unit)"` with unit being one of `Second`, `Millisecond`,
+    ///   `Microsecond`, `Nanosecond`.
+    /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single field named `"element"`
+    ///   that describes the element type
     /// - structs: `"Struct"`. `"children"` must contain the child fields
-    /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
-    ///   `"value"` that encode the key and value types
+    /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and `"value"` that
+    ///   encode the key and value types
     /// - unions: `"Union"`. `"children"` must contain the different variants
-    /// - dictionaries: `"Dictionary"`. `"children"` must contain two different
-    ///   fields, named `"key"` of integer type and named `"value"` of string
-    ///   type
+    /// - dictionaries: `"Dictionary"`. `"children"` must contain two different fields, named
+    ///   `"key"` of integer type and named `"value"` of string type
     ///
     fn from_value<T: Serialize>(value: T) -> Result<Self>;
 
@@ -435,17 +429,17 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
 }
 
 fn validate_date64_field(field: &Field) -> Result<()> {
-    match get_strategy_from_metadata(&field.metadata)? {
-        None | Some(Strategy::DateTimeAsStr) => Ok(()),
-        Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Date64 field: {strategy}");
     }
+    Ok(())
 }
 
 fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
-    match get_strategy_from_metadata(&field.metadata)? {
-        None | Some(Strategy::DateTimeAsStr) => Ok(()),
-        Some(strategy) => fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}"),
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
     }
+    Ok(())
 }
 
 fn validate_time32_field(field: &Field, unit: TimeUnit) -> Result<()> {
