@@ -141,10 +141,15 @@ pub mod arrow {
         T: Serialize,
     {
         let schema = Schema::new(fields.to_vec());
-        let mut decoder = ReaderBuilder::new(Arc::new(schema)).build_decoder()?;
-        decoder.serialize(items)?;
+        let mut decoder = ReaderBuilder::new(Arc::new(schema))
+            .build_decoder()
+            .map_err(|err| Error::custom_from(err.to_string(), err))?;
+        decoder
+            .serialize(items)
+            .map_err(|err| Error::custom_from(err.to_string(), err))?;
         Ok(decoder
-            .flush()?
+            .flush()
+            .map_err(|err| Error::custom_from(err.to_string(), err))?
             .ok_or_else(|| Error::custom("no items".into()))?
             .columns()
             .to_vec())

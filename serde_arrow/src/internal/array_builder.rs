@@ -1,7 +1,9 @@
 use serde::Serialize;
 
+use marrow::array::Array;
+
 use crate::internal::{
-    arrow::Array, error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
+    error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
 };
 
 /// Construct arrays by pushing individual records
@@ -55,7 +57,7 @@ pub struct ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    /// Construct an array build from an [`SerdeArrowSchema`]
+    /// Construct an array builder from an [`SerdeArrowSchema`]
     pub fn new(schema: SerdeArrowSchema) -> Result<Self> {
         Ok(Self {
             builder: OuterSequenceBuilder::new(&schema)?,

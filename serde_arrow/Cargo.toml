@@ -25,27 +25,32 @@ features = ["arrow2-0-17", "arrow-54"]
 [features]
 default = []
 
-# arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "dep:arrow-data-{version}", "dep:arrow-buffer-{version}"]
-arrow-54 = ["dep:arrow-array-54", "dep:arrow-schema-54", "dep:arrow-data-54", "dep:arrow-buffer-54"]
-arrow-53 = ["dep:arrow-array-53", "dep:arrow-schema-53", "dep:arrow-data-53", "dep:arrow-buffer-53"]
-arrow-52 = ["dep:arrow-array-52", "dep:arrow-schema-52", "dep:arrow-data-52", "dep:arrow-buffer-52"]
-arrow-51 = ["dep:arrow-array-51", "dep:arrow-schema-51", "dep:arrow-data-51", "dep:arrow-buffer-51"]
-arrow-50 = ["dep:arrow-array-50", "dep:arrow-schema-50", "dep:arrow-data-50", "dep:arrow-buffer-50"]
-arrow-49 = ["dep:arrow-array-49", "dep:arrow-schema-49", "dep:arrow-data-49", "dep:arrow-buffer-49"]
-arrow-48 = ["dep:arrow-array-48", "dep:arrow-schema-48", "dep:arrow-data-48", "dep:arrow-buffer-48"]
-arrow-47 = ["dep:arrow-array-47", "dep:arrow-schema-47", "dep:arrow-data-47", "dep:arrow-buffer-47"]
-arrow-46 = ["dep:arrow-array-46", "dep:arrow-schema-46", "dep:arrow-data-46", "dep:arrow-buffer-46"]
-arrow-45 = ["dep:arrow-array-45", "dep:arrow-schema-45", "dep:arrow-data-45", "dep:arrow-buffer-45"]
-arrow-44 = ["dep:arrow-array-44", "dep:arrow-schema-44", "dep:arrow-data-44", "dep:arrow-buffer-44"]
-arrow-43 = ["dep:arrow-array-43", "dep:arrow-schema-43", "dep:arrow-data-43", "dep:arrow-buffer-43"]
-arrow-42 = ["dep:arrow-array-42", "dep:arrow-schema-42", "dep:arrow-data-42", "dep:arrow-buffer-42"]
-arrow-41 = ["dep:arrow-array-41", "dep:arrow-schema-41", "dep:arrow-data-41", "dep:arrow-buffer-41"]
-arrow-40 = ["dep:arrow-array-40", "dep:arrow-schema-40", "dep:arrow-data-40", "dep:arrow-buffer-40"]
-arrow-39 = ["dep:arrow-array-39", "dep:arrow-schema-39", "dep:arrow-data-39", "dep:arrow-buffer-39"]
-arrow-38 = ["dep:arrow-array-38", "dep:arrow-schema-38", "dep:arrow-data-38", "dep:arrow-buffer-38"]
-arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "dep:arrow-data-37", "dep:arrow-buffer-37"]
+# arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "marrow/arrow-{version}"]
+arrow-54 = ["dep:arrow-array-54", "dep:arrow-schema-54", "marrow/arrow-54"]
+arrow-53 = ["dep:arrow-array-53", "dep:arrow-schema-53", "marrow/arrow-53"]
+arrow-52 = ["dep:arrow-array-52", "dep:arrow-schema-52", "marrow/arrow-52"]
+arrow-51 = ["dep:arrow-array-51", "dep:arrow-schema-51", "marrow/arrow-51"]
+arrow-50 = ["dep:arrow-array-50", "dep:arrow-schema-50", "marrow/arrow-50"]
+arrow-49 = ["dep:arrow-array-49", "dep:arrow-schema-49", "marrow/arrow-49"]
+arrow-48 = ["dep:arrow-array-48", "dep:arrow-schema-48", "marrow/arrow-48"]
+arrow-47 = ["dep:arrow-array-47", "dep:arrow-schema-47", "marrow/arrow-47"]
+arrow-46 = ["dep:arrow-array-46", "dep:arrow-schema-46", "marrow/arrow-46"]
+arrow-45 = ["dep:arrow-array-45", "dep:arrow-schema-45", "marrow/arrow-45"]
+arrow-44 = ["dep:arrow-array-44", "dep:arrow-schema-44", "marrow/arrow-44"]
+arrow-43 = ["dep:arrow-array-43", "dep:arrow-schema-43", "marrow/arrow-43"]
+arrow-42 = ["dep:arrow-array-42", "dep:arrow-schema-42", "marrow/arrow-42"]
+arrow-41 = ["dep:arrow-array-41", "dep:arrow-schema-41", "marrow/arrow-41"]
+arrow-40 = ["dep:arrow-array-40", "dep:arrow-schema-40", "marrow/arrow-40"]
+arrow-39 = ["dep:arrow-array-39", "dep:arrow-schema-39", "marrow/arrow-39"]
+arrow-38 = ["dep:arrow-array-38", "dep:arrow-schema-38", "marrow/arrow-38"]
+arrow-37 = ["dep:arrow-array-37", "dep:arrow-schema-37", "marrow/arrow-37"]
+
+arrow2-0-17 = ["dep:arrow2-0-17", "marrow/arrow2-0-17"]
+arrow2-0-16 = ["dep:arrow2-0-16", "marrow/arrow2-0-16"]
 
 [dependencies]
+marrow = { version = "0.2.2", default-features = false, features = ["serde"] }
+
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
 chrono = { version = "0.4", features = ["std"], default-features = false }
@@ -71,46 +76,6 @@ arrow-array-40 = { package = "arrow-array", version = "40", optional = true, def
 arrow-array-39 = { package = "arrow-array", version = "39", optional = true, default-features = false }
 arrow-array-38 = { package = "arrow-array", version = "38", optional = true, default-features = false }
 arrow-array-37 = { package = "arrow-array", version = "37", optional = true, default-features = false }
-
-# arrow-version:insert: arrow-buffer-{version} = {{ package = "arrow-buffer", version = "{version}", optional = true, default-features = false }}
-arrow-buffer-54 = { package = "arrow-buffer", version = "54", optional = true, default-features = false }
-arrow-buffer-53 = { package = "arrow-buffer", version = "53", optional = true, default-features = false }
-arrow-buffer-52 = { package = "arrow-buffer", version = "52", optional = true, default-features = false }
-arrow-buffer-51 = { package = "arrow-buffer", version = "51", optional = true, default-features = false }
-arrow-buffer-50 = { package = "arrow-buffer", version = "50", optional = true, default-features = false }
-arrow-buffer-49 = { package = "arrow-buffer", version = "49", optional = true, default-features = false }
-arrow-buffer-48 = { package = "arrow-buffer", version = "48", optional = true, default-features = false }
-arrow-buffer-47 = { package = "arrow-buffer", version = "47", optional = true, default-features = false }
-arrow-buffer-46 = { package = "arrow-buffer", version = "46", optional = true, default-features = false }
-arrow-buffer-45 = { package = "arrow-buffer", version = "45", optional = true, default-features = false }
-arrow-buffer-44 = { package = "arrow-buffer", version = "44", optional = true, default-features = false }
-arrow-buffer-43 = { package = "arrow-buffer", version = "43", optional = true, default-features = false }
-arrow-buffer-42 = { package = "arrow-buffer", version = "42", optional = true, default-features = false }
-arrow-buffer-41 = { package = "arrow-buffer", version = "41", optional = true, default-features = false }
-arrow-buffer-40 = { package = "arrow-buffer", version = "40", optional = true, default-features = false }
-arrow-buffer-39 = { package = "arrow-buffer", version = "39", optional = true, default-features = false }
-arrow-buffer-38 = { package = "arrow-buffer", version = "38", optional = true, default-features = false }
-arrow-buffer-37 = { package = "arrow-buffer", version = "37", optional = true, default-features = false }
-
-# arrow-version:insert: arrow-data-{version} = {{ package = "arrow-data", version="{version}", optional = true, default-features = false }}
-arrow-data-54 = { package = "arrow-data", version="54", optional = true, default-features = false }
-arrow-data-53 = { package = "arrow-data", version="53", optional = true, default-features = false }
-arrow-data-52 = { package = "arrow-data", version="52", optional = true, default-features = false }
-arrow-data-51 = { package = "arrow-data", version="51", optional = true, default-features = false }
-arrow-data-50 = { package = "arrow-data", version="50", optional = true, default-features = false }
-arrow-data-49 = { package = "arrow-data", version="49", optional = true, default-features = false }
-arrow-data-48 = { package = "arrow-data", version="48", optional = true, default-features = false }
-arrow-data-47 = { package = "arrow-data", version="47", optional = true, default-features = false }
-arrow-data-46 = { package = "arrow-data", version="46", optional = true, default-features = false }
-arrow-data-45 = { package = "arrow-data", version="45", optional = true, default-features = false }
-arrow-data-44 = { package = "arrow-data", version="44", optional = true, default-features = false }
-arrow-data-43 = { package = "arrow-data", version="43", optional = true, default-features = false }
-arrow-data-42 = { package = "arrow-data", version="42", optional = true, default-features = false }
-arrow-data-41 = { package = "arrow-data", version="41", optional = true, default-features = false }
-arrow-data-40 = { package = "arrow-data", version="40", optional = true, default-features = false }
-arrow-data-39 = { package = "arrow-data", version="39", optional = true, default-features = false }
-arrow-data-38 = { package = "arrow-data", version="38", optional = true, default-features = false }
-arrow-data-37 = { package = "arrow-data", version="37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false }}
 arrow-schema-54 = { package = "arrow-schema", version = "54", optional = true, default-features = false }

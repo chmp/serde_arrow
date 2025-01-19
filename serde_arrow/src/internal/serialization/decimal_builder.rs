@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
+use marrow::array::{Array, DecimalArray, PrimitiveArray};
+
 use crate::internal::{
-    arrow::{Array, DecimalArray, PrimitiveArray},
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},

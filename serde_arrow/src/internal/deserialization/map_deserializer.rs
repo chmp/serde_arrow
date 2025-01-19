@@ -1,7 +1,7 @@
+use marrow::view::BitsWithOffset;
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
@@ -61,7 +61,7 @@ impl<'a> MapDeserializer<'a> {
     }
 }
 
-impl<'de> Context for MapDeserializer<'de> {
+impl Context for MapDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Map(..)");

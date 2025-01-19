@@ -1,7 +1,7 @@
+use marrow::view::DecimalView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::DecimalArrayView,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{decimal, Mut},
 };
@@ -15,7 +15,7 @@ pub struct DecimalDeserializer<'a> {
 }
 
 impl<'a> DecimalDeserializer<'a> {
-    pub fn new(path: String, view: DecimalArrayView<'a, i128>) -> Self {
+    pub fn new(path: String, view: DecimalView<'a, i128>) -> Self {
         Self {
             path,
             inner: ArrayBufferIterator::new(view.values, view.validity),
@@ -24,7 +24,7 @@ impl<'a> DecimalDeserializer<'a> {
     }
 }
 
-impl<'de> Context for DecimalDeserializer<'de> {
+impl Context for DecimalDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Decimal128(..)");

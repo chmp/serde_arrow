@@ -1,7 +1,7 @@
+use marrow::view::BitsWithOffset;
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    arrow::BitsWithOffset,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::{Mut, NamedType, Offset},
 };
@@ -55,7 +55,7 @@ impl<'a, O: Offset> ListDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: NamedType + Offset> Context for ListDeserializer<'a, O> {
+impl<O: NamedType + Offset> Context for ListDeserializer<'_, O> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "filed", &self.path);
         set_default(

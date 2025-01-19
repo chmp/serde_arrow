@@ -1,7 +1,7 @@
+use marrow::view::{BytesView, PrimitiveView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::{BytesArrayView, PrimitiveArrayView},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, Offset},
 };
@@ -19,11 +19,7 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
-    pub fn new(
-        path: String,
-        keys: PrimitiveArrayView<'a, K>,
-        values: BytesArrayView<'a, V>,
-    ) -> Result<Self> {
+    pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
         if values.validity.is_some() {
             // TODO: check whether all values are defined?
             fail!("Null for non-nullable type: dictionaries do not support nullable values");
@@ -53,7 +49,7 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     }
 }
 
-impl<'de, K: Integer, V: Offset> Context for DictionaryDeserializer<'de, K, V> {
+impl<K: Integer, V: Offset> Context for DictionaryDeserializer<'_, K, V> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Dictionary(..)");

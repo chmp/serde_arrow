@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, StructArray},
+    datatypes::FieldMeta,
+};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FieldMeta, StructArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
@@ -69,7 +72,7 @@ impl StructBuilder {
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
         for (builder, meta) in self.fields {
-            fields.push((builder.into_array()?, meta));
+            fields.push((meta, builder.into_array()?));
         }
 
         Ok(Array::Struct(StructArray {
@@ -318,11 +321,11 @@ impl<'a> KeyLookupSerializer<'a> {
     }
 }
 
-impl<'a> Context for KeyLookupSerializer<'a> {
+impl Context for KeyLookupSerializer<'_> {
     fn annotate(&self, _: &mut BTreeMap<String, String>) {}
 }
 
-impl<'a> SimpleSerializer for KeyLookupSerializer<'a> {
+impl SimpleSerializer for KeyLookupSerializer<'_> {
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.result = self.index.get(v).copied();
         Ok(())

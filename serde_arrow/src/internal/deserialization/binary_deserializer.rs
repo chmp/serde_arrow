@@ -1,7 +1,7 @@
+use marrow::view::BytesView;
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
-    arrow::BytesArrayView,
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::{Mut, NamedType, Offset},
 };
@@ -10,12 +10,12 @@ use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
 
 pub struct BinaryDeserializer<'a, O: Offset> {
     pub path: String,
-    pub view: BytesArrayView<'a, O>,
+    pub view: BytesView<'a, O>,
     pub next: (usize, usize),
 }
 
 impl<'a, O: Offset> BinaryDeserializer<'a, O> {
-    pub fn new(path: String, view: BytesArrayView<'a, O>) -> Self {
+    pub fn new(path: String, view: BytesView<'a, O>) -> Self {
         Self {
             path,
             view,
@@ -56,7 +56,7 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: Offset + NamedType> Context for BinaryDeserializer<'a, O> {
+impl<O: Offset + NamedType> Context for BinaryDeserializer<'_, O> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

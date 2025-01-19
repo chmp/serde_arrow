@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, FixedSizeListArray},
+    datatypes::FieldMeta,
+};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FieldMeta, FixedSizeListArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
@@ -21,7 +24,7 @@ pub struct FixedSizeListBuilder {
     pub meta: FieldMeta,
     pub n: usize,
     pub current_count: usize,
-    pub element: Box<ArrayBuilder>,
+    pub elements: Box<ArrayBuilder>,
 }
 
 impl FixedSizeListBuilder {
@@ -38,7 +41,7 @@ impl FixedSizeListBuilder {
             meta,
             n,
             current_count: 0,
-            element: Box::new(element),
+            elements: Box::new(element),
         }
     }
 
@@ -49,7 +52,7 @@ impl FixedSizeListBuilder {
             meta: self.meta.clone(),
             n: self.n,
             current_count: std::mem::take(&mut self.current_count),
-            element: Box::new(self.element.take()),
+            elements: Box::new(self.elements.take()),
         })
     }
 
@@ -63,7 +66,7 @@ impl FixedSizeListBuilder {
             validity: self.seq.validity,
             n: self.n.try_into()?,
             meta: self.meta,
-            element: Box::new((*self.element).into_array()?),
+            elements: Box::new((*self.elements).into_array()?),
         }))
     }
 }
@@ -77,7 +80,7 @@ impl FixedSizeListBuilder {
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.current_count += 1;
         self.seq.push_seq_elements(1)?;
-        value.serialize(Mut(self.element.as_mut()))
+        value.serialize(Mut(self.elements.as_mut()))
     }
 
     fn end(&mut self) -> Result<()> {
@@ -105,7 +108,7 @@ impl SimpleSerializer for FixedSizeListBuilder {
         try_(|| {
             self.seq.push_seq_default()?;
             for _ in 0..self.n {
-                self.element.serialize_default()?;
+                self.elements.serialize_default()?;
             }
             Ok(())
         })
@@ -116,7 +119,7 @@ impl SimpleSerializer for FixedSizeListBuilder {
         try_(|| {
             self.seq.push_seq_none()?;
             for _ in 0..self.n {
-                self.element.serialize_default()?;
+                self.elements.serialize_default()?;
             }
             Ok(())
         })

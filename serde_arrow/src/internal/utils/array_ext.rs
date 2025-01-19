@@ -1,7 +1,8 @@
 //! Extension of the array types
 
+use marrow::array::{BytesArray, PrimitiveArray};
+
 use crate::internal::{
-    arrow::{BytesArray, PrimitiveArray},
     error::{fail, Result},
     utils::Offset,
 };

@@ -1,12 +1,12 @@
 //! Test that the meta data is correctly preserved
 use std::collections::HashMap;
 
+use marrow::datatypes::Field;
 use serde_json::json;
 
 use crate::{
     _impl::{arrow, arrow2},
     internal::{
-        arrow::Field,
         schema::{transmute_field, SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
         testing::hash_map,
     },

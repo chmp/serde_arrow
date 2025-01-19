@@ -1,7 +1,7 @@
+use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::PrimitiveArrayView,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType},
 };
@@ -24,7 +24,7 @@ pub struct FloatDeserializer<'a, F: Float> {
 }
 
 impl<'a, F: Float> FloatDeserializer<'a, F> {
-    pub fn new(path: String, view: PrimitiveArrayView<'a, F>) -> Self {
+    pub fn new(path: String, view: PrimitiveView<'a, F>) -> Self {
         Self {
             path,
             array: ArrayBufferIterator::new(view.values, view.validity),
@@ -32,7 +32,7 @@ impl<'a, F: Float> FloatDeserializer<'a, F> {
     }
 }
 
-impl<'de, F: NamedType + Float> Context for FloatDeserializer<'de, F> {
+impl<F: NamedType + Float> Context for FloatDeserializer<'_, F> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

@@ -1,5 +1,6 @@
+use marrow::view::BytesView;
+
 use crate::internal::{
-    arrow::BytesArrayView,
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::{Mut, NamedType, Offset},
 };
@@ -10,12 +11,12 @@ use super::{
 
 pub struct StringDeserializer<'a, O: Offset> {
     pub path: String,
-    pub view: BytesArrayView<'a, O>,
+    pub view: BytesView<'a, O>,
     pub next: usize,
 }
 
 impl<'a, O: Offset> StringDeserializer<'a, O> {
-    pub fn new(path: String, view: BytesArrayView<'a, O>) -> Self {
+    pub fn new(path: String, view: BytesView<'a, O>) -> Self {
         Self {
             path,
             view,
@@ -68,7 +69,7 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 }
 
-impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
+impl<O: NamedType + Offset> Context for StringDeserializer<'_, O> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(

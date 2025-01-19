@@ -1,7 +1,7 @@
+use marrow::{datatypes::TimeUnit, view::PrimitiveView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    arrow::{PrimitiveArrayView, TimeUnit},
     chrono,
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
@@ -16,7 +16,7 @@ pub struct DurationDeserializer<'a> {
 }
 
 impl<'a> DurationDeserializer<'a> {
-    pub fn new(path: String, unit: TimeUnit, view: PrimitiveArrayView<'a, i64>) -> Self {
+    pub fn new(path: String, unit: TimeUnit, view: PrimitiveView<'a, i64>) -> Self {
         Self {
             path,
             unit,
@@ -30,7 +30,7 @@ impl<'a> DurationDeserializer<'a> {
     }
 }
 
-impl<'de> Context for DurationDeserializer<'de> {
+impl Context for DurationDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Duration(..)");
