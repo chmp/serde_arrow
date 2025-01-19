@@ -167,6 +167,16 @@ mod date_time {
     }
 
     #[test]
+    fn as_timestamp_millisecond_with_strategy() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)", "strategy": "DateTimeAsStr"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
     fn as_timestamp_microsecond() {
         let items = items();
         Test::new()
@@ -184,18 +194,6 @@ mod date_time {
             .collect::<Vec<_>>();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Nanosecond, None)"}]))
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "NaiveStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -270,6 +268,18 @@ mod timestamp {
     }
 
     #[test]
+    fn as_timestamp_millisecond_with_strategy() {
+        let items = items();
+        Test::new()
+            .with_schema(
+                json!([{"name": "item", "data_type": "Timestamp(Millisecond, Some(\"UTC\"))", "strategy": "DateTimeAsStr"}]),
+            )
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
     fn as_timestamp_microsecond() {
         let items = items();
         Test::new()
@@ -297,18 +307,6 @@ mod timestamp {
             .with_schema(
                 json!([{"name": "item", "data_type": "Timestamp(Nanosecond, Some(\"UTC\"))"}]),
             )
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "UtcStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }

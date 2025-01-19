@@ -181,8 +181,8 @@ mod json_date64_naive_null {
                 let expected = SerdeArrowSchema::from_value(&json!([
                     {
                         "name": "date",
-                        "data_type": "Date64",
-                        "strategy": "NaiveStrAsDate64",
+                        "data_type": "Timestamp(Millisecond, None)",
+                        "strategy": "DateTimeAsStr",
                         "nullable": true,
                     },
                 ]))?;
@@ -210,8 +210,8 @@ mod json_date64_utc_null {
                 let expected = SerdeArrowSchema::from_value(&json!([
                     {
                         "name": "date",
-                        "data_type": "Date64",
-                        "strategy": "UtcStrAsDate64",
+                        "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
+                        "strategy": "DateTimeAsStr",
                         "nullable": true,
                     },
                 ]))?;

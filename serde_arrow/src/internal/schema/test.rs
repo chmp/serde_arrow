@@ -75,7 +75,7 @@ fn date64_field_complex() -> PanicOnError<()> {
             data_type: DataType::Date64,
             metadata: hash_map!(
                 "foo" => "bar",
-                STRATEGY_KEY => "NaiveStrAsDate64",
+                STRATEGY_KEY => "DateTimeAsStr",
             ),
             nullable: true,
         }],
@@ -87,7 +87,7 @@ fn date64_field_complex() -> PanicOnError<()> {
             "metadata": {
                 "foo": "bar",
             },
-            "strategy": "NaiveStrAsDate64",
+            "strategy": "DateTimeAsStr",
             "nullable": true,
         }],
     });
@@ -335,7 +335,7 @@ fn test_metadata_strategy_from_explicit() {
         {
             "name": "example",
             "data_type": "Date64",
-            "strategy": "UtcStrAsDate64",
+            "strategy": "DateTimeAsStr",
             "metadata": {
                 "foo": "bar",
                 "hello": "world",
@@ -346,7 +346,7 @@ fn test_metadata_strategy_from_explicit() {
 
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64"),
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "DateTimeAsStr"),
     );
 
     let schema_value = serde_json::to_value(&schema).unwrap();
@@ -355,7 +355,7 @@ fn test_metadata_strategy_from_explicit() {
             {
                 "name": "example",
                 "data_type": "Date64",
-                "strategy": "UtcStrAsDate64",
+                "strategy": "DateTimeAsStr",
                 "metadata": {
                     "foo": "bar",
                     "hello": "world",
@@ -374,7 +374,7 @@ fn test_metadata_strategy_from_metadata() {
             "name": "example",
             "data_type": "Date64",
             "metadata": {
-                STRATEGY_KEY: "UtcStrAsDate64",
+                STRATEGY_KEY: "DateTimeAsStr",
                 "foo": "bar",
                 "hello": "world",
             },
@@ -384,7 +384,7 @@ fn test_metadata_strategy_from_metadata() {
 
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64")
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "DateTimeAsStr")
     );
 
     // NOTE: the strategy is always normalized to be an extra field
@@ -394,7 +394,7 @@ fn test_metadata_strategy_from_metadata() {
             {
                 "name": "example",
                 "data_type": "Date64",
-                "strategy": "UtcStrAsDate64",
+                "strategy": "DateTimeAsStr",
                 "metadata": {
                     "foo": "bar",
                     "hello": "world",
@@ -413,9 +413,9 @@ fn test_invalid_metadata() {
         {
             "name": "example",
             "data_type": "Date64",
-            "strategy": "UtcStrAsDate64",
+            "strategy": "DateTimeAsStr",
             "metadata": {
-                STRATEGY_KEY: "UtcStrAsDate64"
+                STRATEGY_KEY: "DateTimeAsStr"
             },
         },
     ]));
