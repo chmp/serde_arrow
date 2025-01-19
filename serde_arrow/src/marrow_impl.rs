@@ -116,21 +116,21 @@ where
 }
 
 impl ArrayBuilder {
-    /// TODO
+    /// Build an array builder from [`marrow::Field`s][Field]
     pub fn from_marrow(fields: &[Field]) -> Result<Self> {
         ArrayBuilder::new(SerdeArrowSchema {
             fields: fields.to_vec(),
         })
     }
 
-    /// TODO
+    /// Construct [`marrow::Array`s][Array] and reset the builder
     pub fn to_marrow(&mut self) -> Result<Vec<Array>> {
         self.build_arrays()
     }
 }
 
 impl<'de> Deserializer<'de> {
-    /// TODO
+    /// Build a deserializer from [`marrow::Field`s][Field] and [`marrow::View`s][View]
     pub fn from_marrow(fields: &[Field], views: &'de [View]) -> Result<Self> {
         Self::new(fields, views.to_vec())
     }
