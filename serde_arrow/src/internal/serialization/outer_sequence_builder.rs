@@ -143,12 +143,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::Float32 => A::F32(FloatBuilder::new(path, field.nullable)),
         T::Float64 => A::F64(FloatBuilder::new(path, field.nullable)),
         T::Date32 => A::Date32(Date32Builder::new(path, field.nullable)),
-        T::Date64 => A::Date64(Date64Builder::new(
-            path,
-            None,
-            is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
-            field.nullable,
-        )),
+        T::Date64 => A::Date64(Date64Builder::new(path, None, false, field.nullable)),
         T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
             path,
             Some((*unit, tz.clone())),
@@ -275,13 +270,5 @@ fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
         None => Ok(false),
         Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
         Some(tz) => fail!("Timezone {tz} is not supported"),
-    }
-}
-
-fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
-    match strategy {
-        Some(Strategy::UtcStrAsDate64) | None => Ok(true),
-        Some(Strategy::NaiveStrAsDate64) => Ok(false),
-        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
     }
 }

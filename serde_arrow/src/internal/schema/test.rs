@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use crate::internal::{
     arrow::{DataType, Field, TimeUnit},
     error::PanicOnError,
-    schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    schema::{SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
     testing::{assert_error_contains, hash_map},
 };
 
@@ -326,36 +326,6 @@ fn doc_schema() {
     };
 
     assert_eq!(actual, expected);
-}
-
-#[test]
-fn date64_with_strategy() {
-    let schema = SerdeArrowSchema {
-        fields: vec![Field {
-            name: String::from("item"),
-            data_type: DataType::Date64,
-            nullable: false,
-            metadata: hash_map!( STRATEGY_KEY => Strategy::NaiveStrAsDate64 ),
-        }],
-    };
-
-    let actual = serde_json::to_string(&schema).unwrap();
-    assert_eq!(
-        actual,
-        r#"{"fields":[{"name":"item","data_type":"Date64","strategy":"NaiveStrAsDate64"}]}"#
-    );
-
-    let round_tripped: SerdeArrowSchema = serde_json::from_str(&actual).unwrap();
-    assert_eq!(round_tripped, schema);
-
-    let json = serde_json::json!([{
-        "name": "item",
-        "data_type": "Date64",
-        "strategy": "NaiveStrAsDate64",
-    }]);
-
-    let from_json = SerdeArrowSchema::from_value(&json).unwrap();
-    assert_eq!(from_json, schema);
 }
 
 #[test]

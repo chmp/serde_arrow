@@ -436,27 +436,16 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
 
 fn validate_date64_field(field: &Field) -> Result<()> {
     match get_strategy_from_metadata(&field.metadata)? {
-        None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => Ok(()),
+        None | Some(Strategy::DateTimeAsStr) => Ok(()),
         Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
     }
 }
 
 fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
     match get_strategy_from_metadata(&field.metadata)? {
-        None => {}
-        Some(strategy @ Strategy::UtcStrAsDate64) => {
-            if !matches!(tz, Some(tz) if tz.to_uppercase() == "UTC") {
-                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
-            }
-        }
-        Some(strategy @ Strategy::NaiveStrAsDate64) => {
-            if tz.is_some() {
-                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
-            }
-        }
+        None | Some(Strategy::DateTimeAsStr) => Ok(()),
         Some(strategy) => fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}"),
     }
-    Ok(())
 }
 
 fn validate_time32_field(field: &Field, unit: TimeUnit) -> Result<()> {

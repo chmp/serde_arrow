@@ -98,20 +98,19 @@ impl<'a> ArrayDeserializer<'a> {
                 view.values,
                 view.validity,
                 TimeUnit::Millisecond,
-                is_utc_date64(strategy)?,
+                false,
             ))),
             V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(path, view))),
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
             ArrayView::Timestamp(view) => match strategy {
-                Some(Strategy::NaiveStrAsDate64 | Strategy::UtcStrAsDate64) => {
-                    Ok(Self::Date64(Date64Deserializer::new(
-                        path,
-                        view.values,
-                        view.validity,
-                        view.unit,
-                        is_utc_timestamp(view.timezone.as_deref())?,
-                    )))
-                }
+                // TODO: fix this: move functionality into timestamp deserializer
+                Some(Strategy::DateTimeAsStr) => Ok(Self::Date64(Date64Deserializer::new(
+                    path,
+                    view.values,
+                    view.validity,
+                    view.unit,
+                    is_utc_timestamp(view.timezone.as_deref())?,
+                ))),
                 Some(strategy) => {
                     fail!("Invalid strategy: {strategy} is not supported for timestamp field")
                 }
@@ -312,16 +311,6 @@ fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
         Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
         Some(tz) => fail!("Unsupported timezone: {} is not supported", tz),
         None => Ok(false),
-    }
-}
-
-fn is_utc_date64(strategy: Option<&Strategy>) -> Result<bool> {
-    match strategy {
-        None | Some(Strategy::UtcStrAsDate64) => Ok(true),
-        Some(Strategy::NaiveStrAsDate64) => Ok(false),
-        Some(strategy) => {
-            fail!("Invalid strategy: {strategy} is not supported for date64 deserializer")
-        }
     }
 }
 
