@@ -12,7 +12,6 @@ use crate::{
 };
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[test]
@@ -43,247 +42,154 @@ fn temporal_formats() {
     );
 }
 
-#[test]
-fn utc_as_str() {
-    let items = [
-        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
-        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
-    ];
+// TODO: move into primitives
+mod i64 {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default())
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn naive_as_str() {
-    #[allow(deprecated)]
-    let items = [
-        Item(NaiveDateTime::from_timestamp_millis(1662921288000).unwrap()),
-        Item(NaiveDateTime::from_timestamp_millis(-2208936075000).unwrap()),
-    ];
-
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default())
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn utc_as_timestamp() {
-    let items = [
-        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
-        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn i32_as_date32() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i32,
+    fn items() -> Vec<Item<i64>> {
+        vec![Item(i64::MIN), Item(0), Item(100), Item(i64::MAX)]
     }
 
-    let items = [
-        T { item: i32::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i32::MAX },
-    ];
+    #[test]
+    fn as_date64() {
+        let items = items();
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Date32",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
-}
-
-// TODO: add Date64 test
-#[test]
-fn date32_chrono() {
-    let items = [
-        Item(NaiveDate::from_ymd_opt(2024, 3, 17).unwrap()),
-        Item(NaiveDate::from_ymd_opt(1700, 12, 24).unwrap()),
-        Item(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Date32",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
-}
-
-#[test]
-fn time_i64() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i64,
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Date64",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
     }
 
-    let items = [
-        T { item: i64::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i64::MAX },
-    ];
-    let nulls: &[&[bool]] = &[&[false, false, false, false]];
+    #[test]
+    fn as_time64_nanosecond() {
+        let items = items();
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Date64",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Nanosecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Microsecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Duration(Second)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Duration(Millisecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Duration(Microsecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Duration(Nanosecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(nulls);
-}
-
-#[test]
-fn time_i32() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct T {
-        item: i32,
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Time64(Nanosecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
     }
 
-    let items = [
-        T { item: i32::MIN },
-        T { item: 0 },
-        T { item: 100 },
-        T { item: i32::MAX },
-    ];
+    #[test]
+    fn as_time64_microsecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Time64(Microsecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time32(Second)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
+    #[test]
+    fn as_duration_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Duration(Second)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time32(Millisecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false, false]]);
+    #[test]
+    fn as_duration_millisecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Duration(Millisecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
+
+    #[test]
+    fn as_duration_microsecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Duration(Microsecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
+
+    #[test]
+    fn as_duration_nanosecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Duration(Nanosecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 }
 
-#[test]
-fn time_chrono() {
-    let items = [
-        Item(NaiveTime::from_hms_opt(12, 0, 0).unwrap()),
-        Item(NaiveTime::from_hms_opt(23, 31, 12).unwrap()),
-        Item(NaiveTime::from_hms_opt(3, 2, 58).unwrap()),
-    ];
+// TODO: move into primitives
+mod i32 {
+    use super::*;
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time32(Second)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
+    fn items() -> Vec<Item<i32>> {
+        vec![Item(i32::MIN), Item(0), Item(100), Item(i32::MAX)]
+    }
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time32(Millisecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
+    #[test]
+    fn as_date32() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Date32",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Microsecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
+    #[test]
+    fn as_time32_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Time32(Second)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Time64(Nanosecond)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
+    #[test]
+    fn as_time32_millisecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Time32(Millisecond)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false, false]]);
+    }
 }
 
 #[test]
@@ -320,100 +226,6 @@ fn time64_type_invalid_units() {
         }])),
         "Error: Time32 field must have Second or Millisecond unit",
     );
-}
-
-#[test]
-fn utc_str_as_date64_as_timestamp() {
-    let items = [
-        Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
-        Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Second, Some(\"UTC\"))",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Microsecond, Some(\"UTC\"))",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Nanosecond, Some(\"UTC\"))",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn naive_as_timestamp() {
-    // The 001 in the end makes sure that we handle fractional seconds correctly
-    // in both positive and negative timestamps.
-    let items = [
-        Item(
-            DateTime::from_timestamp_millis(1662921288001)
-                .unwrap()
-                .naive_utc(),
-        ),
-        Item(
-            DateTime::from_timestamp_millis(-2208936075001)
-                .unwrap()
-                .naive_utc(),
-        ),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type":
-            "Timestamp(Millisecond, None)",
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type":
-            "Timestamp(Microsecond, None)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type":
-            "Timestamp(Nanosecond, None)",
-        }]))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
 }
 
 #[test]
@@ -540,7 +352,7 @@ fn incompatible_date_formats_tracing() {
 }
 
 #[test]
-fn duration_example_as_string_details() {
+fn time_example_as_string_details() {
     let items = [
         Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
         Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
@@ -561,20 +373,206 @@ fn duration_example_as_string_details() {
     assert_eq!(array.get_utf8(2).unwrap(), Some("23:59:59.999"));
 }
 
-mod naive_time {
+mod datetime_utc {
     use super::*;
 
-    fn items() -> Vec<Item<NaiveTime>> {
+    fn items() -> Vec<Item<DateTime<Utc>>> {
         vec![
-            Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
-            Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
-            Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+            Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
+            Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
+        ]
+    }
+
+    #[test]
+    fn as_timestamp_second() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Second, Some(\"UTC\"))",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_millisecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_microsecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Microsecond, Some(\"UTC\"))",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_nanosecond() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Nanosecond, Some(\"UTC\"))",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+}
+
+mod naive_date_time {
+    use super::*;
+
+    fn items(supports_milliseconds: bool) -> Vec<Item<NaiveDateTime>> {
+        // The 001 in the end makes sure that we handle fractional seconds correctly
+        // in both positive and negative timestamps.
+        vec![
+            Item(
+                DateTime::from_timestamp_millis(
+                    1662921288000 + if supports_milliseconds { 1 } else { 0 },
+                )
+                .unwrap()
+                .naive_utc(),
+            ),
+            Item(
+                DateTime::from_timestamp_millis(
+                    -2208936075000 - if supports_milliseconds { 1 } else { 0 },
+                )
+                .unwrap()
+                .naive_utc(),
+            ),
         ]
     }
 
     #[test]
     fn as_large_utf8() {
-        let items = &items();
+        let items = items(false);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "LargeUtf8",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_utf8() {
+        let items = items(false);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Utf8",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_second() {
+        let items = items(false);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type":
+                "Timestamp(Second, None)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_millisecond() {
+        let items = items(true);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type":
+                "Timestamp(Millisecond, None)",
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_microsecond() {
+        let items = items(true);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type":
+                "Timestamp(Microsecond, None)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn as_timestamp_nanosecond() {
+        let items = items(true);
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type":
+                "Timestamp(Nanosecond, None)",
+            }]))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+}
+
+mod naive_time {
+    use super::*;
+
+    fn items(supports_milliseconds: bool) -> Vec<Item<NaiveTime>> {
+        vec![
+            Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+            Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+            Item(
+                NaiveTime::from_hms_milli_opt(
+                    23,
+                    59,
+                    59,
+                    if supports_milliseconds { 999 } else { 0 },
+                )
+                .unwrap(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn as_large_utf8() {
+        let items = items(true);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
             .trace_schema_from_samples(&items, TracingOptions::default())
@@ -584,7 +582,7 @@ mod naive_time {
 
     #[test]
     fn as_utf8() {
-        let items = items();
+        let items = items(true);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
             .serialize(&items)
@@ -592,8 +590,35 @@ mod naive_time {
     }
 
     #[test]
-    fn as_time64() {
-        let items = items();
+    fn as_time32_second() {
+        let items = items(false);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time32(Second)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time32_millisecond() {
+        let items = items(true);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time32(Millisecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time64_microsecond() {
+        let items = items(true);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Time64(Microsecond)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    #[test]
+    fn as_time64_nanosecond() {
+        let items = items(true);
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Time64(Nanosecond)"}]))
             .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
