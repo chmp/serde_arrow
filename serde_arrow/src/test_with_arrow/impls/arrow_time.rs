@@ -10,39 +10,6 @@ use crate::{utils::Item, ArrayBuilder, Deserializer, Serializer};
 mod time_string_conversion {
     use super::*;
 
-    trait TimePrimitive:
-        Sized + TryFrom<i64, Error: std::fmt::Debug> + std::fmt::Debug + std::cmp::PartialEq + Clone
-    {
-        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType;
-        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array;
-
-        fn unwrap(array: Array) -> TimeArray<Self>;
-    }
-
-    impl TimePrimitive for i32 {
-        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType = DataType::Time32;
-        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array = Array::Time32;
-
-        fn unwrap(array: Array) -> TimeArray<Self> {
-            let Array::Time32(array) = array else {
-                panic!();
-            };
-            array
-        }
-    }
-
-    impl TimePrimitive for i64 {
-        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType = DataType::Time64;
-        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array = Array::Time64;
-
-        fn unwrap(array: Array) -> TimeArray<Self> {
-            let Array::Time64(array) = array else {
-                panic!();
-            };
-            array
-        }
-    }
-
     #[test]
     fn second() {
         assert_times_string_conversion::<i32>(
@@ -86,6 +53,39 @@ mod time_string_conversion {
             "%H:%M:%S%.f",
             TimeUnit::Millisecond,
         );
+    }
+
+    trait TimePrimitive:
+        Sized + TryFrom<i64, Error: std::fmt::Debug> + std::fmt::Debug + std::cmp::PartialEq + Clone
+    {
+        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType;
+        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array;
+
+        fn unwrap(array: Array) -> TimeArray<Self>;
+    }
+
+    impl TimePrimitive for i32 {
+        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType = DataType::Time32;
+        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array = Array::Time32;
+
+        fn unwrap(array: Array) -> TimeArray<Self> {
+            let Array::Time32(array) = array else {
+                panic!();
+            };
+            array
+        }
+    }
+
+    impl TimePrimitive for i64 {
+        const DATA_TYPE_VARIANT: fn(TimeUnit) -> DataType = DataType::Time64;
+        const ARRAY_VARIANT: fn(TimeArray<Self>) -> Array = Array::Time64;
+
+        fn unwrap(array: Array) -> TimeArray<Self> {
+            let Array::Time64(array) = array else {
+                panic!();
+            };
+            array
+        }
     }
 
     fn assert_times_string_conversion<T: TimePrimitive>(

@@ -1,6 +1,7 @@
 //! Tests for serialization
 mod utils;
 
+mod arrow_date;
 mod arrow_time;
 mod arrow_timestamp;
 
