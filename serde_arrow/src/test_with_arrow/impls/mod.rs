@@ -1,7 +1,7 @@
 //! Tests for serialization
 mod utils;
 
-mod arrow_time64;
+mod arrow_time;
 mod arrow_timestamp;
 
 mod serde_i32;

@@ -14,6 +14,7 @@ mod timestamp_string_conversion {
     fn second() {
         assert_timestamp_string_conversion(
             &["2025-01-20T19:30:42", "1970-01-01T00:00:00"],
+            "%Y-%m-%dT%H:%M:%S",
             TimeUnit::Second,
         );
     }
@@ -22,6 +23,16 @@ mod timestamp_string_conversion {
     fn millisecond() {
         assert_timestamp_string_conversion(
             &["2025-01-20T19:30:42", "1970-01-01T00:00:00"],
+            "%Y-%m-%dT%H:%M:%S",
+            TimeUnit::Millisecond,
+        );
+    }
+
+    #[test]
+    fn millisecond_fractional() {
+        assert_timestamp_string_conversion(
+            &["2025-01-20T19:30:42", "1970-01-01T00:00:00.123"],
+            "%Y-%m-%dT%H:%M:%S%.f",
             TimeUnit::Millisecond,
         );
     }
@@ -30,6 +41,16 @@ mod timestamp_string_conversion {
     fn microsecond() {
         assert_timestamp_string_conversion(
             &["2025-01-20T19:30:42", "1970-01-01T00:00:00"],
+            "%Y-%m-%dT%H:%M:%S",
+            TimeUnit::Microsecond,
+        );
+    }
+
+    #[test]
+    fn microsecond_fractional() {
+        assert_timestamp_string_conversion(
+            &["2025-01-20T19:30:42.123456", "1970-01-01T00:00:00.123"],
+            "%Y-%m-%dT%H:%M:%S%.f",
             TimeUnit::Microsecond,
         );
     }
@@ -38,14 +59,27 @@ mod timestamp_string_conversion {
     fn nanosecond() {
         assert_timestamp_string_conversion(
             &["2025-01-20T19:30:42", "1970-01-01T00:00:00"],
+            "%Y-%m-%dT%H:%M:%S",
             TimeUnit::Nanosecond,
         );
     }
 
-    fn assert_timestamp_string_conversion(strings: &[&str], unit: TimeUnit) {
+    #[test]
+    fn nanosecond_fractional() {
+        assert_timestamp_string_conversion(
+            &[
+                "2025-01-20T19:30:42.123456",
+                "1970-01-01T00:00:00.123456789",
+            ],
+            "%Y-%m-%dT%H:%M:%S%.f",
+            TimeUnit::Nanosecond,
+        );
+    }
+
+    fn assert_timestamp_string_conversion(strings: &[&str], format: &str, unit: TimeUnit) {
         let timestamps = strings
             .iter()
-            .map(|s| timestamp(*s, unit))
+            .map(|s| timestamp(*s, format, unit))
             .collect::<Vec<_>>();
         let items = strings
             .iter()
@@ -92,9 +126,8 @@ mod timestamp_string_conversion {
         }
     }
 
-    fn timestamp(s: &str, unit: TimeUnit) -> i64 {
-        const FORMAT: &'static str = "%Y-%m-%dT%H:%M:%S";
-        let dt = NaiveDateTime::parse_from_str(s, FORMAT).unwrap().and_utc();
+    fn timestamp(s: &str, format: &str, unit: TimeUnit) -> i64 {
+        let dt = NaiveDateTime::parse_from_str(s, format).unwrap().and_utc();
 
         match unit {
             TimeUnit::Second => dt.timestamp(),
