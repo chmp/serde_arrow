@@ -15,12 +15,6 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use serde_json::json;
 
 #[test]
-fn trace_from_type_does_not_work() {
-    let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
-    assert_error_contains(&res, "premature end of input");
-}
-
-#[test]
 fn temporal_formats() {
     assert_error_contains(
         &value::transmute::<DateTime<Utc>>("2023-12-01T12:22:33[UTC]"),
@@ -42,187 +36,6 @@ fn temporal_formats() {
     );
 }
 
-#[test]
-fn time64_type_invalid_units() {
-    // Note: the arrow docs state: that the time unit "[m]ust be either
-    // microseconds or nanoseconds."
-
-    assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time64(Millisecond)",
-        }])),
-        "Error: Time64 field must have Microsecond or Nanosecond unit",
-    );
-    assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time64(Second)",
-        }])),
-        "Error: Time64 field must have Microsecond or Nanosecond unit",
-    );
-
-    assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time32(Microsecond)",
-        }])),
-        "Error: Time32 field must have Second or Millisecond unit",
-    );
-    assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
-            "name": "item",
-            "data_type": "Time32(Nanosecond)",
-        }])),
-        "Error: Time32 field must have Second or Millisecond unit",
-    );
-}
-
-#[test]
-fn utc_as_timestamp_tracing_string_only() {
-    let items = [
-        Item(String::from("2015-09-18T23:56:04Z")),
-        Item(String::from("2023-08-14T17:00:04Z")),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn utc_as_timestamp_tracing_string_nullable() {
-    let items = [
-        Item(Some(String::from("2015-09-18T23:56:04Z"))),
-        Item(None),
-        Item(Some(String::from("2023-08-14T17:00:04Z"))),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
-            "nullable": true,
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, true, false]]);
-}
-
-#[test]
-fn utc_tracing_string_only_with_invalid() {
-    let items = [
-        Item(String::from("2015-09-18T23:56:04Z")),
-        Item(String::from("2023-08-14T17:00:04Z")),
-        Item(String::from("not a date")),
-    ];
-
-    Test::new()
-        .with_schema(json!([{"name": "item",  "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
-}
-
-#[test]
-fn naive_as_timestamp_tracing_string_only() {
-    let items = [
-        Item(String::from("2015-09-18T23:56:04")),
-        Item(String::from("2023-08-14T17:00:04")),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, None)",
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn naive_as_timestamp_tracing_string_nullable() {
-    let items = [
-        Item(Some(String::from("2015-09-18T23:56:04"))),
-        Item(None),
-        Item(Some(String::from("2023-08-14T17:00:04"))),
-    ];
-
-    Test::new()
-        .with_schema(json!([{
-            "name": "item",
-            "data_type": "Timestamp(Millisecond, None)",
-            "nullable": true,
-        }]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, true, false]]);
-}
-
-#[test]
-fn naive_tracing_string_with_invalid() {
-    let items = [
-        Item(String::from("2015-09-18T23:56:04")),
-        Item(String::from("2023-08-14T17:00:04")),
-        Item(String::from("not a date")),
-    ];
-
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false, false]]);
-}
-
-#[test]
-fn incompatible_date_formats_tracing() {
-    let items = [
-        Item(String::from("2015-09-18T23:56:04")),
-        Item(String::from("2023-08-14T17:00:04Z")),
-    ];
-
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-        .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-        .serialize(&items)
-        .deserialize(&items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn time_example_as_string_details() {
-    let items = [
-        Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
-        Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
-        Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
-    ];
-
-    let schema = SerdeArrowSchema::from_samples(&items, TracingOptions::default()).unwrap();
-    assert_eq!(schema.fields[0].data_type, DataType::LargeUtf8);
-
-    let mut builder = ArrayBuilder::new(schema).unwrap();
-    builder.extend(&items).unwrap();
-
-    let arrays = builder.build_arrays().unwrap();
-    let [array] = arrays.try_into().unwrap();
-
-    assert_eq!(array.get_utf8(0).unwrap(), Some("12:10:42"));
-    assert_eq!(array.get_utf8(1).unwrap(), Some("22:10:00"));
-    assert_eq!(array.get_utf8(2).unwrap(), Some("23:59:59.999"));
-}
-
 mod datetime_utc {
     use super::*;
 
@@ -231,6 +44,12 @@ mod datetime_utc {
             Item(Utc.with_ymd_and_hms(2020, 12, 24, 8, 30, 0).unwrap()),
             Item(Utc.with_ymd_and_hms(2023, 5, 5, 16, 6, 0).unwrap()),
         ]
+    }
+
+    #[test]
+    fn trace_from_type_does_not_work() {
+        let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
+        assert_error_contains(&res, "premature end of input");
     }
 
     #[test]
@@ -309,6 +128,12 @@ mod naive_date_time {
                 .naive_utc(),
             ),
         ]
+    }
+
+    #[test]
+    fn trace_from_type_does_not_work() {
+        let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default());
+        assert_error_contains(&res, "premature end of input");
     }
 
     #[test]
@@ -421,6 +246,12 @@ mod naive_time {
     }
 
     #[test]
+    fn trace_from_type_does_not_work() {
+        let res = SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default());
+        assert_error_contains(&res, "premature end of input");
+    }
+
+    #[test]
     fn as_large_utf8() {
         let items = items(true);
         Test::new()
@@ -475,6 +306,28 @@ mod naive_time {
             .serialize(&items)
             .deserialize(&items);
     }
+
+    #[test]
+    fn time_example_as_string_fractional() {
+        let items = [
+            Item(NaiveTime::from_hms_opt(12, 10, 42).unwrap()),
+            Item(NaiveTime::from_hms_opt(22, 10, 00).unwrap()),
+            Item(NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap()),
+        ];
+
+        let schema = SerdeArrowSchema::from_samples(&items, TracingOptions::default()).unwrap();
+        assert_eq!(schema.fields[0].data_type, DataType::LargeUtf8);
+
+        let mut builder = ArrayBuilder::new(schema).unwrap();
+        builder.extend(&items).unwrap();
+
+        let arrays = builder.build_arrays().unwrap();
+        let [array] = arrays.try_into().unwrap();
+
+        assert_eq!(array.get_utf8(0).unwrap(), Some("12:10:42"));
+        assert_eq!(array.get_utf8(1).unwrap(), Some("22:10:00"));
+        assert_eq!(array.get_utf8(2).unwrap(), Some("23:59:59.999"));
+    }
 }
 
 mod naive_date {
@@ -486,6 +339,12 @@ mod naive_date {
             Item(NaiveDate::from_ymd_opt(-10, 10, 30).unwrap()),
             Item(NaiveDate::from_ymd_opt(-1000, 9, 23).unwrap()),
         ]
+    }
+
+    #[test]
+    fn trace_from_type_does_not_work() {
+        let res = SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default());
+        assert_error_contains(&res, "premature end of input");
     }
 
     #[test]

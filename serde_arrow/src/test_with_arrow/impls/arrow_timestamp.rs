@@ -4,8 +4,13 @@ use marrow::{
     datatypes::{DataType, Field, TimeUnit},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::{utils::Item, ArrayBuilder, Deserializer, Serializer};
+use super::utils::Test;
+use crate::internal::{
+    array_builder::ArrayBuilder, deserializer::Deserializer, schema::TracingOptions,
+    serializer::Serializer, utils::Item,
+};
 
 mod timestamp_string_conversion {
     use super::*;
@@ -135,5 +140,132 @@ mod timestamp_string_conversion {
             TimeUnit::Microsecond => dt.timestamp_micros(),
             TimeUnit::Nanosecond => dt.timestamp_nanos_opt().unwrap(),
         }
+    }
+}
+
+mod schema_tracing {
+    use super::*;
+
+    #[test]
+    fn utc_as_timestamp_tracing_string_only() {
+        let items = [
+            Item(String::from("2015-09-18T23:56:04Z")),
+            Item(String::from("2023-08-14T17:00:04Z")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn utc_as_timestamp_tracing_string_nullable() {
+        let items = [
+            Item(Some(String::from("2015-09-18T23:56:04Z"))),
+            Item(None),
+            Item(Some(String::from("2023-08-14T17:00:04Z"))),
+        ];
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
+                "nullable": true,
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, true, false]]);
+    }
+
+    #[test]
+    fn utc_tracing_string_only_with_invalid() {
+        let items = [
+            Item(String::from("2015-09-18T23:56:04Z")),
+            Item(String::from("2023-08-14T17:00:04Z")),
+            Item(String::from("not a date")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{"name": "item",  "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false]]);
+    }
+
+    #[test]
+    fn naive_as_timestamp_tracing_string_only() {
+        let items = [
+            Item(String::from("2015-09-18T23:56:04")),
+            Item(String::from("2023-08-14T17:00:04")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, None)",
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
+    }
+
+    #[test]
+    fn naive_as_timestamp_tracing_string_nullable() {
+        let items = [
+            Item(Some(String::from("2015-09-18T23:56:04"))),
+            Item(None),
+            Item(Some(String::from("2023-08-14T17:00:04"))),
+        ];
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, None)",
+                "nullable": true,
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, true, false]]);
+    }
+
+    #[test]
+    fn naive_tracing_string_with_invalid() {
+        let items = [
+            Item(String::from("2015-09-18T23:56:04")),
+            Item(String::from("2023-08-14T17:00:04")),
+            Item(String::from("not a date")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false, false]]);
+    }
+
+    #[test]
+    fn incompatible_date_formats_tracing() {
+        let items = [
+            Item(String::from("2015-09-18T23:56:04")),
+            Item(String::from("2023-08-14T17:00:04Z")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&items)
+            .check_nulls(&[&[false, false]]);
     }
 }
