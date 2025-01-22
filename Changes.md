@@ -12,6 +12,7 @@
     `Some("UTC")`
   - Remove the `UtcAsDate64Str` and `NaiveAsDate64Str` strategies
 - Fix bug in deserialization of sub seconds for `Time32` and `Time64`
+- Fix bug that prevented to deserialize `String` from `Decimal` arrays
 
 ## 0.12.3
 
