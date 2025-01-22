@@ -116,6 +116,15 @@ mod date {
             .serialize(&items)
             .deserialize(&items);
     }
+
+    #[test]
+    fn as_date64() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date64"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
 
 mod date_time {
@@ -162,6 +171,7 @@ mod date_time {
         let items = items();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -184,18 +194,6 @@ mod date_time {
             .collect::<Vec<_>>();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Nanosecond, None)"}]))
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "NaiveStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -265,6 +263,7 @@ mod timestamp {
             .with_schema(
                 json!([{"name": "item", "data_type": "Timestamp(Millisecond, Some(\"UTC\"))"}]),
             )
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -297,18 +296,6 @@ mod timestamp {
             .with_schema(
                 json!([{"name": "item", "data_type": "Timestamp(Nanosecond, Some(\"UTC\"))"}]),
             )
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "UtcStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }

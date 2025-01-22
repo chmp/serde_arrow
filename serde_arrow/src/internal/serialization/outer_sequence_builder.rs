@@ -15,11 +15,11 @@ use crate::internal::{
 };
 
 use super::{
-    bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
-    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
-    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
-    map_builder::MapBuilder, null_builder::NullBuilder, simple_serializer::SimpleSerializer,
-    struct_builder::StructBuilder, time_builder::TimeBuilder, union_builder::UnionBuilder,
+    bool_builder::BoolBuilder, date_builder::DateBuilder, decimal_builder::DecimalBuilder,
+    dictionary_utf8_builder::DictionaryUtf8Builder, float_builder::FloatBuilder,
+    int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
+    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
+    time_builder::TimeBuilder, timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder, ArrayBuilder,
 };
 
@@ -142,19 +142,14 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::Float16 => A::F16(FloatBuilder::new(path, field.nullable)),
         T::Float32 => A::F32(FloatBuilder::new(path, field.nullable)),
         T::Float64 => A::F64(FloatBuilder::new(path, field.nullable)),
-        T::Date32 => A::Date32(Date32Builder::new(path, field.nullable)),
-        T::Date64 => A::Date64(Date64Builder::new(
+        T::Date32 => A::Date32(DateBuilder::new(path, field.nullable)),
+        T::Date64 => A::Date64(DateBuilder::new(path, field.nullable)),
+        T::Timestamp(unit, tz) => A::Timestamp(TimestampBuilder::new(
             path,
-            None,
-            is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
+            *unit,
+            tz.clone(),
             field.nullable,
-        )),
-        T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
-            path,
-            Some((*unit, tz.clone())),
-            is_utc_tz(tz.as_deref()).ctx(&ctx)?,
-            field.nullable,
-        )),
+        )?),
         T::Time32(unit) => {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                 fail!(in ctx, "Time32 only supports second or millisecond resolutions");
@@ -293,20 +288,4 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         dt => fail!("Unsupported data type {dt:?}"),
     };
     Ok(builder)
-}
-
-fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
-    match tz {
-        None => Ok(false),
-        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
-        Some(tz) => fail!("Timezone {tz} is not supported"),
-    }
-}
-
-fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
-    match strategy {
-        Some(Strategy::UtcStrAsDate64) | None => Ok(true),
-        Some(Strategy::NaiveStrAsDate64) => Ok(false),
-        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-    }
 }

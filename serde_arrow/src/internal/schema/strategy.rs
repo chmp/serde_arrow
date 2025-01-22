@@ -27,19 +27,6 @@ pub enum Strategy {
     /// Marker that the type of the field could not be determined during tracing
     ///
     InconsistentTypes,
-    /// Serialize Rust strings containing UTC datetimes with timezone as Arrows
-    /// Date64
-    ///
-    /// This strategy makes sense for chrono's `DateTime<Utc>` types without
-    /// additional configuration. As they are serialized as strings.
-    UtcStrAsDate64,
-    /// Serialize Rust strings containing datetimes without timezone as Arrow
-    /// Date64
-    ///
-    /// This strategy makes sense for chrono's `NaiveDateTime` types without
-    /// additional configuration. As they are serialized as strings.
-    ///
-    NaiveStrAsDate64,
     /// Serialize Rust tuples as Arrow structs with numeric field names starting
     /// at `"0"`
     ///
@@ -75,8 +62,6 @@ impl std::fmt::Display for Strategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InconsistentTypes => write!(f, "InconsistentTypes"),
-            Self::UtcStrAsDate64 => write!(f, "UtcStrAsDate64"),
-            Self::NaiveStrAsDate64 => write!(f, "NaiveStrAsDate64"),
             Self::TupleAsStruct => write!(f, "TupleAsStruct"),
             Self::MapAsStruct => write!(f, "MapAsStruct"),
             Self::UnknownVariant => write!(f, "UnknownVariant"),
@@ -104,8 +89,6 @@ impl FromStr for Strategy {
     fn from_str(s: &str) -> Result<Self> {
         match s {
             "InconsistentTypes" => Ok(Self::InconsistentTypes),
-            "UtcStrAsDate64" => Ok(Self::UtcStrAsDate64),
-            "NaiveStrAsDate64" => Ok(Self::NaiveStrAsDate64),
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
             "MapAsStruct" => Ok(Self::MapAsStruct),
             "UnknownVariant" => Ok(Self::UnknownVariant),

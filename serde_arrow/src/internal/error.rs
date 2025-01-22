@@ -21,6 +21,12 @@ pub fn try_<T>(func: impl FnOnce() -> Result<T>) -> Result<T> {
     func()
 }
 
+/// Execute a faillible function and return the result
+///
+pub fn try_opt<T>(func: impl FnOnce() -> Option<T>) -> Option<T> {
+    func()
+}
+
 /// An object that offers additional context to an error
 pub trait Context {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>);

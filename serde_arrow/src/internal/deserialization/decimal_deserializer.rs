@@ -22,6 +22,14 @@ impl<'a> DecimalDeserializer<'a> {
             scale: view.scale,
         }
     }
+
+    fn with_next_value<F: FnOnce(&str) -> Result<R>, R>(&mut self, func: F) -> Result<R> {
+        let val = self.inner.next_required()?;
+        let mut buffer = [0; decimal::BUFFER_SIZE_I128];
+        let formatted = decimal::format_decimal(&mut buffer, val, self.scale);
+
+        func(&formatted)
+    }
 }
 
 impl Context for DecimalDeserializer<'_> {
@@ -57,13 +65,12 @@ impl<'de> SimpleDeserializer<'de> for DecimalDeserializer<'de> {
     }
 
     fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let val = self.inner.next_required()?;
-            let mut buffer = [0; decimal::BUFFER_SIZE_I128];
-            let formatted = decimal::format_decimal(&mut buffer, val, self.scale);
+        self.with_next_value(|value| visitor.visit_str(value))
+            .ctx(self)
+    }
 
-            visitor.visit_str(formatted)
-        })
-        .ctx(self)
+    fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        self.with_next_value(|value| visitor.visit_string(value.to_string()))
+            .ctx(self)
     }
 }

@@ -3,29 +3,50 @@ use marrow::view::BitsWithOffset;
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     utils::Mut,
 };
 
 use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
 
-pub struct Date32Deserializer<'a> {
-    path: String,
-    array: ArrayBufferIterator<'a, i32>,
+pub trait DatePrimitive:
+    TryInto<i32> + TryInto<i64> + Copy + std::fmt::Display + std::ops::Div<Self, Output = Self>
+{
+    const DATA_TYPE_NAME: &'static str;
+    const DAY_TO_VALUE_FACTOR: Self;
 }
 
-impl<'a> Date32Deserializer<'a> {
-    pub fn new(path: String, buffer: &'a [i32], validity: Option<BitsWithOffset<'a>>) -> Self {
+impl DatePrimitive for i32 {
+    const DATA_TYPE_NAME: &'static str = "Date32";
+    const DAY_TO_VALUE_FACTOR: Self = 1;
+}
+
+impl DatePrimitive for i64 {
+    const DATA_TYPE_NAME: &'static str = "Date64";
+    const DAY_TO_VALUE_FACTOR: Self = 86_400_000;
+}
+
+pub struct DateDeserializer<'a, I: DatePrimitive> {
+    path: String,
+    array: ArrayBufferIterator<'a, I>,
+}
+
+impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
+    pub fn new(path: String, buffer: &'a [I], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self {
             path,
             array: ArrayBufferIterator::new(buffer, validity),
         }
     }
 
-    pub fn get_string_repr(&self, ts: i32) -> Result<String> {
+    pub fn get_string_repr(&self, ts: I) -> Result<String> {
+        let ts = (ts / I::DAY_TO_VALUE_FACTOR)
+            .try_into()
+            .map_err(|_| Error::custom(format!("Cannot convert {ts} to i64")))?;
+
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
         #[allow(deprecated)]
-        let delta = Duration::days(ts as i64);
+        let delta = Duration::days(ts);
         let date = UNIX_EPOCH + delta;
 
         // special handling of negative dates:
@@ -47,14 +68,14 @@ impl<'a> Date32Deserializer<'a> {
     }
 }
 
-impl Context for Date32Deserializer<'_> {
+impl<I: DatePrimitive> Context for DateDeserializer<'_, I> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "Date32");
+        set_default(annotations, "data_type", I::DATA_TYPE_NAME);
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
+impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I> {
     fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
             if self.array.peek_next()? {
@@ -80,7 +101,25 @@ impl<'de> SimpleDeserializer<'de> for Date32Deserializer<'de> {
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_i32(self.array.next_required()?)).ctx(self)
+        try_(|| {
+            let val = self.array.next_required()?;
+            let Ok(val) = val.try_into() else {
+                fail!("Cannot convert {val} to i32");
+            };
+            visitor.visit_i32(val)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+        try_(|| {
+            let val = self.array.next_required()?;
+            let Ok(val) = val.try_into() else {
+                fail!("Cannot convert {val} to i64");
+            };
+            visitor.visit_i64(val)
+        })
+        .ctx(self)
     }
 
     fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {

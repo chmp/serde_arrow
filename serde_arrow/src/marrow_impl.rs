@@ -131,7 +131,7 @@ impl ArrayBuilder {
 
 impl<'de> Deserializer<'de> {
     /// Build a deserializer from [`marrow::Field`s][Field] and [`marrow::View`s][View]
-    pub fn from_marrow(fields: &[Field], views: &'de [View]) -> Result<Self> {
+    pub fn from_marrow(fields: &[Field], views: &[View<'de>]) -> Result<Self> {
         Self::new(fields, views.to_vec())
     }
 }

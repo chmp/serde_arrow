@@ -7,6 +7,12 @@
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`
 - Add APIs to interact with `marorw` arrays directly
+- Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp` for date times
+  - Trace date time strings as `Timestamp(Millisecond, tz)` with `tz` either being `None` or
+    `Some("UTC")`
+  - Remove the `UtcAsDate64Str` and `NaiveAsDate64Str` strategies
+- Fix bug in deserialization of sub seconds for `Time32` and `Time64`
+- Fix bug that prevented to deserialize `String` from `Decimal` arrays
 
 ## 0.12.3
 

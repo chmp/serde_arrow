@@ -316,24 +316,6 @@ pub mod utils {
 ///   depends on the union type: Field-less variants are mapped to `NULL`. New
 ///   type variants are mapped according to their inner type. Other variant
 ///   types are mapped to struct types.
-///
-/// All customization of the types happens by including a suitable
-/// [`Strategy`][crate::schema::Strategy] in the metadata of the fields. For
-/// example, to let `serde_arrow` handle date time objects that are serialized
-/// to strings (chrono's default), use
-///
-/// ```rust
-/// # #[cfg(feature="has_arrow2")]
-/// # fn main() {
-/// # use arrow2::datatypes::{DataType, Field};
-/// # use serde_arrow::schema::{STRATEGY_KEY, Strategy};
-/// # let mut field = Field::new("my_field", DataType::Null, false);
-/// field.data_type = DataType::Date64;
-/// field.metadata = Strategy::UtcStrAsDate64.into();
-/// # }
-/// # #[cfg(not(feature="has_arrow2"))]
-/// # fn main() {}
-/// ```
 #[deny(missing_docs)]
 pub mod schema {
     pub use crate::internal::schema::{

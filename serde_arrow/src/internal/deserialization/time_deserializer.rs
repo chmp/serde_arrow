@@ -3,7 +3,7 @@ use marrow::{datatypes::TimeUnit, view::TimeView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{set_default, try_, try_opt, Context, ContextSupport, Error, Result},
     utils::{Mut, NamedType},
 };
 
@@ -15,35 +15,38 @@ use super::{
 pub struct TimeDeserializer<'a, T: Integer> {
     path: String,
     array: ArrayBufferIterator<'a, T>,
-    seconds_factor: i64,
-    nanoseconds_factor: i64,
+    unit: TimeUnit,
 }
 
 impl<'a, T: Integer> TimeDeserializer<'a, T> {
     pub fn new(path: String, view: TimeView<'a, T>) -> Self {
-        let (seconds_factor, nanoseconds_factor) = match view.unit {
-            TimeUnit::Nanosecond => (1_000_000_000, 1),
-            TimeUnit::Microsecond => (1_000_000, 1_000),
-            TimeUnit::Millisecond => (1_000, 1_000_000),
-            TimeUnit::Second => (1, 1_000_000_000),
-        };
-
         Self {
             path,
             array: ArrayBufferIterator::new(view.values, view.validity),
-            seconds_factor,
-            nanoseconds_factor,
+            unit: view.unit,
         }
     }
 
     pub fn get_string_repr(&self, ts: i64) -> Result<String> {
-        let seconds = (ts / self.seconds_factor) as u32;
-        let nanoseconds = ((ts % self.seconds_factor) / self.nanoseconds_factor) as u32;
-
-        let Some(res) = NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds) else {
-            fail!("Invalid timestamp");
-        };
-        Ok(res.to_string())
+        try_opt(|| {
+            let (secs, nano) = match self.unit {
+                TimeUnit::Second => (ts, 0),
+                TimeUnit::Millisecond => (ts / 1_000, (ts % 1_000) * 1_000_000),
+                TimeUnit::Microsecond => (ts / 1_000_000, (ts % 1_000_000) * 1_000),
+                TimeUnit::Nanosecond => (ts / 1_000_000_000, ts % 1_000_000_000),
+            };
+            let time = NaiveTime::from_num_seconds_from_midnight_opt(
+                u32::try_from(secs).ok()?,
+                u32::try_from(nano).ok()?,
+            )?;
+            Some(time.to_string())
+        })
+        .ok_or_else(|| {
+            Error::custom(format!(
+                "Cannot convert {ts} into Time64({unit})",
+                unit = self.unit
+            ))
+        })
     }
 }
 

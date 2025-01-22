@@ -10,7 +10,7 @@ use serde::{ser::Impossible, Serialize};
 use crate::internal::{
     chrono,
     error::{fail, try_, Context, ContextSupport, Error, Result},
-    schema::{Strategy, TracingMode, TracingOptions},
+    schema::{TracingMode, TracingOptions},
 };
 
 use super::tracer::{
@@ -340,9 +340,12 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
                 (self.0.get_options().string_type(), None)
             } else {
                 if chrono::matches_naive_datetime(s) {
-                    (DataType::Date64, Some(Strategy::NaiveStrAsDate64))
+                    (DataType::Timestamp(TimeUnit::Millisecond, None), None)
                 } else if chrono::matches_utc_datetime(s) {
-                    (DataType::Date64, Some(Strategy::UtcStrAsDate64))
+                    (
+                        DataType::Timestamp(TimeUnit::Millisecond, Some(String::from("UTC"))),
+                        None,
+                    )
                 } else if chrono::matches_naive_time(s) {
                     (DataType::Time64(TimeUnit::Nanosecond), None)
                 } else if chrono::matches_naive_date(s) {
