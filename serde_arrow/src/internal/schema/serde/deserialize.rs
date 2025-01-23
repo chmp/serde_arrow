@@ -138,6 +138,7 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Bool" | "Boolean", []) => T::Boolean,
         ("Utf8", []) => T::Utf8,
         ("LargeUtf8", []) => T::LargeUtf8,
+        ("Utf8View", []) => T::Utf8View,
         ("U8" | "UInt8", []) => T::UInt8,
         ("U16" | "UInt16", []) => T::UInt16,
         ("U32" | "UInt32", []) => T::UInt32,
@@ -154,6 +155,7 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Binary", []) => T::Binary,
         ("LargeBinary", []) => T::LargeBinary,
         ("FixedSizeBinary", [n]) => T::FixedSizeBinary(n.as_ident()?.parse()?),
+        ("BinaryView", []) => T::BinaryView,
         ("Timestamp", [unit, timezone]) => {
             let unit: TimeUnit = unit.as_ident()?.parse()?;
             let timezone = timezone
@@ -315,4 +317,53 @@ fn test_split_strategy_from_metadata_without_metadata() {
 
     let actual = merge_strategy_with_metadata(metadata, strategy).unwrap();
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn data_type_serialization_from_short_repr() {
+    fn deserialize_data_type(s: &str) -> DataType {
+        use crate::internal::schema::SchemaLike;
+        let schema = SerdeArrowSchema::from_value(serde_json::json!([
+            {"name": "item", "data_type": s},
+        ]))
+        .unwrap();
+        schema.fields[0].data_type.clone()
+    }
+
+    assert_eq!(deserialize_data_type("I8"), DataType::Int8);
+    assert_eq!(deserialize_data_type("Int8"), DataType::Int8);
+    assert_eq!(deserialize_data_type("I16"), DataType::Int16);
+    assert_eq!(deserialize_data_type("Int16"), DataType::Int16);
+    assert_eq!(deserialize_data_type("I32"), DataType::Int32);
+    assert_eq!(deserialize_data_type("Int32"), DataType::Int32);
+    assert_eq!(deserialize_data_type("I64"), DataType::Int64);
+    assert_eq!(deserialize_data_type("Int64"), DataType::Int64);
+
+    assert_eq!(deserialize_data_type("U8"), DataType::UInt8);
+    assert_eq!(deserialize_data_type("UInt8"), DataType::UInt8);
+    assert_eq!(deserialize_data_type("U16"), DataType::UInt16);
+    assert_eq!(deserialize_data_type("UInt16"), DataType::UInt16);
+    assert_eq!(deserialize_data_type("U32"), DataType::UInt32);
+    assert_eq!(deserialize_data_type("UInt32"), DataType::UInt32);
+    assert_eq!(deserialize_data_type("U64"), DataType::UInt64);
+    assert_eq!(deserialize_data_type("UInt64"), DataType::UInt64);
+
+    assert_eq!(deserialize_data_type("F16"), DataType::Float16);
+    assert_eq!(deserialize_data_type("Float16"), DataType::Float16);
+    assert_eq!(deserialize_data_type("F32"), DataType::Float32);
+    assert_eq!(deserialize_data_type("Float32"), DataType::Float32);
+    assert_eq!(deserialize_data_type("F64"), DataType::Float64);
+    assert_eq!(deserialize_data_type("Float64"), DataType::Float64);
+
+    assert_eq!(deserialize_data_type("Utf8"), DataType::Utf8);
+    assert_eq!(deserialize_data_type("LargeUtf8"), DataType::LargeUtf8);
+    assert_eq!(deserialize_data_type("Utf8View"), DataType::Utf8View);
+
+    assert_eq!(deserialize_data_type("Binary"), DataType::Binary);
+    assert_eq!(deserialize_data_type("LargeBinary"), DataType::LargeBinary);
+    assert_eq!(deserialize_data_type("BinaryView"), DataType::BinaryView);
+    assert_eq!(
+        deserialize_data_type("FixedSizeBinary(16)"),
+        DataType::FixedSizeBinary(16)
+    );
 }
