@@ -13,10 +13,10 @@ use super::{
     date64_builder::Date64Builder, decimal_builder::DecimalBuilder,
     dictionary_utf8_builder::DictionaryUtf8Builder, duration_builder::DurationBuilder,
     fixed_size_binary_builder::FixedSizeBinaryBuilder,
-    fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
-    int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
-    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, union_builder::UnionBuilder,
+    fixed_size_list_builder::FixedSizeListBuilder, flattened_union_builder::FlattenedUnionBuilder,
+    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, simple_serializer::SimpleSerializer,
+    struct_builder::StructBuilder, time_builder::TimeBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
@@ -53,6 +53,7 @@ pub enum ArrayBuilder {
     LargeUtf8(Utf8Builder<i64>),
     DictionaryUtf8(DictionaryUtf8Builder),
     Union(UnionBuilder),
+    FlattenedUnion(FlattenedUnionBuilder),
     UnknownVariant(UnknownVariantBuilder),
 }
 
@@ -90,6 +91,7 @@ macro_rules! dispatch {
             $wrapper::Struct($name) => $expr,
             $wrapper::DictionaryUtf8($name) => $expr,
             $wrapper::Union($name) => $expr,
+            $wrapper::FlattenedUnion($name) => $expr,
             $wrapper::UnknownVariant($name) => $expr,
         }
     };

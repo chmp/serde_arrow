@@ -1,4 +1,7 @@
-use crate::internal::error::{fail, Result};
+use crate::internal::{
+    arrow::{DataType, Field},
+    error::{fail, Result},
+};
 
 pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
     if dim_names.len() != ndim {
@@ -54,5 +57,15 @@ pub struct DebugRepr<T: std::fmt::Debug>(pub T);
 impl<T: std::fmt::Debug> std::fmt::Display for DebugRepr<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
+    }
+}
+
+pub(crate) fn fix_dictionaries(field: &mut Field) {
+    if matches!(field.data_type, DataType::Dictionary(_, _, _)) {
+        field.nullable = true;
+    } else if let DataType::Struct(children) = &mut field.data_type {
+        for child in children {
+            fix_dictionaries(child);
+        }
     }
 }

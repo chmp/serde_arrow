@@ -816,7 +816,10 @@ mod test {
     use serde::Serialize;
     use serde_json::{json, Value};
 
-    use crate::internal::schema::{transmute_field, TracingOptions};
+    use crate::internal::{
+        schema::{transmute_field, TracingOptions},
+        testing::{Coin, Number, Optionals, Payment},
+    };
 
     use super::*;
 
@@ -919,5 +922,53 @@ mod test {
             TracingOptions::default(),
             expected,
         );
+    }
+
+    #[test]
+    fn example_enum_as_struct_equal_to_struct_with_nullable_fields() {
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_samples(Number::sample_items().as_slice(), opts).unwrap();
+        assert_eq!(enum_tracer.to_field().unwrap(), Number::expected_field());
+    }
+
+    #[test]
+    fn example_enum_as_struct_no_fields() {
+        // This should continue to maintain previously implemented behavior, serializing as a map
+        let opts = TracingOptions::default()
+            .enums_with_named_fields_as_structs(true)
+            .enums_without_data_as_strings(true);
+
+        let enum_tracer = Tracer::from_samples(Coin::sample_items(), opts).unwrap();
+        assert_eq!(enum_tracer.to_field().unwrap(), Coin::expected_field());
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_no_fields_panics_when_opts_not_set() {
+        // This should continue to maintain previously implemented behavior,
+        // throwing an error because we detect Unions with no fields
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+
+        Tracer::from_samples(Coin::sample_items(), opts)
+            .unwrap()
+            .to_field()
+            .unwrap();
+    }
+
+    #[test]
+    fn example_enum_as_struct_all_fields_nullable() {
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_samples(Optionals::sample_items(), opts).unwrap();
+        assert_eq!(enum_tracer.to_field().unwrap(), Optionals::expected_field());
+    }
+
+    #[test]
+    #[should_panic]
+    fn example_enum_as_struct_tuple_variants() {
+        let opts = TracingOptions::default().enums_with_named_fields_as_structs(true);
+        let enum_tracer = Tracer::from_samples(Payment::sample_items(), opts).unwrap();
+
+        // Currently panics when `to_schema()` is called on the variant tracer
+        enum_tracer.to_field().unwrap();
     }
 }

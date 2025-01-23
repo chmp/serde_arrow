@@ -3,13 +3,14 @@ use std::collections::{BTreeMap, HashMap};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
+    arrow::{DataType, Field, FieldMeta, TimeUnit},
     error::{fail, Context, ContextSupport, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
+        flattened_union_builder::FlattenedUnionBuilder,
     },
     utils::{btree_map, meta_from_field, ChildName, Mut},
 };
@@ -121,7 +122,7 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
     StructBuilder::new(path, fields, nullable)
 }
 
-fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
+pub(crate) fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
     let ctx: BTreeMap<String, String> = btree_map!("field" => path.clone());
 
@@ -226,7 +227,50 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
                 .ctx(&ctx)?,
             )
         }
-        T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
+        T::Struct(children) => {
+            if let Some(Strategy::EnumsWithNamedFieldsAsStructs) =
+                get_strategy_from_metadata(&field.metadata)?
+            {
+                let mut related_fields: BTreeMap<&str, Vec<Field>> = BTreeMap::new();
+                let mut builders: Vec<(ArrayBuilder, FieldMeta)> = Vec::new();
+
+                for field in children {
+                    let Some(variant_name) = field.union_variant_name() else {
+                        todo!("union variant did not have a name");
+                    };
+
+                    let Some(field_name) = field.union_field_name() else {
+                        todo!("union field did not have a name");
+                    };
+
+                    let mut new_field = field.clone();
+                    new_field.name = field_name;
+
+                    related_fields
+                        .entry(variant_name)
+                        .or_default()
+                        .push(new_field);
+                }
+
+                for (variant_name, fields) in related_fields {
+                    let builder = build_struct(
+                        format!("{}.{}", path.to_owned(), variant_name),
+                        fields.as_slice(),
+                        true,
+                    )?
+                    .take();
+
+                    let mut meta = meta_from_field(field.clone());
+                    meta.name = variant_name.to_owned();
+
+                    builders.push((builder, meta));
+                }
+
+                A::FlattenedUnion(FlattenedUnionBuilder::new(path, builders))
+            } else {
+                A::Struct(build_struct(path, children, field.nullable)?)
+            }
+        }
         T::Dictionary(key, value, _) => {
             let key_path = format!("{path}.key");
             let key_field = Field {

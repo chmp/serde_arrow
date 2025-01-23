@@ -1,10 +1,14 @@
 //! Support for tests
 use core::str;
+use std::collections::HashMap;
 
 use crate::internal::{
-    arrow::{Array, BytesArray},
+    arrow::{Array, BytesArray, DataType, Field},
     error::{fail, Error, Result},
 };
+use crate::schema::{Strategy, STRATEGY_KEY};
+
+use serde::{Deserialize, Serialize};
 
 pub fn assert_error_contains<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
     let Err(actual) = actual else {
@@ -74,4 +78,174 @@ where
     };
 
     Ok(Some(str::from_utf8(data)?))
+}
+
+fn enum_with_named_fields_metadata() -> HashMap<String, String> {
+    HashMap::from([(
+        STRATEGY_KEY.to_string(),
+        Strategy::EnumsWithNamedFieldsAsStructs.to_string(),
+    )])
+}
+
+// Simple enum test structure for schema from_type/from_samples unit testing
+#[derive(Serialize, Deserialize)]
+pub(crate) enum Number {
+    Real { value: f32 },
+    Complex { i: f32, j: f32 },
+}
+
+impl Number {
+    pub(crate) fn sample_items() -> Vec<Self> {
+        vec![
+            Number::Real { value: 1.0 },
+            Number::Complex { i: 0.5, j: 0.5 },
+        ]
+    }
+
+    pub(crate) fn expected_field() -> Field {
+        Field {
+            name: "$".to_string(),
+            data_type: DataType::Struct(vec![
+                Field {
+                    name: "Complex::i".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Complex::j".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Real::value".to_string(),
+                    data_type: DataType::Float32,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+            ]),
+            nullable: false,
+            metadata: enum_with_named_fields_metadata(),
+        }
+    }
+}
+
+// No data test enum
+#[derive(Serialize, Deserialize)]
+pub(crate) enum Coin {
+    Heads,
+    Tails,
+}
+
+impl Coin {
+    pub(crate) fn sample_items() -> Vec<Self> {
+        vec![Coin::Heads, Coin::Tails]
+    }
+
+    pub(crate) fn expected_field() -> Field {
+        Field {
+            name: "$".to_string(),
+            data_type: DataType::Dictionary(
+                Box::new(DataType::UInt32),
+                Box::new(DataType::LargeUtf8),
+                false,
+            ),
+            nullable: false,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
+// Optional variant field test enum
+#[derive(Serialize, Deserialize)]
+pub(crate) enum Optionals {
+    Something {
+        more: Option<usize>,
+        less: Option<usize>,
+    },
+    Else {
+        one: Option<usize>,
+        another: Option<usize>,
+    },
+}
+
+impl Optionals {
+    pub(crate) fn sample_items() -> Vec<Self> {
+        vec![
+            Optionals::Something {
+                more: Some(1),
+                less: None,
+            },
+            Optionals::Something {
+                more: None,
+                less: Some(0),
+            },
+            Optionals::Else {
+                one: None,
+                another: Some(0),
+            },
+            Optionals::Else {
+                one: Some(1),
+                another: None,
+            },
+        ]
+    }
+
+    pub(crate) fn expected_field() -> Field {
+        Field {
+            name: "$".to_string(),
+            data_type: DataType::Struct(vec![
+                Field {
+                    name: "Else::another".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Else::one".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Something::less".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+                Field {
+                    name: "Something::more".to_string(),
+                    data_type: DataType::UInt64,
+                    nullable: true,
+                    metadata: HashMap::new(),
+                },
+            ]),
+            nullable: false,
+            metadata: enum_with_named_fields_metadata(),
+        }
+    }
+}
+
+// Tuple variant test enum
+#[derive(Serialize, Deserialize)]
+pub(crate) enum Payment {
+    Cash(f32),                                 // amount
+    Check(String, f32),                        // name, amount
+    CreditCard(String, f32, [u8; 16], String), // name, amount, cc number, exp
+}
+
+impl Payment {
+    pub(crate) fn sample_items() -> Vec<Self> {
+        vec![
+            Payment::Cash(0.42),
+            Payment::Check("Bob".to_string(), 0.42),
+            Payment::CreditCard(
+                "Sue".to_string(),
+                0.42,
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6],
+                "01/2024".to_string(),
+            ),
+        ]
+    }
 }
