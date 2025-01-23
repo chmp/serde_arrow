@@ -1,4 +1,4 @@
-use std::{borrow::Cow, env, sync::Arc};
+use std::{env, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -10,14 +10,9 @@ use crate::{
 
 #[derive(Default)]
 pub struct Arrays {
+    pub marrow: Option<Vec<marrow::array::Array>>,
     pub arrow: Option<Vec<Arc<dyn arrow::array::Array>>>,
     pub arrow2: Option<Vec<Box<dyn arrow2::array::Array>>>,
-}
-
-#[derive(Default)]
-pub struct Fields {
-    pub arrow: Option<Vec<arrow::datatypes::FieldRef>>,
-    pub arrow2: Option<Vec<arrow2::datatypes::Field>>,
 }
 
 pub struct Impls {
@@ -42,7 +37,6 @@ pub struct Test {
     schema: Option<SerdeArrowSchema>,
     pub impls: Impls,
     pub arrays: Arrays,
-    pub fields: Fields,
 }
 
 impl Test {
@@ -64,34 +58,20 @@ impl Test {
 }
 
 impl Test {
-    pub fn get_arrow_fields(&self) -> Cow<'_, Vec<arrow::datatypes::FieldRef>> {
-        match self.schema.as_ref() {
-            Some(schema) => Cow::Owned(
-                Vec::<arrow::datatypes::FieldRef>::try_from(schema)
-                    .expect("Cannot covert schema to arrow fields"),
-            ),
-            None => Cow::Borrowed(
-                self.fields
-                    .arrow
-                    .as_ref()
-                    .expect("Without schema override the fields must have been traced"),
-            ),
-        }
+    pub fn get_arrow_fields(&self) -> Vec<arrow::datatypes::FieldRef> {
+        self.schema
+            .as_ref()
+            .unwrap()
+            .try_into()
+            .expect("Cannot covert schema to arrow fields")
     }
 
-    pub fn get_arrow2_fields(&self) -> Cow<'_, Vec<arrow2::datatypes::Field>> {
-        match self.schema.as_ref() {
-            Some(schema) => Cow::Owned(
-                Vec::<arrow2::datatypes::Field>::try_from(schema)
-                    .expect("Cannot covert schema to arrow fields"),
-            ),
-            None => Cow::Borrowed(
-                self.fields
-                    .arrow2
-                    .as_ref()
-                    .expect("Without schema override the fields must have been traced"),
-            ),
-        }
+    pub fn get_arrow2_fields(&self) -> Vec<arrow2::datatypes::Field> {
+        self.schema
+            .as_ref()
+            .unwrap()
+            .try_into()
+            .expect("Cannot covert schema to arrow fields")
     }
 }
 
@@ -127,6 +107,28 @@ impl Test {
         }
 
         self
+    }
+
+    pub fn try_serialize_marrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
+        let fields = self.schema.clone().unwrap().fields;
+        let arrays = crate::to_marrow(&fields, items)?;
+
+        assert_eq!(fields.len(), arrays.len());
+        for (field, array) in std::iter::zip(&fields, &arrays) {
+            assert_eq!(
+                field.data_type,
+                array.data_type(),
+                "Datatype of field {:?} ({:?}) != datatype of array ({:?})",
+                field.name,
+                field.data_type,
+                array.data_type(),
+            );
+            // NOTE: do not check nullability. Arrow `array.is_nullable()`
+            // checks the number of actual nulls, not the nullability
+        }
+        self.arrays.marrow = Some(arrays);
+
+        Ok(())
     }
 
     pub fn try_serialize_arrow<T: Serialize + ?Sized>(&mut self, items: &T) -> Result<()> {
@@ -186,6 +188,8 @@ impl Test {
     }
 
     pub fn serialize<T: Serialize + ?Sized>(mut self, items: &T) -> Self {
+        self.try_serialize_marrow(items)
+            .expect("Failed marrow serialization");
         if self.impls.arrow {
             self.try_serialize_arrow(items)
                 .expect("Failed arrow serialization");

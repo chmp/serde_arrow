@@ -62,5 +62,8 @@ fn main() {
         if version >= 47 {
             println!("cargo:rustc-cfg=has_arrow_fixed_binary_support");
         }
+        if version >= 53 {
+            println!("cargo:rustc-cfg=has_arrow_bytes_view_support");
+        }
     }
 }

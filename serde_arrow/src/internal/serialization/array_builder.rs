@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use half::f16;
 use serde::Serialize;
 
-use marrow::array::Array;
+use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::error::{Context, Result};
 
@@ -48,8 +48,9 @@ pub enum ArrayBuilder {
     FixedSizeBinary(FixedSizeBinaryBuilder),
     Map(MapBuilder),
     Struct(StructBuilder),
-    Utf8(Utf8Builder<i32>),
-    LargeUtf8(Utf8Builder<i64>),
+    Utf8(Utf8Builder<BytesArray<i32>>),
+    LargeUtf8(Utf8Builder<BytesArray<i64>>),
+    Utf8View(Utf8Builder<BytesViewArray>),
     DictionaryUtf8(DictionaryUtf8Builder),
     Union(UnionBuilder),
     UnknownVariant(UnknownVariantBuilder),
@@ -80,6 +81,7 @@ macro_rules! dispatch {
             $wrapper::Decimal128($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
+            $wrapper::Utf8View($name) => $expr,
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::FixedSizedList($name) => $expr,

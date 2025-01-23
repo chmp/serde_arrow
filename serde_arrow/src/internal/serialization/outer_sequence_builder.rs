@@ -171,6 +171,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         )),
         T::Utf8 => A::Utf8(Utf8Builder::new(path, field.nullable)),
         T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(path, field.nullable)),
+        T::Utf8View => A::Utf8View(Utf8Builder::new(path, field.nullable)),
         T::List(child) => {
             let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             A::List(ListBuilder::new(
@@ -285,7 +286,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
 
             A::Union(UnionBuilder::new(path, fields))
         }
-        dt => fail!("Unsupported data type {dt:?}"),
+        dt => fail!("Cannot build ArrayBuilder for data type {dt:?}"),
     };
     Ok(builder)
 }

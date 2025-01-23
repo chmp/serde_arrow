@@ -156,6 +156,7 @@ check-cfg = [
     'cfg(has_arrow2_0_16)',
     'cfg(has_arrow)',
     'cfg(has_arrow_fixed_binary_support)',
+    'cfg(has_arrow_bytes_view_support)',
     # arrow-version:insert:     'cfg(has_arrow_{version})',
     'cfg(has_arrow_54)',
     'cfg(has_arrow_53)',

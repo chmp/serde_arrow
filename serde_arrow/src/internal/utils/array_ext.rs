@@ -1,6 +1,6 @@
 //! Extension of the array types
 
-use marrow::array::{BytesArray, PrimitiveArray};
+use marrow::array::{BytesArray, BytesViewArray, PrimitiveArray};
 
 use crate::internal::{
     error::{fail, Result},
@@ -145,6 +145,128 @@ impl<'s, O: Offset> ScalarArrayExt<'s> for BytesArray<O> {
         increment_last(&mut self.offsets, value.len())?;
         self.data.extend(value);
         Ok(())
+    }
+}
+
+impl ArrayExt for BytesViewArray {
+    fn take(&mut self) -> Self {
+        Self {
+            buffers: std::mem::replace(&mut self.buffers, vec![vec![]]),
+            data: std::mem::take(&mut self.data),
+            validity: self.validity.as_mut().map(std::mem::take),
+        }
+    }
+}
+
+impl SeqArrayExt for BytesViewArray {
+    fn push_seq_default(&mut self) -> Result<()> {
+        self.push_scalar_default()
+    }
+
+    fn push_seq_none(&mut self) -> Result<()> {
+        self.push_scalar_none()
+    }
+
+    fn start_seq(&mut self) -> Result<()> {
+        set_validity(self.validity.as_mut(), self.data.len(), true)?;
+        self.data.push(bytes_view::pack_len(0));
+        Ok(())
+    }
+
+    fn push_seq_elements(&mut self, n: usize) -> Result<()> {
+        let Some(curr) = self.data.last_mut() else {
+            fail!("push_seq_elements must be called after start_seq");
+        };
+        *curr = bytes_view::pack_len(bytes_view::get_len(*curr) + n);
+        Ok(())
+    }
+
+    fn end_seq(&mut self) -> Result<()> {
+        let Some(curr) = self.data.last_mut() else {
+            fail!("end_seq must be called after start_seq");
+        };
+
+        let n = bytes_view::get_len(*curr);
+        if self.buffers[0].len() < n {
+            fail!("Inconsistent length and data in BytesViewArray");
+        }
+        let start = self.buffers[0].len() - n;
+        let data = &self.buffers[0][start..];
+
+        if data.len() <= 12 {
+            *curr = bytes_view::pack_inline(data);
+            self.buffers[0].truncate(start);
+        } else {
+            *curr = bytes_view::pack_extern(data, 0, start);
+        }
+        Ok(())
+    }
+}
+
+impl<'s> ScalarArrayExt<'s> for BytesViewArray {
+    type Value = &'s [u8];
+
+    fn push_scalar_default(&mut self) -> Result<()> {
+        set_validity_default(self.validity.as_mut(), self.data.len());
+        self.data.push(bytes_view::pack_inline(&[]));
+        Ok(())
+    }
+
+    fn push_scalar_none(&mut self) -> Result<()> {
+        set_validity(self.validity.as_mut(), self.data.len(), false)?;
+        self.data.push(bytes_view::pack_inline(&[]));
+        Ok(())
+    }
+
+    fn push_scalar_value(&mut self, value: Self::Value) -> Result<()> {
+        set_validity(self.validity.as_mut(), self.data.len(), true)?;
+        if value.len() <= 12 {
+            self.data.push(bytes_view::pack_inline(value));
+        } else {
+            assert!(!self.buffers.is_empty());
+            self.data
+                .push(bytes_view::pack_extern(value, 0, self.buffers[0].len()));
+            self.buffers[0].extend(value);
+        }
+        Ok(())
+    }
+}
+
+pub mod bytes_view {
+    pub fn get_len(packed: u128) -> usize {
+        // NOTE: first truncate to only select the first 4 bytes
+        (packed as u32) as usize
+    }
+
+    pub fn pack_len(len: usize) -> u128 {
+        assert!(len <= i32::MAX as usize);
+        len as u128
+    }
+
+    pub fn pack_inline(data: &[u8]) -> u128 {
+        assert!(data.len() <= 12);
+        let mut result = data.len() as u128;
+        for (i, b) in data.iter().enumerate() {
+            result |= (*b as u128) << 8 * (4 + i);
+        }
+
+        result
+    }
+
+    pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> u128 {
+        assert!(data.len() <= i32::MAX as usize);
+        assert!(buffer <= i32::MAX as usize);
+        assert!(offset <= i32::MAX as usize);
+
+        let len_bytes = data.len() as u128;
+        let prefix = (data[0] as u128)
+            | ((data[1] as u128) << 8)
+            | ((data[2] as u128) << 16)
+            | ((data[3] as u128) << 24);
+        let buffer_bytes = buffer as u128;
+        let offset_bytes = offset as u128;
+
+        len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96)
     }
 }
 
