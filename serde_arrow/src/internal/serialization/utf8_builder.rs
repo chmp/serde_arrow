@@ -13,6 +13,8 @@ pub trait Utf8BuilderArray:
     ArrayExt + for<'s> ScalarArrayExt<'s, Value = &'s [u8]> + Sized
 {
     const DATA_TYPE_NAME: &'static str;
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(Self) -> Array;
 
     fn new(is_nullable: bool) -> Self;
     fn is_nullable(&self) -> bool;
@@ -20,6 +22,8 @@ pub trait Utf8BuilderArray:
 
 impl Utf8BuilderArray for BytesArray<i32> {
     const DATA_TYPE_NAME: &'static str = "Utf8";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8;
 
     fn new(is_nullable: bool) -> Self {
         new_bytes_array(is_nullable)
@@ -32,6 +36,8 @@ impl Utf8BuilderArray for BytesArray<i32> {
 
 impl Utf8BuilderArray for BytesArray<i64> {
     const DATA_TYPE_NAME: &'static str = "LargeUtf8";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::LargeUtf8;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeUtf8;
 
     fn new(is_nullable: bool) -> Self {
         new_bytes_array(is_nullable)
@@ -44,6 +50,8 @@ impl Utf8BuilderArray for BytesArray<i64> {
 
 impl Utf8BuilderArray for BytesViewArray {
     const DATA_TYPE_NAME: &'static str = "Utf8View";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8View;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8View;
 
     fn new(is_nullable: bool) -> Self {
         BytesViewArray {
@@ -82,35 +90,13 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
-}
 
-impl Utf8Builder<BytesArray<i32>> {
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Utf8(self.take_self())
+        A::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Utf8(self.array))
-    }
-}
-
-impl Utf8Builder<BytesArray<i64>> {
-    pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::LargeUtf8(self.take_self())
-    }
-
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeUtf8(self.array))
-    }
-}
-
-impl Utf8Builder<BytesViewArray> {
-    pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Utf8View(self.take_self())
-    }
-
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Utf8View(self.array))
+        Ok(A::ARRAY_VARIANT(self.array))
     }
 }
 
