@@ -330,6 +330,11 @@ fn data_type_serialization_from_short_repr() {
         schema.fields[0].data_type.clone()
     }
 
+    assert_eq!(deserialize_data_type("Null"), DataType::Null);
+
+    assert_eq!(deserialize_data_type("Bool"), DataType::Boolean);
+    assert_eq!(deserialize_data_type("Boolean"), DataType::Boolean);
+
     assert_eq!(deserialize_data_type("I8"), DataType::Int8);
     assert_eq!(deserialize_data_type("Int8"), DataType::Int8);
     assert_eq!(deserialize_data_type("I16"), DataType::Int16);
