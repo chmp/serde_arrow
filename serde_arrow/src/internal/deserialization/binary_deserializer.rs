@@ -40,7 +40,7 @@ impl<'a, V: BytesAccess<'a>> BinaryDeserializer<V> {
     }
 
     pub fn peek_next_slice(&self) -> Result<Option<&'a [u8]>> {
-        Ok(self.view.get_bytes(self.next.0)?)
+        self.view.get_bytes(self.next.0)
     }
 
     pub fn consume_next(&mut self) {

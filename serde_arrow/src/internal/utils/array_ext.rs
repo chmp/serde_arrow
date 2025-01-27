@@ -247,7 +247,7 @@ pub mod bytes_view {
         assert!(data.len() <= 12);
         let mut result = data.len() as u128;
         for (i, b) in data.iter().enumerate() {
-            result |= (*b as u128) << 8 * (4 + i);
+            result |= (*b as u128) << (8 * (4 + i));
         }
 
         result

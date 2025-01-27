@@ -95,7 +95,7 @@ impl<'a, V: BytesAccess<'a>> StringDeserializer<V> {
 
     pub fn next(&mut self) -> Result<Option<&'a str>> {
         let res = if let Some(data) = self.view.get_bytes(self.next)? {
-            Some(std::str::from_utf8(&data)?)
+            Some(std::str::from_utf8(data)?)
         } else {
             None
         };
