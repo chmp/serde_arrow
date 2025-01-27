@@ -26,13 +26,13 @@ pub struct Deserializer<'de>(pub(crate) OuterSequenceDeserializer<'de>);
 impl<'de> Deserializer<'de> {
     pub(crate) fn new(fields: &[Field], views: Vec<View<'de>>) -> Result<Self> {
         let len = match views.first() {
-            Some(view) => view.len(),
+            Some(view) => view.len()?,
             None => 0,
         };
 
         let mut deserializers = Vec::new();
         for (field, view) in std::iter::zip(fields, views) {
-            if view.len() != len {
+            if view.len()? != len {
                 fail!("Cannot deserialize from arrays with different lengths");
             }
             let strategy = get_strategy_from_metadata(&field.metadata)?;

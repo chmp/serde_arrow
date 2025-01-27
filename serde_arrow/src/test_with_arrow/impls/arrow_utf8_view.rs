@@ -20,6 +20,7 @@ fn non_nullable() {
             {"name": "item", "data_type": "Utf8View"},
         ]))
         .serialize(items)
+        .deserialize(items)
         .also(|test| {
             let array = test.arrays.marrow.as_ref().unwrap().get(0).unwrap();
             let marrow::array::Array::Utf8View(array) = array else {
@@ -55,6 +56,7 @@ fn nullable() {
             {"name": "item", "data_type": "Utf8View", "nullable": true},
         ]))
         .serialize(items)
+        .deserialize(items)
         .also(|test| {
             let array = test.arrays.marrow.as_ref().unwrap().get(0).unwrap();
             let marrow::array::Array::Utf8View(array) = array else {
