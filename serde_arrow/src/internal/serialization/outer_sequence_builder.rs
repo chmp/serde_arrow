@@ -203,6 +203,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         }
         T::Binary => A::Binary(BinaryBuilder::new(path, field.nullable)),
         T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, field.nullable)),
+        T::BinaryView => A::BinaryView(BinaryBuilder::new(path, field.nullable)),
         T::FixedSizeBinary(n) => {
             let n = usize::try_from(*n).ctx(&ctx)?;
             A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, field.nullable))

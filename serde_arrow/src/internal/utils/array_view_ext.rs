@@ -35,6 +35,7 @@ impl ViewExt for View<'_> {
             V::LargeUtf8(view) => Ok(view.offsets.len().saturating_sub(1)),
             V::Binary(view) => Ok(view.offsets.len().saturating_sub(1)),
             V::LargeBinary(view) => Ok(view.offsets.len().saturating_sub(1)),
+            V::BinaryView(view) => Ok(view.data.len()),
             V::FixedSizeBinary(view) => match usize::try_from(view.n) {
                 Ok(n) if n > 0 => Ok(view.data.len() / n),
                 _ => Ok(0),

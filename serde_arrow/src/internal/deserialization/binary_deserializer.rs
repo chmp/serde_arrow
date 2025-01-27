@@ -1,21 +1,37 @@
-use marrow::view::BytesView;
+use marrow::view::{BytesView, BytesViewView};
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::{Mut, NamedType, Offset},
+    utils::Mut,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
+use super::{simple_deserializer::SimpleDeserializer, string_deserializer::BytesAccess};
 
-pub struct BinaryDeserializer<'a, O: Offset> {
+trait BinaryDeserializerDataType {
+    const DATA_TYPE_NAME: &'static str;
+}
+
+impl BinaryDeserializerDataType for BytesView<'_, i32> {
+    const DATA_TYPE_NAME: &'static str = "Binary";
+}
+
+impl BinaryDeserializerDataType for BytesView<'_, i64> {
+    const DATA_TYPE_NAME: &'static str = "LargeBinary";
+}
+
+impl BinaryDeserializerDataType for BytesViewView<'_> {
+    const DATA_TYPE_NAME: &'static str = "BinaryView";
+}
+
+pub struct BinaryDeserializer<V> {
     pub path: String,
-    pub view: BytesView<'a, O>,
+    pub view: V,
     pub next: (usize, usize),
 }
 
-impl<'a, O: Offset> BinaryDeserializer<'a, O> {
-    pub fn new(path: String, view: BytesView<'a, O>) -> Self {
+impl<'a, V: BytesAccess<'a>> BinaryDeserializer<V> {
+    pub fn new(path: String, view: V) -> Self {
         Self {
             path,
             view,
@@ -23,58 +39,36 @@ impl<'a, O: Offset> BinaryDeserializer<'a, O> {
         }
     }
 
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 + 1 >= self.view.offsets.len() {
-            fail!("Exhausted deserializer")
-        }
-        if let Some(validity) = &self.view.validity {
-            bitset_is_set(validity, self.next.0)
-        } else {
-            Ok(true)
-        }
+    pub fn peek_next_slice(&self) -> Result<Option<&'a [u8]>> {
+        Ok(self.view.get_bytes(self.next.0)?)
     }
 
     pub fn consume_next(&mut self) {
         self.next = (self.next.0 + 1, 0);
     }
 
-    pub fn peek_next_slice_range(&self) -> Result<(usize, usize)> {
-        let (item, _) = self.next;
-        if item + 1 >= self.view.offsets.len() {
-            fail!("Exhausted deserializer");
-        }
-        let end = self.view.offsets[item + 1].try_into_usize()?;
-        let start = self.view.offsets[item].try_into_usize()?;
-        Ok((start, end))
-    }
-
     pub fn next_slice(&mut self) -> Result<&'a [u8]> {
-        let (start, end) = self.peek_next_slice_range()?;
-        let (item, _) = self.next;
-        self.next = (item + 1, 0);
-        Ok(&self.view.data[start..end])
+        let Some(slice) = self.view.get_bytes(self.next.0)? else {
+            fail!("Trying to deserialize from exhausted deserializer");
+        };
+        self.next = (self.next.0 + 1, 0);
+        Ok(slice)
     }
 }
 
-impl<O: Offset + NamedType> Context for BinaryDeserializer<'_, O> {
+impl<V: BinaryDeserializerDataType> Context for BinaryDeserializer<V> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            match O::NAME {
-                "i32" => "Binary",
-                "i64" => "LargeBinary",
-                _ => "<unknown>",
-            },
-        );
+        set_default(annotations, "data_type", V::DATA_TYPE_NAME);
     }
 }
 
-impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a, O> {
+impl<'a, VV: BytesAccess<'a> + BinaryDeserializerDataType> SimpleDeserializer<'a>
+    for BinaryDeserializer<VV>
+{
     fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            if self.peek_next().ctx(self)? {
+            if self.peek_next_slice().ctx(self)?.is_some() {
                 self.deserialize_bytes(visitor).ctx(self)
             } else {
                 self.consume_next();
@@ -86,7 +80,7 @@ impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a
 
     fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            if self.peek_next().ctx(self)? {
+            if self.peek_next_slice().ctx(self)?.is_some() {
                 visitor.visit_some(Mut(self)).ctx(self)
             } else {
                 self.consume_next();
@@ -109,7 +103,9 @@ impl<'a, O: Offset + NamedType> SimpleDeserializer<'a> for BinaryDeserializer<'a
     }
 }
 
-impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
+impl<'de, VV: BytesAccess<'de> + BinaryDeserializerDataType> SeqAccess<'de>
+    for BinaryDeserializer<VV>
+{
     type Error = Error;
 
     fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
@@ -117,15 +113,17 @@ impl<'de, O: Offset> SeqAccess<'de> for BinaryDeserializer<'de, O> {
         seed: T,
     ) -> Result<Option<T::Value>> {
         let (item, offset) = self.next;
-        let (start, end) = self.peek_next_slice_range()?;
+        let Some(s) = self.peek_next_slice()? else {
+            fail!("Trying to deserialize from an exhausted deserializer");
+        };
 
-        if offset >= end - start {
+        if offset >= s.len() {
             self.next = (item + 1, 0);
             return Ok(None);
         }
         self.next = (item, offset + 1);
 
-        let mut item_deserializer = U8Deserializer(self.view.data[start + offset]);
+        let mut item_deserializer = U8Deserializer(s[offset]);
         let item = seed.deserialize(Mut(&mut item_deserializer))?;
         Ok(Some(item))
     }

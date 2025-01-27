@@ -254,17 +254,18 @@ pub mod bytes_view {
     }
 
     pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> u128 {
+        assert!(data.len() >= 4);
         assert!(data.len() <= i32::MAX as usize);
         assert!(buffer <= i32::MAX as usize);
         assert!(offset <= i32::MAX as usize);
 
-        let len_bytes = data.len() as u128;
+        let len_bytes = (data.len() as u32) as u128;
         let prefix = (data[0] as u128)
             | ((data[1] as u128) << 8)
             | ((data[2] as u128) << 16)
             | ((data[3] as u128) << 24);
-        let buffer_bytes = buffer as u128;
-        let offset_bytes = offset as u128;
+        let buffer_bytes = (buffer as u32) as u128;
+        let offset_bytes = (offset as u32) as u128;
 
         len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96)
     }
