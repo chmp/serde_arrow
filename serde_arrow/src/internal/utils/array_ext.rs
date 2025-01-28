@@ -8,7 +8,9 @@ use crate::internal::{
 };
 
 pub trait ArrayExt: Sized + 'static {
+    fn new(is_nullable: bool) -> Self;
     fn take(&mut self) -> Self;
+    fn is_nullable(&self) -> bool;
 }
 
 pub trait ScalarArrayExt<'value>: ArrayExt {
@@ -31,14 +33,18 @@ pub trait SeqArrayExt: ArrayExt {
     fn end_seq(&mut self) -> Result<()>;
 }
 
-pub fn new_primitive_array<T>(is_nullable: bool) -> PrimitiveArray<T> {
-    PrimitiveArray {
-        validity: is_nullable.then(Vec::new),
-        values: Vec::new(),
-    }
-}
-
 impl<T: Default + 'static> ArrayExt for PrimitiveArray<T> {
+    fn new(is_nullable: bool) -> Self {
+        PrimitiveArray {
+            validity: is_nullable.then(Vec::new),
+            values: Vec::new(),
+        }
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
     fn take(&mut self) -> Self {
         Self {
             validity: self.validity.as_mut().map(std::mem::take),
@@ -69,15 +75,19 @@ impl<T: Default + 'static> ScalarArrayExt<'static> for PrimitiveArray<T> {
     }
 }
 
-pub fn new_bytes_array<O: Offset>(is_nullable: bool) -> BytesArray<O> {
-    BytesArray {
-        validity: is_nullable.then(Vec::new),
-        offsets: vec![O::default()],
-        data: Vec::new(),
-    }
-}
-
 impl<O: Offset> ArrayExt for BytesArray<O> {
+    fn new(is_nullable: bool) -> Self {
+        BytesArray {
+            validity: is_nullable.then(Vec::new),
+            offsets: vec![O::default()],
+            data: Vec::new(),
+        }
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
     fn take(&mut self) -> Self {
         Self {
             validity: self.validity.as_mut().map(std::mem::take),
@@ -149,6 +159,18 @@ impl<'s, O: Offset> ScalarArrayExt<'s> for BytesArray<O> {
 }
 
 impl ArrayExt for BytesViewArray {
+    fn new(is_nullable: bool) -> Self {
+        BytesViewArray {
+            validity: is_nullable.then(Vec::new),
+            data: Vec::new(),
+            buffers: vec![vec![]],
+        }
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
     fn take(&mut self) -> Self {
         Self {
             buffers: std::mem::replace(&mut self.buffers, vec![vec![]]),
@@ -277,16 +299,18 @@ pub struct OffsetsArray<O> {
     pub offsets: Vec<O>,
 }
 
-impl<O: Offset> OffsetsArray<O> {
-    pub fn new(is_nullable: bool) -> Self {
+impl<O: Offset> ArrayExt for OffsetsArray<O> {
+    fn new(is_nullable: bool) -> Self {
         Self {
             validity: is_nullable.then(Vec::new),
             offsets: vec![O::default()],
         }
     }
-}
 
-impl<O: Offset> ArrayExt for OffsetsArray<O> {
+    fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
     fn take(&mut self) -> Self {
         Self {
             validity: self.validity.as_mut().map(std::mem::take),
@@ -338,16 +362,18 @@ pub struct CountArray {
     pub validity: Option<Vec<u8>>,
 }
 
-impl CountArray {
-    pub fn new(is_nullable: bool) -> Self {
+impl ArrayExt for CountArray {
+    fn new(is_nullable: bool) -> Self {
         Self {
             len: 0,
             validity: is_nullable.then(Vec::new),
         }
     }
-}
 
-impl ArrayExt for CountArray {
+    fn is_nullable(&self) -> bool {
+        self.validity.is_some()
+    }
+
     fn take(&mut self) -> Self {
         Self {
             len: std::mem::take(&mut self.len),

@@ -6,7 +6,7 @@ use crate::internal::{
     utils::Mut,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, string_deserializer::BytesAccess};
+use super::{simple_deserializer::SimpleDeserializer, utils::BytesAccess};
 
 trait BinaryDeserializerDataType {
     const DATA_TYPE_NAME: &'static str;

@@ -7,7 +7,7 @@ use marrow::array::{Array, BytesArray, BytesViewArray};
 use crate::internal::{
     error::{set_default, Context, ContextSupport, Result},
     utils::{
-        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
+        array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
         Mut,
     },
 };
@@ -21,8 +21,6 @@ pub trait BinaryBuilderArray:
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder;
     const ARRAY_VARIANT: fn(Self) -> Array;
 
-    fn new(is_nullable: bool) -> Self;
-    fn is_nullable(&self) -> bool;
     fn push_byte(&mut self, byte: u8);
 }
 
@@ -30,14 +28,6 @@ impl BinaryBuilderArray for BytesArray<i32> {
     const DATA_TYPE_NAME: &'static str = "Binary";
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::Binary;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::Binary;
-
-    fn new(is_nullable: bool) -> Self {
-        new_bytes_array(is_nullable)
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
 
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
@@ -50,14 +40,6 @@ impl BinaryBuilderArray for BytesArray<i64> {
         ArrayBuilder::LargeBinary;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeBinary;
 
-    fn new(is_nullable: bool) -> Self {
-        new_bytes_array(is_nullable)
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
-
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
     }
@@ -67,18 +49,6 @@ impl BinaryBuilderArray for BytesViewArray {
     const DATA_TYPE_NAME: &'static str = "BinaryView";
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::BinaryView;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::BinaryView;
-
-    fn new(is_nullable: bool) -> Self {
-        BytesViewArray {
-            validity: is_nullable.then(Vec::new),
-            data: Vec::new(),
-            buffers: vec![vec![]],
-        }
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
 
     fn push_byte(&mut self, byte: u8) {
         self.buffers[0].push(byte);

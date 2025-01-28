@@ -4,7 +4,7 @@ use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
+    utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -15,55 +15,24 @@ pub trait Utf8BuilderArray:
     const DATA_TYPE_NAME: &'static str;
     const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder;
     const ARRAY_VARIANT: fn(Self) -> Array;
-
-    fn new(is_nullable: bool) -> Self;
-    fn is_nullable(&self) -> bool;
 }
 
 impl Utf8BuilderArray for BytesArray<i32> {
     const DATA_TYPE_NAME: &'static str = "Utf8";
     const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8;
-
-    fn new(is_nullable: bool) -> Self {
-        new_bytes_array(is_nullable)
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
 }
 
 impl Utf8BuilderArray for BytesArray<i64> {
     const DATA_TYPE_NAME: &'static str = "LargeUtf8";
     const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::LargeUtf8;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeUtf8;
-
-    fn new(is_nullable: bool) -> Self {
-        new_bytes_array(is_nullable)
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
 }
 
 impl Utf8BuilderArray for BytesViewArray {
     const DATA_TYPE_NAME: &'static str = "Utf8View";
     const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8View;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8View;
-
-    fn new(is_nullable: bool) -> Self {
-        BytesViewArray {
-            validity: is_nullable.then(Vec::new),
-            data: Vec::new(),
-            buffers: vec![vec![]],
-        }
-    }
-
-    fn is_nullable(&self) -> bool {
-        self.validity.is_some()
-    }
 }
 
 #[derive(Debug, Clone)]

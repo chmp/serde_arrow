@@ -8,7 +8,7 @@ use marrow::{
 use crate::internal::{
     chrono,
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -25,7 +25,7 @@ impl DurationBuilder {
         Self {
             path,
             unit,
-            array: new_primitive_array(is_nullable),
+            array: PrimitiveArray::new(is_nullable),
         }
     }
 
@@ -38,7 +38,7 @@ impl DurationBuilder {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
 
     pub fn into_array(self) -> Result<Array> {

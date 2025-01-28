@@ -5,7 +5,7 @@ use marrow::array::{Array, DecimalArray, PrimitiveArray};
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        array_ext::{ArrayExt, ScalarArrayExt},
         decimal::{self, DecimalParser},
     },
 };
@@ -32,7 +32,7 @@ impl DecimalBuilder {
             f32_factor: (10.0_f32).powi(scale as i32),
             f64_factor: (10.0_f64).powi(scale as i32),
             parser: DecimalParser::new(precision, scale, true),
-            array: new_primitive_array(is_nullable),
+            array: PrimitiveArray::new(is_nullable),
         }
     }
 
@@ -49,7 +49,7 @@ impl DecimalBuilder {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
 
     pub fn into_array(self) -> Result<Array> {
