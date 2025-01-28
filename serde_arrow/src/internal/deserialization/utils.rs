@@ -127,7 +127,10 @@ pub trait BytesAccess<'a> {
 impl<'a, O: Offset> BytesAccess<'a> for BytesView<'a, O> {
     fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx + 1 > self.offsets.len() {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.offsets.len().saturating_sub(1)
+            );
         }
 
         if let Some(validity) = &self.validity {
@@ -144,15 +147,18 @@ impl<'a, O: Offset> BytesAccess<'a> for BytesView<'a, O> {
 
 impl<'a> BytesAccess<'a> for BytesViewView<'a> {
     fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        let Some(desc) = self.data.get(idx) else {
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.data.len()
+            );
+        };
+
         if let Some(validity) = &self.validity {
             if !bitset_is_set(validity, idx)? {
                 return Ok(None);
             }
         }
-
-        let Some(desc) = self.data.get(idx) else {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
-        };
 
         let len = (*desc as u32) as usize;
         let res = || -> Option<&'a [u8]> {

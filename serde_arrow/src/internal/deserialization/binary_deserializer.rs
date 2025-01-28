@@ -49,7 +49,7 @@ impl<'a, V: BytesAccess<'a>> BinaryDeserializer<V> {
 
     pub fn next_slice(&mut self) -> Result<&'a [u8]> {
         let Some(slice) = self.view.get_bytes(self.next.0)? else {
-            fail!("Trying to deserialize from exhausted deserializer");
+            fail!("Invalid access: required item is not defined");
         };
         self.next = (self.next.0 + 1, 0);
         Ok(slice)
