@@ -336,10 +336,12 @@ pub fn validate_field(field: &Field) -> Result<()> {
         | DataType::Float64
         | DataType::Utf8
         | DataType::LargeUtf8
+        | DataType::Utf8View
         | DataType::Decimal128(_, _)
         | DataType::Date32
         | DataType::Binary
         | DataType::LargeBinary
+        | DataType::BinaryView
         | DataType::Duration(_) => validate_primitive_field(field),
         DataType::FixedSizeBinary(n) => validate_fixed_size_binary_field(field, *n),
         DataType::Date64 => validate_date64_field(field),

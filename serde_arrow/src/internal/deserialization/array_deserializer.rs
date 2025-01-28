@@ -1,7 +1,7 @@
 use half::f16;
 use marrow::{
     datatypes::FieldMeta,
-    view::{PrimitiveView, View},
+    view::{BytesView, BytesViewView, PrimitiveView, View},
 };
 use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
 
@@ -46,8 +46,9 @@ pub enum ArrayDeserializer<'a> {
     Time32(TimeDeserializer<'a, i32>),
     Time64(TimeDeserializer<'a, i64>),
     Timestamp(TimestampDeserializer<'a>),
-    Utf8(StringDeserializer<'a, i32>),
-    LargeUtf8(StringDeserializer<'a, i64>),
+    Utf8(StringDeserializer<BytesView<'a, i32>>),
+    LargeUtf8(StringDeserializer<BytesView<'a, i64>>),
+    Utf8View(StringDeserializer<BytesViewView<'a>>),
     DictionaryU8I32(DictionaryDeserializer<'a, u8, i32>),
     DictionaryU16I32(DictionaryDeserializer<'a, u16, i32>),
     DictionaryU32I32(DictionaryDeserializer<'a, u32, i32>),
@@ -68,8 +69,9 @@ pub enum ArrayDeserializer<'a> {
     List(ListDeserializer<'a, i32>),
     LargeList(ListDeserializer<'a, i64>),
     FixedSizeList(FixedSizeListDeserializer<'a>),
-    Binary(BinaryDeserializer<'a, i32>),
-    LargeBinary(BinaryDeserializer<'a, i64>),
+    Binary(BinaryDeserializer<BytesView<'a, i32>>),
+    LargeBinary(BinaryDeserializer<BytesView<'a, i64>>),
+    BinaryView(BinaryDeserializer<BytesViewView<'a>>),
     FixedSizeBinary(FixedSizeBinaryDeserializer<'a>),
     Map(MapDeserializer<'a>),
     Enum(EnumDeserializer<'a>),
@@ -123,8 +125,10 @@ impl<'a> ArrayDeserializer<'a> {
             ))),
             V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(path, view))),
             V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(path, view))),
+            V::Utf8View(view) => Ok(D::Utf8View(StringDeserializer::new(path, view))),
             V::Binary(view) => Ok(D::Binary(BinaryDeserializer::new(path, view))),
             V::LargeBinary(view) => Ok(D::LargeBinary(BinaryDeserializer::new(path, view))),
+            V::BinaryView(view) => Ok(D::BinaryView(BinaryDeserializer::new(path, view))),
             V::FixedSizeBinary(view) => Ok(D::FixedSizeBinary(FixedSizeBinaryDeserializer::new(
                 path, view,
             )?)),
@@ -339,12 +343,14 @@ macro_rules! dispatch {
             $wrapper::Timestamp($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
+            $wrapper::Utf8View($name) => $expr,
             $wrapper::Struct($name) => $expr,
             $wrapper::List($name) => $expr,
             $wrapper::FixedSizeList($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::Binary($name) => $expr,
             $wrapper::LargeBinary($name) => $expr,
+            $wrapper::BinaryView($name) => $expr,
             $wrapper::FixedSizeBinary($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Enum($name) => $expr,

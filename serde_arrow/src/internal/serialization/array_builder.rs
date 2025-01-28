@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use half::f16;
 use serde::Serialize;
 
-use marrow::array::Array;
+use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::error::{Context, Result};
 
@@ -43,13 +43,15 @@ pub enum ArrayBuilder {
     List(ListBuilder<i32>),
     LargeList(ListBuilder<i64>),
     FixedSizedList(FixedSizeListBuilder),
-    Binary(BinaryBuilder<i32>),
-    LargeBinary(BinaryBuilder<i64>),
+    Binary(BinaryBuilder<BytesArray<i32>>),
+    LargeBinary(BinaryBuilder<BytesArray<i64>>),
+    BinaryView(BinaryBuilder<BytesViewArray>),
     FixedSizeBinary(FixedSizeBinaryBuilder),
     Map(MapBuilder),
     Struct(StructBuilder),
-    Utf8(Utf8Builder<i32>),
-    LargeUtf8(Utf8Builder<i64>),
+    Utf8(Utf8Builder<BytesArray<i32>>),
+    LargeUtf8(Utf8Builder<BytesArray<i64>>),
+    Utf8View(Utf8Builder<BytesViewArray>),
     DictionaryUtf8(DictionaryUtf8Builder),
     Union(UnionBuilder),
     UnknownVariant(UnknownVariantBuilder),
@@ -80,11 +82,13 @@ macro_rules! dispatch {
             $wrapper::Decimal128($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
+            $wrapper::Utf8View($name) => $expr,
             $wrapper::List($name) => $expr,
             $wrapper::LargeList($name) => $expr,
             $wrapper::FixedSizedList($name) => $expr,
             $wrapper::Binary($name) => $expr,
             $wrapper::LargeBinary($name) => $expr,
+            $wrapper::BinaryView($name) => $expr,
             $wrapper::FixedSizeBinary($name) => $expr,
             $wrapper::Map($name) => $expr,
             $wrapper::Struct($name) => $expr,

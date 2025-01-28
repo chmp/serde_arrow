@@ -28,7 +28,7 @@ impl<'a> DecimalDeserializer<'a> {
         let mut buffer = [0; decimal::BUFFER_SIZE_I128];
         let formatted = decimal::format_decimal(&mut buffer, val, self.scale);
 
-        func(&formatted)
+        func(formatted)
     }
 }
 

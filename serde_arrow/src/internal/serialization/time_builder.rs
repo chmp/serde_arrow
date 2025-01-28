@@ -9,7 +9,7 @@ use marrow::{
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        array_ext::{ArrayExt, ScalarArrayExt},
         NamedType,
     },
 };
@@ -28,7 +28,7 @@ impl<I: Default + 'static> TimeBuilder<I> {
         Self {
             path,
             unit,
-            array: new_primitive_array(is_nullable),
+            array: PrimitiveArray::new(is_nullable),
         }
     }
 
@@ -41,7 +41,7 @@ impl<I: Default + 'static> TimeBuilder<I> {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
 }
 

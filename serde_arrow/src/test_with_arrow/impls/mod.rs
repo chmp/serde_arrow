@@ -3,6 +3,8 @@ mod utils;
 
 // tests grouped by arrow type
 mod arrow_binary;
+#[cfg(has_arrow_bytes_view_support)]
+mod arrow_binary_view;
 mod arrow_date;
 mod arrow_decimal;
 mod arrow_dictionary;
@@ -15,6 +17,8 @@ mod arrow_struct;
 mod arrow_time;
 mod arrow_timestamp;
 mod arrow_union;
+#[cfg(has_arrow_bytes_view_support)]
+mod arrow_utf8_view;
 
 // tests grouped by serde type
 mod serde_i32;

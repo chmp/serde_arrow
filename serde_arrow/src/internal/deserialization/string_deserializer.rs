@@ -1,22 +1,38 @@
-use marrow::view::BytesView;
+use marrow::view::{BytesView, BytesViewView};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, NamedType, Offset},
+    utils::Mut,
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::bitset_is_set,
+    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::BytesAccess,
 };
 
-pub struct StringDeserializer<'a, O: Offset> {
+pub trait StringDeserializerDataType {
+    const DATA_TYPE_NAME: &'static str;
+}
+
+impl StringDeserializerDataType for BytesView<'_, i32> {
+    const DATA_TYPE_NAME: &'static str = "Utf8";
+}
+
+impl StringDeserializerDataType for BytesView<'_, i64> {
+    const DATA_TYPE_NAME: &'static str = "LargeUtf8";
+}
+
+impl StringDeserializerDataType for BytesViewView<'_> {
+    const DATA_TYPE_NAME: &'static str = "Utf8View";
+}
+
+pub struct StringDeserializer<V> {
     pub path: String,
-    pub view: BytesView<'a, O>,
+    pub view: V,
     pub next: usize,
 }
 
-impl<'a, O: Offset> StringDeserializer<'a, O> {
-    pub fn new(path: String, view: BytesView<'a, O>) -> Self {
+impl<'a, V: BytesAccess<'a>> StringDeserializer<V> {
+    pub fn new(path: String, view: V) -> Self {
         Self {
             path,
             view,
@@ -25,23 +41,13 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 
     pub fn next(&mut self) -> Result<Option<&'a str>> {
-        if self.next + 1 > self.view.offsets.len() {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
-        }
-
-        if let Some(validity) = &self.view.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(None);
-            }
-        }
-
-        let start = self.view.offsets[self.next].try_into_usize()?;
-        let end = self.view.offsets[self.next + 1].try_into_usize()?;
-        let s = std::str::from_utf8(&self.view.data[start..end])?;
-
+        let res = if let Some(data) = self.view.get_bytes(self.next)? {
+            Some(std::str::from_utf8(data)?)
+        } else {
+            None
+        };
         self.next += 1;
-
-        Ok(Some(s))
+        Ok(res)
     }
 
     pub fn next_required(&mut self) -> Result<&'a str> {
@@ -52,16 +58,7 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 
     pub fn peek_next(&self) -> Result<bool> {
-        if self.next + 1 > self.view.offsets.len() {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
-        }
-
-        if let Some(validity) = &self.view.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
+        Ok(self.view.get_bytes(self.next)?.is_some())
     }
 
     pub fn consume_next(&mut self) {
@@ -69,22 +66,16 @@ impl<'a, O: Offset> StringDeserializer<'a, O> {
     }
 }
 
-impl<O: NamedType + Offset> Context for StringDeserializer<'_, O> {
+impl<V: StringDeserializerDataType> Context for StringDeserializer<V> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            match O::NAME {
-                "i32" => "Utf8",
-                "i64" => "LargeUtf8",
-                _ => "<unknown>",
-            },
-        );
+        set_default(annotations, "data_type", V::DATA_TYPE_NAME);
     }
 }
 
-impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
+impl<'a, VV: BytesAccess<'a> + StringDeserializerDataType> SimpleDeserializer<'a>
+    for StringDeserializer<VV>
+{
     fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
             if self.peek_next()? {

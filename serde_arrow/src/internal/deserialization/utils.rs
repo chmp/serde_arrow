@@ -1,4 +1,4 @@
-use marrow::view::BitsWithOffset;
+use marrow::view::{BitsWithOffset, BytesView, BytesViewView};
 
 use crate::internal::{
     error::{fail, Result},
@@ -118,4 +118,63 @@ fn test_check_supported_list_layout() {
         ),
         "data in null values",
     );
+}
+
+pub trait BytesAccess<'a> {
+    fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>>;
+}
+
+impl<'a, O: Offset> BytesAccess<'a> for BytesView<'a, O> {
+    fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        if idx + 1 > self.offsets.len() {
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.offsets.len().saturating_sub(1)
+            );
+        }
+
+        if let Some(validity) = &self.validity {
+            if !bitset_is_set(validity, idx)? {
+                return Ok(None);
+            }
+        }
+
+        let start = self.offsets[idx].try_into_usize()?;
+        let end = self.offsets[idx + 1].try_into_usize()?;
+        Ok(Some(&self.data[start..end]))
+    }
+}
+
+impl<'a> BytesAccess<'a> for BytesViewView<'a> {
+    fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        let Some(desc) = self.data.get(idx) else {
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.data.len()
+            );
+        };
+
+        if let Some(validity) = &self.validity {
+            if !bitset_is_set(validity, idx)? {
+                return Ok(None);
+            }
+        }
+
+        let len = (*desc as u32) as usize;
+        let res = || -> Option<&'a [u8]> {
+            if len <= 12 {
+                let bytes: &[u8] = bytemuck::try_cast_slice(std::slice::from_ref(desc)).ok()?;
+                bytes.get(4..4 + len)
+            } else {
+                let buf_idx = ((*desc >> 64) as u32) as usize;
+                let offset = ((*desc >> 96) as u32) as usize;
+                self.buffers.get(buf_idx)?.get(offset..offset + len)
+            }
+        }();
+
+        if res.is_none() {
+            fail!("invalid state in bytes deserialization");
+        }
+        Ok(res)
+    }
 }

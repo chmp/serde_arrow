@@ -1,28 +1,51 @@
 use std::collections::BTreeMap;
 
-use marrow::array::{Array, BytesArray};
+use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt},
-        NamedType, Offset,
-    },
+    utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
-#[derive(Debug, Clone)]
-pub struct Utf8Builder<O> {
-    path: String,
-    array: BytesArray<O>,
+pub trait Utf8BuilderArray:
+    ArrayExt + for<'s> ScalarArrayExt<'s, Value = &'s [u8]> + Sized
+{
+    const DATA_TYPE_NAME: &'static str;
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(Self) -> Array;
 }
 
-impl<O: Offset> Utf8Builder<O> {
+impl Utf8BuilderArray for BytesArray<i32> {
+    const DATA_TYPE_NAME: &'static str = "Utf8";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8;
+}
+
+impl Utf8BuilderArray for BytesArray<i64> {
+    const DATA_TYPE_NAME: &'static str = "LargeUtf8";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::LargeUtf8;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeUtf8;
+}
+
+impl Utf8BuilderArray for BytesViewArray {
+    const DATA_TYPE_NAME: &'static str = "Utf8View";
+    const ARRAY_BUILDER_VARIANT: fn(Utf8Builder<Self>) -> ArrayBuilder = ArrayBuilder::Utf8View;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::Utf8View;
+}
+
+#[derive(Debug, Clone)]
+pub struct Utf8Builder<A> {
+    path: String,
+    array: A,
+}
+
+impl<A: Utf8BuilderArray> Utf8Builder<A> {
     pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
             path,
-            array: new_bytes_array(is_nullable),
+            array: A::new(is_nullable),
         }
     }
 
@@ -34,46 +57,26 @@ impl<O: Offset> Utf8Builder<O> {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
-}
 
-impl Utf8Builder<i32> {
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Utf8(self.take_self())
+        A::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Utf8(self.array))
+        Ok(A::ARRAY_VARIANT(self.array))
     }
 }
 
-impl Utf8Builder<i64> {
-    pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::LargeUtf8(self.take_self())
-    }
-
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeUtf8(self.array))
-    }
-}
-
-impl<O: NamedType> Context for Utf8Builder<O> {
+impl<A: Utf8BuilderArray> Context for Utf8Builder<A> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            if O::NAME == "i32" {
-                "Utf8"
-            } else {
-                "LargeUtf8"
-            },
-        );
+        set_default(annotations, "data_type", A::DATA_TYPE_NAME);
     }
 }
 
-impl<O: NamedType + Offset> SimpleSerializer for Utf8Builder<O> {
+impl<A: Utf8BuilderArray> SimpleSerializer for Utf8Builder<A> {
     fn serialize_default(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
