@@ -3,15 +3,24 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, NamedType},
+    utils::{array_view_ext::ViewAccess, Mut, NamedType},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::ArrayBufferIterator,
+};
 
 pub trait Float: Copy {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
+    ) -> Result<V::Value>;
+
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
+        visitor: V,
+        idx: usize,
     ) -> Result<V::Value>;
 
     fn into_f32(self) -> Result<f32>;
@@ -79,5 +88,37 @@ impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'d
 
     fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| visitor.visit_f64(self.array.next_required()?.into_f64()?)).ctx(self)
+    }
+}
+
+impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeserializer<'de, F> {
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                F::deserialize_any_at(self, visitor, idx)
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                visitor.visit_some(self.at(idx))
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_f32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_f32(self.array.get_required(idx)?.into_f32()?)).ctx(self)
+    }
+
+    fn deserialize_f64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_f64(self.array.get_required(idx)?.into_f64()?)).ctx(self)
     }
 }

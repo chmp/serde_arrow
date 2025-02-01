@@ -4,10 +4,13 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    utils::{array_view_ext::ViewAccess, Mut},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::ArrayBufferIterator,
+};
 
 pub trait DatePrimitive:
     TryInto<i32> + TryInto<i64> + Copy + std::fmt::Display + std::ops::Div<Self, Output = Self>
@@ -142,6 +145,76 @@ impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I>
         try_(|| {
             let ts = self.array.next_required()?;
             visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
+        })
+        .ctx(self)
+    }
+}
+
+impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'de, I> {
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                self.deserialize_i32(visitor, idx)
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                visitor.visit_some(self.at(idx))
+            } else {
+                visitor.visit_none::<Error>()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let val = self.array.get_required(idx)?;
+            let Ok(val) = (*val).try_into() else {
+                fail!("Cannot convert {val} to i32");
+            };
+            visitor.visit_i32(val)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let val = self.array.get_required(idx)?;
+            let Ok(val) = (*val).try_into() else {
+                fail!("Cannot convert {val} to i64");
+            };
+            visitor.visit_i64(val)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_str<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| self.deserialize_string(visitor, idx)).ctx(self)
+    }
+
+    fn deserialize_string<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.get_required(idx)?;
+            visitor.visit_string(self.get_string_repr(*ts)?)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| self.deserialize_byte_buf(visitor, idx)).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.get_required(idx)?;
+            visitor.visit_byte_buf(self.get_string_repr(*ts)?.into_bytes())
         })
         .ctx(self)
     }

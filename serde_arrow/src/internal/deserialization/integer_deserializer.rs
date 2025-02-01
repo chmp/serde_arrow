@@ -3,15 +3,24 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, NamedType},
+    utils::{array_view_ext::ViewAccess, Mut, NamedType},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator};
+use super::{
+    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::ArrayBufferIterator,
+};
 
 pub trait Integer: Sized + Copy {
     fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
         deser: &mut S,
         visitor: V,
+    ) -> Result<V::Value>;
+
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
+        visitor: V,
+        idx: usize,
     ) -> Result<V::Value>;
 
     fn into_bool(self) -> Result<bool>;
@@ -125,5 +134,69 @@ impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for IntegerDeserialize
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| visitor.visit_i64(self.array.next_required()?.into_i64()?)).ctx(self)
+    }
+}
+
+impl<'de, T: NamedType + Integer> RandomAccessDeserializer<'de> for IntegerDeserializer<'de, T> {
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                T::deserialize_any_at(self, visitor, idx)
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.array.is_some(idx)? {
+                visitor.visit_some(self.at(idx))
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_bool<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_bool(self.array.get_required(idx)?.into_bool()?)).ctx(self)
+    }
+
+    fn deserialize_char<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_char(self.array.get_required(idx)?.into_u32()?.try_into()?)).ctx(self)
+    }
+
+    fn deserialize_u8<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_u8(self.array.get_required(idx)?.into_u8()?)).ctx(self)
+    }
+
+    fn deserialize_u16<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_u16(self.array.get_required(idx)?.into_u16()?)).ctx(self)
+    }
+
+    fn deserialize_u32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_u32(self.array.get_required(idx)?.into_u32()?)).ctx(self)
+    }
+
+    fn deserialize_u64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_u64(self.array.get_required(idx)?.into_u64()?)).ctx(self)
+    }
+
+    fn deserialize_i8<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i8(self.array.get_required(idx)?.into_i8()?)).ctx(self)
+    }
+
+    fn deserialize_i16<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i16(self.array.get_required(idx)?.into_i16()?)).ctx(self)
+    }
+
+    fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i32(self.array.get_required(idx)?.into_i32()?)).ctx(self)
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i64(self.array.get_required(idx)?.into_i64()?)).ctx(self)
     }
 }

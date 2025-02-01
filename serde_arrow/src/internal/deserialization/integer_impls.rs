@@ -52,6 +52,18 @@ impl Integer for i8 {
         deser.deserialize_i8(visitor)
     }
 
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_i8(visitor, idx)
+    }
+
     implement_integer_into!();
 }
 
@@ -61,6 +73,18 @@ impl Integer for i16 {
         visitor: V,
     ) -> Result<V::Value> {
         deser.deserialize_i16(visitor)
+    }
+
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_i16(visitor, idx)
     }
 
     implement_integer_into!();
@@ -74,6 +98,18 @@ impl Integer for i32 {
         deser.deserialize_i32(visitor)
     }
 
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_i32(visitor, idx)
+    }
+
     implement_integer_into!();
 }
 
@@ -83,6 +119,18 @@ impl Integer for i64 {
         visitor: V,
     ) -> Result<V::Value> {
         deser.deserialize_i64(visitor)
+    }
+
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_i64(visitor, idx)
     }
 
     implement_integer_into!();
@@ -96,6 +144,18 @@ impl Integer for u8 {
         deser.deserialize_u8(visitor)
     }
 
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_u8(visitor, idx)
+    }
+
     implement_integer_into!();
 }
 
@@ -105,6 +165,18 @@ impl Integer for u16 {
         visitor: V,
     ) -> Result<V::Value> {
         deser.deserialize_u16(visitor)
+    }
+
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_u16(visitor, idx)
     }
 
     implement_integer_into!();
@@ -118,6 +190,18 @@ impl Integer for u32 {
         deser.deserialize_u32(visitor)
     }
 
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_u32(visitor, idx)
+    }
+
     implement_integer_into!();
 }
 
@@ -127,6 +211,18 @@ impl Integer for u64 {
         visitor: V,
     ) -> Result<V::Value> {
         deser.deserialize_u64(visitor)
+    }
+
+    fn deserialize_any_at<
+        'de,
+        S: super::random_access_deserializer::RandomAccessDeserializer<'de>,
+        V: Visitor<'de>,
+    >(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_u64(visitor, idx)
     }
 
     implement_integer_into!();

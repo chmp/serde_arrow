@@ -17,6 +17,7 @@ pub mod list_deserializer;
 pub mod map_deserializer;
 pub mod null_deserializer;
 pub mod outer_sequence_deserializer;
+pub mod random_access_deserializer;
 pub mod simple_deserializer;
 pub mod string_deserializer;
 pub mod struct_deserializer;

@@ -3,10 +3,13 @@ use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    utils::{array_view_ext::ViewAccess, Mut},
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::BytesAccess};
+use super::{
+    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::BytesAccess,
+};
 
 trait BinaryDeserializerDataType {
     const DATA_TYPE_NAME: &'static str;
@@ -166,5 +169,81 @@ impl<'de> SimpleDeserializer<'de> for U8Deserializer {
 
     fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         visitor.visit_i64(self.0.into())
+    }
+}
+
+struct U8SliceDeserializer<'a>(&'a [u8], usize);
+
+impl<'a> U8SliceDeserializer<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self(bytes, 0)
+    }
+}
+
+impl<'de> SeqAccess<'de> for U8SliceDeserializer<'de> {
+    type Error = Error;
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
+
+    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>> {
+        let U8SliceDeserializer(bytes, idx) = *self;
+        if idx >= bytes.len() {
+            return Ok(None);
+        }
+
+        let mut item_deserializer = U8Deserializer(bytes[idx]);
+        let item = seed.deserialize(Mut(&mut item_deserializer))?;
+
+        self.1 = idx + 1;
+
+        Ok(Some(item))
+    }
+}
+
+impl<'de, VV> RandomAccessDeserializer<'de> for BinaryDeserializer<VV>
+where
+    VV: ViewAccess<'de, [u8]> + BinaryDeserializerDataType + 'static,
+{
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.view.is_some(idx)? {
+                self.deserialize_bytes(visitor, idx)
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.view.is_some(idx)? {
+                visitor.visit_some(self.at(idx))
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_seq<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let bytes = self.view.get_required(idx)?;
+            visitor.visit_seq(U8SliceDeserializer::new(bytes))
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_bytes::<Error>(self.view.get_required(idx)?)).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_bytes::<Error>(self.view.get_required(idx)?)).ctx(self)
     }
 }

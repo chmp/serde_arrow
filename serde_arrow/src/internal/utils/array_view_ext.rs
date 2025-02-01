@@ -1,6 +1,9 @@
-use marrow::view::View;
+use marrow::view::{BytesView, BytesViewView, PrimitiveView, View};
 
-use crate::internal::error::{fail, Result};
+use crate::internal::{
+    deserialization::utils::bitset_is_set,
+    error::{fail, Error, Result},
+};
 
 pub trait ViewExt {
     fn len(&self) -> Result<usize>;
@@ -48,6 +51,116 @@ impl ViewExt for View<'_> {
             V::Struct(view) => Ok(view.len),
             V::Dictionary(view) => view.keys.len(),
             _ => fail!("Unknown view type"),
+        }
+    }
+}
+
+pub trait ViewAccess<'a, Item: ?Sized + 'a> {
+    fn get(&self, idx: usize) -> Result<Option<&'a Item>>;
+
+    fn get_required(&self, idx: usize) -> Result<&'a Item>
+    where
+        Self: 'a,
+    {
+        if let Some(val) = self.get(idx)? {
+            Ok(val)
+        } else {
+            fail!("Required item was not present");
+        }
+    }
+
+    fn is_some(&self, idx: usize) -> Result<bool>
+    where
+        Self: 'a,
+    {
+        Ok(self.get(idx)?.is_some())
+    }
+}
+
+impl<'a, T> ViewAccess<'a, T> for PrimitiveView<'a, T> {
+    fn get(&self, idx: usize) -> Result<Option<&'a T>> {
+        if let Some(value) = self.values.get(idx) {
+            if let Some(validity) = self.validity.as_ref() {
+                if !bitset_is_set(validity, idx)? {
+                    return Ok(None);
+                }
+            }
+            Ok(Some(value))
+        } else {
+            fail!("Access beyond array length");
+        }
+    }
+}
+
+impl<'a, O> ViewAccess<'a, [u8]> for BytesView<'a, O>
+where
+    O: Copy,
+    usize: TryFrom<O>,
+    Error: From<<usize as TryFrom<O>>::Error>,
+{
+    fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        if idx + 1 > self.offsets.len() {
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.offsets.len().saturating_sub(1)
+            );
+        }
+
+        if let Some(validity) = &self.validity {
+            if !bitset_is_set(validity, idx)? {
+                return Ok(None);
+            }
+        }
+
+        let start = usize::try_from(self.offsets[idx])?;
+        let end = usize::try_from(self.offsets[idx + 1])?;
+        Ok(Some(&self.data[start..end]))
+    }
+}
+
+impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
+    fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        let Some(desc) = self.data.get(idx) else {
+            fail!(
+                "Invalid access: tried to get element {idx} of array with {len} elements",
+                len = self.data.len()
+            );
+        };
+
+        if let Some(validity) = &self.validity {
+            if !bitset_is_set(validity, idx)? {
+                return Ok(None);
+            }
+        }
+
+        let len = (*desc as u32) as usize;
+        let res = || -> Option<&'a [u8]> {
+            if len <= 12 {
+                let bytes: &[u8] = bytemuck::try_cast_slice(std::slice::from_ref(desc)).ok()?;
+                bytes.get(4..4 + len)
+            } else {
+                let buf_idx = ((*desc >> 64) as u32) as usize;
+                let offset = ((*desc >> 96) as u32) as usize;
+                self.buffers.get(buf_idx)?.get(offset..offset + len)
+            }
+        }();
+
+        if res.is_none() {
+            fail!("invalid state in bytes deserialization");
+        }
+        Ok(res)
+    }
+}
+
+impl<'a, V> ViewAccess<'a, str> for V
+where
+    V: ViewAccess<'a, [u8]>,
+{
+    fn get(&self, idx: usize) -> Result<Option<&'a str>> {
+        match ViewAccess::<[u8]>::get(self, idx) {
+            Ok(Some(data)) => Ok(Some(std::str::from_utf8(data)?)),
+            Ok(None) => Ok(None),
+            Err(err) => Err(err),
         }
     }
 }
