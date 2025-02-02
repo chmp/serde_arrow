@@ -153,26 +153,12 @@ impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {
 }
 
 impl<'de> RandomAccessDeserializer<'de> for BoolDeserializer<'de> {
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.get(idx)?.is_some() {
-                self.deserialize_bool(visitor, idx)
-            } else {
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        Ok(self.get(idx)?.is_some())
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.get(idx)?.is_some() {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_bool(visitor, idx)
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

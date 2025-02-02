@@ -6,7 +6,10 @@ use crate::internal::{
     utils::Mut,
 };
 
-use super::{simple_deserializer::SimpleDeserializer, utils::bitset_is_set};
+use super::{
+    simple_deserializer::SimpleDeserializer,
+    utils::{bitset_is_set, U8Deserializer},
+};
 
 pub struct FixedSizeBinaryDeserializer<'a> {
     pub path: String,
@@ -128,45 +131,5 @@ impl<'de> SeqAccess<'de> for FixedSizeBinaryDeserializer<'de> {
         let mut item_deserializer = U8Deserializer(self.view.data[item * self.shape.1 + offset]);
         let item = seed.deserialize(Mut(&mut item_deserializer))?;
         Ok(Some(item))
-    }
-}
-
-struct U8Deserializer(u8);
-
-impl Context for U8Deserializer {
-    fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
-}
-
-impl<'de> SimpleDeserializer<'de> for U8Deserializer {
-    fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.0)
-    }
-
-    fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.0.into())
-    }
-
-    fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.0.into())
-    }
-
-    fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.0.into())
-    }
-
-    fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.0.try_into()?)
-    }
-
-    fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.0.into())
-    }
-
-    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.0.into())
-    }
-
-    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.0.into())
     }
 }

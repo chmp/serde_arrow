@@ -92,26 +92,12 @@ impl<'de> SimpleDeserializer<'de> for DecimalDeserializer<'de> {
 }
 
 impl<'de> RandomAccessDeserializer<'de> for DecimalDeserializer<'de> {
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.view.is_some(idx)? {
-                self.deserialize_str(visitor, idx)
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.view.is_some(idx)
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.view.is_some(idx)? {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_str(visitor, idx)
     }
 
     fn deserialize_str<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

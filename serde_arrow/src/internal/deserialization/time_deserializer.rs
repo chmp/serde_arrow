@@ -1,19 +1,23 @@
 use chrono::NaiveTime;
-use marrow::{datatypes::TimeUnit, view::TimeView};
+use marrow::{
+    datatypes::TimeUnit,
+    view::{PrimitiveView, TimeView},
+};
 use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, try_opt, Context, ContextSupport, Error, Result},
-    utils::{Mut, NamedType},
+    utils::{array_view_ext::ViewAccess, Mut, NamedType},
 };
 
 use super::{
-    integer_deserializer::Integer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
+    integer_deserializer::Integer, random_access_deserializer::RandomAccessDeserializer,
+    simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
 };
 
 pub struct TimeDeserializer<'a, T: Integer> {
     path: String,
+    values: PrimitiveView<'a, T>,
     array: ArrayBufferIterator<'a, T>,
     unit: TimeUnit,
 }
@@ -22,6 +26,10 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
     pub fn new(path: String, view: TimeView<'a, T>) -> Self {
         Self {
             path,
+            values: PrimitiveView {
+                validity: view.validity,
+                values: view.values,
+            },
             array: ArrayBufferIterator::new(view.values, view.validity),
             unit: view.unit,
         }
@@ -117,6 +125,48 @@ impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for TimeDeserializer<'
     fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
         try_(|| {
             let ts = self.array.next_required()?.into_i64()?;
+            visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
+        })
+        .ctx(self)
+    }
+}
+
+impl<'de, T: Integer + NamedType> RandomAccessDeserializer<'de> for TimeDeserializer<'de, T> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.values.is_some(idx)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        T::deserialize_any_at(self, visitor, idx)
+    }
+
+    fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i32(self.array.get_required(idx)?.into_i32()?)).ctx(self)
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_i64(self.array.get_required(idx)?.into_i64()?)).ctx(self)
+    }
+
+    fn deserialize_str<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| self.deserialize_string(visitor, idx)).ctx(self)
+    }
+
+    fn deserialize_string<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.get_required(idx)?.into_i64()?;
+            visitor.visit_string(self.get_string_repr(ts)?)
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| self.deserialize_byte_buf(visitor, idx)).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            let ts = self.array.get_required(idx)?.into_i64()?;
             visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
         })
         .ctx(self)

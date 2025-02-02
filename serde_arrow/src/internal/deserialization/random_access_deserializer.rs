@@ -3,7 +3,7 @@
 
 use serde::{de::Visitor, Deserializer};
 
-use crate::internal::error::{fail, Context, Error, Result};
+use crate::internal::error::{fail, try_, Context, ContextSupport, Error, Result};
 
 // NOTE: the lifetime of the reference is not relevant for the lifetime of the deserialized, only
 // the lifetime of the contained arrays
@@ -15,8 +15,32 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         PositionedDeserializer(self, idx)
     }
 
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+    fn is_some(&self, idx: usize) -> Result<bool>;
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         fail!(in self, "Deserializer does not implement deserialize_any");
+    }
+
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.is_some(idx)? {
+                self.deserialize_any_some(visitor, idx)
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if self.is_some(idx)? {
+                visitor.visit_some(self.at(idx))
+            } else {
+                visitor.visit_none()
+            }
+        })
+        .ctx(self)
     }
 
     fn deserialize_ignored_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
@@ -113,10 +137,6 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
 
     fn deserialize_identifier<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         fail!(in self, "Deserializer does not implement deserialize_identifier");
-    }
-
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_option");
     }
 
     fn deserialize_newtype_struct<V: Visitor<'de>>(

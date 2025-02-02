@@ -134,34 +134,16 @@ impl<'a, VV: BytesAccess<'a> + StringDeserializerDataType> SimpleDeserializer<'a
 impl<'a, VV: ViewAccess<'a, str> + StringDeserializerDataType + 'static>
     RandomAccessDeserializer<'a> for StringDeserializer<VV>
 {
-    fn deserialize_any<V: serde::de::Visitor<'a>>(
-        &self,
-        visitor: V,
-        idx: usize,
-    ) -> Result<V::Value> {
-        try_(|| {
-            if self.view.is_some(idx)? {
-                self.deserialize_str(visitor, idx)
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.view.is_some(idx)
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'a>>(
+    fn deserialize_any_some<V: serde::de::Visitor<'a>>(
         &self,
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        try_(|| {
-            if self.view.is_some(idx)? {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+        self.deserialize_str(visitor, idx)
     }
 
     fn deserialize_str<V: serde::de::Visitor<'a>>(

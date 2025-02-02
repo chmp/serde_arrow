@@ -92,26 +92,12 @@ impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'d
 }
 
 impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeserializer<'de, F> {
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                F::deserialize_any_at(self, visitor, idx)
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.array.is_some(idx)
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        F::deserialize_any_at(self, visitor, idx)
     }
 
     fn deserialize_f32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

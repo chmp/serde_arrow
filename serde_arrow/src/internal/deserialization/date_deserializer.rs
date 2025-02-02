@@ -17,16 +17,19 @@ pub trait DatePrimitive:
 {
     const DATA_TYPE_NAME: &'static str;
     const DAY_TO_VALUE_FACTOR: Self;
+    const BITS: usize;
 }
 
 impl DatePrimitive for i32 {
     const DATA_TYPE_NAME: &'static str = "Date32";
     const DAY_TO_VALUE_FACTOR: Self = 1;
+    const BITS: usize = 32;
 }
 
 impl DatePrimitive for i64 {
     const DATA_TYPE_NAME: &'static str = "Date64";
     const DAY_TO_VALUE_FACTOR: Self = 86_400_000;
+    const BITS: usize = 64;
 }
 
 pub struct DateDeserializer<'a, I: DatePrimitive> {
@@ -151,26 +154,16 @@ impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I>
 }
 
 impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'de, I> {
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                self.deserialize_i32(visitor, idx)
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.array.is_some(idx)
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        if I::BITS == 32 {
+            self.deserialize_i32(visitor, idx)
+        } else {
+            self.deserialize_i64(visitor, idx)
+        }
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

@@ -2,8 +2,10 @@ use marrow::view::{BytesView, BytesViewView, PrimitiveView, View};
 
 use crate::internal::{
     deserialization::utils::bitset_is_set,
-    error::{fail, Error, Result},
+    error::{fail, Result},
 };
+
+use super::Offset;
 
 pub trait ViewExt {
     fn len(&self) -> Result<usize>;
@@ -92,12 +94,7 @@ impl<'a, T> ViewAccess<'a, T> for PrimitiveView<'a, T> {
     }
 }
 
-impl<'a, O> ViewAccess<'a, [u8]> for BytesView<'a, O>
-where
-    O: Copy,
-    usize: TryFrom<O>,
-    Error: From<<usize as TryFrom<O>>::Error>,
-{
+impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx + 1 > self.offsets.len() {
             fail!(
@@ -112,8 +109,8 @@ where
             }
         }
 
-        let start = usize::try_from(self.offsets[idx])?;
-        let end = usize::try_from(self.offsets[idx + 1])?;
+        let start = self.offsets[idx].try_into_usize()?;
+        let end = self.offsets[idx + 1].try_into_usize()?;
         Ok(Some(&self.data[start..end]))
     }
 }

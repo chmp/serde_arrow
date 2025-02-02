@@ -138,26 +138,12 @@ impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for IntegerDeserialize
 }
 
 impl<'de, T: NamedType + Integer> RandomAccessDeserializer<'de> for IntegerDeserializer<'de, T> {
-    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                T::deserialize_any_at(self, visitor, idx)
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.array.is_some(idx)
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| {
-            if self.array.is_some(idx)? {
-                visitor.visit_some(self.at(idx))
-            } else {
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        T::deserialize_any_at(self, visitor, idx)
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

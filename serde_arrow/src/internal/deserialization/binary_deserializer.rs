@@ -7,8 +7,9 @@ use crate::internal::{
 };
 
 use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::BytesAccess,
+    random_access_deserializer::RandomAccessDeserializer,
+    simple_deserializer::SimpleDeserializer,
+    utils::{BytesAccess, U8Deserializer, U8SliceDeserializer},
 };
 
 trait BinaryDeserializerDataType {
@@ -132,83 +133,18 @@ impl<'de, VV: BytesAccess<'de> + BinaryDeserializerDataType> SeqAccess<'de>
     }
 }
 
-struct U8Deserializer(u8);
-
-impl Context for U8Deserializer {
-    fn annotate(&self, _: &mut std::collections::BTreeMap<String, String>) {}
-}
-
-impl<'de> SimpleDeserializer<'de> for U8Deserializer {
-    fn deserialize_u8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.0)
-    }
-
-    fn deserialize_u16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.0.into())
-    }
-
-    fn deserialize_u32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.0.into())
-    }
-
-    fn deserialize_u64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.0.into())
-    }
-
-    fn deserialize_i8<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.0.try_into()?)
-    }
-
-    fn deserialize_i16<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.0.into())
-    }
-
-    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.0.into())
-    }
-
-    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.0.into())
-    }
-}
-
-struct U8SliceDeserializer<'a>(&'a [u8], usize);
-
-impl<'a> U8SliceDeserializer<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self(bytes, 0)
-    }
-}
-
-impl<'de> SeqAccess<'de> for U8SliceDeserializer<'de> {
-    type Error = Error;
-
-    fn size_hint(&self) -> Option<usize> {
-        Some(self.0.len())
-    }
-
-    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>> {
-        let U8SliceDeserializer(bytes, idx) = *self;
-        if idx >= bytes.len() {
-            return Ok(None);
-        }
-
-        let mut item_deserializer = U8Deserializer(bytes[idx]);
-        let item = seed.deserialize(Mut(&mut item_deserializer))?;
-
-        self.1 = idx + 1;
-
-        Ok(Some(item))
-    }
-}
-
 impl<'de, VV> RandomAccessDeserializer<'de> for BinaryDeserializer<VV>
 where
     VV: ViewAccess<'de, [u8]> + BinaryDeserializerDataType + 'static,
 {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.view.is_some(idx)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_bytes(visitor, idx)
+    }
+
     fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
             if self.view.is_some(idx)? {
