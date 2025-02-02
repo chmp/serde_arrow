@@ -4,14 +4,19 @@ use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    utils::{Mut, Offset},
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer,
+    random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
+    simple_deserializer::SimpleDeserializer,
+};
 
 pub struct EnumDeserializer<'a> {
     pub path: String,
     pub type_ids: &'a [i8],
+    pub offsets: &'a [i32],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
     pub next: usize,
 }
@@ -35,6 +40,7 @@ impl<'a> EnumDeserializer<'a> {
         Ok(Self {
             path,
             type_ids,
+            offsets,
             variants,
             next: 0,
         })
@@ -196,4 +202,35 @@ impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_ignored_any);
+}
+
+impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx >= self.type_ids.len() {
+            fail!("Access beyond bounds");
+        }
+        Ok(true)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        visitor.visit_enum(self.at(idx))
+    }
+}
+
+impl<'a, 'de> EnumAccess<'de> for PositionedDeserializer<'a, EnumDeserializer<'de>> {
+    type Variant = PositionedDeserializer<'a, ArrayDeserializer<'de>>;
+    type Error = Error;
+
+    fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
+        let PositionedDeserializer(this, idx) = self;
+        if idx >= this.type_ids.len() {
+            fail!("Exhausted deserializer");
+        }
+        let type_id = this.type_ids[idx];
+        let offset = this.offsets[idx].try_into_usize()?;
+        let (name, variant) = &this.variants[type_id as usize];
+
+        let val = seed.deserialize(VariantIdDeserializer { type_id, name })?;
+        Ok((val, variant.at(offset)))
+    }
 }

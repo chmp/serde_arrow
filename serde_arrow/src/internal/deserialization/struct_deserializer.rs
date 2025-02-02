@@ -9,8 +9,8 @@ use crate::internal::{
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::bitset_is_set,
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
+    simple_deserializer::SimpleDeserializer, utils::bitset_is_set,
 };
 
 pub struct StructDeserializer<'a> {
@@ -179,3 +179,5 @@ impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
         Ok(Some(res))
     }
 }
+
+impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {}

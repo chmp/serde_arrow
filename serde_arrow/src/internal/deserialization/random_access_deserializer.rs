@@ -7,7 +7,7 @@ use crate::internal::error::{fail, try_, Context, ContextSupport, Error, Result}
 
 // NOTE: the lifetime of the reference is not relevant for the lifetime of the deserialized, only
 // the lifetime of the contained arrays
-pub struct PositionedDeserializer<'this, D>(&'this D, usize);
+pub struct PositionedDeserializer<'this, D>(pub &'this D, pub usize);
 
 #[allow(unused)]
 pub trait RandomAccessDeserializer<'de>: Context + Sized {
@@ -15,10 +15,12 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         PositionedDeserializer(self, idx)
     }
 
-    fn is_some(&self, idx: usize) -> Result<bool>;
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        fail!(in self, "Deserializer does not implement is_some")
+    }
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_any");
+        fail!(in self, "Deserializer does not implement deserialize_any_some");
     }
 
     fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

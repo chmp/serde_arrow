@@ -3,7 +3,10 @@ use marrow::{
     datatypes::FieldMeta,
     view::{BytesView, BytesViewView, PrimitiveView, View},
 };
-use serde::de::{Deserialize, DeserializeSeed, VariantAccess, Visitor};
+use serde::{
+    de::{Deserialize, DeserializeSeed, VariantAccess, Visitor},
+    Deserializer,
+};
 
 use crate::internal::{
     error::{fail, Context, Error, Result},
@@ -12,16 +15,25 @@ use crate::internal::{
 };
 
 use super::{
-    binary_deserializer::BinaryDeserializer, bool_deserializer::BoolDeserializer,
-    date_deserializer::DateDeserializer, decimal_deserializer::DecimalDeserializer,
-    dictionary_deserializer::DictionaryDeserializer, duration_deserializer::DurationDeserializer,
+    binary_deserializer::BinaryDeserializer,
+    bool_deserializer::BoolDeserializer,
+    date_deserializer::DateDeserializer,
+    decimal_deserializer::DecimalDeserializer,
+    dictionary_deserializer::DictionaryDeserializer,
+    duration_deserializer::DurationDeserializer,
     enum_deserializer::EnumDeserializer,
     fixed_size_binary_deserializer::FixedSizeBinaryDeserializer,
-    fixed_size_list_deserializer::FixedSizeListDeserializer, float_deserializer::FloatDeserializer,
-    integer_deserializer::IntegerDeserializer, list_deserializer::ListDeserializer,
-    map_deserializer::MapDeserializer, null_deserializer::NullDeserializer,
-    simple_deserializer::SimpleDeserializer, string_deserializer::StringDeserializer,
-    struct_deserializer::StructDeserializer, time_deserializer::TimeDeserializer,
+    fixed_size_list_deserializer::FixedSizeListDeserializer,
+    float_deserializer::FloatDeserializer,
+    integer_deserializer::IntegerDeserializer,
+    list_deserializer::ListDeserializer,
+    map_deserializer::MapDeserializer,
+    null_deserializer::NullDeserializer,
+    random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
+    simple_deserializer::SimpleDeserializer,
+    string_deserializer::StringDeserializer,
+    struct_deserializer::StructDeserializer,
+    time_deserializer::TimeDeserializer,
     timestamp_deserializer::TimestampDeserializer,
 };
 
@@ -543,5 +555,42 @@ impl<'de> VariantAccess<'de> for Mut<'_, ArrayDeserializer<'de>> {
 
     fn unit_variant(self) -> Result<()> {
         <()>::deserialize(self)
+    }
+}
+
+impl<'de> VariantAccess<'de> for PositionedDeserializer<'_, ArrayDeserializer<'de>> {
+    type Error = Error;
+
+    fn newtype_variant_seed<T: DeserializeSeed<'de>>(
+        self,
+        seed: T,
+    ) -> std::result::Result<T::Value, Self::Error> {
+        seed.deserialize(self)
+    }
+
+    fn struct_variant<V: Visitor<'de>>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_struct("UNUSED_ENUM_STRUCT_NAME", fields, visitor)
+    }
+
+    fn tuple_variant<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value> {
+        self.deserialize_tuple(len, visitor)
+    }
+
+    fn unit_variant(self) -> std::result::Result<(), Self::Error> {
+        <()>::deserialize(self)
+    }
+}
+
+impl<'de> RandomAccessDeserializer<'de> for ArrayDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        dispatch!(self, Self(this) => this.is_some(idx))
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        dispatch!(self, Self(this) => this.deserialize_any_some(visitor, idx))
     }
 }

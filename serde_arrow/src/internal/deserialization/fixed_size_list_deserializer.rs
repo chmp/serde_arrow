@@ -7,8 +7,8 @@ use crate::internal::{
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::bitset_is_set,
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
+    simple_deserializer::SimpleDeserializer, utils::bitset_is_set,
 };
 
 pub struct FixedSizeListDeserializer<'a> {
@@ -49,7 +49,7 @@ impl<'a> FixedSizeListDeserializer<'a> {
 
     pub fn consume_next(&mut self) -> Result<()> {
         for _ in 0..self.shape.1 {
-            self.item.deserialize_ignored_any(IgnoredAny)?;
+            SimpleDeserializer::deserialize_ignored_any(self.item.as_mut(), IgnoredAny)?;
         }
 
         self.next = (self.next.0 + 1, 0);
@@ -116,3 +116,5 @@ impl<'de> SeqAccess<'de> for FixedSizeListDeserializer<'de> {
         Ok(Some(item))
     }
 }
+
+impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {}

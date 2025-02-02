@@ -7,6 +7,7 @@ use crate::internal::{
 };
 
 use super::{
+    random_access_deserializer::RandomAccessDeserializer,
     simple_deserializer::SimpleDeserializer,
     utils::{bitset_is_set, U8Deserializer},
 };
@@ -133,3 +134,5 @@ impl<'de> SeqAccess<'de> for FixedSizeBinaryDeserializer<'de> {
         Ok(Some(item))
     }
 }
+
+impl<'de> RandomAccessDeserializer<'de> for FixedSizeBinaryDeserializer<'de> {}

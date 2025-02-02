@@ -8,6 +8,7 @@ use crate::internal::{
 
 use super::{
     array_deserializer::ArrayDeserializer,
+    random_access_deserializer::RandomAccessDeserializer,
     simple_deserializer::SimpleDeserializer,
     utils::{bitset_is_set, check_supported_list_layout},
 };
@@ -132,3 +133,5 @@ impl<'de, O: NamedType + Offset> SeqAccess<'de> for ListDeserializer<'de, O> {
         Ok(Some(item))
     }
 }
+
+impl<'de, O: Offset + NamedType> RandomAccessDeserializer<'de> for ListDeserializer<'de, O> {}
