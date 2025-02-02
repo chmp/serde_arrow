@@ -3,7 +3,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{array_view_ext::ViewAccess, Mut, NamedType},
+    utils::{array_view_ext::ViewAccess, NamedType},
 };
 
 use super::{
@@ -57,39 +57,7 @@ impl<F: NamedType + Float> Context for FloatDeserializer<'_, F> {
     }
 }
 
-impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                F::deserialize_any(&mut *self, visitor)
-            } else {
-                self.array.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                visitor.visit_some(Mut(&mut *self))
-            } else {
-                self.array.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_f32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_f32(self.array.next_required()?.into_f32()?)).ctx(self)
-    }
-
-    fn deserialize_f64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_f64(self.array.next_required()?.into_f64()?)).ctx(self)
-    }
-}
+impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {}
 
 impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeserializer<'de, F> {
     fn is_some(&self, idx: usize) -> Result<bool> {
