@@ -23,27 +23,7 @@ impl Context for NullDeserializer {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for NullDeserializer {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_unit::<Error>().ctx(self)
-    }
-
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_none::<Error>().ctx(self)
-    }
-
-    fn deserialize_unit<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        visitor.visit_unit::<Error>().ctx(self)
-    }
-
-    fn deserialize_unit_struct<V: Visitor<'de>>(
-        &mut self,
-        _: &'static str,
-        visitor: V,
-    ) -> Result<V::Value> {
-        visitor.visit_unit::<Error>().ctx(self)
-    }
-}
+impl<'de> SimpleDeserializer<'de> for NullDeserializer {}
 
 impl<'de> RandomAccessDeserializer<'de> for NullDeserializer {
     fn is_some(&self, _idx: usize) -> Result<bool> {

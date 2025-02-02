@@ -3,22 +3,18 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{array_view_ext::ViewAccess, Mut, Offset},
+    utils::{array_view_ext::ViewAccess, Offset},
 };
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
     random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
     path: String,
     keys: PrimitiveView<'a, K>,
     values: BytesView<'a, V>,
-    keys_iterator: ArrayBufferIterator<'a, K>,
-    offsets: &'a [V],
-    data: &'a [u8],
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
@@ -31,26 +27,7 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
             path,
             keys: keys.clone(),
             values: values.clone(),
-            keys_iterator: ArrayBufferIterator::new(keys.values, keys.validity),
-            offsets: values.offsets,
-            data: values.data,
         })
-    }
-
-    pub fn next_str(&mut self) -> Result<&str> {
-        let k: usize = self.keys_iterator.next_required()?.into_u64()?.try_into()?;
-        let Some(start) = self.offsets.get(k) else {
-            fail!("Invalid index");
-        };
-        let start = start.try_into_usize()?;
-
-        let Some(end) = self.offsets.get(k + 1) else {
-            fail!("Invalid index");
-        };
-        let end = end.try_into_usize()?;
-
-        let s = std::str::from_utf8(&self.data[start..end])?;
-        Ok(s)
     }
 
     pub fn get_str(&self, idx: usize) -> Result<&str> {
@@ -67,52 +44,7 @@ impl<K: Integer, V: Offset> Context for DictionaryDeserializer<'_, K, V> {
     }
 }
 
-impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
-    fn deserialize_any<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| {
-            if self.keys_iterator.peek_next()? {
-                self.deserialize_str(visitor)
-            } else {
-                self.keys_iterator.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_option<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| {
-            if self.keys_iterator.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.keys_iterator.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_str<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| visitor.visit_str(self.next_str()?)).ctx(self)
-    }
-
-    fn deserialize_string<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| visitor.visit_string(self.next_str()?.to_owned())).ctx(self)
-    }
-
-    fn deserialize_enum<VV: Visitor<'de>>(
-        &mut self,
-        _: &'static str,
-        _: &'static [&'static str],
-        visitor: VV,
-    ) -> Result<VV::Value> {
-        try_(|| {
-            let variant = self.next_str()?;
-            visitor.visit_enum(EnumAccess(variant))
-        })
-        .ctx(self)
-    }
-}
+impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {}
 
 impl<'de, K: Integer, V: Offset> RandomAccessDeserializer<'de>
     for DictionaryDeserializer<'de, K, V>

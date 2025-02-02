@@ -7,18 +7,16 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{array_view_ext::ViewAccess, Mut},
+    utils::array_view_ext::ViewAccess,
 };
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
 };
 
 pub struct TimestampDeserializer<'a> {
     path: String,
     values: PrimitiveView<'a, i64>,
-    array: ArrayBufferIterator<'a, i64>,
     unit: TimeUnit,
     is_utc: bool,
 }
@@ -37,7 +35,6 @@ impl<'a> TimestampDeserializer<'a> {
                 validity,
                 values: buffer,
             },
-            array: ArrayBufferIterator::new(buffer, validity),
             unit,
             is_utc,
         }
@@ -91,59 +88,7 @@ impl Context for TimestampDeserializer<'_> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for TimestampDeserializer<'de> {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                self.deserialize_i64(visitor)
-            } else {
-                self.array.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.array.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_i64(self.array.next_required()?)).ctx(self)
-    }
-
-    fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| self.deserialize_string(visitor)).ctx(self)
-    }
-
-    fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let ts = self.array.next_required()?;
-            visitor.visit_string(self.get_string_repr(ts)?)
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_bytes<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| self.deserialize_byte_buf(visitor).ctx(self))
-    }
-
-    fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let ts = self.array.next_required()?;
-            visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
-        })
-        .ctx(self)
-    }
-}
+impl<'de> SimpleDeserializer<'de> for TimestampDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for TimestampDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

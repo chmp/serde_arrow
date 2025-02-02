@@ -1,15 +1,14 @@
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
-use marrow::view::BitsWithOffset;
+use marrow::view::{BitsWithOffset, PrimitiveView};
 use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::{array_view_ext::ViewAccess, Mut},
+    utils::array_view_ext::ViewAccess,
 };
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
 };
 
 pub trait DatePrimitive:
@@ -34,14 +33,14 @@ impl DatePrimitive for i64 {
 
 pub struct DateDeserializer<'a, I: DatePrimitive> {
     path: String,
-    array: ArrayBufferIterator<'a, I>,
+    array: PrimitiveView<'a, I>,
 }
 
 impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
-    pub fn new(path: String, buffer: &'a [I], validity: Option<BitsWithOffset<'a>>) -> Self {
+    pub fn new(path: String, values: &'a [I], validity: Option<BitsWithOffset<'a>>) -> Self {
         Self {
             path,
-            array: ArrayBufferIterator::new(buffer, validity),
+            array: PrimitiveView { validity, values },
         }
     }
 
@@ -81,77 +80,7 @@ impl<I: DatePrimitive> Context for DateDeserializer<'_, I> {
     }
 }
 
-impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I> {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                self.deserialize_i32(visitor)
-            } else {
-                self.array.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.array.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.array.consume_next();
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_i32<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let val = self.array.next_required()?;
-            let Ok(val) = val.try_into() else {
-                fail!("Cannot convert {val} to i32");
-            };
-            visitor.visit_i32(val)
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_i64<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let val = self.array.next_required()?;
-            let Ok(val) = val.try_into() else {
-                fail!("Cannot convert {val} to i64");
-            };
-            visitor.visit_i64(val)
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_str<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| self.deserialize_string(visitor)).ctx(self)
-    }
-
-    fn deserialize_string<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let ts = self.array.next_required()?;
-            visitor.visit_string(self.get_string_repr(ts)?)
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_bytes<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| self.deserialize_byte_buf(visitor)).ctx(self)
-    }
-
-    fn deserialize_byte_buf<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            let ts = self.array.next_required()?;
-            visitor.visit_byte_buf(self.get_string_repr(ts)?.into_bytes())
-        })
-        .ctx(self)
-    }
-}
+impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I> {}
 
 impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'de, I> {
     fn is_some(&self, idx: usize) -> Result<bool> {

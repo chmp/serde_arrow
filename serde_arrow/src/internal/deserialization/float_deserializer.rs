@@ -8,7 +8,6 @@ use crate::internal::{
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::ArrayBufferIterator,
 };
 
 pub trait Float: Copy {
@@ -29,15 +28,12 @@ pub trait Float: Copy {
 
 pub struct FloatDeserializer<'a, F: Float> {
     path: String,
-    array: ArrayBufferIterator<'a, F>,
+    view: PrimitiveView<'a, F>,
 }
 
 impl<'a, F: Float> FloatDeserializer<'a, F> {
     pub fn new(path: String, view: PrimitiveView<'a, F>) -> Self {
-        Self {
-            path,
-            array: ArrayBufferIterator::new(view.values, view.validity),
-        }
+        Self { path, view }
     }
 }
 
@@ -61,7 +57,7 @@ impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'d
 
 impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeserializer<'de, F> {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        self.array.is_some(idx)
+        self.view.is_some(idx)
     }
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
@@ -69,10 +65,10 @@ impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeseriali
     }
 
     fn deserialize_f32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| visitor.visit_f32(self.array.get_required(idx)?.into_f32()?)).ctx(self)
+        try_(|| visitor.visit_f32(self.view.get_required(idx)?.into_f32()?)).ctx(self)
     }
 
     fn deserialize_f64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        try_(|| visitor.visit_f64(self.array.get_required(idx)?.into_f64()?)).ctx(self)
+        try_(|| visitor.visit_f64(self.view.get_required(idx)?.into_f64()?)).ctx(self)
     }
 }

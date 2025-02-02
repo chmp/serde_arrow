@@ -1,4 +1,4 @@
-use marrow::view::{BitsWithOffset, BytesView, BytesViewView, PrimitiveView};
+use marrow::view::{BitsWithOffset, BytesView, BytesViewView};
 use serde::de::{SeqAccess, Visitor};
 
 use crate::internal::{
@@ -10,69 +10,6 @@ use super::simple_deserializer::SimpleDeserializer;
 
 pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     get_bit_buffer(set.data, set.offset, idx)
-}
-
-// TODO: remove
-pub struct ArrayBufferIterator<'a, T: Copy> {
-    pub array: PrimitiveView<'a, T>,
-    pub next: usize,
-}
-
-impl<'a, T: Copy> std::ops::Deref for ArrayBufferIterator<'a, T> {
-    type Target = PrimitiveView<'a, T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.array
-    }
-}
-
-impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
-    pub fn new(values: &'a [T], validity: Option<BitsWithOffset<'a>>) -> Self {
-        Self {
-            array: PrimitiveView { validity, values },
-            next: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> Result<Option<T>> {
-        if self.next > self.array.values.len() {
-            fail!("Exhausted deserializer");
-        }
-
-        if let Some(validity) = &self.array.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(None);
-            }
-        }
-        let val = self.array.values[self.next];
-        self.next += 1;
-
-        Ok(Some(val))
-    }
-
-    pub fn next_required(&mut self) -> Result<T> {
-        let Some(next) = self.next()? else {
-            fail!("Exhausted deserializer");
-        };
-        Ok(next)
-    }
-
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next > self.array.values.len() {
-            fail!("Exhausted deserializer");
-        }
-
-        if let Some(validity) = &self.array.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
-    pub fn consume_next(&mut self) {
-        self.next += 1;
-    }
 }
 
 /// Check that the list layout given in terms of validity and offsets is
