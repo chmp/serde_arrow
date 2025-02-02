@@ -131,8 +131,9 @@ impl<'a, VV: BytesAccess<'a> + StringDeserializerDataType> SimpleDeserializer<'a
     }
 }
 
-impl<'a, VV: ViewAccess<'a, str> + StringDeserializerDataType + 'static>
-    RandomAccessDeserializer<'a> for StringDeserializer<VV>
+impl<'a, VV> RandomAccessDeserializer<'a> for StringDeserializer<VV>
+where
+    VV: ViewAccess<'a, str> + StringDeserializerDataType + 'a,
 {
     fn is_some(&self, idx: usize) -> Result<bool> {
         self.view.is_some(idx)

@@ -135,7 +135,7 @@ impl<'de, VV: BytesAccess<'de> + BinaryDeserializerDataType> SeqAccess<'de>
 
 impl<'de, VV> RandomAccessDeserializer<'de> for BinaryDeserializer<VV>
 where
-    VV: ViewAccess<'de, [u8]> + BinaryDeserializerDataType + 'static,
+    VV: ViewAccess<'de, [u8]> + BinaryDeserializerDataType + 'de,
 {
     fn is_some(&self, idx: usize) -> Result<bool> {
         self.view.is_some(idx)
