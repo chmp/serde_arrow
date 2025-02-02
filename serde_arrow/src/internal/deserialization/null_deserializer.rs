@@ -23,7 +23,7 @@ impl Context for NullDeserializer {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for NullDeserializer {}
+impl SimpleDeserializer<'_> for NullDeserializer {}
 
 impl<'de> RandomAccessDeserializer<'de> for NullDeserializer {
     fn is_some(&self, _idx: usize) -> Result<bool> {

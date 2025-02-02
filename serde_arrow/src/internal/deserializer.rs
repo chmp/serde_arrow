@@ -68,6 +68,10 @@ impl<'de> Deserializer<'de> {
         self.deserializer.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn slice<'this>(&'this self, slice: Range<usize>) -> DeserializerSlice<'this, 'de> {
         DeserializerSlice {
             deserializer: &self.deserializer,
