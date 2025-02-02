@@ -1,4 +1,7 @@
-use marrow::{datatypes::TimeUnit, view::PrimitiveView};
+use marrow::{
+    datatypes::TimeUnit,
+    view::{PrimitiveView, TimeView},
+};
 use serde::de::Visitor;
 
 use crate::internal::{
@@ -18,11 +21,14 @@ pub struct DurationDeserializer<'a> {
 }
 
 impl<'a> DurationDeserializer<'a> {
-    pub fn new(path: String, unit: TimeUnit, view: PrimitiveView<'a, i64>) -> Self {
+    pub fn new(path: String, view: TimeView<'a, i64>) -> Self {
         Self {
             path,
-            unit,
-            values: view.clone(),
+            unit: view.unit,
+            values: PrimitiveView {
+                validity: view.validity,
+                values: view.values,
+            },
         }
     }
 

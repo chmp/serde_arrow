@@ -1,7 +1,7 @@
 use half::f16;
 use marrow::{
     datatypes::FieldMeta,
-    view::{BytesView, BytesViewView, PrimitiveView, View},
+    view::{BytesView, BytesViewView, View},
 };
 use serde::{
     de::{Deserialize, DeserializeSeed, VariantAccess, Visitor},
@@ -108,33 +108,12 @@ impl<'a> ArrayDeserializer<'a> {
             V::Float32(view) => Ok(D::F32(FloatDeserializer::new(path, view))),
             V::Float64(view) => Ok(D::F64(FloatDeserializer::new(path, view))),
             V::Decimal128(view) => Ok(D::Decimal128(DecimalDeserializer::new(path, view))),
-            View::Date32(view) => Ok(Self::Date32(DateDeserializer::new(
-                path,
-                view.values,
-                view.validity,
-            ))),
-            View::Date64(view) => Ok(Self::Date64(DateDeserializer::new(
-                path,
-                view.values,
-                view.validity,
-            ))),
+            View::Date32(view) => Ok(Self::Date32(DateDeserializer::new(path, view))),
+            View::Date64(view) => Ok(Self::Date64(DateDeserializer::new(path, view))),
             V::Time32(view) => Ok(D::Time32(TimeDeserializer::new(path, view))),
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
-            V::Timestamp(view) => Ok(Self::Timestamp(TimestampDeserializer::new(
-                path,
-                view.values,
-                view.validity,
-                view.unit,
-                is_utc_timestamp(view.timezone.as_deref())?,
-            ))),
-            V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(
-                path,
-                view.unit,
-                PrimitiveView {
-                    values: view.values,
-                    validity: view.validity,
-                },
-            ))),
+            V::Timestamp(view) => Ok(Self::Timestamp(TimestampDeserializer::new(path, view)?)),
+            V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(path, view))),
             V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(path, view))),
             V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(path, view))),
             V::Utf8View(view) => Ok(D::Utf8View(StringDeserializer::new(path, view))),
@@ -312,14 +291,6 @@ impl<'a> ArrayDeserializer<'a> {
             }
             _ => fail!("Unknown view"),
         }
-    }
-}
-
-fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
-    match timezone {
-        Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
-        Some(tz) => fail!("Unsupported timezone: {} is not supported", tz),
-        None => Ok(false),
     }
 }
 

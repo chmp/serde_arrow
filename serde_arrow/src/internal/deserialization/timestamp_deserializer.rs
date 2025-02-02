@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike, Utc};
 use marrow::{
     datatypes::TimeUnit,
-    view::{BitsWithOffset, PrimitiveView},
+    view::{PrimitiveView, TimestampView},
 };
 use serde::de::Visitor;
 
@@ -22,22 +22,16 @@ pub struct TimestampDeserializer<'a> {
 }
 
 impl<'a> TimestampDeserializer<'a> {
-    pub fn new(
-        path: String,
-        buffer: &'a [i64],
-        validity: Option<BitsWithOffset<'a>>,
-        unit: TimeUnit,
-        is_utc: bool,
-    ) -> Self {
-        Self {
+    pub fn new(path: String, view: TimestampView<'a>) -> Result<Self> {
+        Ok(Self {
             path,
             values: PrimitiveView {
-                validity,
-                values: buffer,
+                validity: view.validity,
+                values: view.values,
             },
-            unit,
-            is_utc,
-        }
+            unit: view.unit,
+            is_utc: is_utc_timestamp(view.timezone.as_deref())?,
+        })
     }
 
     pub fn get_string_repr(&self, ts: i64) -> Result<String> {
@@ -78,6 +72,14 @@ impl<'a> TimestampDeserializer<'a> {
             // NOTE: chrono documents that Debug, not Display, can be parsed
             format!("{:?}{suffix}", date_time)
         }
+    }
+}
+
+fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
+    match timezone {
+        Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
+        Some(tz) => fail!("Unsupported timezone: {} is not supported", tz),
+        None => Ok(false),
     }
 }
 

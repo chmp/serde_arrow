@@ -1,5 +1,5 @@
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
-use marrow::view::{BitsWithOffset, PrimitiveView};
+use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
 use crate::internal::{
@@ -33,15 +33,12 @@ impl DatePrimitive for i64 {
 
 pub struct DateDeserializer<'a, I: DatePrimitive> {
     path: String,
-    array: PrimitiveView<'a, I>,
+    view: PrimitiveView<'a, I>,
 }
 
 impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
-    pub fn new(path: String, values: &'a [I], validity: Option<BitsWithOffset<'a>>) -> Self {
-        Self {
-            path,
-            array: PrimitiveView { validity, values },
-        }
+    pub fn new(path: String, view: PrimitiveView<'a, I>) -> Self {
+        Self { path, view }
     }
 
     pub fn get_string_repr(&self, ts: I) -> Result<String> {
@@ -84,7 +81,7 @@ impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I>
 
 impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'de, I> {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        self.array.is_some(idx)
+        self.view.is_some(idx)
     }
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
@@ -97,7 +94,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
 
     fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            let val = self.array.get_required(idx)?;
+            let val = self.view.get_required(idx)?;
             let Ok(val) = (*val).try_into() else {
                 fail!("Cannot convert {val} to i32");
             };
@@ -108,7 +105,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
 
     fn deserialize_i64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            let val = self.array.get_required(idx)?;
+            let val = self.view.get_required(idx)?;
             let Ok(val) = (*val).try_into() else {
                 fail!("Cannot convert {val} to i64");
             };
@@ -123,7 +120,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
 
     fn deserialize_string<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            let ts = self.array.get_required(idx)?;
+            let ts = self.view.get_required(idx)?;
             visitor.visit_string(self.get_string_repr(*ts)?)
         })
         .ctx(self)
@@ -135,7 +132,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
 
     fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            let ts = self.array.get_required(idx)?;
+            let ts = self.view.get_required(idx)?;
             visitor.visit_byte_buf(self.get_string_repr(*ts)?.into_bytes())
         })
         .ctx(self)
