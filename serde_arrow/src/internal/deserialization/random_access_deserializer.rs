@@ -16,11 +16,11 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
     }
 
     fn is_some(&self, idx: usize) -> Result<bool> {
-        fail!(in self, "Deserializer does not implement is_some")
+        fail!(in self, "Deserializer does not implement is_some_at")
     }
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_any_some");
+        fail!(in self, "Deserializer does not implement deserialize_any_some_at");
     }
 
     fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
@@ -50,63 +50,63 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_bool");
+        fail!(in self, "Deserializer does not implement deserialize_bool_at");
     }
 
     fn deserialize_i8<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_i8");
+        fail!(in self, "Deserializer does not implement deserialize_i8_at");
     }
 
     fn deserialize_i16<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_i16");
+        fail!(in self, "Deserializer does not implement deserialize_i16_at");
     }
 
     fn deserialize_i32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_i32");
+        fail!(in self, "Deserializer does not implement deserialize_i32_at");
     }
 
     fn deserialize_i64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_i64");
+        fail!(in self, "Deserializer does not implement deserialize_i64_at");
     }
 
     fn deserialize_u8<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_u8");
+        fail!(in self, "Deserializer does not implement deserialize_u8_at");
     }
 
     fn deserialize_u16<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_u16");
+        fail!(in self, "Deserializer does not implement deserialize_u16_at");
     }
 
     fn deserialize_u32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_u32");
+        fail!(in self, "Deserializer does not implement deserialize_u32_at");
     }
 
     fn deserialize_u64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_u64");
+        fail!(in self, "Deserializer does not implement deserialize_u64_at");
     }
 
     fn deserialize_f32<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_f32");
+        fail!(in self, "Deserializer does not implement deserialize_f32_at");
     }
 
     fn deserialize_f64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_f64");
+        fail!(in self, "Deserializer does not implement deserialize_f64_at");
     }
 
     fn deserialize_char<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_char");
+        fail!(in self, "Deserializer does not implement deserialize_char_at");
     }
 
     fn deserialize_str<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_str");
+        fail!(in self, "Deserializer does not implement deserialize_str_at");
     }
 
     fn deserialize_string<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_string");
+        fail!(in self, "Deserializer does not implement deserialize_string_at");
     }
 
     fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_map");
+        fail!(in self, "Deserializer does not implement deserialize_map_at");
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -116,15 +116,15 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_struct");
+        fail!(in self, "Deserializer does not implement deserialize_struct_at");
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_byte_buf");
+        fail!(in self, "Deserializer does not implement deserialize_byte_buf_at");
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_bytes");
+        fail!(in self, "Deserializer does not implement deserialize_bytes_at");
     }
 
     fn deserialize_enum<V: Visitor<'de>>(
@@ -134,11 +134,11 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_enum");
+        fail!(in self, "Deserializer does not implement deserialize_enum_at");
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_identifier");
+        fail!(in self, "Deserializer does not implement deserialize_identifier_at");
     }
 
     fn deserialize_newtype_struct<V: Visitor<'de>>(
@@ -156,11 +156,11 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_tuple");
+        fail!(in self, "Deserializer does not implement deserialize_tuple_at");
     }
 
     fn deserialize_seq<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_seq");
+        fail!(in self, "Deserializer does not implement deserialize_seq_at");
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
@@ -171,12 +171,12 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         idx: usize,
     ) -> Result<V::Value> {
         fail!(in self,
-            "Deserializer does not implement deserialize_tuple_struct",
+            "Deserializer does not implement deserialize_tuple_struct_at",
         );
     }
 
     fn deserialize_unit<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        fail!(in self, "Deserializer does not implement deserialize_unit");
+        fail!(in self, "Deserializer does not implement deserialize_unit_at");
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(
@@ -186,7 +186,7 @@ pub trait RandomAccessDeserializer<'de>: Context + Sized {
         idx: usize,
     ) -> Result<V::Value> {
         fail!(in self,
-            "Deserializer does not implement deserialize_unit_struct",
+            "Deserializer does not implement deserialize_unit_struct_at",
         );
     }
 }

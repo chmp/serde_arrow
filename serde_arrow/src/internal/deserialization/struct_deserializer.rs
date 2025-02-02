@@ -180,4 +180,118 @@ impl<'de> SeqAccess<'de> for StructDeserializer<'de> {
     }
 }
 
-impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {}
+impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx >= self.len {
+            fail!("Out of bounds access");
+        }
+        if let Some(validity) = self.validity.as_ref() {
+            Ok(bitset_is_set(validity, idx)?)
+        } else {
+            Ok(true)
+        }
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        if idx >= self.len {
+            fail!("Exhausted deserializer");
+        }
+        visitor.visit_map(StructItemDeserializer::new(self, idx))
+    }
+
+    fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        visitor
+            .visit_map(StructItemDeserializer::new(self, idx))
+            .ctx(self)
+    }
+
+    fn deserialize_struct<V: Visitor<'de>>(
+        &self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        visitor
+            .visit_map(StructItemDeserializer::new(self, idx))
+            .ctx(self)
+    }
+
+    fn deserialize_tuple<V: Visitor<'de>>(
+        &self,
+        _: usize,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        visitor
+            .visit_seq(StructItemDeserializer::new(self, idx))
+            .ctx(self)
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        &self,
+        _: &'static str,
+        _: usize,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        visitor
+            .visit_seq(StructItemDeserializer::new(self, idx))
+            .ctx(self)
+    }
+}
+
+struct StructItemDeserializer<'a, 'de> {
+    deserializer: &'a StructDeserializer<'de>,
+    item: usize,
+    field: usize,
+}
+
+impl<'a, 'de> StructItemDeserializer<'a, 'de> {
+    pub fn new(deserializer: &'a StructDeserializer<'de>, item: usize) -> Self {
+        Self {
+            deserializer,
+            item,
+            field: 0,
+        }
+    }
+}
+
+impl<'de> MapAccess<'de> for StructItemDeserializer<'_, 'de> {
+    type Error = Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
+        let Some((field_name, _)) = self.deserializer.fields.get(self.field) else {
+            return Ok(None);
+        };
+
+        let key = seed.deserialize(StrDeserializer::<Error>::new(field_name))?;
+        Ok(Some(key))
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
+        let Some((_, field_deserializer)) = self.deserializer.fields.get(self.field) else {
+            fail!("Invalid state in struct deserializer");
+        };
+
+        let res = seed.deserialize(field_deserializer.at(self.item))?;
+        self.field += 1;
+
+        Ok(res)
+    }
+}
+
+impl<'de> SeqAccess<'de> for StructItemDeserializer<'_, 'de> {
+    type Error = Error;
+
+    fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
+        let Some((_, field_deserializer)) = self.deserializer.fields.get(self.field) else {
+            return Ok(None);
+        };
+
+        let res = seed.deserialize(field_deserializer.at(self.item))?;
+        self.field += 1;
+
+        Ok(Some(res))
+    }
+}
