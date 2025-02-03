@@ -161,6 +161,7 @@ impl<'a> ArrayDeserializer<'a> {
                 )))
             }
             V::Map(view) => Ok(D::Map(MapDeserializer::new(path, view)?)),
+            View::Union(view) => Ok(Self::Enum(EnumDeserializer::new(path, view)?)),
             V::Dictionary(view) => match (*view.keys, *view.values) {
                 (V::Int8(keys), V::Utf8(values)) => Ok(D::DictionaryI8I32(
                     DictionaryDeserializer::new(path, keys, values)?,
@@ -212,29 +213,6 @@ impl<'a> ArrayDeserializer<'a> {
                 )),
                 _ => fail!("Unsupported dictionary array type"),
             },
-            View::Union(view) => {
-                let mut fields = Vec::new();
-                for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate()
-                {
-                    if usize::try_from(type_id) != Ok(idx) {
-                        fail!("Only unions with consecutive type ids are currently supported");
-                    }
-                    let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
-                    let field_deserializer = ArrayDeserializer::new(
-                        child_path,
-                        get_strategy(&field_meta)?.as_ref(),
-                        field_view,
-                    )?;
-                    fields.push((field_meta.name, field_deserializer))
-                }
-                let Some(offsets) = view.offsets else {
-                    fail!("Sparse unions are currently not supported");
-                };
-
-                Ok(Self::Enum(EnumDeserializer::new(
-                    path, view.types, offsets, fields,
-                )?))
-            }
             _ => fail!("Unknown view"),
         }
     }

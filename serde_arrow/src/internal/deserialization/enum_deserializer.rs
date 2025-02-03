@@ -1,39 +1,52 @@
+use marrow::view::UnionView;
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, Context, Error, Result},
-    utils::Offset,
+    utils::{ChildName, Offset},
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer,
+    array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
     simple_deserializer::SimpleDeserializer,
 };
 
 pub struct EnumDeserializer<'a> {
     pub path: String,
-    pub type_ids: &'a [i8],
+    pub types: &'a [i8],
     pub offsets: &'a [i32],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(
-        path: String,
-        type_ids: &'a [i8],
-        offsets: &'a [i32],
-        variants: Vec<(String, ArrayDeserializer<'a>)>,
-    ) -> Result<Self> {
-        if type_ids.len() != offsets.len() {
+    pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
+        let Some(offsets) = view.offsets else {
+            fail!("Only dense unions are supported");
+        };
+
+        if view.types.len() != offsets.len() {
             fail!("Offsets and type ids must have the same length")
         }
 
-        // TODO: further check type_ids?
+        let mut variants = Vec::new();
+        for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate() {
+            // TODO: introduce translation table?
+            if usize::try_from(type_id) != Ok(idx) {
+                fail!("Only unions with consecutive type ids are currently supported");
+            }
+            let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
+            let field_deserializer = ArrayDeserializer::new(
+                child_path,
+                get_strategy(&field_meta)?.as_ref(),
+                field_view,
+            )?;
+            variants.push((field_meta.name, field_deserializer))
+        }
 
         Ok(Self {
             path,
-            type_ids,
+            types: view.types,
             offsets,
             variants,
         })
@@ -51,7 +64,7 @@ impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        if idx >= self.type_ids.len() {
+        if idx >= self.types.len() {
             fail!("Access beyond bounds");
         }
         Ok(true)
@@ -68,25 +81,37 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        visitor.visit_enum(self.at(idx))
+        if idx >= self.types.len() {
+            fail!("Exhausted deserializer");
+        }
+        let type_id = self.types[idx];
+        let offset = self.offsets[idx].try_into_usize()?;
+        let (name, variant) = &self.variants[type_id as usize];
+
+        visitor.visit_enum(VariantItemDeserializer {
+            deserializer: variant.at(offset),
+            type_id,
+            name,
+        })
     }
 }
 
-impl<'a, 'de> EnumAccess<'de> for PositionedDeserializer<'a, EnumDeserializer<'de>> {
+struct VariantItemDeserializer<'this, 'a> {
+    deserializer: PositionedDeserializer<'this, ArrayDeserializer<'a>>,
+    type_id: i8,
+    name: &'this str,
+}
+
+impl<'a, 'de> EnumAccess<'de> for VariantItemDeserializer<'a, 'de> {
     type Variant = PositionedDeserializer<'a, ArrayDeserializer<'de>>;
     type Error = Error;
 
     fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
-        let PositionedDeserializer(this, idx) = self;
-        if idx >= this.type_ids.len() {
-            fail!("Exhausted deserializer");
-        }
-        let type_id = this.type_ids[idx];
-        let offset = this.offsets[idx].try_into_usize()?;
-        let (name, variant) = &this.variants[type_id as usize];
-
-        let val = seed.deserialize(VariantIdDeserializer { type_id, name })?;
-        Ok((val, variant.at(offset)))
+        let val = seed.deserialize(VariantIdDeserializer {
+            type_id: self.type_id,
+            name: self.name,
+        })?;
+        Ok((val, self.deserializer))
     }
 }
 
@@ -106,11 +131,15 @@ macro_rules! unimplemented {
 impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     type Error = Error;
 
-    fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any(visitor)
+    }
+
+    fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_str(visitor)
     }
 
@@ -149,5 +178,4 @@ impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     unimplemented!('de, deserialize_map);
     unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
-    unimplemented!('de, deserialize_ignored_any);
 }

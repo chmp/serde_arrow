@@ -129,8 +129,8 @@ impl<'de> SeqAccess<'de> for FixedSizeBinaryDeserializer<'de> {
             return Ok(None);
         }
         self.next = (item, offset + 1);
-        let mut item_deserializer = U8Deserializer(self.view.data[item * self.shape.1 + offset]);
-        let item = seed.deserialize(Mut(&mut item_deserializer))?;
+        let item =
+            seed.deserialize(U8Deserializer(self.view.data[item * self.shape.1 + offset]))?;
         Ok(Some(item))
     }
 }
