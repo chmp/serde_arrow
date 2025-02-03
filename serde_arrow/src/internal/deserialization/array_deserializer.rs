@@ -160,37 +160,7 @@ impl<'a> ArrayDeserializer<'a> {
                     view.len,
                 )))
             }
-            V::Map(view) => {
-                let keys_path = format!(
-                    "{path}.{entries}.{keys}",
-                    entries = ChildName(&view.meta.entries_name),
-                    keys = ChildName(&view.meta.keys.name),
-                );
-                let keys = ArrayDeserializer::new(
-                    keys_path,
-                    get_strategy(&view.meta.keys)?.as_ref(),
-                    *view.keys,
-                )?;
-
-                let values_path = format!(
-                    "{path}.{entries}.{values}",
-                    entries = ChildName(&view.meta.entries_name),
-                    values = ChildName(&view.meta.values.name),
-                );
-                let values = ArrayDeserializer::new(
-                    values_path,
-                    get_strategy(&view.meta.values)?.as_ref(),
-                    *view.values,
-                )?;
-
-                Ok(D::Map(MapDeserializer::new(
-                    path,
-                    keys,
-                    values,
-                    view.offsets,
-                    view.validity,
-                )?))
-            }
+            V::Map(view) => Ok(D::Map(MapDeserializer::new(path, view)?)),
             V::Dictionary(view) => match (*view.keys, *view.values) {
                 (V::Int8(keys), V::Utf8(values)) => Ok(D::DictionaryI8I32(
                     DictionaryDeserializer::new(path, keys, values)?,

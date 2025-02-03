@@ -1,13 +1,13 @@
-use marrow::view::BitsWithOffset;
+use marrow::view::{BitsWithOffset, MapView};
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Offset,
+    utils::{ChildName, Offset},
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer,
+    array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::RandomAccessDeserializer,
     simple_deserializer::SimpleDeserializer,
     utils::bitset_is_set,
@@ -22,19 +22,35 @@ pub struct MapDeserializer<'a> {
 }
 
 impl<'a> MapDeserializer<'a> {
-    pub fn new(
-        path: String,
-        key: ArrayDeserializer<'a>,
-        value: ArrayDeserializer<'a>,
-        offsets: &'a [i32],
-        validity: Option<BitsWithOffset<'a>>,
-    ) -> Result<Self> {
+    pub fn new(path: String, view: MapView<'a>) -> Result<Self> {
+        let keys_path = format!(
+            "{path}.{entries}.{keys}",
+            entries = ChildName(&view.meta.entries_name),
+            keys = ChildName(&view.meta.keys.name),
+        );
+        let keys = ArrayDeserializer::new(
+            keys_path,
+            get_strategy(&view.meta.keys)?.as_ref(),
+            *view.keys,
+        )?;
+
+        let values_path = format!(
+            "{path}.{entries}.{values}",
+            entries = ChildName(&view.meta.entries_name),
+            values = ChildName(&view.meta.values.name),
+        );
+        let values = ArrayDeserializer::new(
+            values_path,
+            get_strategy(&view.meta.values)?.as_ref(),
+            *view.values,
+        )?;
+
         Ok(Self {
             path,
-            key: Box::new(key),
-            value: Box::new(value),
-            offsets,
-            validity,
+            key: Box::new(keys),
+            value: Box::new(values),
+            offsets: view.offsets,
+            validity: view.validity,
         })
     }
 }
