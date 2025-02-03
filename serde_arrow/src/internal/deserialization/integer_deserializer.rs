@@ -11,11 +11,6 @@ use super::{
 };
 
 pub trait Integer: Sized + Copy {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
-        deser: &mut S,
-        visitor: V,
-    ) -> Result<V::Value>;
-
     fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
         deser: &S,
         visitor: V,

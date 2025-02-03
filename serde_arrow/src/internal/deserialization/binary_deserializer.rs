@@ -7,9 +7,8 @@ use crate::internal::{
 };
 
 use super::{
-    random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
-    utils::{BytesAccess, U8SliceDeserializer},
+    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    utils::U8SliceDeserializer,
 };
 
 trait BinaryDeserializerDataType {
@@ -33,7 +32,7 @@ pub struct BinaryDeserializer<V> {
     pub view: V,
 }
 
-impl<'a, V: BytesAccess<'a>> BinaryDeserializer<V> {
+impl<'a, V> BinaryDeserializer<V> {
     pub fn new(path: String, view: V) -> Self {
         Self { path, view }
     }
@@ -46,10 +45,7 @@ impl<V: BinaryDeserializerDataType> Context for BinaryDeserializer<V> {
     }
 }
 
-impl<'a, VV: BytesAccess<'a> + BinaryDeserializerDataType> SimpleDeserializer<'a>
-    for BinaryDeserializer<VV>
-{
-}
+impl<'a, VV: BinaryDeserializerDataType> SimpleDeserializer<'a> for BinaryDeserializer<VV> {}
 
 impl<'de, VV> RandomAccessDeserializer<'de> for BinaryDeserializer<VV>
 where

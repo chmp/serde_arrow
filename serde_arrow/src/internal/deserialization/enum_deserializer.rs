@@ -1,10 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
-
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::{Mut, Offset},
+    error::{fail, set_default, Context, Error, Result},
+    utils::Offset,
 };
 
 use super::{
@@ -18,7 +16,6 @@ pub struct EnumDeserializer<'a> {
     pub type_ids: &'a [i8],
     pub offsets: &'a [i32],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
-    pub next: usize,
 }
 
 impl<'a> EnumDeserializer<'a> {
@@ -26,80 +23,21 @@ impl<'a> EnumDeserializer<'a> {
         path: String,
         type_ids: &'a [i8],
         offsets: &'a [i32],
-        mut variants: Vec<(String, ArrayDeserializer<'a>)>,
+        variants: Vec<(String, ArrayDeserializer<'a>)>,
     ) -> Result<Self> {
-        let initial_offsets = verify_offsets(type_ids, offsets, variants.len())?;
-
-        for (type_id, initial_offset) in initial_offsets {
-            let Some((_, variant)) = variants.get_mut(type_id as usize) else {
-                fail!("Unexpected error: could not retrieve variant {type_id}");
-            };
-            variant.skip(initial_offset as usize)?;
+        if type_ids.len() != offsets.len() {
+            fail!("Offsets and type ids must have the same length")
         }
+
+        // TODO: further check type_ids?
 
         Ok(Self {
             path,
             type_ids,
             offsets,
             variants,
-            next: 0,
         })
     }
-}
-
-fn verify_offsets(type_ids: &[i8], offsets: &[i32], num_fields: usize) -> Result<HashMap<i8, i32>> {
-    if type_ids.len() != offsets.len() {
-        fail!("Offsets and type ids must have the same length")
-    }
-
-    for &type_id in type_ids {
-        if type_id as usize >= num_fields {
-            fail!(
-                concat!(
-                    "Invalid enum array:",
-                    "type id ({type_id}) larger the number of fields ({num_fields})",
-                ),
-                type_id = type_id,
-                num_fields = num_fields,
-            );
-        }
-    }
-
-    let mut last_offsets = HashMap::<i8, i32>::new();
-    let mut initial_offsets = HashMap::<i8, i32>::new();
-    for (idx, (&type_id, &offset)) in std::iter::zip(type_ids, offsets).enumerate() {
-        if offset < 0 {
-            fail!(
-                concat!(
-                    "Invalid offsets in enum array for item {idx}:",
-                    "negative offsets ({offset}) is not supports",
-                ),
-                idx = idx,
-                offset = offset,
-            );
-        }
-        if let Some(last_offset) = last_offsets.get(&type_id).copied() {
-            if offset.checked_sub(last_offset) != Some(1) {
-                fail!(
-                    concat!(
-                        "Invalid offsets in enum array for item {idx}:",
-                        "serde_arrow only supports consecutive offsets.",
-                        "Current offset for type {type_id}: {offset}, previous offset {last_offset}",
-                    ),
-                    idx = idx,
-                    type_id = type_id,
-                    offset = offset,
-                    last_offset = last_offset,
-                );
-            }
-            last_offsets.insert(type_id, offset);
-        } else {
-            initial_offsets.insert(type_id, offset);
-            last_offsets.insert(type_id, offset);
-        }
-    }
-
-    Ok(initial_offsets)
 }
 
 impl Context for EnumDeserializer<'_> {
@@ -109,36 +47,46 @@ impl Context for EnumDeserializer<'_> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
+impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {}
+
+impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx >= self.type_ids.len() {
+            fail!("Access beyond bounds");
+        }
+        Ok(true)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_enum("", &[], visitor, idx)
+    }
+
     fn deserialize_enum<V: Visitor<'de>>(
-        &mut self,
+        &self,
         _: &'static str,
         _: &'static [&'static str],
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
-
-        try_(|| visitor.visit_enum(self)).ctx(&ctx)
+        visitor.visit_enum(self.at(idx))
     }
 }
 
-impl<'a, 'de> EnumAccess<'de> for &'a mut EnumDeserializer<'de> {
-    type Variant = Mut<'a, ArrayDeserializer<'de>>;
+impl<'a, 'de> EnumAccess<'de> for PositionedDeserializer<'a, EnumDeserializer<'de>> {
+    type Variant = PositionedDeserializer<'a, ArrayDeserializer<'de>>;
     type Error = Error;
 
     fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
-        if self.next >= self.type_ids.len() {
+        let PositionedDeserializer(this, idx) = self;
+        if idx >= this.type_ids.len() {
             fail!("Exhausted deserializer");
         }
-        let type_id = self.type_ids[self.next];
-        self.next += 1;
-
-        let (name, variant) = &mut self.variants[type_id as usize];
+        let type_id = this.type_ids[idx];
+        let offset = this.offsets[idx].try_into_usize()?;
+        let (name, variant) = &this.variants[type_id as usize];
 
         let val = seed.deserialize(VariantIdDeserializer { type_id, name })?;
-
-        Ok((val, Mut(variant)))
+        Ok((val, variant.at(offset)))
     }
 }
 
@@ -202,35 +150,4 @@ impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_ignored_any);
-}
-
-impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
-    fn is_some(&self, idx: usize) -> Result<bool> {
-        if idx >= self.type_ids.len() {
-            fail!("Access beyond bounds");
-        }
-        Ok(true)
-    }
-
-    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
-        visitor.visit_enum(self.at(idx))
-    }
-}
-
-impl<'a, 'de> EnumAccess<'de> for PositionedDeserializer<'a, EnumDeserializer<'de>> {
-    type Variant = PositionedDeserializer<'a, ArrayDeserializer<'de>>;
-    type Error = Error;
-
-    fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
-        let PositionedDeserializer(this, idx) = self;
-        if idx >= this.type_ids.len() {
-            fail!("Exhausted deserializer");
-        }
-        let type_id = this.type_ids[idx];
-        let offset = this.offsets[idx].try_into_usize()?;
-        let (name, variant) = &this.variants[type_id as usize];
-
-        let val = seed.deserialize(VariantIdDeserializer { type_id, name })?;
-        Ok((val, variant.at(offset)))
-    }
 }
