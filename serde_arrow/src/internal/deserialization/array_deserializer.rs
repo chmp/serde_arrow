@@ -1,8 +1,5 @@
 use half::f16;
-use marrow::{
-    datatypes::FieldMeta,
-    view::{BytesView, BytesViewView, View},
-};
+use marrow::view::{BytesView, BytesViewView, View};
 use serde::{
     de::{Deserialize, DeserializeSeed, VariantAccess, Visitor},
     Deserializer,
@@ -10,7 +7,7 @@ use serde::{
 
 use crate::internal::{
     error::{fail, Context, Error, Result},
-    schema::{Strategy, STRATEGY_KEY},
+    schema::Strategy,
 };
 
 use super::{
@@ -183,13 +180,6 @@ impl<'a> ArrayDeserializer<'a> {
             _ => fail!("Unknown view"),
         }
     }
-}
-
-pub fn get_strategy(meta: &FieldMeta) -> Result<Option<Strategy>> {
-    let Some(strategy) = meta.metadata.get(STRATEGY_KEY) else {
-        return Ok(None);
-    };
-    Ok(Some(strategy.parse()?))
 }
 
 macro_rules! dispatch {

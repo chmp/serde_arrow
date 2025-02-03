@@ -3,12 +3,12 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    schema::get_strategy_from_metadata,
     utils::{ChildName, NamedType, Offset},
 };
 
 use super::{
-    array_deserializer::{get_strategy, ArrayDeserializer},
-    random_access_deserializer::RandomAccessDeserializer,
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
     utils::bitset_is_set,
 };
 
@@ -24,7 +24,7 @@ impl<'de, O: Offset> ListDeserializer<'de, O> {
         let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
         let item = ArrayDeserializer::new(
             child_path,
-            get_strategy(&view.meta)?.as_ref(),
+            get_strategy_from_metadata(&view.meta.metadata)?.as_ref(),
             *view.elements,
         )?;
 

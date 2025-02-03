@@ -3,12 +3,12 @@ use serde::de::{value::StrDeserializer, DeserializeSeed, MapAccess, SeqAccess, V
 
 use crate::internal::{
     error::{fail, set_default, Context, ContextSupport, Error, Result},
+    schema::get_strategy_from_metadata,
     utils::ChildName,
 };
 
 use super::{
-    array_deserializer::{get_strategy, ArrayDeserializer},
-    random_access_deserializer::RandomAccessDeserializer,
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
     utils::bitset_is_set,
 };
 
@@ -26,7 +26,7 @@ impl<'a> StructDeserializer<'a> {
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
             let field_deserializer = ArrayDeserializer::new(
                 child_path,
-                get_strategy(&field_meta)?.as_ref(),
+                get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
                 field_view,
             )?;
             let field_name = field_meta.name;

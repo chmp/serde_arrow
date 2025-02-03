@@ -3,12 +3,12 @@ use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    schema::get_strategy_from_metadata,
     utils::{ChildName, Offset},
 };
 
 use super::{
-    array_deserializer::{get_strategy, ArrayDeserializer},
-    random_access_deserializer::RandomAccessDeserializer,
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
     utils::bitset_is_set,
 };
 
@@ -29,7 +29,7 @@ impl<'a> MapDeserializer<'a> {
         );
         let keys = ArrayDeserializer::new(
             keys_path,
-            get_strategy(&view.meta.keys)?.as_ref(),
+            get_strategy_from_metadata(&view.meta.keys.metadata)?.as_ref(),
             *view.keys,
         )?;
 
@@ -40,7 +40,7 @@ impl<'a> MapDeserializer<'a> {
         );
         let values = ArrayDeserializer::new(
             values_path,
-            get_strategy(&view.meta.values)?.as_ref(),
+            get_strategy_from_metadata(&view.meta.values.metadata)?.as_ref(),
             *view.values,
         )?;
 
