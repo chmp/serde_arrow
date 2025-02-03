@@ -125,20 +125,7 @@ impl<'a> ArrayDeserializer<'a> {
             )?)),
             V::List(view) => Ok(D::List(ListDeserializer::new(path, view)?)),
             V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(path, view)?)),
-            V::FixedSizeList(view) => {
-                let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
-                Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
-                    path,
-                    ArrayDeserializer::new(
-                        child_path,
-                        get_strategy(&view.meta)?.as_ref(),
-                        *view.elements,
-                    )?,
-                    view.validity,
-                    view.n.try_into()?,
-                    view.len,
-                )))
-            }
+            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(path, view)?)),
             V::Struct(view) => {
                 let mut fields = Vec::new();
                 for (field_meta, field_view) in view.fields {

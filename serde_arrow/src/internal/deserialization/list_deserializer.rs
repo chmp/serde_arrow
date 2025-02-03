@@ -95,10 +95,10 @@ impl<'de, O: Offset + NamedType> RandomAccessDeserializer<'de> for ListDeseriali
     }
 }
 
-struct ListItemDeserializer<'a, 'de> {
-    item: &'a ArrayDeserializer<'de>,
-    start: usize,
-    end: usize,
+pub struct ListItemDeserializer<'a, 'de> {
+    pub item: &'a ArrayDeserializer<'de>,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl<'de> SeqAccess<'de> for ListItemDeserializer<'_, 'de> {
