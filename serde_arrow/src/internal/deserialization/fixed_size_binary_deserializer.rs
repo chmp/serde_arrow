@@ -1,22 +1,19 @@
 use marrow::view::FixedSizeBinaryView;
-use serde::de::{SeqAccess, Visitor};
+use serde::de::Visitor;
 
-use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
-};
+use crate::internal::error::{fail, set_default, try_, Context, ContextSupport, Result};
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer,
     simple_deserializer::SimpleDeserializer,
-    utils::{bitset_is_set, U8Deserializer},
+    utils::{bitset_is_set, U8SliceDeserializer},
 };
 
 pub struct FixedSizeBinaryDeserializer<'a> {
     pub path: String,
     pub view: FixedSizeBinaryView<'a>,
-    pub next: (usize, usize),
-    pub shape: (usize, usize),
+    pub len: usize,
+    pub n: usize,
 }
 
 impl<'a> FixedSizeBinaryDeserializer<'a> {
@@ -33,38 +30,33 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
             );
         }
 
-        let shape = (view.data.len() / n, n);
         Ok(Self {
             path,
+            len: view.data.len() / n,
             view,
-            shape,
-            next: (0, 0),
+            n,
         })
     }
 
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 >= self.shape.0 {
-            fail!("Exhausted deserializer")
+    pub fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
+        if idx >= self.len {
+            fail!("Out of bounds access")
         }
         if let Some(validity) = &self.view.validity {
-            Ok(bitset_is_set(validity, self.next.0)?)
-        } else {
-            Ok(true)
+            if !bitset_is_set(validity, idx)? {
+                return Ok(None);
+            }
         }
+        let start = idx * self.n;
+        let end = (idx + 1) * self.n;
+        Ok(Some(&self.view.data[start..end]))
     }
 
-    pub fn consume_next(&mut self) {
-        self.next = (self.next.0 + 1, 0);
-    }
-
-    pub fn next_slice(&mut self) -> Result<&'a [u8]> {
-        let (item, _) = self.next;
-        if item >= self.shape.0 {
-            fail!("Exhausted deserializer");
-        }
-        self.next = (item + 1, 0);
-
-        Ok(&self.view.data[item * self.shape.1..(item + 1) * self.shape.1])
+    pub fn get_required(&self, idx: usize) -> Result<&'a [u8]> {
+        let Some(s) = self.get(idx)? else {
+            fail!("Required value is not defined");
+        };
+        Ok(s)
     }
 }
 
@@ -75,64 +67,26 @@ impl Context for FixedSizeBinaryDeserializer<'_> {
     }
 }
 
-impl<'a> SimpleDeserializer<'a> for FixedSizeBinaryDeserializer<'a> {
-    fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                self.deserialize_bytes(visitor)
-            } else {
-                self.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+impl<'a> SimpleDeserializer<'a> for FixedSizeBinaryDeserializer<'a> {}
+
+impl<'de> RandomAccessDeserializer<'de> for FixedSizeBinaryDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        Ok(self.get(idx)?.is_some())
     }
 
-    fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_bytes(visitor, idx)
     }
 
-    fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
+    fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_bytes(self.get_required(idx)?)).ctx(self)
     }
 
-    fn deserialize_bytes<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_borrowed_bytes(self.next_slice()?)).ctx(self)
+    fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_bytes(self.get_required(idx)?)).ctx(self)
     }
 
-    fn deserialize_byte_buf<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_borrowed_bytes(self.next_slice()?)).ctx(self)
+    fn deserialize_seq<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_seq(U8SliceDeserializer::new(self.get_required(idx)?))).ctx(self)
     }
 }
-
-impl<'de> SeqAccess<'de> for FixedSizeBinaryDeserializer<'de> {
-    type Error = Error;
-
-    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>> {
-        let (item, offset) = self.next;
-        if item >= self.shape.0 {
-            return Ok(None);
-        }
-        if offset >= self.shape.1 {
-            self.next = (item + 1, 0);
-            return Ok(None);
-        }
-        self.next = (item, offset + 1);
-        let item =
-            seed.deserialize(U8Deserializer(self.view.data[item * self.shape.1 + offset]))?;
-        Ok(Some(item))
-    }
-}
-
-impl<'de> RandomAccessDeserializer<'de> for FixedSizeBinaryDeserializer<'de> {}

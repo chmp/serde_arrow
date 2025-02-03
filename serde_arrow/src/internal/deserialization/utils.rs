@@ -87,11 +87,11 @@ impl<'de> Deserializer<'de> for U8Deserializer {
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
 }
 
-pub struct U8SliceDeserializer<'a>(&'a [u8], usize);
+pub struct U8SliceDeserializer<'a>(&'a [u8]);
 
 impl<'a> U8SliceDeserializer<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self(bytes, 0)
+        Self(bytes)
     }
 }
 
@@ -106,13 +106,11 @@ impl<'de> SeqAccess<'de> for U8SliceDeserializer<'de> {
         &mut self,
         seed: T,
     ) -> Result<Option<T::Value>> {
-        let U8SliceDeserializer(bytes, idx) = *self;
-        if idx >= bytes.len() {
+        let Some((item, rest)) = self.0.split_first() else {
             return Ok(None);
-        }
-
-        let item = seed.deserialize(U8Deserializer(bytes[idx]))?;
-        self.1 = idx + 1;
+        };
+        let item = seed.deserialize(U8Deserializer(*item))?;
+        self.0 = rest;
 
         Ok(Some(item))
     }
