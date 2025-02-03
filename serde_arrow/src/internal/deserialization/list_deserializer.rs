@@ -9,7 +9,6 @@ use crate::internal::{
 use super::{
     array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
     utils::bitset_is_set,
 };
 
@@ -63,8 +62,6 @@ impl<O: NamedType + Offset> Context for ListDeserializer<'_, O> {
         );
     }
 }
-
-impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for ListDeserializer<'a, O> {}
 
 impl<'de, O: Offset + NamedType> RandomAccessDeserializer<'de> for ListDeserializer<'de, O> {
     fn is_some(&self, idx: usize) -> Result<bool> {

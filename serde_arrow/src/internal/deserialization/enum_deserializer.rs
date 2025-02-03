@@ -9,7 +9,6 @@ use crate::internal::{
 use super::{
     array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
-    simple_deserializer::SimpleDeserializer,
 };
 
 pub struct EnumDeserializer<'a> {
@@ -59,8 +58,6 @@ impl Context for EnumDeserializer<'_> {
         set_default(annotations, "data_type", "Union(..)");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

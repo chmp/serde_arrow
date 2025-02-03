@@ -6,10 +6,7 @@ use crate::internal::{
     utils::array_view_ext::ViewAccess,
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::U8SliceDeserializer,
-};
+use super::{random_access_deserializer::RandomAccessDeserializer, utils::U8SliceDeserializer};
 
 trait BinaryDeserializerDataType {
     const DATA_TYPE_NAME: &'static str;
@@ -32,7 +29,7 @@ pub struct BinaryDeserializer<V> {
     pub view: V,
 }
 
-impl<'a, V> BinaryDeserializer<V> {
+impl<V> BinaryDeserializer<V> {
     pub fn new(path: String, view: V) -> Self {
         Self { path, view }
     }
@@ -44,8 +41,6 @@ impl<V: BinaryDeserializerDataType> Context for BinaryDeserializer<V> {
         set_default(annotations, "data_type", V::DATA_TYPE_NAME);
     }
 }
-
-impl<'a, VV: BinaryDeserializerDataType> SimpleDeserializer<'a> for BinaryDeserializer<VV> {}
 
 impl<'de, VV> RandomAccessDeserializer<'de> for BinaryDeserializer<VV>
 where

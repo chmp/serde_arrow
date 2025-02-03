@@ -9,7 +9,6 @@ use crate::internal::{
 use super::{
     array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
     utils::bitset_is_set,
 };
 
@@ -59,8 +58,6 @@ impl Context for StructDeserializer<'_> {
         set_default(annotations, "data_type", "Struct(..)");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for StructDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

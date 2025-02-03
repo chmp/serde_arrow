@@ -3,10 +3,7 @@ use serde::de::Visitor;
 
 use crate::internal::error::{fail, set_default, try_, Context, ContextSupport, Error, Result};
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::bitset_is_set,
-};
+use super::{random_access_deserializer::RandomAccessDeserializer, utils::bitset_is_set};
 
 pub struct BoolDeserializer<'a> {
     pub path: String,
@@ -46,8 +43,6 @@ impl Context for BoolDeserializer<'_> {
         set_default(annotations, "data_type", "Boolean");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for BoolDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for BoolDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

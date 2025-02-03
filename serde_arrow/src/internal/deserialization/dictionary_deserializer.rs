@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
+    random_access_deserializer::RandomAccessDeserializer,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
@@ -43,8 +43,6 @@ impl<K: Integer, V: Offset> Context for DictionaryDeserializer<'_, K, V> {
         set_default(annotations, "data_type", "Dictionary(..)");
     }
 }
-
-impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {}
 
 impl<'de, K: Integer, V: Offset> RandomAccessDeserializer<'de>
     for DictionaryDeserializer<'de, K, V>

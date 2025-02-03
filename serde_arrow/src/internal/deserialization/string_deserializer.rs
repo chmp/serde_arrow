@@ -7,7 +7,6 @@ use crate::internal::{
 
 use super::{
     enums_as_string_impl::EnumAccess, random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
 };
 
 pub trait StringDeserializerDataType {
@@ -31,7 +30,7 @@ pub struct StringDeserializer<V> {
     pub view: V,
 }
 
-impl<'a, V> StringDeserializer<V> {
+impl<V> StringDeserializer<V> {
     pub fn new(path: String, view: V) -> Self {
         Self { path, view }
     }
@@ -43,8 +42,6 @@ impl<V: StringDeserializerDataType> Context for StringDeserializer<V> {
         set_default(annotations, "data_type", V::DATA_TYPE_NAME);
     }
 }
-
-impl<'a, VV: StringDeserializerDataType> SimpleDeserializer<'a> for StringDeserializer<VV> {}
 
 impl<'a, VV> RandomAccessDeserializer<'a> for StringDeserializer<VV>
 where

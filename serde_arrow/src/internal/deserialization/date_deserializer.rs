@@ -7,9 +7,7 @@ use crate::internal::{
     utils::array_view_ext::ViewAccess,
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub trait DatePrimitive:
     TryInto<i32> + TryInto<i64> + Copy + std::fmt::Display + std::ops::Div<Self, Output = Self>
@@ -76,8 +74,6 @@ impl<I: DatePrimitive> Context for DateDeserializer<'_, I> {
         set_default(annotations, "data_type", I::DATA_TYPE_NAME);
     }
 }
-
-impl<'de, I: DatePrimitive> SimpleDeserializer<'de> for DateDeserializer<'de, I> {}
 
 impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'de, I> {
     fn is_some(&self, idx: usize) -> Result<bool> {

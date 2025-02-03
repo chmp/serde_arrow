@@ -10,10 +10,7 @@ use crate::internal::{
     utils::{array_view_ext::ViewAccess, NamedType},
 };
 
-use super::{
-    integer_deserializer::Integer, random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
-};
+use super::{integer_deserializer::Integer, random_access_deserializer::RandomAccessDeserializer};
 
 pub struct TimeDeserializer<'a, T: Integer> {
     path: String,
@@ -70,8 +67,6 @@ impl<T: NamedType + Integer> Context for TimeDeserializer<'_, T> {
         );
     }
 }
-
-impl<'de, T: NamedType + Integer> SimpleDeserializer<'de> for TimeDeserializer<'de, T> {}
 
 impl<'de, T: Integer + NamedType> RandomAccessDeserializer<'de> for TimeDeserializer<'de, T> {
     fn is_some(&self, idx: usize) -> Result<bool> {

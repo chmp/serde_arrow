@@ -5,7 +5,6 @@ use crate::internal::error::{fail, set_default, try_, Context, ContextSupport, R
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
     utils::{bitset_is_set, U8SliceDeserializer},
 };
 
@@ -66,8 +65,6 @@ impl Context for FixedSizeBinaryDeserializer<'_> {
         set_default(annotations, "data_type", "FixedSizeBinary(..)");
     }
 }
-
-impl<'a> SimpleDeserializer<'a> for FixedSizeBinaryDeserializer<'a> {}
 
 impl<'de> RandomAccessDeserializer<'de> for FixedSizeBinaryDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

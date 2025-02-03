@@ -6,9 +6,7 @@ use crate::internal::{
     utils::{array_view_ext::ViewAccess, NamedType},
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub trait Float: Copy {
     fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
@@ -47,8 +45,6 @@ impl<F: NamedType + Float> Context for FloatDeserializer<'_, F> {
         );
     }
 }
-
-impl<'de, F: NamedType + Float> SimpleDeserializer<'de> for FloatDeserializer<'de, F> {}
 
 impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeserializer<'de, F> {
     fn is_some(&self, idx: usize) -> Result<bool> {

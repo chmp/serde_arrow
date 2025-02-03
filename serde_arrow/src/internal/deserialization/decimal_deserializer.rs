@@ -6,9 +6,7 @@ use crate::internal::{
     utils::{array_view_ext::ViewAccess, decimal},
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub struct DecimalDeserializer<'a> {
     path: String,
@@ -43,8 +41,6 @@ impl Context for DecimalDeserializer<'_> {
         set_default(annotations, "data_type", "Decimal128(..)");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for DecimalDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for DecimalDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

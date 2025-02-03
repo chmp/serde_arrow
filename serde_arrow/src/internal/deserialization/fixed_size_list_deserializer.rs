@@ -10,7 +10,6 @@ use super::{
     array_deserializer::{get_strategy, ArrayDeserializer},
     list_deserializer::ListItemDeserializer,
     random_access_deserializer::RandomAccessDeserializer,
-    simple_deserializer::SimpleDeserializer,
     utils::bitset_is_set,
 };
 
@@ -48,15 +47,13 @@ impl Context for FixedSizeListDeserializer<'_> {
     }
 }
 
-impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {}
-
 impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.len {
             fail!("Out of bounds access");
         }
         if let Some(validity) = self.validity.as_ref() {
-            return Ok(bitset_is_set(validity, idx)?);
+            return bitset_is_set(validity, idx);
         }
         Ok(true)
     }

@@ -2,9 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::error::{set_default, Context, ContextSupport, Error, Result};
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub struct NullDeserializer {
     path: String,
@@ -22,8 +20,6 @@ impl Context for NullDeserializer {
         set_default(annotations, "data_type", "Null");
     }
 }
-
-impl SimpleDeserializer<'_> for NullDeserializer {}
 
 impl<'de> RandomAccessDeserializer<'de> for NullDeserializer {
     fn is_some(&self, _idx: usize) -> Result<bool> {

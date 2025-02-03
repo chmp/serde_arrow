@@ -10,9 +10,7 @@ use crate::internal::{
     utils::array_view_ext::ViewAccess,
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub struct DurationDeserializer<'a> {
     path: String,
@@ -44,8 +42,6 @@ impl Context for DurationDeserializer<'_> {
         set_default(annotations, "data_type", "Duration(..)");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for DurationDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for DurationDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {

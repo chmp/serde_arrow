@@ -10,9 +10,7 @@ use crate::internal::{
     utils::array_view_ext::ViewAccess,
 };
 
-use super::{
-    random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer,
-};
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub struct TimestampDeserializer<'a> {
     path: String,
@@ -89,8 +87,6 @@ impl Context for TimestampDeserializer<'_> {
         set_default(annotations, "data_type", "Date64");
     }
 }
-
-impl<'de> SimpleDeserializer<'de> for TimestampDeserializer<'de> {}
 
 impl<'de> RandomAccessDeserializer<'de> for TimestampDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
