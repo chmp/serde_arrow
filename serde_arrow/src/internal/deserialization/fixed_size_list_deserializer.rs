@@ -2,11 +2,16 @@ use marrow::view::{BitsWithOffset, FixedSizeListView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{fail, set_default, Context, Result}, utils::ChildName,
+    error::{fail, set_default, Context, Result},
+    utils::ChildName,
 };
 
 use super::{
-    array_deserializer::{get_strategy, ArrayDeserializer}, list_deserializer::ListItemDeserializer, random_access_deserializer::RandomAccessDeserializer, simple_deserializer::SimpleDeserializer, utils::bitset_is_set
+    array_deserializer::{get_strategy, ArrayDeserializer},
+    list_deserializer::ListItemDeserializer,
+    random_access_deserializer::RandomAccessDeserializer,
+    simple_deserializer::SimpleDeserializer,
+    utils::bitset_is_set,
 };
 
 pub struct FixedSizeListDeserializer<'a> {
@@ -18,10 +23,7 @@ pub struct FixedSizeListDeserializer<'a> {
 }
 
 impl<'a> FixedSizeListDeserializer<'a> {
-    pub fn new(
-        path: String,
-        view: FixedSizeListView<'a>,
-    ) -> Result<Self> {
+    pub fn new(path: String, view: FixedSizeListView<'a>) -> Result<Self> {
         let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
         let item = ArrayDeserializer::new(
             child_path,
@@ -46,8 +48,7 @@ impl Context for FixedSizeListDeserializer<'_> {
     }
 }
 
-impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {
-}
+impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {}
 
 impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
@@ -55,7 +56,7 @@ impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
             fail!("Out of bounds access");
         }
         if let Some(validity) = self.validity.as_ref() {
-            return Ok(bitset_is_set(validity, idx)?)
+            return Ok(bitset_is_set(validity, idx)?);
         }
         Ok(true)
     }

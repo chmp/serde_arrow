@@ -11,7 +11,7 @@ use serde::{
 use crate::internal::{
     error::{fail, Context, Error, Result},
     schema::{Strategy, STRATEGY_KEY},
-    utils::{ChildName, Mut},
+    utils::Mut,
 };
 
 use super::{
@@ -125,28 +125,10 @@ impl<'a> ArrayDeserializer<'a> {
             )?)),
             V::List(view) => Ok(D::List(ListDeserializer::new(path, view)?)),
             V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(path, view)?)),
-            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(path, view)?)),
-            V::Struct(view) => {
-                let mut fields = Vec::new();
-                for (field_meta, field_view) in view.fields {
-                    let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
-                    let field_deserializer = ArrayDeserializer::new(
-                        child_path,
-                        get_strategy(&field_meta)?.as_ref(),
-                        field_view,
-                    )?;
-                    let field_name = field_meta.name;
-
-                    fields.push((field_name, field_deserializer));
-                }
-
-                Ok(D::Struct(StructDeserializer::new(
-                    path,
-                    fields,
-                    view.validity,
-                    view.len,
-                )))
-            }
+            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
+                path, view,
+            )?)),
+            V::Struct(view) => Ok(D::Struct(StructDeserializer::new(path, view)?)),
             V::Map(view) => Ok(D::Map(MapDeserializer::new(path, view)?)),
             View::Union(view) => Ok(Self::Enum(EnumDeserializer::new(path, view)?)),
             V::Dictionary(view) => match (*view.keys, *view.values) {

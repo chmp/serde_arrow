@@ -59,7 +59,8 @@ impl<'de> Deserializer<'de> {
             deserializers.push((field.name.clone(), deserializer));
         }
 
-        let deserializer = StructDeserializer::new(String::from("$"), deserializers, None, len);
+        let deserializer =
+            StructDeserializer::from_parts(String::from("$"), deserializers, None, len);
 
         Ok(Self { deserializer })
     }
