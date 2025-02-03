@@ -1,16 +1,16 @@
-use marrow::view::BitsWithOffset;
+use marrow::view::{BitsWithOffset, ListView};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::{NamedType, Offset},
+    utils::{ChildName, NamedType, Offset},
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer,
+    array_deserializer::{get_strategy, ArrayDeserializer},
     random_access_deserializer::RandomAccessDeserializer,
     simple_deserializer::SimpleDeserializer,
-    utils::{bitset_is_set, check_supported_list_layout},
+    utils::bitset_is_set,
 };
 
 pub struct ListDeserializer<'a, O: Offset> {
@@ -21,20 +21,19 @@ pub struct ListDeserializer<'a, O: Offset> {
 }
 
 impl<'de, O: Offset> ListDeserializer<'de, O> {
-    pub fn new(
-        path: String,
-        mut item: ArrayDeserializer<'de>,
-        offsets: &'de [O],
-        validity: Option<BitsWithOffset<'de>>,
-    ) -> Result<Self> {
-        check_supported_list_layout(validity, offsets)?;
-        item.skip(offsets[0].try_into_usize()?)?;
+    pub fn new(path: String, view: ListView<'de, O>) -> Result<Self> {
+        let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
+        let item = ArrayDeserializer::new(
+            child_path,
+            get_strategy(&view.meta)?.as_ref(),
+            *view.elements,
+        )?;
 
         Ok(Self {
             path,
             item: Box::new(item),
-            offsets,
-            validity,
+            offsets: view.offsets,
+            validity: view.validity,
         })
     }
 

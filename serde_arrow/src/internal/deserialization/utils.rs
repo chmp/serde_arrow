@@ -12,61 +12,6 @@ pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     get_bit_buffer(set.data, set.offset, idx)
 }
 
-/// Check that the list layout given in terms of validity and offsets is
-/// supported by serde_arrow
-///
-/// While the [arrow format spec][] explicitly allows null values in lists that
-/// correspond to non-empty segments, this is currently not supported in arrow
-/// deserialization. The spec says "a null value may correspond to a
-/// **non-empty** segment in the child array."
-///
-/// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
-pub fn check_supported_list_layout<'a, O: Offset>(
-    validity: Option<BitsWithOffset<'a>>,
-    offsets: &'a [O],
-) -> Result<()> {
-    if offsets.is_empty() {
-        fail!("Unsupported: list offsets must be non empty");
-    }
-
-    for i in 0..offsets.len().saturating_sub(1) {
-        let curr = offsets[i].try_into_usize()?;
-        let next = offsets[i + 1].try_into_usize()?;
-
-        if next < curr {
-            fail!("Unsupported: list offsets are assumed to be monotonically increasing");
-        }
-        if let Some(validity) = validity.as_ref() {
-            if !bitset_is_set(validity, i)? && (next - curr) != 0 {
-                fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[test]
-fn test_check_supported_list_layout() {
-    use crate::internal::testing::assert_error_contains;
-
-    assert_error_contains(&check_supported_list_layout::<i32>(None, &[]), "non empty");
-    assert_error_contains(
-        &check_supported_list_layout::<i32>(None, &[0, 1, 0]),
-        "monotonically increasing",
-    );
-    assert_error_contains(
-        &check_supported_list_layout::<i32>(
-            Some(BitsWithOffset {
-                offset: 0,
-                data: &[0b_101],
-            }),
-            &[0, 5, 10, 15],
-        ),
-        "data in null values",
-    );
-}
-
 pub trait BytesAccess<'a> {
     fn get_bytes(&self, idx: usize) -> Result<Option<&'a [u8]>>;
 }

@@ -123,32 +123,8 @@ impl<'a> ArrayDeserializer<'a> {
             V::FixedSizeBinary(view) => Ok(D::FixedSizeBinary(FixedSizeBinaryDeserializer::new(
                 path, view,
             )?)),
-            V::List(view) => {
-                let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
-                Ok(D::List(ListDeserializer::new(
-                    path,
-                    ArrayDeserializer::new(
-                        child_path,
-                        get_strategy(&view.meta)?.as_ref(),
-                        *view.elements,
-                    )?,
-                    view.offsets,
-                    view.validity,
-                )?))
-            }
-            V::LargeList(view) => {
-                let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
-                Ok(D::LargeList(ListDeserializer::new(
-                    path,
-                    ArrayDeserializer::new(
-                        child_path,
-                        get_strategy(&view.meta)?.as_ref(),
-                        *view.elements,
-                    )?,
-                    view.offsets,
-                    view.validity,
-                )?))
-            }
+            V::List(view) => Ok(D::List(ListDeserializer::new(path, view)?)),
+            V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(path, view)?)),
             V::FixedSizeList(view) => {
                 let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
                 Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
@@ -294,7 +270,7 @@ impl<'a> ArrayDeserializer<'a> {
     }
 }
 
-fn get_strategy(meta: &FieldMeta) -> Result<Option<Strategy>> {
+pub fn get_strategy(meta: &FieldMeta) -> Result<Option<Strategy>> {
     let Some(strategy) = meta.metadata.get(STRATEGY_KEY) else {
         return Ok(None);
     };
