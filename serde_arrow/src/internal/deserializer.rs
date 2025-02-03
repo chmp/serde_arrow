@@ -1,6 +1,9 @@
-use std::ops::Range;
+use std::{marker::PhantomData, ops::Range};
 
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
+use serde::{
+    de::{DeserializeSeed, SeqAccess, Visitor},
+    Deserialize,
+};
 
 use marrow::{datatypes::Field, view::View};
 
@@ -80,11 +83,105 @@ impl<'de> Deserializer<'de> {
             end: slice.end,
         }
     }
+
+    pub fn iter_owned<T: Deserialize<'de>>(self) -> DeserializerIterator<'de, T> {
+        DeserializerIterator {
+            end: self.deserializer.len,
+            start: 0,
+            deserializer: self.deserializer,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn iter<'this, T: Deserialize<'de>>(
+        &'this self,
+    ) -> DeserializerSliceIterator<'this, 'de, T> {
+        DeserializerSliceIterator {
+            end: self.deserializer.len,
+            start: 0,
+            deserializer: &self.deserializer,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'this, 'de> DeserializerSlice<'this, 'de> {
+    pub fn len(&self) -> usize {
+        self.end.saturating_sub(self.start)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn slice(&self, slice: Range<usize>) -> DeserializerSlice<'this, 'de> {
+        let start = self.start + slice.start;
+        let end = self.start + slice.end;
+        if end > self.end {
+            panic!("out of bounds access");
+        }
+        DeserializerSlice {
+            start,
+            end,
+            ..*self
+        }
+    }
+
+    pub fn iter<T: Deserialize<'de>>(&self) -> DeserializerSliceIterator<'this, 'de, T> {
+        DeserializerSliceIterator {
+            deserializer: self.deserializer,
+            start: self.start,
+            end: self.end,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+pub struct DeserializerIterator<'de, T: Deserialize<'de>> {
+    pub(crate) deserializer: StructDeserializer<'de>,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) _phantom: PhantomData<T>,
+}
+
+impl<'de, T: Deserialize<'de>> std::iter::Iterator for DeserializerIterator<'de, T> {
+    type Item = Result<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            return None;
+        }
+
+        let item = T::deserialize(self.deserializer.at(self.start));
+        self.start += 1;
+        Some(item)
+    }
+}
+
+pub struct DeserializerSliceIterator<'a, 'de, T: Deserialize<'de>> {
+    pub(crate) deserializer: &'a StructDeserializer<'de>,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) _phantom: PhantomData<T>,
+}
+
+impl<'de, T: Deserialize<'de>> std::iter::Iterator for DeserializerSliceIterator<'_, 'de, T> {
+    type Item = Result<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            return None;
+        }
+
+        let item = T::deserialize(self.deserializer.at(self.start));
+        self.start += 1;
+        Some(item)
+    }
 }
 
 macro_rules! impl_deserializer {
-    ($ty:ident) => {
-        impl<'de> serde::de::Deserializer<'de> for $ty<'de> {
+    ($decl:lifetime, $($ty_decl:tt)*) => {
+        impl<$decl> serde::de::Deserializer<'de> for $($ty_decl)* {
             type Error = Error;
 
             fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -245,9 +342,9 @@ macro_rules! impl_deserializer {
     };
 }
 
-impl_deserializer!(Deserializer);
+impl_deserializer!('de, Deserializer<'de>);
+impl_deserializer!('de, DeserializerSlice<'_, 'de>);
 
-// TODO: expose this or hide behind private marker?
 impl<'de> SeqAccess<'de> for Private<DeserializerSlice<'_, 'de>> {
     type Error = Error;
 
