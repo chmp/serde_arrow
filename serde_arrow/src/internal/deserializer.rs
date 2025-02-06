@@ -175,7 +175,7 @@ impl<'this, 'de> std::iter::Iterator for DeserializerIterator<'this, 'de> {
         })
     }
 
-    fn size_hint(&self) -> Option<usize> {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         (self.deserializer.len, Some(self.deserializer.len))
     }
 }
