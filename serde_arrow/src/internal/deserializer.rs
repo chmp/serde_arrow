@@ -174,6 +174,10 @@ impl<'this, 'de> std::iter::Iterator for DeserializerIterator<'this, 'de> {
             idx,
         })
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        (self.deserializer.len, Some(self.deserializer.len))
+    }
 }
 
 /// Marker to hide trait implementations
