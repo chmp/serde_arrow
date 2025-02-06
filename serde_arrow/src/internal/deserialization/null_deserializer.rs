@@ -2,7 +2,7 @@ use serde::de::Visitor;
 
 use crate::internal::error::{set_default, Context, ContextSupport, Error, Result};
 
-use super::simple_deserializer::SimpleDeserializer;
+use super::random_access_deserializer::RandomAccessDeserializer;
 
 pub struct NullDeserializer {
     path: String,
@@ -21,23 +21,32 @@ impl Context for NullDeserializer {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for NullDeserializer {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+impl<'de> RandomAccessDeserializer<'de> for NullDeserializer {
+    fn is_some(&self, _idx: usize) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, _idx: usize) -> Result<V::Value> {
         visitor.visit_unit::<Error>().ctx(self)
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(&self, visitor: V, _idx: usize) -> Result<V::Value> {
+        visitor.visit_unit::<Error>().ctx(self)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, _idx: usize) -> Result<V::Value> {
         visitor.visit_none::<Error>().ctx(self)
     }
 
-    fn deserialize_unit<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
+    fn deserialize_unit<V: Visitor<'de>>(&self, visitor: V, _idx: usize) -> Result<V::Value> {
         visitor.visit_unit::<Error>().ctx(self)
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(
-        &mut self,
+        &self,
         _: &'static str,
         visitor: V,
+        _idx: usize,
     ) -> Result<V::Value> {
         visitor.visit_unit::<Error>().ctx(self)
     }

@@ -14,6 +14,9 @@
   - Remove the `UtcAsDate64Str` and `NaiveAsDate64Str` strategies
 - Fix bug in deserialization of sub seconds for `Time32` and `Time64`
 - Fix bug that prevented to deserialize `String` from `Decimal` arrays 
+- Improve performance when deserializing from slide arrays
+- Allow to treat deserializers as sequence of deserializers by iterating over them or accessing
+  individual items
 
 ## 0.12.3
 

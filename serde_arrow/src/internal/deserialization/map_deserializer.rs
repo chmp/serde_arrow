@@ -1,15 +1,15 @@
-use marrow::view::BitsWithOffset;
+use marrow::view::{BitsWithOffset, MapView};
 use serde::de::{DeserializeSeed, MapAccess, Visitor};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    schema::get_strategy_from_metadata,
+    utils::{ChildName, Offset},
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer,
-    simple_deserializer::SimpleDeserializer,
-    utils::{bitset_is_set, check_supported_list_layout},
+    array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
+    utils::bitset_is_set,
 };
 
 pub struct MapDeserializer<'a> {
@@ -18,46 +18,39 @@ pub struct MapDeserializer<'a> {
     value: Box<ArrayDeserializer<'a>>,
     offsets: &'a [i32],
     validity: Option<BitsWithOffset<'a>>,
-    next: (usize, usize),
 }
 
 impl<'a> MapDeserializer<'a> {
-    pub fn new(
-        path: String,
-        mut key: ArrayDeserializer<'a>,
-        mut value: ArrayDeserializer<'a>,
-        offsets: &'a [i32],
-        validity: Option<BitsWithOffset<'a>>,
-    ) -> Result<Self> {
-        check_supported_list_layout(validity, offsets)?;
+    pub fn new(path: String, view: MapView<'a>) -> Result<Self> {
+        let keys_path = format!(
+            "{path}.{entries}.{keys}",
+            entries = ChildName(&view.meta.entries_name),
+            keys = ChildName(&view.meta.keys.name),
+        );
+        let keys = ArrayDeserializer::new(
+            keys_path,
+            get_strategy_from_metadata(&view.meta.keys.metadata)?.as_ref(),
+            *view.keys,
+        )?;
 
-        let initial_offset = usize::try_from(offsets[0])?;
-        key.skip(initial_offset)?;
-        value.skip(initial_offset)?;
+        let values_path = format!(
+            "{path}.{entries}.{values}",
+            entries = ChildName(&view.meta.entries_name),
+            values = ChildName(&view.meta.values.name),
+        );
+        let values = ArrayDeserializer::new(
+            values_path,
+            get_strategy_from_metadata(&view.meta.values.metadata)?.as_ref(),
+            *view.values,
+        )?;
 
         Ok(Self {
             path,
-            key: Box::new(key),
-            value: Box::new(value),
-            offsets,
-            validity,
-            next: (0, 0),
+            key: Box::new(keys),
+            value: Box::new(values),
+            offsets: view.offsets,
+            validity: view.validity,
         })
-    }
-
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 + 1 >= self.offsets.len() {
-            fail!("Exhausted deserializer")
-        }
-        if let Some(validity) = &self.validity {
-            Ok(bitset_is_set(validity, self.next.0)?)
-        } else {
-            Ok(true)
-        }
-    }
-
-    pub fn consume_next(&mut self) {
-        self.next = (self.next.0 + 1, 0);
     }
 }
 
@@ -68,64 +61,61 @@ impl Context for MapDeserializer<'_> {
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for MapDeserializer<'de> {
-    fn deserialize_any<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                self.deserialize_map(visitor)
-            } else {
-                self.consume_next();
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
+impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx + 1 >= self.offsets.len() {
+            fail!("Out of bounds access")
+        }
+        if let Some(validity) = &self.validity {
+            Ok(bitset_is_set(validity, idx)?)
+        } else {
+            Ok(true)
+        }
     }
 
-    fn deserialize_option<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                visitor.visit_some(Mut(&mut *self))
-            } else {
-                self.consume_next();
-                visitor.visit_none::<Error>()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_map(visitor, idx)
     }
 
-    fn deserialize_map<V: Visitor<'de>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_map(&mut *self)).ctx(self)
+    fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| {
+            if idx + 1 >= self.offsets.len() {
+                fail!("Out of bounds access")
+            }
+
+            visitor.visit_map(MapItemDeserializer {
+                deserializer: self,
+                start: self.offsets[idx].try_into_usize()?,
+                end: self.offsets[idx + 1].try_into_usize()?,
+            })
+        })
+        .ctx(self)
     }
 }
 
-impl<'de> MapAccess<'de> for MapDeserializer<'de> {
+struct MapItemDeserializer<'this, 'de> {
+    deserializer: &'this MapDeserializer<'de>,
+    start: usize,
+    end: usize,
+}
+
+impl<'de> MapAccess<'de> for MapItemDeserializer<'_, 'de> {
     type Error = Error;
 
-    fn next_key_seed<K: DeserializeSeed<'de>>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>, Self::Error> {
-        let (item, entry) = self.next;
-        if item + 1 >= self.offsets.len() {
-            fail!(in self, "Exhausted deserializer");
-        }
-        let start: usize = self.offsets[item].try_into()?;
-        let end: usize = self.offsets[item + 1].try_into()?;
-
-        if entry >= (end - start) {
-            self.next = (item + 1, 0);
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
+        if self.start >= self.end {
             return Ok(None);
         }
-        let res = seed.deserialize(Mut(self.key.as_mut()))?;
-        Ok(Some(res))
+        let key = seed.deserialize(self.deserializer.key.at(self.start))?;
+        Ok(Some(key))
     }
 
-    fn next_value_seed<V: DeserializeSeed<'de>>(
-        &mut self,
-        seed: V,
-    ) -> Result<V::Value, Self::Error> {
-        let (item, entry) = self.next;
-        self.next = (item, entry + 1);
-        seed.deserialize(Mut(self.value.as_mut()))
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
+        if self.start >= self.end {
+            fail!("Invalid state in MapItemDeserializer");
+        }
+        let value = seed.deserialize(self.deserializer.value.at(self.start))?;
+        self.start += 1;
+        Ok(value)
     }
 }

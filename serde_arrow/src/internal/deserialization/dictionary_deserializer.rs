@@ -3,19 +3,18 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, Offset},
+    utils::{array_view_ext::ViewAccess, Offset},
 };
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
-    simple_deserializer::SimpleDeserializer, utils::ArrayBufferIterator,
+    random_access_deserializer::RandomAccessDeserializer,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
     path: String,
-    keys: ArrayBufferIterator<'a, K>,
-    offsets: &'a [V],
-    data: &'a [u8],
+    keys: PrimitiveView<'a, K>,
+    values: BytesView<'a, V>,
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
@@ -26,26 +25,15 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
         }
         Ok(Self {
             path,
-            keys: ArrayBufferIterator::new(keys.values, keys.validity),
-            offsets: values.offsets,
-            data: values.data,
+            keys: keys.clone(),
+            values: values.clone(),
         })
     }
 
-    pub fn next_str(&mut self) -> Result<&str> {
-        let k: usize = self.keys.next_required()?.into_u64()?.try_into()?;
-        let Some(start) = self.offsets.get(k) else {
-            fail!("Invalid index");
-        };
-        let start = start.try_into_usize()?;
-
-        let Some(end) = self.offsets.get(k + 1) else {
-            fail!("Invalid index");
-        };
-        let end = end.try_into_usize()?;
-
-        let s = std::str::from_utf8(&self.data[start..end])?;
-        Ok(s)
+    pub fn get_str(&self, idx: usize) -> Result<&str> {
+        let key: usize = self.keys.get_required(idx)?.into_i64()?.try_into()?;
+        let value: &str = self.values.get_required(key)?;
+        Ok(value)
     }
 }
 
@@ -56,49 +44,32 @@ impl<K: Integer, V: Offset> Context for DictionaryDeserializer<'_, K, V> {
     }
 }
 
-impl<'de, K: Integer, V: Offset> SimpleDeserializer<'de> for DictionaryDeserializer<'de, K, V> {
-    fn deserialize_any<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| {
-            if self.keys.peek_next()? {
-                self.deserialize_str(visitor)
-            } else {
-                self.keys.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+impl<'de, K: Integer, V: Offset> RandomAccessDeserializer<'de>
+    for DictionaryDeserializer<'de, K, V>
+{
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.keys.is_some(idx)
     }
 
-    fn deserialize_option<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| {
-            if self.keys.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.keys.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<VV: Visitor<'de>>(&self, visitor: VV, idx: usize) -> Result<VV::Value> {
+        self.deserialize_str(visitor, idx)
     }
 
-    fn deserialize_str<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| visitor.visit_str(self.next_str()?)).ctx(self)
+    fn deserialize_str<VV: Visitor<'de>>(&self, visitor: VV, idx: usize) -> Result<VV::Value> {
+        try_(|| visitor.visit_str(self.get_str(idx)?)).ctx(self)
     }
 
-    fn deserialize_string<VV: Visitor<'de>>(&mut self, visitor: VV) -> Result<VV::Value> {
-        try_(|| visitor.visit_string(self.next_str()?.to_owned())).ctx(self)
+    fn deserialize_string<VV: Visitor<'de>>(&self, visitor: VV, idx: usize) -> Result<VV::Value> {
+        try_(|| visitor.visit_string(self.get_str(idx)?.to_owned())).ctx(self)
     }
 
     fn deserialize_enum<VV: Visitor<'de>>(
-        &mut self,
+        &self,
         _: &'static str,
         _: &'static [&'static str],
         visitor: VV,
+        idx: usize,
     ) -> Result<VV::Value> {
-        try_(|| {
-            let variant = self.next_str()?;
-            visitor.visit_enum(EnumAccess(variant))
-        })
-        .ctx(self)
+        try_(|| visitor.visit_enum(EnumAccess(self.get_str(idx)?))).ctx(self)
     }
 }

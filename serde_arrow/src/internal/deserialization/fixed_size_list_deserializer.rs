@@ -1,59 +1,41 @@
-use marrow::view::BitsWithOffset;
-use serde::de::{IgnoredAny, SeqAccess, Visitor};
+use marrow::view::{BitsWithOffset, FixedSizeListView};
+use serde::de::Visitor;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    error::{fail, set_default, Context, Result},
+    schema::get_strategy_from_metadata,
+    utils::ChildName,
 };
 
 use super::{
-    array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer,
-    utils::bitset_is_set,
+    array_deserializer::ArrayDeserializer, list_deserializer::ListItemDeserializer,
+    random_access_deserializer::RandomAccessDeserializer, utils::bitset_is_set,
 };
 
 pub struct FixedSizeListDeserializer<'a> {
     pub path: String,
     pub item: Box<ArrayDeserializer<'a>>,
     pub validity: Option<BitsWithOffset<'a>>,
-    pub shape: (usize, usize),
-    pub next: (usize, usize),
+    pub len: usize,
+    pub n: usize,
 }
 
 impl<'a> FixedSizeListDeserializer<'a> {
-    pub fn new(
-        path: String,
-        item: ArrayDeserializer<'a>,
-        validity: Option<BitsWithOffset<'a>>,
-        n: usize,
-        len: usize,
-    ) -> Self {
-        Self {
+    pub fn new(path: String, view: FixedSizeListView<'a>) -> Result<Self> {
+        let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
+        let item = ArrayDeserializer::new(
+            child_path,
+            get_strategy_from_metadata(&view.meta.metadata)?.as_ref(),
+            *view.elements,
+        )?;
+
+        Ok(Self {
             path,
             item: Box::new(item),
-            validity,
-            shape: (len, n),
-            next: (0, 0),
-        }
-    }
-
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next.0 >= self.shape.0 {
-            fail!("Exhausted deserializer")
-        }
-        if let Some(validity) = &self.validity {
-            Ok(bitset_is_set(validity, self.next.0)?)
-        } else {
-            Ok(true)
-        }
-    }
-
-    pub fn consume_next(&mut self) -> Result<()> {
-        for _ in 0..self.shape.1 {
-            self.item.deserialize_ignored_any(IgnoredAny)?;
-        }
-
-        self.next = (self.next.0 + 1, 0);
-        Ok(())
+            validity: view.validity,
+            len: view.len,
+            n: view.n.try_into()?,
+        })
     }
 }
 
@@ -64,55 +46,29 @@ impl Context for FixedSizeListDeserializer<'_> {
     }
 }
 
-impl<'a> SimpleDeserializer<'a> for FixedSizeListDeserializer<'a> {
-    fn deserialize_any<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                self.deserialize_seq(visitor)
-            } else {
-                self.consume_next()?;
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_option<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                visitor.visit_some(Mut(&mut *self))
-            } else {
-                self.consume_next()?;
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
-    }
-
-    fn deserialize_seq<V: Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_seq(&mut *self)).ctx(self)
-    }
-}
-
-impl<'de> SeqAccess<'de> for FixedSizeListDeserializer<'de> {
-    type Error = Error;
-
-    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>> {
-        let (item, offset) = self.next;
-        if item >= self.shape.0 {
-            return Ok(None);
+impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx >= self.len {
+            fail!("Out of bounds access");
         }
-
-        if offset >= self.shape.1 {
-            self.next = (item + 1, 0);
-            return Ok(None);
+        if let Some(validity) = self.validity.as_ref() {
+            return bitset_is_set(validity, idx);
         }
-        self.next = (item, offset + 1);
+        Ok(true)
+    }
 
-        let item = seed.deserialize(Mut(self.item.as_mut()))?;
-        Ok(Some(item))
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_seq(visitor, idx)
+    }
+
+    fn deserialize_seq<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        if idx >= self.len {
+            fail!("Out of bounds access");
+        }
+        visitor.visit_seq(ListItemDeserializer {
+            item: self.item.as_ref(),
+            start: idx * self.n,
+            end: (idx + 1) * self.n,
+        })
     }
 }

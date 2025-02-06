@@ -29,16 +29,15 @@ pub trait Sealed {}
 ///
 /// There are three main ways to specify the schema:
 ///
-/// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON
-///    value
+/// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON value
 /// 2. [`SchemaLike::from_type`]: determine the schema from the record type
-/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of the
-///    data
+/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of data
 ///
-/// The following types implement [`SchemaLike`] and can be constructed with the
-/// methods mentioned above:
+/// The following types implement [`SchemaLike`] and can be constructed with the methods mentioned
+/// above:
 ///
 /// - [`SerdeArrowSchema`]
+/// - `Vec<`[`marrow::datatypes::Field`]`>`
 #[cfg_attr(
     has_arrow,
     doc = "- `Vec<`[`arrow::datatypes::FieldRef`][crate::_impl::arrow::datatypes::FieldRef]`>`"
@@ -52,8 +51,8 @@ pub trait Sealed {}
     doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
 )]
 ///
-/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized.
-/// The format is that described in [`SchemaLike::from_value`].
+/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized. The format is that
+/// described in [`SchemaLike::from_value`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -110,9 +109,10 @@ pub trait SchemaLike: Sized + Sealed {
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
-    /// - date objects: `"Date32"`
-    /// - date time objects: , `"Date64"`, `"Timestamp(unit, timezone)"` with unit being one of
-    ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
+    /// - date objects: `"Date32"`, `"Date64"`
+    /// - date time objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
+    ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
+    ///   `None` or `Some("Utc")`.
     /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - durations: `"Duration(unit)"` with unit being one of `Second`, `Millisecond`,
@@ -137,7 +137,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// - auto detection of date time strings
     /// - non self-describing types such as `serde_json::Value`
-    /// - flattened structure (`#[serde(flatten)]`)
+    /// - flattened structures (`#[serde(flatten)]`)
     /// - types that require specific data to be deserialized, such as the `DateTime` type of
     ///   `chrono` or the `Uuid` type of the `uuid` package
     ///
@@ -169,9 +169,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
-    /// Note, the type `T` must encode a single "row" in the resulting data
-    /// frame. When encoding single values, consider using the
-    /// [`Item`][crate::utils::Item] wrapper.
+    /// Note, the type `T` must encode a single "row" in the resulting data frame. When encoding
+    /// single values, consider using the [`Item`][crate::utils::Item] wrapper.
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]

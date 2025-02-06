@@ -59,7 +59,7 @@ fn example_exhausted() {
     }
 
     let res = Vec::<S>::deserialize(deserializer);
-    assert_error_contains(&res, "Exhausted deserializer");
+    assert_error_contains(&res, "Out of bounds access");
     assert_error_contains(&res, "field: \"$.item.nested\"");
     assert_error_contains(&res, "data_type: \"Boolean\"");
 }

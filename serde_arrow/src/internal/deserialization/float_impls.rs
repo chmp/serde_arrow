@@ -3,14 +3,15 @@ use serde::de::Visitor;
 
 use crate::internal::error::Result;
 
-use super::{float_deserializer::Float, simple_deserializer::SimpleDeserializer};
+use super::{float_deserializer::Float, random_access_deserializer::RandomAccessDeserializer};
 
 impl Float for f16 {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
-        deser: &mut S,
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
-        deser.deserialize_f32(visitor)
+        deser.deserialize_f32(visitor, idx)
     }
 
     fn into_f32(self) -> Result<f32> {
@@ -23,11 +24,12 @@ impl Float for f16 {
 }
 
 impl Float for f32 {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
-        deser: &mut S,
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
-        deser.deserialize_f32(visitor)
+        deser.deserialize_f32(visitor, idx)
     }
 
     fn into_f32(self) -> Result<f32> {
@@ -40,11 +42,12 @@ impl Float for f32 {
 }
 
 impl Float for f64 {
-    fn deserialize_any<'de, S: SimpleDeserializer<'de>, V: Visitor<'de>>(
-        deser: &mut S,
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
-        deser.deserialize_f64(visitor)
+        deser.deserialize_f64(visitor, idx)
     }
 
     fn into_f32(self) -> Result<f32> {

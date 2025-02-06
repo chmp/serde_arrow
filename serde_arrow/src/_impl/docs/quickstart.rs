@@ -31,7 +31,7 @@
 //! integer columns, the data type has to be modified.
 //!
 //! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime] objects. The traced
-//! field `val` will be of type `Utf8`.
+//! field `val` will be of type `LargeUtf8`.
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]

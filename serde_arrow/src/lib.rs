@@ -1,27 +1,25 @@
 //! # `serde_arrow` - convert sequences Rust objects to / from arrow arrays
 //!
-//! The arrow in-memory format is a powerful way to work with data frame like
-//! structures. However, the API of the underlying Rust crates can be at times
-//! cumbersome to use due to the statically typed nature of Rust. `serde_arrow`,
-//! offers a simple way to convert Rust objects into Arrow arrays and back.
-//! `serde_arrow` relies on [Serde](https://serde.rs) to interpret Rust objects.
-//! Therefore, adding support for `serde_arrow` to custom types is as easy as
-//! using Serde's derive macros.
+//! The arrow in-memory format is a powerful way to work with data frame like structures. However,
+//! the API of the underlying Rust crates can be at times cumbersome to use due to the statically
+//! typed nature of Rust. `serde_arrow`, offers a simple way to convert Rust objects into Arrow
+//! arrays and back. `serde_arrow` relies on [Serde](https://serde.rs) to interpret Rust objects.
+//! Therefore, adding support for `serde_arrow` to custom types is as easy as using Serde's derive
+//! macros.
 //!
-//! In the Rust ecosystem there are two competing implementations of the arrow
-//! in-memory format, [`arrow`](https://github.com/apache/arrow-rs) and
-//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports
-//! both. The supported arrow implementations can be selected via
-//! [features](#features).
+//! In the Rust ecosystem there are two competing implementations of the arrow in-memory format,
+//! [`arrow`](https://github.com/apache/arrow-rs) and
+//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports both. The supported
+//! arrow implementations can be selected via [features](#features).
 //!
-//! `serde_arrow` relies on a schema to translate between Rust and Arrow as
-//! their type systems do not directly match. The schema is expressed as a
-//! collection of Arrow fields with additional metadata describing the arrays.
-//! E.g., to convert Rust strings containing timestamps to Date64 arrays, the
-//! schema should contain a  `Date64`. `serde_arrow` supports to derive the
-//! schema from the data itself via schema tracing, but does not require it. It
-//! is always possible to specify the schema manually. See the [`schema`
-//! module][schema] and [`SchemaLike`][schema::SchemaLike] for further details.
+//! `serde_arrow` relies on a schema to translate between Rust and Arrow as their type systems do
+//! not directly match. The schema is expressed as a collection of Arrow fields with additional
+//! metadata describing the arrays. E.g., to convert a vector of Rust strings representing
+//! timestamps to an arrow `Timestamp` array, the schema should contain a field with data type
+//! `Timestamp`. `serde_arrow` supports to derive the schema from the data or the Rust types
+//! themselves via schema tracing, but does not require it. It is always possible to specify the
+//! schema manually. See the [`schema` module][schema] and [`SchemaLike`][schema::SchemaLike] for
+//! further details.
 //!
 #![cfg_attr(
     all(has_arrow, has_arrow2),
@@ -289,6 +287,12 @@ pub use marrow_impl::{from_marrow, to_marrow};
 /// Helpers that may be useful when using `serde_arrow`
 pub mod utils {
     pub use crate::internal::utils::{Item, Items};
+}
+
+#[deny(missing_docs)]
+/// Deserialization of items
+pub mod deserializer {
+    pub use crate::internal::deserializer::{DeserializerItem, DeserializerIterator};
 }
 
 /// The mapping between Rust and Arrow types
