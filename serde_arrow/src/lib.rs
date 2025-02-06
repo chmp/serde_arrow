@@ -289,6 +289,12 @@ pub mod utils {
     pub use crate::internal::utils::{Item, Items};
 }
 
+#[deny(missing_docs)]
+/// Deserialization of items
+pub mod deserializer {
+    pub use crate::internal::deserializer::{DeserializerItem, DeserializerIterator};
+}
+
 /// The mapping between Rust and Arrow types
 ///
 /// To convert between Rust objects and Arrow types, `serde_arrows` requires
