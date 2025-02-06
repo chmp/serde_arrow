@@ -25,7 +25,7 @@ use super::{
 ///
 /// Deserializer deserializer into a sequence of records, but it can also be used a sequence of
 /// deserializers for the individual records. It is possible to get individual items via
-/// [`Deserializer::get`] and iterate over [`Deserializer` references][DeserializerIterator].
+/// [`Deserializer::get`] and iterate over them via [`Deserializer::iter`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -109,12 +109,21 @@ impl<'de> Deserializer<'de> {
         Ok(Self { deserializer })
     }
 
+    /// Get the number of records of the deserializer
     pub fn len(&self) -> usize {
         self.deserializer.len
     }
 
+    /// Check wether the deserialize contains zero records
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Iterate over the records of this deserializer
+    ///
+    /// It is also possible to iterate directly over deserializer references.
+    pub fn iter<'this>(&'this self) -> DeserializerIterator<'this, 'de> {
+        DeserializerIterator::new(self)
     }
 
     /// Deserialize a single item
