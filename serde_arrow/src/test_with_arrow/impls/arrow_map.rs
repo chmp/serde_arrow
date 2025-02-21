@@ -334,6 +334,7 @@ fn hash_maps_nullable() {
     let values: &[Item<Ty>] = &[
         Item(Some(hash_map! {0 => true, 1 => false, 2 => true})),
         Item(Some(hash_map! {3 => false, 4 => true})),
+        Item(None),
         Item(Some(hash_map! {})),
     ];
 
