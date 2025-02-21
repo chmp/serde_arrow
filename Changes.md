@@ -18,6 +18,14 @@
 - Allow to treat deserializers as sequence of deserializers by iterating over them or accessing
   individual items
 
+### Thanks
+
+The following people contributed to this release:
+
+- [@ryzhyk](https://github.com/ryzhyk) discovered and fixed a bug introduced during refactoring
+  ([#261](https://github.com/chmp/serde_arrow/pull/261))
+
+
 ## 0.12.3
 
 - Add `arrow=54` support
