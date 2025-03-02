@@ -7,7 +7,8 @@ The page documents the supported types both from an Arrow and a Rust perspective
   - [Native / standard types](#native--standard-types)
   - [`chrono` types](#chrono-types)
   - [`jiff` types](#jiff-types)
-  - [`rust_decimal` and `bigdecimal` types](#rust_decimal-and-bigdecimal-types)
+  - [`rust_decimal::Decimal`](#rust_decimaldecimal)
+  - [`bigdecimal::BigDecimal`](#bigdecimalbigdecimal)
 
 ## Arrow data types
 
@@ -27,9 +28,7 @@ The page documents the supported types both from an Arrow and a Rust perspective
   [`Float64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Float64)
 - [x] [`Timestamp`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp)
 - [x] [`Date32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date32)
-- [x] [`Date64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date64):
-  either as formatted dates (UTC + Naive) (serialized / deserialized as strings) or as timestamps
-  (serialized / deserialized as `i64`). Both cases require additional configuration
+- [x] [`Date64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date64)
 - [x] [`Time32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time32)
 - [x] [`Time64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time64)
 - [x] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
@@ -181,8 +180,6 @@ Same as `jiff::Span`
 #### `jiff::Zoned`
 
 is not supported as there is no clear way of implementation
-
-###  `rust_decimal` and `bigdecimal` types
 
 ### [`rust_decimal::Decimal`][rust_decimal::Decimal]
 
