@@ -10,7 +10,6 @@ mod tracing_options;
 mod test;
 
 use crate::internal::{
-    arrow::{TimeUnit, UnionMode},
     error::{fail, Result},
     utils::value,
 };
@@ -22,7 +21,7 @@ pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
-use super::arrow::{DataType, Field};
+use marrow::datatypes::{DataType, Field, TimeUnit, UnionMode};
 
 pub trait Sealed {}
 
@@ -30,16 +29,15 @@ pub trait Sealed {}
 ///
 /// There are three main ways to specify the schema:
 ///
-/// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON
-///    value
+/// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON value
 /// 2. [`SchemaLike::from_type`]: determine the schema from the record type
-/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of the
-///    data
+/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of data
 ///
-/// The following types implement [`SchemaLike`] and can be constructed with the
-/// methods mentioned above:
+/// The following types implement [`SchemaLike`] and can be constructed with the methods mentioned
+/// above:
 ///
 /// - [`SerdeArrowSchema`]
+/// - `Vec<`[`marrow::datatypes::Field`]`>`
 #[cfg_attr(
     has_arrow,
     doc = "- `Vec<`[`arrow::datatypes::FieldRef`][crate::_impl::arrow::datatypes::FieldRef]`>`"
@@ -53,8 +51,8 @@ pub trait Sealed {}
     doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
 )]
 ///
-/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized.
-/// The format is that described in [`SchemaLike::from_value`].
+/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized. The format is that
+/// described in [`SchemaLike::from_value`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -69,8 +67,7 @@ pub trait Sealed {}
 /// ```
 ///
 pub trait SchemaLike: Sized + Sealed {
-    /// Build the schema from an object that implements serialize (e.g.,
-    /// `serde_json::Value`)
+    /// Build the schema from an object that implements serialize (e.g., `serde_json::Value`)
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -100,12 +97,9 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// - `"name"` (**required**): the name of the field
     /// - `"data_type"` (**required**): the data type of the field as a string
-    /// - `"nullable"` (**optional**): if `true`, the field can contain null
-    ///   values
-    /// - `"strategy"` (**optional**): if given a string describing the strategy
-    ///   to use (e.g., "NaiveStrAsDate64").
-    /// - `"children"` (**optional**): a list of child fields, the semantics
-    ///   depend on the data type
+    /// - `"nullable"` (**optional**): if `true`, the field can contain null values
+    /// - `"strategy"` (**optional**): if given a string describing the strategy to use
+    /// - `"children"` (**optional**): a list of child fields, the semantics depend on the data type
     ///
     /// The following data types are supported:
     ///
@@ -115,23 +109,22 @@ pub trait SchemaLike: Sized + Sealed {
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
-    /// - date objects: `"Date32"`
-    /// - date time objects: , `"Date64"`, `"Timestamp(unit, timezone)"` with
-    ///   unit being one of `Second`, `Millisecond`, `Microsecond`,
-    ///   `Nanosecond`.
-    /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one
-    ///   of `Second`, `Millisecond`, `Microsecond`, `Nanosecond`.
-    /// - durations: `"Duration(unit)"` with unit being one of `Second`,
+    /// - date objects: `"Date32"`, `"Date64"`
+    /// - date time objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
+    ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
+    ///   `None` or `Some("Utc")`.
+    /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
-    /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single
-    ///   field named `"element"` that describes the element type
+    /// - durations: `"Duration(unit)"` with unit being one of `Second`, `Millisecond`,
+    ///   `Microsecond`, `Nanosecond`.
+    /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single field named `"element"`
+    ///   that describes the element type
     /// - structs: `"Struct"`. `"children"` must contain the child fields
-    /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and
-    ///   `"value"` that encode the key and value types
+    /// - maps: `"Map"`. `"children"` must contain two fields, named `"key"` and `"value"` that
+    ///   encode the key and value types
     /// - unions: `"Union"`. `"children"` must contain the different variants
-    /// - dictionaries: `"Dictionary"`. `"children"` must contain two different
-    ///   fields, named `"key"` of integer type and named `"value"` of string
-    ///   type
+    /// - dictionaries: `"Dictionary"`. `"children"` must contain two different fields, named
+    ///   `"key"` of integer type and named `"value"` of string type
     ///
     fn from_value<T: Serialize>(value: T) -> Result<Self>;
 
@@ -144,7 +137,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///
     /// - auto detection of date time strings
     /// - non self-describing types such as `serde_json::Value`
-    /// - flattened structure (`#[serde(flatten)]`)
+    /// - flattened structures (`#[serde(flatten)]`)
     /// - types that require specific data to be deserialized, such as the `DateTime` type of
     ///   `chrono` or the `Uuid` type of the `uuid` package
     ///
@@ -176,9 +169,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// # fn main() { }
     /// ```
     ///
-    /// Note, the type `T` must encode a single "row" in the resulting data
-    /// frame. When encoding single values, consider using the
-    /// [`Item`][crate::utils::Item] wrapper.
+    /// Note, the type `T` must encode a single "row" in the resulting data frame. When encoding
+    /// single values, consider using the [`Item`][crate::utils::Item] wrapper.
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -207,7 +199,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - all variants of enum fields
     /// - at least one element for sequence fields (e.g., `Vec<..>`)
     /// - at least one example for map types (e.g., `HashMap<.., ..>`). All possible keys must be
-    ///   given, if [`options.map_as_struct == true`][TracingOptions::map_as_struct]).
+    ///   given, if [`options.map_as_struct == true`][TracingOptions::map_as_struct].
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -343,10 +335,12 @@ pub fn validate_field(field: &Field) -> Result<()> {
         | DataType::Float64
         | DataType::Utf8
         | DataType::LargeUtf8
+        | DataType::Utf8View
         | DataType::Decimal128(_, _)
         | DataType::Date32
         | DataType::Binary
         | DataType::LargeBinary
+        | DataType::BinaryView
         | DataType::Duration(_) => validate_primitive_field(field),
         DataType::FixedSizeBinary(n) => validate_fixed_size_binary_field(field, *n),
         DataType::Date64 => validate_date64_field(field),
@@ -361,9 +355,10 @@ pub fn validate_field(field: &Field) -> Result<()> {
             validate_fixed_size_list_field(field, entry.as_ref(), *n)
         }
         DataType::Union(fields, mode) => validate_union_field(field, fields.as_slice(), *mode),
-        DataType::Dictionary(key, values, _) => {
+        DataType::Dictionary(key, values) => {
             validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
+        dt => fail!("Unsupported data type {dt:?}"),
     }
 }
 
@@ -435,26 +430,15 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
 }
 
 fn validate_date64_field(field: &Field) -> Result<()> {
-    match get_strategy_from_metadata(&field.metadata)? {
-        None | Some(Strategy::UtcStrAsDate64) | Some(Strategy::NaiveStrAsDate64) => Ok(()),
-        Some(strategy) => fail!("invalid strategy for Date64 field: {strategy}"),
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Date64 field: {strategy}");
     }
+    Ok(())
 }
 
 fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
-    match get_strategy_from_metadata(&field.metadata)? {
-        None => {}
-        Some(strategy @ Strategy::UtcStrAsDate64) => {
-            if !matches!(tz, Some(tz) if tz.to_uppercase() == "UTC") {
-                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
-            }
-        }
-        Some(strategy @ Strategy::NaiveStrAsDate64) => {
-            if tz.is_some() {
-                fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
-            }
-        }
-        Some(strategy) => fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}"),
+    if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
+        fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
     }
     Ok(())
 }
@@ -519,7 +503,7 @@ fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMod
 
 pub struct DataTypeDisplay<'a>(pub &'a DataType);
 
-impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
+impl std::fmt::Display for DataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             DataType::Null => write!(f, "Null"),
@@ -552,13 +536,14 @@ impl<'a> std::fmt::Display for DataTypeDisplay<'a> {
             DataType::Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale}"),
             DataType::Struct(_) => write!(f, "Struct"),
             DataType::Map(_, sorted) => write!(f, "Map({sorted})"),
-            DataType::Dictionary(key, value, sorted) => write!(
+            DataType::Dictionary(key, value) => write!(
                 f,
-                "Dictionary({key}, {value}, {sorted})",
+                "Dictionary({key}, {value})",
                 key = DataTypeDisplay(key),
                 value = DataTypeDisplay(value),
             ),
             DataType::Union(_, mode) => write!(f, "Union({mode})"),
+            _ => write!(f, "<unknown marrow data type>"),
         }
     }
 }

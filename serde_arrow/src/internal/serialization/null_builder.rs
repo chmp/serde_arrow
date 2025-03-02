@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::internal::{
-    arrow::{Array, NullArray},
-    error::{set_default, Context, Result},
-};
+use marrow::array::{Array, NullArray};
+
+use crate::internal::error::{set_default, Context, Result};
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 

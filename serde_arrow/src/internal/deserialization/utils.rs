@@ -1,120 +1,117 @@
+use marrow::view::BitsWithOffset;
+use serde::{
+    de::{SeqAccess, Visitor},
+    Deserializer,
+};
+
 use crate::internal::{
-    arrow::BitsWithOffset,
-    error::{fail, Result},
-    utils::{array_ext::get_bit_buffer, Offset},
+    error::{fail, Error, Result},
+    utils::array_ext::get_bit_buffer,
 };
 
 pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     get_bit_buffer(set.data, set.offset, idx)
 }
 
-pub struct ArrayBufferIterator<'a, T: Copy> {
-    pub buffer: &'a [T],
-    pub validity: Option<BitsWithOffset<'a>>,
-    pub next: usize,
+pub struct U8Deserializer(pub u8);
+
+macro_rules! unimplemented {
+    ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
+        fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
+            fail!("Unsupported: U8Deserializer does not implement {}", stringify!($name))
+        }
+    };
 }
 
-impl<'a, T: Copy> ArrayBufferIterator<'a, T> {
-    pub fn new(buffer: &'a [T], validity: Option<BitsWithOffset<'a>>) -> Self {
-        Self {
-            buffer,
-            validity,
-            next: 0,
-        }
+impl<'de> Deserializer<'de> for U8Deserializer {
+    type Error = Error;
+
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_u8(visitor)
     }
 
-    pub fn next(&mut self) -> Result<Option<T>> {
-        if self.next > self.buffer.len() {
-            fail!("Exhausted deserializer");
-        }
-
-        if let Some(validity) = &self.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(None);
-            }
-        }
-        let val = self.buffer[self.next];
-        self.next += 1;
-
-        Ok(Some(val))
+    fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any(visitor)
     }
 
-    pub fn next_required(&mut self) -> Result<T> {
-        let Some(next) = self.next()? else {
-            fail!("Exhausted deserializer");
+    fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u8(self.0)
+    }
+
+    fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u16(self.0.into())
+    }
+
+    fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u32(self.0.into())
+    }
+
+    fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_u64(self.0.into())
+    }
+
+    fn deserialize_i8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i8(self.0.try_into()?)
+    }
+
+    fn deserialize_i16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i16(self.0.into())
+    }
+
+    fn deserialize_i32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i32(self.0.into())
+    }
+
+    fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_i64(self.0.into())
+    }
+
+    unimplemented!('de, deserialize_identifier);
+    unimplemented!('de, deserialize_str);
+    unimplemented!('de, deserialize_string);
+    unimplemented!('de, deserialize_bool);
+    unimplemented!('de, deserialize_f32);
+    unimplemented!('de, deserialize_f64);
+    unimplemented!('de, deserialize_char);
+    unimplemented!('de, deserialize_bytes);
+    unimplemented!('de, deserialize_byte_buf);
+    unimplemented!('de, deserialize_option);
+    unimplemented!('de, deserialize_unit);
+    unimplemented!('de, deserialize_unit_struct, _: &'static str);
+    unimplemented!('de, deserialize_newtype_struct, _: &'static str);
+    unimplemented!('de, deserialize_seq);
+    unimplemented!('de, deserialize_tuple, _: usize);
+    unimplemented!('de, deserialize_tuple_struct, _: &'static str, _: usize);
+    unimplemented!('de, deserialize_map);
+    unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
+    unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
+}
+
+pub struct U8SliceDeserializer<'a>(&'a [u8]);
+
+impl<'a> U8SliceDeserializer<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl<'de> SeqAccess<'de> for U8SliceDeserializer<'de> {
+    type Error = Error;
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
+
+    fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>> {
+        let Some((item, rest)) = self.0.split_first() else {
+            return Ok(None);
         };
-        Ok(next)
+        let item = seed.deserialize(U8Deserializer(*item))?;
+        self.0 = rest;
+
+        Ok(Some(item))
     }
-
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next > self.buffer.len() {
-            fail!("Exhausted deserializer");
-        }
-
-        if let Some(validity) = &self.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
-    pub fn consume_next(&mut self) {
-        self.next += 1;
-    }
-}
-
-/// Check that the list layout given in terms of validity and offsets is
-/// supported by serde_arrow
-///
-/// While the [arrow format spec][] explicitly allows null values in lists that
-/// correspond to non-empty segments, this is currently not supported in arrow
-/// deserialization. The spec says "a null value may correspond to a
-/// **non-empty** segment in the child array."
-///
-/// [arrow format spec]: https://arrow.apache.org/docs/format/Columnar.html#variable-size-list-layout
-pub fn check_supported_list_layout<'a, O: Offset>(
-    validity: Option<BitsWithOffset<'a>>,
-    offsets: &'a [O],
-) -> Result<()> {
-    if offsets.is_empty() {
-        fail!("Unsupported: list offsets must be non empty");
-    }
-
-    for i in 0..offsets.len().saturating_sub(1) {
-        let curr = offsets[i].try_into_usize()?;
-        let next = offsets[i + 1].try_into_usize()?;
-
-        if next < curr {
-            fail!("Unsupported: list offsets are assumed to be monotonically increasing");
-        }
-        if let Some(validity) = validity.as_ref() {
-            if !bitset_is_set(validity, i)? && (next - curr) != 0 {
-                fail!("Unsupported: lists with data in null values are currently not supported in deserialization");
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[test]
-fn test_check_supported_list_layout() {
-    use crate::internal::testing::assert_error_contains;
-
-    assert_error_contains(&check_supported_list_layout::<i32>(None, &[]), "non empty");
-    assert_error_contains(
-        &check_supported_list_layout::<i32>(None, &[0, 1, 0]),
-        "monotonically increasing",
-    );
-    assert_error_contains(
-        &check_supported_list_layout::<i32>(
-            Some(BitsWithOffset {
-                offset: 0,
-                data: &[0b_101],
-            }),
-            &[0, 5, 10, 15],
-        ),
-        "data in null values",
-    );
 }

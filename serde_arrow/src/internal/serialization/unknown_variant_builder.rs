@@ -1,11 +1,9 @@
 use std::collections::BTreeMap;
 
+use marrow::array::{Array, NullArray};
 use serde::Serialize;
 
-use crate::internal::{
-    arrow::{Array, NullArray},
-    error::{fail, set_default, Context, Result},
-};
+use crate::internal::error::{fail, set_default, Context, Result};
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 

@@ -116,6 +116,15 @@ mod date {
             .serialize(&items)
             .deserialize(&items);
     }
+
+    #[test]
+    fn as_date64() {
+        let items = items();
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Date64"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
 }
 
 mod date_time {
@@ -162,6 +171,7 @@ mod date_time {
         let items = items();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Millisecond, None)"}]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -184,18 +194,6 @@ mod date_time {
             .collect::<Vec<_>>();
         Test::new()
             .with_schema(json!([{"name": "item", "data_type": "Timestamp(Nanosecond, None)"}]))
-            .serialize(&items)
-            .deserialize(&items);
-    }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "NaiveStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -265,6 +263,7 @@ mod timestamp {
             .with_schema(
                 json!([{"name": "item", "data_type": "Timestamp(Millisecond, Some(\"UTC\"))"}]),
             )
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
             .serialize(&items)
             .deserialize(&items);
     }
@@ -300,24 +299,12 @@ mod timestamp {
             .serialize(&items)
             .deserialize(&items);
     }
-
-    #[test]
-    fn as_date64() {
-        let items = items();
-        Test::new()
-            .with_schema(
-                json!([{"name": "item", "data_type": "Date64", "strategy": "UtcStrAsDate64"}]),
-            )
-            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
-            .serialize(&items)
-            .deserialize(&items);
-    }
 }
 
 mod span {
     use super::*;
-    use crate::internal::arrow::TimeUnit;
     use jiff::{RoundMode, SpanRound, Unit};
+    use marrow::datatypes::TimeUnit;
     use serde::{Deserialize, Serialize};
 
     // wrapper around spans that uses compare for PartialEq
@@ -434,8 +421,8 @@ mod span {
 
 mod signed_duration {
     use super::*;
-    use crate::internal::arrow::TimeUnit;
     use jiff::SignedDuration;
+    use marrow::datatypes::TimeUnit;
 
     fn items(unit: TimeUnit) -> Vec<Item<SignedDuration>> {
         super::span::items(unit)

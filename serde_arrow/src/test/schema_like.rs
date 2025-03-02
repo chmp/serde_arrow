@@ -1,8 +1,9 @@
+use marrow::datatypes::{DataType, Field};
 use serde_json::json;
 
 use crate::internal::{
-    arrow::{DataType, Field},
     schema::{SchemaLike, SerdeArrowSchema},
+    testing::assert_error_contains,
 };
 
 #[test]
@@ -85,4 +86,40 @@ fn struct_missing_data_type() {
 
     println!("Actual error: {err}");
     assert!(err.contains("missing field `data_type"));
+}
+
+#[test]
+fn time64_type_invalid_units() {
+    // Note: the arrow docs state: that the time unit "[m]ust be either
+    // microseconds or nanoseconds."
+
+    assert_error_contains(
+        &SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time64(Millisecond)",
+        }])),
+        "Error: Time64 field must have Microsecond or Nanosecond unit",
+    );
+    assert_error_contains(
+        &SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time64(Second)",
+        }])),
+        "Error: Time64 field must have Microsecond or Nanosecond unit",
+    );
+
+    assert_error_contains(
+        &SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time32(Microsecond)",
+        }])),
+        "Error: Time32 field must have Second or Millisecond unit",
+    );
+    assert_error_contains(
+        &SerdeArrowSchema::from_value(&json!([{
+            "name": "item",
+            "data_type": "Time32(Nanosecond)",
+        }])),
+        "Error: Time32 field must have Second or Millisecond unit",
+    );
 }

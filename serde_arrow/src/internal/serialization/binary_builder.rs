@@ -2,29 +2,71 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use marrow::array::{Array, BytesArray, BytesViewArray};
+
 use crate::internal::{
-    arrow::{Array, BytesArray},
     error::{set_default, Context, ContextSupport, Result},
     utils::{
-        array_ext::{new_bytes_array, ArrayExt, ScalarArrayExt, SeqArrayExt},
-        Mut, NamedType, Offset,
+        array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
+        Mut,
     },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
-#[derive(Debug, Clone)]
+pub trait BinaryBuilderArray:
+    ArrayExt + for<'s> ScalarArrayExt<'s, Value = &'s [u8]> + SeqArrayExt + Sized
+{
+    const DATA_TYPE_NAME: &'static str;
+    const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(Self) -> Array;
 
-pub struct BinaryBuilder<O> {
-    path: String,
-    array: BytesArray<O>,
+    fn push_byte(&mut self, byte: u8);
 }
 
-impl<O: Offset> BinaryBuilder<O> {
+impl BinaryBuilderArray for BytesArray<i32> {
+    const DATA_TYPE_NAME: &'static str = "Binary";
+    const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::Binary;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::Binary;
+
+    fn push_byte(&mut self, byte: u8) {
+        self.data.push(byte);
+    }
+}
+
+impl BinaryBuilderArray for BytesArray<i64> {
+    const DATA_TYPE_NAME: &'static str = "LargeBinary";
+    const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder =
+        ArrayBuilder::LargeBinary;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeBinary;
+
+    fn push_byte(&mut self, byte: u8) {
+        self.data.push(byte);
+    }
+}
+
+impl BinaryBuilderArray for BytesViewArray {
+    const DATA_TYPE_NAME: &'static str = "BinaryView";
+    const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::BinaryView;
+    const ARRAY_VARIANT: fn(Self) -> Array = Array::BinaryView;
+
+    fn push_byte(&mut self, byte: u8) {
+        self.buffers[0].push(byte);
+    }
+}
+
+#[derive(Debug, Clone)]
+
+pub struct BinaryBuilder<A> {
+    path: String,
+    array: A,
+}
+
+impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
             path,
-            array: new_bytes_array(is_nullable),
+            array: B::new(is_nullable),
         }
     }
 
@@ -36,31 +78,19 @@ impl<O: Offset> BinaryBuilder<O> {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
-}
 
-impl BinaryBuilder<i32> {
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Binary(self.take_self())
+        B::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Binary(self.array))
+        Ok(B::ARRAY_VARIANT(self.array))
     }
 }
 
-impl BinaryBuilder<i64> {
-    pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::LargeBinary(self.take_self())
-    }
-
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeBinary(self.array))
-    }
-}
-
-impl<O: Offset> BinaryBuilder<O> {
+impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     fn start(&mut self) -> Result<()> {
         self.array.start_seq()
     }
@@ -69,31 +99,23 @@ impl<O: Offset> BinaryBuilder<O> {
         let mut u8_serializer = U8Serializer(0);
         value.serialize(Mut(&mut u8_serializer))?;
 
-        self.array.data.push(u8_serializer.0);
+        self.array.push_byte(u8_serializer.0);
         self.array.push_seq_elements(1)
     }
 
     fn end(&mut self) -> Result<()> {
-        Ok(())
+        self.array.end_seq()
     }
 }
 
-impl<O: NamedType> Context for BinaryBuilder<O> {
+impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            match O::NAME {
-                "i32" => "Binary",
-                "i64" => "LargeBinary",
-                _ => "<unknown>",
-            },
-        );
+        set_default(annotations, "data_type", B::DATA_TYPE_NAME);
     }
 }
 
-impl<O: NamedType + Offset> SimpleSerializer for BinaryBuilder<O> {
+impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
     fn serialize_default(&mut self) -> Result<()> {
         self.array.push_scalar_default().ctx(self)
     }

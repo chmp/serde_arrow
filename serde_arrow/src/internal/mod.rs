@@ -1,5 +1,4 @@
 pub mod array_builder;
-pub mod arrow;
 pub mod chrono;
 pub mod deserialization;
 pub mod deserializer;

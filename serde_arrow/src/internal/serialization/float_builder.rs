@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use half::f16;
+use marrow::array::{Array, PrimitiveArray};
 
 use crate::internal::{
-    arrow::{Array, PrimitiveArray},
     error::{set_default, try_, Context, ContextSupport, Result},
     utils::{
-        array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+        array_ext::{ArrayExt, ScalarArrayExt},
         Mut,
     },
 };
@@ -23,7 +23,7 @@ impl<F: Default + 'static> FloatBuilder<F> {
     pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
             path,
-            array: new_primitive_array(is_nullable),
+            array: PrimitiveArray::new(is_nullable),
         }
     }
 
@@ -35,7 +35,7 @@ impl<F: Default + 'static> FloatBuilder<F> {
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
 }
 

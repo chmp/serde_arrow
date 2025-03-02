@@ -1,8 +1,12 @@
 use serde::Deserialize;
 use serde_json::json;
 
+use marrow::{
+    datatypes::{DataType, Field},
+    view::{PrimitiveView, View},
+};
+
 use crate::internal::{
-    arrow::{ArrayView, DataType, Field, PrimitiveArrayView},
     deserializer::Deserializer,
     schema::{extensions::Bool8Field, TracingOptions},
     utils::{Item, Items},
@@ -40,7 +44,7 @@ fn deserialize_from_not_01_ints() -> crate::internal::error::PanicOnError<()> {
         nullable: false,
         metadata: Default::default(),
     };
-    let view = ArrayView::Int8(PrimitiveArrayView {
+    let view = View::Int8(PrimitiveView {
         validity: None,
         values: &[0, -1, 2, 3, -31, 100, 0, 0],
     });

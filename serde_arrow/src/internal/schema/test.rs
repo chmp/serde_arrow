@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use marrow::datatypes::{DataType, Field, TimeUnit};
+
 use serde_json::{json, Value};
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
     error::PanicOnError,
-    schema::{SchemaLike, SerdeArrowSchema, Strategy, STRATEGY_KEY},
+    schema::{SchemaLike, SerdeArrowSchema, STRATEGY_KEY},
     testing::{assert_error_contains, hash_map},
 };
 
@@ -74,7 +75,6 @@ fn date64_field_complex() -> PanicOnError<()> {
             data_type: DataType::Date64,
             metadata: hash_map!(
                 "foo" => "bar",
-                STRATEGY_KEY => "NaiveStrAsDate64",
             ),
             nullable: true,
         }],
@@ -86,7 +86,6 @@ fn date64_field_complex() -> PanicOnError<()> {
             "metadata": {
                 "foo": "bar",
             },
-            "strategy": "NaiveStrAsDate64",
             "nullable": true,
         }],
     });
@@ -329,42 +328,12 @@ fn doc_schema() {
 }
 
 #[test]
-fn date64_with_strategy() {
-    let schema = SerdeArrowSchema {
-        fields: vec![Field {
-            name: String::from("item"),
-            data_type: DataType::Date64,
-            nullable: false,
-            metadata: hash_map!( STRATEGY_KEY => Strategy::NaiveStrAsDate64 ),
-        }],
-    };
-
-    let actual = serde_json::to_string(&schema).unwrap();
-    assert_eq!(
-        actual,
-        r#"{"fields":[{"name":"item","data_type":"Date64","strategy":"NaiveStrAsDate64"}]}"#
-    );
-
-    let round_tripped: SerdeArrowSchema = serde_json::from_str(&actual).unwrap();
-    assert_eq!(round_tripped, schema);
-
-    let json = serde_json::json!([{
-        "name": "item",
-        "data_type": "Date64",
-        "strategy": "NaiveStrAsDate64",
-    }]);
-
-    let from_json = SerdeArrowSchema::from_value(&json).unwrap();
-    assert_eq!(from_json, schema);
-}
-
-#[test]
 fn test_metadata_strategy_from_explicit() {
     let schema = SerdeArrowSchema::from_value(&json!([
         {
             "name": "example",
-            "data_type": "Date64",
-            "strategy": "UtcStrAsDate64",
+            "data_type": "Null",
+            "strategy": "UnknownVariant",
             "metadata": {
                 "foo": "bar",
                 "hello": "world",
@@ -375,7 +344,7 @@ fn test_metadata_strategy_from_explicit() {
 
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64"),
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UnknownVariant"),
     );
 
     let schema_value = serde_json::to_value(&schema).unwrap();
@@ -383,8 +352,9 @@ fn test_metadata_strategy_from_explicit() {
         "fields": [
             {
                 "name": "example",
-                "data_type": "Date64",
-                "strategy": "UtcStrAsDate64",
+                "data_type": "Null",
+                "strategy": "UnknownVariant",
+                "nullable": true,
                 "metadata": {
                     "foo": "bar",
                     "hello": "world",
@@ -401,9 +371,9 @@ fn test_metadata_strategy_from_metadata() {
     let schema = SerdeArrowSchema::from_value(&json!([
         {
             "name": "example",
-            "data_type": "Date64",
+            "data_type": "Null",
             "metadata": {
-                STRATEGY_KEY: "UtcStrAsDate64",
+                STRATEGY_KEY: "UnknownVariant",
                 "foo": "bar",
                 "hello": "world",
             },
@@ -413,7 +383,7 @@ fn test_metadata_strategy_from_metadata() {
 
     assert_eq!(
         schema.fields[0].metadata,
-        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UtcStrAsDate64")
+        hash_map!("foo" => "bar", "hello" => "world", STRATEGY_KEY => "UnknownVariant")
     );
 
     // NOTE: the strategy is always normalized to be an extra field
@@ -422,8 +392,9 @@ fn test_metadata_strategy_from_metadata() {
         "fields": [
             {
                 "name": "example",
-                "data_type": "Date64",
-                "strategy": "UtcStrAsDate64",
+                "data_type": "Null",
+                "strategy": "UnknownVariant",
+                "nullable": true,
                 "metadata": {
                     "foo": "bar",
                     "hello": "world",
@@ -441,10 +412,10 @@ fn test_invalid_metadata() {
     let res = SerdeArrowSchema::from_value(&json!([
         {
             "name": "example",
-            "data_type": "Date64",
-            "strategy": "UtcStrAsDate64",
+            "data_type": "Null",
+            "strategy": "UnknownVariant",
             "metadata": {
-                STRATEGY_KEY: "UtcStrAsDate64"
+                STRATEGY_KEY: "UnknownVariant"
             },
         },
     ]));

@@ -4,13 +4,13 @@ mod test_error_messages;
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use marrow::datatypes::{DataType, TimeUnit};
 use serde::{ser::Impossible, Serialize};
 
 use crate::internal::{
-    arrow::{DataType, TimeUnit},
     chrono,
     error::{fail, try_, Context, ContextSupport, Error, Result},
-    schema::{Strategy, TracingMode, TracingOptions},
+    schema::{TracingMode, TracingOptions},
 };
 
 use super::tracer::{
@@ -40,13 +40,13 @@ mod impl_outer_sequence_serializer {
         };
     }
 
-    impl<'a> Context for OuterSequenceSerializer<'a> {
+    impl Context for OuterSequenceSerializer<'_> {
         fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
             self.0.annotate(annotations)
         }
     }
 
-    impl<'a> serde::ser::Serializer for OuterSequenceSerializer<'a> {
+    impl serde::ser::Serializer for OuterSequenceSerializer<'_> {
         type Ok = ();
         type Error = Error;
 
@@ -203,7 +203,7 @@ mod impl_outer_sequence_serializer {
     }
 }
 
-impl<'a> serde::ser::SerializeSeq for OuterSequenceSerializer<'a> {
+impl serde::ser::SerializeSeq for OuterSequenceSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -216,7 +216,7 @@ impl<'a> serde::ser::SerializeSeq for OuterSequenceSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTuple for OuterSequenceSerializer<'a> {
+impl serde::ser::SerializeTuple for OuterSequenceSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -229,7 +229,7 @@ impl<'a> serde::ser::SerializeTuple for OuterSequenceSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'a> {
+impl serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -244,7 +244,7 @@ impl<'a> serde::ser::SerializeTupleVariant for OuterSequenceSerializer<'a> {
 
 struct TracerSerializer<'a>(&'a mut Tracer);
 
-impl<'a> Context for TracerSerializer<'a> {
+impl Context for TracerSerializer<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
     }
@@ -340,9 +340,12 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
                 (self.0.get_options().string_type(), None)
             } else {
                 if chrono::matches_naive_datetime(s) {
-                    (DataType::Date64, Some(Strategy::NaiveStrAsDate64))
+                    (DataType::Timestamp(TimeUnit::Millisecond, None), None)
                 } else if chrono::matches_utc_datetime(s) {
-                    (DataType::Date64, Some(Strategy::UtcStrAsDate64))
+                    (
+                        DataType::Timestamp(TimeUnit::Millisecond, Some(String::from("UTC"))),
+                        None,
+                    )
                 } else if chrono::matches_naive_time(s) {
                     (DataType::Time64(TimeUnit::Nanosecond), None)
                 } else if chrono::matches_naive_date(s) {
@@ -550,13 +553,13 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
 struct StructSerializer<'a>(&'a mut StructTracer);
 
-impl<'a> Context for StructSerializer<'a> {
+impl Context for StructSerializer<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
     }
 }
 
-impl<'a> serde::ser::SerializeStruct for StructSerializer<'a> {
+impl serde::ser::SerializeStruct for StructSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -580,7 +583,7 @@ impl<'a> serde::ser::SerializeStruct for StructSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeStructVariant for StructSerializer<'a> {
+impl serde::ser::SerializeStructVariant for StructSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -606,13 +609,13 @@ impl<'a> serde::ser::SerializeStructVariant for StructSerializer<'a> {
 
 struct ListSerializer<'a>(&'a mut ListTracer);
 
-impl<'a> Context for ListSerializer<'a> {
+impl Context for ListSerializer<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
     }
 }
 
-impl<'a> serde::ser::SerializeSeq for ListSerializer<'a> {
+impl serde::ser::SerializeSeq for ListSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -627,7 +630,7 @@ impl<'a> serde::ser::SerializeSeq for ListSerializer<'a> {
 
 struct TupleSerializer<'a>(&'a mut TupleTracer, usize);
 
-impl<'a> Context for TupleSerializer<'a> {
+impl Context for TupleSerializer<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
     }
@@ -639,7 +642,7 @@ impl<'a> TupleSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTuple for TupleSerializer<'a> {
+impl serde::ser::SerializeTuple for TupleSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -658,7 +661,7 @@ impl<'a> serde::ser::SerializeTuple for TupleSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTupleStruct for TupleSerializer<'a> {
+impl serde::ser::SerializeTupleStruct for TupleSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -677,7 +680,7 @@ impl<'a> serde::ser::SerializeTupleStruct for TupleSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTupleVariant for TupleSerializer<'a> {
+impl serde::ser::SerializeTupleVariant for TupleSerializer<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -701,7 +704,7 @@ enum MapSerializer<'a> {
     AsMap(&'a mut MapTracer),
 }
 
-impl<'a> Context for MapSerializer<'a> {
+impl Context for MapSerializer<'_> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         match self {
             Self::AsStruct(tracer, _) => tracer.annotate(annotations),
@@ -710,7 +713,7 @@ impl<'a> Context for MapSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
+impl serde::ser::SerializeMap for MapSerializer<'_> {
     type Ok = ();
     type Error = Error;
 

@@ -1,5 +1,32 @@
 # Change log
 
+## 0.13.0
+
+- Migrate internal array abstraction to  [`marrow`][https://github.com/chmp/marrow]
+  - Breaking change: Dictionary data types no longer support sorting
+  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
+  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`
+- Add support for view types `Utf8View`, `BytesView`
+- Add APIs to interact with `marorw` arrays directly. Allows to use `serde_arrow` with different
+  arrow versions at the same time.
+- Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp` for date times
+  - Trace date time strings as `Timestamp(Millisecond, tz)` with `tz` either being `None` or
+    `Some("UTC")`
+  - Remove the `UtcAsDate64Str` and `NaiveAsDate64Str` strategies
+- Fix bug in deserialization of sub seconds for `Time32` and `Time64`
+- Fix bug that prevented to deserialize `String` from `Decimal` arrays
+- Improve performance when deserializing from sliced arrays
+- Allow to treat deserializers as sequence of deserializers by iterating over them or accessing
+  individual items
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@ryzhyk](https://github.com/ryzhyk) discovered and fixed a bug introduced during refactoring
+  ([#261](https://github.com/chmp/serde_arrow/pull/261))
+
+
 ## 0.12.3
 
 - Add `arrow=54` support

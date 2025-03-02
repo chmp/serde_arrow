@@ -7,7 +7,8 @@ The page documents the supported types both from an Arrow and a Rust perspective
   - [Native / standard types](#native--standard-types)
   - [`chrono` types](#chrono-types)
   - [`jiff` types](#jiff-types)
-  - [`rust_decimal` and `bigdecimal` types](#rust_decimal-and-bigdecimal-types)
+  - [`rust_decimal::Decimal`](#rust_decimaldecimal)
+  - [`bigdecimal::BigDecimal`](#bigdecimalbigdecimal)
 
 ## Arrow data types
 
@@ -27,9 +28,7 @@ The page documents the supported types both from an Arrow and a Rust perspective
   [`Float64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Float64)
 - [x] [`Timestamp`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp)
 - [x] [`Date32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date32)
-- [x] [`Date64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date64):
-  either as formatted dates (UTC + Naive) (serialized / deserialized as strings) or as timestamps
-  (serialized / deserialized as `i64`). Both cases require additional configuration
+- [x] [`Date64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Date64)
 - [x] [`Time32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time32)
 - [x] [`Time64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time64)
 - [x] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
@@ -88,26 +87,25 @@ The page documents the supported types both from an Arrow and a Rust perspective
 #### `chrono::DateTime<Utc>`
 
 - is serialized / deserialized as strings
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` with strategy `UtcStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `UtcStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 
 - is serialized / deserialized  as `i64`
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("Utc"))`, `Date64` without Strategy,
-  `Date64` with strategy `UtcStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` and `from_type` detect `Int64`
 
 #### `chrono::NaiveDateTime`
 
 - is serialized / deserialized as strings
-- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`, `Date64` with strategy `NaiveStrAsDate64`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, None)` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `chrono::NaiveTime`
@@ -153,21 +151,19 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 #### `jiff::DateTime`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`, `Date64` with strategy
-  `NaiveStrAsDate64`
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `NaiveStrAsDate64` when setting `guess_dates = true`
+  - `Timestamp(Millisecond, None)` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Timestamp`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`, `Date64` with strategy
-  `UtcStrAsDate64`
+- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Date64` with strategy `UtcStrDate64` when setting  `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting  `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Span`
@@ -184,8 +180,6 @@ Same as `jiff::Span`
 #### `jiff::Zoned`
 
 is not supported as there is no clear way of implementation
-
-###  `rust_decimal` and `bigdecimal` types
 
 ### [`rust_decimal::Decimal`][rust_decimal::Decimal]
 

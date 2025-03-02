@@ -1,137 +1,106 @@
+use marrow::view::{BytesView, BytesViewView};
+
 use crate::internal::{
-    arrow::BytesArrayView,
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, NamedType, Offset},
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::array_view_ext::ViewAccess,
 };
 
 use super::{
-    enums_as_string_impl::EnumAccess, simple_deserializer::SimpleDeserializer, utils::bitset_is_set,
+    enums_as_string_impl::EnumAccess, random_access_deserializer::RandomAccessDeserializer,
 };
 
-pub struct StringDeserializer<'a, O: Offset> {
+pub trait StringDeserializerDataType {
+    const DATA_TYPE_NAME: &'static str;
+}
+
+impl StringDeserializerDataType for BytesView<'_, i32> {
+    const DATA_TYPE_NAME: &'static str = "Utf8";
+}
+
+impl StringDeserializerDataType for BytesView<'_, i64> {
+    const DATA_TYPE_NAME: &'static str = "LargeUtf8";
+}
+
+impl StringDeserializerDataType for BytesViewView<'_> {
+    const DATA_TYPE_NAME: &'static str = "Utf8View";
+}
+
+pub struct StringDeserializer<V> {
     pub path: String,
-    pub view: BytesArrayView<'a, O>,
-    pub next: usize,
+    pub view: V,
 }
 
-impl<'a, O: Offset> StringDeserializer<'a, O> {
-    pub fn new(path: String, view: BytesArrayView<'a, O>) -> Self {
-        Self {
-            path,
-            view,
-            next: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> Result<Option<&'a str>> {
-        if self.next + 1 > self.view.offsets.len() {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
-        }
-
-        if let Some(validity) = &self.view.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(None);
-            }
-        }
-
-        let start = self.view.offsets[self.next].try_into_usize()?;
-        let end = self.view.offsets[self.next + 1].try_into_usize()?;
-        let s = std::str::from_utf8(&self.view.data[start..end])?;
-
-        self.next += 1;
-
-        Ok(Some(s))
-    }
-
-    pub fn next_required(&mut self) -> Result<&'a str> {
-        let Some(next) = self.next()? else {
-            fail!("Exhausted deserializer: tried to deserialize a value from StringDeserializer, but value is missing")
-        };
-        Ok(next)
-    }
-
-    pub fn peek_next(&self) -> Result<bool> {
-        if self.next + 1 > self.view.offsets.len() {
-            fail!("Exhausted deserializer: tried to deserialize a value from an exhausted StringDeserializer");
-        }
-
-        if let Some(validity) = &self.view.validity {
-            if !bitset_is_set(validity, self.next)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
-    pub fn consume_next(&mut self) {
-        self.next += 1;
+impl<V> StringDeserializer<V> {
+    pub fn new(path: String, view: V) -> Self {
+        Self { path, view }
     }
 }
 
-impl<'a, O: NamedType + Offset> Context for StringDeserializer<'a, O> {
+impl<V: StringDeserializerDataType> Context for StringDeserializer<V> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            match O::NAME {
-                "i32" => "Utf8",
-                "i64" => "LargeUtf8",
-                _ => "<unknown>",
-            },
-        );
+        set_default(annotations, "data_type", V::DATA_TYPE_NAME);
     }
 }
 
-impl<'a, O: NamedType + Offset> SimpleDeserializer<'a> for StringDeserializer<'a, O> {
-    fn deserialize_any<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                self.deserialize_str(visitor)
-            } else {
-                self.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+impl<'a, VV> RandomAccessDeserializer<'a> for StringDeserializer<VV>
+where
+    VV: ViewAccess<'a, str> + StringDeserializerDataType + 'a,
+{
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        self.view.is_some(idx)
     }
 
-    fn deserialize_option<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| {
-            if self.peek_next()? {
-                visitor.visit_some(Mut(self))
-            } else {
-                self.consume_next();
-                visitor.visit_none()
-            }
-        })
-        .ctx(self)
+    fn deserialize_any_some<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        self.deserialize_str(visitor, idx)
     }
 
-    fn deserialize_str<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_borrowed_str(self.next_required()?)).ctx(self)
+    fn deserialize_str<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_str(self.view.get_required(idx)?)).ctx(self)
     }
 
-    fn deserialize_string<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_string(self.next_required()?.to_owned())).ctx(self)
+    fn deserialize_string<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_string(self.view.get_required(idx)?.to_owned())).ctx(self)
     }
 
-    fn deserialize_bytes<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_bytes(self.next_required()?.as_bytes())).ctx(self)
+    fn deserialize_bytes<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_bytes(self.view.get_required(idx)?.as_bytes())).ctx(self)
     }
 
-    fn deserialize_byte_buf<V: serde::de::Visitor<'a>>(&mut self, visitor: V) -> Result<V::Value> {
-        try_(|| visitor.visit_byte_buf(self.next_required()?.to_owned().into_bytes())).ctx(self)
+    fn deserialize_byte_buf<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_byte_buf(self.view.get_required(idx)?.to_owned().into_bytes()))
+            .ctx(self)
     }
 
     fn deserialize_enum<V: serde::de::Visitor<'a>>(
-        &mut self,
+        &self,
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
         try_(|| {
-            let variant = self.next_required()?;
+            let variant = self.view.get_required(idx)?;
             visitor.visit_enum(EnumAccess(variant))
         })
         .ctx(self)

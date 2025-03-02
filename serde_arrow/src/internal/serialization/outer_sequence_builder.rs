@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
+use marrow::datatypes::{DataType, Field, MapMeta, TimeUnit};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{DataType, Field, TimeUnit},
     error::{fail, Context, ContextSupport, Result},
     schema::{get_strategy_from_metadata, SerdeArrowSchema, Strategy},
     serialization::{
@@ -15,11 +15,11 @@ use crate::internal::{
 };
 
 use super::{
-    bool_builder::BoolBuilder, date32_builder::Date32Builder, date64_builder::Date64Builder,
-    decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
-    float_builder::FloatBuilder, int_builder::IntBuilder, list_builder::ListBuilder,
-    map_builder::MapBuilder, null_builder::NullBuilder, simple_serializer::SimpleSerializer,
-    struct_builder::StructBuilder, time_builder::TimeBuilder, union_builder::UnionBuilder,
+    bool_builder::BoolBuilder, date_builder::DateBuilder, decimal_builder::DecimalBuilder,
+    dictionary_utf8_builder::DictionaryUtf8Builder, float_builder::FloatBuilder,
+    int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
+    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
+    time_builder::TimeBuilder, timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder, ArrayBuilder,
 };
 
@@ -142,19 +142,14 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         T::Float16 => A::F16(FloatBuilder::new(path, field.nullable)),
         T::Float32 => A::F32(FloatBuilder::new(path, field.nullable)),
         T::Float64 => A::F64(FloatBuilder::new(path, field.nullable)),
-        T::Date32 => A::Date32(Date32Builder::new(path, field.nullable)),
-        T::Date64 => A::Date64(Date64Builder::new(
+        T::Date32 => A::Date32(DateBuilder::new(path, field.nullable)),
+        T::Date64 => A::Date64(DateBuilder::new(path, field.nullable)),
+        T::Timestamp(unit, tz) => A::Timestamp(TimestampBuilder::new(
             path,
-            None,
-            is_utc_strategy(get_strategy_from_metadata(&field.metadata)?.as_ref())?,
+            *unit,
+            tz.clone(),
             field.nullable,
-        )),
-        T::Timestamp(unit, tz) => A::Date64(Date64Builder::new(
-            path,
-            Some((*unit, tz.clone())),
-            is_utc_tz(tz.as_deref()).ctx(&ctx)?,
-            field.nullable,
-        )),
+        )?),
         T::Time32(unit) => {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                 fail!(in ctx, "Time32 only supports second or millisecond resolutions");
@@ -176,6 +171,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         )),
         T::Utf8 => A::Utf8(Utf8Builder::new(path, field.nullable)),
         T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(path, field.nullable)),
+        T::Utf8View => A::Utf8View(Utf8Builder::new(path, field.nullable)),
         T::List(child) => {
             let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             A::List(ListBuilder::new(
@@ -207,27 +203,55 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
         }
         T::Binary => A::Binary(BinaryBuilder::new(path, field.nullable)),
         T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, field.nullable)),
+        T::BinaryView => A::BinaryView(BinaryBuilder::new(path, field.nullable)),
         T::FixedSizeBinary(n) => {
             let n = usize::try_from(*n).ctx(&ctx)?;
             A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, field.nullable))
         }
-        T::Map(entry_field, _) => {
-            let child_path = format!(
-                "{path}.{child_name}",
-                child_name = ChildName(&entry_field.name)
+        T::Map(entry_field, sorted) => {
+            let DataType::Struct(entries_field) = &entry_field.data_type else {
+                fail!(
+                    "unexpected data type for map array: {:?}",
+                    entry_field.data_type
+                );
+            };
+            let Some(keys_field) = entries_field.first() else {
+                fail!("Missing keys field for map");
+            };
+            let Some(values_field) = entries_field.get(1) else {
+                fail!("Missing values field for map");
+            };
+            let keys_path = format!(
+                "{path}.{entries_name}.{keys__name}",
+                entries_name = ChildName(&entry_field.name),
+                keys__name = ChildName(&keys_field.name),
             );
+            let values_path = format!(
+                "{path}.{entries_name}.{values_name}",
+                entries_name = ChildName(&entry_field.name),
+                values_name = ChildName(&values_field.name),
+            );
+
+            let meta = MapMeta {
+                sorted: *sorted,
+                entries_name: entry_field.name.clone(),
+                keys: meta_from_field(keys_field.clone()),
+                values: meta_from_field(values_field.clone()),
+            };
+
             A::Map(
                 MapBuilder::new(
                     path,
-                    meta_from_field(*entry_field.clone()),
-                    build_builder(child_path, entry_field.as_ref())?,
+                    meta,
+                    build_builder(keys_path, keys_field)?,
+                    build_builder(values_path, values_field)?,
                     field.nullable,
                 )
                 .ctx(&ctx)?,
             )
         }
         T::Struct(children) => A::Struct(build_struct(path, children, field.nullable)?),
-        T::Dictionary(key, value, _) => {
+        T::Dictionary(key, value) => {
             let key_path = format!("{path}.key");
             let key_field = Field {
                 name: "key".to_string(),
@@ -266,22 +290,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
 
             A::Union(UnionBuilder::new(path, fields))
         }
+        dt => fail!("Cannot build ArrayBuilder for data type {dt:?}"),
     };
     Ok(builder)
-}
-
-fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
-    match tz {
-        None => Ok(false),
-        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
-        Some(tz) => fail!("Timezone {tz} is not supported"),
-    }
-}
-
-fn is_utc_strategy(strategy: Option<&Strategy>) -> Result<bool> {
-    match strategy {
-        Some(Strategy::UtcStrAsDate64) | None => Ok(true),
-        Some(Strategy::NaiveStrAsDate64) => Ok(false),
-        Some(st) => fail!("Cannot builder Date64 builder with strategy {st}"),
-    }
 }

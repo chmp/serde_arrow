@@ -1,138 +1,115 @@
-use std::collections::{BTreeMap, HashMap};
-
+use marrow::view::UnionView;
 use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    utils::Mut,
+    error::{fail, set_default, Context, Error, Result},
+    schema::get_strategy_from_metadata,
+    utils::{ChildName, Offset},
 };
 
-use super::{array_deserializer::ArrayDeserializer, simple_deserializer::SimpleDeserializer};
+use super::{
+    array_deserializer::ArrayDeserializer,
+    random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
+};
 
 pub struct EnumDeserializer<'a> {
     pub path: String,
-    pub type_ids: &'a [i8],
+    pub types: &'a [i8],
+    pub offsets: &'a [i32],
     pub variants: Vec<(String, ArrayDeserializer<'a>)>,
-    pub next: usize,
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(
-        path: String,
-        type_ids: &'a [i8],
-        offsets: &'a [i32],
-        mut variants: Vec<(String, ArrayDeserializer<'a>)>,
-    ) -> Result<Self> {
-        let initial_offsets = verify_offsets(type_ids, offsets, variants.len())?;
+    pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
+        let Some(offsets) = view.offsets else {
+            fail!("Only dense unions are supported");
+        };
 
-        for (type_id, initial_offset) in initial_offsets {
-            let Some((_, variant)) = variants.get_mut(type_id as usize) else {
-                fail!("Unexpected error: could not retrieve variant {type_id}");
-            };
-            variant.skip(initial_offset as usize)?;
+        if view.types.len() != offsets.len() {
+            fail!("Offsets and type ids must have the same length")
+        }
+
+        let mut variants = Vec::new();
+        for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate() {
+            // TODO: introduce translation table?
+            if usize::try_from(type_id) != Ok(idx) {
+                fail!("Only unions with consecutive type ids are currently supported");
+            }
+            let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
+            let field_deserializer = ArrayDeserializer::new(
+                child_path,
+                get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
+                field_view,
+            )?;
+            variants.push((field_meta.name, field_deserializer))
         }
 
         Ok(Self {
             path,
-            type_ids,
+            types: view.types,
+            offsets,
             variants,
-            next: 0,
         })
     }
 }
 
-fn verify_offsets(type_ids: &[i8], offsets: &[i32], num_fields: usize) -> Result<HashMap<i8, i32>> {
-    if type_ids.len() != offsets.len() {
-        fail!("Offsets and type ids must have the same length")
-    }
-
-    for &type_id in type_ids {
-        if type_id as usize >= num_fields {
-            fail!(
-                concat!(
-                    "Invalid enum array:",
-                    "type id ({type_id}) larger the number of fields ({num_fields})",
-                ),
-                type_id = type_id,
-                num_fields = num_fields,
-            );
-        }
-    }
-
-    let mut last_offsets = HashMap::<i8, i32>::new();
-    let mut initial_offsets = HashMap::<i8, i32>::new();
-    for (idx, (&type_id, &offset)) in std::iter::zip(type_ids, offsets).enumerate() {
-        if offset < 0 {
-            fail!(
-                concat!(
-                    "Invalid offsets in enum array for item {idx}:",
-                    "negative offsets ({offset}) is not supports",
-                ),
-                idx = idx,
-                offset = offset,
-            );
-        }
-        if let Some(last_offset) = last_offsets.get(&type_id).copied() {
-            if offset.checked_sub(last_offset) != Some(1) {
-                fail!(
-                    concat!(
-                        "Invalid offsets in enum array for item {idx}:",
-                        "serde_arrow only supports consecutive offsets.",
-                        "Current offset for type {type_id}: {offset}, previous offset {last_offset}",
-                    ),
-                    idx = idx,
-                    type_id = type_id,
-                    offset = offset,
-                    last_offset = last_offset,
-                );
-            }
-            last_offsets.insert(type_id, offset);
-        } else {
-            initial_offsets.insert(type_id, offset);
-            last_offsets.insert(type_id, offset);
-        }
-    }
-
-    Ok(initial_offsets)
-}
-
-impl<'de> Context for EnumDeserializer<'de> {
+impl Context for EnumDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Union(..)");
     }
 }
 
-impl<'de> SimpleDeserializer<'de> for EnumDeserializer<'de> {
+impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
+    fn is_some(&self, idx: usize) -> Result<bool> {
+        if idx >= self.types.len() {
+            fail!("Access beyond bounds");
+        }
+        Ok(true)
+    }
+
+    fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_enum("", &[], visitor, idx)
+    }
+
     fn deserialize_enum<V: Visitor<'de>>(
-        &mut self,
+        &self,
         _: &'static str,
         _: &'static [&'static str],
         visitor: V,
+        idx: usize,
     ) -> Result<V::Value> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
+        if idx >= self.types.len() {
+            fail!("Exhausted deserializer");
+        }
+        let type_id = self.types[idx];
+        let offset = self.offsets[idx].try_into_usize()?;
+        let (name, variant) = &self.variants[type_id as usize];
 
-        try_(|| visitor.visit_enum(self)).ctx(&ctx)
+        visitor.visit_enum(VariantItemDeserializer {
+            deserializer: variant.at(offset),
+            type_id,
+            name,
+        })
     }
 }
 
-impl<'a, 'de> EnumAccess<'de> for &'a mut EnumDeserializer<'de> {
-    type Variant = Mut<'a, ArrayDeserializer<'de>>;
+struct VariantItemDeserializer<'this, 'a> {
+    deserializer: PositionedDeserializer<'this, ArrayDeserializer<'a>>,
+    type_id: i8,
+    name: &'this str,
+}
+
+impl<'a, 'de> EnumAccess<'de> for VariantItemDeserializer<'a, 'de> {
+    type Variant = PositionedDeserializer<'a, ArrayDeserializer<'de>>;
     type Error = Error;
 
     fn variant_seed<V: DeserializeSeed<'de>>(self, seed: V) -> Result<(V::Value, Self::Variant)> {
-        if self.next >= self.type_ids.len() {
-            fail!("Exhausted deserializer");
-        }
-        let type_id = self.type_ids[self.next];
-        self.next += 1;
-
-        let (name, variant) = &mut self.variants[type_id as usize];
-
-        let val = seed.deserialize(VariantIdDeserializer { type_id, name })?;
-
-        Ok((val, Mut(variant)))
+        let val = seed.deserialize(VariantIdDeserializer {
+            type_id: self.type_id,
+            name: self.name,
+        })?;
+        Ok((val, self.deserializer))
     }
 }
 
@@ -149,14 +126,18 @@ macro_rules! unimplemented {
     };
 }
 
-impl<'de, 'a> Deserializer<'de> for VariantIdDeserializer<'a> {
+impl<'de> Deserializer<'de> for VariantIdDeserializer<'_> {
     type Error = Error;
 
-    fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+    fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        self.deserialize_any(visitor)
+    }
+
+    fn deserialize_identifier<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         self.deserialize_str(visitor)
     }
 
@@ -195,5 +176,4 @@ impl<'de, 'a> Deserializer<'de> for VariantIdDeserializer<'a> {
     unimplemented!('de, deserialize_map);
     unimplemented!('de, deserialize_struct, _: &'static str, _: &'static [&'static str]);
     unimplemented!('de, deserialize_enum, _: &'static str, _: &'static [&'static str]);
-    unimplemented!('de, deserialize_ignored_any);
 }

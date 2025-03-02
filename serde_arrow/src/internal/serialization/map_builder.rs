@@ -1,11 +1,17 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, MapArray},
+    datatypes::MapMeta,
+};
 use serde::Serialize;
 
 use crate::internal::{
-    arrow::{Array, FieldMeta, ListArray},
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+    error::{set_default, try_, Context, ContextSupport, Result},
+    utils::{
+        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
+        Mut,
+    },
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -13,35 +19,27 @@ use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
     pub path: String,
-    pub meta: FieldMeta,
-    pub entry: Box<ArrayBuilder>,
+    pub meta: MapMeta,
+    pub keys: Box<ArrayBuilder>,
+    pub values: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<i32>,
 }
 
 impl MapBuilder {
     pub fn new(
         path: String,
-        meta: FieldMeta,
-        entry: ArrayBuilder,
+        meta: MapMeta,
+        keys: ArrayBuilder,
+        values: ArrayBuilder,
         is_nullable: bool,
     ) -> Result<Self> {
-        Self::validate_entry(&entry)?;
         Ok(Self {
             path,
             meta,
             offsets: OffsetsArray::new(is_nullable),
-            entry: Box::new(entry),
+            keys: Box::new(keys),
+            values: Box::new(values),
         })
-    }
-
-    fn validate_entry(entry: &ArrayBuilder) -> Result<()> {
-        let ArrayBuilder::Struct(entry) = entry else {
-            fail!("Entry field of a map must be a struct field");
-        };
-        if entry.fields.len() != 2 {
-            fail!("Entry field of a map must be a struct field with 2 fields");
-        }
-        Ok(())
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
@@ -49,7 +47,8 @@ impl MapBuilder {
             path: self.path.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
-            entry: Box::new(self.entry.take()),
+            keys: Box::new(self.keys.take()),
+            values: Box::new(self.values.take()),
         })
     }
 
@@ -58,9 +57,10 @@ impl MapBuilder {
     }
 
     pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Map(ListArray {
+        Ok(Array::Map(MapArray {
             meta: self.meta,
-            element: Box::new((*self.entry).into_array()?),
+            keys: Box::new((*self.keys).into_array()?),
+            values: Box::new((*self.values).into_array()?),
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
         }))
@@ -90,18 +90,13 @@ impl SimpleSerializer for MapBuilder {
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
         try_(|| {
             self.offsets.push_seq_elements(1)?;
-            self.entry.serialize_tuple_start(2)?;
-            self.entry.serialize_tuple_element(key)
+            key.serialize(Mut(self.keys.as_mut()))
         })
         .ctx(self)
     }
 
     fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| {
-            self.entry.serialize_tuple_element(value)?;
-            self.entry.serialize_tuple_end()
-        })
-        .ctx(self)
+        try_(|| value.serialize(Mut(self.values.as_mut()))).ctx(self)
     }
 
     fn serialize_map_end(&mut self) -> Result<()> {

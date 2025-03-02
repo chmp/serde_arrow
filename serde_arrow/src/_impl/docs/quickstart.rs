@@ -30,8 +30,8 @@
 //! `NaiveDateTime`, the values are per default encoded as strings. To store them compactly as
 //! integer columns, the data type has to be modified.
 //!
-//! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime]
-//! objects. The traced field `val` will be of type `Utf8`.
+//! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime] objects. The traced
+//! field `val` will be of type `LargeUtf8`.
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
@@ -52,36 +52,36 @@
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! To store it as `Date64` field, modify the data type as in
+//! To store it as a `Timestamp` field, modify the data type as in
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() {
-//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, TimeUnit, Field};
 //! # use serde_arrow::schema::Strategy;
 //! # let mut fields = vec![Field::new("dummy", DataType::Null, true)];
-//! fields[0] = Field::new("item", DataType::Date64, false)
-//!     .with_metadata(Strategy::NaiveStrAsDate64.into());
+//! fields[0] = Field::new("item", DataType::Timestamp(TimeUnit::Millisecond, None), false);
 //! # }
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! Integer fields containing timestamps in milliseconds since the epoch or
-//! `DateTime<Utc>` objects can be directly stored as `Date64` without any
-//! configuration:
+//! Integer fields containing timestamps in milliseconds since the epoch or `DateTime<Utc>` objects
+//! can be directly stored as `Timestamp(..)` without any configuration:
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
 //! # fn main() -> serde_arrow::_impl::PanicOnError<()> {
 //! # use std::sync::Arc;
-//! # use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+//! # use serde_arrow::_impl::arrow::datatypes::{DataType, TimeUnit, Field};
 //! # use serde_arrow::utils::Item;
 //! let records: &[Item<i64>] = &[
 //!     Item(12 * 60 * 60 * 24 * 1000),
 //!     Item(9 * 60 * 60 * 24 * 1000),
 //! ];
 //!
-//! let fields = vec![Arc::new(Field::new("item", DataType::Date64, false))];
+//! let fields = vec![
+//!     Arc::new(Field::new("item", DataType::Timestamp(TimeUnit::Millisecond, None), false)),
+//! ];
 //! let arrays = serde_arrow::to_arrow(&fields, records)?;
 //! # Ok(())
 //! # }
@@ -119,8 +119,8 @@
 //!
 //! ## Dictionary encoding for strings
 //!
-//! Strings with repeated values can be encoded as dictionaries. The data type
-//! of the corresponding field must be changed to `Dictionary`.
+//! Strings with repeated values can be encoded as dictionaries. The data type of the corresponding
+//! field must be changed to `Dictionary`.
 //!
 //! For an existing field this can be done via:
 //!
@@ -139,8 +139,8 @@
 //! # #[cfg(not(has_arrow))] fn main() { }
 //! ```
 //!
-//! To dictionary encode all string fields, set the `string_dictionary_encoding`
-//! of `TracingOptions`, when tracing the fields:
+//! To dictionary encode all string fields, set the `string_dictionary_encoding` of
+//! `TracingOptions`, when tracing the fields:
 //!
 //! ```rust
 //! # #[cfg(has_arrow)]
@@ -159,13 +159,12 @@
 //!
 //! ## Working with enums
 //!
-//! Rust enums correspond to arrow's union types and are supported by
-//! `serde_arrow`. Both enums with and without fields are supported. Variants
-//! without fields are mapped to null arrays. Only variants that are included in
-//! schema can be serialized or deserialized and the variants must have the
-//! correct index. When using
-//! [`SchemaLike::from_type`][crate::schema::SchemaLike::from_type] these
-//! requirements will automatically be met.
+//! Rust enums correspond to arrow's union types and are supported by `serde_arrow`. Both enums with
+//! and without fields are supported. Variants without fields are mapped to null arrays. Only
+//! variants that are included in schema can be serialized or deserialized and the variants must
+//! have the correct index. When using
+//! [`SchemaLike::from_type`][crate::schema::SchemaLike::from_type] these requirements will
+//! automatically be met.
 //!
 //! For example:
 //!
@@ -188,10 +187,10 @@
 //! - `type = 1`: `Struct { 0: u32, 1: u32 }`
 //! - `type = 2`: `Struct { a: f32, b: f32 }`
 //!
-//! Enums without data can also be serialized to and deserialized from strings,
-//! both dictionary encoded or non-dictionary encoded. To select this encoding,
-//! either set the field data type manually to a string data type or trace the
-//! field with `enums_without_data_as_strings(true)`. E.g.,
+//! Enums without data can also be serialized to and deserialized from strings, both dictionary
+//! encoded or non-dictionary encoded. To select this encoding, either set the field data type
+//! manually to a string data type or trace the field with `enums_without_data_as_strings(true)`.
+//! E.g.,
 //!
 //! ```rust
 //! # use serde::{Deserialize, Serialize};
@@ -249,16 +248,15 @@
 //!
 //! ## Convert from arrow2 to arrow arrays
 //!
-//! Both `arrow` and `arrow2` use the Arrow memory format. Hence, it is possible
-//! to convert arrays between both packages with minimal work using their
-//! respective FFI interfaces:
+//! Both `arrow` and `arrow2` use the Arrow memory format. Hence, it is possible to convert arrays
+//! between both packages with minimal work using their respective FFI interfaces:
 //!
 //! - [`arrow2::ffi::export_field_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_field_to_c.html)
 //! - [`arrow2::ffi_export_array_to_c`](https://docs.rs/arrow2/latest/arrow2/ffi/fn.export_array_to_c.html)
 //! - [`arrow::ffi::ArrowArray::new`](https://docs.rs/arrow/latest/arrow/ffi/struct.ArrowArray.html#method.new)
 //!
 //! The arrow2 crate includes [a helper
-//! trait](https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html) to
-//! perform this conversion when used with the `arrow` feature.
+//! trait](https://docs.rs/arrow2/latest/arrow2/array/trait.Arrow2Arrow.html) to perform this
+//! conversion when used with the `arrow` feature.
 //!
 //!

@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, UnionArray},
+    datatypes::FieldMeta,
+};
+
 use crate::internal::{
-    arrow::{Array, DenseUnionArray, FieldMeta},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::Mut,
 };
@@ -49,12 +53,12 @@ impl UnionBuilder {
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
         for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
-            fields.push((idx.try_into()?, builder.into_array()?, meta));
+            fields.push((idx.try_into()?, meta, builder.into_array()?));
         }
 
-        Ok(Array::DenseUnion(DenseUnionArray {
+        Ok(Array::Union(UnionArray {
             types: self.types,
-            offsets: self.offsets,
+            offsets: Some(self.offsets),
             fields,
         }))
     }

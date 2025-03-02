@@ -1,67 +1,75 @@
 use std::collections::BTreeMap;
 
+use marrow::{
+    array::{Array, PrimitiveArray, TimestampArray},
+    datatypes::TimeUnit,
+};
+
 use crate::internal::{
-    arrow::{Array, PrimitiveArray, TimeUnit, TimestampArray},
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::array_ext::{new_primitive_array, ArrayExt, ScalarArrayExt},
+    utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
 #[derive(Debug, Clone)]
-pub struct Date64Builder {
+pub struct TimestampBuilder {
     path: String,
-    pub meta: Option<(TimeUnit, Option<String>)>,
+    pub unit: TimeUnit,
+    pub timezone: Option<String>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
 }
 
-impl Date64Builder {
+impl TimestampBuilder {
     pub fn new(
         path: String,
-        meta: Option<(TimeUnit, Option<String>)>,
-        utc: bool,
+        unit: TimeUnit,
+        timezone: Option<String>,
         is_nullable: bool,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
+            utc: is_utc_tz(timezone.as_deref())?,
             path,
-            meta,
-            utc,
-            array: new_primitive_array(is_nullable),
-        }
+            unit,
+            timezone,
+            array: PrimitiveArray::new(is_nullable),
+        })
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Date64(Self {
+        ArrayBuilder::Timestamp(Self {
             path: self.path.clone(),
-            meta: self.meta.clone(),
+            unit: self.unit,
+            timezone: self.timezone.clone(),
             utc: self.utc,
             array: self.array.take(),
         })
     }
 
     pub fn is_nullable(&self) -> bool {
-        self.array.validity.is_some()
+        self.array.is_nullable()
     }
 
     pub fn into_array(self) -> Result<Array> {
-        if let Some((unit, timezone)) = self.meta {
-            Ok(Array::Timestamp(TimestampArray {
-                unit,
-                timezone,
-                validity: self.array.validity,
-                values: self.array.values,
-            }))
-        } else {
-            Ok(Array::Date64(PrimitiveArray {
-                validity: self.array.validity,
-                values: self.array.values,
-            }))
-        }
+        Ok(Array::Timestamp(TimestampArray {
+            unit: self.unit,
+            timezone: self.timezone,
+            validity: self.array.validity,
+            values: self.array.values,
+        }))
     }
 }
 
-impl Date64Builder {
+fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
+    match tz {
+        None => Ok(false),
+        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
+        Some(tz) => fail!("Timezone {tz} is not supported"),
+    }
+}
+
+impl TimestampBuilder {
     fn parse_str_to_timestamp(&self, s: &str) -> Result<i64> {
         use chrono::{DateTime, NaiveDateTime, Utc};
 
@@ -71,8 +79,8 @@ impl Date64Builder {
             s.parse::<NaiveDateTime>()?.and_utc()
         };
 
-        match self.meta.as_ref() {
-            Some((TimeUnit::Nanosecond, _)) => match date_time.timestamp_nanos_opt() {
+        match self.unit {
+            TimeUnit::Nanosecond => match date_time.timestamp_nanos_opt() {
                 Some(timestamp) => Ok(timestamp),
                 _ => fail!(
                     concat!(
@@ -83,29 +91,21 @@ impl Date64Builder {
                     date_time = date_time,
                 ),
             },
-            Some((TimeUnit::Microsecond, _)) => Ok(date_time.timestamp_micros()),
-            Some((TimeUnit::Millisecond, _)) | None => Ok(date_time.timestamp_millis()),
-            Some((TimeUnit::Second, _)) => Ok(date_time.timestamp()),
+            TimeUnit::Microsecond => Ok(date_time.timestamp_micros()),
+            TimeUnit::Millisecond => Ok(date_time.timestamp_millis()),
+            TimeUnit::Second => Ok(date_time.timestamp()),
         }
     }
 }
 
-impl Context for Date64Builder {
+impl Context for TimestampBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(
-            annotations,
-            "data_type",
-            if self.meta.is_some() {
-                "Timestamp(..)"
-            } else {
-                "Date64"
-            },
-        );
+        set_default(annotations, "data_type", "Timestamp(..)");
     }
 }
 
-impl SimpleSerializer for Date64Builder {
+impl SimpleSerializer for TimestampBuilder {
     fn serialize_default(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
