@@ -26,13 +26,13 @@
     doc = r#"
 ## Overview
 
-| Operation     | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             | `marrow`                                            |
-|:--------------|:------------------------------------------------------------------|:----------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       | [`to_marrow`]                                       |
-| Arrow to Rust | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     | [`from_marrow`]                                     |
-| Array Builder | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       | [`ArrayBuilder::from_marrow`]                       |
-| Serializer    | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
-| Deserializer  | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       | [`Deserializer::from_marrow`]                       |
+| Operation        | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             | `marrow`                                            |
+|:-----------------|:------------------------------------------------------------------|:----------------------------------------------------|:----------------------------------------------------|
+| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       | [`to_marrow`]                                       |
+| Arrow to Rust    | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     | [`from_marrow`]                                     |
+| [`ArrayBuilder`] | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       | [`ArrayBuilder::from_marrow`]                       |
+| [`Serializer`]   | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
+| [`Deserializer`] | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       | [`Deserializer::from_marrow`]                       |
 "#
 )]
 //!
@@ -82,51 +82,6 @@
 //!     https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 //! [`parquet`]: https://docs.rs/parquet/latest/parquet/
 //!
-//! ## `arrow2` Example
-//!
-//! Requires one of `arrow2` feature (see below).
-//!
-//! ```rust
-//! # use serde::{Deserialize, Serialize};
-//! # #[cfg(has_arrow2)]
-//! # fn main() -> serde_arrow::Result<()> {
-//! # use serde_arrow::_impl::arrow2;
-//! use arrow2::datatypes::Field;
-//! use serde_arrow::schema::{SchemaLike, TracingOptions};
-//!
-//! ##[derive(Serialize, Deserialize)]
-//! struct Record {
-//!     a: f32,
-//!     b: i32,
-//! }
-//!
-//! let records = vec![
-//!     Record { a: 1.0, b: 1 },
-//!     Record { a: 2.0, b: 2 },
-//!     Record { a: 3.0, b: 3 },
-//! ];
-//!
-//! let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-//! let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-//! # Ok(())
-//! # }
-//! # #[cfg(not(has_arrow2))]
-//! # fn main() { }
-//! ```
-//!
-//! The generated arrays can then be written to disk, e.g., as parquet:
-//!
-//! ```rust,ignore
-//! use arrow2::{chunk::Chunk, datatypes::Schema};
-//!
-//! // see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-//! write_chunk(
-//!     "example.pq",
-//!     Schema::from(fields),
-//!     Chunk::new(arrays),
-//! )?;
-//! ```
-//!
 //! # Features:
 //!
 //! The version of `arrow` or `arrow2` used can be selected via features. Per default no arrow
@@ -139,9 +94,7 @@
 //!
 //! Note that because the highest version is selected, the features are not additive. In particular,
 //! it is not possible to use `serde_arrow::to_arrow` for multiple different `arrow` versions at the
-//! same time. Therefore it is not recommended to use the `arrow` and `arrow2` functions directly in
-//! libraries, but rather rely on the [`marrow`] based functionality. The features of `marrow` are
-//! designed to be strictly additive.
+//! same time.
 //!
 //! Available features:
 //!
@@ -168,6 +121,59 @@
 //! | `arrow-37`    | `arrow=37`    |
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
+//!
+//! # Usage in  libraries
+//!
+//! In libraries, it is not recommended to use the `arrow` and `arrow2` functions directly. Rather
+//! it is recommended to rely on the [`marrow`] based functionality, as the features of [`marrow`]
+//! are designed to be strictly additive.
+//!
+//! For example to build a record batch, first build the corresponding marrow types and then use
+//! them to build the record batch:
+//!
+//! ```rust
+//! # use serde::{Deserialize, Serialize};
+//! # fn main() -> serde_arrow::Result<()> {
+//! # #[cfg(has_arrow)] {
+//! # use serde_arrow::_impl::arrow;
+//! # use std::sync::Arc;
+//! # use serde_arrow::schema::{SchemaLike, TracingOptions};
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct Record {
+//! #     a: f32,
+//! #     b: i32,
+//! # }
+//! #
+//! # let records = vec![
+//! #     Record { a: 1.0, b: 1 },
+//! #     Record { a: 2.0, b: 2 },
+//! #     Record { a: 3.0, b: 3 },
+//! # ];
+//! #
+//! // Determine Arrow schema
+//! let fields = Vec::<marrow::datatypes::Field>::from_type::<Record>(TracingOptions::default())?;
+//!
+//! // Build the marrow arrays
+//! let arrays = serde_arrow::to_marrow(&fields, &records)?;
+//!
+//! // Build the record batch
+//! let arrow_fields = fields.iter()
+//!     .map(arrow::datatypes::Field::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//!
+//! let arrow_arrays = arrays.into_iter()
+//!     .map(arrow::array::ArrayRef::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//!
+//! let record_batch = arrow::array::RecordBatch::try_new(
+//!     Arc::new(arrow::datatypes::Schema::new(arrow_fields)),
+//!     arrow_arrays,
+//! );
+//! # }
+//! # Ok(())
+//! # }
+//! ```
 
 // be more forgiving without any active implementation
 #[cfg_attr(not(any(has_arrow, has_arrow2)), allow(unused))]

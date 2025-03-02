@@ -23,9 +23,15 @@ use super::{
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`Deserializer::from_arrow2`]")]
 ///
-/// Deserializer deserializer into a sequence of records, but it can also be used a sequence of
-/// deserializers for the individual records. It is possible to get individual items via
-/// [`Deserializer::get`] and iterate over them via [`Deserializer::iter`].
+/// Instances of [`Deserializer`] deserialize into a sequences of records. They can also be used a
+/// sequence of deserializers for the individual records ([`DeserializerItem`]).
+///
+/// The supported sequence operations are:
+///
+/// - [`Deserializer::len`]
+/// - [`Deserializer::is_empty`]
+/// - [`Deserializer::get`]
+/// - [`Deserializer::iter`] and [`<&Deserializer>::into_iter()`](#impl-IntoIterator-for-%26Deserializer<'de>)
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::_impl::PanicOnError<()> {
@@ -119,14 +125,14 @@ impl<'de> Deserializer<'de> {
         self.len() == 0
     }
 
-    /// Iterate over the records of this deserializer
+    /// Iterate over the deserializers for the records of this deserializer
     ///
-    /// It is also possible to iterate directly over deserializer references.
+    /// It is also possible to iterate directly over [`&Deserializer`](#impl-IntoIterator-for-%26Deserializer<'de>).
     pub fn iter<'this>(&'this self) -> DeserializerIterator<'this, 'de> {
         DeserializerIterator::new(self)
     }
 
-    /// Deserialize a single item
+    /// Get a deserializer for a single record
     pub fn get<'this>(&'this self, idx: usize) -> Option<DeserializerItem<'this, 'de>> {
         if idx >= self.deserializer.len {
             return None;
@@ -150,6 +156,7 @@ impl<'this, 'de> DeserializerIterator<'this, 'de> {
     }
 }
 
+/// Iterate over [`Deserializer`] references
 impl<'this, 'de> std::iter::IntoIterator for &'this Deserializer<'de> {
     type IntoIter = DeserializerIterator<'this, 'de>;
     type Item = DeserializerItem<'this, 'de>;

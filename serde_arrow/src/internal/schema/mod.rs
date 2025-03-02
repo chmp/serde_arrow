@@ -199,7 +199,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - all variants of enum fields
     /// - at least one element for sequence fields (e.g., `Vec<..>`)
     /// - at least one example for map types (e.g., `HashMap<.., ..>`). All possible keys must be
-    ///   given, if [`options.map_as_struct == true`][TracingOptions::map_as_struct]).
+    ///   given, if [`options.map_as_struct == true`][TracingOptions::map_as_struct].
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
