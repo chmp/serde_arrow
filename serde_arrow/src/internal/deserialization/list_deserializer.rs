@@ -37,7 +37,7 @@ impl<'de, O: Offset> ListDeserializer<'de, O> {
     }
 
     fn get<'this>(&'this self, idx: usize) -> Result<ListItemDeserializer<'this, 'de>> {
-        if idx + 1 > self.offsets.len() {
+        if idx + 1 >= self.offsets.len() {
             fail!("Outs of bound access");
         }
         Ok(ListItemDeserializer {

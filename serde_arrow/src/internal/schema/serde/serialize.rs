@@ -96,8 +96,10 @@ impl serde::Serialize for PrettyFieldDataType<'_> {
             T::Float64 => "F64".serialize(serializer),
             T::Utf8 => "Utf8".serialize(serializer),
             T::LargeUtf8 => "LargeUtf8".serialize(serializer),
+            T::Utf8View => "Utf8View".serialize(serializer),
             T::Binary => "Binary".serialize(serializer),
             T::LargeBinary => "LargeBinary".serialize(serializer),
+            T::BinaryView => "BinaryView".serialize(serializer),
             T::Date32 => "Date32".serialize(serializer),
             T::Date64 => "Date64".serialize(serializer),
             T::Decimal128(precision, scale) => {
