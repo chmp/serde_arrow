@@ -41,7 +41,10 @@ impl DictionaryUtf8Builder {
         self.indices.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
+    pub fn into_array(mut self) -> Result<Array> {
+        if self.index.is_empty() {
+            self.values.serialize_str("")?;
+        }
         Ok(Array::Dictionary(DictionaryArray {
             keys: Box::new((*self.indices).into_array()?),
             values: Box::new((*self.values).into_array()?),
@@ -58,7 +61,7 @@ impl Context for DictionaryUtf8Builder {
 
 impl SimpleSerializer for DictionaryUtf8Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.indices.serialize_none()).ctx(self)
+        try_(|| self.indices.serialize_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {
