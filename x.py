@@ -166,7 +166,7 @@ def _generate_workflow_check_steps():
 
 @cmd(help="Format the code")
 def format():
-    _sh(f"{python} -m black {_q(__file__)}")
+    _sh(f"{python} -m ruff format {_q(__file__)}")
     _sh("cargo fmt")
 
 
@@ -239,7 +239,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
             f"""
                 cargo test
                     {feature_selection}
-                    {_q(test_name) if test_name else ''}
+                    {_q(test_name) if test_name else ""}
             """,
             env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
         )
@@ -261,11 +261,11 @@ def test_integration(backtrace=False):
 
 @cmd()
 def check_cargo_toml():
-    import tomli
+    import tomllib
 
     print(":: check Cargo.toml")
     with open(self_path / "serde_arrow" / "Cargo.toml", "rb") as fobj:
-        config = tomli.load(fobj)
+        config = tomllib.load(fobj)
 
     for label, features in [
         (
@@ -521,8 +521,8 @@ def doc(private=False, open=False):
         f"""
             cargo doc
                 --features {default_features}
-                {'--document-private-items' if private else ''}
-                {'--open' if open else ''}
+                {"--document-private-items" if private else ""}
+                {"--open" if open else ""}
         """,
         cwd=self_path / "serde_arrow",
     )
