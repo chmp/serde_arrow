@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{Mut, array_view_ext::ViewExt},
+    utils::{array_view_ext::ViewExt, Mut},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
