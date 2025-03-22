@@ -1,5 +1,21 @@
 # Change log
 
+## 0.13.1
+
+- Allow to use enums / unions in nullable structs. The arrow format requires that each child field
+  of a null struct value contains a dummy value. For union fields such a dummy value was not
+  supported before. With this release the following dummy values for unions are used:
+  - For unions, the first variant is used as a dummy
+  - For dictionary encoded strings, the first non-null value is used as a dummy value, or an empty
+    string if no values are encountered
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@bartek358](https://github.com/bartek358) discovered that unions in nullable structs are not
+  supported and fixed the implementation in ([#265](https://github.com/chmp/serde_arrow/pull/265))
+
 ## 0.13.0
 
 - Migrate internal array abstraction to  [`marrow`][https://github.com/chmp/marrow]
