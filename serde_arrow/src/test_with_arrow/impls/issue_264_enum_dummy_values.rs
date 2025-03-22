@@ -1,25 +1,25 @@
 use super::utils::Test;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 mod enum_without_data {
     use super::*;
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Outer {
         a: Option<Inner>,
     }
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Inner {
         a: Enum,
     }
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum Enum {
         #[allow(unused)]
-        A,
+        Variant,
     }
 
     #[test]
@@ -35,7 +35,8 @@ mod enum_without_data {
                     ]}
                 ]}]),
             )
-            .serialize(&[Outer { a: None }]);
+            .serialize(&[Outer { a: None }])
+            .deserialize(&[Outer { a: None }]);
     }
 
     #[test]
@@ -45,29 +46,30 @@ mod enum_without_data {
                 &json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
                     {"name": "a", "data_type": "Struct", "children": [
                         {"name": "a", "data_type": "Union", "children": [
-                            {"name": "A", "data_type": "Null", "nullable": true},
+                            {"name": "Variant", "data_type": "Null", "nullable": true},
                         ]}
                     ]}
                 ]}]),
             )
-            .serialize(&[Outer { a: None }]);
+            .serialize(&[Outer { a: None }])
+            .deserialize(&[Outer { a: None }]);
     }
 }
 
 mod enums_with_data {
     use super::*;
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Outer {
         a: Option<Inner>,
     }
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Inner {
         a: Enum,
     }
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum Enum {
         #[allow(unused)]
         Variant { b: u8 },
@@ -87,6 +89,7 @@ mod enums_with_data {
                     ]}
                 ]}]),
             )
-            .serialize(&[Outer { a: None }]);
+            .serialize(&[Outer { a: None }])
+            .deserialize(&[Outer { a: None }]);
     }
 }
