@@ -91,7 +91,7 @@ impl SimpleSerializer for UnionBuilder {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        try_(|| self.serialize_variant(0)?.serialize_unit()).ctx(&ctx)
+        try_(|| self.serialize_variant(0)?.serialize_default()).ctx(&ctx)
     }
 
     fn serialize_unit_variant(
