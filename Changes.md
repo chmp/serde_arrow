@@ -6,7 +6,7 @@
   of a null struct value contains a dummy value. For union fields such a dummy value was not
   supported before. With this release the following dummy values for unions are used:
   - For unions, the first variant is used as a dummy
-  - For dictionary encoded strings, the first non-null value is used as a dummy value, or an empty
+  - For dictionary encoded strings, the first non-null value is used as a dummy value or an empty
     string if no values are encountered
 
 ### Thanks

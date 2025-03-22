@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::Mut,
+    utils::{Mut, array_view_ext::ViewExt},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -42,11 +42,19 @@ impl DictionaryUtf8Builder {
     }
 
     pub fn into_array(mut self) -> Result<Array> {
-        if self.index.is_empty() {
+        let keys = Box::new((*self.indices).into_array()?);
+
+        let has_non_null_keys = !keys.as_view().is_nullable()? && keys.as_view().len()? != 0;
+        let has_no_values = self.index.is_empty();
+
+        if has_non_null_keys && has_no_values {
+            // the non-null keys must be dummy values, map them to empty strings to ensure they can
+            // be decoded
             self.values.serialize_str("")?;
         }
+
         Ok(Array::Dictionary(DictionaryArray {
-            keys: Box::new((*self.indices).into_array()?),
+            keys,
             values: Box::new((*self.values).into_array()?),
         }))
     }

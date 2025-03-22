@@ -8,10 +8,52 @@ use crate::internal::{
 use super::Offset;
 
 pub trait ViewExt {
+    fn is_nullable(&self) -> Result<bool>;
     fn len(&self) -> Result<usize>;
 }
 
 impl ViewExt for View<'_> {
+    fn is_nullable(&self) -> Result<bool> {
+        use View as V;
+        match self {
+            V::Null(_) => Ok(true),
+            V::Union(_) => Ok(false),
+            V::Boolean(view) => Ok(view.validity.is_some()),
+            V::Int8(view) => Ok(view.validity.is_some()),
+            V::Int16(view) => Ok(view.validity.is_some()),
+            V::Int32(view) => Ok(view.validity.is_some()),
+            V::Int64(view) => Ok(view.validity.is_some()),
+            V::UInt8(view) => Ok(view.validity.is_some()),
+            V::UInt16(view) => Ok(view.validity.is_some()),
+            V::UInt32(view) => Ok(view.validity.is_some()),
+            V::UInt64(view) => Ok(view.validity.is_some()),
+            V::Float16(view) => Ok(view.validity.is_some()),
+            V::Float32(view) => Ok(view.validity.is_some()),
+            V::Float64(view) => Ok(view.validity.is_some()),
+            V::Date32(view) => Ok(view.validity.is_some()),
+            V::Date64(view) => Ok(view.validity.is_some()),
+            V::Time32(view) => Ok(view.validity.is_some()),
+            V::Time64(view) => Ok(view.validity.is_some()),
+            V::Timestamp(view) => Ok(view.validity.is_some()),
+            V::Duration(view) => Ok(view.validity.is_some()),
+            V::Decimal128(view) => Ok(view.validity.is_some()),
+            V::Utf8(view) => Ok(view.validity.is_some()),
+            V::Utf8View(view) => Ok(view.validity.is_some()),
+            V::LargeUtf8(view) => Ok(view.validity.is_some()),
+            V::Binary(view) => Ok(view.validity.is_some()),
+            V::LargeBinary(view) => Ok(view.validity.is_some()),
+            V::BinaryView(view) => Ok(view.validity.is_some()),
+            V::FixedSizeBinary(view) => Ok(view.validity.is_some()),
+            V::FixedSizeList(view) => Ok(view.validity.is_some()),
+            V::List(view) => Ok(view.validity.is_some()),
+            V::LargeList(view) => Ok(view.validity.is_some()),
+            V::Map(view) => Ok(view.validity.is_some()),
+            V::Struct(view) => Ok(view.validity.is_some()),
+            V::Dictionary(view) => view.keys.is_nullable(),
+            _ => fail!("Unknown view type"),
+        }
+    }
+
     fn len(&self) -> Result<usize> {
         use View as V;
         match self {
