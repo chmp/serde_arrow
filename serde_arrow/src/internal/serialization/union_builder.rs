@@ -87,6 +87,13 @@ impl Context for UnionBuilder {
 }
 
 impl SimpleSerializer for UnionBuilder {
+    fn serialize_default(&mut self) -> Result<()> {
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| self.serialize_variant(0)?.serialize_default()).ctx(&ctx)
+    }
+
     fn serialize_unit_variant(
         &mut self,
         _: &'static str,

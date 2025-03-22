@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::Mut,
+    utils::{array_view_ext::ViewExt, Mut},
 };
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
@@ -41,9 +41,20 @@ impl DictionaryUtf8Builder {
         self.indices.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
+    pub fn into_array(mut self) -> Result<Array> {
+        let keys = Box::new((*self.indices).into_array()?);
+
+        let has_non_null_keys = !keys.as_view().is_nullable()? && keys.as_view().len()? != 0;
+        let has_no_values = self.index.is_empty();
+
+        if has_non_null_keys && has_no_values {
+            // the non-null keys must be dummy values, map them to empty strings to ensure they can
+            // be decoded
+            self.values.serialize_str("")?;
+        }
+
         Ok(Array::Dictionary(DictionaryArray {
-            keys: Box::new((*self.indices).into_array()?),
+            keys,
             values: Box::new((*self.values).into_array()?),
         }))
     }
@@ -58,7 +69,7 @@ impl Context for DictionaryUtf8Builder {
 
 impl SimpleSerializer for DictionaryUtf8Builder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.indices.serialize_none()).ctx(self)
+        try_(|| self.indices.serialize_default()).ctx(self)
     }
 
     fn serialize_none(&mut self) -> Result<()> {

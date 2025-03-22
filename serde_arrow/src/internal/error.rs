@@ -334,9 +334,10 @@ pub type PanicOnError<T> = std::result::Result<T, PanicOnErrorError>;
 #[derive(Debug)]
 pub struct PanicOnErrorError;
 
-impl<E: std::fmt::Display> From<E> for PanicOnErrorError {
+// use Display to not match PanicOnErrorError itself, use Debug for printing to include stacktrace
+impl<E: std::fmt::Display + std::fmt::Debug> From<E> for PanicOnErrorError {
     fn from(value: E) -> Self {
-        panic!("{value}");
+        panic!("{value:?}");
     }
 }
 
