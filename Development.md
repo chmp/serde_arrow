@@ -4,7 +4,7 @@ All common tasks are bundled in the `x.py` script:
 
 ```bash
 # format the code and run tests
-python x.py precommit
+uv run python x.py precommit
 ```
 
 Run `python x.py --help` for details. The script only uses standard Python
@@ -21,13 +21,13 @@ modules can can be run without installing further packages.
 
 ## Running the benchmarks
 
-1. `python x.py bench`
-2. (optional)  `python x.py summarize-bench --update` to update the readme
+1. `uv run python x.py bench`
+2. (optional)  `uv run python x.py summarize-bench --update` to update the readme
 
 ## Adding a new arrow version
 
-1. `python x.py add-arrow-version {VERSION}`
-2. `python x.py precommit`
+1. `uv run python x.py add-arrow-version {VERSION}`
+2. `uv run python x.py precommit`
 
 ## Error format
 
