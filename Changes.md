@@ -1,5 +1,12 @@
 # Change log
 
+## 0.13.2
+
+- Allow primitive to string conversion ([#272](https://github.com/chmp/serde_arrow/pull/272))
+  - Adds the option `allow_to_string` to `TracerOptions` to allow numbers, booleans and chars
+    to coerce to strings (`false` by default)
+  - Allows for numbers, booleans and chars to be serialized to strings
+
 ## 0.13.1
 
 - Allow to use enums / unions in nullable structs. The arrow format requires that each child field

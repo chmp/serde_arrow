@@ -1,3 +1,4 @@
+use marrow::datatypes::{DataType, Field};
 use std::{env, sync::Arc};
 
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,15 @@ impl std::default::Default for Impls {
             arrow: !skip_arrow_tests,
             arrow2: !skip_arrow2_tests,
         }
+    }
+}
+
+pub fn new_field(name: &str, data_type: DataType, nullable: bool) -> Field {
+    Field {
+        name: name.to_owned(),
+        data_type,
+        nullable,
+        metadata: Default::default(),
     }
 }
 

@@ -1,19 +1,10 @@
-use marrow::datatypes::{DataType, Field};
+use marrow::datatypes::DataType;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::internal::{schema::TracingOptions, utils::Item};
 
-use super::utils::Test;
-
-fn new_field(name: &str, data_type: DataType, nullable: bool) -> Field {
-    Field {
-        name: name.to_owned(),
-        data_type,
-        nullable,
-        metadata: Default::default(),
-    }
-}
+use super::utils::{new_field, Test};
 
 #[test]
 fn null() {
@@ -345,154 +336,6 @@ fn f16_from_f64() {
         .with_schema(vec![field])
         .serialize(&values)
         .deserialize(&values);
-}
-
-#[test]
-fn str() {
-    let field = new_field("item", DataType::LargeUtf8, false);
-    type Ty = String;
-    let values = [
-        Item(String::from("a")),
-        Item(String::from("b")),
-        Item(String::from("c")),
-        Item(String::from("d")),
-    ];
-
-    Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_samples(&values, TracingOptions::default())
-        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
-        .serialize(&values)
-        .deserialize(&values);
-}
-
-#[test]
-fn str_utf8() {
-    let field = new_field("item", DataType::Utf8, false);
-    type Ty = String;
-    let values = [
-        Item(String::from("a")),
-        Item(String::from("b")),
-        Item(String::from("c")),
-        Item(String::from("d")),
-    ];
-
-    Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_samples(
-            &values,
-            TracingOptions::default().strings_as_large_utf8(false),
-        )
-        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default().strings_as_large_utf8(false))
-        .serialize(&values)
-        .deserialize(&values);
-}
-
-#[test]
-fn nullable_str() {
-    let field = new_field("item", DataType::LargeUtf8, true);
-    type Ty = Option<String>;
-    let values = [
-        Item(Some(String::from("a"))),
-        Item(None),
-        Item(None),
-        Item(Some(String::from("d"))),
-    ];
-
-    Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_samples(&values, TracingOptions::default())
-        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
-        .serialize(&values)
-        .deserialize(&values);
-}
-
-#[test]
-fn str_u32() {
-    let field = new_field("item", DataType::Utf8, false);
-    let values = [
-        Item(String::from("a")),
-        Item(String::from("b")),
-        Item(String::from("c")),
-        Item(String::from("d")),
-    ];
-
-    Test::new()
-        .with_schema(vec![field])
-        .serialize(&values)
-        .deserialize(&values);
-}
-
-#[test]
-fn nullable_str_u32() {
-    let field = new_field("item", DataType::Utf8, true);
-    let values = [
-        Item(Some(String::from("a"))),
-        Item(None),
-        Item(None),
-        Item(Some(String::from("d"))),
-    ];
-
-    Test::new()
-        .with_schema(vec![field])
-        .serialize(&values)
-        .deserialize(&values);
-}
-
-#[test]
-fn borrowed_str() {
-    let field = new_field("item", DataType::LargeUtf8, false);
-
-    type Ty<'a> = &'a str;
-
-    let values = [Item("a"), Item("b"), Item("c"), Item("d")];
-
-    Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_samples(&values, TracingOptions::default())
-        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
-        .serialize(&values)
-        .deserialize_borrowed(&values);
-}
-
-#[test]
-fn nullabe_borrowed_str() {
-    let field = new_field("item", DataType::LargeUtf8, true);
-
-    type Ty<'a> = Option<&'a str>;
-
-    let values = [Item(Some("a")), Item(None), Item(None), Item(Some("d"))];
-
-    Test::new()
-        .with_schema(vec![field])
-        .trace_schema_from_samples(&values, TracingOptions::default())
-        .trace_schema_from_type::<Item<Ty>>(TracingOptions::default())
-        .serialize(&values)
-        .deserialize_borrowed(&values);
-}
-
-#[test]
-fn borrowed_str_u32() {
-    let field = new_field("item", DataType::Utf8, false);
-
-    let values = [Item("a"), Item("b"), Item("c"), Item("d")];
-
-    Test::new()
-        .with_schema(vec![field])
-        .serialize(&values)
-        .deserialize_borrowed(&values);
-}
-
-#[test]
-fn nullabe_borrowed_str_u32() {
-    let field = new_field("item", DataType::Utf8, true);
-
-    let values = [Item(Some("a")), Item(None), Item(None), Item(Some("d"))];
-
-    Test::new()
-        .with_schema(vec![field])
-        .serialize(&values)
-        .deserialize_borrowed(&values);
 }
 
 #[test]
