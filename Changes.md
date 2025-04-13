@@ -1,5 +1,9 @@
 # Change log
 
+## 0.13.3
+
+- Fix: Use the correct lower bound for marrow to enable `arrow=55`
+
 ## 0.13.2
 
 - Add `arrow=55` support
