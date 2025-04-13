@@ -89,6 +89,54 @@ impl<A: Utf8BuilderArray> SimpleSerializer for Utf8Builder<A> {
         try_(|| self.array.push_scalar_value(v.as_bytes())).ctx(self)
     }
 
+    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_u8(&mut self, v: u8) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_f32(&mut self, v: f32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_f64(&mut self, v: f64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_char(&mut self, v: char) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
+    fn serialize_bool(&mut self, v: bool) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+    }
+
     fn serialize_unit_variant(
         &mut self,
         _: &'static str,

@@ -441,3 +441,132 @@ mod untagged_enum_number_coercion {
         [(Num::U8(0),), (Num::U16(0),), (Num::Null(()),)]
     );
 }
+
+/// Test how different primitives and null types are coerced into strings
+mod to_str_coercion {
+    use super::*;
+
+    use serde::Serialize;
+    use std::collections::HashMap;
+
+    #[derive(Debug, Serialize)]
+    #[serde(untagged)]
+    enum Value<T> {
+        Null(()),
+        Data(T),
+        Str(&'static str),
+    }
+
+    macro_rules! test_impl_impl {
+        ($name:ident, $data_type:literal, $is_large_utf8:literal, $nullable:expr, [$($data:expr),*]) => {
+            #[test]
+            fn $name() -> PanicOnError<()> {
+                let expected = SerdeArrowSchema::from_value(&json!([
+                    {
+                        "name": "value",
+                        "data_type": $data_type,
+                        "nullable": $nullable,
+                    },
+                ]))?;
+
+                let data = [$({
+                    let mut map = HashMap::new();
+                    map.insert("value", $data);
+                    map
+                }),*];
+                let actual = SerdeArrowSchema::from_samples(&data, TracingOptions::default().allow_to_string(true).strings_as_large_utf8($is_large_utf8))?;
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        };
+    }
+
+    macro_rules! test_impl {
+        ($name:ident, $data_type:literal, $is_large_utf8:literal, $data:expr) => {
+            mod $name {
+                use super::*;
+
+                test_impl_impl!(
+                    data_str,
+                    $data_type,
+                    $is_large_utf8,
+                    false,
+                    [Value::Data($data), Value::Str("")]
+                );
+                test_impl_impl!(
+                    str_data,
+                    $data_type,
+                    $is_large_utf8,
+                    false,
+                    [Value::Str(""), Value::Data($data)]
+                );
+                test_impl_impl!(
+                    data_str_null,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Data($data), Value::Str(""), Value::Null(())]
+                );
+                test_impl_impl!(
+                    str_data_null,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Str(""), Value::Data($data), Value::Null(())]
+                );
+                test_impl_impl!(
+                    data_null_str,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Data($data), Value::Null(()), Value::Str("")]
+                );
+                test_impl_impl!(
+                    str_null_data,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Str(""), Value::Null(()), Value::Data($data)]
+                );
+                test_impl_impl!(
+                    null_data_str,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Null(()), Value::Data($data), Value::Str("")]
+                );
+                test_impl_impl!(
+                    null_str_data,
+                    $data_type,
+                    $is_large_utf8,
+                    true,
+                    [Value::Null(()), Value::Str(""), Value::Data($data)]
+                );
+            }
+        };
+    }
+
+    macro_rules! test {
+        ($name:ident, $data:expr) => {
+            mod $name {
+                use super::*;
+
+                test_impl!(utf8, "Utf8", false, $data);
+                test_impl!(large_utf8, "LargeUtf8", true, $data);
+            }
+        };
+    }
+
+    test!(u8_str, 0u8);
+    test!(u16_str, 0u16);
+    test!(u32_str, 0u32);
+    test!(u64_str, 0u64);
+    test!(i8_str, 0i8);
+    test!(i16_str, 0i16);
+    test!(i32_str, 0i32);
+    test!(i64_str, 0i64);
+    test!(f32_str, 0f32);
+    test!(f64_str, 0f64);
+    test!(bool_str, false);
+    test!(char_str, 'a');
+}

@@ -85,6 +85,14 @@ pub struct TracingOptions {
     /// - signed  + float -> f64
     pub coerce_numbers: bool,
 
+    /// If `true`, allow any ToString type to coerce into a Utf8. The default is `false`.
+    ///
+    /// This option may be helpful when dealing with data formats which have no distinction
+    /// of types like CSV and may parse a value from a string
+    ///
+    /// This will allow conversion of any numeric, char or boolean value
+    pub allow_to_string: bool,
+
     /// If `true`, try to auto detect datetimes in string columns. The default is `false`.
     ///
     /// Currently the naive datetime (`YYYY-MM-DDThh:mm:ss`) and UTC datetimes
@@ -228,6 +236,7 @@ impl Default for TracingOptions {
             map_as_struct: true,
             string_dictionary_encoding: false,
             coerce_numbers: false,
+            allow_to_string: false,
             guess_dates: false,
             from_type_budget: 100,
             enums_without_data_as_strings: false,
@@ -277,6 +286,12 @@ impl TracingOptions {
     /// Set [`coerce_numbers`](#structfield.coerce_numbers)
     pub fn coerce_numbers(mut self, value: bool) -> Self {
         self.coerce_numbers = value;
+        self
+    }
+
+    /// Set [`allow_to_string`](#structfield.allow_to_string)
+    pub fn allow_to_string(mut self, value: bool) -> Self {
+        self.allow_to_string = value;
         self
     }
 

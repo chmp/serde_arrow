@@ -525,8 +525,8 @@ fn coerce_primitive_type(
     options: &TracingOptions,
 ) -> Result<(DataType, bool, Option<Strategy>)> {
     use DataType::{
-        Float32, Float64, Int16, Int32, Int64, Int8, LargeUtf8, Null, Timestamp, UInt16, UInt32,
-        UInt64, UInt8, Utf8,
+        Boolean, Float32, Float64, Int16, Int32, Int64, Int8, LargeUtf8, Null, Timestamp, UInt16,
+        UInt32, UInt64, UInt8, Utf8,
     };
 
     let res = match (prev, curr) {
@@ -574,6 +574,40 @@ fn coerce_primitive_type(
             (Float32 | Float64, nullable, _),
             (Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64, _),
         ) if options.coerce_numbers => (Float64, nullable, None),
+        (
+            (LargeUtf8, nullable, _),
+            (
+                Boolean | Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+                | Float64,
+                _,
+            ),
+        ) if options.allow_to_string => (LargeUtf8, nullable, None),
+        (
+            (
+                Boolean | Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+                | Float64,
+                nullable,
+                _,
+            ),
+            (LargeUtf8, _),
+        ) if options.allow_to_string => (LargeUtf8, nullable, None),
+        (
+            (Utf8, nullable, _),
+            (
+                Boolean | Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+                | Float64,
+                _,
+            ),
+        ) if options.allow_to_string => (Utf8, nullable, None),
+        (
+            (
+                Boolean | Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+                | Float64,
+                nullable,
+                _,
+            ),
+            (Utf8, _),
+        ) if options.allow_to_string => (Utf8, nullable, None),
         // incompatible formats, coerce to string
         ((Timestamp(_, _), nullable, _), (LargeUtf8, _)) => (LargeUtf8, nullable, None),
         ((LargeUtf8, nullable, _), (Timestamp(_, _), _)) => (LargeUtf8, nullable, None),
@@ -587,6 +621,10 @@ fn coerce_primitive_type(
         ((prev_ty, _, prev_st), (curr_ty, curr_st)) => {
             let extra = if is_numeric(prev_ty) && is_numeric(&curr_ty) {
                 ": consider setting `coerce_numbers` to `true` to coerce different numeric types."
+            } else if is_to_string(prev_ty) && matches!(curr_ty, Utf8)
+                || matches!(prev_ty, Utf8) && is_to_string(&curr_ty)
+            {
+                ": consider setting `allow_to_string` to `true` to coerce primitives to strings."
             } else {
                 ""
             };
@@ -626,6 +664,10 @@ fn is_numeric(dt: &DataType) -> bool {
             | DataType::Float32
             | DataType::Float64
     )
+}
+
+fn is_to_string(dt: &DataType) -> bool {
+    is_numeric(dt) || matches!(dt, DataType::Boolean)
 }
 
 #[derive(Debug, PartialEq, Clone)]

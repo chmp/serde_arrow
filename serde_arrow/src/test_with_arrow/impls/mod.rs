@@ -17,6 +17,7 @@ mod arrow_struct;
 mod arrow_time;
 mod arrow_timestamp;
 mod arrow_union;
+mod arrow_utf8;
 #[cfg(has_arrow_bytes_view_support)]
 mod arrow_utf8_view;
 
