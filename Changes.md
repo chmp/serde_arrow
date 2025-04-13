@@ -2,6 +2,7 @@
 
 ## 0.13.2
 
+- Add `arrow=55` support
 - Allow primitive to string conversion ([#272](https://github.com/chmp/serde_arrow/pull/272))
   - Adds the option `allow_to_string` to `TracerOptions` to allow numbers, booleans and chars
     to coerce to strings (`false` by default)
