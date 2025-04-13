@@ -7,6 +7,13 @@
     to coerce to strings (`false` by default)
   - Allows for numbers, booleans and chars to be serialized to strings
 
+### Thanks
+
+The following people contributed to this release:
+
+- [@jpopesculian](https://github.com/jpopesculian) added support for serializing primitives to
+  string ([#272](https://github.com/chmp/serde_arrow/pull/272))
+
 ## 0.13.1
 
 - Allow to use enums / unions in nullable structs. The arrow format requires that each child field
