@@ -6,11 +6,15 @@ use serde::{
 
 use crate::internal::{
     error::{fail, Error, Result},
-    utils::array_ext::get_bit_buffer,
+    utils::array_ext::{all_set_buffer, get_bit_buffer},
 };
 
 pub fn bitset_is_set(set: &BitsWithOffset<'_>, idx: usize) -> Result<bool> {
     get_bit_buffer(set.data, set.offset, idx)
+}
+
+pub fn bitset_all_set(set: &BitsWithOffset<'_>, len: usize) -> Result<bool> {
+    all_set_buffer(set.data, set.offset, set.offset + len)
 }
 
 pub struct U8Deserializer(pub u8);
