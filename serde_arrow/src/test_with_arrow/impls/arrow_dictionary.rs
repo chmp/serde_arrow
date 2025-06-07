@@ -8,9 +8,8 @@ use crate::{
 };
 
 use marrow::{
-    array::{Array, BytesArray, DictionaryArray, PrimitiveArray},
+    array::{Array, DictionaryArray},
     datatypes::{DataType, Field},
-    view::{DictionaryView, View},
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -146,4 +145,71 @@ fn dictionary_deserializer_construction() {
         String::deserialize(deserializer.at(2)).unwrap(),
         String::from("foo")
     );
+
+    // Nullable type, but none null values in the array.
+    let array = Array::Dictionary(DictionaryArray {
+        keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+        values: Box::new(to_array(DataType::Utf8, true, [Some("foo"), Some("bar")])),
+    });
+
+    let deserializer = ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+    assert_eq!(
+        String::deserialize(deserializer.at(0)).unwrap(),
+        String::from("bar")
+    );
+    assert_eq!(
+        String::deserialize(deserializer.at(1)).unwrap(),
+        String::from("bar")
+    );
+    assert_eq!(
+        String::deserialize(deserializer.at(2)).unwrap(),
+        String::from("foo")
+    );
+
+    // Null values must be rejected.
+    let array = Array::Dictionary(DictionaryArray {
+        keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+        values: Box::new(to_array(DataType::Utf8, true, [None::<&str>, None])),
+    });
+
+    assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+
+    // A mix of nulls and non-nulls must be rejected.
+    let array = Array::Dictionary(DictionaryArray {
+        keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+        values: Box::new(to_array(
+            DataType::Utf8,
+            true,
+            [Some("foo"), None, Some("bar")],
+        )),
+    });
+
+    assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+
+    // Multi-byte bitmap.
+    let array = Array::Dictionary(DictionaryArray {
+        keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+        values: Box::new(to_array(
+            DataType::Utf8,
+            true,
+            [
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                Some("1"),
+                None,
+                Some("bar"),
+            ],
+        )),
+    });
+
+    assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
 }
