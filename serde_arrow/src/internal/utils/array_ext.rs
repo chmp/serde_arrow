@@ -474,8 +474,7 @@ pub fn all_set_buffer(data: &[u8], start_bit: usize, end_bit: usize) -> Result<b
     let mut current = start_bit;
 
     while current < end_bit && (current % 8) != 0 {
-        let flag = 1 << (current % 8);
-        if data[current / 8] & flag != flag {
+        if !get_bit_buffer(data, 0, current)? {
             return Ok(false);
         }
         current += 1;
@@ -489,8 +488,7 @@ pub fn all_set_buffer(data: &[u8], start_bit: usize, end_bit: usize) -> Result<b
     }
 
     while current < end_bit {
-        let flag = 1 << (current % 8);
-        if data[current / 8] & flag != flag {
+        if !get_bit_buffer(data, 0, current)? {
             return Ok(false);
         }
         current += 1;
