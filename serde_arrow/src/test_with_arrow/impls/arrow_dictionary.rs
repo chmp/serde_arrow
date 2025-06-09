@@ -134,7 +134,8 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, false, ["foo", "bar"])),
         });
 
-        let deserializer = ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
 
         assert_eq!(
             String::deserialize(deserializer.at(0)).unwrap(),
@@ -157,7 +158,8 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, true, [Some("foo"), Some("bar")])),
         });
 
-        let deserializer = ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
 
         assert_eq!(
             String::deserialize(deserializer.at(0)).unwrap(),
