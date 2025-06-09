@@ -1,6 +1,17 @@
 use super::utils::Test;
-use crate::{schema::TracingOptions, utils::Item};
+use crate::{
+    internal::deserialization::{
+        array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
+    },
+    schema::TracingOptions,
+    utils::{Item, Items},
+};
 
+use marrow::{
+    array::{Array, DictionaryArray},
+    datatypes::{DataType, Field},
+};
+use serde::Deserialize;
 use serde_json::json;
 
 #[test]
@@ -97,3 +108,122 @@ define_tests!(u32_utf8, "U32", "Utf8");
 define_tests!(u32_large_utf8, "U32", "LargeUtf8");
 define_tests!(u64_utf8, "U64", "Utf8");
 define_tests!(u64_large_utf8, "U64", "LargeUtf8");
+
+mod construction {
+    use super::*;
+
+    fn to_array<const N: usize, T: serde::Serialize>(
+        data_type: DataType,
+        nullable: bool,
+        values: [T; N],
+    ) -> marrow::array::Array {
+        let fields = vec![Field {
+            name: String::from("item"),
+            data_type,
+            nullable,
+            ..Default::default()
+        }];
+        let arrays = crate::to_marrow(&fields, Items(values)).unwrap();
+        arrays.into_iter().next().unwrap()
+    }
+
+    #[test]
+    fn non_nullable_values() {
+        let array = Array::Dictionary(DictionaryArray {
+            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+            values: Box::new(to_array(DataType::Utf8, false, ["foo", "bar"])),
+        });
+
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+        assert_eq!(
+            String::deserialize(deserializer.at(0)).unwrap(),
+            String::from("bar")
+        );
+        assert_eq!(
+            String::deserialize(deserializer.at(1)).unwrap(),
+            String::from("bar")
+        );
+        assert_eq!(
+            String::deserialize(deserializer.at(2)).unwrap(),
+            String::from("foo")
+        );
+    }
+
+    #[test]
+    fn nullable_values_without_nulls() {
+        let array = Array::Dictionary(DictionaryArray {
+            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+            values: Box::new(to_array(DataType::Utf8, true, [Some("foo"), Some("bar")])),
+        });
+
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+        assert_eq!(
+            String::deserialize(deserializer.at(0)).unwrap(),
+            String::from("bar")
+        );
+        assert_eq!(
+            String::deserialize(deserializer.at(1)).unwrap(),
+            String::from("bar")
+        );
+        assert_eq!(
+            String::deserialize(deserializer.at(2)).unwrap(),
+            String::from("foo")
+        );
+    }
+
+    #[test]
+    fn all_null_values() {
+        let array = Array::Dictionary(DictionaryArray {
+            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+            values: Box::new(to_array(DataType::Utf8, true, [None::<&str>, None])),
+        });
+
+        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+    }
+
+    #[test]
+    fn some_null_values() {
+        let array = Array::Dictionary(DictionaryArray {
+            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+            values: Box::new(to_array(
+                DataType::Utf8,
+                true,
+                [Some("foo"), None, Some("bar")],
+            )),
+        });
+
+        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+    }
+
+    #[test]
+    fn some_null_values_v2() {
+        let array = Array::Dictionary(DictionaryArray {
+            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
+            values: Box::new(to_array(
+                DataType::Utf8,
+                true,
+                [
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    Some("1"),
+                    None,
+                    Some("bar"),
+                ],
+            )),
+        });
+
+        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+    }
+}

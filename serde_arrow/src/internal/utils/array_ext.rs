@@ -465,6 +465,38 @@ pub fn get_bit_buffer(data: &[u8], offset: usize, idx: usize) -> Result<bool> {
     Ok(byte & flag == flag)
 }
 
+/// True if all bits in the `start_bit..end_bit` range are set.
+pub fn all_set_buffer(data: &[u8], start_bit: usize, end_bit: usize) -> Result<bool> {
+    if end_bit > data.len() * 8 {
+        fail!("Invalid access in bitset");
+    }
+
+    let mut current = start_bit;
+
+    while current < end_bit && (current % 8) != 0 {
+        if !get_bit_buffer(data, 0, current)? {
+            return Ok(false);
+        }
+        current += 1;
+    }
+
+    while current.saturating_add(8) < end_bit {
+        if data[current / 8] != 0xFF {
+            return Ok(false);
+        }
+        current += 8;
+    }
+
+    while current < end_bit {
+        if !get_bit_buffer(data, 0, current)? {
+            return Ok(false);
+        }
+        current += 1;
+    }
+
+    Ok(true)
+}
+
 #[test]
 fn test_set_bit_buffer() {
     let mut buffer = vec![];
@@ -485,4 +517,47 @@ fn test_set_bit_buffer() {
 
     set_bit_buffer(&mut buffer, 4, false);
     assert_eq!(buffer, vec![0b_0010_0001, 0b_0000_0000, 0b_0000_0100]);
+}
+
+#[test]
+fn test_all_set_buffer() {
+    assert!(all_set_buffer(&[0b_0000_0001], 0, 1).unwrap());
+    assert!(!all_set_buffer(&[0b_0000_0001], 0, 2).unwrap());
+    assert!(all_set_buffer(&[0b_1000_0000], 7, 8).unwrap());
+    assert!(!all_set_buffer(&[0b_1000_0000], 6, 8).unwrap());
+
+    assert!(all_set_buffer(&[0b_1111_1111], 0, 8).unwrap());
+    assert!(!all_set_buffer(&[0b_1110_1111], 0, 8).unwrap());
+    assert!(all_set_buffer(&[0b_1110_1111], 0, 4).unwrap());
+    assert!(all_set_buffer(&[0b_1110_1111], 5, 8).unwrap());
+    assert!(!all_set_buffer(&[0b_1110_1111], 4, 5).unwrap());
+
+    assert!(all_set_buffer(&[0, 0b_1111_1111], 8, 16).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1110_1111], 8, 16).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1110_1111], 8, 12).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1110_1111], 13, 16).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1110_1111], 12, 13).unwrap());
+
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0], 8, 16).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111], 8, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111], 7, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_0111_1111], 8, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1110], 8, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_0111, 0b_1111_1111], 8, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_0111_1111], 8, 24).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_0111_1111], 8, 23).unwrap());
+
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_0111_1111], 23, 24).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_0111_1111], 22, 23).unwrap());
+
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111, 0b_1111_1111], 8, 32).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_0111_1111, 0b_1111_1111, 0b_1111_1111], 8, 32).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111, 0b_1111_1110], 8, 32).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111, 0b_1111_1110], 8, 24).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111, 0b_0111_1111], 8, 32).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1111_1111, 0b_0111_1111], 8, 31).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1110_1111, 0b_1111_1111], 8, 32).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1110_1111, 0b_1111_1111], 8, 20).unwrap());
+    assert!(all_set_buffer(&[0, 0b_1111_1111, 0b_1110_1111, 0b_1111_1111], 21, 32).unwrap());
+    assert!(!all_set_buffer(&[0, 0b_1111_1111, 0b_1110_1111, 0b_1111_1111], 20, 21).unwrap());
 }

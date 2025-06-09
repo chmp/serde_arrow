@@ -8,7 +8,7 @@ use crate::internal::{
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
-    random_access_deserializer::RandomAccessDeserializer,
+    random_access_deserializer::RandomAccessDeserializer, utils::bitset_all_set,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
@@ -19,9 +19,10 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
-        if values.validity.is_some() {
-            // TODO: check whether all values are defined?
-            fail!("Null for non-nullable type: dictionaries do not support nullable values");
+        if let Some(validity) = &values.validity {
+            if !bitset_all_set(validity, values.offsets.len() - 1)? {
+                fail!("Null for non-nullable type: dictionaries do not support nullable values");
+            }
         }
         Ok(Self {
             path,
