@@ -112,7 +112,7 @@ serde_bytes = "0.11"
 rand = "0.8"
 bigdecimal = {version = "0.4", features = ["serde"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }
-jiff = { version = "0.1", features = ["serde"] }
+jiff = { version = "0.2", features = ["serde"] }
 
 # for benchmarks
 # arrow-version:replace: arrow-json-{version} = {{ package = "arrow-json", version = "{version}" }}

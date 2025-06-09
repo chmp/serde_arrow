@@ -44,6 +44,7 @@ impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
             .try_into()
             .map_err(|_| Error::custom(format!("Cannot convert {ts} to i64")))?;
 
+        #[allow(deprecated)]
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
         #[allow(deprecated)]
         let delta = Duration::days(ts);

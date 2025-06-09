@@ -207,21 +207,21 @@ mod timestamp {
             Item(
                 date(2024, 10, 2)
                     .at(20, 26, 12, 0)
-                    .intz("UTC")
+                    .in_tz("UTC")
                     .unwrap()
                     .timestamp(),
             ),
             Item(
                 date(-10, 10, 30)
                     .at(0, 0, 0, 0)
-                    .intz("UTC")
+                    .in_tz("UTC")
                     .unwrap()
                     .timestamp(),
             ),
             Item(
                 date(-1000, 1, 12)
                     .at(23, 59, 59, 0)
-                    .intz("UTC")
+                    .in_tz("UTC")
                     .unwrap()
                     .timestamp(),
             ),
@@ -287,7 +287,7 @@ mod timestamp {
             .filter(|Item(dt)| {
                 *dt >= date(1677, 9, 21)
                     .at(0, 12, 44, 0)
-                    .intz("UTC")
+                    .in_tz("UTC")
                     .unwrap()
                     .timestamp()
             })
@@ -303,7 +303,7 @@ mod timestamp {
 
 mod span {
     use super::*;
-    use jiff::{RoundMode, SpanRound, Unit};
+    use jiff::{RoundMode, SpanCompare, SpanRound, Unit};
     use marrow::datatypes::TimeUnit;
     use serde::{Deserialize, Serialize};
 
@@ -321,7 +321,12 @@ mod span {
             };
             Self(
                 self.0
-                    .round(SpanRound::new().smallest(unit).mode(RoundMode::Trunc))
+                    .round(
+                        SpanRound::new()
+                            .smallest(unit)
+                            .mode(RoundMode::Trunc)
+                            .days_are_24_hours(),
+                    )
                     .unwrap(),
             )
         }
@@ -329,7 +334,10 @@ mod span {
 
     impl std::cmp::PartialEq for EquivalentSpan {
         fn eq(&self, other: &Self) -> bool {
-            match self.0.compare(&other.0) {
+            match self
+                .0
+                .compare(SpanCompare::from(other.0).days_are_24_hours())
+            {
                 Ok(ordering) => ordering == std::cmp::Ordering::Equal,
                 Err(_) => false,
             }
@@ -421,13 +429,20 @@ mod span {
 
 mod signed_duration {
     use super::*;
-    use jiff::SignedDuration;
+    use jiff::{SignedDuration, SpanRelativeTo};
     use marrow::datatypes::TimeUnit;
 
     fn items(unit: TimeUnit) -> Vec<Item<SignedDuration>> {
         super::span::items(unit)
             .into_iter()
-            .map(|span| Item(SignedDuration::try_from(span.0 .0).unwrap()))
+            .map(|span| {
+                Item(
+                    span.0
+                         .0
+                        .to_duration(SpanRelativeTo::days_are_24_hours())
+                        .unwrap(),
+                )
+            })
             .collect()
     }
 

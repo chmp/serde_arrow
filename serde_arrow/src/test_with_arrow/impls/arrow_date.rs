@@ -109,6 +109,7 @@ mod time_string_conversion {
     }
 
     fn date<T: DatePrimitive>(s: &str) -> T {
+        #[allow(deprecated)]
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
         T::try_from((NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap() - UNIX_EPOCH).num_days())
             .unwrap()
