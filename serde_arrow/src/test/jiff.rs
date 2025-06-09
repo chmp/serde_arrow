@@ -27,7 +27,7 @@ fn string_repr_examples() {
     );
 
     // date time with timezone
-    let obj = date(2023, 12, 31).at(18, 30, 0, 0).intz("UTC").unwrap();
+    let obj = date(2023, 12, 31).at(18, 30, 0, 0).in_tz("UTC").unwrap();
     assert_eq!(
         value::transmute::<String>(&obj).unwrap(),
         "2023-12-31T18:30:00+00:00[UTC]"
@@ -41,13 +41,20 @@ fn string_repr_examples() {
     let obj = time(16, 56, 42, 123_000_000);
     assert_eq!(value::transmute::<String>(&obj).unwrap(), "16:56:42.123");
 
+    // the capitalization changed between versions
     // day span
     let obj = Span::new().days(32);
-    assert_eq!(value::transmute::<String>(&obj).unwrap(), "P32d");
+    assert_eq!(
+        value::transmute::<String>(&obj).unwrap().to_uppercase(),
+        "P32D"
+    );
 
     // year month span
     let obj = Span::new().years(4).months(7);
-    assert_eq!(value::transmute::<String>(&obj).unwrap(), "P4y7m");
+    assert_eq!(
+        value::transmute::<String>(&obj).unwrap().to_uppercase(),
+        "P4Y7M"
+    );
 }
 
 /// Test that the different reprs between chrono and jiff are compatible
@@ -102,7 +109,7 @@ fn transmute_jiff_chrono() {
         .and_hms_opt(7, 8, 9)
         .unwrap()
         .and_utc();
-    let jiff = date(1234, 5, 6).at(7, 8, 9, 0).intz("UTC").unwrap();
+    let jiff = date(1234, 5, 6).at(7, 8, 9, 0).in_tz("UTC").unwrap();
 
     assert_error_contains(&value::transmute::<Zoned>(&chrono), "");
     assert_error_contains(

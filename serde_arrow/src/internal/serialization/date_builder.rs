@@ -73,6 +73,7 @@ impl<I: DatePrimitive> DateBuilder<I> {
     }
 
     fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<I> {
+        #[allow(deprecated)]
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
 
         let date = s.parse::<NaiveDate>()?;
