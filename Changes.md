@@ -1,5 +1,16 @@
 # Change log
 
+## 0.13.4
+
+- Allow dictionaries with nullable values to be deserialized, if all values are valid
+
+### Thanks
+
+The following people contributed to this release:
+
+- [@ryzhyk](https://github.com/ryzhyk) improved the null checks in dictionary deserialization
+  ([#277](https://github.com/chmp/serde_arrow/pull/277))
+
 ## 0.13.3
 
 - Fix: Use the correct lower bound for marrow to enable `arrow=55`
