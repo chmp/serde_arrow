@@ -1,5 +1,9 @@
 # Change log
 
+## 0.13.5
+
+- Add `arrow=56` support
+
 ## 0.13.4
 
 - Allow dictionaries with nullable values to be deserialized, if all values are valid
