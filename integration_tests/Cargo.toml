@@ -5,11 +5,11 @@ edition = "2021"
 
 [dependencies]
 # arrow-version:replace: arrow = {{ version = "{version}", features = ["ipc"] }}
-arrow = { version = "55", features = ["ipc"] }
+arrow = { version = "56", features = ["ipc"] }
 
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 
 # arrow-version:replace: serde_arrow = {{ path = "../serde_arrow", features = ["arrow-{version}"] }}
-serde_arrow = { path = "../serde_arrow", features = ["arrow-55"] }
+serde_arrow = { path = "../serde_arrow", features = ["arrow-56"] }
