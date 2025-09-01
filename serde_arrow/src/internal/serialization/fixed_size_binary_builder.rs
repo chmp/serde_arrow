@@ -167,6 +167,10 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
             self.seq.end_seq()
         }).ctx(self)
     }
+
+    fn serialize_str(&mut self, v: &str) -> Result<()> {
+        self.serialize_bytes(v.as_bytes())
+    }
 }
 
 struct U8Serializer(u8);

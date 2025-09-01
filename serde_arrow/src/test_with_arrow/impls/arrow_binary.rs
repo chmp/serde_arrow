@@ -145,7 +145,7 @@ fn example_borrowed_nullable() {
 }
 
 /// test that byte can be deserialized from string arrays
-mod deserialize_bytes_from_strings {
+mod serde_strings {
     use super::*;
 
     fn items() -> (Vec<Item<String>>, Vec<Item<ByteBuf>>) {
@@ -162,23 +162,53 @@ mod deserialize_bytes_from_strings {
         (input, output)
     }
 
-    #[test]
-    fn as_large_utf8() {
-        let (input, output) = items();
+    /// test that byte can be deserialized from string arrays
+    mod deserialize_bytes_from_strings {
+        use super::*;
 
-        Test::new()
-            .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
-            .serialize(&input)
-            .deserialize(&output);
+        #[test]
+        fn as_large_utf8() {
+            let (input, output) = items();
+
+            Test::new()
+                .with_schema(json!([{"name": "item", "data_type": "LargeUtf8"}]))
+                .serialize(&input)
+                .deserialize(&output);
+        }
+
+        #[test]
+        fn as_utf8() {
+            let (input, output) = items();
+
+            Test::new()
+                .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
+                .serialize(&input)
+                .deserialize(&output);
+        }
     }
 
-    #[test]
-    fn as_utf8() {
-        let (input, output) = items();
+    // test that strings can be serialized to bytes
+    mod serialize_strings_as_bytes {
+        use super::*;
 
-        Test::new()
-            .with_schema(json!([{"name": "item", "data_type": "Utf8"}]))
-            .serialize(&input)
-            .deserialize(&output);
+        #[test]
+        fn as_large_bytes() {
+            let (input, output) = items();
+
+            Test::new()
+                .with_schema(json!([{"name": "item", "data_type": "LargeBinary"}]))
+                .serialize(&input)
+                .deserialize(&output);
+        }
+
+        #[test]
+        fn as_bytes() {
+            let (input, output) = items();
+
+            Test::new()
+                .with_schema(json!([{"name": "item", "data_type": "Binary"}]))
+                .serialize(&input)
+                .deserialize(&output);
+        }
     }
 }

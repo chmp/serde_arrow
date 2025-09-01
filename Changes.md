@@ -1,5 +1,10 @@
 # Change log
 
+## `dev`
+
+- [@jpopesculian](https://github.com/jpopesculian) added support to serialize strings as
+  bytes ([#281](https://github.com/chmp/serde_arrow/pull/281))
+
 ## 0.13.5
 
 - Add `arrow=56` support
