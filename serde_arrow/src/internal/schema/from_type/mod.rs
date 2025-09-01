@@ -216,7 +216,8 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            self.0.ensure_primitive(DataType::LargeBinary)?;
+            self.0
+                .ensure_primitive(self.0.get_options().binary_type())?;
             visitor.visit_borrowed_bytes(&[])
         })
         .ctx(&self)
@@ -224,7 +225,8 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         try_(|| {
-            self.0.ensure_primitive(DataType::LargeBinary)?;
+            self.0
+                .ensure_primitive(self.0.get_options().binary_type())?;
             visitor.visit_byte_buf(Default::default())
         })
         .ctx(&self)

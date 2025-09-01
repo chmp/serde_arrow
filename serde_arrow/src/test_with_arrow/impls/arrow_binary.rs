@@ -56,6 +56,27 @@ fn example_large_binary() {
 }
 
 #[test]
+fn example_binary() {
+    let items = [
+        Item(ByteBuf::from(b"foo")),
+        Item(ByteBuf::from(b"bar")),
+        Item(ByteBuf::from(b"baz")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Binary"}]))
+        .trace_schema_from_type::<Item<ByteBuf>>(
+            TracingOptions::default().bytes_as_large_binary(false),
+        )
+        .trace_schema_from_samples(
+            &items,
+            TracingOptions::default().bytes_as_large_binary(false),
+        )
+        .serialize(&items)
+        .deserialize(&items);
+}
+
+#[test]
 fn example_large_binary_nullable() {
     let items = [
         Item(Some(ByteBuf::from(b"foo"))),

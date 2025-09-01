@@ -2,6 +2,8 @@
 
 ## `dev`
 
+- [@jpopesculian](https://github.com/jpopesculian) added the option `bytes_as_large_binary`
+  to `TracingOptions` ([#281](https://github.com/chmp/serde_arrow/pull/282))
 - [@jpopesculian](https://github.com/jpopesculian) added support to serialize strings as
   bytes ([#281](https://github.com/chmp/serde_arrow/pull/281))
 
