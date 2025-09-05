@@ -35,8 +35,10 @@ pub enum TracingMode {
 ///         .map_as_struct(true)
 ///         .sequence_as_large_list(true)
 ///         .strings_as_large_utf8(true)
+///         .bytes_as_large_binary(true)
 ///         .string_dictionary_encoding(false)
 ///         .coerce_numbers(false)
+///         .allow_to_string(false)
 ///         .guess_dates(false)
 ///         .from_type_budget(100),
 /// );
@@ -58,6 +60,9 @@ pub struct TracingOptions {
 
     /// If `true` trace strings as `LargeUtf8` (the default). Otherwise strings are traced as `Utf8`.
     pub string_as_large_utf8: bool,
+
+    /// If `true` trace binary as `LargeBinary` (the default). Otherwise bytes are traced as `Binary`.
+    pub bytes_as_large_binary: bool,
 
     /// If `true` trace strings with dictionary encoding. If `false` (the default), strings are
     /// traced as either `LargeUtf8` or `Utf8` according to
@@ -243,6 +248,7 @@ impl Default for TracingOptions {
             overwrites: Overwrites::default(),
             sequence_as_large_list: true,
             string_as_large_utf8: true,
+            bytes_as_large_binary: true,
             tracing_mode: TracingMode::Unknown,
         }
     }
@@ -274,6 +280,12 @@ impl TracingOptions {
     /// Set [`string_as_large_utf8`](#structfield.string_as_large_utf8)
     pub fn strings_as_large_utf8(mut self, value: bool) -> Self {
         self.string_as_large_utf8 = value;
+        self
+    }
+
+    /// Set [`string_as_large_utf8`](#structfield.string_as_large_utf8)
+    pub fn bytes_as_large_binary(mut self, value: bool) -> Self {
+        self.bytes_as_large_binary = value;
         self
     }
 
@@ -336,6 +348,14 @@ impl TracingOptions {
             DataType::LargeUtf8
         } else {
             DataType::Utf8
+        }
+    }
+
+    pub(crate) fn binary_type(&self) -> DataType {
+        if self.bytes_as_large_binary {
+            DataType::LargeBinary
+        } else {
+            DataType::Binary
         }
     }
 }

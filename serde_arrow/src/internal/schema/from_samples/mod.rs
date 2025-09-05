@@ -360,7 +360,7 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
     }
 
     fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
-        try_(|| self.0.ensure_primitive(DataType::LargeBinary)).ctx(&self)
+        try_(|| self.0.ensure_primitive(self.0.get_options().binary_type())).ctx(&self)
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
