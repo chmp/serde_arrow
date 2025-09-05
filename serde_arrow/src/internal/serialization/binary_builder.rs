@@ -163,6 +163,10 @@ impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
         self.array.push_scalar_value(v).ctx(self)
     }
+
+    fn serialize_str(&mut self, v: &str) -> Result<()> {
+        self.serialize_bytes(v.as_bytes())
+    }
 }
 
 struct U8Serializer(u8);
