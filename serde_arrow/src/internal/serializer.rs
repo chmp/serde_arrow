@@ -12,7 +12,7 @@ use crate::internal::{
 /// mutable references to an [`ArrayBuilder`].
 ///
 /// Calls to `serialize` will return the Serializer itself on success. Therefore
-/// the the underlying ArrayBuilder passed to [`Serializer::new`] and be
+/// the the underlying ArrayBuilder passed to [`Serializer::new`] can be
 /// retrieved and be used to construct the arrays.
 ///
 /// Usage:
@@ -282,6 +282,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSer
     }
 }
 
+#[allow(unused)]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl<A: Send + Sync> AssertSendSync for Serializer<A> {}

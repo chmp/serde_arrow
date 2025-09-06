@@ -72,18 +72,24 @@ workflow_release_template = {
     "jobs": {
         "build": {
             "runs-on": "ubuntu-latest",
-            "env": {
-                "CARGO_REGISTRY_TOKEN": "${{ secrets.CARGO_REGISTRY_TOKEN }}",
-            },
+            "environment": "release",
             "steps": [
                 {"uses": "actions/checkout@v4"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
                 {
+                    "name": "Auth with crates.io",
+                    "uses": "rust-lang/crates-io-auth-action@v1",
+                    "id": "auth",
+                },
+                {
                     "name": "Publish to crates.io",
                     "working-directory": "serde_arrow",
                     "run": "cargo publish",
+                    "env": {
+                        "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
+                    },
                 },
             ],
         }

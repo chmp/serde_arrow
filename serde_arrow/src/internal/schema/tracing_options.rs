@@ -361,5 +361,7 @@ impl TracingOptions {
 }
 
 /// An opaque mapping of field paths to field definitions
+///
+/// See [`TracingOptions::overwrite`] for details.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Overwrites(pub(crate) HashMap<String, Field>);

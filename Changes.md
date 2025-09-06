@@ -1,6 +1,6 @@
 # Change log
 
-## `dev`
+## 0.13.6
 
 - [@jpopesculian](https://github.com/jpopesculian) added the option `bytes_as_large_binary`
   to `TracingOptions` ([#281](https://github.com/chmp/serde_arrow/pull/282))
@@ -59,7 +59,7 @@ The following people contributed to this release:
 
 ## 0.13.0
 
-- Migrate internal array abstraction to  [`marrow`][https://github.com/chmp/marrow]
+- Migrate internal array abstraction to  [`marrow`](https://github.com/chmp/marrow)
   - Breaking change: Dictionary data types no longer support sorting
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`

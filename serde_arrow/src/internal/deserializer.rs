@@ -17,13 +17,14 @@ use super::{
 
 /// A structure to deserialize Arrow arrays into Rust objects
 ///
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"It can be constructed via")]
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+/// It can be constructed via
+///
+/// - [`Deserializer::from_marrow`]
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`Deserializer::from_arrow2`]")]
 ///
-/// Instances of [`Deserializer`] deserialize into a sequences of records. They can also be used a
+/// Instances of [`Deserializer`] deserialize into a sequences of records. They can also be used as a
 /// sequence of deserializers for the individual records ([`DeserializerItem`]).
 ///
 /// The supported sequence operations are:
@@ -528,6 +529,7 @@ impl<'de> SeqAccess<'de> for Private<DeserializerIterator<'_, 'de>> {
     }
 }
 
+#[allow(unused)]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Deserializer<'_> {}

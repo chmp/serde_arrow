@@ -7,10 +7,9 @@
 //! Therefore, adding support for `serde_arrow` to custom types is as easy as using Serde's derive
 //! macros.
 //!
-//! In the Rust ecosystem there are two competing implementations of the arrow in-memory format,
-//! [`arrow`](https://github.com/apache/arrow-rs) and
-//! [`arrow2`](https://github.com/jorgecarleitao/arrow2). `serde_arrow` supports both. The supported
-//! arrow implementations can be selected via [features](#features).
+//! `serde_arrow` mainly targets the [`arrow`](https://github.com/apache/arrow-rs) crate, but also
+//! supports the deprecated [`arrow2`](https://github.com/jorgecarleitao/arrow2) crate. The arrow
+//! implementations can be selected via [features](#features).
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as their type systems do
 //! not directly match. The schema is expressed as a collection of Arrow fields with additional
@@ -42,7 +41,7 @@
 //! - the [status summary][_impl::docs::status] for an overview over the supported Arrow and Rust
 //!   constructs
 //!
-//! ## `arrow` Example
+//! ## Example
 //!
 //! ```rust
 //! # use serde::{Deserialize, Serialize};
@@ -94,7 +93,7 @@
 //!
 //! Note that because the highest version is selected, the features are not additive. In particular,
 //! it is not possible to use `serde_arrow::to_arrow` for multiple different `arrow` versions at the
-//! same time.
+//! same time. See the next section for how to use `serde_arrow` in library code.
 //!
 //! Available features:
 //!

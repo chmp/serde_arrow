@@ -11,14 +11,12 @@ use crate::internal::{
 /// It can be constructed via
 ///
 /// - [`ArrayBuilder::new`]
+/// - [`ArrayBuilder::from_marrow`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::from_arrow2`]")]
 ///
-#[cfg_attr(
-    any(has_arrow, has_arrow2),
-    doc = r"It supports array construction via"
-)]
-#[cfg_attr(any(has_arrow, has_arrow2), doc = r"")]
+/// It supports array construction via
+/// - [`ArrayBuilder::to_marrow`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::to_arrow2`]")]
@@ -106,6 +104,7 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
     }
 }
 
+#[allow(unused)]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for ArrayBuilder {}

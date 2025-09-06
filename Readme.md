@@ -7,7 +7,7 @@
 | [Status](serde_arrow/Status.md)
 | [License](#license)
 | [Changes](Changes.md)
-| [Development](Development.md)
+| [Contributing](Contributing.md)
 
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
@@ -82,30 +82,6 @@ writer.write(&batch)?;
 writer.close()?;
 ```
 
-### Serialize to `arrow2` arrays
-
-```rust
-use arrow2::datatypes::Field;
-use serde_arrow::schema::{SchemaLike, TracingOptions};
-
-let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-```
-
-These arrays can now be written to disk using the helper method defined in the
-[arrow2 guide][arrow2-guide]. For parquet:
-
-```rust,ignore
-use arrow2::{chunk::Chunk, datatypes::Schema};
-
-// see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-write_chunk(
-    "example.pq",
-    Schema::from(fields),
-    Chunk::new(arrays),
-)?;
-```
-
 ### Usage from python
 
 The written files can be read in Python via
@@ -146,9 +122,13 @@ shape: (3, 2)
   chrono's date time types. Enum support is experimental according to the
   Readme. If performance is the main objective, `arrow2-convert` is a good
   choice as it has no or minimal overhead over building the arrays manually.
+- [`arrow-convert`][arrow-convert]: a port of `arrow2-convert` to `arrow-rs`
+- [`typed-arrow`][typed-arrow]: derive based converter of Rust structs to arrow
 
 [serde-decoder]: https://docs.rs/arrow-json/latest/arrow_json/reader/struct.Decoder.html
+[arrow-convert]: https://github.com/Swoorup/arrow-convert
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
+[typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
 The different implementation have the following performance differences, when
 compared to arrow2-convert:

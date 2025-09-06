@@ -34,7 +34,7 @@ The page documents the supported types both from an Arrow and a Rust perspective
 - [x] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
 - [ ] [`Interval`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Interval)
 - [x] [`Timestamp(Second | Millisecond | Microsecond | Nanosecond, None | Some("UTC"))`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp):
-  at the moment only no timezone or UTC is supported
+  at the moment only timestamps without timezone or UTC timezone are supported
 - [x] [`Binary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Binary)
 - [x] [`FixedSizeBinary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.FixedSizedBinary)
 - [x] [`LargeBinary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.LargeBinary)

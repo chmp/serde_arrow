@@ -2,14 +2,14 @@ use arrow::datatypes::FieldRef;
 use serde::Serialize;
 use serde_arrow::{
     schema::{
-        ext::{FixedShapeTensorField, VariableShapeTensorField},
         SchemaLike,
+        ext::{FixedShapeTensorField, VariableShapeTensorField},
     },
     utils::Item,
 };
 use serde_json::json;
 
-use super::utils::{execute_python, write_file, Result};
+use super::utils::{Result, execute_python, write_file};
 
 /// Test that a fixed shape tensor field can be correctly read in PyArrow
 #[test]
