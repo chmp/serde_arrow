@@ -73,6 +73,7 @@ workflow_release_template = {
         "build": {
             "runs-on": "ubuntu-latest",
             "environment": "release",
+            "permissions": {"id-token": "write"},
             "steps": [
                 {"uses": "actions/checkout@v4"},
                 {"name": "rustc", "run": "rustc --version"},
