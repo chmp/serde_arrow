@@ -7,7 +7,7 @@
 | [Status](serde_arrow/Status.md)
 | [License](#license)
 | [Changes](Changes.md)
-| [Development](Development.md)
+| [Contributing](Contributing.md)
 
 The arrow in-memory format is a powerful way to work with data frame like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging

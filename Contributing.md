@@ -1,4 +1,12 @@
-# Development process
+# Contributing Guide
+
+Contributions are highly welcome! When authoring a pull request, please
+
+1. Run the pre-commit checks locally (`uv run python x.py precommit`)
+2. Add tests for any new code
+3. Update the changelog (`Changes.md`)
+
+## Development Setup
 
 All common tasks are bundled in the `x.py` script:
 
@@ -15,9 +23,10 @@ modules can can be run without installing further packages.
 1. Create a new branch with name `release/{VERSION}`
 2. Update the `version` field in
    [`serde_arrow/Cargo.toml`](serde_arrow/Cargo.toml)
-3. Merge the branch into main
-4. Create a new release via the GH UI tagged with `v{VERSION}` to trigger the
-   release workflow
+3. Create a pull request
+4. Merge the branch into main (requires maintainer access)
+5. Create a new release via the GH UI tagged with `v{VERSION}` to trigger the
+   release workflow (requires maintainer access)
 
 ## Running the benchmarks
 
