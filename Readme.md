@@ -122,9 +122,13 @@ shape: (3, 2)
   chrono's date time types. Enum support is experimental according to the
   Readme. If performance is the main objective, `arrow2-convert` is a good
   choice as it has no or minimal overhead over building the arrays manually.
+- [`arrow-convert`][arrow-convert]: a port of `arrow2-convert` to `arrow-rs`
+- [`typed-arrow`][typed-arrow]: derive based converter of Rust structs to arrow
 
 [serde-decoder]: https://docs.rs/arrow-json/latest/arrow_json/reader/struct.Decoder.html
+[arrow-convert]: https://github.com/Swoorup/arrow-convert
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
+[typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
 The different implementation have the following performance differences, when
 compared to arrow2-convert:
