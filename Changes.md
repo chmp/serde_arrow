@@ -59,7 +59,7 @@ The following people contributed to this release:
 
 ## 0.13.0
 
-- Migrate internal array abstraction to  [`marrow`][https://github.com/chmp/marrow]
+- Migrate internal array abstraction to  [`marrow`](https://github.com/chmp/marrow)
   - Breaking change: Dictionary data types no longer support sorting
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
   - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`
