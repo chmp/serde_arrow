@@ -1,6 +1,6 @@
 # Change log
 
-## `dev`
+## 0.13.6
 
 - [@jpopesculian](https://github.com/jpopesculian) added the option `bytes_as_large_binary`
   to `TracingOptions` ([#281](https://github.com/chmp/serde_arrow/pull/282))
