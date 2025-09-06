@@ -82,30 +82,6 @@ writer.write(&batch)?;
 writer.close()?;
 ```
 
-### Serialize to `arrow2` arrays
-
-```rust
-use arrow2::datatypes::Field;
-use serde_arrow::schema::{SchemaLike, TracingOptions};
-
-let fields = Vec::<Field>::from_type::<Record>(TracingOptions::default())?;
-let arrays = serde_arrow::to_arrow2(&fields, &records)?;
-```
-
-These arrays can now be written to disk using the helper method defined in the
-[arrow2 guide][arrow2-guide]. For parquet:
-
-```rust,ignore
-use arrow2::{chunk::Chunk, datatypes::Schema};
-
-// see https://jorgecarleitao.github.io/arrow2/io/parquet_write.html
-write_chunk(
-    "example.pq",
-    Schema::from(fields),
-    Chunk::new(arrays),
-)?;
-```
-
 ### Usage from python
 
 The written files can be read in Python via
