@@ -350,6 +350,7 @@ fn error_can_be_converted_to_anyhow() {
     assert!(func().is_err());
 }
 
+#[allow(unused)]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Error {}
