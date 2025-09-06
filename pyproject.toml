@@ -5,10 +5,10 @@ version = "0.0.0"
 requires-python = ">=3.12"
 
 dependencies = [
-    "pyarrow~=19.0",
-    "numpy~=2.2",
-    "ruff~=0.11",
-    "polars~=1.25",
+    "pyarrow~=21.0",
+    "numpy~=2.3",
+    "ruff~=0.12.12",
+    "polars~=1.33",
 ]
 
 [tool.uv]
