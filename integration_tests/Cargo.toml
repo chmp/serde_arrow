@@ -1,7 +1,8 @@
 [package]
 name = "integration_tests"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+publish = false
 
 [dependencies]
 # arrow-version:replace: arrow = {{ version = "{version}", features = ["ipc"] }}
