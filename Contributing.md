@@ -12,10 +12,10 @@ All common tasks are bundled in the `x.py` script:
 
 ```bash
 # format the code and run tests
-uv run python x.py precommit
+uv run x.py precommit
 ```
 
-Run `python x.py --help` for details. The script only uses standard Python
+Run `uv run x.py --help` for details. The script only uses standard Python
 modules can can be run without installing further packages.
 
 ## Creating a release
@@ -30,13 +30,13 @@ modules can can be run without installing further packages.
 
 ## Running the benchmarks
 
-1. `uv run python x.py bench`
-2. (optional)  `uv run python x.py summarize-bench --update` to update the readme
+1. `uv run x.py bench`
+2. (optional)  `uv run x.py summarize-bench --update` to update the readme
 
 ## Adding a new arrow version
 
-1. `uv run python x.py add-arrow-version {VERSION}`
-2. `uv run python x.py precommit`
+1. `uv run x.py add-arrow-version {VERSION}`
+2. `uv run x.py precommit`
 
 ## Error format
 
