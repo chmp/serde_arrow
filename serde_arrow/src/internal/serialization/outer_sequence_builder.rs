@@ -11,7 +11,7 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::{btree_map, meta_from_field, ChildName, Mut},
+    utils::{meta_from_field, ChildName, Mut},
 };
 
 use super::{
@@ -127,7 +127,20 @@ fn build_struct(path: String, struct_fields: &[Field], nullable: bool) -> Result
 
 fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
-    let ctx: BTreeMap<String, String> = btree_map!("field" => path.clone());
+
+    struct LocalContext<'a> {
+        path: &'a str,
+    }
+
+    impl<'a> crate::internal::error::Context for LocalContext<'a> {
+        fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
+            if !annotations.contains_key("field") {
+                annotations.insert(String::from("field"), self.path.to_owned());
+            }
+        }
+    }
+
+    let ctx = LocalContext { path: &path };
 
     let builder = match &field.data_type {
         T::Null => match get_strategy_from_metadata(&field.metadata)? {
@@ -245,7 +258,7 @@ fn build_builder(path: String, field: &Field) -> Result<ArrayBuilder> {
 
             A::Map(
                 MapBuilder::new(
-                    path,
+                    path.clone(),
                     meta,
                     build_builder(keys_path, keys_field)?,
                     build_builder(values_path, values_field)?,
