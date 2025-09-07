@@ -62,6 +62,10 @@ impl UnionBuilder {
             fields,
         }))
     }
+
+    pub fn reserve(&mut self, _additional: usize) {
+        // TODO: figure out what to do here
+    }
 }
 
 impl UnionBuilder {

@@ -36,6 +36,10 @@ impl<I: Default + 'static> IntBuilder<I> {
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
+
+    pub fn reserve(&mut self, len: usize) {
+        self.array.reserve(len);
+    }
 }
 
 macro_rules! impl_into_array {

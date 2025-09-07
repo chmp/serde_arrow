@@ -43,6 +43,10 @@ impl<I: Default + 'static> TimeBuilder<I> {
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
 }
 
 impl TimeBuilder<i32> {

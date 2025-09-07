@@ -65,6 +65,11 @@ impl MapBuilder {
             offsets: self.offsets.offsets,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+        // NOTE: do no reserve keys + values as number of elements is unclear
+    }
 }
 
 impl Context for MapBuilder {

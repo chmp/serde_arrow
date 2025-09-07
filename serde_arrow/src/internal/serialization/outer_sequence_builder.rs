@@ -24,7 +24,7 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct OuterSequenceBuilder(StructBuilder);
+pub struct OuterSequenceBuilder(pub StructBuilder);
 
 impl OuterSequenceBuilder {
     pub fn new(schema: &SerdeArrowSchema) -> Result<Self> {
@@ -35,15 +35,6 @@ impl OuterSequenceBuilder {
         )?))
     }
 
-    /// Extract the contained struct fields
-    pub fn take_records(&mut self) -> Result<Vec<ArrayBuilder>> {
-        let mut result = Vec::new();
-        for (builder, _) in self.0.take_self().fields {
-            result.push(builder);
-        }
-        Ok(result)
-    }
-
     /// Extend the builder with a sequence of items
     pub fn extend<T: Serialize>(&mut self, value: T) -> Result<()> {
         value.serialize(Mut(self))
@@ -52,6 +43,14 @@ impl OuterSequenceBuilder {
     /// Push a single item into the builder
     pub fn push<T: Serialize>(&mut self, value: T) -> Result<()> {
         self.element(&value)
+    }
+
+    pub fn num_fields(&self) -> usize {
+        self.0.fields.len()
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
     }
 }
 
@@ -72,7 +71,10 @@ impl SimpleSerializer for OuterSequenceBuilder {
         self.0.serialize_none()
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
+    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
+        if let Some(len) = len {
+            self.0.reserve(len);
+        }
         Ok(())
     }
 
@@ -84,7 +86,8 @@ impl SimpleSerializer for OuterSequenceBuilder {
         Ok(())
     }
 
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
+    fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
+        self.0.reserve(len);
         Ok(())
     }
 
@@ -96,7 +99,8 @@ impl SimpleSerializer for OuterSequenceBuilder {
         Ok(())
     }
 
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, len: usize) -> Result<()> {
+        self.0.reserve(len);
         Ok(())
     }
 

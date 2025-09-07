@@ -72,6 +72,10 @@ impl<I: DatePrimitive> DateBuilder<I> {
         Ok(I::ARRAY_VARIANT(self.array))
     }
 
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
+
     fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<I> {
         #[allow(deprecated)]
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();

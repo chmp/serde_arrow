@@ -45,6 +45,13 @@ impl BoolBuilder {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Boolean(self.array))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.array.validity {
+            validity.reserve(additional / 8 + 1);
+        }
+        self.array.values.reserve(additional / 8 + 1);
+    }
 }
 
 impl Context for BoolBuilder {

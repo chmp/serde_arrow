@@ -69,6 +69,11 @@ impl FixedSizeListBuilder {
             elements: Box::new((*self.elements).into_array()?),
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.elements.reserve(additional * self.n);
+        self.seq.reserve(additional);
+    }
 }
 
 impl FixedSizeListBuilder {

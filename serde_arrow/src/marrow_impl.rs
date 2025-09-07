@@ -58,7 +58,7 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
     items
         .serialize(Serializer::new(builder))?
         .into_inner()
-        .to_marrow()
+        .into_marrow()
 }
 
 /// Deserialize items from [marrow views][marrow::view::View]
@@ -126,6 +126,11 @@ impl ArrayBuilder {
     /// Construct [`marrow::Array`s][Array] and reset the builder
     pub fn to_marrow(&mut self) -> Result<Vec<Array>> {
         self.build_arrays()
+    }
+
+    /// Consume the builder and construct the arrays
+    pub fn into_marrow(self) -> Result<Vec<Array>> {
+        self.into_arrays()
     }
 }
 

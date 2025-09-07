@@ -48,6 +48,10 @@ impl DurationBuilder {
             values: self.array.values,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
 }
 
 impl Context for DurationBuilder {

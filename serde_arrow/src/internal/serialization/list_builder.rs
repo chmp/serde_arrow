@@ -47,6 +47,11 @@ impl<O: Offset> ListBuilder<O> {
     pub fn is_nullable(&self) -> bool {
         self.offsets.validity.is_some()
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+        // Note: do not reserve elements as number of elements per list is unclear
+    }
 }
 
 impl ListBuilder<i32> {

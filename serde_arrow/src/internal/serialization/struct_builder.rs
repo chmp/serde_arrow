@@ -81,6 +81,12 @@ impl StructBuilder {
             fields,
         }))
     }
+
+    pub fn reserve(&mut self, len: usize) {
+        for (field, _) in &mut self.fields {
+            field.reserve(len);
+        }
+    }
 }
 
 impl StructBuilder {

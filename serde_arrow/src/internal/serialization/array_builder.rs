@@ -107,11 +107,13 @@ impl ArrayBuilder {
     pub fn into_array(self) -> Result<Array> {
         dispatch!(self, Self(builder) => builder.into_array())
     }
-}
 
-impl ArrayBuilder {
     pub fn take(&mut self) -> ArrayBuilder {
         dispatch!(self, Self(builder) => builder.take())
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        dispatch!(self, Self(builder) => builder.reserve(additional))
     }
 }
 

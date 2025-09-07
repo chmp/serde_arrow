@@ -30,6 +30,8 @@ impl UnknownVariantBuilder {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Null(NullArray { len: 0 }))
     }
+
+    pub fn reserve(&mut self, _additional: usize) {}
 }
 
 impl Context for UnknownVariantBuilder {

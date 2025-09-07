@@ -7,10 +7,13 @@ use crate::internal::{
     utils::Offset,
 };
 
+const ASSUMED_BYTES_PER_ELEMENT: usize = 8;
+
 pub trait ArrayExt: Sized + 'static {
     fn new(is_nullable: bool) -> Self;
     fn take(&mut self) -> Self;
     fn is_nullable(&self) -> bool;
+    fn reserve(&mut self, additional: usize);
 }
 
 pub trait ScalarArrayExt<'value>: ArrayExt {
@@ -50,6 +53,13 @@ impl<T: Default + 'static> ArrayExt for PrimitiveArray<T> {
             validity: self.validity.as_mut().map(std::mem::take),
             values: std::mem::take(&mut self.values),
         }
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.validity {
+            validity.reserve(additional / 8);
+        }
+        self.values.reserve(additional);
     }
 }
 
@@ -94,6 +104,14 @@ impl<O: Offset> ArrayExt for BytesArray<O> {
             data: std::mem::take(&mut self.data),
             offsets: std::mem::replace(&mut self.offsets, vec![O::default()]),
         }
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.validity {
+            validity.reserve(additional / 8);
+        }
+        self.offsets.reserve(additional);
+        self.data.reserve(additional * ASSUMED_BYTES_PER_ELEMENT);
     }
 }
 
@@ -177,6 +195,10 @@ impl ArrayExt for BytesViewArray {
             data: std::mem::take(&mut self.data),
             validity: self.validity.as_mut().map(std::mem::take),
         }
+    }
+
+    fn reserve(&mut self, _additional: usize) {
+        // TODO: implement
     }
 }
 
@@ -317,6 +339,13 @@ impl<O: Offset> ArrayExt for OffsetsArray<O> {
             offsets: std::mem::replace(&mut self.offsets, vec![O::default()]),
         }
     }
+
+    fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.validity {
+            validity.reserve(additional / 8);
+        }
+        self.offsets.reserve(additional);
+    }
 }
 
 impl<O: Offset> SeqArrayExt for OffsetsArray<O> {
@@ -378,6 +407,12 @@ impl ArrayExt for CountArray {
         Self {
             len: std::mem::take(&mut self.len),
             validity: self.validity.as_mut().map(std::mem::take),
+        }
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.validity {
+            validity.reserve(additional / 8);
         }
     }
 }
