@@ -74,3 +74,18 @@ where
 
     Ok(Some(str::from_utf8(data)?))
 }
+
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),* $(,)?) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+pub(crate) use btree_map;
