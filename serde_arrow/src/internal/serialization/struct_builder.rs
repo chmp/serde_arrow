@@ -22,7 +22,7 @@ const UNKNOWN_KEY: usize = usize::MAX;
 pub struct StructBuilder {
     pub path: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
-    pub lookup: FieldLookup,
+    pub lookup_cache: Vec<Option<StaticFieldName>>,
     pub next: usize,
     pub seen: Vec<bool>,
     pub seq: CountArray,
@@ -34,14 +34,12 @@ impl StructBuilder {
         fields: Vec<(ArrayBuilder, FieldMeta)>,
         is_nullable: bool,
     ) -> Result<Self> {
-        let lookup = FieldLookup::new(fields.iter().map(|(_, meta)| meta.name.clone()).collect())?;
-
         Ok(Self {
             path,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             next: 0,
-            lookup,
+            lookup_cache: vec![None; fields.len()],
             fields,
         })
     }
@@ -54,7 +52,7 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|(builder, meta)| (builder.take(), meta.clone()))
                 .collect(),
-            lookup: self.lookup.take(),
+            lookup_cache: std::mem::replace(&mut self.lookup_cache, vec![None; self.fields.len()]),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
@@ -86,6 +84,27 @@ impl StructBuilder {
         for (field, _) in &mut self.fields {
             field.reserve(len);
         }
+    }
+
+    pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
+        if self.lookup_cache.get(guess) == Some(&Some(StaticFieldName(key))) {
+            Some(guess)
+        } else {
+            let idx = self.lookup_field_uncached(key)?;
+            if self.lookup_cache[guess].is_none() {
+                self.lookup_cache[guess] = Some(StaticFieldName(key));
+            }
+            Some(idx)
+        }
+    }
+
+    pub fn lookup_field_uncached(&self, name: &str) -> Option<usize> {
+        for (idx, (_, meta)) in self.fields.iter().enumerate() {
+            if name == meta.name {
+                return Some(idx);
+            }
+        }
+        None
     }
 }
 
@@ -172,7 +191,7 @@ impl SimpleSerializer for StructBuilder {
         value: &T,
     ) -> Result<()> {
         try_(|| {
-            let Some(idx) = self.lookup.lookup(self.next, key) else {
+            let Some(idx) = self.lookup(self.next, key) else {
                 // ignore unknown fields
                 return Ok(());
             };
@@ -228,7 +247,7 @@ impl SimpleSerializer for StructBuilder {
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
         try_(|| {
-            self.next = self.lookup.lookup_serialize(key)?.unwrap_or(UNKNOWN_KEY);
+            self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
             Ok(())
         })
         .ctx(self)
@@ -251,13 +270,6 @@ impl SimpleSerializer for StructBuilder {
     }
 }
 
-/// Optimize field lookups for static names
-#[derive(Debug, Clone)]
-pub struct FieldLookup {
-    pub cached_names: Vec<Option<StaticFieldName>>,
-    pub index: BTreeMap<String, usize>,
-}
-
 /// A wrapper around a static field name that compares using ptr and length
 #[derive(Debug, Clone)]
 pub struct StaticFieldName(&'static str);
@@ -268,58 +280,19 @@ impl std::cmp::PartialEq for StaticFieldName {
     }
 }
 
-impl FieldLookup {
-    pub fn new(field_names: Vec<String>) -> Result<Self> {
-        let mut index = BTreeMap::new();
-        for (idx, name) in field_names.into_iter().enumerate() {
-            if index.contains_key(&name) {
-                fail!("Duplicate field {name}");
-            }
-            index.insert(name, idx);
-        }
-        Ok(Self {
-            cached_names: vec![None; index.len()],
-            index,
-        })
-    }
-
-    pub fn take(&mut self) -> Self {
-        Self {
-            cached_names: std::mem::replace(&mut self.cached_names, vec![None; self.index.len()]),
-            index: self.index.clone(),
-        }
-    }
-
-    pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
-        if self.cached_names.get(guess) == Some(&Some(StaticFieldName(key))) {
-            Some(guess)
-        } else {
-            let &idx = self.index.get(key)?;
-            if self.cached_names[idx].is_none() {
-                self.cached_names[idx] = Some(StaticFieldName(key));
-            }
-            Some(idx)
-        }
-    }
-
-    pub fn lookup_serialize<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<Option<usize>> {
-        KeyLookupSerializer::lookup(&self.index, key)
-    }
-}
-
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
-    index: &'a BTreeMap<String, usize>,
+    fields: &'a [(ArrayBuilder, FieldMeta)],
     result: Option<usize>,
 }
 
 impl<'a> KeyLookupSerializer<'a> {
     pub fn lookup<K: Serialize + ?Sized>(
-        index: &'a BTreeMap<String, usize>,
+        fields: &'a [(ArrayBuilder, FieldMeta)],
         key: &K,
     ) -> Result<Option<usize>> {
         let mut this = Self {
-            index,
+            fields,
             result: None,
         };
         key.serialize(Mut(&mut this))?;
@@ -333,7 +306,11 @@ impl Context for KeyLookupSerializer<'_> {
 
 impl SimpleSerializer for KeyLookupSerializer<'_> {
     fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.result = self.index.get(v).copied();
+        for (idx, (_, meta)) in self.fields.iter().enumerate() {
+            if meta.name == v {
+                self.result = Some(idx);
+            }
+        }
         Ok(())
     }
 }
