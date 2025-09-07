@@ -50,7 +50,6 @@ impl<O: Offset> ListBuilder<O> {
 
     pub fn reserve(&mut self, additional: usize) {
         self.offsets.reserve(additional);
-        // Note: do not reserve elements as number of elements per list is unclear
     }
 }
 
@@ -123,8 +122,14 @@ impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
         try_(|| self.offsets.push_seq_none()).ctx(self)
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        try_(|| self.start()).ctx(self)
+    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
+        try_(|| {
+            if let Some(len) = len {
+                self.elements.reserve(len);
+            }
+            self.start()
+        })
+        .ctx(self)
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -135,8 +140,12 @@ impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
         try_(|| self.end()).ctx(self)
     }
 
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
+    fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
+        try_(|| {
+            self.elements.reserve(len);
+            self.start()
+        })
+        .ctx(self)
     }
 
     fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -147,8 +156,12 @@ impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
         try_(|| self.end()).ctx(self)
     }
 
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
+    fn serialize_tuple_struct_start(&mut self, _: &'static str, len: usize) -> Result<()> {
+        try_(|| {
+            self.elements.reserve(len);
+            self.start()
+        })
+        .ctx(self)
     }
 
     fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
@@ -161,6 +174,7 @@ impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
 
     fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
         try_(|| {
+            self.elements.reserve(v.len());
             self.start()?;
             for item in v {
                 self.element(item)?;
