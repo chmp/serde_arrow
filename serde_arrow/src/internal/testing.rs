@@ -31,8 +31,26 @@ macro_rules! hash_map {
 
 pub(crate) use hash_map;
 
+#[allow(unused)]
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),* $(,)?) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+#[allow(unused)]
+pub(crate) use btree_map;
+
 use super::utils::array_ext::get_bit_buffer;
 
+#[allow(unused)]
 pub(crate) trait ArrayAccess {
     fn get_utf8(&self, idx: usize) -> Result<Option<&str>>;
 }
@@ -47,6 +65,7 @@ impl ArrayAccess for Array {
     }
 }
 
+#[allow(unused)]
 fn get_utf8_impl<O>(array: &BytesArray<O>, idx: usize) -> Result<Option<&str>>
 where
     O: Copy,
@@ -74,18 +93,3 @@ where
 
     Ok(Some(str::from_utf8(data)?))
 }
-
-macro_rules! btree_map {
-    () => {
-        ::std::collections::BTreeMap::new()
-    };
-    ($($key:expr => $value:expr),* $(,)?) => {
-        {
-            let mut m = ::std::collections::BTreeMap::new();
-            $(m.insert($key.into(), $value.into());)*
-            m
-        }
-    };
-}
-
-pub(crate) use btree_map;

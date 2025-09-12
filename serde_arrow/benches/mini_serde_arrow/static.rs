@@ -68,7 +68,7 @@ impl<'a> SimpleSerializer<'a> for OuterSerializer<'a> {
     }
 }
 
-pub enum ArraySerializer<'a> {
+enum ArraySerializer<'a> {
     Boolean(BoolSerializer),
     Float32(PrimitiveSerializer<f32>),
     Float64(PrimitiveSerializer<f64>),
