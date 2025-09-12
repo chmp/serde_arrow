@@ -76,6 +76,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     use crate::mini_serde_arrow::r#dyn;
     super::bench_impl!(group, r#dyn, items);
 
+    use crate::mini_serde_arrow::r#static;
+    super::bench_impl!(group, r#static, items);
+
     group.finish();
 }
 
