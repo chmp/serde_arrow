@@ -9,7 +9,7 @@ use crate::internal::{
 
 #[test]
 fn int_nested() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {
             "name": "nested",
             "data_type": "Struct",
@@ -20,10 +20,10 @@ fn int_nested() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    let res = array_builder.push(&json!({"nested": {"field": 32}}));
+    let res = array_builder.push(json!({"nested": {"field": 32}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(&json!({"nested": {"field": null}}));
+    let res = array_builder.push(json!({"nested": {"field": null}}));
     assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
@@ -31,15 +31,15 @@ fn int_nested() -> PanicOnError<()> {
 
 #[test]
 fn int_top_level() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {"name": "field", "data_type": "U32"},
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    let res = array_builder.push(&json!({"field": 32}));
+    let res = array_builder.push(json!({"field": 32}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(&json!({"field": null}));
+    let res = array_builder.push(json!({"field": null}));
     assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())
@@ -47,7 +47,7 @@ fn int_top_level() -> PanicOnError<()> {
 
 #[test]
 fn struct_nested() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {
             "name": "nested",
             "data_type": "Struct",
@@ -58,10 +58,10 @@ fn struct_nested() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    let res = array_builder.push(&json!({"nested": {"field": {}}}));
+    let res = array_builder.push(json!({"nested": {"field": {}}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(&json!({"nested": {"field": null}}));
+    let res = array_builder.push(json!({"nested": {"field": null}}));
     assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
@@ -69,15 +69,15 @@ fn struct_nested() -> PanicOnError<()> {
 
 #[test]
 fn struct_top_level() -> PanicOnError<()> {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {"name": "field", "data_type": "Struct", "children": []},
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    let res = array_builder.push(&json!({"field": {}}));
+    let res = array_builder.push(json!({"field": {}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(&json!({"field": null}));
+    let res = array_builder.push(json!({"field": null}));
     assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())

@@ -373,10 +373,10 @@ fn missing_union_variants() {
     }
 
     let tracing_options = TracingOptions::default().allow_null_fields(true);
-    let fields = Vec::<FieldRef>::from_samples(&Items(&[U::A, U::C]), tracing_options).unwrap();
+    let fields = Vec::<FieldRef>::from_samples(Items(&[U::A, U::C]), tracing_options).unwrap();
 
     // NOTE: variant B was never encountered during tracing
-    let res = crate::to_arrow(&fields, &Items(&[U::A, U::B, U::C]));
+    let res = crate::to_arrow(&fields, Items(&[U::A, U::B, U::C]));
     assert_error_contains(&res, "Unknown variant does not support serialize_unit");
     assert_error_contains(&res, "field: \"$.item.<empty>\"")
 }

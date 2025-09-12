@@ -12,7 +12,7 @@ fn missing_i8() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -25,7 +25,7 @@ fn missing_i16() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -38,7 +38,7 @@ fn missing_i32() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -51,7 +51,7 @@ fn missing_i64() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -64,7 +64,7 @@ fn missing_u8() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -77,7 +77,7 @@ fn missing_u16() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -90,7 +90,7 @@ fn missing_u32() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -103,7 +103,7 @@ fn missing_u64() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2 }, S { a: 3, b: 4 }]);
 }
 
@@ -116,7 +116,7 @@ fn missing_f32() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2.0 }, S { a: 3, b: 4.0 }]);
 }
 
@@ -129,7 +129,7 @@ fn missing_f64() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: 2.0 }, S { a: 3, b: 4.0 }]);
 }
 
@@ -142,7 +142,7 @@ fn missing_bool() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: true }, S { a: 3, b: false }]);
 }
 
@@ -155,7 +155,7 @@ fn missing_string() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[
             S {
                 a: 1,
@@ -177,7 +177,7 @@ fn missing_optional_u32() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[S { a: 1, b: None }, S { a: 3, b: Some(4) }]);
 }
 
@@ -190,7 +190,7 @@ fn missing_optional_veci64() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[
             S { a: 1, b: vec![] },
             S {
@@ -215,7 +215,7 @@ fn missing_nested_struct() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[
             S {
                 a: 1,
@@ -246,7 +246,7 @@ fn missing_tuple() {
     }
 
     Test::new()
-        .with_schema(&json!([{"name": "a", "data_type": "I16"}]))
+        .with_schema(json!([{"name": "a", "data_type": "I16"}]))
         .serialize(&[
             S {
                 a: 1,
@@ -280,7 +280,7 @@ fn missing_nested_field() {
     }
 
     Test::new()
-        .with_schema(&json!([
+        .with_schema(json!([
             {"name": "a", "data_type": "I16"},
             {
                 "name": "b",

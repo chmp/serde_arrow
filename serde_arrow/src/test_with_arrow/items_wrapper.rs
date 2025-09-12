@@ -14,12 +14,12 @@ fn example() -> PanicOnError<()> {
 
     let fields_from_type = Vec::<FieldRef>::from_type::<Item<u64>>(TracingOptions::default())?;
     let fields_from_samples =
-        Vec::<FieldRef>::from_samples(&Items(&items), TracingOptions::default())?;
+        Vec::<FieldRef>::from_samples(Items(&items), TracingOptions::default())?;
 
     assert_eq!(fields_from_type, fields_from_samples);
     let fields = fields_from_type;
 
-    let arrays = serde_arrow::to_arrow(&fields, &Items(&items))?;
+    let arrays = serde_arrow::to_arrow(&fields, Items(&items))?;
 
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields.clone())), arrays.clone())?;
     println!("{:#?}", batch);

@@ -65,6 +65,10 @@ impl MapBuilder {
             offsets: self.offsets.offsets,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+    }
 }
 
 impl Context for MapBuilder {
@@ -83,8 +87,15 @@ impl SimpleSerializer for MapBuilder {
         try_(|| self.offsets.push_seq_none()).ctx(self)
     }
 
-    fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        try_(|| self.offsets.start_seq()).ctx(self)
+    fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
+        try_(|| {
+            if let Some(len) = len {
+                self.keys.reserve(len);
+                self.values.reserve(len);
+            }
+            self.offsets.start_seq()
+        })
+        .ctx(self)
     }
 
     fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {

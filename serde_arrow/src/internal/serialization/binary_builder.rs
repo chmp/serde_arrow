@@ -88,6 +88,10 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     pub fn into_array(self) -> Result<Array> {
         Ok(B::ARRAY_VARIANT(self.array))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
 }
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {

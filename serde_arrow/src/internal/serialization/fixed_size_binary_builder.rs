@@ -55,6 +55,11 @@ impl FixedSizeBinaryBuilder {
             data: self.buffer,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.seq.reserve(additional);
+        self.buffer.reserve(additional * self.n);
+    }
 }
 
 impl FixedSizeBinaryBuilder {

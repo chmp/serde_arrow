@@ -26,7 +26,7 @@ mod enum_without_data {
     fn as_dictionary() {
         Test::new()
             .with_schema(
-                &json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
+                json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
                     {"name": "a", "data_type": "Struct", "children": [
                         {"name": "a", "data_type": "Dictionary", "children": [
                             {"name": "key", "data_type": "U32"},
@@ -43,7 +43,7 @@ mod enum_without_data {
     fn as_enum() {
         Test::new()
             .with_schema(
-                &json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
+                json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
                     {"name": "a", "data_type": "Struct", "children": [
                         {"name": "a", "data_type": "Union", "children": [
                             {"name": "Variant", "data_type": "Null", "nullable": true},
@@ -79,7 +79,7 @@ mod enums_with_data {
     fn as_enum() {
         Test::new()
             .with_schema(
-                &json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
+                json!([{"name": "a", "data_type": "Struct", "nullable": true, "children": [
                     {"name": "a", "data_type": "Struct", "children": [
                         {"name": "a", "data_type": "Union", "children": [
                             {"name": "Variant", "data_type": "Struct", "nullable": false, "children": [

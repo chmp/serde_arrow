@@ -25,7 +25,7 @@ enum Enum<'a> {
 }
 
 fn serialize<I: Serialize + ?Sized>(fields: &[FieldRef], items: &I) -> Vec<ArrayRef> {
-    let builder = ArrayBuilder::from_arrow(&fields).unwrap();
+    let builder = ArrayBuilder::from_arrow(fields).unwrap();
     items
         .serialize(crate::Serializer::new(builder))
         .unwrap()

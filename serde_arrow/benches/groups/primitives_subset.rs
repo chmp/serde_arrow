@@ -14,16 +14,16 @@ use serde_arrow::_impl::arrow2;
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
 pub struct Item {
     pub k: bool,
-    pub a: u8,
-    pub b: u16,
-    pub c: u32,
-    pub d: u64,
-    pub e: i8,
-    pub f: i16,
-    pub g: i32,
-    pub h: i64,
+    pub a: f32,
+    pub b: f32,
+    pub c: f64,
+    pub d: f64,
+    pub e: f32,
+    pub f: f32,
+    pub g: f64,
+    pub h: f64,
     pub i: f32,
-    pub j: f64,
+    pub j: f32,
     pub l: String,
 }
 
@@ -55,7 +55,7 @@ pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> Stri
 }
 
 pub fn benchmark_serialize(c: &mut criterion::Criterion) {
-    let mut group = super::new_group(c, "primitives_1000");
+    let mut group = super::new_group(c, "primitives_subset_1000");
 
     let items = (0..1_000)
         .map(|_| Item::random(&mut rand::thread_rng()))
@@ -72,6 +72,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
 
     use crate::impls::arrow2_convert;
     super::bench_impl!(group, arrow2_convert, items);
+
+    use crate::mini_serde_arrow::r#dyn;
+    super::bench_impl!(group, r#dyn, items);
 
     group.finish();
 }

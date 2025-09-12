@@ -66,7 +66,7 @@ mod time_string_conversion {
             .iter()
             .map(|s| Item(String::from(*s)))
             .collect::<Vec<_>>();
-        let times = strings.iter().map(|s| date::<T>(*s)).collect::<Vec<_>>();
+        let times = strings.iter().map(|s| date::<T>(s)).collect::<Vec<_>>();
 
         assert_deserialization::<T>(&items, &times);
         assert_serialization::<T>(&items, &times);

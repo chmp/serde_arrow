@@ -58,6 +58,10 @@ impl DictionaryUtf8Builder {
             values: Box::new((*self.values).into_array()?),
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.indices.reserve(additional);
+    }
 }
 
 impl Context for DictionaryUtf8Builder {

@@ -7,7 +7,7 @@ use crate::internal::{
 
 #[test]
 fn outer_struct() {
-    let res = SerdeArrowSchema::from_samples(&[1_u32, 2_u32, 3_u32], TracingOptions::default());
+    let res = SerdeArrowSchema::from_samples([1_u32, 2_u32, 3_u32], TracingOptions::default());
     assert_error_contains(
         &res,
         "Only struct-like types are supported as root types in schema tracing.",
@@ -30,7 +30,7 @@ fn outer_sequence_issue_97() {
         k: 100.0,
     };
 
-    let res = SerdeArrowSchema::from_samples(&b, TracingOptions::default());
+    let res = SerdeArrowSchema::from_samples(b, TracingOptions::default());
     assert_error_contains(&res, "Cannot trace non-sequences with `from_samples`");
     assert_error_contains(&res, "consider wrapping the argument in an array");
 }
@@ -43,6 +43,6 @@ fn enums_without_data() {
         B,
     }
 
-    let res = SerdeArrowSchema::from_samples(&[E::A, E::B], TracingOptions::default());
+    let res = SerdeArrowSchema::from_samples([E::A, E::B], TracingOptions::default());
     assert_error_contains(&res, "by setting `enums_without_data_as_strings` to `true`");
 }

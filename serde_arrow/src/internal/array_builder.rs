@@ -62,6 +62,10 @@ impl ArrayBuilder {
             schema,
         })
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.builder.reserve(additional);
+    }
 }
 
 impl std::fmt::Debug for ArrayBuilder {
@@ -84,9 +88,17 @@ impl ArrayBuilder {
     }
 
     pub(crate) fn build_arrays(&mut self) -> Result<Vec<Array>> {
-        let mut arrays = Vec::new();
-        for field in self.builder.take_records()? {
-            arrays.push(field.into_array()?);
+        let mut arrays = Vec::with_capacity(self.builder.num_fields());
+        for (field, _) in &mut self.builder.0.fields {
+            arrays.push(field.take().into_array()?);
+        }
+        Ok(arrays)
+    }
+
+    pub(crate) fn into_arrays(self) -> Result<Vec<Array>> {
+        let mut arrays = Vec::with_capacity(self.builder.num_fields());
+        for (field, _) in self.builder.0.fields {
+            arrays.push(field.into_array()?)
         }
         Ok(arrays)
     }

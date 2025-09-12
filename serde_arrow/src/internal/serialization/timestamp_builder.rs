@@ -59,6 +59,10 @@ impl TimestampBuilder {
             values: self.array.values,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
 }
 
 fn is_utc_tz(tz: Option<&str>) -> Result<bool> {

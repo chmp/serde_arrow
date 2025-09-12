@@ -67,6 +67,10 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
     pub fn into_array(self) -> Result<Array> {
         Ok(A::ARRAY_VARIANT(self.array))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
 }
 
 impl<A: Utf8BuilderArray> Context for Utf8Builder<A> {

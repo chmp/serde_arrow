@@ -18,6 +18,11 @@ name = "serde_arrow_bench"
 required-features = ["arrow2-0-17", "arrow-56"]
 harness = false
 
+[[example]]
+name = "serialize_simple_struct_arrow"
+# arrow-version:replace: required-features = ["arrow-{version}"]
+required-features = ["arrow-56"]
+
 [package.metadata.docs.rs]
 # arrow-version:replace: features = ["arrow2-0-17", "arrow-{version}"]
 features = ["arrow2-0-17", "arrow-56"]

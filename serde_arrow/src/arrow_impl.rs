@@ -67,7 +67,7 @@ pub fn to_arrow<T: Serialize>(fields: &[FieldRef], items: T) -> Result<Vec<Array
     items
         .serialize(Serializer::new(builder))?
         .into_inner()
-        .to_arrow()
+        .into_arrow()
 }
 
 /// Deserialize items from arrow arrays (*requires one of the `arrow-*`
@@ -193,6 +193,16 @@ impl crate::internal::array_builder::ArrayBuilder {
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
         Ok(self
             .build_arrays()?
+            .into_iter()
+            .map(ArrayRef::try_from)
+            .collect::<Result<_, MarrowError>>()?)
+    }
+
+    /// Consume the builder and construct the `arrow` arrays (*requires one of
+    /// the `arrow-*` features*)
+    pub fn into_arrow(self) -> Result<Vec<ArrayRef>> {
+        Ok(self
+            .into_arrays()?
             .into_iter()
             .map(ArrayRef::try_from)
             .collect::<Result<_, MarrowError>>()?)

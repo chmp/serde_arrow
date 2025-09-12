@@ -31,6 +31,8 @@ impl NullBuilder {
     pub fn into_array(self) -> Result<Array> {
         Ok(Array::Null(NullArray { len: self.count }))
     }
+
+    pub fn reserve(&mut self, _additional: usize) {}
 }
 
 impl Context for NullBuilder {
