@@ -1,4 +1,4 @@
-use crate::groups::complex_common::Item;
+use crate::groups::complex::Item;
 
 use {
     serde_arrow::schema::{SchemaLike as _, SerdeArrowSchema},
@@ -17,9 +17,7 @@ use serde_json::Value;
 
 fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
     let rng = &mut rand::thread_rng();
-    let items = (0..10_000)
-        .map(|_| Item::random(rng))
-        .collect::<Vec<Item>>();
+    let items = (0..1000).map(|_| Item::random(rng)).collect::<Vec<Item>>();
     let jsons_to_deserialize = items
         .iter()
         .map(|item| serde_json::to_string(item).expect("Failed to serialize JSON"))
@@ -68,7 +66,7 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
                 .collect::<Vec<_>>();
             let transcoders = deserializers
                 .iter_mut()
-                .map(|deserializer| serde_transcode::Transcoder::new(deserializer))
+                .map(serde_transcode::Transcoder::new)
                 .collect::<Vec<_>>();
             decoder.serialize(&transcoders).unwrap();
             let arrays = decoder.flush().unwrap().unwrap().columns().to_vec();

@@ -24,9 +24,10 @@ struct Point {
 
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
 struct SubItem {
-    a: bool,
-    b: f64,
-    c: Option<f32>,
+    first: bool,
+    second: f64,
+    // TODO: fix this
+    // c: Option<f32>,
 }
 
 impl Item {
@@ -45,12 +46,37 @@ impl Item {
                 })
                 .collect(),
             child: SubItem {
-                a: Standard.sample(rng),
-                b: Standard.sample(rng),
-                c: Standard.sample(rng),
+                first: Standard.sample(rng),
+                second: Standard.sample(rng),
+                // c: Standard.sample(rng),
             },
         }
     }
 }
 
-crate::groups::impls::define_benchmark!(complex_common, ty = Item, n = [100_000, 1_000_000],);
+pub fn benchmark_serialize(c: &mut criterion::Criterion) {
+    let mut group = super::new_group(c, "complex_1000");
+
+    let items = (0..1_000)
+        .map(|_| Item::random(&mut rand::thread_rng()))
+        .collect::<Vec<_>>();
+
+    use crate::impls::serde_arrow_arrow;
+    super::bench_impl!(group, serde_arrow_arrow, items);
+
+    use crate::impls::serde_arrow_marrow;
+    super::bench_impl!(group, serde_arrow_marrow, items);
+
+    use crate::impls::arrow;
+    super::bench_impl!(group, arrow, items);
+
+    use crate::impls::arrow2_convert;
+    super::bench_impl!(group, arrow2_convert, items);
+
+    use crate::mini_serde_arrow::r#dyn;
+    super::bench_impl!(group, r#dyn, items);
+
+    group.finish();
+}
+
+criterion::criterion_group!(benchmark, benchmark_serialize);
