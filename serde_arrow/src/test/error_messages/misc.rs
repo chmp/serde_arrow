@@ -1,6 +1,7 @@
 use crate::internal::error::Error;
 
 #[test]
+#[allow(clippy::bool_assert_comparison)]
 fn backtrace_on_debug() {
     let err = Error::custom(String::from("foo bar"));
 

@@ -11,7 +11,7 @@ use crate::internal::{
 };
 
 fn type_from_str(s: &str) -> DataType {
-    let schema = SerdeArrowSchema::from_value(&json!([{"name": "item", "data_type": s}])).unwrap();
+    let schema = SerdeArrowSchema::from_value(json!([{"name": "item", "data_type": s}])).unwrap();
     schema.fields[0].data_type.clone()
 }
 
@@ -61,7 +61,7 @@ fn i16_field_simple() -> PanicOnError<()> {
     let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    let roundtripped = SerdeArrowSchema::from_value(actual)?;
     assert_eq!(roundtripped, schema);
 
     Ok(())
@@ -93,7 +93,7 @@ fn date64_field_complex() -> PanicOnError<()> {
     let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    let roundtripped = SerdeArrowSchema::from_value(actual)?;
     assert_eq!(roundtripped, schema);
 
     Ok(())
@@ -129,7 +129,7 @@ fn list_field_complex() -> PanicOnError<()> {
     let actual = serde_json::to_value(&schema)?;
     assert_eq!(actual, expected);
 
-    let roundtripped = SerdeArrowSchema::from_value(&actual)?;
+    let roundtripped = SerdeArrowSchema::from_value(actual)?;
     assert_eq!(roundtripped, schema);
 
     Ok(())
@@ -266,7 +266,7 @@ fn example_without_wrapper() {
     };
 
     let input = r#"[{"name":"foo","data_type":"U8"},{"name":"bar","data_type":"Utf8"}]"#;
-    let actual: SerdeArrowSchema = serde_json::from_str(&input).unwrap();
+    let actual: SerdeArrowSchema = serde_json::from_str(input).unwrap();
     assert_eq!(actual, expected);
 }
 
@@ -305,7 +305,7 @@ fn doc_schema() {
         ]
     "#;
 
-    let actual: SerdeArrowSchema = serde_json::from_str(&schema).unwrap();
+    let actual: SerdeArrowSchema = serde_json::from_str(schema).unwrap();
 
     let expected = SerdeArrowSchema {
         fields: vec![
@@ -329,7 +329,7 @@ fn doc_schema() {
 
 #[test]
 fn test_metadata_strategy_from_explicit() {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {
             "name": "example",
             "data_type": "Null",
@@ -368,7 +368,7 @@ fn test_metadata_strategy_from_explicit() {
 
 #[test]
 fn test_metadata_strategy_from_metadata() {
-    let schema = SerdeArrowSchema::from_value(&json!([
+    let schema = SerdeArrowSchema::from_value(json!([
         {
             "name": "example",
             "data_type": "Null",
@@ -409,7 +409,7 @@ fn test_metadata_strategy_from_metadata() {
 #[test]
 fn test_invalid_metadata() {
     // strategies cannot be given both in metadata and strategy field
-    let res = SerdeArrowSchema::from_value(&json!([
+    let res = SerdeArrowSchema::from_value(json!([
         {
             "name": "example",
             "data_type": "Null",

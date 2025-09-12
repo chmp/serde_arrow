@@ -32,7 +32,7 @@ fn example() -> PanicOnError<()> {
     let fields_from_type = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
     let batch = serde_arrow::to_record_batch(&fields_from_type, &items_input)?;
 
-    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(batch.schema())?;
     let items: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
 
     assert_eq!(fields_from_batch, fields_from_type);
@@ -82,7 +82,7 @@ fn examples_trace_from_type() {
 
         let items = Vec::<T>::new();
         let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
-        let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
+        let fields_from_batch = Vec::<FieldRef>::from_value(batch.schema())?;
 
         assert_eq!(fields_from_batch, fields_from_type);
         Ok(())
@@ -120,7 +120,7 @@ fn examples_trace_from_value() {
 
         let items = Vec::<Record>::new();
         let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
-        let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
+        let fields_from_batch = Vec::<FieldRef>::from_value(batch.schema())?;
 
         assert_eq!(fields_from_batch, fields_from_type);
         Ok(())
@@ -133,10 +133,10 @@ fn test_different_arrow_schema_accessors() -> Result<()> {
     let items = Vec::<Item<i32>>::new();
     let batch = serde_arrow::to_record_batch(&fields_from_type, &items)?;
 
-    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema())?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(batch.schema())?;
     assert_eq!(fields_from_batch, fields_from_type);
 
-    let fields_from_batch = Vec::<FieldRef>::from_value(&batch.schema().fields())?;
+    let fields_from_batch = Vec::<FieldRef>::from_value(batch.schema().fields())?;
     assert_eq!(fields_from_batch, fields_from_type);
 
     Ok(())
