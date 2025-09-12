@@ -185,7 +185,9 @@ def format():
 def check(all=False, fix=False):
     check_cargo_toml()
     _sh(f"cargo check --all-targets --features {default_features}")
-    _sh(f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}")
+    _sh(
+        f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}"
+    )
 
     if all:
         for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
