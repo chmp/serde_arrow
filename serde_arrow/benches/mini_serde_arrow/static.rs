@@ -357,14 +357,14 @@ impl<'a> SimpleSerializer<'a> for StructSerializer<'a> {
     fn serialize_struct_field(&mut self, key: &'static str) -> Result<&mut ArraySerializer<'a>> {
         let current = self.next;
         if let Some(field_name) = self.field_names[current] {
-            if field_name != StaticFieldName(key) {
+            if field_name != StaticFieldName::new(key) {
                 return Err(Error::custom("Out of order fields".into()));
             }
         } else {
             if self.fields[current].name != key {
                 return Err(Error::custom("Out of order fields".into()));
             }
-            self.field_names[current] = Some(StaticFieldName(key));
+            self.field_names[current] = Some(StaticFieldName::new(key));
         }
         self.next += 1;
         Ok(&mut self.serializers[current])

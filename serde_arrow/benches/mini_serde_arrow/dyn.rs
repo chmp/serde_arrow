@@ -6,7 +6,7 @@ use marrow::{
 use serde::{ser::Impossible, Serialize};
 use serde_arrow::{schema::SchemaLike, Error, Result};
 
-use crate::mini_serde_arrow::utils::StaticFieldName;
+use crate::mini_serde_arrow::utils::{unsupported, StaticFieldName};
 
 pub fn trace(items: &(impl Serialize + ?Sized)) -> Vec<Field> {
     Vec::<Field>::from_samples(items, Default::default()).unwrap()
@@ -21,36 +21,168 @@ pub fn to_marrow<T: ?Sized + Serialize>(fields: &[Field], items: &T) -> Result<V
     for field in fields {
         serializers.push(build_serializer(field)?);
     }
-    let mut serializer = OuterSerializer(StructSerializer::new(fields, serializers));
-    items.serialize(Mut(&mut serializer))?;
+    let mut serializer = OuterSerializer::new(fields, serializers);
+    items.serialize(&mut serializer)?;
 
     let mut result = Vec::new();
-    for field in &mut serializer.0.serializers {
+    for field in &mut serializer.serializers {
         result.push(field.build_array()?);
     }
 
     Ok(result)
 }
 
-struct OuterSerializer<'a>(StructSerializer<'a>);
+struct OuterSerializer<'a> {
+    fields: &'a [Field],
+    field_names: Vec<Option<StaticFieldName>>,
+    serializers: Vec<Box<dyn SimpleSerializer + 'a>>,
+}
 
-impl<'a> SimpleSerializer for OuterSerializer<'a> {
-    fn build_array(&mut self) -> Result<Array> {
-        Err(Error::custom("cannot build arrays".into()))
+impl<'a> OuterSerializer<'a> {
+    pub fn new(fields: &'a [Field], serializers: Vec<Box<dyn SimpleSerializer + 'a>>) -> Self {
+        Self {
+            fields,
+            field_names: vec![None; fields.len()],
+            serializers,
+        }
+    }
+}
+
+impl<'r, 'a> serde::ser::Serializer for &'r mut OuterSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    unsupported!(
+        serialize_bool,
+        serialize_bytes,
+        serialize_char,
+        serialize_f32,
+        serialize_f64,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_i8,
+        serialize_map,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_none,
+        serialize_some,
+        serialize_str,
+        serialize_struct,
+        serialize_struct_variant,
+        serialize_tuple,
+        serialize_tuple_struct,
+        serialize_tuple_variant,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_u8,
+        serialize_unit,
+        serialize_unit_struct,
+        serialize_unit_variant,
+    );
+
+    type SerializeSeq = Self;
+
+    fn serialize_seq(
+        self,
+        len: Option<usize>,
+    ) -> std::result::Result<Self::SerializeSeq, Self::Error> {
+        if let Some(len) = len {
+            for serializer in &mut self.serializers {
+                SimpleSerializer::reserve(serializer.as_mut(), len);
+            }
+        }
+        Ok(self)
+    }
+}
+
+impl<'r, 'a> serde::ser::SerializeSeq for &'r mut OuterSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: Serialize + ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> std::result::Result<(), Self::Error> {
+        value.serialize(OuterStructSerializer(self, 0))
     }
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        if let Some(len) = len {
-            self.0.reserve(len);
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+}
+
+struct OuterStructSerializer<'r, 'a>(&'r mut OuterSerializer<'a>, usize);
+
+impl<'r, 'a> serde::ser::Serializer for OuterStructSerializer<'r, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    unsupported!(
+        serialize_bool,
+        serialize_bytes,
+        serialize_char,
+        serialize_f32,
+        serialize_f64,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_i8,
+        serialize_map,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_none,
+        serialize_some,
+        serialize_seq,
+        serialize_str,
+        serialize_struct_variant,
+        serialize_tuple,
+        serialize_tuple_struct,
+        serialize_tuple_variant,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_u8,
+        serialize_unit,
+        serialize_unit_struct,
+        serialize_unit_variant,
+    );
+
+    type SerializeStruct = Self;
+
+    fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self> {
+        Ok(self)
+    }
+}
+
+impl<'r, 'a> serde::ser::SerializeStruct for OuterStructSerializer<'r, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let current = self.1;
+        if Some(StaticFieldName::new(key)) != self.0.field_names[current] {
+            if self.0.fields[current].name != key {
+                return Err(Error::custom(
+                    "Out of order fields are not supported".into(),
+                ));
+            }
+            self.0.field_names[current] = Some(StaticFieldName::new(key));
         }
+        value.serialize(Mut(self.0.serializers[current].as_mut()))?;
+        self.1 += 1;
         Ok(())
     }
 
-    fn serialize_seq_item(&mut self) -> Result<&mut dyn SimpleSerializer> {
-        Ok(&mut self.0)
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        if self.1 != self.0.fields.len() {
+            return Err(Error::custom("Skipping fields is not supported".into()));
+        }
         Ok(())
     }
 }
@@ -269,14 +401,14 @@ impl<'a> SimpleSerializer for StructSerializer<'a> {
     fn serialize_struct_field(&mut self, key: &'static str) -> Result<&mut dyn SimpleSerializer> {
         let current = self.next;
         if let Some(field_name) = self.field_names[current] {
-            if field_name != StaticFieldName(key) {
+            if field_name != StaticFieldName::new(key) {
                 return Err(Error::custom("Out of order fields".into()));
             }
         } else {
             if self.fields[current].name != key {
                 return Err(Error::custom("Out of order fields".into()));
             }
-            self.field_names[current] = Some(StaticFieldName(key));
+            self.field_names[current] = Some(StaticFieldName::new(key));
         }
         self.next += 1;
         Ok(self.serializers[current].as_mut())
