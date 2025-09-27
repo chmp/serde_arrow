@@ -1,17 +1,11 @@
 //! An implementation using static dispatch via enums
-#![allow(unused)]
 use std::marker::PhantomData;
 
 use marrow::{
     array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
     datatypes::{DataType, Field, FieldMeta},
 };
-use rand::{
-    distributions::{Standard, Uniform},
-    prelude::Distribution,
-    Rng,
-};
-use serde::{ser::Impossible, Serialize};
+use serde::Serialize;
 use serde_arrow::{schema::SchemaLike, Error, Result};
 
 use crate::mini_serde_arrow::utils::{unsupported, StaticFieldName};
@@ -127,7 +121,7 @@ impl<'s, 'a> serde::Serializer for OuterSerializerStruct<'s, 'a> {
 
     type SerializeStruct = Self;
 
-    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(self)
     }
 
@@ -174,11 +168,7 @@ impl<'s, 'a> serde::ser::SerializeStruct for OuterSerializerStruct<'s, 'a> {
         let current = self.current;
         self.current += 1;
 
-        if let Some(field_name) = self.field_names[current] {
-            if field_name != StaticFieldName::new(key) {
-                return Err(Error::custom("Out of order fields".into()));
-            }
-        } else {
+        if self.field_names.get(current).copied() != Some(Some(StaticFieldName::new(key))) {
             if self.fields[current].name != key {
                 return Err(Error::custom("Out of order fields".into()));
             }
@@ -218,7 +208,7 @@ macro_rules! dispatch_array_serializer {
     };
 }
 
-macro_rules! unsupported_array_serializer {
+macro_rules! implement_array_serializer {
     ($s:lifetime, $a:lifetime; $($ident:ident),* $(,)?) => {
         type Ok = ();
         type Error = Error;
@@ -226,15 +216,15 @@ macro_rules! unsupported_array_serializer {
         type SerializeStruct = ArraySerializerStruct<$s, $a>;
         type SerializeSeq = ArraySerializerSeq<$s, $a>;
 
-        $( unsupported_array_serializer!(impl $ident); )*
+        $( implement_array_serializer!(impl $ident); )*
     };
     (impl serialize_struct) => {
-        fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
             Err(Error::custom("cannot serialize struct".into()))
         }
     };
     (impl serialize_seq) => {
-        fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
             Err(Error::custom("cannot serialize seq".into()))
         }
     };
@@ -254,12 +244,6 @@ impl<'a> ArraySerializer<'a> {
 }
 
 impl<'s, 'a> serde::Serializer for &'s mut ArraySerializer<'a> {
-    type Ok = ();
-    type Error = Error;
-
-    type SerializeStruct = ArraySerializerStruct<'s, 'a>;
-    type SerializeSeq = ArraySerializerSeq<'s, 'a>;
-
     fn serialize_bool(self, v: bool) -> Result<()> {
         dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_bool(v))
     }
@@ -284,7 +268,8 @@ impl<'s, 'a> serde::Serializer for &'s mut ArraySerializer<'a> {
         dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_seq(len))
     }
 
-    unsupported!(
+    implement_array_serializer!(
+        's, 'a;
         serialize_unit,
         serialize_i8,
         serialize_i16,
@@ -329,11 +314,7 @@ impl<'s, 'a> serde::ser::SerializeStruct for ArraySerializerStruct<'s, 'a> {
         let current = self.current;
         self.current += 1;
 
-        if let Some(field_name) = self.field_names[current] {
-            if field_name != StaticFieldName::new(key) {
-                return Err(Error::custom("Out of order fields".into()));
-            }
-        } else {
+        if self.field_names.get(current).copied() != Some(Some(StaticFieldName::new(key))) {
             if self.fields[current].name != key {
                 return Err(Error::custom("Out of order fields".into()));
             }
@@ -433,7 +414,7 @@ impl<'s, 'a> serde::Serializer for &'s mut PrimitiveSerializer<'a, f32> {
         Ok(())
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_unit,
         serialize_bool,
@@ -480,7 +461,7 @@ impl<'s, 'a> serde::Serializer for &'s mut PrimitiveSerializer<'a, f64> {
         Ok(())
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_unit,
         serialize_bool,
@@ -543,7 +524,7 @@ impl<'s, 'a> serde::Serializer for &'s mut BoolSerializer<'a> {
         Ok(())
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_unit,
         serialize_i8,
@@ -614,7 +595,7 @@ impl<'s, 'a> serde::Serializer for &'s mut Utf8Serializer<'a> {
         Ok(())
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_bool,
         serialize_unit,
@@ -697,7 +678,7 @@ impl<'s, 'a> serde::Serializer for &'s mut SeqSerializer<'a> {
         })
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_bool,
         serialize_unit,
@@ -733,7 +714,6 @@ struct StructSerializer<'a> {
     fields: &'a [Field],
     field_names: Vec<Option<StaticFieldName>>,
     serializers: Vec<ArraySerializer<'a>>,
-    next: usize,
     len: usize,
 }
 
@@ -743,7 +723,6 @@ impl<'a> StructSerializer<'a> {
             fields,
             field_names: vec![None; fields.len()],
             serializers,
-            next: 0,
             len: 0,
         }
     }
@@ -774,7 +753,7 @@ impl<'a> StructSerializer<'a> {
     }
 }
 impl<'s, 'a> serde::Serializer for &'s mut StructSerializer<'a> {
-    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         self.len += 1;
         Ok(ArraySerializerStruct {
             fields: self.fields,
@@ -784,7 +763,7 @@ impl<'s, 'a> serde::Serializer for &'s mut StructSerializer<'a> {
         })
     }
 
-    unsupported_array_serializer!(
+    implement_array_serializer!(
         's, 'a;
         serialize_bool,
         serialize_unit,
