@@ -3,7 +3,7 @@ use marrow::{
     array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
     datatypes::{DataType, Field, FieldMeta},
 };
-use serde::{ser::Impossible, Serialize};
+use serde::Serialize;
 use serde_arrow::{schema::SchemaLike, Error, Result};
 
 use crate::mini_serde_arrow::utils::{unsupported, StaticFieldName};
@@ -529,11 +529,6 @@ where
 
     type SerializeStruct = Self;
     type SerializeSeq = Self;
-    type SerializeTupleVariant = Impossible<(), Error>;
-    type SerializeTupleStruct = Impossible<(), Error>;
-    type SerializeTuple = Impossible<(), Error>;
-    type SerializeStructVariant = Impossible<(), Error>;
-    type SerializeMap = Impossible<(), Error>;
 
     fn serialize_bool(mut self, v: bool) -> Result<()> {
         SimpleSerializer::serialize_bool(&mut *self, v)
@@ -552,119 +547,8 @@ where
         Ok(self)
     }
 
-    fn serialize_char(self, _: char) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_i8(self, _: i8) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_i16(self, _: i16) -> Result<()> {
-        todo!()
-    }
-
     fn serialize_str(mut self, v: &str) -> Result<()> {
         SimpleSerializer::serialize_str(&mut *self, v)
-    }
-
-    fn serialize_unit_struct(self, _: &'static str) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_i32(self, _: i32) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_newtype_struct<V>(self, _: &'static str, _: &V) -> Result<()>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_newtype_variant<V>(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: &V,
-    ) -> Result<()>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        todo!()
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        todo!()
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        todo!()
-    }
-
-    fn serialize_i64(self, _: i64) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_u8(self, _: u8) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_u16(self, _: u16) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_u32(self, _: u32) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_u64(self, _: u64) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_bytes(self, _: &[u8]) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_none(self) -> Result<()> {
-        todo!()
-    }
-
-    fn serialize_some<V>(self, _: &V) -> Result<()>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_unit(self) -> Result<()> {
-        todo!()
     }
 
     fn serialize_seq(mut self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -672,13 +556,30 @@ where
         Ok(self)
     }
 
-    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        todo!()
-    }
+    unsupported!(
+        serialize_char,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_unit_struct,
+        serialize_unit_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_tuple_struct,
+        serialize_tuple_variant,
+        serialize_struct_variant,
+        serialize_bytes,
+        serialize_none,
+        serialize_some,
+        serialize_unit,
+        serialize_tuple,
+        serialize_map,
+    );
 }
 
 impl<T> serde::ser::SerializeStruct for Mut<'_, T>

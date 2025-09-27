@@ -1,5 +1,7 @@
 //! An implementation using static dispatch via enums
 #![allow(unused)]
+use std::marker::PhantomData;
+
 use marrow::{
     array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
     datatypes::{DataType, Field, FieldMeta},
@@ -12,7 +14,7 @@ use rand::{
 use serde::{ser::Impossible, Serialize};
 use serde_arrow::{schema::SchemaLike, Error, Result};
 
-use crate::mini_serde_arrow::utils::StaticFieldName;
+use crate::mini_serde_arrow::utils::{unsupported, StaticFieldName};
 
 pub fn trace(items: &(impl Serialize + ?Sized)) -> Vec<Field> {
     Vec::<Field>::from_samples(items, Default::default()).unwrap()
@@ -27,15 +29,12 @@ pub fn to_marrow<T: ?Sized + Serialize>(fields: &[Field], items: &T) -> Result<V
     for field in fields {
         serializers.push(build_serializer(field)?);
     }
-    let mut serializer = OuterSerializer(ArraySerializer::Struct(StructSerializer::new(
+    let mut serializer = OuterSerializer {
+        field_names: vec![None; fields.len()],
         fields,
         serializers,
-    )));
-    items.serialize(Mut(&mut serializer))?;
-
-    let ArraySerializer::Struct(mut serializer) = serializer.0 else {
-        unreachable!()
     };
+    items.serialize(&mut serializer)?;
 
     let mut result = Vec::new();
     for field in &mut serializer.serializers {
@@ -45,34 +44,163 @@ pub fn to_marrow<T: ?Sized + Serialize>(fields: &[Field], items: &T) -> Result<V
     Ok(result)
 }
 
-struct OuterSerializer<'a>(ArraySerializer<'a>);
+struct OuterSerializer<'a> {
+    fields: &'a [Field],
+    field_names: Vec<Option<StaticFieldName>>,
+    serializers: Vec<ArraySerializer<'a>>,
+}
 
-impl<'a> SimpleSerializer<'a> for OuterSerializer<'a> {
-    fn build_array(&mut self) -> Result<Array> {
-        Err(Error::custom("cannot build arrays".into()))
+impl<'s, 'a> serde::Serializer for &'s mut OuterSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeSeq = Self;
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            for serializer in &mut self.serializers {
+                serializer.reserve(len);
+            }
+        }
+        Ok(self)
     }
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        if let Some(len) = len {
-            self.0.reserve(len);
-        }
+    unsupported!(
+        serialize_unit,
+        serialize_bool,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_some,
+        serialize_none,
+        serialize_struct,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_str,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+    );
+}
+
+impl<'s, 'a> serde::ser::SerializeSeq for &'s mut OuterSerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        value.serialize(OuterSerializerStruct {
+            fields: self.fields,
+            serializers: &mut self.serializers,
+            field_names: &mut self.field_names,
+            current: 0,
+        })
+    }
+
+    fn end(self) -> Result<()> {
         Ok(())
     }
+}
 
-    fn serialize_seq_item(&mut self) -> Result<&mut ArraySerializer<'a>> {
-        Ok(&mut self.0)
+struct OuterSerializerStruct<'s, 'a> {
+    fields: &'a [Field],
+    serializers: &'s mut [ArraySerializer<'a>],
+    field_names: &'s mut [Option<StaticFieldName>],
+    current: usize,
+}
+
+impl<'s, 'a> serde::Serializer for OuterSerializerStruct<'s, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeStruct = Self;
+
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        Ok(self)
     }
 
-    fn serialize_seq_end(&mut self) -> Result<()> {
+    unsupported!(
+        serialize_unit,
+        serialize_bool,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_str,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+    );
+}
+
+impl<'s, 'a> serde::ser::SerializeStruct for OuterSerializerStruct<'s, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let current = self.current;
+        self.current += 1;
+
+        if let Some(field_name) = self.field_names[current] {
+            if field_name != StaticFieldName::new(key) {
+                return Err(Error::custom("Out of order fields".into()));
+            }
+        } else {
+            if self.fields[current].name != key {
+                return Err(Error::custom("Out of order fields".into()));
+            }
+            self.field_names[current] = Some(StaticFieldName::new(key));
+        }
+
+        value.serialize(&mut self.serializers[current])
+    }
+
+    fn end(self) -> Result<()> {
+        if self.current != self.fields.len() {
+            return Err(Error::custom("Skipping fields is not supported".into()));
+        }
         Ok(())
     }
 }
 
 enum ArraySerializer<'a> {
-    Boolean(BoolSerializer),
-    Float32(PrimitiveSerializer<f32>),
-    Float64(PrimitiveSerializer<f64>),
-    LargeUtf8(Utf8Serializer),
+    Boolean(BoolSerializer<'a>),
+    Float32(PrimitiveSerializer<'a, f32>),
+    Float64(PrimitiveSerializer<'a, f64>),
+    LargeUtf8(Utf8Serializer<'a>),
     Struct(StructSerializer<'a>),
     LargeList(SeqSerializer<'a>),
 }
@@ -90,7 +218,32 @@ macro_rules! dispatch_array_serializer {
     };
 }
 
-impl<'a> SimpleSerializer<'a> for ArraySerializer<'a> {
+macro_rules! unsupported_array_serializer {
+    ($s:lifetime, $a:lifetime; $($ident:ident),* $(,)?) => {
+        type Ok = ();
+        type Error = Error;
+
+        type SerializeStruct = ArraySerializerStruct<$s, $a>;
+        type SerializeSeq = ArraySerializerSeq<$s, $a>;
+
+        $( unsupported_array_serializer!(impl $ident); )*
+    };
+    (impl serialize_struct) => {
+        fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+            Err(Error::custom("cannot serialize struct".into()))
+        }
+    };
+    (impl serialize_seq) => {
+        fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+            Err(Error::custom("cannot serialize seq".into()))
+        }
+    };
+    (impl $ident:ident) => {
+        unsupported!(impl $ident);
+    };
+}
+
+impl<'a> ArraySerializer<'a> {
     fn reserve(&mut self, additional: usize) {
         dispatch_array_serializer!(self, Self(ser) => ser.reserve(additional))
     }
@@ -98,45 +251,126 @@ impl<'a> SimpleSerializer<'a> for ArraySerializer<'a> {
     fn build_array(&mut self) -> Result<Array> {
         dispatch_array_serializer!(self, Self(ser) => ser.build_array())
     }
+}
 
-    fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_bool(v))
+impl<'s, 'a> serde::Serializer for &'s mut ArraySerializer<'a> {
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeStruct = ArraySerializerStruct<'s, 'a>;
+    type SerializeSeq = ArraySerializerSeq<'s, 'a>;
+
+    fn serialize_bool(self, v: bool) -> Result<()> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_bool(v))
     }
 
-    fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_f32(v))
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_f32(v))
     }
 
-    fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_f64(v))
+    fn serialize_f64(self, v: f64) -> Result<()> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_f64(v))
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_str(v))
+    fn serialize_str(self, v: &str) -> Result<()> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_str(v))
     }
 
-    fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_struct_start(name, len))
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_struct(name, len))
     }
 
-    fn serialize_struct_field(&mut self, key: &'static str) -> Result<&mut ArraySerializer<'a>> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_struct_field(key))
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        dispatch_array_serializer!(self, ArraySerializer(ser) => ser.serialize_seq(len))
     }
 
-    fn serialize_struct_end(&mut self) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_struct_end())
+    unsupported!(
+        serialize_unit,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+    );
+}
+
+struct ArraySerializerStruct<'s, 'a> {
+    fields: &'a [Field],
+    serializers: &'s mut [ArraySerializer<'a>],
+    field_names: &'s mut [Option<StaticFieldName>],
+    current: usize,
+}
+
+impl<'s, 'a> serde::ser::SerializeStruct for ArraySerializerStruct<'s, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let current = self.current;
+        self.current += 1;
+
+        if let Some(field_name) = self.field_names[current] {
+            if field_name != StaticFieldName::new(key) {
+                return Err(Error::custom("Out of order fields".into()));
+            }
+        } else {
+            if self.fields[current].name != key {
+                return Err(Error::custom("Out of order fields".into()));
+            }
+            self.field_names[current] = Some(StaticFieldName::new(key));
+        }
+
+        value.serialize(&mut self.serializers[current])
     }
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_seq_start(len))
+    fn end(self) -> Result<()> {
+        if self.current != self.serializers.len() {
+            return Err(Error::custom("Skipping fields is not supported".into()));
+        }
+        Ok(())
+    }
+}
+
+struct ArraySerializerSeq<'s, 'a> {
+    offsets: &'s mut Vec<i64>,
+    element: &'s mut ArraySerializer<'a>,
+}
+
+impl<'s, 'a> serde::ser::SerializeSeq for ArraySerializerSeq<'s, 'a> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        value.serialize(&mut *self.element)?;
+        let Some(last) = self.offsets.last_mut() else {
+            return Err(Error::custom("Invalid offset array".into()));
+        };
+        *last += 1;
+        Ok(())
     }
 
-    fn serialize_seq_item(&mut self) -> Result<&mut ArraySerializer<'a>> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_seq_item())
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        dispatch_array_serializer!(self, Self(ser) => ser.serialize_seq_end())
+    fn end(self) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -166,67 +400,130 @@ fn build_serializer<'a>(field: &'a Field) -> Result<ArraySerializer<'a>> {
     }
 }
 
-struct PrimitiveSerializer<T> {
+struct PrimitiveSerializer<'a, T> {
     values: Vec<T>,
+    fields: PhantomData<&'a [Field]>,
 }
 
-impl<T> PrimitiveSerializer<T> {
+impl<'a, T> PrimitiveSerializer<'a, T> {
     pub fn new() -> Self {
         Self {
             values: Default::default(),
+            fields: Default::default(),
         }
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.values.reserve(additional);
     }
 }
 
-impl SimpleSerializer<'_> for PrimitiveSerializer<f32> {
+impl<'a> PrimitiveSerializer<'a, f32> {
     fn build_array(&mut self) -> Result<Array> {
         Ok(Array::Float32(PrimitiveArray {
             validity: None,
             values: std::mem::take(&mut self.values),
         }))
     }
-
-    fn reserve(&mut self, additional: usize) {
-        self.values.reserve(additional);
-    }
-
-    fn serialize_f32(&mut self, value: f32) -> Result<()> {
-        self.values.push(value);
-        Ok(())
-    }
 }
 
-impl SimpleSerializer<'_> for PrimitiveSerializer<f64> {
+impl<'s, 'a> serde::Serializer for &'s mut PrimitiveSerializer<'a, f32> {
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        self.values.push(v);
+        Ok(())
+    }
+
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_unit,
+        serialize_bool,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f64,
+        serialize_str,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+        serialize_struct,
+    );
+}
+
+impl<'a> PrimitiveSerializer<'a, f64> {
     fn build_array(&mut self) -> Result<Array> {
         Ok(Array::Float64(PrimitiveArray {
             validity: None,
             values: std::mem::take(&mut self.values),
         }))
     }
+}
 
-    fn reserve(&mut self, additional: usize) {
-        self.values.reserve(additional);
-    }
-
-    fn serialize_f64(&mut self, value: f64) -> Result<()> {
-        self.values.push(value);
+impl<'s, 'a> serde::Serializer for &'s mut PrimitiveSerializer<'a, f64> {
+    fn serialize_f64(self, v: f64) -> Result<()> {
+        self.values.push(v);
         Ok(())
     }
+
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_unit,
+        serialize_bool,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_str,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+        serialize_struct,
+    );
 }
 
 #[derive(Default)]
-struct BoolSerializer {
+struct BoolSerializer<'a> {
     len: usize,
     values: Vec<u8>,
+    fields: PhantomData<&'a [Field]>,
 }
 
-impl BoolSerializer {
+impl<'a> BoolSerializer<'a> {
     pub fn new() -> Self {
         Self::default()
     }
-}
 
-impl SimpleSerializer<'_> for BoolSerializer {
     fn build_array(&mut self) -> Result<Array> {
         Ok(Array::Boolean(BooleanArray {
             len: self.len,
@@ -238,11 +535,115 @@ impl SimpleSerializer<'_> for BoolSerializer {
     fn reserve(&mut self, additional: usize) {
         self.values.reserve(additional / 8);
     }
+}
 
-    fn serialize_bool(&mut self, value: bool) -> Result<()> {
-        marrow::bits::push(&mut self.values, &mut self.len, value);
+impl<'s, 'a> serde::Serializer for &'s mut BoolSerializer<'a> {
+    fn serialize_bool(self, v: bool) -> Result<()> {
+        marrow::bits::push(&mut self.values, &mut self.len, v);
         Ok(())
     }
+
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_unit,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_str,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+        serialize_struct,
+    );
+}
+
+struct Utf8Serializer<'a> {
+    offsets: Vec<i64>,
+    data: Vec<u8>,
+    fields: PhantomData<&'a [Field]>,
+}
+
+impl<'a> Utf8Serializer<'a> {
+    pub fn new() -> Self {
+        Self {
+            offsets: vec![0],
+            data: Vec::new(),
+            fields: Default::default(),
+        }
+    }
+
+    pub fn build_array(&mut self) -> Result<Array> {
+        Ok(Array::LargeUtf8(BytesArray {
+            validity: None,
+            offsets: std::mem::replace(&mut self.offsets, vec![0]),
+            data: std::mem::take(&mut self.data),
+        }))
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+        self.data.reserve(additional * 8);
+    }
+}
+
+impl<'s, 'a> serde::Serializer for &'s mut Utf8Serializer<'a> {
+    fn serialize_str(self, v: &str) -> Result<()> {
+        let Some(offset) = self.offsets.last() else {
+            return Err(Error::custom("INvalid offset array".into()));
+        };
+        self.offsets.push(*offset + i64::try_from(v.len())?);
+        self.data.extend(v.as_bytes());
+        Ok(())
+    }
+
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_bool,
+        serialize_unit,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+        serialize_struct,
+    );
 }
 
 struct SeqSerializer<'a> {
@@ -259,9 +660,7 @@ impl<'a> SeqSerializer<'a> {
             serializer: Box::new(serializer),
         }
     }
-}
 
-impl<'a> SimpleSerializer<'a> for SeqSerializer<'a> {
     fn build_array(&mut self) -> Result<Array> {
         Ok(Array::LargeList(ListArray {
             validity: None,
@@ -277,8 +676,13 @@ impl<'a> SimpleSerializer<'a> for SeqSerializer<'a> {
     fn reserve(&mut self, additional: usize) {
         self.offsets.reserve(additional);
     }
+}
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
+impl<'s, 'a> serde::Serializer for &'s mut SeqSerializer<'a> {
+    fn serialize_seq(
+        self,
+        len: Option<usize>,
+    ) -> std::result::Result<Self::SerializeSeq, Self::Error> {
         if let Some(len) = len {
             self.serializer.reserve(len);
         }
@@ -286,20 +690,43 @@ impl<'a> SimpleSerializer<'a> for SeqSerializer<'a> {
             return Err(Error::custom("invalid offset array".into()));
         };
         self.offsets.push(*last);
-        Ok(())
+
+        Ok(ArraySerializerSeq {
+            offsets: &mut self.offsets,
+            element: &mut self.serializer,
+        })
     }
 
-    fn serialize_seq_item(&mut self) -> Result<&mut ArraySerializer<'a>> {
-        let Some(last) = self.offsets.last_mut() else {
-            return Err(Error::custom("invalid offset array".into()));
-        };
-        *last += 1;
-        Ok(self.serializer.as_mut())
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        Ok(())
-    }
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_bool,
+        serialize_unit,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_str,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_struct,
+    );
 }
 
 struct StructSerializer<'a> {
@@ -320,9 +747,7 @@ impl<'a> StructSerializer<'a> {
             len: 0,
         }
     }
-}
 
-impl<'a> SimpleSerializer<'a> for StructSerializer<'a> {
     fn build_array(&mut self) -> Result<Array> {
         let mut fields = Vec::new();
         for (meta, field) in std::iter::zip(self.fields, &mut self.serializers) {
@@ -347,343 +772,46 @@ impl<'a> SimpleSerializer<'a> for StructSerializer<'a> {
             field.reserve(additional);
         }
     }
-
-    fn serialize_struct_start(&mut self, _name: &'static str, _len: usize) -> Result<()> {
-        self.next = 0;
+}
+impl<'s, 'a> serde::Serializer for &'s mut StructSerializer<'a> {
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
         self.len += 1;
-        Ok(())
+        Ok(ArraySerializerStruct {
+            fields: self.fields,
+            serializers: &mut self.serializers,
+            field_names: &mut self.field_names,
+            current: 0,
+        })
     }
 
-    fn serialize_struct_field(&mut self, key: &'static str) -> Result<&mut ArraySerializer<'a>> {
-        let current = self.next;
-        if let Some(field_name) = self.field_names[current] {
-            if field_name != StaticFieldName::new(key) {
-                return Err(Error::custom("Out of order fields".into()));
-            }
-        } else {
-            if self.fields[current].name != key {
-                return Err(Error::custom("Out of order fields".into()));
-            }
-            self.field_names[current] = Some(StaticFieldName::new(key));
-        }
-        self.next += 1;
-        Ok(&mut self.serializers[current])
-    }
-
-    fn serialize_struct_end(&mut self) -> Result<()> {
-        if self.next != self.serializers.len() {
-            return Err(Error::custom("Missing fields".into()));
-        }
-        Ok(())
-    }
-}
-
-struct Utf8Serializer {
-    offsets: Vec<i64>,
-    data: Vec<u8>,
-}
-
-impl Utf8Serializer {
-    pub fn new() -> Self {
-        Self {
-            offsets: vec![0],
-            data: Vec::new(),
-        }
-    }
-}
-
-impl SimpleSerializer<'_> for Utf8Serializer {
-    fn build_array(&mut self) -> Result<Array> {
-        Ok(Array::LargeUtf8(BytesArray {
-            validity: None,
-            offsets: std::mem::replace(&mut self.offsets, vec![0]),
-            data: std::mem::take(&mut self.data),
-        }))
-    }
-
-    fn reserve(&mut self, additional: usize) {
-        self.offsets.reserve(additional);
-        self.data.reserve(additional * 8);
-    }
-
-    fn serialize_str(&mut self, value: &str) -> Result<()> {
-        let Some(offset) = self.offsets.last() else {
-            return Err(Error::custom("INvalid offset array".into()));
-        };
-        self.offsets.push(*offset + i64::try_from(value.len())?);
-        self.data.extend(value.as_bytes());
-        Ok(())
-    }
-}
-
-trait SimpleSerializer<'a> {
-    fn reserve(&mut self, additional: usize) {}
-
-    fn build_array(&mut self) -> Result<Array>;
-
-    fn serialize_bool(&mut self, _: bool) -> Result<()> {
-        Err(Error::custom("does not support bool".into()))
-    }
-    fn serialize_f32(&mut self, _: f32) -> Result<()> {
-        Err(Error::custom("does not support f32".into()))
-    }
-
-    fn serialize_f64(&mut self, _: f64) -> Result<()> {
-        Err(Error::custom("does not support f64".into()))
-    }
-
-    fn serialize_str(&mut self, _: &str) -> Result<()> {
-        Err(Error::custom("does not support str".into()))
-    }
-
-    fn serialize_struct_start(&mut self, _name: &'static str, _len: usize) -> Result<()> {
-        Err(Error::custom("does not support struct".into()))
-    }
-
-    fn serialize_struct_field(&mut self, _key: &'static str) -> Result<&mut ArraySerializer<'a>> {
-        Err(Error::custom("does not support struct".into()))
-    }
-
-    fn serialize_struct_end(&mut self) -> Result<()> {
-        Err(Error::custom("does not support struct".into()))
-    }
-
-    fn serialize_seq_start(&mut self, _len: Option<usize>) -> Result<()> {
-        Err(Error::custom("does not support seq".into()))
-    }
-
-    fn serialize_seq_item(&mut self) -> Result<&mut ArraySerializer<'a>> {
-        Err(Error::custom("does not support seq".into()))
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        Err(Error::custom("does not support seq".into()))
-    }
-}
-
-struct Mut<'a, T: ?Sized>(&'a mut T);
-
-impl<'a, T: ?Sized> std::ops::Deref for Mut<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl<'a, T: ?Sized> std::ops::DerefMut for Mut<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
-    }
-}
-
-impl<'a, T: ?Sized + SimpleSerializer<'a>> serde::ser::Serializer for Mut<'_, T> {
-    type Error = Error;
-    type Ok = ();
-
-    type SerializeStruct = Self;
-    type SerializeSeq = Self;
-    type SerializeTupleVariant = Impossible<(), Error>;
-    type SerializeTupleStruct = Impossible<(), Error>;
-    type SerializeTuple = Impossible<(), Error>;
-    type SerializeStructVariant = Impossible<(), Error>;
-    type SerializeMap = Impossible<(), Error>;
-
-    fn serialize_bool(mut self, v: bool) -> Result<()> {
-        SimpleSerializer::serialize_bool(&mut *self, v)
-    }
-
-    fn serialize_f32(mut self, v: f32) -> Result<()> {
-        SimpleSerializer::serialize_f32(&mut *self, v)
-    }
-
-    fn serialize_f64(mut self, v: f64) -> Result<()> {
-        SimpleSerializer::serialize_f64(&mut *self, v)
-    }
-
-    fn serialize_struct(mut self, name: &'static str, len: usize) -> Result<Self> {
-        SimpleSerializer::serialize_struct_start(&mut *self, name, len)?;
-        Ok(self)
-    }
-
-    fn serialize_char(self, v: char) -> std::result::Result<Self::Ok, Self::Error> {
-        Err(Error::custom("does not support char".into()))
-    }
-
-    fn serialize_i8(self, v: i8) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_i16(self, v: i16) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_str(mut self, v: &str) -> Result<()> {
-        SimpleSerializer::serialize_str(&mut *self, v)
-    }
-
-    fn serialize_unit_struct(
-        self,
-        name: &'static str,
-    ) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_unit_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-    ) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_i32(self, v: i32) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_newtype_struct<V>(
-        self,
-        name: &'static str,
-        value: &V,
-    ) -> std::result::Result<Self::Ok, Self::Error>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_newtype_variant<V>(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &V,
-    ) -> std::result::Result<Self::Ok, Self::Error>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        name: &'static str,
-        len: usize,
-    ) -> std::result::Result<Self::SerializeTupleStruct, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> std::result::Result<Self::SerializeTupleVariant, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_struct_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> std::result::Result<Self::SerializeStructVariant, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_i64(self, v: i64) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_u8(self, v: u8) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_u16(self, v: u16) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_u32(self, v: u32) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_u64(self, v: u64) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_bytes(self, v: &[u8]) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_none(self) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_some<V>(self, value: &V) -> std::result::Result<Self::Ok, Self::Error>
-    where
-        V: ?Sized + Serialize,
-    {
-        todo!()
-    }
-
-    fn serialize_unit(self) -> std::result::Result<Self::Ok, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_seq(
-        mut self,
-        len: Option<usize>,
-    ) -> std::result::Result<Self::SerializeSeq, Self::Error> {
-        SimpleSerializer::serialize_seq_start(&mut *self, len)?;
-        Ok(self)
-    }
-
-    fn serialize_tuple(self, len: usize) -> std::result::Result<Self::SerializeTuple, Self::Error> {
-        todo!()
-    }
-
-    fn serialize_map(
-        self,
-        len: Option<usize>,
-    ) -> std::result::Result<Self::SerializeMap, Self::Error> {
-        todo!()
-    }
-}
-
-impl<'a, T: ?Sized + SimpleSerializer<'a>> serde::ser::SerializeStruct for Mut<'_, T> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<V>(
-        &mut self,
-        key: &'static str,
-        value: &V,
-    ) -> std::result::Result<(), Self::Error>
-    where
-        V: ?Sized + Serialize,
-    {
-        value.serialize(Mut(SimpleSerializer::serialize_struct_field(
-            &mut **self,
-            key,
-        )?))
-    }
-
-    fn end(mut self) -> Result<()> {
-        SimpleSerializer::serialize_struct_end(&mut *self)
-    }
-}
-
-impl<'a, T: ?Sized + SimpleSerializer<'a>> serde::ser::SerializeSeq for Mut<'_, T> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_element<V: ?Sized + Serialize>(&mut self, value: &V) -> Result<()> {
-        value.serialize(Mut(SimpleSerializer::serialize_seq_item(&mut **self)?))
-    }
-
-    fn end(mut self) -> Result<()> {
-        SimpleSerializer::serialize_seq_end(&mut *self)
-    }
+    unsupported_array_serializer!(
+        's, 'a;
+        serialize_bool,
+        serialize_unit,
+        serialize_i8,
+        serialize_i16,
+        serialize_i32,
+        serialize_i64,
+        serialize_u8,
+        serialize_u16,
+        serialize_u32,
+        serialize_u64,
+        serialize_f32,
+        serialize_f64,
+        serialize_some,
+        serialize_none,
+        serialize_tuple_struct,
+        serialize_unit_variant,
+        serialize_tuple_variant,
+        serialize_newtype_struct,
+        serialize_newtype_variant,
+        serialize_unit_struct,
+        serialize_struct_variant,
+        serialize_char,
+        serialize_str,
+        serialize_bytes,
+        serialize_map,
+        serialize_tuple,
+        serialize_seq,
+    );
 }
