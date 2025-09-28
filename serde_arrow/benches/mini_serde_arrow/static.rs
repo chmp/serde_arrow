@@ -588,7 +588,7 @@ impl<'a> Utf8Serializer<'a> {
 impl<'s, 'a> serde::Serializer for &'s mut Utf8Serializer<'a> {
     fn serialize_str(self, v: &str) -> Result<()> {
         let Some(offset) = self.offsets.last() else {
-            return Err(Error::custom("INvalid offset array".into()));
+            return Err(Error::custom("Invalid offset array".into()));
         };
         self.offsets.push(*offset + i64::try_from(v.len())?);
         self.data.extend(v.as_bytes());
