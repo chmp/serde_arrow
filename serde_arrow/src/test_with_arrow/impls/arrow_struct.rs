@@ -367,6 +367,14 @@ fn flattened_structures() {
 
 #[test]
 fn struct_nullable() {
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct Struct {
+        a: bool,
+        b: i64,
+        c: (),
+        d: String,
+    }
+
     let tracing_options = TracingOptions::default().allow_null_fields(true);
     let values = [
         Item(Some(Struct {
@@ -383,18 +391,7 @@ fn struct_nullable() {
             d: String::from("world"),
         })),
     ];
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct Outer {
-        inner: Struct,
-    }
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct Struct {
-        a: bool,
-        b: i64,
-        c: (),
-        d: String,
-    }
     Test::new()
         .with_schema(json!([
             {

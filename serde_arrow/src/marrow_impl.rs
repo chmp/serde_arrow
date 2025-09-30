@@ -2,8 +2,7 @@ use marrow::{array::Array, datatypes::Field, view::View};
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
-    array_builder::ArrayBuilder, deserializer::Deserializer, error::Result,
-    schema::SerdeArrowSchema, serializer::Serializer,
+    array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
 
 /// Build [marrow array][marrow::array::Array] from the given items
@@ -118,9 +117,7 @@ where
 impl ArrayBuilder {
     /// Build an array builder from [`marrow::Field`s][Field]
     pub fn from_marrow(fields: &[Field]) -> Result<Self> {
-        ArrayBuilder::new(SerdeArrowSchema {
-            fields: fields.to_vec(),
-        })
+        ArrayBuilder::from_marrow_vec(fields.to_vec())
     }
 
     /// Construct [`marrow::Array`s][Array] and reset the builder
@@ -130,7 +127,7 @@ impl ArrayBuilder {
 
     /// Consume the builder and construct the arrays
     pub fn into_marrow(self) -> Result<Vec<Array>> {
-        self.into_arrays()
+        Ok(self.into_arrays()?.0)
     }
 }
 
