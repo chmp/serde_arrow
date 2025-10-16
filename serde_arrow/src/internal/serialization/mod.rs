@@ -22,6 +22,7 @@ pub mod timestamp_builder;
 pub mod union_builder;
 pub mod unknown_variant_builder;
 pub mod utf8_builder;
+pub mod utils;
 
 // #[cfg(test)]
 // mod test;

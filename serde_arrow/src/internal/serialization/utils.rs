@@ -1,0 +1,331 @@
+//! Simplify implementing a serde serializer
+
+/// Helper to define a no-match macro
+macro_rules! define_impl_no_match {
+    (
+        // workaround for: https://github.com/rust-lang/rust/issues/35853
+        $d:tt;
+        $($known_name:ident),*
+        $(,)?
+    ) => {
+        macro_rules! impl_no_match {
+            (
+                $d needle:ident, [$d ($d haystack:ident),*], $d item:item
+            ) => {
+                // check for invalid usage
+                $crate::internal::serialization::utils::impl_no_match!(
+                    @find,
+                    $d needle,
+                    [$($known_name),*],
+                    compile_error!(concat!("Unknown name: ", stringify!($d needle)));
+                );
+                $d (
+                    $crate::internal::serialization::utils::impl_no_match!(
+                        @find,
+                        $d haystack,
+                        [$($known_name),*],
+                        compile_error!(concat!("Unknown name: ", stringify!($d haystack)));
+                    );
+                )*
+
+                // execute the functionality
+                $crate::internal::serialization::utils::impl_no_match!(@find, $d needle, [$d ($d haystack ),*], $d item);
+            };
+            // match with known function cases
+            $(
+                (
+                    @find,
+                    $known_name,
+                    [$known_name $d(, $d ident:ident)*],
+                    $d item:item
+                ) => {};
+            )*
+
+            // no match cases
+            (
+                @find,
+                $d needle:ident,
+                [$d head:ident $d(, $d tail:ident)* ],
+                $d item:item
+            ) => {
+                $crate::internal::serialization::utils::impl_no_match!(@find, $d needle, [$d($d tail),*], $d item);
+            };
+            (
+                @find,
+                $d needle:ident,
+                [],
+                $d item:item
+            ) => {
+                $d item
+            };
+        }
+
+    };
+}
+
+define_impl_no_match!(
+    $;
+    serialize_bool,
+    serialize_bytes,
+    serialize_char,
+    serialize_f32,
+    serialize_f64,
+    serialize_i16,
+    serialize_i32,
+    serialize_i64,
+    serialize_i8,
+    serialize_map,
+    serialize_newtype_struct,
+    serialize_newtype_variant,
+    serialize_none,
+    serialize_seq,
+    serialize_some,
+    serialize_str,
+    serialize_struct,
+    serialize_struct_variant,
+    serialize_tuple,
+    serialize_tuple_struct,
+    serialize_tuple_variant,
+    serialize_u16,
+    serialize_u32,
+    serialize_u64,
+    serialize_u8,
+    serialize_unit,
+    serialize_unit_struct,
+    serialize_unit_variant,
+);
+
+pub(crate) use impl_no_match;
+
+macro_rules! impl_serializer {
+    (
+        $lifetime:lifetime, $name:ident;
+        $(override $override:ident),*
+        $(,)?
+    ) => {
+        type Ok = ();
+        type Error = $crate::internal::error::Error;
+
+        // TOOD: fix this
+        type SerializeStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeStructVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeSeq = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeMap = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_unit, [$($override),*],
+            fn serialize_unit(self) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_unit", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_bool, [$($override),*],
+            fn serialize_bool(self, _: bool) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_bool", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_i8, [$($override),*],
+            fn serialize_i8(self, _: i8) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_i8", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_i16, [$($override),*],
+            fn serialize_i16(self, _: i16) -> ::std::result::Result<Self::Ok, Self::Error> {
+                 $crate::internal::error::fail!("{} does not support serialize_i16", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_i32, [$($override),*],
+            fn serialize_i32(self, _: i32) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_i32", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_i64, [$($override),*],
+            fn serialize_i64(self, _: i64) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_i64", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_u8, [$($override),*],
+            fn serialize_u8(self, _: u8) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_u8", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_u16, [$($override),*],
+            fn serialize_u16(self, _: u16) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_u16", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_u32, [$($override),*],
+            fn serialize_u32(self, _: u32) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_u32", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_u64, [$($override),*],
+            fn serialize_u64(self, _: u64) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_u64", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_f32, [$($override),*],
+            fn serialize_f32(self, _: f32) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_f32", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_f64, [$($override),*],
+            fn serialize_f64(self, _: f64) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_f64", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_char, [$($override),*],
+            fn serialize_char(self, _: char) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_char", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_str, [$($override),*],
+            fn serialize_str(self, _: &str) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_str", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_bytes, [$($override),*],
+            fn serialize_bytes(self, _: &[u8]) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_bytes", stringify!($name));
+            }
+        );
+        // TODO: provide a more sensible default
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_none, [$($override),*],
+            fn serialize_none(self) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_none", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_some, [$($override),*],
+            fn serialize_some<V: ::serde::Serialize + ?::std::marker::Sized>(self, v: &V) -> ::std::result::Result<Self::Ok, Self::Error> {
+                v.serialize(self)
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_unit_struct, [$($override),*],
+            fn serialize_unit_struct(self, _: &'static str) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_unit_struct", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_unit_variant, [$($override),*],
+            fn serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_unit_variant", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_newtype_struct, [$($override),*],
+            fn serialize_newtype_struct<V: ::serde::Serialize + ?::std::marker::Sized>(
+                self,
+                _: &'static str,
+                value: &V
+            )  -> ::std::result::Result<Self::Ok, Self::Error>{
+                value.serialize(self)
+            }
+        );
+        // TODO: provide a more sensible default?
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_newtype_variant, [$($override),*],
+            fn serialize_newtype_variant<V: ::serde::Serialize + ?::std::marker::Sized>(
+                self,
+                _: &'static str,
+                _: u32,
+                _: &'static str,
+                _: &V,
+            ) -> ::std::result::Result<Self::Ok, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_newtype_variant", stringify!($name));
+            }
+
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_struct, [$($override),*],
+            fn serialize_struct(
+                self,
+                _: &'static str,
+                _: usize,
+            ) -> ::std::result::Result<Self::SerializeStruct, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_struct", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_seq, [$($override),*],
+            fn serialize_seq(
+                self,
+                _: ::std::option::Option<::std::primitive::usize>
+            ) -> ::std::result::Result<Self::SerializeSeq, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_seq", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_tuple, [$($override),*],
+            fn serialize_tuple(
+                self,
+                _: ::std::primitive::usize,
+            ) -> ::std::result::Result<Self::SerializeTuple, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_tuple", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_map, [$($override),*],
+            fn serialize_map(
+                self,
+                _: ::std::option::Option<::std::primitive::usize>,
+            ) -> ::std::result::Result<Self::SerializeMap, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_map", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_tuple_struct, [$($override),*],
+            fn serialize_tuple_struct(
+                self,
+                _: &'static str,
+                _: ::std::primitive::usize,
+            ) -> ::std::result::Result<Self::SerializeTupleStruct, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_tuple_struct", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_tuple_variant, [$($override),*],
+            fn serialize_tuple_variant(
+                self,
+                _: &'static str,
+                _: u32,
+                _: &'static str,
+                _: usize,
+            ) -> ::std::result::Result<Self::SerializeTupleVariant, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_tuple_variant", stringify!($name));
+            }
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            serialize_struct_variant, [$($override),*],
+            fn serialize_struct_variant(
+                self,
+                _: &'static str,
+                _: u32,
+                _: &'static str,
+                _: usize,
+            ) -> ::std::result::Result<Self::SerializeStructVariant, Self::Error> {
+                $crate::internal::error::fail!("{} does not support serialize_struct_variant", stringify!($name));
+            }
+        );
+    };
+}
+
+pub(crate) use impl_serializer;

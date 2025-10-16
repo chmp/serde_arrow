@@ -14,6 +14,18 @@ pub fn set_default<V: Into<String>>(
     }
 }
 
+pub fn prepend(
+    annotations: &mut BTreeMap<String, String>,
+    key: &str,
+    value: impl std::fmt::Display,
+) {
+    if let Some(prev) = annotations.get_mut(key) {
+        *prev = format!("{}.{}", value, prev);
+    } else {
+        annotations.insert(String::from(key), value.to_string());
+    }
+}
+
 /// Execute a faillible function and return the result
 ///
 /// This function is mostly useful to add annotations to a complex block of operations
