@@ -295,8 +295,8 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
     type Error = Error;
 
     // TOOD: fix this
-    type SerializeStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
-    type SerializeStructVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = &'a mut StructBuilder;
+    type SerializeStructVariant = &'a mut StructBuilder;
     type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;

@@ -170,5 +170,50 @@ impl SimpleSerializer for UnionBuilder {
 }
 
 impl<'a> serde::Serializer for &'a mut UnionBuilder {
-    impl_serializer!('a, UnionBuilder;);
+    impl_serializer!(
+        'a, UnionBuilder;
+        override serialize_unit_variant,
+        override serialize_newtype_variant,
+        override serialize_struct_variant,
+    );
+
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<()> {
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| serde::Serializer::serialize_unit(self.serialize_variant(variant_index)?)).ctx(&ctx)
+    }
+
+    fn serialize_newtype_variant<T: ?Sized + serde::Serialize>(
+        self,
+        _name: &'static str,
+        variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| {
+            let variant_builder = self.serialize_variant(variant_index)?;
+            value.serialize(variant_builder)
+        })
+        .ctx(&ctx)
+    }
+
+    fn serialize_struct_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        _variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        self.serialize_variant(variant_index)?
+            .serialize_struct(name, len)
+    }
 }

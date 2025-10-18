@@ -133,7 +133,7 @@ impl StructBuilder {
         self.next = 0;
     }
 
-    fn end(&mut self) -> Result<()> {
+    pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
         for (idx, seen) in self.seen.iter_mut().enumerate() {
             if !*seen {
@@ -150,7 +150,7 @@ impl StructBuilder {
         Ok(())
     }
 
-    fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
+    pub fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
             fail!(in self, "Duplicate field {key}", key = self.fields[idx].1.name);
@@ -276,7 +276,14 @@ impl SimpleSerializer for StructBuilder {
 }
 
 impl<'a> serde::Serializer for &'a mut StructBuilder {
-    impl_serializer!('a, StructBuilder;);
+    impl_serializer!(
+        'a, StructBuilder;
+        override serialize_struct,
+    );
+
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        Ok(self)
+    }
 }
 
 /// A wrapper around a static field name that compares using ptr and length

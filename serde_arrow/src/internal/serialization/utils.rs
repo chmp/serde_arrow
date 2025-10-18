@@ -1,5 +1,7 @@
 //! Simplify implementing a serde serializer
 
+use crate::internal::error::{Error, Result};
+
 /// Helper to define a no-match macro
 macro_rules! define_impl_no_match {
     (
@@ -107,8 +109,8 @@ macro_rules! impl_serializer {
         type Error = $crate::internal::error::Error;
 
         // TOOD: fix this
-        type SerializeStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
-        type SerializeStructVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+        type SerializeStruct = & $lifetime mut $crate::internal::serialization::struct_builder::StructBuilder;
+        type SerializeStructVariant = & $lifetime mut $crate::internal::serialization::struct_builder::StructBuilder;
         type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
         type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
         type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;
@@ -329,3 +331,41 @@ macro_rules! impl_serializer {
 }
 
 pub(crate) use impl_serializer;
+
+impl serde::ser::SerializeStruct for &mut super::struct_builder::StructBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        let Some(idx) = self.lookup(self.next, key) else {
+            // ignore unknown fields
+            return Ok(());
+        };
+        self.element(idx, value)
+    }
+
+    fn end(self) -> Result<()> {
+        super::struct_builder::StructBuilder::end(self)
+    }
+}
+
+impl serde::ser::SerializeStructVariant for &mut super::struct_builder::StructBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        serde::ser::SerializeStruct::serialize_field(self, key, value)
+    }
+
+    fn end(self) -> Result<()> {
+        serde::ser::SerializeStruct::end(self)
+    }
+}
