@@ -153,7 +153,7 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.indices.serialize_none().ctx(self)).ctx(self)
+        try_(|| serde::Serializer::serialize_none(self.indices.as_mut()).ctx(self)).ctx(self)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
@@ -162,7 +162,7 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
                 Some(idx) => *idx,
                 None => {
                     let idx = self.index.len();
-                    self.values.serialize_str(v)?;
+                    serde::Serializer::serialize_str(self.values.as_mut(), v)?;
                     self.index.insert(v.to_string(), idx);
                     idx
                 }

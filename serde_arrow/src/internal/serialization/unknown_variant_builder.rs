@@ -224,6 +224,6 @@ impl SimpleSerializer for UnknownVariantBuilder {
     }
 }
 
-impl<'a> serde::Serializer for &'a UnknownVariantBuilder {
+impl<'a> serde::Serializer for &'a mut UnknownVariantBuilder {
     impl_serializer!('a, UnknownVariantBuilder;);
 }

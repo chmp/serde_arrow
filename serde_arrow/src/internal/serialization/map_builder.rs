@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
         Mut,
@@ -69,6 +70,10 @@ impl MapBuilder {
     pub fn reserve(&mut self, additional: usize) {
         self.offsets.reserve(additional);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.offsets.push_seq_default()).ctx(self)
+    }
 }
 
 impl Context for MapBuilder {
@@ -80,7 +85,7 @@ impl Context for MapBuilder {
 
 impl SimpleSerializer for MapBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -113,4 +118,8 @@ impl SimpleSerializer for MapBuilder {
     fn serialize_map_end(&mut self) -> Result<()> {
         try_(|| self.offsets.end_seq()).ctx(self)
     }
+}
+
+impl<'a> serde::Serializer for &'a mut MapBuilder {
+    impl_serializer!('a, MapBuilder;);
 }

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
         Mut, NamedType, Offset,
@@ -25,7 +26,7 @@ pub struct ListBuilder<O> {
     pub offsets: OffsetsArray<O>,
 }
 
-impl<O: Offset> ListBuilder<O> {
+impl<O: Offset + NamedType> ListBuilder<O> {
     pub fn new(path: String, meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Self {
         Self {
             path,
@@ -50,6 +51,10 @@ impl<O: Offset> ListBuilder<O> {
 
     pub fn reserve(&mut self, additional: usize) {
         self.offsets.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.offsets.push_seq_default()).ctx(self)
     }
 }
 
@@ -115,7 +120,7 @@ impl<O: NamedType> Context for ListBuilder<O> {
 
 impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -183,4 +188,8 @@ impl<O: NamedType + Offset> SimpleSerializer for ListBuilder<O> {
         })
         .ctx(self)
     }
+}
+
+impl<'a, O: NamedType + Offset> serde::Serializer for &'a mut ListBuilder<O> {
+    impl_serializer!('a, ListBuilder;);
 }

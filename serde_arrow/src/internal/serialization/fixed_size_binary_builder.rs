@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         Mut,
@@ -180,6 +181,10 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.serialize_bytes(v.as_bytes())
     }
+}
+
+impl<'a> serde::Serializer for &'a mut FixedSizeBinaryBuilder {
+    impl_serializer!('a, FixedSizeBinaryBuilder;);
 }
 
 struct U8Serializer(u8);

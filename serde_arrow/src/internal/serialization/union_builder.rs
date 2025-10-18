@@ -7,6 +7,7 @@ use marrow::{
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::Mut,
 };
 
@@ -66,6 +67,13 @@ impl UnionBuilder {
     pub fn reserve(&mut self, _additional: usize) {
         // TODO: figure out what to do here
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| self.serialize_variant(0)?.serialize_default()).ctx(&ctx)
+    }
 }
 
 impl UnionBuilder {
@@ -92,10 +100,7 @@ impl Context for UnionBuilder {
 
 impl SimpleSerializer for UnionBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
-
-        try_(|| self.serialize_variant(0)?.serialize_default()).ctx(&ctx)
+        self.serialize_default_value()
     }
 
     fn serialize_unit_variant(
@@ -162,4 +167,8 @@ impl SimpleSerializer for UnionBuilder {
         })
         .ctx(&ctx)
     }
+}
+
+impl<'a> serde::Serializer for &'a mut UnionBuilder {
+    impl_serializer!('a, UnionBuilder;);
 }

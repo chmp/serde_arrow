@@ -6,6 +6,7 @@ use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::{
     error::{set_default, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
         Mut,
@@ -92,6 +93,10 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     pub fn reserve(&mut self, additional: usize) {
         self.array.reserve(additional);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
 }
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {
@@ -121,7 +126,7 @@ impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
 
 impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
     fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -171,6 +176,10 @@ impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
     fn serialize_str(&mut self, v: &str) -> Result<()> {
         self.serialize_bytes(v.as_bytes())
     }
+}
+
+impl<'a, B: BinaryBuilderArray> serde::Serializer for &'a mut BinaryBuilder<B> {
+    impl_serializer!('a, BinaryBuilder;);
 }
 
 struct U8Serializer(u8);

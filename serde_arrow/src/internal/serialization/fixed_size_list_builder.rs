@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         Mut,
@@ -74,6 +75,17 @@ impl FixedSizeListBuilder {
         self.elements.reserve(additional * self.n);
         self.seq.reserve(additional);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for _ in 0..self.n {
+                self.elements.serialize_default()?;
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
 }
 
 impl FixedSizeListBuilder {
@@ -110,14 +122,7 @@ impl Context for FixedSizeListBuilder {
 
 impl SimpleSerializer for FixedSizeListBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_default()?;
-            for _ in 0..self.n {
-                self.elements.serialize_default()?;
-            }
-            Ok(())
-        })
-        .ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -166,4 +171,8 @@ impl SimpleSerializer for FixedSizeListBuilder {
     fn serialize_tuple_struct_end(&mut self) -> Result<()> {
         try_(|| self.end()).ctx(self)
     }
+}
+
+impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
+    impl_serializer!('a, FixedSizeListBuilder;);
 }

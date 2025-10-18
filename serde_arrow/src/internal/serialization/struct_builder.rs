@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
         Mut,
@@ -86,6 +87,18 @@ impl StructBuilder {
         }
     }
 
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for (builder, _) in &mut self.fields {
+                builder.serialize_default()?;
+            }
+
+            Ok(())
+        })
+        .ctx(self)
+    }
+
     pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
         if self.lookup_cache.get(guess) == Some(&Some(StaticFieldName(key))) {
             Some(guess)
@@ -159,15 +172,7 @@ impl Context for StructBuilder {
 
 impl SimpleSerializer for StructBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_default()?;
-            for (builder, _) in &mut self.fields {
-                builder.serialize_default()?;
-            }
-
-            Ok(())
-        })
-        .ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -268,6 +273,10 @@ impl SimpleSerializer for StructBuilder {
     fn serialize_map_end(&mut self) -> Result<()> {
         try_(|| self.end()).ctx(self)
     }
+}
+
+impl<'a> serde::Serializer for &'a mut StructBuilder {
+    impl_serializer!('a, StructBuilder;);
 }
 
 /// A wrapper around a static field name that compares using ptr and length
