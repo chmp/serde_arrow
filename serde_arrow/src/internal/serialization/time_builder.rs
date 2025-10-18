@@ -8,6 +8,7 @@ use marrow::{
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         NamedType,
@@ -23,7 +24,7 @@ pub struct TimeBuilder<I> {
     pub array: PrimitiveArray<I>,
 }
 
-impl<I: Default + 'static> TimeBuilder<I> {
+impl<I: Default + NamedType + 'static> TimeBuilder<I> {
     pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
             path,
@@ -46,6 +47,10 @@ impl<I: Default + 'static> TimeBuilder<I> {
 
     pub fn reserve(&mut self, additional: usize) {
         self.array.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 }
 
@@ -130,6 +135,52 @@ where
     }
 
     fn serialize_i64(&mut self, v: i64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
+    }
+}
+
+impl<'a, I> serde::Serializer for &'a mut TimeBuilder<I>
+where
+    I: NamedType + TryFrom<i64> + TryFrom<i32> + Default + 'static,
+    Error: From<<I as TryFrom<i32>>::Error>,
+    Error: From<<I as TryFrom<i64>>::Error>,
+{
+    impl_serializer!(
+        'a, TimeBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i32,
+        override serialize_i64,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| self.array.push_scalar_none()).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        try_(|| {
+            let (seconds_factor, nanoseconds_factor) = match self.unit {
+                TimeUnit::Nanosecond => (1_000_000_000, 1),
+                TimeUnit::Microsecond => (1_000_000, 1_000),
+                TimeUnit::Millisecond => (1_000, 1_000_000),
+                TimeUnit::Second => (1, 1_000_000_000),
+            };
+
+            use chrono::naive::NaiveTime;
+            let time = v.parse::<NaiveTime>()?;
+            let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
+                + i64::from(time.nanosecond()) / nanoseconds_factor;
+
+            self.array.push_scalar_value(timestamp.try_into()?)
+        })
+        .ctx(self)
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<()> {
         try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 }

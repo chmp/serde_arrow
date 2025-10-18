@@ -14,7 +14,7 @@ use crate::internal::{
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
-pub trait Float: Sized + Copy + Default + 'static {
+pub trait FloatPrimitive: Sized + Copy + Default + 'static {
     const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder;
     const ARRAY: fn(PrimitiveArray<Self>) -> Array;
     const NAME: &'static str;
@@ -31,7 +31,7 @@ pub trait Float: Sized + Copy + Default + 'static {
     fn from_f64(value: f64) -> Self;
 }
 
-impl Float for f16 {
+impl FloatPrimitive for f16 {
     const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F16;
     const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float16;
     const NAME: &'static str = "Float16";
@@ -77,7 +77,7 @@ impl Float for f16 {
     }
 }
 
-impl Float for f32 {
+impl FloatPrimitive for f32 {
     const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F32;
     const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float32;
     const NAME: &'static str = "Float32";
@@ -123,7 +123,7 @@ impl Float for f32 {
     }
 }
 
-impl Float for f64 {
+impl FloatPrimitive for f64 {
     const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F64;
     const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float64;
     const NAME: &'static str = "Float64";
@@ -175,7 +175,7 @@ pub struct FloatBuilder<I> {
     array: PrimitiveArray<I>,
 }
 
-impl<F: Float> FloatBuilder<F> {
+impl<F: FloatPrimitive> FloatBuilder<F> {
     pub fn new(path: String, is_nullable: bool) -> Self {
         Self {
             path,
@@ -205,18 +205,22 @@ impl<F: Float> FloatBuilder<F> {
     pub fn into_array(self) -> Result<Array> {
         Ok(F::ARRAY(self.array))
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
+    }
 }
 
-impl<F: Float> Context for FloatBuilder<F> {
+impl<F: FloatPrimitive> Context for FloatBuilder<F> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", F::NAME);
     }
 }
 
-impl<F: Float> SimpleSerializer for FloatBuilder<F> {
+impl<F: FloatPrimitive> SimpleSerializer for FloatBuilder<F> {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -268,9 +272,10 @@ impl<F: Float> SimpleSerializer for FloatBuilder<F> {
     }
 }
 
-impl<'a, F: Float> serde::Serializer for &'a mut FloatBuilder<F> {
+impl<'a, F: FloatPrimitive> serde::Serializer for &'a mut FloatBuilder<F> {
     impl_serializer!(
         'a, FloatBuilder;
+        override serialize_none,
         override serialize_i8,
         override serialize_i16,
         override serialize_i32,
@@ -282,6 +287,10 @@ impl<'a, F: Float> serde::Serializer for &'a mut FloatBuilder<F> {
         override serialize_f32,
         override serialize_f64,
     );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| self.array.push_scalar_none()).ctx(self)
+    }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
         try_(|| self.array.push_scalar_value(F::from_i8(v))).ctx(self)

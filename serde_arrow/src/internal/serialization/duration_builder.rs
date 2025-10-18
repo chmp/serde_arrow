@@ -8,6 +8,7 @@ use marrow::{
 use crate::internal::{
     chrono,
     error::{set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
@@ -52,6 +53,10 @@ impl DurationBuilder {
     pub fn reserve(&mut self, additional: usize) {
         self.array.reserve(additional);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
+    }
 }
 
 impl Context for DurationBuilder {
@@ -63,7 +68,7 @@ impl Context for DurationBuilder {
 
 impl SimpleSerializer for DurationBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -103,6 +108,66 @@ impl SimpleSerializer for DurationBuilder {
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
+        try_(|| {
+            let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
+            self.array.push_scalar_value(value)
+        })
+        .ctx(self)
+    }
+}
+
+impl<'a> serde::Serializer for &'a mut DurationBuilder {
+    impl_serializer!(
+        'a, DurationBuilder;
+        override serialize_none,
+        override serialize_i8,
+        override serialize_i16,
+        override serialize_i32,
+        override serialize_i64,
+        override serialize_u8,
+        override serialize_u16,
+        override serialize_u32,
+        override serialize_u64,
+        override serialize_str,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| self.array.push_scalar_none()).ctx(self)
+    }
+
+    fn serialize_i8(self, v: i8) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_i16(self, v: i16) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(v)).ctx(self)
+    }
+
+    fn serialize_u8(self, v: u8) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_u16(self, v: u16) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_u32(self, v: u32) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+    }
+
+    fn serialize_u64(self, v: u64) -> Result<()> {
+        try_(|| self.array.push_scalar_value(i64::try_from(v)?)).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
         try_(|| {
             let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
             self.array.push_scalar_value(value)

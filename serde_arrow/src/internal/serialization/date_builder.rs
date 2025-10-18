@@ -5,6 +5,7 @@ use marrow::array::{Array, PrimitiveArray};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
@@ -88,6 +89,10 @@ impl<I: DatePrimitive> DateBuilder<I> {
 
         Ok(days_since_epoch * I::DAY_TO_VALUE_FACTOR)
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
+    }
 }
 
 impl<I: DatePrimitive> Context for DateBuilder<I> {
@@ -99,7 +104,7 @@ impl<I: DatePrimitive> Context for DateBuilder<I> {
 
 impl<I: DatePrimitive> SimpleSerializer for DateBuilder<I> {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -128,6 +133,48 @@ impl<I: DatePrimitive> SimpleSerializer for DateBuilder<I> {
         try_(|| {
             let Ok(v) = I::try_from(v) else {
                 fail!("cannot convert {v} to {I}", I = I::NAME);
+            };
+            self.array.push_scalar_value(v)
+        })
+        .ctx(self)
+    }
+}
+
+impl<'a, D: DatePrimitive> serde::Serializer for &'a mut DateBuilder<D> {
+    impl_serializer!(
+        'a, DateBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i32,
+        override serialize_i64,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| self.array.push_scalar_none()).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        try_(|| {
+            let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
+            self.array.push_scalar_value(days_since_epoch)
+        })
+        .ctx(self)
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        try_(|| {
+            let Ok(v) = D::try_from(v) else {
+                fail!("cannot convert {v} to {D}", D = D::NAME);
+            };
+            self.array.push_scalar_value(v)
+        })
+        .ctx(self)
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        try_(|| {
+            let Ok(v) = D::try_from(v) else {
+                fail!("cannot convert {v} to {D}", D = D::NAME);
             };
             self.array.push_scalar_value(v)
         })

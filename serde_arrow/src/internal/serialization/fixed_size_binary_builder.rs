@@ -60,6 +60,17 @@ impl FixedSizeBinaryBuilder {
         self.seq.reserve(additional);
         self.buffer.reserve(additional * self.n);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for _ in 0..self.n {
+                self.buffer.push(0);
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
 }
 
 impl FixedSizeBinaryBuilder {
@@ -99,14 +110,7 @@ impl Context for FixedSizeBinaryBuilder {
 
 impl SimpleSerializer for FixedSizeBinaryBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_default()?;
-            for _ in 0..self.n {
-                self.buffer.push(0);
-            }
-            Ok(())
-        })
-        .ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {

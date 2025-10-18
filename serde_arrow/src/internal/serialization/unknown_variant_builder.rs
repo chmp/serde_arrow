@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use marrow::array::{Array, NullArray};
 use serde::Serialize;
 
-use crate::internal::error::{fail, set_default, Context, Result};
+use crate::internal::{
+    error::{fail, set_default, Context, Result},
+    serialization::utils::impl_serializer,
+};
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
@@ -32,6 +35,10 @@ impl UnknownVariantBuilder {
     }
 
     pub fn reserve(&mut self, _additional: usize) {}
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        fail!(in self, "Unknown variant does not support serialize_default")
+    }
 }
 
 impl Context for UnknownVariantBuilder {
@@ -43,7 +50,7 @@ impl Context for UnknownVariantBuilder {
 
 impl SimpleSerializer for UnknownVariantBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        fail!(in self, "Unknown variant does not support serialize_default")
+        self.serialize_default_value()
     }
 
     fn serialize_unit(&mut self) -> Result<()> {
@@ -215,4 +222,8 @@ impl SimpleSerializer for UnknownVariantBuilder {
     ) -> Result<&'this mut ArrayBuilder> {
         fail!(in self, "Unknown variant does not support serialize_tuple_variant_start")
     }
+}
+
+impl<'a> serde::Serializer for &'a UnknownVariantBuilder {
+    impl_serializer!('a, UnknownVariantBuilder;);
 }

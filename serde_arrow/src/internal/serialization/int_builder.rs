@@ -114,7 +114,7 @@ where
     Error: From<<I as TryFrom<u64>>::Error>,
 {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {

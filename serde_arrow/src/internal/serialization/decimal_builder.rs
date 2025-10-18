@@ -4,6 +4,7 @@ use marrow::array::{Array, DecimalArray, PrimitiveArray};
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         decimal::{self, DecimalParser},
@@ -64,6 +65,10 @@ impl DecimalBuilder {
     pub fn reserve(&mut self, additional: usize) {
         self.array.reserve(additional);
     }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
+    }
 }
 
 impl Context for DecimalBuilder {
@@ -75,7 +80,7 @@ impl Context for DecimalBuilder {
 
 impl SimpleSerializer for DecimalBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -91,6 +96,40 @@ impl SimpleSerializer for DecimalBuilder {
     }
 
     fn serialize_str(&mut self, v: &str) -> Result<()> {
+        try_(|| {
+            let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
+            let val = self
+                .parser
+                .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
+
+            self.array.push_scalar_value(val)
+        })
+        .ctx(self)
+    }
+}
+
+impl<'a> serde::Serializer for &'a mut DecimalBuilder {
+    impl_serializer!(
+        'a, DecimalBuilder;
+        override serialize_none,
+        override serialize_f32,
+        override serialize_f64,
+        override serialize_str,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| self.array.push_scalar_none()).ctx(self)
+    }
+
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        try_(|| self.array.push_scalar_value((v * self.f32_factor) as i128)).ctx(self)
+    }
+
+    fn serialize_f64(self, v: f64) -> Result<()> {
+        try_(|| self.array.push_scalar_value((v * self.f64_factor) as i128)).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
         try_(|| {
             let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
             let val = self

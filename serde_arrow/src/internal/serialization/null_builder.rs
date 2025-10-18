@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use marrow::array::{Array, NullArray};
 
-use crate::internal::error::{set_default, Context, Result};
+use crate::internal::{
+    error::{set_default, Context, Result},
+    serialization::utils::impl_serializer,
+};
 
 use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
 
@@ -33,6 +36,11 @@ impl NullBuilder {
     }
 
     pub fn reserve(&mut self, _additional: usize) {}
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        self.count += 1;
+        Ok(())
+    }
 }
 
 impl Context for NullBuilder {
@@ -44,8 +52,7 @@ impl Context for NullBuilder {
 
 impl SimpleSerializer for NullBuilder {
     fn serialize_default(&mut self) -> Result<()> {
-        self.count += 1;
-        Ok(())
+        self.serialize_default_value()
     }
 
     fn serialize_none(&mut self) -> Result<()> {
@@ -54,6 +61,24 @@ impl SimpleSerializer for NullBuilder {
     }
 
     fn serialize_unit_struct(&mut self, _: &'static str) -> Result<()> {
+        self.count += 1;
+        Ok(())
+    }
+}
+
+impl<'a> serde::Serializer for &'a mut NullBuilder {
+    impl_serializer!(
+        'a, NullBuilder;
+        override serialize_none,
+        override serialize_unit_struct,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.count += 1;
+        Ok(())
+    }
+
+    fn serialize_unit_struct(self, _: &'static str) -> Result<()> {
         self.count += 1;
         Ok(())
     }
