@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {
@@ -75,36 +75,6 @@ impl Context for DecimalBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "filed", &self.path);
         set_default(annotations, "data_type", "Decimal128(..)");
-    }
-}
-
-impl SimpleSerializer for DecimalBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
-    }
-
-    fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        try_(|| self.array.push_scalar_value((v * self.f32_factor) as i128)).ctx(self)
-    }
-
-    fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        try_(|| self.array.push_scalar_value((v * self.f64_factor) as i128)).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
-            let val = self
-                .parser
-                .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
-
-            self.array.push_scalar_value(val)
-        })
-        .ctx(self)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::internal::{
     utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder {
@@ -69,32 +69,6 @@ impl Context for BoolBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Boolean");
-    }
-}
-
-impl SimpleSerializer for BoolBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| {
-            set_validity(self.array.validity.as_mut(), self.array.len, false)?;
-            set_bit_buffer(&mut self.array.values, self.array.len, false);
-            self.array.len += 1;
-            Ok(())
-        })
-        .ctx(self)
-    }
-
-    fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        try_(|| {
-            set_validity(self.array.validity.as_mut(), self.array.len, true)?;
-            set_bit_buffer(&mut self.array.values, self.array.len, v);
-            self.array.len += 1;
-            Ok(())
-        })
-        .ctx(self)
     }
 }
 

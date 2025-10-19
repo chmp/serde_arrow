@@ -9,13 +9,10 @@ use serde::Serialize;
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
-    utils::{
-        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        Mut,
-    },
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
@@ -80,43 +77,6 @@ impl Context for MapBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Map(..)");
-    }
-}
-
-impl SimpleSerializer for MapBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_none()).ctx(self)
-    }
-
-    fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
-        try_(|| {
-            if let Some(len) = len {
-                self.keys.reserve(len);
-                self.values.reserve(len);
-            }
-            self.offsets.start_seq()
-        })
-        .ctx(self)
-    }
-
-    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        try_(|| {
-            self.offsets.push_seq_elements(1)?;
-            key.serialize(Mut(self.keys.as_mut()))
-        })
-        .ctx(self)
-    }
-
-    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| value.serialize(Mut(self.values.as_mut()))).ctx(self)
-    }
-
-    fn serialize_map_end(&mut self) -> Result<()> {
-        try_(|| self.offsets.end_seq()).ctx(self)
     }
 }
 

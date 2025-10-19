@@ -15,7 +15,7 @@ use crate::internal::{
     },
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
@@ -94,48 +94,6 @@ impl<I: NamedType> Context for TimeBuilder<I> {
                 _ => "<unknown>",
             },
         );
-    }
-}
-
-impl<I> SimpleSerializer for TimeBuilder<I>
-where
-    I: NamedType + TryFrom<i64> + TryFrom<i32> + Default + 'static,
-    Error: From<<I as TryFrom<i32>>::Error>,
-    Error: From<<I as TryFrom<i64>>::Error>,
-{
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let (seconds_factor, nanoseconds_factor) = match self.unit {
-                TimeUnit::Nanosecond => (1_000_000_000, 1),
-                TimeUnit::Microsecond => (1_000_000, 1_000),
-                TimeUnit::Millisecond => (1_000, 1_000_000),
-                TimeUnit::Second => (1, 1_000_000_000),
-            };
-
-            use chrono::naive::NaiveTime;
-            let time = v.parse::<NaiveTime>()?;
-            let timestamp = i64::from(time.num_seconds_from_midnight()) * seconds_factor
-                + i64::from(time.nanosecond()) / nanoseconds_factor;
-
-            self.array.push_scalar_value(timestamp.try_into()?)
-        })
-        .ctx(self)
-    }
-
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 }
 

@@ -7,7 +7,7 @@ use crate::internal::{
     serialization::utils::impl_serializer,
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct NullBuilder {
@@ -47,22 +47,6 @@ impl Context for NullBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Null");
-    }
-}
-
-impl SimpleSerializer for NullBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        self.count += 1;
-        Ok(())
-    }
-
-    fn serialize_unit_struct(&mut self, _: &'static str) -> Result<()> {
-        self.count += 1;
-        Ok(())
     }
 }
 

@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
 
 use marrow::array::{Array, DictionaryArray};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
-    utils::{array_view_ext::ViewExt, Mut},
+    utils::array_view_ext::ViewExt,
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {
@@ -65,7 +65,7 @@ impl DictionaryUtf8Builder {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.indices.serialize_default()).ctx(self)
+        try_(|| self.indices.serialize_default_value()).ctx(self)
     }
 }
 
@@ -73,71 +73,6 @@ impl Context for DictionaryUtf8Builder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Dictionary(..)");
-    }
-}
-
-impl SimpleSerializer for DictionaryUtf8Builder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.indices.serialize_none().ctx(self)).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let idx = match self.index.get(v) {
-                Some(idx) => *idx,
-                None => {
-                    let idx = self.index.len();
-                    self.values.serialize_str(v)?;
-                    self.index.insert(v.to_string(), idx);
-                    idx
-                }
-            };
-            idx.serialize(Mut(self.indices.as_mut()))
-        })
-        .ctx(self)
-    }
-
-    fn serialize_unit_variant(
-        &mut self,
-        _: &'static str,
-        _: u32,
-        variant: &'static str,
-    ) -> Result<()> {
-        try_(|| self.serialize_str(variant)).ctx(self)
-    }
-
-    fn serialize_tuple_variant_start<'this>(
-        &'this mut self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!(in self, "Cannot serialize enum with data as string");
-    }
-
-    fn serialize_struct_variant_start<'this>(
-        &'this mut self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<&'this mut super::ArrayBuilder> {
-        fail!(in self, "Cannot serialize enum with data as string");
-    }
-
-    fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
-        &mut self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: &V,
-    ) -> Result<()> {
-        fail!(in self, "Cannot serialize enum with data as string");
     }
 }
 
@@ -162,12 +97,12 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
                 Some(idx) => *idx,
                 None => {
                     let idx = self.index.len();
-                    serde::Serializer::serialize_str(self.values.as_mut(), v)?;
+                    self.values.serialize_str(v)?;
                     self.index.insert(v.to_string(), idx);
                     idx
                 }
             };
-            idx.serialize(Mut(self.indices.as_mut()))
+            idx.serialize(self.indices.as_mut())
         })
         .ctx(self)
     }

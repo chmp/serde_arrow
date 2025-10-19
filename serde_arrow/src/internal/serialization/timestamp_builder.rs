@@ -11,7 +11,7 @@ use crate::internal::{
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimestampBuilder {
@@ -111,28 +111,6 @@ impl Context for TimestampBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Timestamp(..)");
-    }
-}
-
-impl SimpleSerializer for TimestampBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let timestamp = self.parse_str_to_timestamp(v)?;
-            self.array.push_scalar_value(timestamp)
-        })
-        .ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }
 

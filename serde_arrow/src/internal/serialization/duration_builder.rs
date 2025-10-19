@@ -12,7 +12,7 @@ use crate::internal::{
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DurationBuilder {
@@ -63,56 +63,6 @@ impl Context for DurationBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", "Duration(..)");
-    }
-}
-
-impl SimpleSerializer for DurationBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
-    }
-
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v)).ctx(self)
-    }
-
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
-    }
-
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
-            self.array.push_scalar_value(value)
-        })
-        .ctx(self)
     }
 }
 

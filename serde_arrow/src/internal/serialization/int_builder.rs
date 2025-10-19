@@ -11,7 +11,7 @@ use crate::internal::{
     },
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct IntBuilder<I> {
@@ -88,81 +88,6 @@ impl<I: NamedType> Context for IntBuilder<I> {
                 _ => "<unknown>",
             },
         );
-    }
-}
-
-impl<I> SimpleSerializer for IntBuilder<I>
-where
-    I: NamedType
-        + Default
-        + TryFrom<i8>
-        + TryFrom<i16>
-        + TryFrom<i32>
-        + TryFrom<i64>
-        + TryFrom<u8>
-        + TryFrom<u16>
-        + TryFrom<u32>
-        + TryFrom<u64>
-        + 'static,
-    Error: From<<I as TryFrom<i8>>::Error>,
-    Error: From<<I as TryFrom<i16>>::Error>,
-    Error: From<<I as TryFrom<i32>>::Error>,
-    Error: From<<I as TryFrom<i64>>::Error>,
-    Error: From<<I as TryFrom<u8>>::Error>,
-    Error: From<<I as TryFrom<u16>>::Error>,
-    Error: From<<I as TryFrom<u32>>::Error>,
-    Error: From<<I as TryFrom<u64>>::Error>,
-{
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
-    }
-
-    fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        try_(|| {
-            let v: u8 = if v { 1 } else { 0 };
-            self.array.push_scalar_value(I::try_from(v)?)
-        })
-        .ctx(self)
-    }
-
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(v)?)).ctx(self)
-    }
-
-    fn serialize_char(&mut self, v: char) -> Result<()> {
-        try_(|| self.array.push_scalar_value(I::try_from(u32::from(v))?)).ctx(self)
     }
 }
 

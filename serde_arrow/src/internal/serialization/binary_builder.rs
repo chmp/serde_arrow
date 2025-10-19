@@ -7,13 +7,10 @@ use marrow::array::{Array, BytesArray, BytesViewArray};
 use crate::internal::{
     error::{set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
-    utils::{
-        array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
-        Mut,
-    },
+    utils::array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 pub trait BinaryBuilderArray:
     ArrayExt + for<'s> ScalarArrayExt<'s, Value = &'s [u8]> + SeqArrayExt + Sized
@@ -132,7 +129,7 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         let mut u8_serializer = U8Serializer(0);
-        value.serialize(Mut(&mut u8_serializer))?;
+        value.serialize(&mut u8_serializer)?;
 
         self.array.push_byte(u8_serializer.0);
         self.array.push_seq_elements(1)
@@ -147,60 +144,6 @@ impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(annotations, "data_type", B::DATA_TYPE_NAME);
-    }
-}
-
-impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.serialize_default_value()
-    }
-
-    fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
-    }
-
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start().ctx(self)
-    }
-
-    fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start().ctx(self)
-    }
-
-    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
-    }
-
-    fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
-    }
-
-    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
-    }
-
-    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.serialize_bytes(v.as_bytes())
     }
 }
 
@@ -265,43 +208,51 @@ impl<B: BinaryBuilderArray> serde::ser::SerializeTuple for &mut BinaryBuilder<B>
     }
 }
 
-struct U8Serializer(u8);
+pub struct U8Serializer(pub u8);
 
-impl Context for U8Serializer {
-    fn annotate(&self, _: &mut BTreeMap<String, String>) {}
-}
+impl<'a> serde::Serializer for &'a mut U8Serializer {
+    impl_serializer!(
+        'a, U8Serializer;
+        override serialize_u8,
+        override serialize_u16,
+        override serialize_u32,
+        override serialize_u64,
+        override serialize_i8,
+        override serialize_i16,
+        override serialize_i32,
+        override serialize_i64,
+    );
 
-impl SimpleSerializer for U8Serializer {
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
+    fn serialize_u8(self, v: u8) -> Result<()> {
         self.0 = v;
         Ok(())
     }
 
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+    fn serialize_u16(self, v: u16) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+    fn serialize_u32(self, v: u32) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+    fn serialize_u64(self, v: u64) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+    fn serialize_i8(self, v: i8) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+    fn serialize_i16(self, v: i16) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+    fn serialize_i32(self, v: i32) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<()> {
         self.serialize_u8(v.try_into()?)
     }
 }
