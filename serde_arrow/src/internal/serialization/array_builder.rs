@@ -116,7 +116,7 @@ impl ArrayBuilder {
         dispatch!(self, Self(builder) => builder.reserve(additional))
     }
 
-    pub fn serialize_default_valute(&mut self) -> Result<()> {
+    pub fn serialize_default_value(&mut self) -> Result<()> {
         dispatch!(self, Self(builder) => builder.serialize_default_value())
     }
 }
