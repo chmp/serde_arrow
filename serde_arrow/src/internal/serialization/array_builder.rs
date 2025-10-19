@@ -295,10 +295,10 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
     type Error = Error;
 
     type SerializeStruct = super::utils::SerializeStruct<'a>;
-    type SerializeStructVariant = super::utils::SerializeStructVariant<'a>;
-    type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
-    type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
-    type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = super::utils::SerializeStruct<'a>;
+    type SerializeTuple = super::utils::SerializeTuple<'a>;
+    type SerializeTupleVariant = super::utils::SerializeTuple<'a>;
+    type SerializeTupleStruct = super::utils::SerializeTuple<'a>;
     type SerializeSeq = super::utils::SerializeSeq<'a>;
     type SerializeMap = super::utils::SerializeMap<'a>;
 

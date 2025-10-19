@@ -1,4 +1,12 @@
 //! Simplify implementing a serde serializer
+//!
+//! Design decisions:
+//!
+//! - `serialize_unit` forwards to `serialize_none` if not overwritten
+//! - `serialize_some` forwads to the serializer itself
+//! - `serialize_newtype_struct` forwards to the serializer itself
+//! - `SerializeTupleStruct` and `SerializeTupleVariant` are mapped to `SerializeTuple`
+//! - `SerializeStructVariant` is mapped to `SerializeStruct`
 
 use crate::internal::error::{Error, Result};
 
@@ -123,19 +131,19 @@ macro_rules! impl_serializer {
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeStructVariant, [$($override),*],
-            type SerializeStructVariant = $crate::internal::serialization::utils::SerializeStructVariant<$lifetime>;
+            type SerializeStructVariant = $crate::internal::serialization::utils::SerializeStruct<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeTupleVariant, [$($override),*],
-            type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+            type SerializeTupleVariant = $crate::internal::serialization::utils::SerializeTuple<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeTupleStruct, [$($override),*],
-            type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+            type SerializeTupleStruct = $crate::internal::serialization::utils::SerializeTuple<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeTuple, [$($override),*],
-            type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+            type SerializeTuple = $crate::internal::serialization::utils::SerializeTuple<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeSeq, [$($override),*],
@@ -148,7 +156,7 @@ macro_rules! impl_serializer {
         $crate::internal::serialization::utils::impl_no_match!(
             serialize_unit, [$($override),*],
             fn serialize_unit(self) -> ::std::result::Result<Self::Ok, Self::Error> {
-                $crate::internal::error::fail!("{} does not support serialize_unit", stringify!($name));
+                ::serde::Serializer::serialize_none(self)
             }
         );
         $crate::internal::serialization::utils::impl_no_match!(
@@ -235,7 +243,6 @@ macro_rules! impl_serializer {
                 $crate::internal::error::fail!("{} does not support serialize_bytes", stringify!($name));
             }
         );
-        // TODO: provide a more sensible default
         $crate::internal::serialization::utils::impl_no_match!(
             serialize_none, [$($override),*],
             fn serialize_none(self) -> ::std::result::Result<Self::Ok, Self::Error> {
@@ -270,7 +277,6 @@ macro_rules! impl_serializer {
                 value.serialize(self)
             }
         );
-        // TODO: provide a more sensible default?
         $crate::internal::serialization::utils::impl_no_match!(
             serialize_newtype_variant, [$($override),*],
             fn serialize_newtype_variant<V: ::serde::Serialize + ?::std::marker::Sized>(
@@ -405,12 +411,7 @@ impl serde::ser::SerializeStruct for SerializeStruct<'_> {
     }
 }
 
-define_serializer_wrapper!(SerializeStructVariant {
-    dispatch dispatch_serialize_struct_variant,
-    Struct(super::struct_builder::StructBuilder),
-});
-
-impl serde::ser::SerializeStructVariant for SerializeStructVariant<'_> {
+impl serde::ser::SerializeStructVariant for SerializeStruct<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -419,11 +420,11 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        dispatch_serialize_struct_variant!(self, builder => serde::ser::SerializeStructVariant::serialize_field(builder, key, value))
+        serde::ser::SerializeStruct::serialize_field(self, key, value)
     }
 
-    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
-        dispatch_serialize_struct_variant!(self, builder => serde::ser::SerializeStructVariant::end(builder))
+    fn end(self) -> Result<()> {
+        serde::ser::SerializeStruct::end(self)
     }
 }
 
@@ -471,5 +472,49 @@ impl serde::ser::SerializeMap for SerializeMap<'_> {
 
     fn end(self) -> Result<()> {
         dispatch_serialize_map!(self, builder => serde::ser::SerializeMap::end(builder))
+    }
+}
+
+define_serializer_wrapper!(SerializeTuple {
+    dispatch dispatch_serialize_tuple,
+    Struct(super::struct_builder::StructBuilder),
+});
+
+impl serde::ser::SerializeTuple for SerializeTuple<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
+        dispatch_serialize_tuple!(self, builder => serde::ser::SerializeTuple::serialize_element(builder, value))
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        dispatch_serialize_tuple!(self, builder => serde::ser::SerializeTuple::end(builder))
+    }
+}
+
+impl serde::ser::SerializeTupleStruct for SerializeTuple<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
+        serde::ser::SerializeTuple::serialize_element(self, value)
+    }
+
+    fn end(self) -> Result<()> {
+        serde::ser::SerializeTuple::end(self)
+    }
+}
+
+impl serde::ser::SerializeTupleVariant for SerializeTuple<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
+        serde::ser::SerializeTuple::serialize_element(self, value)
+    }
+
+    fn end(self) -> Result<()> {
+        serde::ser::SerializeTuple::end(self)
     }
 }

@@ -278,6 +278,8 @@ impl<'a> Serializer for &'a mut StructBuilder {
         override serialize_none,
         override serialize_struct,
         override serialize_map,
+        override serialize_tuple,
+        override serialize_tuple_struct,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -302,6 +304,19 @@ impl<'a> Serializer for &'a mut StructBuilder {
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        self.start().ctx(self)?;
+        Ok(Self::SerializeTuple::Struct(self))
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        self.serialize_tuple(len)
+    }
 }
 
 impl serde::ser::SerializeStruct for &mut StructBuilder {
@@ -322,23 +337,6 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
 
     fn end(self) -> Result<()> {
         StructBuilder::end(self)
-    }
-}
-
-impl serde::ser::SerializeStructVariant for &mut StructBuilder {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + serde::Serialize>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<()> {
-        serde::ser::SerializeStruct::serialize_field(self, key, value)
-    }
-
-    fn end(self) -> Result<()> {
-        serde::ser::SerializeStruct::end(self)
     }
 }
 
@@ -368,6 +366,26 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
 
     fn end(self) -> Result<()> {
         StructBuilder::end(&mut *self).ctx(self)
+    }
+}
+
+impl serde::ser::SerializeTuple for &mut StructBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        try_(|| {
+            // ignore extra tuple fields
+            if self.next < self.fields.len() {
+                self.element(self.next, value)?;
+            }
+            Ok(())
+        })
+        .ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
+        self.end().ctx(self)
     }
 }
 

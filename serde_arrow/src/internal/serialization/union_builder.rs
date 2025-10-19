@@ -175,6 +175,7 @@ impl<'a> serde::Serializer for &'a mut UnionBuilder {
         override serialize_unit_variant,
         override serialize_newtype_variant,
         override serialize_struct_variant,
+        override serialize_tuple_variant,
     );
 
     fn serialize_unit_variant(
@@ -213,14 +214,18 @@ impl<'a> serde::Serializer for &'a mut UnionBuilder {
         _variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        let serializer = self
-            .serialize_variant(variant_index)?
-            .serialize_struct(name, len)?;
+        self.serialize_variant(variant_index)?
+            .serialize_struct(name, len)
+    }
 
-        match serializer {
-            Self::SerializeStruct::Struct(builder) => {
-                Ok(Self::SerializeStructVariant::Struct(builder))
-            }
-        }
+    fn serialize_tuple_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        _variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        self.serialize_variant(variant_index)?
+            .serialize_tuple_struct(name, len)
     }
 }
