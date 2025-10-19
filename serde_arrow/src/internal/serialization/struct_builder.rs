@@ -277,6 +277,7 @@ impl<'a> Serializer for &'a mut StructBuilder {
         'a, StructBuilder;
         override serialize_none,
         override serialize_struct,
+        override serialize_map,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -291,12 +292,19 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        StructBuilder::start(self)?;
-        Ok(super::utils::SerializeStruct::Struct(self))
+        StructBuilder::start(self).ctx(self)?;
+        Ok(Self::SerializeStruct::Struct(self))
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        StructBuilder::start(self).ctx(self)?;
+        // always re-set to an invalid field to force that `_key()` is called before `_value()`.
+        self.next = UNKNOWN_KEY;
+        Ok(Self::SerializeMap::Struct(self))
     }
 }
 
-impl serde::ser::SerializeStruct for &mut super::struct_builder::StructBuilder {
+impl serde::ser::SerializeStruct for &mut StructBuilder {
     type Ok = ();
     type Error = Error;
 
@@ -317,7 +325,7 @@ impl serde::ser::SerializeStruct for &mut super::struct_builder::StructBuilder {
     }
 }
 
-impl serde::ser::SerializeStructVariant for &mut super::struct_builder::StructBuilder {
+impl serde::ser::SerializeStructVariant for &mut StructBuilder {
     type Ok = ();
     type Error = Error;
 
@@ -331,6 +339,35 @@ impl serde::ser::SerializeStructVariant for &mut super::struct_builder::StructBu
 
     fn end(self) -> Result<()> {
         serde::ser::SerializeStruct::end(self)
+    }
+}
+
+impl serde::ser::SerializeMap for &mut StructBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
+        try_(|| {
+            self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
+            Ok(())
+        })
+        .ctx(*self)
+    }
+
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        try_(|| {
+            if self.next != UNKNOWN_KEY {
+                self.element(self.next, value)?;
+            }
+            // see serialize_map_start
+            self.next = UNKNOWN_KEY;
+            Ok(())
+        })
+        .ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
+        StructBuilder::end(&mut *self).ctx(self)
     }
 }
 

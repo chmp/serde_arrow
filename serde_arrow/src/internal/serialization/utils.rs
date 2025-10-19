@@ -143,7 +143,7 @@ macro_rules! impl_serializer {
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeMap, [$($override),*],
-            type SerializeMap = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+            type SerializeMap = $crate::internal::serialization::utils::SerializeMap<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             serialize_unit, [$($override),*],
@@ -438,7 +438,7 @@ define_serializer_wrapper!(SerializeSeq {
     LargeList(super::list_builder::ListBuilder<i64>),
 });
 
-impl<'a> serde::ser::SerializeSeq for SerializeSeq<'a> {
+impl serde::ser::SerializeSeq for SerializeSeq<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -448,5 +448,28 @@ impl<'a> serde::ser::SerializeSeq for SerializeSeq<'a> {
 
     fn end(self) -> Result<()> {
         dispatch_serialize_seq!(self, builder => serde::ser::SerializeSeq::end(builder))
+    }
+}
+
+define_serializer_wrapper!(SerializeMap {
+    dispatch dispatch_serialize_map,
+    Map(super::map_builder::MapBuilder),
+    Struct(super::struct_builder::StructBuilder),
+});
+
+impl serde::ser::SerializeMap for SerializeMap<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T: ?Sized + serde::Serialize>(&mut self, key: &T) -> Result<()> {
+        dispatch_serialize_map!(self, builder => serde::ser::SerializeMap::serialize_key(builder, key))
+    }
+
+    fn serialize_value<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
+        dispatch_serialize_map!(self, builder => serde::ser::SerializeMap::serialize_value(builder, value))
+    }
+
+    fn end(self) -> Result<()> {
+        dispatch_serialize_map!(self, builder => serde::ser::SerializeMap::end(builder))
     }
 }

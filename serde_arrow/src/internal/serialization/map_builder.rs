@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
@@ -121,5 +121,43 @@ impl SimpleSerializer for MapBuilder {
 }
 
 impl<'a> serde::Serializer for &'a mut MapBuilder {
-    impl_serializer!('a, MapBuilder;);
+    impl_serializer!(
+        'a, MapBuilder;
+        override serialize_none,
+        override serialize_map,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.offsets.push_seq_none().ctx(self)
+    }
+
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
+        if let Some(len) = len {
+            self.keys.reserve(len);
+            self.values.reserve(len);
+        }
+        self.offsets.start_seq().ctx(self)?;
+        Ok(Self::SerializeMap::Map(self))
+    }
+}
+
+impl serde::ser::SerializeMap for &mut MapBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
+        try_(|| {
+            self.offsets.push_seq_elements(1)?;
+            key.serialize(self.keys.as_mut())
+        })
+        .ctx(*self)
+    }
+
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        value.serialize(self.values.as_mut()).ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
+        self.offsets.end_seq().ctx(self)
+    }
 }
