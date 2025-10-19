@@ -300,7 +300,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
     type SerializeTupleVariant = ::serde::ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTupleStruct = ::serde::ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTuple = ::serde::ser::Impossible<Self::Ok, Self::Error>;
-    type SerializeSeq = ::serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = super::utils::SerializeSeq<'a>;
     type SerializeMap = ::serde::ser::Impossible<Self::Ok, Self::Error>;
 
     fn serialize_none(self) -> Result<()> {

@@ -4,7 +4,7 @@ use marrow::array::{Array, FixedSizeBinaryArray};
 use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
@@ -130,11 +130,11 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
     }
 
     fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
+        self.element(value).ctx(self)
     }
 
     fn serialize_seq_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
+        self.end().ctx(self)
     }
 
     fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
@@ -184,7 +184,31 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
 }
 
 impl<'a> serde::Serializer for &'a mut FixedSizeBinaryBuilder {
-    impl_serializer!('a, FixedSizeBinaryBuilder;);
+    impl_serializer!(
+        'a, FixedSizeBinaryBuilder;
+        override serialize_seq,
+    );
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.reserve(len);
+        }
+        self.start().ctx(self)?;
+        Ok(super::utils::SerializeSeq::FixedSizeBinary(self))
+    }
+}
+
+impl serde::ser::SerializeSeq for &mut FixedSizeBinaryBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        FixedSizeBinaryBuilder::end(&mut *self).ctx(self)
+    }
 }
 
 struct U8Serializer(u8);

@@ -5,7 +5,7 @@ use serde::Serialize;
 use marrow::array::{Array, BytesArray, BytesViewArray};
 
 use crate::internal::{
-    error::{set_default, Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
@@ -23,6 +23,7 @@ pub trait BinaryBuilderArray:
     const ARRAY_VARIANT: fn(Self) -> Array;
 
     fn push_byte(&mut self, byte: u8);
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_>;
 }
 
 impl BinaryBuilderArray for BytesArray<i32> {
@@ -32,6 +33,10 @@ impl BinaryBuilderArray for BytesArray<i32> {
 
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
+    }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::Binary(builder)
     }
 }
 
@@ -44,6 +49,10 @@ impl BinaryBuilderArray for BytesArray<i64> {
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
     }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::LargeBinary(builder)
+    }
 }
 
 impl BinaryBuilderArray for BytesViewArray {
@@ -53,6 +62,10 @@ impl BinaryBuilderArray for BytesViewArray {
 
     fn push_byte(&mut self, byte: u8) {
         self.buffers[0].push(byte);
+    }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::BinaryView(builder)
     }
 }
 
@@ -179,7 +192,31 @@ impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
 }
 
 impl<'a, B: BinaryBuilderArray> serde::Serializer for &'a mut BinaryBuilder<B> {
-    impl_serializer!('a, BinaryBuilder;);
+    impl_serializer!(
+        'a, BinaryBuilder;
+        override serialize_seq,
+    );
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.reserve(len);
+        }
+        self.start().ctx(self)?;
+        Ok(B::as_serialize_seq(self))
+    }
+}
+
+impl<B: BinaryBuilderArray> serde::ser::SerializeSeq for &mut BinaryBuilder<B> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        BinaryBuilder::end(self)
+    }
 }
 
 struct U8Serializer(u8);

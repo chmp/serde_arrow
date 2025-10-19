@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, CountArray, SeqArrayExt},
@@ -174,5 +174,29 @@ impl SimpleSerializer for FixedSizeListBuilder {
 }
 
 impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
-    impl_serializer!('a, FixedSizeListBuilder;);
+    impl_serializer!(
+        'a, FixedSizeListBuilder;
+        override serialize_seq,
+    );
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.reserve(len);
+        }
+        self.start().ctx(self)?;
+        Ok(super::utils::SerializeSeq::FixedSizeList(self))
+    }
+}
+
+impl serde::ser::SerializeSeq for &mut FixedSizeListBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        FixedSizeListBuilder::end(&mut *self).ctx(self)
+    }
 }
