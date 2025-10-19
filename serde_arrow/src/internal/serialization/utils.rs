@@ -119,11 +119,11 @@ macro_rules! impl_serializer {
 
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeStruct, [$($override),*],
-            type SerializeStruct = & $lifetime mut $crate::internal::serialization::struct_builder::StructBuilder;
+            type SerializeStruct = $crate::internal::serialization::utils::SerializeStruct<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeStructVariant, [$($override),*],
-            type SerializeStructVariant = & $lifetime mut $crate::internal::serialization::struct_builder::StructBuilder;
+            type SerializeStructVariant = $crate::internal::serialization::utils::SerializeStructVariant<$lifetime>;
         );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeTupleVariant, [$($override),*],
@@ -360,49 +360,93 @@ macro_rules! impl_serializer {
 
 pub(crate) use impl_serializer;
 
-pub enum SerializeSeq<'a> {
-    Binary(&'a mut super::binary_builder::BinaryBuilder<BytesArray<i32>>),
-    LargeBinary(&'a mut super::binary_builder::BinaryBuilder<BytesArray<i64>>),
-    BinaryView(&'a mut super::binary_builder::BinaryBuilder<BytesViewArray>),
-    FixedSizeBinary(&'a mut super::fixed_size_binary_builder::FixedSizeBinaryBuilder),
-    FixedSizeList(&'a mut super::fixed_size_list_builder::FixedSizeListBuilder),
-    List(&'a mut super::list_builder::ListBuilder<i32>),
-    LargeList(&'a mut super::list_builder::ListBuilder<i64>),
+macro_rules! define_serializer_wrapper {
+    ($name:ident {
+        dispatch $dispatcher:ident,
+        $(
+            $variant:ident($ty:ty),
+        )*
+    }) => {
+        pub enum $name<'a> {
+            $($variant(&'a mut $ty),)*
+        }
+
+        macro_rules! $dispatcher {
+            ($obj:expr, $var:ident => $expr:expr) => {
+                match $obj {
+                    $(
+                        $name::$variant($var) => $expr,
+                    )*
+                }
+            };
+        }
+    };
 }
+
+define_serializer_wrapper!(SerializeStruct {
+    dispatch dispatch_serialize_struct,
+    Struct(super::struct_builder::StructBuilder),
+});
+
+impl serde::ser::SerializeStruct for SerializeStruct<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        dispatch_serialize_struct!(self, builder => serde::ser::SerializeStruct::serialize_field(builder, key, value))
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        dispatch_serialize_struct!(self, builder => serde::ser::SerializeStruct::end(builder))
+    }
+}
+
+define_serializer_wrapper!(SerializeStructVariant {
+    dispatch dispatch_serialize_struct_variant,
+    Struct(super::struct_builder::StructBuilder),
+});
+
+impl serde::ser::SerializeStructVariant for SerializeStructVariant<'_> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + serde::Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        dispatch_serialize_struct_variant!(self, builder => serde::ser::SerializeStructVariant::serialize_field(builder, key, value))
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        dispatch_serialize_struct_variant!(self, builder => serde::ser::SerializeStructVariant::end(builder))
+    }
+}
+
+define_serializer_wrapper!(SerializeSeq {
+    dispatch dispatch_serialize_seq,
+    Binary(super::binary_builder::BinaryBuilder<BytesArray<i32>>),
+    LargeBinary(super::binary_builder::BinaryBuilder<BytesArray<i64>>),
+    BinaryView(super::binary_builder::BinaryBuilder<BytesViewArray>),
+    FixedSizeBinary(super::fixed_size_binary_builder::FixedSizeBinaryBuilder),
+    FixedSizeList(super::fixed_size_list_builder::FixedSizeListBuilder),
+    List(super::list_builder::ListBuilder<i32>),
+    LargeList(super::list_builder::ListBuilder<i64>),
+});
 
 impl<'a> serde::ser::SerializeSeq for SerializeSeq<'a> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_element<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
-        match self {
-            Self::Binary(builder) => serde::ser::SerializeSeq::serialize_element(builder, value),
-            Self::LargeBinary(builder) => {
-                serde::ser::SerializeSeq::serialize_element(builder, value)
-            }
-            Self::BinaryView(builder) => {
-                serde::ser::SerializeSeq::serialize_element(builder, value)
-            }
-            Self::FixedSizeBinary(builder) => {
-                serde::ser::SerializeSeq::serialize_element(builder, value)
-            }
-            Self::FixedSizeList(builder) => {
-                serde::ser::SerializeSeq::serialize_element(builder, value)
-            }
-            Self::List(builder) => serde::ser::SerializeSeq::serialize_element(builder, value),
-            Self::LargeList(builder) => serde::ser::SerializeSeq::serialize_element(builder, value),
-        }
+        dispatch_serialize_seq!(self, builder => serde::ser::SerializeSeq::serialize_element(builder, value))
     }
 
     fn end(self) -> Result<()> {
-        match self {
-            Self::Binary(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::LargeBinary(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::BinaryView(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::FixedSizeBinary(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::FixedSizeList(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::List(builder) => serde::ser::SerializeSeq::end(builder),
-            Self::LargeList(builder) => serde::ser::SerializeSeq::end(builder),
-        }
+        dispatch_serialize_seq!(self, builder => serde::ser::SerializeSeq::end(builder))
     }
 }

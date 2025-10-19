@@ -280,7 +280,7 @@ impl<'a> Serializer for &'a mut StructBuilder {
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         StructBuilder::start(self)?;
-        Ok(self)
+        Ok(super::utils::SerializeStruct::Struct(self))
     }
 }
 

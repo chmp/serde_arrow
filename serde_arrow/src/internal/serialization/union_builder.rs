@@ -213,7 +213,14 @@ impl<'a> serde::Serializer for &'a mut UnionBuilder {
         _variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        self.serialize_variant(variant_index)?
-            .serialize_struct(name, len)
+        let serializer = self
+            .serialize_variant(variant_index)?
+            .serialize_struct(name, len)?;
+
+        match serializer {
+            Self::SerializeStruct::Struct(builder) => {
+                Ok(Self::SerializeStructVariant::Struct(builder))
+            }
+        }
     }
 }
