@@ -192,17 +192,26 @@ impl<O: NamedType + Offset> super::simple_serializer::SimpleSerializer for ListB
 
 trait ListOffset: NamedType + Offset {
     fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_>;
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_>;
 }
 
 impl ListOffset for i32 {
     fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
         super::utils::SerializeSeq::List(builder)
     }
+
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::List(builder)
+    }
 }
 
 impl ListOffset for i64 {
     fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
         super::utils::SerializeSeq::LargeList(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::LargeList(builder)
     }
 }
 
@@ -211,6 +220,8 @@ impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
         'a, ListBuilder;
         override serialize_none,
         override serialize_seq,
+        override serialize_tuple,
+        override serialize_bytes,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -227,9 +238,43 @@ impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
         .ctx(self)?;
         Ok(O::as_serialize_seq(self))
     }
+
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        try_(|| {
+            self.elements.reserve(len);
+            self.start()
+        })
+        .ctx(self)?;
+        Ok(O::as_serialize_tuple(self))
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        try_(|| {
+            self.elements.reserve(v.len());
+            self.start()?;
+            for item in v {
+                self.element(item)?;
+            }
+            self.end()
+        })
+        .ctx(self)
+    }
 }
 
 impl<O: ListOffset> serde::ser::SerializeSeq for &mut ListBuilder<O> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        try_(|| self.element(value)).ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
+        try_(|| ListBuilder::end(self)).ctx(self)
+    }
+}
+
+impl<O: ListOffset> serde::ser::SerializeTuple for &mut ListBuilder<O> {
     type Ok = ();
     type Error = Error;
 

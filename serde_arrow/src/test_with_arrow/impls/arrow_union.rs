@@ -377,7 +377,10 @@ fn missing_union_variants() {
 
     // NOTE: variant B was never encountered during tracing
     let res = crate::to_arrow(&fields, Items(&[U::A, U::B, U::C]));
-    assert_error_contains(&res, "Unknown variant does not support serialize_unit");
+    assert_error_contains(
+        &res,
+        "UnknownVariantBuilder does not support serialize_none",
+    );
     assert_error_contains(&res, "field: \"$.item.<empty>\"")
 }
 

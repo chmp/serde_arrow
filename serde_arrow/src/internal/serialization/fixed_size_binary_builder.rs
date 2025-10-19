@@ -186,15 +186,55 @@ impl SimpleSerializer for FixedSizeBinaryBuilder {
 impl<'a> serde::Serializer for &'a mut FixedSizeBinaryBuilder {
     impl_serializer!(
         'a, FixedSizeBinaryBuilder;
+        override serialize_none,
         override serialize_seq,
+        override serialize_tuple,
+        override serialize_bytes,
+        override serialize_str,
     );
 
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        if let Some(len) = len {
-            self.reserve(len);
-        }
+    fn serialize_none(self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_none()?;
+            for _ in 0..self.n {
+                self.buffer.push(0);
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        // TOOD: fix reservation
         self.start().ctx(self)?;
         Ok(super::utils::SerializeSeq::FixedSizeBinary(self))
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        // TOOD: fix reservation
+        self.start().ctx(self)?;
+        Ok(Self::SerializeTuple::FixedSizeBinary(self))
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        try_(|| {
+            if v.len() != self.n {
+                fail!(
+                    in self,
+                    "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
+                    actual = v.len(),
+                    expected = self.n,
+                );
+            }
+
+            self.seq.start_seq()?;
+            self.buffer.extend(v);
+            self.seq.end_seq()
+        }).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        serde::Serializer::serialize_bytes(self, v.as_bytes())
     }
 }
 
@@ -206,7 +246,20 @@ impl serde::ser::SerializeSeq for &mut FixedSizeBinaryBuilder {
         self.element(value).ctx(*self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(self) -> Result<()> {
+        FixedSizeBinaryBuilder::end(&mut *self).ctx(self)
+    }
+}
+
+impl serde::ser::SerializeTuple for &mut FixedSizeBinaryBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
         FixedSizeBinaryBuilder::end(&mut *self).ctx(self)
     }
 }

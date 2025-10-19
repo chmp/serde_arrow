@@ -176,8 +176,20 @@ impl SimpleSerializer for FixedSizeListBuilder {
 impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
     impl_serializer!(
         'a, FixedSizeListBuilder;
+        override serialize_none,
         override serialize_seq,
     );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_none()?;
+            for _ in 0..self.n {
+                self.elements.serialize_default()?;
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = len {

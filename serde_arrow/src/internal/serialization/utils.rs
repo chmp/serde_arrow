@@ -4,6 +4,7 @@
 //!
 //! - `serialize_unit` forwards to `serialize_none` if not overwritten
 //! - `serialize_some` forwads to the serializer itself
+//! - `serialize_tuple_struct` forwards to `serialize_tuple`
 //! - `serialize_newtype_struct` forwards to the serializer itself
 //! - `SerializeTupleStruct` and `SerializeTupleVariant` are mapped to `SerializeTuple`
 //! - `SerializeStructVariant` is mapped to `SerializeStruct`
@@ -332,9 +333,9 @@ macro_rules! impl_serializer {
             fn serialize_tuple_struct(
                 self,
                 _: &'static str,
-                _: ::std::primitive::usize,
+                len: ::std::primitive::usize,
             ) -> ::std::result::Result<Self::SerializeTupleStruct, Self::Error> {
-                $crate::internal::error::fail!("{} does not support serialize_tuple_struct", stringify!($name));
+                ::serde::Serializer::serialize_tuple(self, len)
             }
         );
         $crate::internal::serialization::utils::impl_no_match!(
@@ -478,6 +479,12 @@ impl serde::ser::SerializeMap for SerializeMap<'_> {
 define_serializer_wrapper!(SerializeTuple {
     dispatch dispatch_serialize_tuple,
     Struct(super::struct_builder::StructBuilder),
+    Binary(super::binary_builder::BinaryBuilder<BytesArray<i32>>),
+    LargeBinary(super::binary_builder::BinaryBuilder<BytesArray<i64>>),
+    BinaryView(super::binary_builder::BinaryBuilder<BytesViewArray>),
+    FixedSizeBinary(super::fixed_size_binary_builder::FixedSizeBinaryBuilder),
+    List(super::list_builder::ListBuilder<i32>),
+    LargeList(super::list_builder::ListBuilder<i64>),
 });
 
 impl serde::ser::SerializeTuple for SerializeTuple<'_> {

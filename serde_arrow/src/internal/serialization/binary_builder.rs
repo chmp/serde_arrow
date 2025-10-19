@@ -24,6 +24,7 @@ pub trait BinaryBuilderArray:
 
     fn push_byte(&mut self, byte: u8);
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_>;
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_>;
 }
 
 impl BinaryBuilderArray for BytesArray<i32> {
@@ -37,6 +38,10 @@ impl BinaryBuilderArray for BytesArray<i32> {
 
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
         super::utils::SerializeSeq::Binary(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::Binary(builder)
     }
 }
 
@@ -53,6 +58,10 @@ impl BinaryBuilderArray for BytesArray<i64> {
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
         super::utils::SerializeSeq::LargeBinary(builder)
     }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::LargeBinary(builder)
+    }
 }
 
 impl BinaryBuilderArray for BytesViewArray {
@@ -66,6 +75,10 @@ impl BinaryBuilderArray for BytesViewArray {
 
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
         super::utils::SerializeSeq::BinaryView(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::BinaryView(builder)
     }
 }
 
@@ -194,15 +207,35 @@ impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
 impl<'a, B: BinaryBuilderArray> serde::Serializer for &'a mut BinaryBuilder<B> {
     impl_serializer!(
         'a, BinaryBuilder;
+        override serialize_none,
         override serialize_seq,
+        override serialize_tuple,
+        override serialize_bytes,
+        override serialize_str,
     );
 
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        if let Some(len) = len {
-            self.reserve(len);
-        }
+    fn serialize_none(self) -> Result<()> {
+        self.array.push_scalar_none().ctx(self)
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        // TODO: fix reservation
         self.start().ctx(self)?;
         Ok(B::as_serialize_seq(self))
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        // TODO: fix reservation
+        self.start().ctx(self)?;
+        Ok(B::as_serialize_tuple(self))
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        self.array.push_scalar_value(v).ctx(self)
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        self.array.push_scalar_value(v.as_bytes()).ctx(self)
     }
 }
 
@@ -214,7 +247,20 @@ impl<B: BinaryBuilderArray> serde::ser::SerializeSeq for &mut BinaryBuilder<B> {
         self.element(value).ctx(*self)
     }
 
-    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+    fn end(self) -> Result<()> {
+        BinaryBuilder::end(self)
+    }
+}
+
+impl<B: BinaryBuilderArray> serde::ser::SerializeTuple for &mut BinaryBuilder<B> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
+    }
+
+    fn end(self) -> Result<()> {
         BinaryBuilder::end(self)
     }
 }
