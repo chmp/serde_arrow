@@ -275,8 +275,20 @@ impl super::simple_serializer::SimpleSerializer for StructBuilder {
 impl<'a> Serializer for &'a mut StructBuilder {
     impl_serializer!(
         'a, StructBuilder;
+        override serialize_none,
         override serialize_struct,
     );
+
+    fn serialize_none(self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_none()?;
+            for (builder, _) in &mut self.fields {
+                builder.serialize_default_value()?;
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         StructBuilder::start(self)?;

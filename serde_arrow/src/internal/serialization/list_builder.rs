@@ -209,8 +209,13 @@ impl ListOffset for i64 {
 impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
     impl_serializer!(
         'a, ListBuilder;
+        override serialize_none,
         override serialize_seq,
     );
+
+    fn serialize_none(self) -> Result<()> {
+        self.offsets.push_seq_none().ctx(self)
+    }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         try_(|| {
