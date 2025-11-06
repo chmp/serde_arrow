@@ -15,17 +15,18 @@ bench = false
 [[bench]]
 name = "serde_arrow_bench"
 # arrow-version:replace: required-features = ["arrow2-0-17", "arrow-{version}"]
-required-features = ["arrow2-0-17", "arrow-56"]
+required-features = ["arrow2-0-17", "arrow-57"]
 harness = false
 
 [package.metadata.docs.rs]
 # arrow-version:replace: features = ["arrow2-0-17", "arrow-{version}"]
-features = ["arrow2-0-17", "arrow-56"]
+features = ["arrow2-0-17", "arrow-57"]
 
 [features]
 default = []
 
 # arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "marrow/arrow-{version}"]
+arrow-57 = ["dep:arrow-array-57", "dep:arrow-schema-57", "marrow/arrow-57"]
 arrow-56 = ["dep:arrow-array-56", "dep:arrow-schema-56", "marrow/arrow-56"]
 arrow-55 = ["dep:arrow-array-55", "dep:arrow-schema-55", "marrow/arrow-55"]
 arrow-54 = ["dep:arrow-array-54", "dep:arrow-schema-54", "marrow/arrow-54"]
@@ -51,7 +52,7 @@ arrow2-0-17 = ["dep:arrow2-0-17", "marrow/arrow2-0-17"]
 arrow2-0-16 = ["dep:arrow2-0-16", "marrow/arrow2-0-16"]
 
 [dependencies]
-marrow = { version = "0.2.4", default-features = false, features = ["serde"] }
+marrow = { git = "https://github.com/lakehq/marrow", rev = "dcd4538", default-features = false, features = ["serde"] }
 
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
@@ -60,6 +61,7 @@ half = { version = "2", features = ["bytemuck"], default-features = false }
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version = "{version}", optional = true, default-features = false }}
+arrow-array-57 = { package = "arrow-array", version = "57", optional = true, default-features = false }
 arrow-array-56 = { package = "arrow-array", version = "56", optional = true, default-features = false }
 arrow-array-55 = { package = "arrow-array", version = "55", optional = true, default-features = false }
 arrow-array-54 = { package = "arrow-array", version = "54", optional = true, default-features = false }
@@ -82,6 +84,7 @@ arrow-array-38 = { package = "arrow-array", version = "38", optional = true, def
 arrow-array-37 = { package = "arrow-array", version = "37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false }}
+arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true, default-features = false }
 arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true, default-features = false }
 arrow-schema-55 = { package = "arrow-schema", version = "55", optional = true, default-features = false }
 arrow-schema-54 = { package = "arrow-schema", version = "54", optional = true, default-features = false }
@@ -119,13 +122,14 @@ jiff = { version = "0.2", features = ["serde"] }
 
 # for benchmarks
 # arrow-version:replace: arrow-json-{version} = {{ package = "arrow-json", version = "{version}" }}
-arrow-json-56 = { package = "arrow-json", version = "56" }
+arrow-json-57 = { package = "arrow-json", version = "57" }
 criterion = "0.5"
 arrow2_convert = "0.5.0"
 serde-transcode = "1"
 simd-json = "0.13.8"
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", default-features = false, features = ["serde"] }}
+arrow-schema-57 = { package = "arrow-schema", version = "57", default-features = false, features = ["serde"] }
 arrow-schema-56 = { package = "arrow-schema", version = "56", default-features = false, features = ["serde"] }
 arrow-schema-55 = { package = "arrow-schema", version = "55", default-features = false, features = ["serde"] }
 arrow-schema-54 = { package = "arrow-schema", version = "54", default-features = false, features = ["serde"] }
@@ -166,6 +170,7 @@ check-cfg = [
     'cfg(has_arrow_fixed_binary_support)',
     'cfg(has_arrow_bytes_view_support)',
     # arrow-version:insert:     'cfg(has_arrow_{version})',
+    'cfg(has_arrow_57)',
     'cfg(has_arrow_56)',
     'cfg(has_arrow_55)',
     'cfg(has_arrow_54)',
