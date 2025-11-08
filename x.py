@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 self_path = __import__("pathlib").Path(__file__).parent.resolve()
 python = __import__("shlex").quote(__import__("sys").executable)
 
