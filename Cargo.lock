@@ -2034,8 +2034,9 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "marrow"
-version = "0.2.4"
-source = "git+https://github.com/lakehq/marrow?rev=dcd4538#dcd453861746446b062ebd75ac81075b963f89c6"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea734fcb7619dfcc47a396f7bf0c72571ccc8c18ae7236ae028d485b27424b74"
 dependencies = [
  "arrow-array 37.0.0",
  "arrow-array 38.0.0",
