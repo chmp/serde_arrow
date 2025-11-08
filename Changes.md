@@ -1,5 +1,9 @@
 # Change log
 
+## 0.13.7
+
+- [@lonless9](https://github.com/lonless9) Add 57 support + Release 0.13.7 ([#287](https://github.com/chmp/serde_arrow/pull/287))
+
 ## 0.13.6
 
 - [@jpopesculian](https://github.com/jpopesculian) added the option `bytes_as_large_binary`
