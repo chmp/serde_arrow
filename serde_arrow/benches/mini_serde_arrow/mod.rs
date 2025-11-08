@@ -4,7 +4,6 @@
 //!
 //! - Data types: `Boolean`, `Float32`, `Float64`, `LargeUtf8`, `List`, `Struct`
 
-pub mod r#dyn;
 pub mod r#static;
 
 pub mod utils;

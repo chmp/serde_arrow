@@ -101,8 +101,8 @@ impl StructBuilder {
             Some(guess)
         } else {
             let idx = self.lookup_field_uncached(key)?;
-            if self.lookup_cache[guess].is_none() {
-                self.lookup_cache[guess] = Some(StaticFieldName(key));
+            if self.lookup_cache[idx].is_none() {
+                self.lookup_cache[idx] = Some(StaticFieldName(key));
             }
             Some(idx)
         }
@@ -189,12 +189,12 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        StructBuilder::start(self).ctx(self)?;
+        self.start().ctx(self)?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        StructBuilder::start(self).ctx(self)?;
+        self.start().ctx(self)?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
@@ -240,23 +240,18 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
-        try_(|| {
-            self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
-            Ok(())
-        })
-        .ctx(*self)
+        self.next = KeyLookupSerializer::lookup(&self.fields, key)
+            .ctx(*self)?
+            .unwrap_or(UNKNOWN_KEY);
+        Ok(())
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        try_(|| {
-            if self.next != UNKNOWN_KEY {
-                self.element(self.next, value)?;
-            }
-            // see serialize_map_start
-            self.next = UNKNOWN_KEY;
-            Ok(())
-        })
-        .ctx(*self)
+        if self.next != UNKNOWN_KEY {
+            self.element(self.next, value).ctx(*self)?;
+        }
+        self.next = UNKNOWN_KEY;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {

@@ -61,9 +61,6 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
         .map(|_| Item::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
 
-    use crate::mini_serde_arrow::r#dyn;
-    super::bench_impl!(group, r#dyn, items);
-
     use crate::mini_serde_arrow::r#static;
     super::bench_impl!(group, r#static, items);
 
