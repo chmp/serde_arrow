@@ -50,7 +50,7 @@ fn arrow() {
     assert_eq!(generic_field, initial_field);
 
     // roundtrip via serialize
-    let schema = SerdeArrowSchema::from_value(&vec![arrow_field]).unwrap();
+    let schema = SerdeArrowSchema::from_value(vec![arrow_field]).unwrap();
     assert_eq!(schema.fields.len(), 1);
     assert_eq!(schema.fields[0], initial_field);
 }

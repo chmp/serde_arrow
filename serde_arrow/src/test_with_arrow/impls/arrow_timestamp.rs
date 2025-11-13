@@ -84,7 +84,7 @@ mod timestamp_string_conversion {
     fn assert_timestamp_string_conversion(strings: &[&str], format: &str, unit: TimeUnit) {
         let timestamps = strings
             .iter()
-            .map(|s| timestamp(*s, format, unit))
+            .map(|s| timestamp(s, format, unit))
             .collect::<Vec<_>>();
         let items = strings
             .iter()

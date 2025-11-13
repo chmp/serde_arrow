@@ -152,8 +152,6 @@ impl<T: Serialize> Serialize for Items<&[T]> {
 }
 
 /// A wrapper type to allow implementing foreign traits
-pub struct Mut<'a, T>(pub &'a mut T);
-
 pub trait NamedType {
     const NAME: &'static str;
 }
@@ -203,21 +201,6 @@ pub fn meta_from_field(field: Field) -> FieldMeta {
         metadata: field.metadata,
     }
 }
-
-macro_rules! btree_map {
-    () => {
-        ::std::collections::BTreeMap::new()
-    };
-    ($($key:expr => $value:expr),* $(,)?) => {
-        {
-            let mut m = ::std::collections::BTreeMap::new();
-            $(m.insert($key.into(), $value.into());)*
-            m
-        }
-    };
-}
-
-pub(crate) use btree_map;
 
 pub struct ChildName<'a>(pub &'a str);
 

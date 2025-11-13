@@ -8,7 +8,7 @@ use crate::internal::{
 
 #[test]
 fn extra_attributes_trailing() {
-    let schema = SerdeArrowSchema::from_value(&json!({
+    let schema = SerdeArrowSchema::from_value(json!({
         "fields": [
             {"name": "foo", "data_type": "F32"},
         ],
@@ -28,7 +28,7 @@ fn extra_attributes_trailing() {
 
 #[test]
 fn extra_attributes_leading() {
-    let schema = SerdeArrowSchema::from_value(&json!({
+    let schema = SerdeArrowSchema::from_value(json!({
         "leading": null,
         "fields": [
             {"name": "foo", "data_type": "F32"},
@@ -48,7 +48,7 @@ fn extra_attributes_leading() {
 
 #[test]
 fn invalid_top_level() {
-    let err = SerdeArrowSchema::from_value(&json!(true)).expect_err("Expected error");
+    let err = SerdeArrowSchema::from_value(json!(true)).expect_err("Expected error");
     let err = err.to_string();
 
     println!("Actual error: {err}");
@@ -57,7 +57,7 @@ fn invalid_top_level() {
 
 #[test]
 fn list_missing_dat_tpye() {
-    let err = SerdeArrowSchema::from_value(&json!([
+    let err = SerdeArrowSchema::from_value(json!([
         {"name": "foo"},
     ]))
     .expect_err("Expected error");
@@ -69,7 +69,7 @@ fn list_missing_dat_tpye() {
 
 #[test]
 fn struct_missing_fields() {
-    let err = SerdeArrowSchema::from_value(&json!({})).expect_err("Expected error");
+    let err = SerdeArrowSchema::from_value(json!({})).expect_err("Expected error");
     let err = err.to_string();
 
     println!("Actual error: {err}");
@@ -78,7 +78,7 @@ fn struct_missing_fields() {
 
 #[test]
 fn struct_missing_data_type() {
-    let err = SerdeArrowSchema::from_value(&json!({
+    let err = SerdeArrowSchema::from_value(json!({
         "fields": [{"name": "foo"}]
     }))
     .expect_err("Expected error");
@@ -94,14 +94,14 @@ fn time64_type_invalid_units() {
     // microseconds or nanoseconds."
 
     assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
+        &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time64(Millisecond)",
         }])),
         "Error: Time64 field must have Microsecond or Nanosecond unit",
     );
     assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
+        &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time64(Second)",
         }])),
@@ -109,14 +109,14 @@ fn time64_type_invalid_units() {
     );
 
     assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
+        &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time32(Microsecond)",
         }])),
         "Error: Time32 field must have Second or Millisecond unit",
     );
     assert_error_contains(
-        &SerdeArrowSchema::from_value(&json!([{
+        &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time32(Nanosecond)",
         }])),

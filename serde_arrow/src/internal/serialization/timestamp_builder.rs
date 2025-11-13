@@ -7,10 +7,11 @@ use marrow::{
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimestampBuilder {
@@ -59,6 +60,14 @@ impl TimestampBuilder {
             values: self.array.values,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
+    }
 }
 
 fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
@@ -105,16 +114,19 @@ impl Context for TimestampBuilder {
     }
 }
 
-impl SimpleSerializer for TimestampBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
-    }
+impl<'a> serde::Serializer for &'a mut TimestampBuilder {
+    impl_serializer!(
+        'a, TimestampBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i64,
+    );
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_none(self) -> Result<()> {
         try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
+    fn serialize_str(self, v: &str) -> Result<()> {
         try_(|| {
             let timestamp = self.parse_str_to_timestamp(v)?;
             self.array.push_scalar_value(timestamp)
@@ -122,7 +134,7 @@ impl SimpleSerializer for TimestampBuilder {
         .ctx(self)
     }
 
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<()> {
         try_(|| self.array.push_scalar_value(v)).ctx(self)
     }
 }

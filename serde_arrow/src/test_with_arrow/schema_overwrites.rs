@@ -16,7 +16,7 @@ fn example_issue_187() -> PanicOnError<()> {
         pub expiry: DateTime<Utc>,
     }
 
-    let expected = SerdeArrowSchema::from_value(&json!([
+    let expected = SerdeArrowSchema::from_value(json!([
         {"name": "expiry", "data_type": "Timestamp(Microsecond, None)"}
     ]))?;
 
@@ -28,7 +28,7 @@ fn example_issue_187() -> PanicOnError<()> {
     let actual = SerdeArrowSchema::from_type::<Example>(options.clone())?;
     assert_eq!(actual, expected);
 
-    let actual = SerdeArrowSchema::from_samples(&[Example { expiry: Utc::now() }], options)?;
+    let actual = SerdeArrowSchema::from_samples([Example { expiry: Utc::now() }], options)?;
     assert_eq!(actual, expected);
 
     Ok(())
@@ -47,7 +47,7 @@ fn example_nested_overwrites_vec() -> PanicOnError<()> {
     )?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
 
-    let expected = SerdeArrowSchema::from_value(&json!([
+    let expected = SerdeArrowSchema::from_value(json!([
         {
             "name": "date_times",
             "data_type": "LargeList",
@@ -77,7 +77,7 @@ fn example_nested_overwrites_structs() -> PanicOnError<()> {
         .overwrite("inner.value", json!({"name": "value", "data_type": "I32"}))?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
 
-    let expected = SerdeArrowSchema::from_value(&json!([
+    let expected = SerdeArrowSchema::from_value(json!([
         {
             "name": "inner",
             "data_type": "Struct",
@@ -108,7 +108,7 @@ fn example_nested_struct_overwrite_outer() -> PanicOnError<()> {
         .overwrite("field", json!({"name": "field", "data_type": "I32"}))?;
     let actual = SerdeArrowSchema::from_type::<Example>(options)?;
 
-    let expected = SerdeArrowSchema::from_value(&json!([
+    let expected = SerdeArrowSchema::from_value(json!([
         {
             "name": "inner",
             "data_type": "Struct",
@@ -138,7 +138,7 @@ fn example_with_arrow_field() {
             .unwrap(),
     )
     .unwrap();
-    let expected = SerdeArrowSchema::from_value(&json!([
+    let expected = SerdeArrowSchema::from_value(json!([
         {"name": "value", "data_type": "U64"}
     ]))
     .unwrap();

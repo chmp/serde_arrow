@@ -7,10 +7,10 @@ use marrow::{
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::Mut,
+    serialization::utils::impl_serializer,
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
@@ -62,6 +62,17 @@ impl UnionBuilder {
             fields,
         }))
     }
+
+    pub fn reserve(&mut self, _additional: usize) {
+        // TODO: figure out what to do here
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        let mut ctx = BTreeMap::new();
+        self.annotate(&mut ctx);
+
+        try_(|| self.serialize_variant(0)?.serialize_default_value()).ctx(&ctx)
+    }
 }
 
 impl UnionBuilder {
@@ -86,76 +97,63 @@ impl Context for UnionBuilder {
     }
 }
 
-impl SimpleSerializer for UnionBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
-
-        try_(|| self.serialize_variant(0)?.serialize_default()).ctx(&ctx)
-    }
+impl<'a> serde::Serializer for &'a mut UnionBuilder {
+    impl_serializer!(
+        'a, UnionBuilder;
+        override serialize_unit_variant,
+        override serialize_newtype_variant,
+        override serialize_struct_variant,
+        override serialize_tuple_variant,
+    );
 
     fn serialize_unit_variant(
-        &mut self,
-        _: &'static str,
+        self,
+        _name: &'static str,
         variant_index: u32,
-        _: &'static str,
+        _variant: &'static str,
     ) -> Result<()> {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
-        try_(|| self.serialize_variant(variant_index)?.serialize_unit()).ctx(&ctx)
+        try_(|| serde::Serializer::serialize_unit(self.serialize_variant(variant_index)?)).ctx(&ctx)
     }
 
-    fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
-        &mut self,
-        _: &'static str,
+    fn serialize_newtype_variant<T: ?Sized + serde::Serialize>(
+        self,
+        _name: &'static str,
         variant_index: u32,
-        _: &'static str,
-        value: &V,
+        _variant: &'static str,
+        value: &T,
     ) -> Result<()> {
         let mut ctx = BTreeMap::new();
         self.annotate(&mut ctx);
 
         try_(|| {
             let variant_builder = self.serialize_variant(variant_index)?;
-            value.serialize(Mut(variant_builder))
+            value.serialize(variant_builder)
         })
         .ctx(&ctx)
     }
 
-    fn serialize_struct_variant_start<'this>(
-        &'this mut self,
-        _: &'static str,
+    fn serialize_struct_variant(
+        self,
+        name: &'static str,
         variant_index: u32,
-        variant: &'static str,
+        _variant: &'static str,
         len: usize,
-    ) -> Result<&'this mut ArrayBuilder> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
-
-        try_(|| {
-            let variant_builder = self.serialize_variant(variant_index)?;
-            variant_builder.serialize_struct_start(variant, len)?;
-            Ok(variant_builder)
-        })
-        .ctx(&ctx)
+    ) -> Result<Self::SerializeStructVariant> {
+        self.serialize_variant(variant_index)?
+            .serialize_struct(name, len)
     }
 
-    fn serialize_tuple_variant_start<'this>(
-        &'this mut self,
-        _: &'static str,
+    fn serialize_tuple_variant(
+        self,
+        name: &'static str,
         variant_index: u32,
-        variant: &'static str,
+        _variant: &'static str,
         len: usize,
-    ) -> Result<&'this mut ArrayBuilder> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
-
-        try_(|| {
-            let variant_builder = self.serialize_variant(variant_index)?;
-            variant_builder.serialize_tuple_struct_start(variant, len)?;
-            Ok(variant_builder)
-        })
-        .ctx(&ctx)
+    ) -> Result<Self::SerializeTupleVariant> {
+        self.serialize_variant(variant_index)?
+            .serialize_tuple_struct(name, len)
     }
 }

@@ -61,7 +61,7 @@ fn example_nullable_with_nulls() {
 fn incorrect_number_of_elements() {
     let items = [Item(vec![0_u8, 1]), Item(vec![2])];
 
-    let fields = Vec::<FieldRef>::from_value(&json!([{
+    let fields = Vec::<FieldRef>::from_value(json!([{
         "name": "item",
         "data_type": "FixedSizeList(2)",
         "children": [{"name": "element", "data_type": "U8"}],
@@ -74,7 +74,7 @@ fn incorrect_number_of_elements() {
 
 #[test]
 fn deserialize_from_schema() {
-    let fields = Vec::<FieldRef>::from_value(&json!([{
+    let fields = Vec::<FieldRef>::from_value(json!([{
         "name": "item",
         "data_type": "FixedSizeList(2)",
         "children": [{"name": "element", "data_type": "U8"}],

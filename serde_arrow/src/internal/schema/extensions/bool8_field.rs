@@ -91,7 +91,7 @@ fn bool8_repr() -> crate::internal::error::PanicOnError<()> {
     let field = Bool8Field::new("hello");
 
     let field = Field::try_from(&field)?;
-    let actual = serde_json::to_value(&PrettyField(&field))?;
+    let actual = serde_json::to_value(PrettyField(&field))?;
 
     let expected = json!({
         "name": "hello",

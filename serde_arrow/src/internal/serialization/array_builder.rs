@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use marrow::array::{Array, BytesArray, BytesViewArray};
 
-use crate::internal::error::{Context, Result};
+use crate::internal::error::{Context, Error, Result};
 
 use super::{
     binary_builder::BinaryBuilder, bool_builder::BoolBuilder, date_builder::DateBuilder,
@@ -13,8 +13,8 @@ use super::{
     duration_builder::DurationBuilder, fixed_size_binary_builder::FixedSizeBinaryBuilder,
     fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
     int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
-    null_builder::NullBuilder, simple_serializer::SimpleSerializer, struct_builder::StructBuilder,
-    time_builder::TimeBuilder, timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
+    null_builder::NullBuilder, struct_builder::StructBuilder, time_builder::TimeBuilder,
+    timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
@@ -107,11 +107,17 @@ impl ArrayBuilder {
     pub fn into_array(self) -> Result<Array> {
         dispatch!(self, Self(builder) => builder.into_array())
     }
-}
 
-impl ArrayBuilder {
     pub fn take(&mut self) -> ArrayBuilder {
         dispatch!(self, Self(builder) => builder.take())
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        dispatch!(self, Self(builder) => builder.reserve(additional))
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        dispatch!(self, Self(builder) => builder.serialize_default_value())
     }
 }
 
@@ -121,165 +127,158 @@ impl Context for ArrayBuilder {
     }
 }
 
-#[rustfmt::skip]
-impl SimpleSerializer for ArrayBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_default())
+impl<'a> serde::Serializer for &'a mut ArrayBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeStruct = super::utils::SerializeStruct<'a>;
+    type SerializeStructVariant = super::utils::SerializeStruct<'a>;
+    type SerializeTuple = super::utils::SerializeTuple<'a>;
+    type SerializeTupleVariant = super::utils::SerializeTuple<'a>;
+    type SerializeTupleStruct = super::utils::SerializeTuple<'a>;
+    type SerializeSeq = super::utils::SerializeSeq<'a>;
+    type SerializeMap = super::utils::SerializeMap<'a>;
+
+    fn serialize_none(self) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_none(builder))
     }
 
-    fn serialize_unit_struct(&mut self, name: &'static str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit_struct(name))
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_some(builder, value))
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_none())
+    fn serialize_unit(self) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit(builder))
     }
 
-    fn serialize_some<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_some(value))
+    fn serialize_bool(self, v: bool) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_bool(builder, v))
     }
 
-    fn serialize_unit(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit())
+    fn serialize_char(self, v: char) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_char(builder, v))
     }
 
-    fn serialize_bool(&mut self, v: bool) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_bool(v))
+    fn serialize_i8(self, v: i8) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i8(builder, v))
     }
 
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i8(v))
+    fn serialize_i16(self, v: i16) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i16(builder, v))
     }
 
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i16(v))
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i32(builder, v))
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i32(v))
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i64(builder, v))
     }
 
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_i64(v))
+    fn serialize_u8(self, v: u8) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u8(builder, v))
     }
 
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u8(v))
+    fn serialize_u16(self, v: u16) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u16(builder, v))
     }
 
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u16(v))
+    fn serialize_u32(self, v: u32) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u32(builder, v))
     }
 
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u32(v))
+    fn serialize_u64(self, v: u64) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u64(builder, v))
     }
 
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_u64(v))
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_f32(builder, v))
     }
 
-    fn serialize_f32(&mut self, v: f32) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_f32(v))
+    fn serialize_f64(self, v: f64) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_f64(builder, v))
     }
 
-    fn serialize_f64(&mut self, v: f64) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_f64(v))
+    fn serialize_str(self, v: &str) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_str(builder, v))
     }
 
-    fn serialize_char(&mut self, v: char) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_char(v))
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_bytes(builder, v))
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_str(v))
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_seq(builder, len))
     }
 
-    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_bytes(v))
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_map(builder, len))
     }
 
-    fn serialize_seq_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_start(len))
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple(builder, len))
     }
 
-    fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_element(value))
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_struct(builder, name, len))
     }
 
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_seq_end())
+    fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit_struct(builder, name))
     }
 
-    fn serialize_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_start(name, len))
+    fn serialize_unit_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+    ) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit_variant(builder, name, variant_index, variant))
     }
 
-    fn serialize_struct_field<V: Serialize + ?Sized>(&mut self, key: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_field(key, value))
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        name: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_newtype_struct(builder, name, value))
     }
 
-    fn serialize_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_end())
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
+    ) -> Result<()> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_newtype_variant(builder, name, variant_index, variant, value))
     }
 
-    fn serialize_map_start(&mut self, len: Option<usize>) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_start(len))
+    fn serialize_tuple_struct(
+        self,
+        name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple_struct(builder, name, len))
     }
 
-    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_key(key))
+    fn serialize_tuple_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple_variant(builder, name, variant_index, variant, len))
     }
 
-    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_value(value))
-    }
-
-    fn serialize_map_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_map_end())
-    }
-
-    fn serialize_tuple_start(&mut self, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_start(len))
-    }
-
-    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_element(value))
-    }
-
-    fn serialize_tuple_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_end())
-    }
-
-    fn serialize_tuple_struct_start(&mut self, name: &'static str, len: usize) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_start(name, len))
-    }
-
-    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_field(value))
-    }
-
-    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_struct_end())
-    }
-
-    fn serialize_newtype_struct<V: Serialize + ?Sized>(&mut self, name: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_newtype_struct(name, value))
-    }
-
-    fn serialize_newtype_variant<V: Serialize + ?Sized>(&mut self, name: &'static str, variant_index: u32, variant: &'static str, value: &V) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value))
-    }
-
-    fn serialize_unit_variant(&mut self, name: &'static str, variant_index: u32, variant: &'static str) -> Result<()> {
-        dispatch!(self, Self(builder) => builder.serialize_unit_variant(name, variant_index, variant))
-    }
-
-    fn serialize_struct_variant_start<'this>(&'this mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<&'this mut ArrayBuilder> {
-        dispatch!(self, Self(builder) => builder.serialize_struct_variant_start(name, variant_index, variant, len))
-    }
-
-    fn serialize_tuple_variant_start<'this> (&'this mut self, name: &'static str, variant_index: u32, variant: &'static str, len: usize) -> Result<&'this mut ArrayBuilder> {
-        dispatch!(self, Self(builder) => builder.serialize_tuple_variant_start(name, variant_index, variant, len))
+    fn serialize_struct_variant(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_struct_variant(builder, name, variant_index, variant, len))
     }
 }

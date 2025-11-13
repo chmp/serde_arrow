@@ -7,14 +7,12 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
-        Mut,
-    },
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
+    utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
@@ -65,6 +63,14 @@ impl MapBuilder {
             offsets: self.offsets.offsets,
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.offsets.push_seq_default()).ctx(self)
+    }
 }
 
 impl Context for MapBuilder {
@@ -74,32 +80,44 @@ impl Context for MapBuilder {
     }
 }
 
-impl SimpleSerializer for MapBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_default()).ctx(self)
+impl<'a> serde::Serializer for &'a mut MapBuilder {
+    impl_serializer!(
+        'a, MapBuilder;
+        override serialize_none,
+        override serialize_map,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.offsets.push_seq_none().ctx(self)
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_none()).ctx(self)
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
+        if let Some(len) = len {
+            self.keys.reserve(len);
+            self.values.reserve(len);
+        }
+        self.offsets.start_seq().ctx(self)?;
+        Ok(Self::SerializeMap::Map(self))
     }
+}
 
-    fn serialize_map_start(&mut self, _: Option<usize>) -> Result<()> {
-        try_(|| self.offsets.start_seq()).ctx(self)
-    }
+impl serde::ser::SerializeMap for &mut MapBuilder {
+    type Ok = ();
+    type Error = Error;
 
-    fn serialize_map_key<V: Serialize + ?Sized>(&mut self, key: &V) -> Result<()> {
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
         try_(|| {
             self.offsets.push_seq_elements(1)?;
-            key.serialize(Mut(self.keys.as_mut()))
+            key.serialize(self.keys.as_mut())
         })
-        .ctx(self)
+        .ctx(*self)
     }
 
-    fn serialize_map_value<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| value.serialize(Mut(self.values.as_mut()))).ctx(self)
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        value.serialize(self.values.as_mut()).ctx(*self)
     }
 
-    fn serialize_map_end(&mut self) -> Result<()> {
-        try_(|| self.offsets.end_seq()).ctx(self)
+    fn end(self) -> Result<()> {
+        self.offsets.end_seq().ctx(self)
     }
 }

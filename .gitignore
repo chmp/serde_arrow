@@ -6,3 +6,5 @@ __pycache__/
 
 # Editor directories and files
 .idea/
+
+flamegraph.svg

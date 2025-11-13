@@ -79,29 +79,35 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
     type SerializeStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+    fn serialize_seq(mut self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.0.as_mut().reserve(len);
+        }
         Ok(CollectionSerializer(self.0))
     }
 
-    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple> {
+    fn serialize_tuple(mut self, len: usize) -> Result<Self::SerializeTuple> {
+        self.0.as_mut().reserve(len);
         Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_tuple_struct(
-        self,
+        mut self,
         _: &'static str,
-        _: usize,
+        len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
+        self.0.as_mut().reserve(len);
         Ok(CollectionSerializer(self.0))
     }
 
     fn serialize_tuple_variant(
-        self,
+        mut self,
         _: &'static str,
         _: u32,
         _: &'static str,
-        _: usize,
+        len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
+        self.0.as_mut().reserve(len);
         Ok(CollectionSerializer(self.0))
     }
 

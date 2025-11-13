@@ -7,14 +7,12 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, CountArray, SeqArrayExt},
-        Mut,
-    },
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
+    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 
@@ -69,6 +67,22 @@ impl FixedSizeListBuilder {
             elements: Box::new((*self.elements).into_array()?),
         }))
     }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.elements.reserve(additional * self.n);
+        self.seq.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for _ in 0..self.n {
+                self.elements.serialize_default_value()?;
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
 }
 
 impl FixedSizeListBuilder {
@@ -80,7 +94,7 @@ impl FixedSizeListBuilder {
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.current_count += 1;
         self.seq.push_seq_elements(1)?;
-        value.serialize(Mut(self.elements.as_mut()))
+        value.serialize(self.elements.as_mut())
     }
 
     fn end(&mut self) -> Result<()> {
@@ -103,62 +117,42 @@ impl Context for FixedSizeListBuilder {
     }
 }
 
-impl SimpleSerializer for FixedSizeListBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_default()?;
-            for _ in 0..self.n {
-                self.elements.serialize_default()?;
-            }
-            Ok(())
-        })
-        .ctx(self)
-    }
+impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
+    impl_serializer!(
+        'a, FixedSizeListBuilder;
+        override serialize_none,
+        override serialize_seq,
+    );
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_none(self) -> Result<()> {
         try_(|| {
             self.seq.push_seq_none()?;
             for _ in 0..self.n {
-                self.elements.serialize_default()?;
+                self.elements.serialize_default_value()?;
             }
             Ok(())
         })
         .ctx(self)
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        try_(|| self.start()).ctx(self)
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.reserve(len);
+        }
+        self.start().ctx(self)?;
+        Ok(super::utils::SerializeSeq::FixedSizeList(self))
+    }
+}
+
+impl serde::ser::SerializeSeq for &mut FixedSizeListBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value).ctx(*self)
     }
 
-    fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
-    }
-
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
-    }
-
-    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_tuple_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
-    }
-
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
-    }
-
-    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        FixedSizeListBuilder::end(&mut *self).ctx(self)
     }
 }

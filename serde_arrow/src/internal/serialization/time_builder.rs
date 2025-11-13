@@ -8,13 +8,14 @@ use marrow::{
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         NamedType,
     },
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
@@ -23,7 +24,7 @@ pub struct TimeBuilder<I> {
     pub array: PrimitiveArray<I>,
 }
 
-impl<I: Default + 'static> TimeBuilder<I> {
+impl<I: Default + NamedType + 'static> TimeBuilder<I> {
     pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
         Self {
             path,
@@ -42,6 +43,14 @@ impl<I: Default + 'static> TimeBuilder<I> {
 
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| self.array.push_scalar_default()).ctx(self)
     }
 }
 
@@ -88,21 +97,25 @@ impl<I: NamedType> Context for TimeBuilder<I> {
     }
 }
 
-impl<I> SimpleSerializer for TimeBuilder<I>
+impl<'a, I> serde::Serializer for &'a mut TimeBuilder<I>
 where
     I: NamedType + TryFrom<i64> + TryFrom<i32> + Default + 'static,
     Error: From<<I as TryFrom<i32>>::Error>,
     Error: From<<I as TryFrom<i64>>::Error>,
 {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
-    }
+    impl_serializer!(
+        'a, TimeBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i32,
+        override serialize_i64,
+    );
 
-    fn serialize_none(&mut self) -> Result<()> {
+    fn serialize_none(self) -> Result<()> {
         try_(|| self.array.push_scalar_none()).ctx(self)
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
+    fn serialize_str(self, v: &str) -> Result<()> {
         try_(|| {
             let (seconds_factor, nanoseconds_factor) = match self.unit {
                 TimeUnit::Nanosecond => (1_000_000_000, 1),
@@ -121,11 +134,11 @@ where
         .ctx(self)
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+    fn serialize_i32(self, v: i32) -> Result<()> {
         try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<()> {
         try_(|| self.array.push_scalar_value(v.try_into()?)).ctx(self)
     }
 }
