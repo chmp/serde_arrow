@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 self_path = __import__("pathlib").Path(__file__).parent.resolve()
 python = __import__("shlex").quote(__import__("sys").executable)
 
@@ -7,6 +11,7 @@ arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw
 
 all_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
+    "arrow-57",
     "arrow-56",
     "arrow-55",
     "arrow-54",
