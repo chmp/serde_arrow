@@ -502,7 +502,7 @@ def format_benchmark(mean_times, ignore_groups=()):
 
             widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
-            yield f"### {group}"
+            yield f"### `{group}`"
             yield ""
             for idx, row in enumerate(rows):
                 padded_row = [
