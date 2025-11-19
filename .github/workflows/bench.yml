@@ -1,0 +1,45 @@
+
+{
+  "name": "Test",
+  "on": {
+    "workflow_dispatch": {},
+    "pull_request": {
+      "branches": [
+        "main",
+        "develop-*"
+      ],
+      "types": [
+        "opened",
+        "edited",
+        "reopened",
+        "ready_for_review",
+        "synchronize"
+      ]
+    }
+  },
+  "env": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "jobs": {
+    "build": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@v4"
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Test",
+          "run": "cargo bench --features arrow2-0-17,arrow-57\npython x.py summarize-bench >> $GITHUB_STEP_SUMMARY"
+        }
+      ]
+    }
+  }
+}
