@@ -98,7 +98,7 @@ impl ArrayBuilder {
     }
 
     #[inline]
-    pub(crate) fn into_arrays(self) -> Result<(Vec<Array>, Vec<FieldMeta>)> {
+    pub(crate) fn into_arrays_and_field_metas(self) -> Result<(Vec<Array>, Vec<FieldMeta>)> {
         let mut arrays = Vec::with_capacity(self.builder.num_fields());
         let mut metas = Vec::with_capacity(self.builder.num_fields());
         for builder in self.builder.0.fields {

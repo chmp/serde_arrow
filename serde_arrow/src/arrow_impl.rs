@@ -202,7 +202,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// the `arrow-*` features*)
     pub fn into_arrow(self) -> Result<Vec<ArrayRef>> {
         Ok(self
-            .into_arrays()?
+            .into_arrays_and_field_metas()?
             .0
             .into_iter()
             .map(ArrayRef::try_from)
@@ -234,7 +234,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct a [`RecordBatch`] and consume the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn into_record_batch(self) -> Result<RecordBatch> {
-        let (arrays, metas) = self.into_arrays()?;
+        let (arrays, metas) = self.into_arrays_and_field_metas()?;
 
         let arrays = arrays
             .into_iter()
