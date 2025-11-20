@@ -21,7 +21,6 @@ use super::array_builder::ArrayBuilder;
 
 pub struct ListBuilder<O> {
     pub name: String,
-    pub meta: FieldMeta,
     pub elements: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<O>,
     pub metadata: HashMap<String, String>,
@@ -30,14 +29,12 @@ pub struct ListBuilder<O> {
 impl<O: Offset + NamedType> ListBuilder<O> {
     pub fn new(
         name: String,
-        meta: FieldMeta,
         element: ArrayBuilder,
         is_nullable: bool,
         metadata: HashMap<String, String>,
     ) -> Self {
         Self {
             name,
-            meta,
             elements: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
             metadata,
@@ -48,7 +45,6 @@ impl<O: Offset + NamedType> ListBuilder<O> {
         Self {
             name: self.name.clone(),
             metadata: self.metadata.clone(),
-            meta: self.meta.clone(),
             offsets: self.offsets.take(),
             elements: Box::new(self.elements.take()),
         }
@@ -72,26 +68,18 @@ impl ListBuilder<i32> {
         ArrayBuilder::List(self.take_self())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::List(ListArray {
-            validity: self.offsets.validity,
-            offsets: self.offsets.offsets,
-            elements: Box::new(self.elements.into_array()?),
-            meta: self.meta,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
             metadata: self.metadata,
             nullable: self.offsets.validity.is_some(),
         };
+        let (child_array, child_meta) = self.elements.into_array_and_field_meta()?;
         let array = Array::List(ListArray {
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
-            elements: Box::new(self.elements.into_array()?),
-            meta: self.meta,
+            elements: Box::new(child_array),
+            meta: child_meta,
         });
         Ok((array, meta))
     }
@@ -102,26 +90,18 @@ impl ListBuilder<i64> {
         ArrayBuilder::LargeList(self.take_self())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::LargeList(ListArray {
-            validity: self.offsets.validity,
-            offsets: self.offsets.offsets,
-            elements: Box::new(self.elements.into_array()?),
-            meta: self.meta,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
             metadata: self.metadata,
             nullable: self.offsets.validity.is_some(),
         };
+        let (child_array, child_meta) = self.elements.into_array_and_field_meta()?;
         let array = Array::LargeList(ListArray {
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
-            elements: Box::new(self.elements.into_array()?),
-            meta: self.meta,
+            elements: Box::new(child_array),
+            meta: child_meta,
         });
         Ok((array, meta))
     }

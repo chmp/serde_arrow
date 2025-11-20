@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use marrow::datatypes::{DataType, Field, FieldMeta, MapMeta, TimeUnit};
+use marrow::datatypes::{DataType, Field, MapMeta, TimeUnit};
 use serde::Serialize;
 
 use crate::internal::{
@@ -219,14 +219,12 @@ fn build_builder(
         T::Utf8View => A::Utf8View(Utf8Builder::new(name, nullable, metadata)),
         T::List(child) => A::List(ListBuilder::new(
             name,
-            meta_from_field(*child.clone()),
             build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
             nullable,
             metadata,
         )),
         T::LargeList(child) => A::LargeList(ListBuilder::new(
             name,
-            meta_from_field(*child.clone()),
             build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
             nullable,
             metadata,
@@ -235,7 +233,6 @@ fn build_builder(
             let n = usize::try_from(n)?;
             A::FixedSizedList(FixedSizeListBuilder::new(
                 name,
-                meta_from_field(*child.clone()),
                 build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
                 n,
                 nullable,
@@ -299,19 +296,12 @@ fn build_builder(
                 if usize::try_from(type_id) != Ok(idx) {
                     fail!("Union with non consecutive type ids are not supported");
                 }
-                fields.push((
-                    build_builder(
-                        field.name.clone(),
-                        field.data_type,
-                        field.nullable,
-                        field.metadata.clone(),
-                    )?,
-                    FieldMeta {
-                        name: field.name,
-                        nullable: field.nullable,
-                        metadata: field.metadata,
-                    },
-                ));
+                fields.push(build_builder(
+                    field.name,
+                    field.data_type,
+                    field.nullable,
+                    field.metadata,
+                )?);
             }
 
             A::Union(UnionBuilder::new(name, fields, metadata))

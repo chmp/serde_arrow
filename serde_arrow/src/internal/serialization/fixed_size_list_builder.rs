@@ -19,7 +19,6 @@ use super::array_builder::ArrayBuilder;
 pub struct FixedSizeListBuilder {
     pub name: String,
     pub seq: CountArray,
-    pub meta: FieldMeta,
     pub n: usize,
     pub current_count: usize,
     pub elements: Box<ArrayBuilder>,
@@ -29,7 +28,6 @@ pub struct FixedSizeListBuilder {
 impl FixedSizeListBuilder {
     pub fn new(
         name: String,
-        meta: FieldMeta,
         element: ArrayBuilder,
         n: usize,
         is_nullable: bool,
@@ -38,7 +36,6 @@ impl FixedSizeListBuilder {
         Self {
             name,
             seq: CountArray::new(is_nullable),
-            meta,
             n,
             current_count: 0,
             elements: Box::new(element),
@@ -51,7 +48,6 @@ impl FixedSizeListBuilder {
             name: self.name.clone(),
             metadata: self.metadata.clone(),
             seq: self.seq.take(),
-            meta: self.meta.clone(),
             n: self.n,
             current_count: std::mem::take(&mut self.current_count),
             elements: Box::new(self.elements.take()),
@@ -62,28 +58,19 @@ impl FixedSizeListBuilder {
         self.seq.validity.is_some()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::FixedSizeList(FixedSizeListArray {
-            len: self.seq.len,
-            validity: self.seq.validity,
-            n: self.n.try_into()?,
-            meta: self.meta,
-            elements: Box::new((*self.elements).into_array()?),
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
             metadata: self.metadata,
             nullable: self.seq.validity.is_some(),
         };
+        let (child_array, child_meta) = (*self.elements).into_array_and_field_meta()?;
         let array = Array::FixedSizeList(FixedSizeListArray {
             len: self.seq.len,
             validity: self.seq.validity,
             n: self.n.try_into()?,
-            meta: self.meta,
-            elements: Box::new((*self.elements).into_array()?),
+            meta: child_meta,
+            elements: Box::new(child_array),
         });
         Ok((array, meta))
     }

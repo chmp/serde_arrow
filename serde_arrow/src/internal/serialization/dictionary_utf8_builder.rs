@@ -53,24 +53,6 @@ impl DictionaryUtf8Builder {
         self.indices.is_nullable()
     }
 
-    pub fn into_array(mut self) -> Result<Array> {
-        let keys = Box::new((*self.indices).into_array()?);
-
-        let has_non_null_keys = !keys.as_view().is_nullable()? && keys.as_view().len()? != 0;
-        let has_no_values = self.index.is_empty();
-
-        if has_non_null_keys && has_no_values {
-            // the non-null keys must be dummy values, map them to empty strings to ensure they can
-            // be decoded
-            self.values.serialize_str("")?;
-        }
-
-        Ok(Array::Dictionary(DictionaryArray {
-            keys,
-            values: Box::new((*self.values).into_array()?),
-        }))
-    }
-
     pub fn into_array_and_field_meta(mut self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -78,7 +60,8 @@ impl DictionaryUtf8Builder {
             nullable: self.indices.is_nullable(),
         };
 
-        let keys = Box::new((*self.indices).into_array()?);
+        let (keys, _) = (*self.indices).into_array_and_field_meta()?;
+        let keys = Box::new(keys);
 
         let has_non_null_keys = !keys.as_view().is_nullable()? && keys.as_view().len()? != 0;
         let has_no_values = self.index.is_empty();
@@ -89,10 +72,10 @@ impl DictionaryUtf8Builder {
             self.values.serialize_str("")?;
         }
 
-        let array = Array::Dictionary(DictionaryArray {
-            keys,
-            values: Box::new((*self.values).into_array()?),
-        });
+        let (values, _) = (*self.values).into_array_and_field_meta()?;
+        let values = Box::new(values);
+
+        let array = Array::Dictionary(DictionaryArray { keys, values });
 
         Ok((array, meta))
     }

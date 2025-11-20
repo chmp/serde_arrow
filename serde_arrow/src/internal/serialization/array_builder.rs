@@ -111,10 +111,6 @@ impl ArrayBuilder {
         dispatch!(self, Self(builder) => builder.is_nullable())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        dispatch!(self, Self(builder) => builder.into_array())
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         dispatch!(self, Self(builder) => builder.into_array_and_field_meta())
     }

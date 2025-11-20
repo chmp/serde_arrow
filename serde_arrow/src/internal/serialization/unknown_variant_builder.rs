@@ -30,9 +30,8 @@ impl UnknownVariantBuilder {
         })
     }
 
-    // TODO: is this correct?
     pub fn is_nullable(&self) -> bool {
-        false
+        true
     }
 
     pub fn into_array(self) -> Result<Array> {
@@ -43,7 +42,7 @@ impl UnknownVariantBuilder {
         let meta = FieldMeta {
             name: self.name,
             metadata: self.metadata,
-            nullable: false,
+            nullable: true,
         };
         let array = Array::Null(NullArray { len: 0 });
         Ok((array, meta))

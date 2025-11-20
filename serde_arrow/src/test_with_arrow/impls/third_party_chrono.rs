@@ -321,7 +321,7 @@ mod naive_time {
         let mut builder = ArrayBuilder::new(schema).unwrap();
         builder.extend(&items).unwrap();
 
-        let arrays = builder.build_arrays().unwrap();
+        let arrays = builder.into_marrow().unwrap();
         let [array] = arrays.try_into().unwrap();
 
         assert_eq!(array.get_utf8(0).unwrap(), Some("12:10:42"));

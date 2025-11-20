@@ -122,7 +122,8 @@ impl ArrayBuilder {
 
     /// Construct [`marrow::Array`s][Array] and reset the builder
     pub fn to_marrow(&mut self) -> Result<Vec<Array>> {
-        self.build_arrays()
+        let (arrays, _) = self.take().into_arrays()?;
+        Ok(arrays)
     }
 
     /// Consume the builder and construct the arrays

@@ -192,7 +192,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
         Ok(self
-            .build_arrays()?
+            .to_marrow()?
             .into_iter()
             .map(ArrayRef::try_from)
             .collect::<Result<_, MarrowError>>()?)

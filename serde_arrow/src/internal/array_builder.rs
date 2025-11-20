@@ -91,12 +91,10 @@ impl ArrayBuilder {
         self.builder.extend(items)
     }
 
-    pub(crate) fn build_arrays(&mut self) -> Result<Vec<Array>> {
-        let mut arrays = Vec::with_capacity(self.builder.num_fields());
-        for builder in &mut self.builder.0.fields {
-            arrays.push(builder.take().into_array()?);
+    pub(crate) fn take(&mut self) -> Self {
+        Self {
+            builder: OuterSequenceBuilder(self.builder.0.take_self()),
         }
-        Ok(arrays)
     }
 
     #[inline]

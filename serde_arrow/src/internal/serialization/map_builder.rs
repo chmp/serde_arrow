@@ -58,26 +58,19 @@ impl MapBuilder {
         self.offsets.validity.is_some()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Map(MapArray {
-            meta: self.meta,
-            keys: Box::new((*self.keys).into_array()?),
-            values: Box::new((*self.values).into_array()?),
-            validity: self.offsets.validity,
-            offsets: self.offsets.offsets,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
             metadata: self.metadata,
             nullable: self.offsets.validity.is_some(),
         };
+        let (keys, _) = (*self.keys).into_array_and_field_meta()?;
+        let (values, _) = (*self.values).into_array_and_field_meta()?;
+
         let array = Array::Map(MapArray {
             meta: self.meta,
-            keys: Box::new((*self.keys).into_array()?),
-            values: Box::new((*self.values).into_array()?),
+            keys: Box::new(keys),
+            values: Box::new(values),
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
         });

@@ -15,7 +15,7 @@ use super::array_builder::ArrayBuilder;
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
     pub name: String,
-    pub fields: Vec<(ArrayBuilder, FieldMeta)>,
+    pub fields: Vec<ArrayBuilder>,
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
     pub current_offset: Vec<i32>,
@@ -23,11 +23,7 @@ pub struct UnionBuilder {
 }
 
 impl UnionBuilder {
-    pub fn new(
-        name: String,
-        fields: Vec<(ArrayBuilder, FieldMeta)>,
-        metadata: HashMap<String, String>,
-    ) -> Self {
+    pub fn new(name: String, fields: Vec<ArrayBuilder>, metadata: HashMap<String, String>) -> Self {
         Self {
             name,
             current_offset: vec![0; fields.len()],
@@ -42,11 +38,7 @@ impl UnionBuilder {
         ArrayBuilder::Union(Self {
             name: self.name.clone(),
             metadata: self.metadata.clone(),
-            fields: self
-                .fields
-                .iter_mut()
-                .map(|(field, meta)| (field.take(), meta.clone()))
-                .collect(),
+            fields: self.fields.iter_mut().map(|field| field.take()).collect(),
             types: std::mem::take(&mut self.types),
             offsets: std::mem::take(&mut self.offsets),
             current_offset: std::mem::replace(&mut self.current_offset, vec![0; self.fields.len()]),
@@ -59,8 +51,9 @@ impl UnionBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         let mut fields = Vec::new();
-        for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
-            fields.push((idx.try_into()?, meta, builder.into_array()?));
+        for (idx, builder) in self.fields.into_iter().enumerate() {
+            let (child_array, child_meta) = builder.into_array_and_field_meta()?;
+            fields.push((idx.try_into()?, child_meta, child_array));
         }
 
         Ok(Array::Union(UnionArray {
@@ -78,8 +71,9 @@ impl UnionBuilder {
         };
 
         let mut fields = Vec::new();
-        for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
-            fields.push((idx.try_into()?, meta, builder.into_array()?));
+        for (idx, builder) in self.fields.into_iter().enumerate() {
+            let (child_array, child_meta) = builder.into_array_and_field_meta()?;
+            fields.push((idx.try_into()?, child_meta, child_array));
         }
 
         let array = Array::Union(UnionArray {
@@ -106,7 +100,7 @@ impl UnionBuilder {
 impl UnionBuilder {
     pub fn serialize_variant(&mut self, variant_index: u32) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
-        let Some((variant_builder, _)) = self.fields.get_mut(variant_index) else {
+        let Some(variant_builder) = self.fields.get_mut(variant_index) else {
             fail!("Could not find variant {variant_index} in Union");
         };
 
