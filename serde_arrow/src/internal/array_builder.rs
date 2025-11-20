@@ -93,8 +93,8 @@ impl ArrayBuilder {
 
     pub(crate) fn build_arrays(&mut self) -> Result<Vec<Array>> {
         let mut arrays = Vec::with_capacity(self.builder.num_fields());
-        for (field, _) in &mut self.builder.0.fields {
-            arrays.push(field.take().into_array()?);
+        for builder in &mut self.builder.0.fields {
+            arrays.push(builder.take().into_array()?);
         }
         Ok(arrays)
     }
@@ -103,8 +103,9 @@ impl ArrayBuilder {
     pub(crate) fn into_arrays(self) -> Result<(Vec<Array>, Vec<FieldMeta>)> {
         let mut arrays = Vec::with_capacity(self.builder.num_fields());
         let mut metas = Vec::with_capacity(self.builder.num_fields());
-        for (field, meta) in self.builder.0.fields {
-            arrays.push(field.into_array()?);
+        for builder in self.builder.0.fields {
+            let (array, meta) = builder.into_array_and_field_meta()?;
+            arrays.push(array);
             metas.push(meta);
         }
         Ok((arrays, metas))

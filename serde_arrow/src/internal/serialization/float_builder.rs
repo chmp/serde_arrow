@@ -171,7 +171,7 @@ impl FloatPrimitive for f64 {
 
 #[derive(Debug, Clone)]
 pub struct FloatBuilder<I> {
-    name: String,
+    pub name: String,
     array: PrimitiveArray<I>,
     metadata: HashMap<String, String>,
 }

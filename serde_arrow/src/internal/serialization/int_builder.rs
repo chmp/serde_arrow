@@ -18,7 +18,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct IntBuilder<I> {
-    name: String,
+    pub name: String,
     array: PrimitiveArray<I>,
     metadata: HashMap<String, String>,
 }

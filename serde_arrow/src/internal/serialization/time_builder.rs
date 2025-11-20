@@ -19,7 +19,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
-    name: String,
+    pub name: String,
     pub unit: TimeUnit,
     pub array: PrimitiveArray<I>,
     metadata: HashMap<String, String>,

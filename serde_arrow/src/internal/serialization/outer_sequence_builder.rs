@@ -156,21 +156,12 @@ fn build_struct(
 ) -> Result<StructBuilder> {
     let mut fields = Vec::new();
     for field in struct_fields {
-        let Field {
-            name,
-            data_type,
-            nullable,
-            metadata,
-        } = field;
-
-        fields.push((
-            build_builder(name.clone(), data_type, nullable, metadata.clone())?,
-            FieldMeta {
-                name,
-                nullable,
-                metadata,
-            },
-        ));
+        fields.push(build_builder(
+            field.name,
+            field.data_type,
+            field.nullable,
+            field.metadata,
+        )?);
     }
     StructBuilder::new(path, fields, nullable, metadata)
 }

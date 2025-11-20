@@ -14,7 +14,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct UnknownVariantBuilder {
-    name: String,
+    pub name: String,
     metadata: HashMap<String, String>,
 }
 

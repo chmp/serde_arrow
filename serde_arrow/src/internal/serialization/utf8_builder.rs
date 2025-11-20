@@ -41,7 +41,7 @@ impl Utf8BuilderArray for BytesViewArray {
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<A> {
-    name: String,
+    pub name: String,
     array: A,
     metadata: HashMap<String, String>,
 }

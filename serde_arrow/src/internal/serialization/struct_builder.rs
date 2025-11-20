@@ -19,7 +19,7 @@ const UNKNOWN_KEY: usize = usize::MAX;
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
     pub name: String,
-    pub fields: Vec<(ArrayBuilder, FieldMeta)>,
+    pub fields: Vec<ArrayBuilder>,
     pub lookup_cache: Vec<Option<StaticFieldName>>,
     pub next: usize,
     pub seen: Vec<bool>,
@@ -30,7 +30,7 @@ pub struct StructBuilder {
 impl StructBuilder {
     pub fn new(
         name: String,
-        fields: Vec<(ArrayBuilder, FieldMeta)>,
+        fields: Vec<ArrayBuilder>,
         is_nullable: bool,
         metadata: HashMap<String, String>,
     ) -> Result<Self> {
@@ -52,7 +52,7 @@ impl StructBuilder {
             fields: self
                 .fields
                 .iter_mut()
-                .map(|(builder, meta)| (builder.take(), meta.clone()))
+                .map(|builder| builder.take())
                 .collect(),
             lookup_cache: std::mem::replace(&mut self.lookup_cache, vec![None; self.fields.len()]),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
@@ -70,16 +70,7 @@ impl StructBuilder {
     }
 
     pub fn into_array(self) -> Result<Array> {
-        let mut fields = Vec::new();
-        for (builder, meta) in self.fields {
-            fields.push((meta, builder.into_array()?));
-        }
-
-        Ok(Array::Struct(StructArray {
-            len: self.seq.len,
-            validity: self.seq.validity,
-            fields,
-        }))
+        Ok(self.into_array_and_field_meta()?.0)
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
@@ -90,8 +81,9 @@ impl StructBuilder {
         };
 
         let mut fields = Vec::new();
-        for (builder, meta) in self.fields {
-            fields.push((meta, builder.into_array()?));
+        for builder in self.fields {
+            let (array, meta) = builder.into_array_and_field_meta()?;
+            fields.push((meta, array));
         }
 
         let array = Array::Struct(StructArray {
@@ -103,15 +95,15 @@ impl StructBuilder {
     }
 
     pub fn reserve(&mut self, len: usize) {
-        for (field, _) in &mut self.fields {
-            field.reserve(len);
+        for builder in &mut self.fields {
+            builder.reserve(len);
         }
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| {
             self.seq.push_seq_default()?;
-            for (builder, _) in &mut self.fields {
+            for builder in &mut self.fields {
                 builder.serialize_default_value()?;
             }
 
@@ -133,8 +125,8 @@ impl StructBuilder {
     }
 
     pub fn lookup_field_uncached(&self, name: &str) -> Option<usize> {
-        for (idx, (_, meta)) in self.fields.iter().enumerate() {
-            if name == meta.name {
+        for (idx, builder) in self.fields.iter().enumerate() {
+            if name == builder.get_name() {
                 return Some(idx);
             }
         }
@@ -158,14 +150,14 @@ impl StructBuilder {
         self.seq.end_seq()?;
         for (idx, seen) in self.seen.iter_mut().enumerate() {
             if !*seen {
-                if !self.fields[idx].1.nullable {
+                if !self.fields[idx].is_nullable() {
                     fail!(
                         "Missing non-nullable field {:?} in struct",
-                        self.fields[idx].1.name
+                        self.fields[idx].get_name(),
                     );
                 }
 
-                self.fields[idx].0.serialize_none()?;
+                self.fields[idx].serialize_none()?;
             }
         }
         Ok(())
@@ -174,10 +166,10 @@ impl StructBuilder {
     pub fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
-            fail!(in self, "Duplicate field {key}", key = self.fields[idx].1.name);
+            fail!(in self, "Duplicate field {key}", key = self.fields[idx].get_name());
         }
 
-        value.serialize(&mut self.fields[idx].0)?;
+        value.serialize(&mut self.fields[idx])?;
         self.seen[idx] = true;
         self.next = idx + 1;
         Ok(())
@@ -204,7 +196,7 @@ impl<'a> Serializer for &'a mut StructBuilder {
     fn serialize_none(self) -> Result<()> {
         try_(|| {
             self.seq.push_seq_none()?;
-            for (builder, _) in &mut self.fields {
+            for builder in &mut self.fields {
                 builder.serialize_default_value()?;
             }
             Ok(())
@@ -315,13 +307,13 @@ impl std::cmp::PartialEq for StaticFieldName {
 
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
-    fields: &'a [(ArrayBuilder, FieldMeta)],
+    fields: &'a [ArrayBuilder],
     result: Option<usize>,
 }
 
 impl<'a> KeyLookupSerializer<'a> {
     pub fn lookup<K: Serialize + ?Sized>(
-        fields: &'a [(ArrayBuilder, FieldMeta)],
+        fields: &'a [ArrayBuilder],
         key: &K,
     ) -> Result<Option<usize>> {
         let mut this = Self {
@@ -344,8 +336,8 @@ impl<'a> Serializer for &'a mut KeyLookupSerializer<'_> {
     );
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        for (idx, (_, meta)) in self.fields.iter().enumerate() {
-            if meta.name == v {
+        for (idx, builder) in self.fields.iter().enumerate() {
+            if builder.get_name() == v {
                 self.result = Some(idx);
             }
         }

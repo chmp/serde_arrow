@@ -49,7 +49,7 @@ impl DatePrimitive for i64 {
 
 #[derive(Debug, Clone)]
 pub struct DateBuilder<I: DatePrimitive> {
-    name: String,
+    pub name: String,
     array: PrimitiveArray<I>,
     metadata: HashMap<String, String>,
 }

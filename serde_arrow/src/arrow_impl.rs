@@ -212,14 +212,18 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
-        let arrays = self.to_arrow()?;
+        let mut arrays = Vec::with_capacity(self.builder.num_fields());
+        let mut fields = Vec::with_capacity(self.builder.num_fields());
 
-        let mut fields = Vec::with_capacity(arrays.len());
-        for (array, (_, meta)) in std::iter::zip(&arrays, &self.builder.0.fields) {
-            fields.push(FieldRef::new(
+        for builder in &mut self.builder.0.fields {
+            let (array, meta) = builder.take().into_array_and_field_meta()?;
+            let array = ArrayRef::try_from(array)?;
+            let field = FieldRef::new(
                 ArrowField::new(&meta.name, array.data_type().clone(), meta.nullable)
                     .with_metadata(meta.metadata.clone()),
-            ));
+            );
+            arrays.push(array);
+            fields.push(field)
         }
 
         let schema = Schema::new(fields);

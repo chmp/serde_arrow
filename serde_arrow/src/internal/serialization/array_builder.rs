@@ -103,6 +103,10 @@ macro_rules! dispatch {
 }
 
 impl ArrayBuilder {
+    pub fn get_name(&self) -> &str {
+        dispatch!(self, Self(builder) => &builder.name)
+    }
+
     pub fn is_nullable(&self) -> bool {
         dispatch!(self, Self(builder) => builder.is_nullable())
     }

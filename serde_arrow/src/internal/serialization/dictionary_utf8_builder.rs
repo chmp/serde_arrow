@@ -16,7 +16,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {
-    name: String,
+    pub name: String,
     pub indices: Box<ArrayBuilder>,
     pub values: Box<ArrayBuilder>,
     pub index: HashMap<String, usize>,

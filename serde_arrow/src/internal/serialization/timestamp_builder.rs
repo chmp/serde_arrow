@@ -15,7 +15,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimestampBuilder {
-    name: String,
+    pub name: String,
     pub unit: TimeUnit,
     pub timezone: Option<String>,
     pub utc: bool,

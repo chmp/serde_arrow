@@ -85,7 +85,7 @@ impl BinaryBuilderArray for BytesViewArray {
 #[derive(Debug, Clone)]
 
 pub struct BinaryBuilder<A> {
-    name: String,
+    pub name: String,
     metadata: HashMap<String, String>,
     array: A,
 }

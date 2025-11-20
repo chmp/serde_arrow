@@ -15,7 +15,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct BoolBuilder {
-    name: String,
+    pub name: String,
     array: BooleanArray,
     metadata: HashMap<String, String>,
 }

@@ -18,7 +18,7 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DecimalBuilder {
-    name: String,
+    pub name: String,
     pub precision: u8,
     pub scale: i8,
     pub f32_factor: f32,
