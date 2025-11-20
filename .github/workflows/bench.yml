@@ -2,20 +2,7 @@
 {
   "name": "Bench",
   "on": {
-    "workflow_dispatch": {},
-    "pull_request": {
-      "branches": [
-        "main",
-        "develop-*"
-      ],
-      "types": [
-        "opened",
-        "edited",
-        "reopened",
-        "ready_for_review",
-        "synchronize"
-      ]
-    }
+    "workflow_dispatch": {}
   },
   "env": {
     "CARGO_TERM_COLOR": "always"
