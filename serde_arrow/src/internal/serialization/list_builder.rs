@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, ListArray},
@@ -20,25 +20,34 @@ use super::array_builder::ArrayBuilder;
 #[derive(Debug, Clone)]
 
 pub struct ListBuilder<O> {
-    pub path: String,
+    pub name: String,
     pub meta: FieldMeta,
     pub elements: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<O>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl<O: Offset + NamedType> ListBuilder<O> {
-    pub fn new(path: String, meta: FieldMeta, element: ArrayBuilder, is_nullable: bool) -> Self {
+    pub fn new(
+        name: String,
+        meta: FieldMeta,
+        element: ArrayBuilder,
+        is_nullable: bool,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             meta,
             elements: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             elements: Box::new(self.elements.take()),
@@ -71,6 +80,21 @@ impl ListBuilder<i32> {
             meta: self.meta,
         }))
     }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.offsets.validity.is_some(),
+        };
+        let array = Array::List(ListArray {
+            validity: self.offsets.validity,
+            offsets: self.offsets.offsets,
+            elements: Box::new(self.elements.into_array()?),
+            meta: self.meta,
+        });
+        Ok((array, meta))
+    }
 }
 
 impl ListBuilder<i64> {
@@ -85,6 +109,21 @@ impl ListBuilder<i64> {
             elements: Box::new(self.elements.into_array()?),
             meta: self.meta,
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.offsets.validity.is_some(),
+        };
+        let array = Array::LargeList(ListArray {
+            validity: self.offsets.validity,
+            offsets: self.offsets.offsets,
+            elements: Box::new(self.elements.into_array()?),
+            meta: self.meta,
+        });
+        Ok((array, meta))
     }
 }
 
@@ -105,7 +144,7 @@ impl<O: NamedType + Offset> ListBuilder<O> {
 
 impl<O: NamedType> Context for ListBuilder<O> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",

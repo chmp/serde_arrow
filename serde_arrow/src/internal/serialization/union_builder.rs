@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, UnionArray},
@@ -14,27 +14,34 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct UnionBuilder {
-    pub path: String,
+    pub name: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub types: Vec<i8>,
     pub offsets: Vec<i32>,
     pub current_offset: Vec<i32>,
+    metadata: HashMap<String, String>,
 }
 
 impl UnionBuilder {
-    pub fn new(path: String, fields: Vec<(ArrayBuilder, FieldMeta)>) -> Self {
+    pub fn new(
+        name: String,
+        fields: Vec<(ArrayBuilder, FieldMeta)>,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             current_offset: vec![0; fields.len()],
             types: Vec::new(),
             offsets: Vec::new(),
             fields,
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::Union(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             fields: self
                 .fields
                 .iter_mut()
@@ -61,6 +68,27 @@ impl UnionBuilder {
             offsets: Some(self.offsets),
             fields,
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: false,
+        };
+
+        let mut fields = Vec::new();
+        for (idx, (builder, meta)) in self.fields.into_iter().enumerate() {
+            fields.push((idx.try_into()?, meta, builder.into_array()?));
+        }
+
+        let array = Array::Union(UnionArray {
+            types: self.types,
+            offsets: Some(self.offsets),
+            fields,
+        });
+
+        Ok((array, meta))
     }
 
     pub fn reserve(&mut self, _additional: usize) {
@@ -92,7 +120,7 @@ impl UnionBuilder {
 
 impl Context for UnionBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Union(..)");
     }
 }

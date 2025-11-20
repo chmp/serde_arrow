@@ -1,7 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use half::f16;
-use marrow::array::{Array, PrimitiveArray};
+use marrow::{
+    array::{Array, PrimitiveArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
@@ -168,21 +171,24 @@ impl FloatPrimitive for f64 {
 
 #[derive(Debug, Clone)]
 pub struct FloatBuilder<I> {
-    path: String,
+    name: String,
     array: PrimitiveArray<I>,
+    metadata: HashMap<String, String>,
 }
 
 impl<F: FloatPrimitive> FloatBuilder<F> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         }
     }
@@ -203,6 +209,15 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
         Ok(F::ARRAY(self.array))
     }
 
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        Ok((F::ARRAY(self.array), meta))
+    }
+
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
@@ -210,7 +225,7 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
 
 impl<F: FloatPrimitive> Context for FloatBuilder<F> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", F::NAME);
     }
 }

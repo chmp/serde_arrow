@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, StructArray},
@@ -18,33 +18,37 @@ const UNKNOWN_KEY: usize = usize::MAX;
 
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
-    pub path: String,
+    pub name: String,
     pub fields: Vec<(ArrayBuilder, FieldMeta)>,
     pub lookup_cache: Vec<Option<StaticFieldName>>,
     pub next: usize,
     pub seen: Vec<bool>,
     pub seq: CountArray,
+    pub metadata: HashMap<String, String>,
 }
 
 impl StructBuilder {
     pub fn new(
-        path: String,
+        name: String,
         fields: Vec<(ArrayBuilder, FieldMeta)>,
         is_nullable: bool,
+        metadata: HashMap<String, String>,
     ) -> Result<Self> {
         Ok(Self {
-            path,
+            name,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             next: 0,
             lookup_cache: vec![None; fields.len()],
             fields,
+            metadata,
         })
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             fields: self
                 .fields
                 .iter_mut()
@@ -76,6 +80,26 @@ impl StructBuilder {
             validity: self.seq.validity,
             fields,
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.seq.validity.is_some(),
+        };
+
+        let mut fields = Vec::new();
+        for (builder, meta) in self.fields {
+            fields.push((meta, builder.into_array()?));
+        }
+
+        let array = Array::Struct(StructArray {
+            len: self.seq.len,
+            validity: self.seq.validity,
+            fields,
+        });
+        Ok((array, meta))
     }
 
     pub fn reserve(&mut self, len: usize) {
@@ -162,7 +186,7 @@ impl StructBuilder {
 
 impl Context for StructBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Struct(..)");
     }
 }

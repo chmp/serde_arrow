@@ -1,6 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, BytesArray, BytesViewArray};
+use marrow::{
+    array::{Array, BytesArray, BytesViewArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
@@ -38,21 +41,24 @@ impl Utf8BuilderArray for BytesViewArray {
 
 #[derive(Debug, Clone)]
 pub struct Utf8Builder<A> {
-    path: String,
+    name: String,
     array: A,
+    metadata: HashMap<String, String>,
 }
 
 impl<A: Utf8BuilderArray> Utf8Builder<A> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(path: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name: path,
             array: A::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         }
     }
@@ -69,6 +75,16 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
         Ok(A::ARRAY_VARIANT(self.array))
     }
 
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        let array = A::ARRAY_VARIANT(self.array);
+        Ok((array, meta))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.array.reserve(additional);
     }
@@ -80,7 +96,7 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
 
 impl<A: Utf8BuilderArray> Context for Utf8Builder<A> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", A::DATA_TYPE_NAME);
     }
 }

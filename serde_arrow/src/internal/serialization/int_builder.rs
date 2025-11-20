@@ -1,6 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, PrimitiveArray};
+use marrow::{
+    array::{Array, PrimitiveArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{prepend, set_default, try_, Context, ContextSupport, Error, Result},
@@ -15,21 +18,24 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct IntBuilder<I> {
-    path: String,
+    name: String,
     array: PrimitiveArray<I>,
+    metadata: HashMap<String, String>,
 }
 
 impl<I: NamedType + Default + 'static> IntBuilder<I> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
+            metadata,
             array: PrimitiveArray::new(is_nullable),
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         }
     }
@@ -57,6 +63,15 @@ macro_rules! impl_into_array {
             pub fn into_array(self) -> Result<Array> {
                 Ok(Array::$array_var(self.array))
             }
+
+            pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+                let meta = FieldMeta {
+                    name: self.name,
+                    metadata: self.metadata,
+                    nullable: self.array.is_nullable(),
+                };
+                Ok((Array::$array_var(self.array), meta))
+            }
         }
     };
 }
@@ -72,7 +87,7 @@ impl_into_array!(u64, U64, UInt64);
 
 impl<I: NamedType> Context for IntBuilder<I> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        prepend(annotations, "field", &self.path);
+        prepend(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",

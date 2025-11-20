@@ -11,7 +11,7 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder, utils::impl_serializer,
     },
-    utils::{meta_from_field, ChildName},
+    utils::meta_from_field,
 };
 
 use super::{
@@ -28,7 +28,12 @@ pub struct OuterSequenceBuilder(pub StructBuilder);
 
 impl OuterSequenceBuilder {
     pub fn new(fields: Vec<Field>) -> Result<Self> {
-        Ok(Self(build_struct(String::from("$"), fields, false)?))
+        Ok(Self(build_struct(
+            String::from("$"),
+            fields,
+            false,
+            HashMap::new(),
+        )?))
     }
 
     /// Extend the builder with a sequence of items
@@ -143,7 +148,12 @@ impl serde::ser::SerializeTupleStruct for &mut OuterSequenceBuilder {
     }
 }
 
-fn build_struct(path: String, struct_fields: Vec<Field>, nullable: bool) -> Result<StructBuilder> {
+fn build_struct(
+    path: String,
+    struct_fields: Vec<Field>,
+    nullable: bool,
+    metadata: HashMap<String, String>,
+) -> Result<StructBuilder> {
     let mut fields = Vec::new();
     for field in struct_fields {
         let Field {
@@ -152,10 +162,9 @@ fn build_struct(path: String, struct_fields: Vec<Field>, nullable: bool) -> Resu
             nullable,
             metadata,
         } = field;
-        let field_path = format!("{path}.{name}", name = name);
 
         fields.push((
-            build_builder(field_path, data_type, nullable, &metadata)?,
+            build_builder(name.clone(), data_type, nullable, metadata.clone())?,
             FieldMeta {
                 name,
                 nullable,
@@ -163,91 +172,91 @@ fn build_struct(path: String, struct_fields: Vec<Field>, nullable: bool) -> Resu
             },
         ));
     }
-    StructBuilder::new(path, fields, nullable)
+    StructBuilder::new(path, fields, nullable, metadata)
 }
 
 fn build_builder(
-    path: String,
+    name: String,
     data_type: DataType,
     nullable: bool,
-    metadata: &HashMap<String, String>,
+    metadata: HashMap<String, String>,
 ) -> Result<ArrayBuilder> {
     use {ArrayBuilder as A, DataType as T};
 
     let builder = match data_type {
-        T::Null => match get_strategy_from_metadata(metadata)? {
-            Some(Strategy::UnknownVariant) => A::UnknownVariant(UnknownVariantBuilder::new(path)),
-            _ => A::Null(NullBuilder::new(path)),
+        T::Null => match get_strategy_from_metadata(&metadata)? {
+            Some(Strategy::UnknownVariant) => {
+                A::UnknownVariant(UnknownVariantBuilder::new(name, metadata))
+            }
+            _ => A::Null(NullBuilder::new(name, metadata)),
         },
-        T::Boolean => A::Bool(BoolBuilder::new(path, nullable)),
-        T::Int8 => A::I8(IntBuilder::new(path, nullable)),
-        T::Int16 => A::I16(IntBuilder::new(path, nullable)),
-        T::Int32 => A::I32(IntBuilder::new(path, nullable)),
-        T::Int64 => A::I64(IntBuilder::new(path, nullable)),
-        T::UInt8 => A::U8(IntBuilder::new(path, nullable)),
-        T::UInt16 => A::U16(IntBuilder::new(path, nullable)),
-        T::UInt32 => A::U32(IntBuilder::new(path, nullable)),
-        T::UInt64 => A::U64(IntBuilder::new(path, nullable)),
-        T::Float16 => A::F16(FloatBuilder::new(path, nullable)),
-        T::Float32 => A::F32(FloatBuilder::new(path, nullable)),
-        T::Float64 => A::F64(FloatBuilder::new(path, nullable)),
-        T::Date32 => A::Date32(DateBuilder::new(path, nullable)),
-        T::Date64 => A::Date64(DateBuilder::new(path, nullable)),
-        T::Timestamp(unit, tz) => A::Timestamp(TimestampBuilder::new(path, unit, tz, nullable)?),
+        T::Boolean => A::Bool(BoolBuilder::new(name, nullable, metadata)),
+        T::Int8 => A::I8(IntBuilder::new(name, nullable, metadata)),
+        T::Int16 => A::I16(IntBuilder::new(name, nullable, metadata)),
+        T::Int32 => A::I32(IntBuilder::new(name, nullable, metadata)),
+        T::Int64 => A::I64(IntBuilder::new(name, nullable, metadata)),
+        T::UInt8 => A::U8(IntBuilder::new(name, nullable, metadata)),
+        T::UInt16 => A::U16(IntBuilder::new(name, nullable, metadata)),
+        T::UInt32 => A::U32(IntBuilder::new(name, nullable, metadata)),
+        T::UInt64 => A::U64(IntBuilder::new(name, nullable, metadata)),
+        T::Float16 => A::F16(FloatBuilder::new(name, nullable, metadata)),
+        T::Float32 => A::F32(FloatBuilder::new(name, nullable, metadata)),
+        T::Float64 => A::F64(FloatBuilder::new(name, nullable, metadata)),
+        T::Date32 => A::Date32(DateBuilder::new(name, nullable, metadata)),
+        T::Date64 => A::Date64(DateBuilder::new(name, nullable, metadata)),
+        T::Timestamp(unit, tz) => {
+            A::Timestamp(TimestampBuilder::new(name, unit, tz, nullable, metadata)?)
+        }
         T::Time32(unit) => {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
                 fail!("Time32 only supports second or millisecond resolutions");
             }
-            A::Time32(TimeBuilder::new(path, unit, nullable))
+            A::Time32(TimeBuilder::new(name, unit, nullable, metadata))
         }
         T::Time64(unit) => {
             if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
                 fail!("Time64 only supports nanosecond or microsecond resolutions");
             }
-            A::Time64(TimeBuilder::new(path, unit, nullable))
+            A::Time64(TimeBuilder::new(name, unit, nullable, metadata))
         }
-        T::Duration(unit) => A::Duration(DurationBuilder::new(path, unit, nullable)),
-        T::Decimal128(precision, scale) => {
-            A::Decimal128(DecimalBuilder::new(path, precision, scale, nullable))
-        }
-        T::Utf8 => A::Utf8(Utf8Builder::new(path, nullable)),
-        T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(path, nullable)),
-        T::Utf8View => A::Utf8View(Utf8Builder::new(path, nullable)),
-        T::List(child) => {
-            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
-            A::List(ListBuilder::new(
-                path,
-                meta_from_field(*child.clone()),
-                build_builder(child_path, child.data_type, child.nullable, &child.metadata)?,
-                nullable,
-            ))
-        }
-        T::LargeList(child) => {
-            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
-            A::LargeList(ListBuilder::new(
-                path,
-                meta_from_field(*child.clone()),
-                build_builder(child_path, child.data_type, child.nullable, &child.metadata)?,
-                nullable,
-            ))
-        }
+        T::Duration(unit) => A::Duration(DurationBuilder::new(name, unit, nullable, metadata)),
+        T::Decimal128(precision, scale) => A::Decimal128(DecimalBuilder::new(
+            name, precision, scale, nullable, metadata,
+        )),
+        T::Utf8 => A::Utf8(Utf8Builder::new(name, nullable, metadata)),
+        T::LargeUtf8 => A::LargeUtf8(Utf8Builder::new(name, nullable, metadata)),
+        T::Utf8View => A::Utf8View(Utf8Builder::new(name, nullable, metadata)),
+        T::List(child) => A::List(ListBuilder::new(
+            name,
+            meta_from_field(*child.clone()),
+            build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
+            nullable,
+            metadata,
+        )),
+        T::LargeList(child) => A::LargeList(ListBuilder::new(
+            name,
+            meta_from_field(*child.clone()),
+            build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
+            nullable,
+            metadata,
+        )),
         T::FixedSizeList(child, n) => {
-            let child_path = format!("{path}.{child_name}", child_name = ChildName(&child.name));
             let n = usize::try_from(n)?;
             A::FixedSizedList(FixedSizeListBuilder::new(
-                path,
+                name,
                 meta_from_field(*child.clone()),
-                build_builder(child_path, child.data_type, child.nullable, &child.metadata)?,
+                build_builder(child.name, child.data_type, child.nullable, child.metadata)?,
                 n,
                 nullable,
+                metadata,
             ))
         }
-        T::Binary => A::Binary(BinaryBuilder::new(path, nullable)),
-        T::LargeBinary => A::LargeBinary(BinaryBuilder::new(path, nullable)),
-        T::BinaryView => A::BinaryView(BinaryBuilder::new(path, nullable)),
+        T::Binary => A::Binary(BinaryBuilder::new(name, nullable, metadata)),
+        T::LargeBinary => A::LargeBinary(BinaryBuilder::new(name, nullable, metadata)),
+        T::BinaryView => A::BinaryView(BinaryBuilder::new(name, nullable, metadata)),
         T::FixedSizeBinary(n) => {
             let n = usize::try_from(n)?;
-            A::FixedSizeBinary(FixedSizeBinaryBuilder::new(path, n, nullable))
+            A::FixedSizeBinary(FixedSizeBinaryBuilder::new(name, n, nullable, metadata))
         }
         T::Map(entry_field, sorted) => {
             let DataType::Struct(entries_field) = entry_field.data_type else {
@@ -260,17 +269,6 @@ fn build_builder(
                 fail!("A map field must be a struct with exactly two fields");
             };
 
-            let keys_path = format!(
-                "{path}.{entries_name}.{keys__name}",
-                entries_name = ChildName(&entry_field.name),
-                keys__name = ChildName(&keys_field.name),
-            );
-            let values_path = format!(
-                "{path}.{entries_name}.{values_name}",
-                entries_name = ChildName(&entry_field.name),
-                values_name = ChildName(&values_field.name),
-            );
-
             let meta = MapMeta {
                 sorted,
                 entries_name: entry_field.name.clone(),
@@ -279,44 +277,44 @@ fn build_builder(
             };
 
             A::Map(MapBuilder::new(
-                path.clone(),
+                name,
                 meta,
                 build_builder(
-                    keys_path,
+                    keys_field.name,
                     keys_field.data_type,
                     keys_field.nullable,
-                    &keys_field.metadata,
+                    keys_field.metadata,
                 )?,
                 build_builder(
-                    values_path,
+                    values_field.name,
                     values_field.data_type,
                     values_field.nullable,
-                    &values_field.metadata,
+                    values_field.metadata,
                 )?,
                 nullable,
+                metadata,
             )?)
         }
-        T::Struct(children) => A::Struct(build_struct(path, children, nullable)?),
-        T::Dictionary(key, value) => {
-            let key_path = format!("{path}.key");
-            let value_path = format!("{path}.value");
-            let empty_metadata = HashMap::new();
-            A::DictionaryUtf8(DictionaryUtf8Builder::new(
-                path,
-                build_builder(key_path, *key, nullable, &empty_metadata)?,
-                build_builder(value_path, *value, false, &empty_metadata)?,
-            ))
-        }
+        T::Struct(children) => A::Struct(build_struct(name, children, nullable, metadata)?),
+        T::Dictionary(key, value) => A::DictionaryUtf8(DictionaryUtf8Builder::new(
+            name,
+            build_builder(String::from("key"), *key, nullable, Default::default())?,
+            build_builder(String::from("value"), *value, false, Default::default())?,
+            metadata,
+        )),
         T::Union(union_fields, _) => {
             let mut fields = Vec::new();
             for (idx, (type_id, field)) in union_fields.into_iter().enumerate() {
                 if usize::try_from(type_id) != Ok(idx) {
                     fail!("Union with non consecutive type ids are not supported");
                 }
-                let field_path =
-                    format!("{path}.{field_name}", field_name = ChildName(&field.name));
                 fields.push((
-                    build_builder(field_path, field.data_type, field.nullable, &field.metadata)?,
+                    build_builder(
+                        field.name.clone(),
+                        field.data_type,
+                        field.nullable,
+                        field.metadata.clone(),
+                    )?,
                     FieldMeta {
                         name: field.name,
                         nullable: field.nullable,
@@ -325,7 +323,7 @@ fn build_builder(
                 ));
             }
 
-            A::Union(UnionBuilder::new(path, fields))
+            A::Union(UnionBuilder::new(name, fields, metadata))
         }
         dt => fail!("Cannot build ArrayBuilder for data type {dt:?}"),
     };

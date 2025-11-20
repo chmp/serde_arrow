@@ -1,7 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{NaiveDate, NaiveDateTime};
-use marrow::array::{Array, PrimitiveArray};
+use marrow::{
+    array::{Array, PrimitiveArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
@@ -46,21 +49,24 @@ impl DatePrimitive for i64 {
 
 #[derive(Debug, Clone)]
 pub struct DateBuilder<I: DatePrimitive> {
-    path: String,
+    name: String,
     array: PrimitiveArray<I>,
+    metadata: HashMap<String, String>,
 }
 
 impl<I: DatePrimitive> DateBuilder<I> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         I::ARRAY_BUILDER_VARIANT(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         })
     }
@@ -71,6 +77,15 @@ impl<I: DatePrimitive> DateBuilder<I> {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(I::ARRAY_VARIANT(self.array))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        Ok((I::ARRAY_VARIANT(self.array), meta))
     }
 
     pub fn reserve(&mut self, additional: usize) {
@@ -97,7 +112,7 @@ impl<I: DatePrimitive> DateBuilder<I> {
 
 impl<I: DatePrimitive> Context for DateBuilder<I> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", I::DATA_TYPE_NAME);
     }
 }

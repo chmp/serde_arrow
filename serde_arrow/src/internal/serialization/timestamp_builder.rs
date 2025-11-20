@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, PrimitiveArray, TimestampArray},
-    datatypes::TimeUnit,
+    datatypes::{FieldMeta, TimeUnit},
 };
 
 use crate::internal::{
@@ -15,36 +15,40 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimestampBuilder {
-    path: String,
+    name: String,
     pub unit: TimeUnit,
     pub timezone: Option<String>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl TimestampBuilder {
     pub fn new(
-        path: String,
+        name: String,
         unit: TimeUnit,
         timezone: Option<String>,
         is_nullable: bool,
+        metadata: HashMap<String, String>,
     ) -> Result<Self> {
         Ok(Self {
             utc: is_utc_tz(timezone.as_deref())?,
-            path,
+            name,
             unit,
             timezone,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         })
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::Timestamp(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
             unit: self.unit,
             timezone: self.timezone.clone(),
             utc: self.utc,
             array: self.array.take(),
+            metadata: self.metadata.clone(),
         })
     }
 
@@ -59,6 +63,21 @@ impl TimestampBuilder {
             validity: self.array.validity,
             values: self.array.values,
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        let array = Array::Timestamp(TimestampArray {
+            unit: self.unit,
+            timezone: self.timezone,
+            validity: self.array.validity,
+            values: self.array.values,
+        });
+        Ok((array, meta))
     }
 
     pub fn reserve(&mut self, additional: usize) {
@@ -109,7 +128,7 @@ impl TimestampBuilder {
 
 impl Context for TimestampBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Timestamp(..)");
     }
 }

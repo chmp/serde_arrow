@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, MapArray},
-    datatypes::MapMeta,
+    datatypes::{FieldMeta, MapMeta},
 };
 use serde::Serialize;
 
@@ -16,33 +16,37 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct MapBuilder {
-    pub path: String,
+    pub name: String,
     pub meta: MapMeta,
     pub keys: Box<ArrayBuilder>,
     pub values: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<i32>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl MapBuilder {
     pub fn new(
-        path: String,
+        name: String,
         meta: MapMeta,
         keys: ArrayBuilder,
         values: ArrayBuilder,
         is_nullable: bool,
+        metadata: HashMap<String, String>,
     ) -> Result<Self> {
         Ok(Self {
-            path,
+            name,
             meta,
             offsets: OffsetsArray::new(is_nullable),
             keys: Box::new(keys),
             values: Box::new(values),
+            metadata,
         })
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::Map(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             meta: self.meta.clone(),
             offsets: self.offsets.take(),
             keys: Box::new(self.keys.take()),
@@ -64,6 +68,22 @@ impl MapBuilder {
         }))
     }
 
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.offsets.validity.is_some(),
+        };
+        let array = Array::Map(MapArray {
+            meta: self.meta,
+            keys: Box::new((*self.keys).into_array()?),
+            values: Box::new((*self.values).into_array()?),
+            validity: self.offsets.validity,
+            offsets: self.offsets.offsets,
+        });
+        Ok((array, meta))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.offsets.reserve(additional);
     }
@@ -75,7 +95,7 @@ impl MapBuilder {
 
 impl Context for MapBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Map(..)");
     }
 }

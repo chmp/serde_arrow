@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, DictionaryArray};
+use marrow::{
+    array::{Array, DictionaryArray},
+    datatypes::FieldMeta,
+};
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
@@ -13,25 +16,33 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct DictionaryUtf8Builder {
-    path: String,
+    name: String,
     pub indices: Box<ArrayBuilder>,
     pub values: Box<ArrayBuilder>,
     pub index: HashMap<String, usize>,
+    metadata: HashMap<String, String>,
 }
 
 impl DictionaryUtf8Builder {
-    pub fn new(path: String, indices: ArrayBuilder, values: ArrayBuilder) -> Self {
+    pub fn new(
+        name: String,
+        indices: ArrayBuilder,
+        values: ArrayBuilder,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             indices: Box::new(indices),
             values: Box::new(values),
             index: HashMap::new(),
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::DictionaryUtf8(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             indices: Box::new(self.indices.take()),
             values: Box::new(self.values.take()),
             index: std::mem::take(&mut self.index),
@@ -60,6 +71,32 @@ impl DictionaryUtf8Builder {
         }))
     }
 
+    pub fn into_array_and_field_meta(mut self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.indices.is_nullable(),
+        };
+
+        let keys = Box::new((*self.indices).into_array()?);
+
+        let has_non_null_keys = !keys.as_view().is_nullable()? && keys.as_view().len()? != 0;
+        let has_no_values = self.index.is_empty();
+
+        if has_non_null_keys && has_no_values {
+            // the non-null keys must be dummy values, map them to empty strings to ensure they can
+            // be decoded
+            self.values.serialize_str("")?;
+        }
+
+        let array = Array::Dictionary(DictionaryArray {
+            keys,
+            values: Box::new((*self.values).into_array()?),
+        });
+
+        Ok((array, meta))
+    }
+
     pub fn reserve(&mut self, additional: usize) {
         self.indices.reserve(additional);
     }
@@ -71,7 +108,7 @@ impl DictionaryUtf8Builder {
 
 impl Context for DictionaryUtf8Builder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Dictionary(..)");
     }
 }

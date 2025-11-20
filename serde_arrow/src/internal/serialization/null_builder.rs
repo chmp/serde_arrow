@@ -1,6 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, NullArray};
+use marrow::{
+    array::{Array, NullArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{set_default, Context, Result},
@@ -11,18 +14,24 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct NullBuilder {
-    pub path: String,
+    pub name: String,
+    pub metadata: HashMap<String, String>,
     pub count: usize,
 }
 
 impl NullBuilder {
-    pub fn new(path: String) -> Self {
-        Self { path, count: 0 }
+    pub fn new(name: String, metadata: HashMap<String, String>) -> Self {
+        Self {
+            name,
+            metadata,
+            count: 0,
+        }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::Null(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             count: std::mem::take(&mut self.count),
         })
     }
@@ -35,6 +44,16 @@ impl NullBuilder {
         Ok(Array::Null(NullArray { len: self.count }))
     }
 
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: true,
+        };
+        let array = Array::Null(NullArray { len: self.count });
+        Ok((array, meta))
+    }
+
     pub fn reserve(&mut self, _additional: usize) {}
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
@@ -45,7 +64,7 @@ impl NullBuilder {
 
 impl Context for NullBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Null");
     }
 }

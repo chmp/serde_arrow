@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use half::f16;
 use serde::Serialize;
 
-use marrow::array::{Array, BytesArray, BytesViewArray};
+use marrow::{
+    array::{Array, BytesArray, BytesViewArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::error::{Context, Error, Result};
 
@@ -106,6 +109,10 @@ impl ArrayBuilder {
 
     pub fn into_array(self) -> Result<Array> {
         dispatch!(self, Self(builder) => builder.into_array())
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        dispatch!(self, Self(builder) => builder.into_array_and_field_meta())
     }
 
     pub fn take(&mut self) -> ArrayBuilder {

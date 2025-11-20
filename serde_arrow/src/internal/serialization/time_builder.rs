@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::Timelike;
 use marrow::{
     array::{Array, PrimitiveArray, TimeArray},
-    datatypes::TimeUnit,
+    datatypes::{FieldMeta, TimeUnit},
 };
 
 use crate::internal::{
@@ -19,23 +19,31 @@ use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimeBuilder<I> {
-    path: String,
+    name: String,
     pub unit: TimeUnit,
     pub array: PrimitiveArray<I>,
+    metadata: HashMap<String, String>,
 }
 
 impl<I: Default + NamedType + 'static> TimeBuilder<I> {
-    pub fn new(path: String, unit: TimeUnit, is_nullable: bool) -> Self {
+    pub fn new(
+        name: String,
+        unit: TimeUnit,
+        is_nullable: bool,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             unit,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             unit: self.unit,
             array: self.array.take(),
         }
@@ -66,6 +74,20 @@ impl TimeBuilder<i32> {
             values: self.array.values,
         }))
     }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        let array = Array::Time32(TimeArray {
+            unit: self.unit,
+            validity: self.array.validity,
+            values: self.array.values,
+        });
+        Ok((array, meta))
+    }
 }
 
 impl TimeBuilder<i64> {
@@ -80,11 +102,25 @@ impl TimeBuilder<i64> {
             values: self.array.values,
         }))
     }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        let array = Array::Time64(TimeArray {
+            unit: self.unit,
+            validity: self.array.validity,
+            values: self.array.values,
+        });
+        Ok((array, meta))
+    }
 }
 
 impl<I: NamedType> Context for TimeBuilder<I> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",

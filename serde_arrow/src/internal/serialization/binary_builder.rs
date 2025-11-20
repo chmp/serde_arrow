@@ -1,8 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
-use marrow::array::{Array, BytesArray, BytesViewArray};
+use marrow::{
+    array::{Array, BytesArray, BytesViewArray},
+    datatypes::FieldMeta,
+};
 
 use crate::internal::{
     error::{set_default, Context, ContextSupport, Error, Result},
@@ -82,21 +85,24 @@ impl BinaryBuilderArray for BytesViewArray {
 #[derive(Debug, Clone)]
 
 pub struct BinaryBuilder<A> {
-    path: String,
+    name: String,
+    metadata: HashMap<String, String>,
     array: A,
 }
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
             array: B::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take_self(&mut self) -> Self {
         Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         }
     }
@@ -111,6 +117,15 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
     pub fn into_array(self) -> Result<Array> {
         Ok(B::ARRAY_VARIANT(self.array))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            nullable: self.array.is_nullable(),
+            metadata: self.metadata,
+        };
+        Ok((B::ARRAY_VARIANT(self.array), meta))
     }
 
     pub fn reserve(&mut self, additional: usize) {
@@ -142,7 +157,7 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
 impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", B::DATA_TYPE_NAME);
     }
 }

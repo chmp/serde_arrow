@@ -1,6 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, FixedSizeBinaryArray};
+use marrow::{
+    array::{Array, FixedSizeBinaryArray},
+    datatypes::FieldMeta,
+};
 use serde::Serialize;
 
 use crate::internal::{
@@ -14,27 +17,35 @@ use super::{array_builder::ArrayBuilder, binary_builder::U8Serializer};
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeBinaryBuilder {
-    pub path: String,
+    pub name: String,
     pub seq: CountArray,
     pub buffer: Vec<u8>,
     pub current_n: usize,
     pub n: usize,
+    metadata: HashMap<String, String>,
 }
 
 impl FixedSizeBinaryBuilder {
-    pub fn new(path: String, n: usize, is_nullable: bool) -> Self {
+    pub fn new(
+        name: String,
+        n: usize,
+        is_nullable: bool,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             seq: CountArray::new(is_nullable),
             buffer: Vec::new(),
             n,
             current_n: 0,
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::FixedSizeBinary(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             seq: self.seq.take(),
             buffer: std::mem::take(&mut self.buffer),
             current_n: std::mem::take(&mut self.current_n),
@@ -52,6 +63,20 @@ impl FixedSizeBinaryBuilder {
             validity: self.seq.validity,
             data: self.buffer,
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.seq.validity.is_some(),
+        };
+        let array = Array::FixedSizeBinary(FixedSizeBinaryArray {
+            n: self.n.try_into()?,
+            validity: self.seq.validity,
+            data: self.buffer,
+        });
+        Ok((array, meta))
     }
 
     pub fn reserve(&mut self, additional: usize) {
@@ -101,7 +126,7 @@ impl FixedSizeBinaryBuilder {
 
 impl Context for FixedSizeBinaryBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "FixedSizeBinary(..)");
     }
 }

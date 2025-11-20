@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, FixedSizeListArray},
@@ -17,35 +17,39 @@ use super::array_builder::ArrayBuilder;
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeListBuilder {
-    pub path: String,
+    pub name: String,
     pub seq: CountArray,
     pub meta: FieldMeta,
     pub n: usize,
     pub current_count: usize,
     pub elements: Box<ArrayBuilder>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl FixedSizeListBuilder {
     pub fn new(
-        path: String,
+        name: String,
         meta: FieldMeta,
         element: ArrayBuilder,
         n: usize,
         is_nullable: bool,
+        metadata: HashMap<String, String>,
     ) -> Self {
         Self {
-            path,
+            name,
             seq: CountArray::new(is_nullable),
             meta,
             n,
             current_count: 0,
             elements: Box::new(element),
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::FixedSizedList(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             seq: self.seq.take(),
             meta: self.meta.clone(),
             n: self.n,
@@ -66,6 +70,22 @@ impl FixedSizeListBuilder {
             meta: self.meta,
             elements: Box::new((*self.elements).into_array()?),
         }))
+    }
+
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.seq.validity.is_some(),
+        };
+        let array = Array::FixedSizeList(FixedSizeListArray {
+            len: self.seq.len,
+            validity: self.seq.validity,
+            n: self.n.try_into()?,
+            meta: self.meta,
+            elements: Box::new((*self.elements).into_array()?),
+        });
+        Ok((array, meta))
     }
 
     pub fn reserve(&mut self, additional: usize) {
@@ -112,7 +132,7 @@ impl FixedSizeListBuilder {
 
 impl Context for FixedSizeListBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", "FixedSizeList(..)");
     }
 }
