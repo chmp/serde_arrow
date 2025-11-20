@@ -1,0 +1,32 @@
+
+{
+  "name": "Bench",
+  "on": {
+    "workflow_dispatch": {}
+  },
+  "env": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "jobs": {
+    "build": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@v4"
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Bench",
+          "run": "cargo bench --features arrow2-0-17,arrow-57\npython x.py summarize-bench >> $GITHUB_STEP_SUMMARY"
+        }
+      ]
+    }
+  }
+}

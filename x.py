@@ -358,6 +358,15 @@ def bench(quick=False):
     summarize_bench()
 
 
+@cmd(help="Run the bench action for the current branch")
+def bench_remote():
+    branch = _sh("git branch --show-current", capture_output=True).stdout.strip()
+    if not branch:
+        raise RuntimeError("Could not determine branch")
+
+    _sh(f"gh workflow run Bench --ref {branch}")
+
+
 @cmd(help="Summarize the benchmarks")
 @arg("--update", action="store_true", default=False)
 def summarize_bench(update=False):
@@ -500,7 +509,7 @@ def format_benchmark(mean_times, ignore_groups=()):
 
             widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
-            yield f"### {group}"
+            yield f"### `{group}`"
             yield ""
             for idx, row in enumerate(rows):
                 padded_row = [

@@ -34,6 +34,8 @@ modules can can be run without installing further packages.
 1. `uv run x.py bench`
 2. (optional)  `uv run x.py summarize-bench --update` to update the readme
 
+On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
+
 ## Adding a new arrow version
 
 1. `uv run x.py add-arrow-version {VERSION}`
