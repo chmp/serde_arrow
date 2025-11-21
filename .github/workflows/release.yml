@@ -35,99 +35,99 @@
         },
         {
           "name": "Check arrow2-0-17",
-          "run": "cargo check --features arrow2-0-17"
+          "run": "cargo check --all-features --features arrow2-0-17"
         },
         {
           "name": "Check arrow2-0-16",
-          "run": "cargo check --features arrow2-0-16"
+          "run": "cargo check --all-features --features arrow2-0-16"
         },
         {
           "name": "Check arrow-57",
-          "run": "cargo check --features arrow-57"
+          "run": "cargo check --all-features --features arrow-57"
         },
         {
           "name": "Check arrow-56",
-          "run": "cargo check --features arrow-56"
+          "run": "cargo check --all-features --features arrow-56"
         },
         {
           "name": "Check arrow-55",
-          "run": "cargo check --features arrow-55"
+          "run": "cargo check --all-features --features arrow-55"
         },
         {
           "name": "Check arrow-54",
-          "run": "cargo check --features arrow-54"
+          "run": "cargo check --all-features --features arrow-54"
         },
         {
           "name": "Check arrow-53",
-          "run": "cargo check --features arrow-53"
+          "run": "cargo check --all-features --features arrow-53"
         },
         {
           "name": "Check arrow-52",
-          "run": "cargo check --features arrow-52"
+          "run": "cargo check --all-features --features arrow-52"
         },
         {
           "name": "Check arrow-51",
-          "run": "cargo check --features arrow-51"
+          "run": "cargo check --all-features --features arrow-51"
         },
         {
           "name": "Check arrow-50",
-          "run": "cargo check --features arrow-50"
+          "run": "cargo check --all-features --features arrow-50"
         },
         {
           "name": "Check arrow-50",
-          "run": "cargo check --features arrow-50"
+          "run": "cargo check --all-features --features arrow-50"
         },
         {
           "name": "Check arrow-49",
-          "run": "cargo check --features arrow-49"
+          "run": "cargo check --all-features --features arrow-49"
         },
         {
           "name": "Check arrow-48",
-          "run": "cargo check --features arrow-48"
+          "run": "cargo check --all-features --features arrow-48"
         },
         {
           "name": "Check arrow-47",
-          "run": "cargo check --features arrow-47"
+          "run": "cargo check --all-features --features arrow-47"
         },
         {
           "name": "Check arrow-46",
-          "run": "cargo check --features arrow-46"
+          "run": "cargo check --all-features --features arrow-46"
         },
         {
           "name": "Check arrow-45",
-          "run": "cargo check --features arrow-45"
+          "run": "cargo check --all-features --features arrow-45"
         },
         {
           "name": "Check arrow-44",
-          "run": "cargo check --features arrow-44"
+          "run": "cargo check --all-features --features arrow-44"
         },
         {
           "name": "Check arrow-43",
-          "run": "cargo check --features arrow-43"
+          "run": "cargo check --all-features --features arrow-43"
         },
         {
           "name": "Check arrow-42",
-          "run": "cargo check --features arrow-42"
+          "run": "cargo check --all-features --features arrow-42"
         },
         {
           "name": "Check arrow-41",
-          "run": "cargo check --features arrow-41"
+          "run": "cargo check --all-features --features arrow-41"
         },
         {
           "name": "Check arrow-40",
-          "run": "cargo check --features arrow-40"
+          "run": "cargo check --all-features --features arrow-40"
         },
         {
           "name": "Check arrow-39",
-          "run": "cargo check --features arrow-39"
+          "run": "cargo check --all-features --features arrow-39"
         },
         {
           "name": "Check arrow-38",
-          "run": "cargo check --features arrow-38"
+          "run": "cargo check --all-features --features arrow-38"
         },
         {
           "name": "Check arrow-37",
-          "run": "cargo check --features arrow-37"
+          "run": "cargo check --all-features --features arrow-37"
         },
         {
           "name": "Check format",
