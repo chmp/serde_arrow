@@ -85,16 +85,16 @@ use std::ops::Range;
 
 pub(crate) use define_benchmark;
 use rand::{
+    Rng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
-    Rng,
 };
 
 pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
-        Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Result,
     };
 
     pub fn serialize<T>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>>
@@ -108,8 +108,8 @@ pub mod serde_arrow_arrow {
 pub mod serde_arrow_arrow2 {
     use serde::Serialize;
     use serde_arrow::{
-        Result,
         _impl::arrow2::{array::Array, datatypes::Field},
+        Result,
     };
 
     pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
@@ -124,16 +124,16 @@ pub mod arrow {
 
     use std::sync::Arc;
 
-    // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-    use arrow_json_56::ReaderBuilder;
-    // arrow-version:replace: use arrow_schema_{version}::Schema;
-    use arrow_schema_56::Schema;
+    // arrow-version:replace: use arrow_json::ReaderBuilder;
+    use arrow_json::ReaderBuilder;
+    // arrow-version:replace: use arrow_schema::Schema;
+    use arrow_schema::Schema;
 
     use serde::Serialize;
 
     use serde_arrow::{
-        Error, Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Error, Result,
     };
 
     pub fn serialize<T>(fields: &[FieldRef], items: &[T]) -> Result<Vec<ArrayRef>>
@@ -158,7 +158,7 @@ pub mod arrow {
 
 pub mod arrow2_convert {
     use arrow2_convert::serialize::TryIntoArrow;
-    use serde_arrow::{Error, Result, _impl::arrow2::array::Array};
+    use serde_arrow::{_impl::arrow2::array::Array, Error, Result};
 
     pub fn serialize<'a, T, E, F>(_fields: &[F], items: T) -> Result<Box<dyn Array>>
     where

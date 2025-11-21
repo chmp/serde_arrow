@@ -1,5 +1,5 @@
 [workspace]
-members = ["serde_arrow", "example", "integration_tests"]
+members = ["serde_arrow", "example", "integration_tests", "bench"]
 default-members = ["serde_arrow"]
 
 resolver = "2"

@@ -1,5 +1,5 @@
 use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
-use rand::{distributions::Standard, prelude::Distribution, Rng};
+use rand::{Rng, distributions::Standard, prelude::Distribution};
 use serde::{Deserialize, Serialize};
 
 // required for arrow2_convert

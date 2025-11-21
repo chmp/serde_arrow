@@ -161,7 +161,7 @@ def _generate_workflow_check_steps():
     for feature in (*all_arrow2_features, *all_arrow_features):
         yield {
             "name": f"Check {feature}",
-            "run": f"cargo check --features {feature}",
+            "run": f"cargo check --all-features --features {feature}",
         }
 
     yield {
@@ -189,12 +189,12 @@ def format():
 @arg("--fix", action="store_true")
 def check(all=False, fix=False):
     check_cargo_toml()
-    _sh(f"cargo check --features {default_features}")
-    _sh(f"cargo clippy --features {default_features} {'--fix' if fix else ''}")
+    _sh(f"cargo check --all-targets --features {default_features}")
+    _sh(f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}")
 
     if all:
-        for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-            _sh(f"cargo check --features {arrow2_feature}")
+        for arrow_feature in (*all_arrow2_features, *all_arrow_features):
+            _sh(f"cargo check --features {arrow_feature}")
 
 
 @cmd(help="Run the example")
@@ -352,7 +352,7 @@ def bench(quick=False):
     import os
 
     _sh(
-        f"cargo bench --features {default_features}",
+        f"cargo bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
