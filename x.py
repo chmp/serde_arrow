@@ -190,7 +190,9 @@ def format():
 def check(all=False, fix=False):
     check_cargo_toml()
     _sh(f"cargo check --all-targets --features {default_features}")
-    _sh(f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}")
+    _sh(
+        f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}"
+    )
 
     if all:
         for arrow_feature in (*all_arrow2_features, *all_arrow_features):
@@ -252,6 +254,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
         _sh(
             f"""
                 cargo test
+                    -q
                     {feature_selection}
                     {_q(test_name) if test_name else ""}
             """,
@@ -268,7 +271,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
 )
 def test_integration(backtrace=False):
     _sh(
-        "cargo test -p integration_tests",
+        "cargo test -q -p integration_tests",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
 
