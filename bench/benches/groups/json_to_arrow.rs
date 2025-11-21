@@ -63,7 +63,7 @@ fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
                 .collect::<Vec<_>>();
             let transcoders = deserializers
                 .iter_mut()
-                .map(|deserializer| serde_transcode::Transcoder::new(deserializer))
+                .map(serde_transcode::Transcoder::new)
                 .collect::<Vec<_>>();
             decoder.serialize(&transcoders).unwrap();
             let arrays = decoder.flush().unwrap().unwrap().columns().to_vec();

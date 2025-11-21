@@ -101,7 +101,7 @@ pub mod serde_arrow_arrow {
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::to_arrow(&fields, &items)
+        serde_arrow::to_arrow(fields, items)
     }
 }
 
@@ -116,7 +116,7 @@ pub mod serde_arrow_arrow2 {
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::to_arrow2(&fields, &items)
+        serde_arrow::to_arrow2(fields, items)
     }
 }
 

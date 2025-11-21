@@ -165,6 +165,11 @@ def _generate_workflow_check_steps():
         }
 
     yield {
+        "name": f"Check support packages",
+        "run": f"cargo check --all-features --package bench --package example --package integration_tests",
+    }
+
+    yield {
         "name": "Check format",
         "run": "cargo fmt --check",
     }
@@ -192,6 +197,12 @@ def check(all=False, fix=False):
     _sh(f"cargo check --all-targets --features {default_features}")
     _sh(
         f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}"
+    )
+    _sh(
+        "cargo check --all-targets --package bench --package example --package integration_tests"
+    )
+    _sh(
+        "cargo clippy --all-targets --package bench --package example --package integration_tests"
     )
 
     if all:
@@ -355,7 +366,7 @@ def bench(quick=False):
     import os
 
     _sh(
-        f"cargo bench",
+        f"cargo bench -p bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
