@@ -162,7 +162,7 @@ fn fixed_shape_tensor_field_repr() -> crate::internal::error::PanicOnError<()> {
         vec![2, 3],
     )?;
     let field = Field::try_from(&field)?;
-    let actual = serde_json::to_value(&PrettyField(&field))?;
+    let actual = serde_json::to_value(PrettyField(&field))?;
     let expected = json!({
         "name": "hello",
         "data_type": "FixedSizeList(6)",

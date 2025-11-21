@@ -22,7 +22,7 @@ fn non_nullable() {
         .serialize(items)
         .deserialize(items)
         .also(|test| {
-            let array = test.arrays.marrow.as_ref().unwrap().get(0).unwrap();
+            let array = test.arrays.marrow.as_ref().unwrap().first().unwrap();
             let marrow::array::Array::Utf8View(array) = array else {
                 panic!("expected utf8 array");
             };
@@ -58,7 +58,7 @@ fn nullable() {
         .serialize(items)
         .deserialize(items)
         .also(|test| {
-            let array = test.arrays.marrow.as_ref().unwrap().get(0).unwrap();
+            let array = test.arrays.marrow.as_ref().unwrap().first().unwrap();
             let marrow::array::Array::Utf8View(array) = array else {
                 panic!("expected utf8 array");
             };

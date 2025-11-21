@@ -99,7 +99,7 @@ mod time_string_conversion {
             .collect::<Vec<_>>();
         let times = strings
             .iter()
-            .map(|s| time::<T>(*s, format, unit))
+            .map(|s| time::<T>(s, format, unit))
             .collect::<Vec<_>>();
 
         assert_deserialization::<T>(&items, &times, unit);
