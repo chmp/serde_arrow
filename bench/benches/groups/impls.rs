@@ -81,14 +81,7 @@ macro_rules! define_benchmark {
     };
 }
 
-use std::ops::Range;
-
 pub(crate) use define_benchmark;
-use rand::{
-    Rng,
-    distributions::{Standard, Uniform},
-    prelude::Distribution,
-};
 
 pub mod serde_arrow_arrow {
     use serde::Serialize;
@@ -171,14 +164,6 @@ pub mod arrow2_convert {
 
         Ok(array)
     }
-}
-
-pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> String {
-    let n_string = Uniform::new(length.start, length.end).sample(rng);
-
-    (0..n_string)
-        .map(|_| -> char { Standard.sample(rng) })
-        .collect()
 }
 
 pub fn is_quick() -> bool {

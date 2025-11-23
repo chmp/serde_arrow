@@ -24,9 +24,10 @@ struct Point {
 
 #[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
 struct SubItem {
-    a: bool,
-    b: f64,
-    c: Option<f32>,
+    first: bool,
+    second: f64,
+    // TODO: fix this
+    // c: Option<f32>,
 }
 
 impl Item {
@@ -45,12 +46,12 @@ impl Item {
                 })
                 .collect(),
             child: SubItem {
-                a: Standard.sample(rng),
-                b: Standard.sample(rng),
-                c: Standard.sample(rng),
+                first: Standard.sample(rng),
+                second: Standard.sample(rng),
+                // c: Standard.sample(rng),
             },
         }
     }
 }
 
-crate::groups::impls::define_benchmark!(complex_common, ty = Item, n = [100_000, 1_000_000],);
+crate::groups::impls::define_benchmark!(complex_common, ty = Item, n = [1_000],);
