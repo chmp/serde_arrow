@@ -9,7 +9,7 @@ use crate::internal::{
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
-        fixed_size_list_builder::FixedSizeListBuilder, utils::impl_serializer,
+        fixed_size_list_builder::FixedSizeListBuilder,
     },
     utils::meta_from_field,
 };
@@ -36,76 +36,14 @@ impl OuterSequenceBuilder {
         )?))
     }
 
-    /// Extend the builder with a sequence of items
-    pub fn extend<T: Serialize>(&mut self, value: T) -> Result<()> {
-        value.serialize(self)
-    }
-
-    /// Push a single item into the builder
-    pub fn push<T: Serialize>(&mut self, value: T) -> Result<()> {
-        self.element(&value)
-    }
-
     pub fn num_fields(&self) -> usize {
         self.0.fields.len()
-    }
-
-    pub fn reserve(&mut self, additional: usize) {
-        self.0.reserve(additional);
-    }
-}
-
-impl OuterSequenceBuilder {
-    fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        value.serialize(&mut self.0)
     }
 }
 
 impl Context for OuterSequenceBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         self.0.annotate(annotations)
-    }
-}
-
-impl<'a> serde::Serializer for &'a mut OuterSequenceBuilder {
-    impl_serializer!(
-        'a, OuterSequenceBuilder;
-        override SerializeSeq,
-        override SerializeTuple,
-        override SerializeTupleStruct,
-        override serialize_none,
-        override serialize_seq,
-        override serialize_tuple,
-        override serialize_tuple_struct,
-    );
-
-    type SerializeSeq = Self;
-    type SerializeTuple = Self;
-    type SerializeTupleStruct = Self;
-
-    fn serialize_none(self) -> Result<()> {
-        serde::Serializer::serialize_none(&mut self.0)
-    }
-
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        if let Some(len) = len {
-            self.0.reserve(len);
-        }
-        Ok(self)
-    }
-
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        self.0.reserve(len);
-        Ok(self)
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        self.0.reserve(len);
-        Ok(self)
     }
 }
 

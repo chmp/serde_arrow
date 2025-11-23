@@ -5,8 +5,9 @@ use marrow::{
     datatypes::{Field, FieldMeta},
 };
 
-use crate::internal::{
-    error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
+use crate::{
+    internal::{error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder},
+    Serializer,
 };
 
 /// Construct arrays by pushing individual records
@@ -68,7 +69,7 @@ impl ArrayBuilder {
     }
 
     pub fn reserve(&mut self, additional: usize) {
-        self.builder.reserve(additional);
+        self.builder.0.reserve(additional);
     }
 }
 
@@ -82,13 +83,15 @@ impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize>(&mut self, item: T) -> Result<()> {
-        self.builder.push(item)
+        item.serialize(&mut self.builder.0)?;
+        Ok(())
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize>(&mut self, items: T) -> Result<()> {
-        self.builder.extend(items)
+        items.serialize(Serializer::new(self))?;
+        Ok(())
     }
 
     pub(crate) fn take(&mut self) -> Self {
