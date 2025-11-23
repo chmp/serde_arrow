@@ -1,10 +1,8 @@
 //! requires on of the `arrow-*` features
-use std::sync::Arc;
-
 use serde::Serialize;
-use serde_arrow::_impl::arrow::datatypes::{DataType, Field};
+use serde_arrow::marrow::datatypes::{DataType, Field};
 
-const NUM_RECORDS: usize = 100;
+const NUM_RECORDS: usize = 1_000;
 const NUM_ITERATIONS: usize = 100_000;
 
 #[derive(Serialize)]
@@ -16,14 +14,26 @@ struct Record {
 
 fn main() {
     let fields = vec![
-        Arc::new(Field::new("i64", DataType::Int64, false)),
-        Arc::new(Field::new("f32", DataType::Float32, false)),
-        Arc::new(Field::new("str", DataType::LargeUtf8, false)),
+        Field {
+            name: String::from("i64"),
+            data_type: DataType::Int64,
+            ..Default::default()
+        },
+        Field {
+            name: String::from("f32"),
+            data_type: DataType::Float32,
+            ..Default::default()
+        },
+        Field {
+            name: String::from("str"),
+            data_type: DataType::LargeUtf8,
+            ..Default::default()
+        },
     ];
 
     let items = build_example_data();
     for _ in 0..NUM_ITERATIONS {
-        let arrays = serde_arrow::to_arrow(&fields, &items).unwrap();
+        let arrays = serde_arrow::to_marrow(&fields, &items).unwrap();
         let _ = criterion::black_box(arrays);
     }
 }

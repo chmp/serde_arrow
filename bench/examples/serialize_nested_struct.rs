@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_arrow::marrow::datatypes::Field;
 use serde_arrow::schema::SchemaLike;
 
-const NUM_REPETITIONS: usize = 1_000;
+const NUM_REPETITIONS: usize = 100_000;
 
 fn main() {
     let items = (0..100)

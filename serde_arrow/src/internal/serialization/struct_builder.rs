@@ -22,7 +22,7 @@ pub struct StructBuilder {
     pub fields: Vec<ArrayBuilder>,
     // Note: for the complex_1000 benchmark this optimization results in approx
     // 1.26 arrow2_convert times reduction
-    pub lookup_cache: Vec<Option<StaticFieldName>>,
+    lookup_cache: CachedNameLookup,
     pub next: usize,
     pub seen: Vec<bool>,
     pub seq: CountArray,
@@ -31,7 +31,7 @@ pub struct StructBuilder {
 
 impl StructBuilder {
     pub fn from_fields(fields: Vec<Field>) -> Result<Self> {
-        build_struct(String::from("$"), fields, false, HashMap::new())
+        build_struct(Default::default(), fields, false, Default::default())
     }
 
     pub fn new(
@@ -45,7 +45,7 @@ impl StructBuilder {
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             next: 0,
-            lookup_cache: vec![None; fields.len()],
+            lookup_cache: CachedNameLookup::new(fields.len()),
             fields,
             metadata,
         })
@@ -60,7 +60,10 @@ impl StructBuilder {
                 .iter_mut()
                 .map(|builder| builder.take())
                 .collect(),
-            lookup_cache: std::mem::replace(&mut self.lookup_cache, vec![None; self.fields.len()]),
+            lookup_cache: std::mem::replace(
+                &mut self.lookup_cache,
+                CachedNameLookup::new(self.fields.len()),
+            ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
@@ -118,27 +121,6 @@ impl StructBuilder {
         .ctx(self)
     }
 
-    pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
-        if self.lookup_cache.get(guess).copied() == Some(Some(StaticFieldName::new(key))) {
-            Some(guess)
-        } else {
-            let idx = self.lookup_field_uncached(key)?;
-            if self.lookup_cache[idx].is_none() {
-                self.lookup_cache[idx] = Some(StaticFieldName::new(key));
-            }
-            Some(idx)
-        }
-    }
-
-    pub fn lookup_field_uncached(&self, name: &str) -> Option<usize> {
-        for (idx, builder) in self.fields.iter().enumerate() {
-            if name == builder.get_name() {
-                return Some(idx);
-            }
-        }
-        None
-    }
-
     pub fn num_fields(&self) -> usize {
         self.fields.len()
     }
@@ -154,16 +136,16 @@ impl StructBuilder {
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
-        for (idx, seen) in self.seen.iter_mut().enumerate() {
+        for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
-                if !self.fields[idx].is_nullable() {
+                if !field.is_nullable() {
                     fail!(
                         "Missing non-nullable field {:?} in struct",
-                        self.fields[idx].get_name(),
+                        field.get_name(),
                     );
                 }
 
-                self.fields[idx].serialize_none()?;
+                field.serialize_none()?;
             }
         }
         Ok(())
@@ -245,11 +227,12 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        let Some(idx) = self.lookup(self.next, key) else {
+        if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
+            self.element(idx, value)
+        } else {
             // ignore unknown fields
-            return Ok(());
-        };
-        self.element(idx, value)
+            Ok(())
+        }
     }
 
     fn end(self) -> Result<()> {
@@ -315,6 +298,69 @@ impl StaticFieldName {
     }
 }
 
+trait Named {
+    fn get_name(&self) -> &str;
+}
+
+impl Named for ArrayBuilder {
+    fn get_name(&self) -> &str {
+        ArrayBuilder::get_name(self)
+    }
+}
+
+impl Named for &str {
+    fn get_name(&self) -> &str {
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CachedNameLookup {
+    cache: Vec<Option<StaticFieldName>>,
+}
+
+impl CachedNameLookup {
+    fn new(n_fields: usize) -> Self {
+        Self {
+            cache: vec![None; n_fields],
+        }
+    }
+
+    fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
+        if guess >= fields.len() || guess >= self.cache.len() {
+            return self.lookup_field_loop(name, fields);
+        }
+
+        if self.cache[guess] == Some(StaticFieldName::new(name)) {
+            Some(guess)
+        } else if let Some(idx) = self.lookup_field_uncached(guess, name, fields) {
+            if idx < self.cache.len() && self.cache[idx].is_none() {
+                self.cache[idx] = Some(StaticFieldName::new(name));
+            }
+            Some(idx)
+        } else {
+            None
+        }
+    }
+
+    pub fn lookup_field_uncached(
+        &self,
+        guess: usize,
+        name: &str,
+        fields: &[impl Named],
+    ) -> Option<usize> {
+        if fields[guess].get_name() == name {
+            Some(guess)
+        } else {
+            self.lookup_field_loop(name, fields)
+        }
+    }
+
+    fn lookup_field_loop(&self, name: &str, fields: &[impl Named]) -> Option<usize> {
+        fields.iter().position(|field| field.get_name() == name)
+    }
+}
+
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
     fields: &'a [ArrayBuilder],
@@ -353,4 +399,42 @@ impl<'a> Serializer for &'a mut KeyLookupSerializer<'_> {
         }
         Ok(())
     }
+}
+
+#[test]
+fn example() {
+    let mut lookup = CachedNameLookup::new(3);
+
+    const FOO: &str = "foo";
+    const BAR: &str = "bar";
+    const BAZ: &str = "baz";
+
+    assert_eq!(lookup.lookup(0, FOO, &["foo", "bar", "baz"]), Some(0));
+    assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
+    assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
+
+    assert!(lookup.cache[0].is_some());
+    assert_eq!(lookup.cache[0], Some(StaticFieldName::new(FOO)));
+
+    assert!(lookup.cache[1].is_some());
+    assert_eq!(lookup.cache[1], Some(StaticFieldName::new(BAR)));
+
+    assert!(lookup.cache[2].is_some());
+    assert_eq!(lookup.cache[2], Some(StaticFieldName::new(BAZ)));
+
+    assert_eq!(lookup.lookup(0, FOO, &["foo", "bar", "baz"]), Some(0));
+    assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
+    assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
+
+    assert_eq!(lookup.lookup(0, FOO, &["foo", "bar", "baz"]), Some(0));
+    assert_eq!(lookup.lookup(1, FOO, &["foo", "bar", "baz"]), Some(0));
+    assert_eq!(lookup.lookup(2, FOO, &["foo", "bar", "baz"]), Some(0));
+
+    assert_eq!(lookup.lookup(0, BAR, &["foo", "bar", "baz"]), Some(1));
+    assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
+    assert_eq!(lookup.lookup(2, BAR, &["foo", "bar", "baz"]), Some(1));
+
+    assert_eq!(lookup.lookup(0, BAZ, &["foo", "bar", "baz"]), Some(2));
+    assert_eq!(lookup.lookup(1, BAZ, &["foo", "bar", "baz"]), Some(2));
+    assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
 }
