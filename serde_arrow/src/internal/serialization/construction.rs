@@ -1,10 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use marrow::datatypes::{DataType, Field, MapMeta, TimeUnit};
-use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, Context, Error, Result},
+    error::{fail, Result},
     schema::{get_strategy_from_metadata, Strategy},
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
@@ -23,70 +22,7 @@ use super::{
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder, ArrayBuilder,
 };
 
-#[derive(Debug, Clone)]
-pub struct OuterSequenceBuilder(pub StructBuilder);
-
-impl OuterSequenceBuilder {
-    pub fn new(fields: Vec<Field>) -> Result<Self> {
-        Ok(Self(build_struct(
-            String::from("$"),
-            fields,
-            false,
-            HashMap::new(),
-        )?))
-    }
-
-    pub fn num_fields(&self) -> usize {
-        self.0.fields.len()
-    }
-}
-
-impl Context for OuterSequenceBuilder {
-    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        self.0.annotate(annotations)
-    }
-}
-
-impl serde::ser::SerializeSeq for &mut OuterSequenceBuilder {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        value.serialize(&mut self.0)
-    }
-
-    fn end(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl serde::ser::SerializeTuple for &mut OuterSequenceBuilder {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        value.serialize(&mut self.0)
-    }
-
-    fn end(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl serde::ser::SerializeTupleStruct for &mut OuterSequenceBuilder {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        value.serialize(&mut self.0)
-    }
-
-    fn end(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-fn build_struct(
+pub fn build_struct(
     path: String,
     struct_fields: Vec<Field>,
     nullable: bool,

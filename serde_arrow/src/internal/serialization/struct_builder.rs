@@ -2,13 +2,13 @@ use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, StructArray},
-    datatypes::FieldMeta,
+    datatypes::{Field, FieldMeta},
 };
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
-    serialization::utils::impl_serializer,
+    serialization::{construction::build_struct, utils::impl_serializer},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
 
@@ -28,6 +28,10 @@ pub struct StructBuilder {
 }
 
 impl StructBuilder {
+    pub fn from_fields(fields: Vec<Field>) -> Result<Self> {
+        build_struct(String::from("$"), fields, false, HashMap::new())
+    }
+
     pub fn new(
         name: String,
         fields: Vec<ArrayBuilder>,
@@ -131,6 +135,10 @@ impl StructBuilder {
             }
         }
         None
+    }
+
+    pub fn num_fields(&self) -> usize {
+        self.fields.len()
     }
 }
 

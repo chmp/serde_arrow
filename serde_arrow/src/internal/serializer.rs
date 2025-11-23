@@ -65,6 +65,7 @@ impl<A> Serializer<A> {
     }
 }
 
+// indirection to hide trait impls
 pub struct CollectionSerializer<A>(A);
 
 impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {

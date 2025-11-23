@@ -215,7 +215,7 @@ impl crate::internal::array_builder::ArrayBuilder {
         let mut arrays = Vec::with_capacity(self.builder.num_fields());
         let mut fields = Vec::with_capacity(self.builder.num_fields());
 
-        for builder in &mut self.builder.0.fields {
+        for builder in &mut self.builder.fields {
             let (array, meta) = builder.take().into_array_and_field_meta()?;
             let array = ArrayRef::try_from(array)?;
             let field = FieldRef::new(
