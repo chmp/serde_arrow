@@ -35,7 +35,7 @@ fn example_exhausted() {
         )],
     })];
 
-    let schema = SerdeArrowSchema::from_value(&json!([{
+    let schema = SerdeArrowSchema::from_value(json!([{
         "name": "item",
         "data_type": "Struct",
         "children": [

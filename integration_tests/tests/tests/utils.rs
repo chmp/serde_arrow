@@ -10,7 +10,7 @@ pub fn write_file(name: &str, batch: &RecordBatch) -> Result<()> {
 
     let file = File::create(&file_path)?;
     let mut writer = arrow::ipc::writer::FileWriter::try_new(file, &batch.schema())?;
-    writer.write(&batch)?;
+    writer.write(batch)?;
     writer.finish()?;
     Ok(())
 }

@@ -81,42 +81,35 @@ macro_rules! define_benchmark {
     };
 }
 
-use std::ops::Range;
-
 pub(crate) use define_benchmark;
-use rand::{
-    distributions::{Standard, Uniform},
-    prelude::Distribution,
-    Rng,
-};
 
 pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
-        Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Result,
     };
 
     pub fn serialize<T>(fields: &[FieldRef], items: &T) -> Result<Vec<ArrayRef>>
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::to_arrow(&fields, &items)
+        serde_arrow::to_arrow(fields, items)
     }
 }
 
 pub mod serde_arrow_arrow2 {
     use serde::Serialize;
     use serde_arrow::{
-        Result,
         _impl::arrow2::{array::Array, datatypes::Field},
+        Result,
     };
 
     pub fn serialize<T>(fields: &[Field], items: &T) -> Result<Vec<Box<dyn Array>>>
     where
         T: Serialize + ?Sized,
     {
-        serde_arrow::to_arrow2(&fields, &items)
+        serde_arrow::to_arrow2(fields, items)
     }
 }
 
@@ -124,16 +117,16 @@ pub mod arrow {
 
     use std::sync::Arc;
 
-    // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-    use arrow_json_56::ReaderBuilder;
-    // arrow-version:replace: use arrow_schema_{version}::Schema;
-    use arrow_schema_56::Schema;
+    // arrow-version:replace: use arrow_json::ReaderBuilder;
+    use arrow_json::ReaderBuilder;
+    // arrow-version:replace: use arrow_schema::Schema;
+    use arrow_schema::Schema;
 
     use serde::Serialize;
 
     use serde_arrow::{
-        Error, Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Error, Result,
     };
 
     pub fn serialize<T>(fields: &[FieldRef], items: &[T]) -> Result<Vec<ArrayRef>>
@@ -158,7 +151,7 @@ pub mod arrow {
 
 pub mod arrow2_convert {
     use arrow2_convert::serialize::TryIntoArrow;
-    use serde_arrow::{Error, Result, _impl::arrow2::array::Array};
+    use serde_arrow::{_impl::arrow2::array::Array, Error, Result};
 
     pub fn serialize<'a, T, E, F>(_fields: &[F], items: T) -> Result<Box<dyn Array>>
     where
@@ -171,14 +164,6 @@ pub mod arrow2_convert {
 
         Ok(array)
     }
-}
-
-pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> String {
-    let n_string = Uniform::new(length.start, length.end).sample(rng);
-
-    (0..n_string)
-        .map(|_| -> char { Standard.sample(rng) })
-        .collect()
 }
 
 pub fn is_quick() -> bool {

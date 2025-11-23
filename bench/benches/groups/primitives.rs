@@ -1,5 +1,11 @@
+use std::ops::Range;
+
 use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
-use rand::{distributions::Standard, prelude::Distribution, Rng};
+use rand::{
+    Rng,
+    distributions::{Standard, Uniform},
+    prelude::Distribution,
+};
 use serde::{Deserialize, Serialize};
 
 // required for arrow2_convert
@@ -35,9 +41,17 @@ impl Item {
             i: Standard.sample(rng),
             j: Standard.sample(rng),
             k: Standard.sample(rng),
-            l: crate::groups::impls::random_string(rng, 0..50),
+            l: random_string(rng, 0..50),
         }
     }
 }
 
-crate::groups::impls::define_benchmark!(primitives, ty = Item, n = [100_000, 1_000_000],);
+pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> String {
+    let n_string = Uniform::new(length.start, length.end).sample(rng);
+
+    (0..n_string)
+        .map(|_| -> char { Standard.sample(rng) })
+        .collect()
+}
+
+crate::groups::impls::define_benchmark!(primitives, ty = Item, n = [1_000],);

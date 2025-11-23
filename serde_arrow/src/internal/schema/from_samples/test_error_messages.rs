@@ -7,7 +7,7 @@ use crate::internal::{
 
 #[test]
 fn outer_struct() {
-    let res = SerdeArrowSchema::from_samples(&[1_u32, 2_u32, 3_u32], TracingOptions::default());
+    let res = SerdeArrowSchema::from_samples([1_u32, 2_u32, 3_u32], TracingOptions::default());
     assert_error_contains(
         &res,
         "Only struct-like types are supported as root types in schema tracing.",

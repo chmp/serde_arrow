@@ -383,10 +383,6 @@ fn struct_nullable() {
             d: String::from("world"),
         })),
     ];
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct Outer {
-        inner: Struct,
-    }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct Struct {
