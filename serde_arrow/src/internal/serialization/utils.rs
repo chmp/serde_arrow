@@ -404,11 +404,11 @@ impl serde::ser::SerializeStruct for SerializeStruct<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        dispatch_serialize_struct!(self, builder => serde::ser::SerializeStruct::serialize_field(builder, key, value))
+        dispatch_serialize_struct!(self, builder => builder.serialize_field(key, value))
     }
 
     fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
-        dispatch_serialize_struct!(self, builder => serde::ser::SerializeStruct::end(builder))
+        dispatch_serialize_struct!(self, builder => builder.end())
     }
 }
 

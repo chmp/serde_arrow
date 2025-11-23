@@ -20,6 +20,8 @@ const UNKNOWN_KEY: usize = usize::MAX;
 pub struct StructBuilder {
     pub name: String,
     pub fields: Vec<ArrayBuilder>,
+    // Note: for the complex_1000 benchmark this optimization results in approx
+    // 1.26 arrow2_convert times reduction
     pub lookup_cache: Vec<Option<StaticFieldName>>,
     pub next: usize,
     pub seen: Vec<bool>,
@@ -117,12 +119,12 @@ impl StructBuilder {
     }
 
     pub fn lookup(&mut self, guess: usize, key: &'static str) -> Option<usize> {
-        if self.lookup_cache.get(guess) == Some(&Some(StaticFieldName(key))) {
+        if self.lookup_cache.get(guess).copied() == Some(Some(StaticFieldName::new(key))) {
             Some(guess)
         } else {
             let idx = self.lookup_field_uncached(key)?;
             if self.lookup_cache[idx].is_none() {
-                self.lookup_cache[idx] = Some(StaticFieldName(key));
+                self.lookup_cache[idx] = Some(StaticFieldName::new(key));
             }
             Some(idx)
         }
@@ -145,13 +147,9 @@ impl StructBuilder {
 impl StructBuilder {
     fn start(&mut self) -> Result<()> {
         self.seq.start_seq()?;
-        self.reset();
-        Ok(())
-    }
-
-    fn reset(&mut self) {
         self.seen.fill(false);
         self.next = 0;
+        Ok(())
     }
 
     pub fn end(&mut self) -> Result<()> {
@@ -304,12 +302,16 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
 }
 
 /// A wrapper around a static field name that compares using ptr and length
-#[derive(Debug, Clone)]
-pub struct StaticFieldName(&'static str);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StaticFieldName(*const u8, usize);
 
-impl std::cmp::PartialEq for StaticFieldName {
-    fn eq(&self, other: &Self) -> bool {
-        (self.0.as_ptr(), self.0.len()) == (other.0.as_ptr(), other.0.len())
+unsafe impl Send for StaticFieldName {}
+
+unsafe impl Sync for StaticFieldName {}
+
+impl StaticFieldName {
+    pub fn new(s: &'static str) -> Self {
+        Self(s.as_ptr(), s.len())
     }
 }
 
