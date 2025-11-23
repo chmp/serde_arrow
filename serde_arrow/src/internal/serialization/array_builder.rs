@@ -147,91 +147,91 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
     type SerializeMap = super::utils::SerializeMap<'a>;
 
     fn serialize_none(self) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_none(builder))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_none())
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_some(builder, value))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_some(value))
     }
 
     fn serialize_unit(self) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit(builder))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_unit())
     }
 
     fn serialize_bool(self, v: bool) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_bool(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_bool(v))
     }
 
     fn serialize_char(self, v: char) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_char(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_char(v))
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i8(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_i8(v))
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i16(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_i16(v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i32(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_i32(v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_i64(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_i64(v))
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u8(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_u8(v))
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u16(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_u16(v))
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u32(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_u32(v))
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_u64(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_u64(v))
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_f32(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_f32(v))
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_f64(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_f64(v))
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_str(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_str(v))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_bytes(builder, v))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_bytes(v))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_seq(builder, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_seq(len))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_map(builder, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_map(len))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple(builder, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_tuple(len))
     }
 
     fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_struct(builder, name, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_struct(name, len))
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit_struct(builder, name))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_unit_struct(name))
     }
 
     fn serialize_unit_variant(
@@ -240,7 +240,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         variant_index: u32,
         variant: &'static str,
     ) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_unit_variant(builder, name, variant_index, variant))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_unit_variant(name, variant_index, variant))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
@@ -248,7 +248,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         name: &'static str,
         value: &T,
     ) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_newtype_struct(builder, name, value))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_newtype_struct(name, value))
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -258,7 +258,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         variant: &'static str,
         value: &T,
     ) -> Result<()> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_newtype_variant(builder, name, variant_index, variant, value))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_newtype_variant(name, variant_index, variant, value))
     }
 
     fn serialize_tuple_struct(
@@ -266,7 +266,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple_struct(builder, name, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_tuple_struct(name, len))
     }
 
     fn serialize_tuple_variant(
@@ -276,7 +276,7 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_tuple_variant(builder, name, variant_index, variant, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_tuple_variant(name, variant_index, variant, len))
     }
 
     fn serialize_struct_variant(
@@ -286,6 +286,6 @@ impl<'a> serde::Serializer for &'a mut ArrayBuilder {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        dispatch!(self, ArrayBuilder(builder) => serde::Serializer::serialize_struct_variant(builder, name, variant_index, variant, len))
+        dispatch!(self, ArrayBuilder(builder) => builder.serialize_struct_variant(name, variant_index, variant, len))
     }
 }
