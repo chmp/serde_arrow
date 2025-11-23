@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
+    Rng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
-    Rng,
 };
 use serde::{Deserialize, Serialize};
 

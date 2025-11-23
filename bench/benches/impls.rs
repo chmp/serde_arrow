@@ -1,8 +1,8 @@
 pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
-        Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Result,
         schema::SchemaLike,
     };
 
@@ -19,8 +19,8 @@ pub mod serde_arrow_arrow {
 }
 
 pub mod serde_arrow_marrow {
-    use marrow::{array::Array, datatypes::Field};
     use serde::Serialize;
+    use serde_arrow::marrow::{array::Array, datatypes::Field};
     use serde_arrow::schema::SchemaLike;
 
     pub fn trace(items: &(impl ?Sized + Serialize)) -> Vec<Field> {
@@ -37,15 +37,15 @@ pub mod arrow {
     use std::sync::Arc;
 
     // arrow-version:replace: use arrow_json_{version}::ReaderBuilder;
-    use arrow_json_57::ReaderBuilder;
+    use arrow_json::ReaderBuilder;
     // arrow-version:replace: use arrow_schema_{version}::Schema;
-    use arrow_schema_57::Schema;
+    use arrow_schema::Schema;
 
     use serde::Serialize;
 
     use serde_arrow::{
-        Error, Result,
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
+        Error, Result,
         schema::SchemaLike,
     };
 
@@ -75,7 +75,7 @@ pub mod arrow2_convert {
         field::ArrowField,
         serialize::{ArrowSerialize, TryIntoArrow},
     };
-    use serde_arrow::{Error, Result, _impl::arrow2::array::Array};
+    use serde_arrow::{_impl::arrow2::array::Array, Error, Result};
 
     pub fn trace<T>(_items: &T) {}
 

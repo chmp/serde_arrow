@@ -1,0 +1,32 @@
+[package]
+name = "bench"
+version = "0.1.0"
+edition = "2024"
+
+[[bench]]
+name = "serde_arrow_bench"
+harness = false
+
+[[example]]
+name = "serialize_simple_struct_arrow"
+
+[dev-dependencies]
+# arrow-version:replace: serde_arrow = {{ path = "../serde_arrow", features = ["arrow2-0-17", "arrow-{version}"] }}
+serde_arrow = { path = "../serde_arrow", features = ["arrow2-0-17", "arrow-57"] }
+
+# arrow-version:replace: arrow-array = {{ package = "arrow-array", version = "{version}", default-features = false }}
+arrow-array = { package = "arrow-array", version = "57", default-features = false }
+
+# arrow-version:replace: arrow-json = {{ package = "arrow-json", version = "{version}" }}
+arrow-json = { package = "arrow-json", version = "57" }
+
+# arrow-version:replace: arrow-schema = {{ package = "arrow-schema", version = "{version}", default-features = false, features = ["serde"] }}
+arrow-schema = { package = "arrow-schema", version = "57", default-features = false, features = ["serde"] }
+
+arrow2_convert = "0.5.0"
+criterion = "0.5"
+rand = "0.8"
+serde-transcode = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+simd-json = "0.13.8"

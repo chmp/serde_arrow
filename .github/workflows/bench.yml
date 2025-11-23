@@ -24,7 +24,7 @@
         },
         {
           "name": "Bench",
-          "run": "cargo bench --features arrow2-0-17,arrow-57\npython x.py summarize-bench >> $GITHUB_STEP_SUMMARY"
+          "run": "cargo bench -p bench\npython x.py summarize-bench >> $GITHUB_STEP_SUMMARY"
         }
       ]
     }

@@ -135,6 +135,10 @@
           "run": "cargo check --all-targets --features arrow-37"
         },
         {
+          "name": "Check support packages",
+          "run": "cargo check --all-features --package bench --package example --package integration_tests"
+        },
+        {
           "name": "Check format",
           "run": "cargo fmt --check"
         },

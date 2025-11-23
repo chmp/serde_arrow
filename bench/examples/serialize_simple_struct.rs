@@ -1,5 +1,5 @@
-use marrow::datatypes::{DataType, Field};
 use serde::Serialize;
+use serde_arrow::marrow::datatypes::{DataType, Field};
 
 const NUM_RECORDS: usize = 100;
 const NUM_ITERATIONS: usize = 100_000;

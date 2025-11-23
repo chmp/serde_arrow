@@ -165,6 +165,11 @@ def _generate_workflow_check_steps():
         }
 
     yield {
+        "name": f"Check support packages",
+        "run": f"cargo check --all-features --package bench --package example --package integration_tests",
+    }
+
+    yield {
         "name": "Check format",
         "run": "cargo fmt --check",
     }
@@ -193,10 +198,16 @@ def check(all=False, fix=False):
     _sh(
         f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}"
     )
+    _sh(
+        "cargo check --all-targets --package bench --package example --package integration_tests"
+    )
+    _sh(
+        "cargo clippy --all-targets --package bench --package example --package integration_tests"
+    )
 
     if all:
-        for arrow2_feature in (*all_arrow2_features, *all_arrow_features):
-            _sh(f"cargo check --features {arrow2_feature}")
+        for arrow_feature in (*all_arrow2_features, *all_arrow_features):
+            _sh(f"cargo check --features {arrow_feature}")
 
 
 @cmd(help="Run the example")
@@ -254,6 +265,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
         _sh(
             f"""
                 cargo test
+                    -q
                     {feature_selection}
                     {_q(test_name) if test_name else ""}
             """,
@@ -270,7 +282,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
 )
 def test_integration(backtrace=False):
     _sh(
-        "cargo test -p integration_tests",
+        "cargo test -q -p integration_tests",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
 
@@ -354,7 +366,7 @@ def bench(quick=False):
     import os
 
     _sh(
-        f"cargo bench --features {default_features}",
+        f"cargo bench -p bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()

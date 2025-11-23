@@ -1331,6 +1331,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "bench"
+version = "0.1.0"
+dependencies = [
+ "arrow-array 57.0.0",
+ "arrow-json",
+ "arrow-schema 57.0.0",
+ "arrow2_convert",
+ "criterion",
+ "rand",
+ "serde",
+ "serde-transcode",
+ "serde_arrow",
+ "serde_json",
+ "simd-json",
+]
+
+[[package]]
 name = "bigdecimal"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2590,7 +2607,6 @@ dependencies = [
  "arrow-array 55.2.0",
  "arrow-array 56.2.0",
  "arrow-array 57.0.0",
- "arrow-json",
  "arrow-schema 37.0.0",
  "arrow-schema 38.0.0",
  "arrow-schema 39.0.0",
@@ -2614,21 +2630,16 @@ dependencies = [
  "arrow-schema 57.0.0",
  "arrow2 0.16.0",
  "arrow2 0.17.4",
- "arrow2_convert",
  "bigdecimal",
  "bytemuck",
  "chrono",
- "criterion",
  "half",
  "jiff",
  "marrow",
- "rand",
  "rust_decimal",
  "serde",
- "serde-transcode",
  "serde_bytes",
  "serde_json",
- "simd-json",
  "uuid",
 ]
 

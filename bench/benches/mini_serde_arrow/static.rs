@@ -1,14 +1,14 @@
 //! An implementation using static dispatch via enums
 use std::marker::PhantomData;
 
-use marrow::{
+use serde::Serialize;
+use serde_arrow::marrow::{
     array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
     datatypes::{DataType, Field, FieldMeta},
 };
-use serde::Serialize;
-use serde_arrow::{schema::SchemaLike, Error, Result};
+use serde_arrow::{Error, Result, schema::SchemaLike};
 
-use crate::mini_serde_arrow::utils::{unsupported, StaticFieldName};
+use crate::mini_serde_arrow::utils::{StaticFieldName, unsupported};
 
 pub fn trace(items: &(impl Serialize + ?Sized)) -> Vec<Field> {
     Vec::<Field>::from_samples(items, Default::default()).unwrap()
@@ -520,7 +520,7 @@ impl<'a> BoolSerializer<'a> {
 
 impl<'s, 'a> serde::Serializer for &'s mut BoolSerializer<'a> {
     fn serialize_bool(self, v: bool) -> Result<()> {
-        marrow::bits::push(&mut self.values, &mut self.len, v);
+        serde_arrow::marrow::bits::push(&mut self.values, &mut self.len, v);
         Ok(())
     }
 
