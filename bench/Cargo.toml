@@ -7,9 +7,6 @@ edition = "2024"
 name = "serde_arrow_bench"
 harness = false
 
-[[example]]
-name = "serialize_simple_struct_arrow"
-
 [dev-dependencies]
 # arrow-version:replace: serde_arrow = {{ path = "../serde_arrow", features = ["arrow2-0-17", "arrow-{version}"] }}
 serde_arrow = { path = "../serde_arrow", features = ["arrow2-0-17", "arrow-57"] }
