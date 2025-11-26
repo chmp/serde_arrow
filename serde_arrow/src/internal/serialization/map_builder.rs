@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    error::{prepend, set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
 };
@@ -82,13 +82,13 @@ impl MapBuilder {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_default()).ctx(self)
+        self.offsets.push_seq_default().ctx(self)
     }
 }
 
 impl Context for MapBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.name);
+        prepend(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Map(..)");
     }
 }
@@ -119,11 +119,8 @@ impl serde::ser::SerializeMap for &mut MapBuilder {
     type Error = Error;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
-        try_(|| {
-            self.offsets.push_seq_elements(1)?;
-            key.serialize(self.keys.as_mut())
-        })
-        .ctx(*self)
+        self.offsets.push_seq_elements(1).ctx(*self)?;
+        key.serialize(self.keys.as_mut()).ctx(*self)
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {

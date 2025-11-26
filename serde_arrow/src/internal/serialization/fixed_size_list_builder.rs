@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{fail, prepend, set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
@@ -119,7 +119,7 @@ impl FixedSizeListBuilder {
 
 impl Context for FixedSizeListBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.name);
+        prepend(annotations, "field", &self.name);
         set_default(annotations, "data_type", "FixedSizeList(..)");
     }
 }

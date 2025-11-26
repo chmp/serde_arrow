@@ -7,7 +7,7 @@ use marrow::{
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{fail, prepend, set_default, try_, Context, ContextSupport, Error, Result},
     serialization::{construction::build_struct, utils::impl_serializer},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
@@ -31,7 +31,7 @@ pub struct StructBuilder {
 
 impl StructBuilder {
     pub fn from_fields(fields: Vec<Field>) -> Result<Self> {
-        build_struct(Default::default(), fields, false, Default::default())
+        build_struct(String::from("$"), fields, false, Default::default())
     }
 
     pub fn new(
@@ -166,7 +166,7 @@ impl StructBuilder {
 
 impl Context for StructBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.name);
+        prepend(annotations, "field", &self.name);
         set_default(annotations, "data_type", "Struct(..)");
     }
 }
@@ -228,7 +228,7 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         value: &T,
     ) -> Result<()> {
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
-            self.element(idx, value)
+            self.element(idx, value).ctx(*self)
         } else {
             // ignore unknown fields
             Ok(())
@@ -269,14 +269,11 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        try_(|| {
-            // ignore extra tuple fields
-            if self.next < self.fields.len() {
-                self.element(self.next, value)?;
-            }
-            Ok(())
-        })
-        .ctx(*self)
+        // ignore extra tuple fields
+        if self.next < self.fields.len() {
+            self.element(self.next, value).ctx(*self)?;
+        }
+        Ok(())
     }
 
     fn end(self) -> Result<()> {

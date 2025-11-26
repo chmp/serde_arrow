@@ -77,9 +77,7 @@ impl<E: Into<Error>> ContextSupport for E {
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
         let Error::Custom(mut error) = self.into();
-        if error.0.annotations.is_empty() {
-            context.annotate(&mut error.0.annotations);
-        }
+        context.annotate(&mut error.0.annotations);
         Error::Custom(error)
     }
 }

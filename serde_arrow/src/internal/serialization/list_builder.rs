@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    error::{prepend, set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
@@ -124,7 +124,7 @@ impl<O: NamedType + Offset> ListBuilder<O> {
 
 impl<O: NamedType> Context for ListBuilder<O> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.name);
+        prepend(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",
@@ -176,35 +176,26 @@ impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        try_(|| {
-            if let Some(len) = len {
-                self.elements.reserve(len);
-            }
-            self.start()
-        })
-        .ctx(self)?;
+        if let Some(len) = len {
+            self.elements.reserve(len);
+        }
+        self.start().ctx(self)?;
         Ok(O::as_serialize_seq(self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        try_(|| {
-            self.elements.reserve(len);
-            self.start()
-        })
-        .ctx(self)?;
+        self.elements.reserve(len);
+        self.start().ctx(self)?;
         Ok(O::as_serialize_tuple(self))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        try_(|| {
-            self.elements.reserve(v.len());
-            self.start()?;
-            for item in v {
-                self.element(item)?;
-            }
-            self.end()
-        })
-        .ctx(self)
+        self.elements.reserve(v.len());
+        self.start().ctx(self)?;
+        for item in v {
+            self.element(item).ctx(self)?;
+        }
+        self.end().ctx(self)
     }
 }
 
@@ -213,11 +204,11 @@ impl<O: ListOffset> serde::ser::SerializeSeq for &mut ListBuilder<O> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        try_(|| self.element(value)).ctx(*self)
+        self.element(value).ctx(*self)
     }
 
     fn end(self) -> Result<()> {
-        try_(|| ListBuilder::end(self)).ctx(self)
+        ListBuilder::end(self).ctx(self)
     }
 }
 
@@ -226,10 +217,10 @@ impl<O: ListOffset> serde::ser::SerializeTuple for &mut ListBuilder<O> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        try_(|| self.element(value)).ctx(*self)
+        self.element(value).ctx(*self)
     }
 
     fn end(self) -> Result<()> {
-        try_(|| ListBuilder::end(self)).ctx(self)
+        ListBuilder::end(self).ctx(self)
     }
 }

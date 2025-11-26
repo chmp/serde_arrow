@@ -6,7 +6,7 @@ use marrow::{
 };
 
 use crate::internal::{
-    error::{prepend, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
@@ -87,7 +87,7 @@ impl_into_array!(u64, U64, UInt64);
 
 impl<I: NamedType> Context for IntBuilder<I> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        prepend(annotations, "field", &self.name);
+        set_default(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",

@@ -26,8 +26,7 @@ fn int_nested() -> PanicOnError<()> {
     let res = array_builder.push(json!({"nested": {"field": null}}));
     assert!(res.is_err());
 
-    // TODO: fix
-    //assert_error_contains(&res, "field: \"$.nested.field\"");
+    assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
 }
@@ -45,8 +44,7 @@ fn int_top_level() -> PanicOnError<()> {
     let res = array_builder.push(json!({"field": null}));
     assert!(res.is_err());
 
-    // TODO: fix
-    // assert_error_contains(&res, "field: \"$.field\"");
+    assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())
 }
@@ -70,8 +68,7 @@ fn struct_nested() -> PanicOnError<()> {
     let res = array_builder.push(json!({"nested": {"field": null}}));
     assert!(res.is_err());
 
-    // TODO: fix
-    // assert_error_contains(&res, "field: \"$.nested.field\"");
+    assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
 }
@@ -89,8 +86,7 @@ fn struct_top_level() -> PanicOnError<()> {
     let res = array_builder.push(json!({"field": null}));
     assert!(res.is_err());
 
-    // TODO: fix
-    // Tassert_error_contains(&res, "field: \"$.field\"");
+    assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())
 }
