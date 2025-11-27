@@ -33,6 +33,68 @@ fn r#struct() {
 }
 
 #[test]
+fn struct_variant() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum E {
+        S { a: u32, b: bool },
+    }
+    let values = [Item(E::S { a: 1, b: true }), Item(E::S { a: 2, b: false })];
+
+    Test::new()
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .serialize(&values);
+}
+
+#[test]
+fn tuple() {
+    let values = [Item((1_u32, true)), Item((2_u32, false))];
+
+    Test::new()
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .serialize(&values);
+}
+
+#[test]
+fn tuple_variant() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum E {
+        T(u32, bool),
+    }
+    let values = [Item(E::T(1, true)), Item(E::T(2, false))];
+
+    Test::new()
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .serialize(&values);
+}
+
+#[test]
 fn struct_nested() {
     let values = [Item(S::default()), Item(S::default())];
 

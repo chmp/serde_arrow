@@ -174,11 +174,10 @@ impl Context for StructBuilder {
 impl<'a> Serializer for &'a mut StructBuilder {
     impl_serializer!(
         'a, StructBuilder;
+        override serialize_map,
         override serialize_none,
         override serialize_struct,
-        override serialize_map,
         override serialize_tuple,
-        override serialize_tuple_struct,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -204,14 +203,6 @@ impl<'a> Serializer for &'a mut StructBuilder {
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         self.start()?;
         Ok(Self::SerializeTuple::Struct(self))
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        self.serialize_tuple(len)
     }
 }
 
