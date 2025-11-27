@@ -1,5 +1,22 @@
 # Change log
 
+## 0.14.0
+
+- Major refactor of the implementation: Directly implement `serde::Serializer`
+  for all Serialization structs
+- Performance improvements:
+  - Avoid unncessary allocations in serialization
+  - Reserve elements up front
+- Improved error reporting in serialization:
+  - The field and data type is now reported more consistently across builders
+- More consistent handling of the serde data model in serialization:
+  - Unit variants, unit structs can be used where unit could be used
+  - Tuple variants, tuple structs can be used where tuples could be used
+  - Treat newtype variants as transparents wrappers
+  - Struct variants can be used where structs could be used
+  - Support tuples, tuple, structs, tuple variants, bytes for `FixedSizeList`
+  - Allow to serialize sequences for structs, similar to tuples
+
 ## 0.13.7
 
 - [@lonless9](https://github.com/lonless9) Add 57 support + Release 0.13.7
