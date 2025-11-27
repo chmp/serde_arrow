@@ -85,3 +85,52 @@ fn deserialize_from_schema() {
 
     assert_eq!(fields, fields_from_fields);
 }
+
+#[test]
+fn tuple_as_fixed_size_list() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::Tuple(vec![
+            Value::U8(0),
+            Value::U8(1),
+            Value::U8(2),
+        ]))]);
+}
+
+#[test]
+fn tuple_struct_as_fixed_size_list() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::TupleStruct(
+            "Tuple",
+            vec![Value::U8(0), Value::U8(1), Value::U8(2)],
+        ))]);
+}
+
+#[test]
+fn tuple_variant_as_fixed_size_list() {
+    use crate::internal::utils::value::{Value, Variant};
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::TupleVariant(
+            Variant("Tuple", 0, "Variant"),
+            vec![Value::U8(0), Value::U8(1), Value::U8(2)],
+        ))]);
+}

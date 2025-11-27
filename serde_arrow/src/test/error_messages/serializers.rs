@@ -381,7 +381,10 @@ mod lists {
         fn test(data_type: &str) {
             let err = serialize_to_error(
                 schema(data_type),
-                wrap(Value::Seq(vec![Value::FailWithError("test-error")])),
+                wrap(Value::Seq(vec![
+                    Value::FailWithError("test-error"),
+                    Value::U8(0),
+                ])),
             );
             assert_error_contains(&err, "test-error");
             assert_error_contains(&err, "field: \"$.list.element\"");

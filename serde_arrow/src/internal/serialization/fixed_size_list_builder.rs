@@ -103,13 +103,7 @@ impl FixedSizeListBuilder {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        if self.current_count == self.n {
-            fail!(
-                "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
-                n = self.n,
-                actual = self.current_count + 1,
-            );
-        }
+        self.check_len(self.current_count + 1, false)?;
         self.current_count += 1;
         self.seq.push_seq_elements(1)?;
         self.elements.serialize_value(value)
@@ -117,14 +111,25 @@ impl FixedSizeListBuilder {
 
     fn end(&mut self) -> Result<()> {
         // TODO: fill with default values? would simplify using the builder
-        if self.current_count != self.n {
+        self.check_len(self.current_count, true)?;
+        self.seq.end_seq()
+    }
+
+    #[inline]
+    fn check_len(&self, actual: usize, finished: bool) -> Result<()> {
+        let is_valid = if finished {
+            actual == self.n
+        } else {
+            actual <= self.n
+        };
+        if !is_valid {
             fail!(
                 "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
                 n = self.n,
-                actual = self.current_count,
             );
         }
-        self.seq.end_seq()
+
+        Ok(())
     }
 }
 
@@ -144,6 +149,7 @@ impl<'a> Serializer for &'a mut FixedSizeListBuilder {
         'a, FixedSizeListBuilder;
         override serialize_none,
         override serialize_seq,
+        override serialize_tuple,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -156,14 +162,33 @@ impl<'a> Serializer for &'a mut FixedSizeListBuilder {
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = len {
-            self.reserve(len);
+            self.check_len(len, true)?;
         }
         self.start()?;
         Ok(super::utils::SerializeSeq::FixedSizeList(self))
     }
+
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        self.check_len(len, true)?;
+        self.start()?;
+        Ok(Self::SerializeTuple::FixedSizeList(self))
+    }
 }
 
 impl serde::ser::SerializeSeq for &mut FixedSizeListBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value)
+    }
+
+    fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
+        FixedSizeListBuilder::end(&mut *self)
+    }
+}
+
+impl serde::ser::SerializeTuple for &mut FixedSizeListBuilder {
     type Ok = ();
     type Error = Error;
 

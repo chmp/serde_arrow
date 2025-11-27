@@ -487,6 +487,7 @@ define_serializer_wrapper!(SerializeTuple {
     FixedSizeBinary(super::fixed_size_binary_builder::FixedSizeBinaryBuilder),
     List(super::list_builder::ListBuilder<i32>),
     LargeList(super::list_builder::ListBuilder<i64>),
+    FixedSizeList(super::fixed_size_list_builder::FixedSizeListBuilder),
 });
 
 impl serde::ser::SerializeTuple for SerializeTuple<'_> {
