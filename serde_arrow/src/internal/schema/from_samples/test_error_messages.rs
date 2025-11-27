@@ -7,12 +7,13 @@ use crate::internal::{
 
 #[test]
 fn outer_struct() {
-    let res = SerdeArrowSchema::from_samples([1_u32, 2_u32, 3_u32], TracingOptions::default());
+    let err = SerdeArrowSchema::from_samples([1_u32, 2_u32, 3_u32], TracingOptions::default())
+        .unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Only struct-like types are supported as root types in schema tracing.",
     );
-    assert_error_contains(&res, "Consider using the `Items` wrapper,");
+    assert_error_contains(&err, "Consider using the `Items` wrapper,");
 }
 
 /// See: https://github.com/chmp/serde_arrow/issues/97
@@ -30,9 +31,9 @@ fn outer_sequence_issue_97() {
         k: 100.0,
     };
 
-    let res = SerdeArrowSchema::from_samples(b, TracingOptions::default());
-    assert_error_contains(&res, "Cannot trace non-sequences with `from_samples`");
-    assert_error_contains(&res, "consider wrapping the argument in an array");
+    let err = SerdeArrowSchema::from_samples(b, TracingOptions::default()).unwrap_err();
+    assert_error_contains(&err, "Cannot trace non-sequences with `from_samples`");
+    assert_error_contains(&err, "consider wrapping the argument in an array");
 }
 
 #[test]
@@ -43,6 +44,6 @@ fn enums_without_data() {
         B,
     }
 
-    let res = SerdeArrowSchema::from_samples([E::A, E::B], TracingOptions::default());
-    assert_error_contains(&res, "by setting `enums_without_data_as_strings` to `true`");
+    let err = SerdeArrowSchema::from_samples([E::A, E::B], TracingOptions::default()).unwrap_err();
+    assert_error_contains(&err, "by setting `enums_without_data_as_strings` to `true`");
 }

@@ -68,7 +68,7 @@ fn incorrect_number_of_elements() {
     }]))
     .unwrap();
 
-    let res = crate::to_record_batch(&fields, &items);
+    let res = crate::to_record_batch(&fields, &items).unwrap_err();
     assert_error_contains(&res, "Invalid number of elements for FixedSizedList(2).");
 }
 

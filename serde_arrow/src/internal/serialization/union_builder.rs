@@ -4,6 +4,7 @@ use marrow::{
     array::{Array, UnionArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{fail, prepend, set_default, try_, Context, ContextSupport, Result},
@@ -49,20 +50,6 @@ impl UnionBuilder {
         false
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        let mut fields = Vec::new();
-        for (idx, builder) in self.fields.into_iter().enumerate() {
-            let (child_array, child_meta) = builder.into_array_and_field_meta()?;
-            fields.push((idx.try_into()?, child_meta, child_array));
-        }
-
-        Ok(Array::Union(UnionArray {
-            types: self.types,
-            offsets: Some(self.offsets),
-            fields,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -90,18 +77,23 @@ impl UnionBuilder {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        let mut ctx = BTreeMap::new();
-        self.annotate(&mut ctx);
+        try_(|| self.serialize_variant(0, "")?.serialize_default_value()).ctx(self)
+    }
 
-        try_(|| self.serialize_variant(0)?.serialize_default_value()).ctx(&ctx)
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
 impl UnionBuilder {
-    pub fn serialize_variant(&mut self, variant_index: u32) -> Result<&mut ArrayBuilder> {
+    pub fn serialize_variant(
+        &mut self,
+        variant_index: u32,
+        variant_name: &str,
+    ) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
         let Some(variant_builder) = self.fields.get_mut(variant_index) else {
-            fail!("Could not find variant {variant_index} in Union");
+            fail!("Could not find variant {variant_name} with index {variant_index} in Union");
         };
 
         self.offsets.push(self.current_offset[variant_index]);
@@ -114,22 +106,12 @@ impl UnionBuilder {
 
 impl Context for UnionBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        ContextImpl { name: &self.name }.annotate(annotations)
+        prepend(annotations, "field", &self.name);
+        set_default(annotations, "data_type", "Union");
     }
 }
 
-struct ContextImpl<'a> {
-    name: &'a str,
-}
-
-impl Context for ContextImpl<'_> {
-    fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        prepend(annotations, "field", self.name);
-        set_default(annotations, "data_type", "Union(..)");
-    }
-}
-
-impl<'a> serde::Serializer for &'a mut UnionBuilder {
+impl<'a> Serializer for &'a mut UnionBuilder {
     impl_serializer!(
         'a, UnionBuilder;
         override serialize_unit_variant,
@@ -142,52 +124,44 @@ impl<'a> serde::Serializer for &'a mut UnionBuilder {
         self,
         _name: &'static str,
         variant_index: u32,
-        _variant: &'static str,
+        variant_name: &'static str,
     ) -> Result<()> {
-        serde::Serializer::serialize_unit(self.serialize_variant(variant_index)?).ctx(self)
+        self.serialize_variant(variant_index, variant_name)?
+            .serialize_unit()
     }
 
     fn serialize_newtype_variant<T: ?Sized + serde::Serialize>(
         self,
         _name: &'static str,
         variant_index: u32,
-        _variant: &'static str,
+        variant_name: &'static str,
         value: &T,
     ) -> Result<()> {
-        try_(|| {
-            let variant_builder = self.serialize_variant(variant_index)?;
-            value.serialize(variant_builder)
-        })
-        .ctx(self)
+        // NOTE: do not use serialize_value to be consistent. The other case cannot
+        // report the variant affected. The new-type variants should not either
+        let builder = self.serialize_variant(variant_index, variant_name)?;
+        value.serialize(builder)
     }
 
     fn serialize_struct_variant(
         self,
         name: &'static str,
         variant_index: u32,
-        _variant: &'static str,
+        variant_name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        let field_name = self.name.clone();
-        let ctx = &ContextImpl { name: &field_name };
-        self.serialize_variant(variant_index)
-            .ctx(ctx)?
+        self.serialize_variant(variant_index, variant_name)?
             .serialize_struct(name, len)
-            .ctx(ctx)
     }
 
     fn serialize_tuple_variant(
         self,
         name: &'static str,
         variant_index: u32,
-        _variant: &'static str,
+        variant_name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        let field_name = self.name.clone();
-        let ctx = &ContextImpl { name: &field_name };
-        self.serialize_variant(variant_index)
-            .ctx(ctx)?
+        self.serialize_variant(variant_index, variant_name)?
             .serialize_tuple_struct(name, len)
-            .ctx(ctx)
     }
 }

@@ -97,14 +97,16 @@ fn time64_type_invalid_units() {
         &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time64(Millisecond)",
-        }])),
+        }]))
+        .unwrap_err(),
         "Error: Time64 field must have Microsecond or Nanosecond unit",
     );
     assert_error_contains(
         &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time64(Second)",
-        }])),
+        }]))
+        .unwrap_err(),
         "Error: Time64 field must have Microsecond or Nanosecond unit",
     );
 
@@ -112,14 +114,16 @@ fn time64_type_invalid_units() {
         &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time32(Microsecond)",
-        }])),
+        }]))
+        .unwrap_err(),
         "Error: Time32 field must have Second or Millisecond unit",
     );
     assert_error_contains(
         &SerdeArrowSchema::from_value(json!([{
             "name": "item",
             "data_type": "Time32(Nanosecond)",
-        }])),
+        }]))
+        .unwrap_err(),
         "Error: Time32 field must have Second or Millisecond unit",
     );
 }

@@ -17,7 +17,7 @@ use serde_json::json;
 #[test]
 fn temporal_formats() {
     assert_error_contains(
-        &value::transmute::<DateTime<Utc>>("2023-12-01T12:22:33[UTC]"),
+        &value::transmute::<DateTime<Utc>>("2023-12-01T12:22:33[UTC]").unwrap_err(),
         "",
     );
 
@@ -48,7 +48,8 @@ mod datetime_utc {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default());
+        let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default())
+            .unwrap_err();
         assert_error_contains(&res, "premature end of input");
     }
 
@@ -132,7 +133,8 @@ mod naive_date_time {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default());
+        let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default())
+            .unwrap_err();
         assert_error_contains(&res, "premature end of input");
     }
 
@@ -247,7 +249,8 @@ mod naive_time {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default());
+        let res =
+            SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default()).unwrap_err();
         assert_error_contains(&res, "premature end of input");
     }
 
@@ -343,7 +346,8 @@ mod naive_date {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default());
+        let res =
+            SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default()).unwrap_err();
         assert_error_contains(&res, "premature end of input");
     }
 

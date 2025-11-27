@@ -7,7 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
-    error::{prepend, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{prepend, set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, OffsetsArray, SeqArrayExt},
@@ -16,6 +16,40 @@ use crate::internal::{
 };
 
 use super::array_builder::ArrayBuilder;
+
+pub trait ListOffset: NamedType + Offset {
+    const ARRAY_BUILDER_VARIANT: fn(ListBuilder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(ListArray<Self>) -> Array;
+
+    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_>;
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_>;
+}
+
+impl ListOffset for i32 {
+    const ARRAY_BUILDER_VARIANT: fn(ListBuilder<Self>) -> ArrayBuilder = ArrayBuilder::List;
+    const ARRAY_VARIANT: fn(ListArray<Self>) -> Array = Array::List;
+
+    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::List(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::List(builder)
+    }
+}
+
+impl ListOffset for i64 {
+    const ARRAY_BUILDER_VARIANT: fn(ListBuilder<Self>) -> ArrayBuilder = ArrayBuilder::LargeList;
+    const ARRAY_VARIANT: fn(ListArray<Self>) -> Array = Array::LargeList;
+
+    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::LargeList(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::LargeList(builder)
+    }
+}
 
 #[derive(Debug, Clone)]
 
@@ -26,7 +60,7 @@ pub struct ListBuilder<O> {
     pub metadata: HashMap<String, String>,
 }
 
-impl<O: Offset + NamedType> ListBuilder<O> {
+impl<O: ListOffset> ListBuilder<O> {
     pub fn new(
         name: String,
         element: ArrayBuilder,
@@ -59,13 +93,15 @@ impl<O: Offset + NamedType> ListBuilder<O> {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.offsets.push_seq_default()).ctx(self)
+        self.offsets.push_seq_default().ctx(self)
     }
-}
 
-impl ListBuilder<i32> {
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
+
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::List(self.take_self())
+        O::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
@@ -75,7 +111,7 @@ impl ListBuilder<i32> {
             nullable: self.offsets.validity.is_some(),
         };
         let (child_array, child_meta) = self.elements.into_array_and_field_meta()?;
-        let array = Array::List(ListArray {
+        let array = O::ARRAY_VARIANT(ListArray {
             validity: self.offsets.validity,
             offsets: self.offsets.offsets,
             elements: Box::new(child_array),
@@ -85,36 +121,14 @@ impl ListBuilder<i32> {
     }
 }
 
-impl ListBuilder<i64> {
-    pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::LargeList(self.take_self())
-    }
-
-    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
-        let meta = FieldMeta {
-            name: self.name,
-            metadata: self.metadata,
-            nullable: self.offsets.validity.is_some(),
-        };
-        let (child_array, child_meta) = self.elements.into_array_and_field_meta()?;
-        let array = Array::LargeList(ListArray {
-            validity: self.offsets.validity,
-            offsets: self.offsets.offsets,
-            elements: Box::new(child_array),
-            meta: child_meta,
-        });
-        Ok((array, meta))
-    }
-}
-
-impl<O: NamedType + Offset> ListBuilder<O> {
+impl<O: ListOffset> ListBuilder<O> {
     fn start(&mut self) -> Result<()> {
         self.offsets.start_seq()
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.offsets.push_seq_elements(1)?;
-        value.serialize(self.elements.as_mut())
+        self.elements.serialize_value(value)
     }
 
     fn end(&mut self) -> Result<()> {
@@ -122,7 +136,7 @@ impl<O: NamedType + Offset> ListBuilder<O> {
     }
 }
 
-impl<O: NamedType> Context for ListBuilder<O> {
+impl<O: ListOffset> Context for ListBuilder<O> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         prepend(annotations, "field", &self.name);
         set_default(
@@ -137,31 +151,6 @@ impl<O: NamedType> Context for ListBuilder<O> {
     }
 }
 
-trait ListOffset: NamedType + Offset {
-    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_>;
-    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_>;
-}
-
-impl ListOffset for i32 {
-    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
-        super::utils::SerializeSeq::List(builder)
-    }
-
-    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
-        super::utils::SerializeTuple::List(builder)
-    }
-}
-
-impl ListOffset for i64 {
-    fn as_serialize_seq(builder: &mut ListBuilder<Self>) -> super::utils::SerializeSeq<'_> {
-        super::utils::SerializeSeq::LargeList(builder)
-    }
-
-    fn as_serialize_tuple(builder: &mut ListBuilder<Self>) -> super::utils::SerializeTuple<'_> {
-        super::utils::SerializeTuple::LargeList(builder)
-    }
-}
-
 impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
     impl_serializer!(
         'a, ListBuilder;
@@ -172,30 +161,30 @@ impl<'a, O: ListOffset> serde::Serializer for &'a mut ListBuilder<O> {
     );
 
     fn serialize_none(self) -> Result<()> {
-        self.offsets.push_seq_none().ctx(self)
+        self.offsets.push_seq_none()
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = len {
             self.elements.reserve(len);
         }
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(O::as_serialize_seq(self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.elements.reserve(len);
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(O::as_serialize_tuple(self))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         self.elements.reserve(v.len());
-        self.start().ctx(self)?;
+        self.start()?;
         for item in v {
-            self.element(item).ctx(self)?;
+            self.element(item)?;
         }
-        self.end().ctx(self)
+        self.end()
     }
 }
 
@@ -204,11 +193,11 @@ impl<O: ListOffset> serde::ser::SerializeSeq for &mut ListBuilder<O> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.element(value).ctx(*self)
+        self.element(value)
     }
 
     fn end(self) -> Result<()> {
-        ListBuilder::end(self).ctx(self)
+        ListBuilder::end(self)
     }
 }
 
@@ -217,10 +206,10 @@ impl<O: ListOffset> serde::ser::SerializeTuple for &mut ListBuilder<O> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.element(value).ctx(*self)
+        self.element(value)
     }
 
     fn end(self) -> Result<()> {
-        ListBuilder::end(self).ctx(self)
+        ListBuilder::end(self)
     }
 }

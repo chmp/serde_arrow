@@ -4,6 +4,7 @@ use marrow::{
     array::{Array, BooleanArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
@@ -49,10 +50,6 @@ impl BoolBuilder {
         self.array.validity.is_some()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(self.into_array_and_field_meta()?.0)
-    }
-
     #[inline]
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
@@ -80,6 +77,10 @@ impl BoolBuilder {
         })
         .ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl Context for BoolBuilder {
@@ -89,7 +90,7 @@ impl Context for BoolBuilder {
     }
 }
 
-impl<'a> serde::Serializer for &'a mut BoolBuilder {
+impl<'a> Serializer for &'a mut BoolBuilder {
     impl_serializer!(
         'a, BoolBuilder;
         override serialize_none,
@@ -97,22 +98,16 @@ impl<'a> serde::Serializer for &'a mut BoolBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| {
-            set_validity(self.array.validity.as_mut(), self.array.len, false)?;
-            set_bit_buffer(&mut self.array.values, self.array.len, false);
-            self.array.len += 1;
-            Ok(())
-        })
-        .ctx(self)
+        set_validity(self.array.validity.as_mut(), self.array.len, false)?;
+        set_bit_buffer(&mut self.array.values, self.array.len, false);
+        self.array.len += 1;
+        Ok(())
     }
 
     fn serialize_bool(self, v: bool) -> Result<()> {
-        try_(|| {
-            set_validity(self.array.validity.as_mut(), self.array.len, true)?;
-            set_bit_buffer(&mut self.array.values, self.array.len, v);
-            self.array.len += 1;
-            Ok(())
-        })
-        .ctx(self)
+        set_validity(self.array.validity.as_mut(), self.array.len, true)?;
+        set_bit_buffer(&mut self.array.values, self.array.len, v);
+        self.array.len += 1;
+        Ok(())
     }
 }

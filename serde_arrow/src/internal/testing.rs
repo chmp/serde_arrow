@@ -5,14 +5,9 @@ use marrow::array::{Array, BytesArray};
 
 use crate::internal::error::{fail, Error, Result};
 
-pub fn assert_error_contains<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
-    let Err(actual) = actual else {
-        panic!("Expected an error, but no error was raised");
-    };
-
-    let actual = actual.to_string();
-    if !actual.contains(expected) {
-        panic!("Error did not contain {expected:?}. Full error: {actual}");
+pub fn assert_error_contains(actual: &Error, expected: &str) {
+    if !actual.to_string().contains(expected) {
+        panic!("Error did not contain {expected:?}.\nFull error: {actual:?}");
     }
 }
 

@@ -4,10 +4,11 @@ use marrow::{
     array::{Array, PrimitiveArray, TimeArray},
     datatypes::{FieldMeta, TimeUnit},
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     chrono,
-    error::{set_default, try_, Context, ContextSupport, Result},
+    error::{set_default, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
@@ -50,14 +51,6 @@ impl DurationBuilder {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Duration(TimeArray {
-            unit: self.unit,
-            validity: self.array.validity,
-            values: self.array.values,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -77,7 +70,11 @@ impl DurationBuilder {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -88,7 +85,7 @@ impl Context for DurationBuilder {
     }
 }
 
-impl<'a> serde::Serializer for &'a mut DurationBuilder {
+impl<'a> Serializer for &'a mut DurationBuilder {
     impl_serializer!(
         'a, DurationBuilder;
         override serialize_none,
@@ -104,46 +101,43 @@ impl<'a> serde::Serializer for &'a mut DurationBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v)).ctx(self)
+        self.array.push_scalar_value(v)
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::from(v))).ctx(self)
+        self.array.push_scalar_value(i64::from(v))
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(i64::try_from(v)?)).ctx(self)
+        self.array.push_scalar_value(i64::try_from(v)?)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| {
-            let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
-            self.array.push_scalar_value(value)
-        })
-        .ctx(self)
+        let value = chrono::parse_span(v)?.to_arrow_duration(self.unit)?;
+        self.array.push_scalar_value(value)
     }
 }

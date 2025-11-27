@@ -4,6 +4,7 @@ use marrow::{
     array::{Array, BytesArray, BytesViewArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
@@ -71,10 +72,6 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
         A::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(A::ARRAY_VARIANT(self.array))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -92,6 +89,10 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl<A: Utf8BuilderArray> Context for Utf8Builder<A> {
@@ -101,7 +102,7 @@ impl<A: Utf8BuilderArray> Context for Utf8Builder<A> {
     }
 }
 
-impl<'a, A: Utf8BuilderArray> serde::Serializer for &'a mut Utf8Builder<A> {
+impl<'a, A: Utf8BuilderArray> Serializer for &'a mut Utf8Builder<A> {
     impl_serializer!(
         'a, Utf8Builder;
         override serialize_none,
@@ -125,63 +126,63 @@ impl<'a, A: Utf8BuilderArray> serde::Serializer for &'a mut Utf8Builder<A> {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.as_bytes())
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_char(self, v: char) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_bool(self, v: bool) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v.to_string().as_bytes())).ctx(self)
+        self.array.push_scalar_value(v.to_string().as_bytes())
     }
 
     fn serialize_unit_variant(self, _: &'static str, _: u32, variant: &'static str) -> Result<()> {
-        try_(|| self.array.push_scalar_value(variant.as_bytes())).ctx(self)
+        self.array.push_scalar_value(variant.as_bytes())
     }
 
     fn serialize_tuple_variant(
@@ -191,7 +192,7 @@ impl<'a, A: Utf8BuilderArray> serde::Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant(
@@ -201,7 +202,7 @@ impl<'a, A: Utf8BuilderArray> serde::Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -211,6 +212,6 @@ impl<'a, A: Utf8BuilderArray> serde::Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 }

@@ -4,9 +4,10 @@ use marrow::{
     array::{Array, NullArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, Context, Result},
+    error::{fail, set_default, Context, ContextSupport, FieldName, Result},
     serialization::utils::impl_serializer,
 };
 
@@ -34,10 +35,6 @@ impl UnknownVariantBuilder {
         true
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Null(NullArray { len: 0 }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -51,17 +48,21 @@ impl UnknownVariantBuilder {
     pub fn reserve(&mut self, _additional: usize) {}
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        fail!(in self, "Unknown variant does not support serialize_default")
+        fail!("Unknown variant does not support serialize_default")
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
 impl Context for UnknownVariantBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.name);
+        set_default(annotations, "field", FieldName(&self.name));
         set_default(annotations, "data_type", "<unknown variant>");
     }
 }
 
-impl<'a> serde::Serializer for &'a mut UnknownVariantBuilder {
+impl<'a> Serializer for &'a mut UnknownVariantBuilder {
     impl_serializer!('a, UnknownVariantBuilder;);
 }

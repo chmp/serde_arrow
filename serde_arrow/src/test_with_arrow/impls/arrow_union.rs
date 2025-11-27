@@ -376,13 +376,12 @@ fn missing_union_variants() {
     let fields = Vec::<FieldRef>::from_samples(Items(&[U::A, U::C]), tracing_options).unwrap();
 
     // NOTE: variant B was never encountered during tracing
-    let res = crate::to_arrow(&fields, Items(&[U::A, U::B, U::C]));
+    let res = crate::to_arrow(&fields, Items(&[U::A, U::B, U::C])).unwrap_err();
     assert_error_contains(
         &res,
         "UnknownVariantBuilder does not support serialize_none",
     );
-    // TODO: fix this
-    // assert_error_contains(&res, "field: \"$.item.<empty>\"")
+    assert_error_contains(&res, "field: \"$.item\"");
 }
 
 #[test]

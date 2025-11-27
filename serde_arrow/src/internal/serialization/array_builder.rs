@@ -126,6 +126,10 @@ impl ArrayBuilder {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         dispatch!(self, Self(builder) => builder.serialize_default_value())
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        dispatch!(self, Self(builder) => builder.serialize_value(value))
+    }
 }
 
 impl Context for ArrayBuilder {

@@ -87,6 +87,10 @@ impl DictionaryUtf8Builder {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.indices.serialize_default_value()).ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl Context for DictionaryUtf8Builder {
@@ -96,7 +100,7 @@ impl Context for DictionaryUtf8Builder {
     }
 }
 
-impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
+impl<'a> Serializer for &'a mut DictionaryUtf8Builder {
     impl_serializer!(
         'a, DictionaryUtf8Builder;
         override serialize_none,
@@ -108,28 +112,24 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| serde::Serializer::serialize_none(self.indices.as_mut()).ctx(self)).ctx(self)
+        serde::Serializer::serialize_none(self.indices.as_mut())
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| {
-            let idx = match self.index.get(v) {
-                Some(idx) => *idx,
-                None => {
-                    let idx = self.index.len();
-                    self.values.serialize_str(v)?;
-                    self.index.insert(v.to_string(), idx);
-                    idx
-                }
-            };
-            idx.serialize(self.indices.as_mut())
-        })
-        .ctx(self)
+        let idx = match self.index.get(v) {
+            Some(idx) => *idx,
+            None => {
+                let idx = self.index.len();
+                self.values.serialize_str(v)?;
+                self.index.insert(v.to_string(), idx);
+                idx
+            }
+        };
+        idx.serialize(self.indices.as_mut())
     }
 
     fn serialize_unit_variant(self, _: &'static str, _: u32, variant: &'static str) -> Result<()> {
-        // TODO: revert back to self.serialize_str(variant)
-        try_(|| serde::Serializer::serialize_str(&mut *self, variant)).ctx(self)
+        self.serialize_str(variant)
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -139,7 +139,7 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 
     fn serialize_tuple_variant(
@@ -149,7 +149,7 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant(
@@ -159,6 +159,6 @@ impl<'a> serde::Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!(in self, "Cannot serialize enum with data as string");
+        fail!("Cannot serialize enum with data as string");
     }
 }

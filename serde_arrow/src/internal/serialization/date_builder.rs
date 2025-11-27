@@ -5,9 +5,10 @@ use marrow::{
     array::{Array, PrimitiveArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
@@ -75,10 +76,6 @@ impl<I: DatePrimitive> DateBuilder<I> {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(I::ARRAY_VARIANT(self.array))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -106,7 +103,11 @@ impl<I: DatePrimitive> DateBuilder<I> {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -117,7 +118,7 @@ impl<I: DatePrimitive> Context for DateBuilder<I> {
     }
 }
 
-impl<'a, D: DatePrimitive> serde::Serializer for &'a mut DateBuilder<D> {
+impl<'a, D: DatePrimitive> Serializer for &'a mut DateBuilder<D> {
     impl_serializer!(
         'a, DateBuilder;
         override serialize_none,
@@ -127,34 +128,25 @@ impl<'a, D: DatePrimitive> serde::Serializer for &'a mut DateBuilder<D> {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| {
-            let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
-            self.array.push_scalar_value(days_since_epoch)
-        })
-        .ctx(self)
+        let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
+        self.array.push_scalar_value(days_since_epoch)
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        try_(|| {
-            let Ok(v) = D::try_from(v) else {
-                fail!("cannot convert {v} to {D}", D = D::NAME);
-            };
-            self.array.push_scalar_value(v)
-        })
-        .ctx(self)
+        let Ok(v) = D::try_from(v) else {
+            fail!("cannot convert {v} to {D}", D = D::NAME);
+        };
+        self.array.push_scalar_value(v)
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        try_(|| {
-            let Ok(v) = D::try_from(v) else {
-                fail!("cannot convert {v} to {D}", D = D::NAME);
-            };
-            self.array.push_scalar_value(v)
-        })
-        .ctx(self)
+        let Ok(v) = D::try_from(v) else {
+            fail!("cannot convert {v} to {D}", D = D::NAME);
+        };
+        self.array.push_scalar_value(v)
     }
 }

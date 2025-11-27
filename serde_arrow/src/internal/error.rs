@@ -4,13 +4,13 @@ use std::{
     convert::Infallible,
 };
 
-pub fn set_default<V: Into<String>>(
+pub fn set_default<V: std::fmt::Display>(
     annotations: &mut BTreeMap<String, String>,
     key: &str,
     value: V,
 ) {
     if !annotations.contains_key(key) {
-        annotations.insert(String::from(key), value.into());
+        annotations.insert(String::from(key), value.to_string());
     }
 }
 
@@ -23,6 +23,18 @@ pub fn prepend(
         *prev = format!("{}.{}", value, prev);
     } else {
         annotations.insert(String::from(key), value.to_string());
+    }
+}
+
+pub struct FieldName<'a>(pub &'a str);
+
+impl std::fmt::Display for FieldName<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            std::fmt::Display::fmt(self.0, f)
+        } else {
+            write!(f, "<empty>")
+        }
     }
 }
 
@@ -261,6 +273,7 @@ impl serde::de::Error for Error {
 }
 
 macro_rules! fail {
+    // TODO: remove and adapt deserializers
     (in $context:expr, $($tt:tt)*) => {
         {
             #[allow(unused)]

@@ -5,6 +5,7 @@ use marrow::{
     array::{Array, PrimitiveArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
@@ -205,10 +206,6 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
         F::BUILDER(self.take_self())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(F::ARRAY(self.array))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -221,6 +218,10 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl<F: FloatPrimitive> Context for FloatBuilder<F> {
@@ -230,7 +231,7 @@ impl<F: FloatPrimitive> Context for FloatBuilder<F> {
     }
 }
 
-impl<'a, F: FloatPrimitive> serde::Serializer for &'a mut FloatBuilder<F> {
+impl<'a, F: FloatPrimitive> Serializer for &'a mut FloatBuilder<F> {
     impl_serializer!(
         'a, FloatBuilder;
         override serialize_none,
@@ -247,46 +248,46 @@ impl<'a, F: FloatPrimitive> serde::Serializer for &'a mut FloatBuilder<F> {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_i8(v))).ctx(self)
+        self.array.push_scalar_value(F::from_i8(v))
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_i16(v))).ctx(self)
+        self.array.push_scalar_value(F::from_i16(v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_i32(v))).ctx(self)
+        self.array.push_scalar_value(F::from_i32(v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_i64(v))).ctx(self)
+        self.array.push_scalar_value(F::from_i64(v))
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_u8(v))).ctx(self)
+        self.array.push_scalar_value(F::from_u8(v))
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_u16(v))).ctx(self)
+        self.array.push_scalar_value(F::from_u16(v))
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_u32(v))).ctx(self)
+        self.array.push_scalar_value(F::from_u32(v))
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_u64(v))).ctx(self)
+        self.array.push_scalar_value(F::from_u64(v))
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_f32(v))).ctx(self)
+        self.array.push_scalar_value(F::from_f32(v))
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(F::from_f64(v))).ctx(self)
+        self.array.push_scalar_value(F::from_f64(v))
     }
 }

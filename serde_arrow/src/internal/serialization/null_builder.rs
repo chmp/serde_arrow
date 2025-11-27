@@ -4,9 +4,10 @@ use marrow::{
     array::{Array, NullArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{set_default, Context, Result},
+    error::{set_default, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
 };
 
@@ -40,10 +41,6 @@ impl NullBuilder {
         true
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Null(NullArray { len: self.count }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -60,6 +57,10 @@ impl NullBuilder {
         self.count += 1;
         Ok(())
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl Context for NullBuilder {
@@ -69,7 +70,7 @@ impl Context for NullBuilder {
     }
 }
 
-impl<'a> serde::Serializer for &'a mut NullBuilder {
+impl<'a> Serializer for &'a mut NullBuilder {
     impl_serializer!(
         'a, NullBuilder;
         override serialize_none,

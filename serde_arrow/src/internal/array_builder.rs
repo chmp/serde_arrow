@@ -83,8 +83,7 @@ impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize>(&mut self, item: T) -> Result<()> {
-        item.serialize(&mut self.builder)?;
-        Ok(())
+        self.builder.serialize_value(item)
     }
 
     /// Add multiple records to the arrays

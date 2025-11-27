@@ -4,6 +4,7 @@ use marrow::{
     array::{Array, DecimalArray, PrimitiveArray},
     datatypes::FieldMeta,
 };
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
@@ -65,15 +66,6 @@ impl DecimalBuilder {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Decimal128(DecimalArray {
-            precision: self.precision,
-            scale: self.scale,
-            validity: self.array.validity,
-            values: self.array.values,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -96,6 +88,10 @@ impl DecimalBuilder {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl Context for DecimalBuilder {
@@ -105,7 +101,7 @@ impl Context for DecimalBuilder {
     }
 }
 
-impl<'a> serde::Serializer for &'a mut DecimalBuilder {
+impl<'a> Serializer for &'a mut DecimalBuilder {
     impl_serializer!(
         'a, DecimalBuilder;
         override serialize_none,
@@ -115,26 +111,23 @@ impl<'a> serde::Serializer for &'a mut DecimalBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        try_(|| self.array.push_scalar_value((v * self.f32_factor) as i128)).ctx(self)
+        self.array.push_scalar_value((v * self.f32_factor) as i128)
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        try_(|| self.array.push_scalar_value((v * self.f64_factor) as i128)).ctx(self)
+        self.array.push_scalar_value((v * self.f64_factor) as i128)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| {
-            let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
-            let val = self
-                .parser
-                .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
+        let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
+        let val = self
+            .parser
+            .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
 
-            self.array.push_scalar_value(val)
-        })
-        .ctx(self)
+        self.array.push_scalar_value(val)
     }
 }

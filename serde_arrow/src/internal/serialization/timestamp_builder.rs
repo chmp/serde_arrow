@@ -4,6 +4,7 @@ use marrow::{
     array::{Array, PrimitiveArray, TimestampArray},
     datatypes::{FieldMeta, TimeUnit},
 };
+use serde::Serialize;
 
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Result},
@@ -56,15 +57,6 @@ impl TimestampBuilder {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Timestamp(TimestampArray {
-            unit: self.unit,
-            timezone: self.timezone,
-            validity: self.array.validity,
-            values: self.array.values,
-        }))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -86,6 +78,10 @@ impl TimestampBuilder {
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
         try_(|| self.array.push_scalar_default()).ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -142,18 +138,15 @@ impl<'a> serde::Serializer for &'a mut TimestampBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        try_(|| {
-            let timestamp = self.parse_str_to_timestamp(v)?;
-            self.array.push_scalar_value(timestamp)
-        })
-        .ctx(self)
+        let timestamp = self.parse_str_to_timestamp(v)?;
+        self.array.push_scalar_value(timestamp)
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v)).ctx(self)
+        self.array.push_scalar_value(v)
     }
 }

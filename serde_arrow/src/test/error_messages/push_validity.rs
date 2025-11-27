@@ -23,9 +23,9 @@ fn int_nested() -> PanicOnError<()> {
     let res = array_builder.push(json!({"nested": {"field": 32}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(json!({"nested": {"field": null}}));
-    assert!(res.is_err());
-
+    let res = array_builder
+        .push(json!({"nested": {"field": null}}))
+        .unwrap_err();
     assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
@@ -41,9 +41,7 @@ fn int_top_level() -> PanicOnError<()> {
     let res = array_builder.push(json!({"field": 32}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(json!({"field": null}));
-    assert!(res.is_err());
-
+    let res = array_builder.push(json!({"field": null})).unwrap_err();
     assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())
@@ -65,9 +63,9 @@ fn struct_nested() -> PanicOnError<()> {
     let res = array_builder.push(json!({"nested": {"field": {}}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(json!({"nested": {"field": null}}));
-    assert!(res.is_err());
-
+    let res = array_builder
+        .push(json!({"nested": {"field": null}}))
+        .unwrap_err();
     assert_error_contains(&res, "field: \"$.nested.field\"");
 
     Ok(())
@@ -83,9 +81,7 @@ fn struct_top_level() -> PanicOnError<()> {
     let res = array_builder.push(json!({"field": {}}));
     assert_eq!(res, Ok(()));
 
-    let res = array_builder.push(json!({"field": null}));
-    assert!(res.is_err());
-
+    let res = array_builder.push(json!({"field": null})).unwrap_err();
     assert_error_contains(&res, "field: \"$.field\"");
 
     Ok(())

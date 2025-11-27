@@ -1,10 +1,23 @@
 //! Serialize values into a in-memory representation
-use serde::{de::DeserializeOwned, forward_to_deserialize_any, Serialize};
+use serde::{
+    de::DeserializeOwned,
+    forward_to_deserialize_any,
+    ser::{
+        Error as _, SerializeMap as _, SerializeSeq as _, SerializeStruct, SerializeStructVariant,
+        SerializeTuple as _, SerializeTupleStruct as _, SerializeTupleVariant as _,
+    },
+    Serialize,
+};
 
 use crate::internal::error::{fail, Error, Result};
 
+pub fn transmute<T: DeserializeOwned>(value: impl Serialize) -> Result<T> {
+    let value = value.serialize(ValueSerializer)?;
+    T::deserialize(ValueDeserializer::new(&value))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Variant(u32, &'static str);
+pub struct Variant(pub &'static str, pub u32, pub &'static str);
 
 /// A in-memory representation of a Serde value
 ///
@@ -46,6 +59,105 @@ pub enum Value {
     TupleVariant(Variant, Vec<Value>),
     UnitVariant(Variant),
     NewtypeVariant(Variant, Box<Value>),
+    /// A struct for tests to test serialization behavior
+    FailWithError(&'static str),
+}
+
+impl Serialize for Value {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::U8(value) => serializer.serialize_u8(*value),
+            Self::U16(value) => serializer.serialize_u16(*value),
+            Self::U32(value) => serializer.serialize_u32(*value),
+            Self::U64(value) => serializer.serialize_u64(*value),
+            Self::I8(value) => serializer.serialize_i8(*value),
+            Self::I16(value) => serializer.serialize_i16(*value),
+            Self::I32(value) => serializer.serialize_i32(*value),
+            Self::I64(value) => serializer.serialize_i64(*value),
+            Self::F32(value) => serializer.serialize_f32(value.0),
+            Self::F64(value) => serializer.serialize_f64(value.0),
+            Self::Char(value) => serializer.serialize_char(*value),
+            Self::Bytes(value) => serializer.serialize_bytes(value),
+            Self::String(value) => serializer.serialize_str(value),
+            Self::StaticStr(value) => serializer.serialize_str(value),
+            Self::None => serializer.serialize_none(),
+            Self::Some(value) => serializer.serialize_some(value),
+            Self::Unit => serializer.serialize_unit(),
+            Self::Tuple(values) => {
+                let mut seq = serializer.serialize_tuple(values.len())?;
+                for item in values {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            Self::Seq(values) => {
+                let mut seq = serializer.serialize_seq(Some(values.len()))?;
+                for item in values {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            Self::Map(entries) => {
+                let mut map = serializer.serialize_map(Some(entries.len()))?;
+                for (key, value) in entries {
+                    map.serialize_key(key)?;
+                    map.serialize_value(&value)?;
+                }
+                map.end()
+            }
+            Self::Struct(name, fields) => {
+                let mut s = serializer.serialize_struct(name, fields.len())?;
+                for (key, value) in fields {
+                    s.serialize_field(key, value)?;
+                }
+                s.end()
+            }
+            Self::NewtypeStruct(name, value) => serializer.serialize_newtype_struct(name, value),
+            Self::UnitStruct(name) => serializer.serialize_unit_struct(name),
+            Self::TupleStruct(name, items) => {
+                let mut seq = serializer.serialize_tuple_struct(name, items.len())?;
+                for item in items {
+                    seq.serialize_field(item)?;
+                }
+                seq.end()
+            }
+            Self::StructVariant(variant, fields) => {
+                let mut s = serializer.serialize_struct_variant(
+                    variant.0,
+                    variant.1,
+                    variant.2,
+                    fields.len(),
+                )?;
+                for (key, value) in fields {
+                    s.serialize_field(key, value)?;
+                }
+                s.end()
+            }
+            Self::TupleVariant(variant, fields) => {
+                let mut s = serializer.serialize_tuple_variant(
+                    variant.0,
+                    variant.1,
+                    variant.2,
+                    fields.len(),
+                )?;
+                for value in fields {
+                    s.serialize_field(value)?;
+                }
+                s.end()
+            }
+            Self::NewtypeVariant(variant, value) => {
+                serializer.serialize_newtype_variant(variant.0, variant.1, variant.2, value)
+            }
+            Self::UnitVariant(variant) => {
+                serializer.serialize_unit_variant(variant.0, variant.1, variant.2)
+            }
+            Self::FailWithError(message) => Err(S::Error::custom(message)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -82,11 +194,6 @@ impl std::hash::Hash for HashF64 {
     }
 }
 
-pub fn transmute<T: DeserializeOwned>(value: impl Serialize) -> Result<T> {
-    let value = value.serialize(ValueSerializer)?;
-    T::deserialize(ValueDeserializer::new(&value))
-}
-
 impl<'a> TryFrom<&'a Value> for &'a str {
     type Error = Error;
 
@@ -94,6 +201,7 @@ impl<'a> TryFrom<&'a Value> for &'a str {
         match value {
             Value::StaticStr(s) => Ok(s),
             Value::String(s) => Ok(s),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             _ => fail!("Cannot extract string from non-string value"),
         }
     }
@@ -114,6 +222,7 @@ macro_rules! impl_try_from_value_for_int {
                     &Value::I16(v) => Ok(v.try_into()?),
                     &Value::I32(v) => Ok(v.try_into()?),
                     &Value::I64(v) => Ok(v.try_into()?),
+                    Value::FailWithError(message) => Err(Error::custom(message.to_string())),
                     _ => fail!("Cannot extract integer from non-integer value"),
                 }
             }
@@ -252,45 +361,55 @@ impl serde::ser::Serializer for ValueSerializer {
 
     fn serialize_struct_variant(
         self,
-        _name: &'static str,
+        name: &'static str,
         variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Ok(StructVariantSerializer::new(variant_index, variant, len))
+        Ok(StructVariantSerializer::new(
+            name,
+            variant_index,
+            variant,
+            len,
+        ))
     }
 
     fn serialize_tuple_variant(
         self,
-        _name: &'static str,
+        name: &'static str,
         variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Ok(TupleVariantSerializer::new(variant_index, variant, len))
+        Ok(TupleVariantSerializer::new(
+            name,
+            variant_index,
+            variant,
+            len,
+        ))
     }
 
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
-        _name: &'static str,
+        name: &'static str,
         variant_index: u32,
         variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
         let value = value.serialize(ValueSerializer)?;
         Ok(Value::NewtypeVariant(
-            Variant(variant_index, variant),
+            Variant(name, variant_index, variant),
             Box::new(value),
         ))
     }
 
     fn serialize_unit_variant(
         self,
-        _name: &'static str,
+        name: &'static str,
         variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok> {
-        Ok(Value::UnitVariant(Variant(variant_index, variant)))
+        Ok(Value::UnitVariant(Variant(name, variant_index, variant)))
     }
 }
 
@@ -438,14 +557,16 @@ impl serde::ser::SerializeStruct for StructSerializer {
 }
 
 pub struct StructVariantSerializer {
+    name: &'static str,
     variant_index: u32,
     variant_name: &'static str,
     values: Vec<(&'static str, Value)>,
 }
 
 impl StructVariantSerializer {
-    fn new(variant_index: u32, variant_name: &'static str, len: usize) -> Self {
+    fn new(name: &'static str, variant_index: u32, variant_name: &'static str, len: usize) -> Self {
         Self {
+            name,
             variant_index,
             variant_name,
             values: Vec::with_capacity(len),
@@ -469,21 +590,23 @@ impl serde::ser::SerializeStructVariant for StructVariantSerializer {
 
     fn end(self) -> Result<Self::Ok> {
         Ok(Value::StructVariant(
-            Variant(self.variant_index, self.variant_name),
+            Variant(self.name, self.variant_index, self.variant_name),
             self.values,
         ))
     }
 }
 
 pub struct TupleVariantSerializer {
+    name: &'static str,
     variant_index: u32,
     variant_name: &'static str,
     values: Vec<Value>,
 }
 
 impl TupleVariantSerializer {
-    fn new(variant_index: u32, variant_name: &'static str, len: usize) -> Self {
+    fn new(name: &'static str, variant_index: u32, variant_name: &'static str, len: usize) -> Self {
         Self {
+            name,
             variant_index,
             variant_name,
             values: Vec::with_capacity(len),
@@ -503,7 +626,7 @@ impl serde::ser::SerializeTupleVariant for TupleVariantSerializer {
 
     fn end(self) -> Result<Self::Ok> {
         Ok(Value::TupleVariant(
-            Variant(self.variant_index, self.variant_name),
+            Variant(self.name, self.variant_index, self.variant_name),
             self.values,
         ))
     }
@@ -567,6 +690,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
             Value::None => visitor.visit_none(),
             Value::UnitStruct(_) => visitor.visit_unit(),
             Value::TupleStruct(_, values) => visitor.visit_seq(SeqDeserializer::new(values)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
         }
     }
 
@@ -578,6 +702,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_byte_buf(v.to_owned()),
             Value::String(v) => visitor.visit_byte_buf(v.as_bytes().to_owned()),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
@@ -586,6 +711,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Bytes(v) => visitor.visit_bytes(v),
             Value::String(v) => visitor.visit_bytes(v.as_bytes()),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize bytes from non-bytes value {v:?}"),
         }
     }
@@ -593,6 +719,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
     fn deserialize_char<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             &Value::Char(v) => visitor.visit_char(v),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserializer char from non-char value {v:?}"),
         }
     }
@@ -614,6 +741,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
             Value::StructVariant(variant, fields) => {
                 visitor.visit_enum(StructVariantDeserializer(*variant, fields))
             }
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize enum from non-enum value {v:?}"),
         }
     }
@@ -661,6 +789,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f32(v.0),
             &Value::F64(v) => visitor.visit_f32(v.0 as f32),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize f32 from non-float value {v:?}"),
         }
     }
@@ -669,6 +798,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f64(v.0 as f64),
             &Value::F64(v) => visitor.visit_f64(v.0),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize f64 from non-float value {v:?}"),
         }
     }
@@ -681,6 +811,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Map(entries) => visitor.visit_map(MapDeserializer::new(entries)),
             Value::Struct(_, fields) => visitor.visit_map(StructDeserializer::new(fields)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize a map from a non-map value {:?}", v),
         }
     }
@@ -694,6 +825,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
             Value::NewtypeStruct(_, value) => {
                 visitor.visit_newtype_struct(ValueDeserializer::new(value))
             }
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             value => visitor.visit_newtype_struct(ValueDeserializer::new(value)),
         }
     }
@@ -703,6 +835,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
             Value::Unit => visitor.visit_none(),
             Value::None => visitor.visit_none(),
             Value::Some(value) => visitor.visit_some(ValueDeserializer::new(value)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             value => visitor.visit_some(ValueDeserializer::new(value)),
         }
     }
@@ -711,6 +844,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Seq(values) => visitor.visit_seq(SeqDeserializer::new(values)),
             Value::Tuple(values) => visitor.visit_seq(SeqDeserializer::new(values)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize sequence from non-sequence value {v:?}"),
         }
     }
@@ -732,6 +866,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Struct(_name, fields) => visitor.visit_map(StructDeserializer::new(fields)),
             Value::Map(entries) => visitor.visit_map(MapDeserializer::new(entries)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize struct from non-struct value {v:?}"),
         }
     }
@@ -744,6 +879,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             Value::Seq(values) => visitor.visit_seq(SeqDeserializer::new(values)),
             Value::Tuple(values) => visitor.visit_seq(SeqDeserializer::new(values)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize tuple from non-sequence value {v:?}"),
         }
     }
@@ -756,6 +892,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
     ) -> Result<V::Value> {
         match self.0 {
             Value::TupleStruct(_, values) => visitor.visit_seq(SeqDeserializer::new(values)),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize tuple struct from non-tuple-struct value {v:?}"),
         }
     }
@@ -763,6 +900,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
     fn deserialize_unit<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             Value::Unit => visitor.visit_unit(),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize unit from non-unit value {v:?}"),
         }
     }
@@ -774,6 +912,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
     ) -> Result<V::Value> {
         match self.0 {
             Value::UnitStruct(_) => visitor.visit_unit(),
+            Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("Cannot deserialize unit from non-unit value {v:?}"),
         }
     }
@@ -1072,43 +1211,43 @@ impl<'de> serde::Deserializer<'de> for VariantDeserializer {
     }
 
     fn deserialize_str<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_str(self.0 .1)
+        visitor.visit_str(self.0 .2)
     }
 
     fn deserialize_string<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_str(self.0 .1)
+        visitor.visit_str(self.0 .2)
     }
 
     fn deserialize_i8<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i8(self.0 .0.try_into()?)
+        visitor.visit_i8(self.0 .1.try_into()?)
     }
 
     fn deserialize_i16<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i16(self.0 .0.try_into()?)
+        visitor.visit_i16(self.0 .1.try_into()?)
     }
 
     fn deserialize_i32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i32(self.0 .0.try_into()?)
+        visitor.visit_i32(self.0 .1.try_into()?)
     }
 
     fn deserialize_i64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_i64(self.0 .0.into())
+        visitor.visit_i64(self.0 .1.into())
     }
 
     fn deserialize_u8<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u8(self.0 .0.try_into()?)
+        visitor.visit_u8(self.0 .1.try_into()?)
     }
 
     fn deserialize_u16<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u16(self.0 .0.try_into()?)
+        visitor.visit_u16(self.0 .1.try_into()?)
     }
 
     fn deserialize_u32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(self.0 .0)
+        visitor.visit_u32(self.0 .1)
     }
 
     fn deserialize_u64<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u64(self.0 .0.into())
+        visitor.visit_u64(self.0 .1.into())
     }
 
     forward_to_deserialize_any! {

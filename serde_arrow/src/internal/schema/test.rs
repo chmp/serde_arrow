@@ -418,7 +418,8 @@ fn test_invalid_metadata() {
                 STRATEGY_KEY: "UnknownVariant"
             },
         },
-    ]));
+    ]))
+    .unwrap_err();
 
     assert_error_contains(&res, "Duplicate strategy");
 }

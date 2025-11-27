@@ -4,7 +4,7 @@ use marrow::{
     array::{Array, FixedSizeListArray},
     datatypes::FieldMeta,
 };
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
     error::{fail, prepend, set_default, try_, Context, ContextSupport, Error, Result},
@@ -90,6 +90,10 @@ impl FixedSizeListBuilder {
         })
         .ctx(self)
     }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
 }
 
 impl FixedSizeListBuilder {
@@ -101,7 +105,7 @@ impl FixedSizeListBuilder {
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         self.current_count += 1;
         self.seq.push_seq_elements(1)?;
-        value.serialize(self.elements.as_mut())
+        self.elements.serialize_value(value)
     }
 
     fn end(&mut self) -> Result<()> {
@@ -120,11 +124,11 @@ impl FixedSizeListBuilder {
 impl Context for FixedSizeListBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         prepend(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "FixedSizeList(..)");
+        set_default(annotations, "data_type", "FixedSizeList");
     }
 }
 
-impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
+impl<'a> Serializer for &'a mut FixedSizeListBuilder {
     impl_serializer!(
         'a, FixedSizeListBuilder;
         override serialize_none,
@@ -132,21 +136,18 @@ impl<'a> serde::Serializer for &'a mut FixedSizeListBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_none()?;
-            for _ in 0..self.n {
-                self.elements.serialize_default_value()?;
-            }
-            Ok(())
-        })
-        .ctx(self)
+        self.seq.push_seq_none()?;
+        for _ in 0..self.n {
+            self.elements.serialize_default_value()?;
+        }
+        Ok(())
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = len {
             self.reserve(len);
         }
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(super::utils::SerializeSeq::FixedSizeList(self))
     }
 }
@@ -156,10 +157,10 @@ impl serde::ser::SerializeSeq for &mut FixedSizeListBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.element(value).ctx(*self)
+        self.element(value)
     }
 
     fn end(self) -> std::result::Result<Self::Ok, Self::Error> {
-        FixedSizeListBuilder::end(&mut *self).ctx(self)
+        FixedSizeListBuilder::end(&mut *self)
     }
 }

@@ -78,10 +78,6 @@ impl StructBuilder {
         self.seq.validity.is_some()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(self.into_array_and_field_meta()?.0)
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -121,6 +117,10 @@ impl StructBuilder {
         .ctx(self)
     }
 
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
+    }
+
     pub fn num_fields(&self) -> usize {
         self.fields.len()
     }
@@ -154,10 +154,10 @@ impl StructBuilder {
     pub fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
         if self.seen[idx] {
-            fail!(in self, "Duplicate field {key}", key = self.fields[idx].get_name());
+            fail!("Duplicate field {key:?}", key = self.fields[idx].get_name());
         }
 
-        value.serialize(&mut self.fields[idx])?;
+        self.fields[idx].serialize_value(value)?;
         self.seen[idx] = true;
         self.next = idx + 1;
         Ok(())
@@ -182,30 +182,27 @@ impl<'a> Serializer for &'a mut StructBuilder {
     );
 
     fn serialize_none(self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_none()?;
-            for builder in &mut self.fields {
-                builder.serialize_default_value()?;
-            }
-            Ok(())
-        })
-        .ctx(self)
+        self.seq.push_seq_none()?;
+        for builder in &mut self.fields {
+            builder.serialize_default_value()?;
+        }
+        Ok(())
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.start().ctx(self)?;
+        self.start()?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(Self::SerializeTuple::Struct(self))
     }
 
@@ -228,7 +225,7 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         value: &T,
     ) -> Result<()> {
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
-            self.element(idx, value).ctx(*self)
+            self.element(idx, value)
         } else {
             // ignore unknown fields
             Ok(())
@@ -245,22 +242,20 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.fields, key)
-            .ctx(*self)?
-            .unwrap_or(UNKNOWN_KEY);
+        self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
         if self.next != UNKNOWN_KEY {
-            self.element(self.next, value).ctx(*self)?;
+            self.element(self.next, value)?;
         }
         self.next = UNKNOWN_KEY;
         Ok(())
     }
 
     fn end(self) -> Result<()> {
-        StructBuilder::end(&mut *self).ctx(self)
+        StructBuilder::end(self)
     }
 }
 
@@ -271,13 +266,13 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
         // ignore extra tuple fields
         if self.next < self.fields.len() {
-            self.element(self.next, value).ctx(*self)?;
+            self.element(self.next, value)?;
         }
         Ok(())
     }
 
     fn end(self) -> Result<()> {
-        self.end().ctx(self)
+        StructBuilder::end(self)
     }
 }
 

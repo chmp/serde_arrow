@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use marrow::{
     array::{Array, BytesArray, BytesViewArray},
@@ -115,10 +115,6 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
         B::ARRAY_BUILDER_VARIANT(self.take_self())
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(B::ARRAY_VARIANT(self.array))
-    }
-
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
         let meta = FieldMeta {
             name: self.name,
@@ -134,6 +130,10 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
         self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -162,7 +162,7 @@ impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
     }
 }
 
-impl<'a, B: BinaryBuilderArray> serde::Serializer for &'a mut BinaryBuilder<B> {
+impl<'a, B: BinaryBuilderArray> Serializer for &'a mut BinaryBuilder<B> {
     impl_serializer!(
         'a, BinaryBuilder;
         override serialize_none,
@@ -173,27 +173,27 @@ impl<'a, B: BinaryBuilderArray> serde::Serializer for &'a mut BinaryBuilder<B> {
     );
 
     fn serialize_none(self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+        self.array.push_scalar_none()
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         // TODO: fix reservation
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(B::as_serialize_seq(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         // TODO: fix reservation
-        self.start().ctx(self)?;
+        self.start()?;
         Ok(B::as_serialize_tuple(self))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
+        self.array.push_scalar_value(v)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        self.array.push_scalar_value(v.as_bytes()).ctx(self)
+        self.array.push_scalar_value(v.as_bytes())
     }
 }
 
@@ -202,7 +202,7 @@ impl<B: BinaryBuilderArray> serde::ser::SerializeSeq for &mut BinaryBuilder<B> {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.element(value).ctx(*self)
+        self.element(value)
     }
 
     fn end(self) -> Result<()> {
@@ -215,7 +215,7 @@ impl<B: BinaryBuilderArray> serde::ser::SerializeTuple for &mut BinaryBuilder<B>
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        self.element(value).ctx(*self)
+        self.element(value)
     }
 
     fn end(self) -> Result<()> {

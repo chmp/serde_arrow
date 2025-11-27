@@ -12,7 +12,8 @@ use crate::internal::{
 
 #[test]
 fn from_type_budget() {
-    let res = SerdeArrowSchema::from_type::<f32>(TracingOptions::default().from_type_budget(0));
+    let res = SerdeArrowSchema::from_type::<f32>(TracingOptions::default().from_type_budget(0))
+        .unwrap_err();
     assert_error_contains(
         &res,
         "Could not determine schema from the type after 0 iterations.",
@@ -25,7 +26,8 @@ fn from_type_budget() {
 
 #[test]
 fn non_self_describing_types() {
-    let res = SerdeArrowSchema::from_type::<serde_json::Value>(TracingOptions::default());
+    let res =
+        SerdeArrowSchema::from_type::<serde_json::Value>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
         &res,
         "Non self describing types cannot be traced with `from_type`.",
@@ -37,14 +39,15 @@ fn non_self_describing_types() {
 fn map_as_struct() {
     let res = SerdeArrowSchema::from_type::<HashMap<String, usize>>(
         TracingOptions::default().map_as_struct(true),
-    );
+    )
+    .unwrap_err();
     assert_error_contains(&res, "Cannot trace maps as structs with `from_type`");
     assert_error_contains(&res, "Consider using `from_samples`");
 }
 
 #[test]
 fn outer_struct() {
-    let res = SerdeArrowSchema::from_type::<i32>(TracingOptions::default());
+    let res = SerdeArrowSchema::from_type::<i32>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
         &res,
         "Only struct-like types are supported as root types in schema tracing.",
@@ -60,7 +63,7 @@ fn enums_without_data() {
         B,
     }
 
-    let res = SerdeArrowSchema::from_type::<E>(TracingOptions::default());
+    let res = SerdeArrowSchema::from_type::<E>(TracingOptions::default()).unwrap_err();
     assert_error_contains(&res, "by setting `enums_without_data_as_strings` to `true`");
 }
 
@@ -76,7 +79,8 @@ fn missing_overwrites() {
         TracingOptions::default()
             .overwrite("b", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
-    );
+    )
+    .unwrap_err();
     assert_error_contains(&res, "Overwritten fields could not be found:");
 }
 
@@ -92,7 +96,8 @@ fn mismatched_overwrite_name() {
         TracingOptions::default()
             .overwrite("a", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
-    );
+    )
+    .unwrap_err();
     assert_error_contains(&res, "Invalid name for overwritten field");
 }
 
@@ -108,7 +113,8 @@ fn overwrite_invalid_name() {
         TracingOptions::default()
             .overwrite("a", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
-    );
+    )
+    .unwrap_err();
     assert_error_contains(
         &res,
         "Invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
