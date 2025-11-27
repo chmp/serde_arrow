@@ -150,6 +150,7 @@ impl<'a> Serializer for &'a mut FixedSizeListBuilder {
         override serialize_none,
         override serialize_seq,
         override serialize_tuple,
+        override serialize_bytes,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -161,6 +162,7 @@ impl<'a> Serializer for &'a mut FixedSizeListBuilder {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        // TODO: optimize unused checks
         if let Some(len) = len {
             self.check_len(len, true)?;
         }
@@ -169,9 +171,20 @@ impl<'a> Serializer for &'a mut FixedSizeListBuilder {
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        // TODO: optimize unused checks
         self.check_len(len, true)?;
         self.start()?;
         Ok(Self::SerializeTuple::FixedSizeList(self))
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
+        // TODO: optimize unused checks
+        self.check_len(v.len(), true)?;
+        self.start()?;
+        for item in v {
+            self.element(item)?;
+        }
+        self.end()
     }
 }
 
