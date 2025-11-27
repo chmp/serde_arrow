@@ -420,3 +420,71 @@ mod lists {
         assert_error_contains(&err, "data_type: \"FixedSizeList(2)\"");
     }
 }
+
+mod map {
+
+    use super::*;
+
+    /// the schema under test
+    fn schema() -> serde_json::Value {
+        json!([
+            {
+                "name": "map",
+                "data_type": "Map",
+                "children": [
+                    {
+                        "name": "entries",
+                        "data_type": "Struct",
+                        "children": [
+                            { "name": "key", "data_type": "U8" },
+                            { "name": "value", "data_type": "U16" },
+                        ],
+                    },
+                ],
+            }
+        ])
+    }
+
+    /// Wrap the map in a tuple + record
+    fn wrap(value: Value) -> Value {
+        Value::Tuple(vec![Value::Struct("Record", vec![("map", value)])])
+    }
+
+    #[test]
+    fn top_level() {
+        let err = serialize_to_error(schema(), wrap(Value::FailWithError("test-error")));
+        assert_error_contains(&err, "test-error");
+        assert_error_contains(&err, "data_type: \"Map\"");
+        assert_error_contains(&err, "$.map");
+    }
+
+    /// Test that the entry field is not included in nested errors
+    #[test]
+    fn key_errors() {
+        let err = serialize_to_error(
+            schema(),
+            wrap(Value::Map(vec![(
+                Value::FailWithError("test-error"),
+                Value::U16(0),
+            )])),
+        );
+        assert_error_contains(&err, "test-error");
+        assert_error_contains(&err, "data_type: \"UInt8\"");
+        assert_error_contains(&err, "$.map.key");
+    }
+
+    /// Test that the entry field is not included in nested errors
+    #[test]
+    fn value_errors() {
+        let err = serialize_to_error(
+            schema(),
+            wrap(Value::Map(vec![(
+                Value::U8(0),
+                Value::FailWithError("test-error"),
+            )])),
+        );
+        assert_error_contains(&err, "test-error");
+        assert_error_contains(&err, "data_type: \"UInt16\"");
+        assert_error_contains(&err, "$.map.value");
+    }
+}
