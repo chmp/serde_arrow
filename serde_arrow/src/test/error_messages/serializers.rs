@@ -341,3 +341,82 @@ mod unions {
         assert_error_contains(&err, "field: \"$.union\"");
     }
 }
+
+mod lists {
+    use super::*;
+
+    /// the schema under test
+    fn schema(data_type: &str) -> serde_json::Value {
+        json!([
+            {
+                "name": "list",
+                "data_type": data_type,
+                "children": [
+                    { "name": "element", "data_type": "U8" },
+                ],
+            }
+        ])
+    }
+
+    /// Wrap the list in a tuple + record
+    fn wrap(value: Value) -> Value {
+        Value::Tuple(vec![Value::Struct("Record", vec![("list", value)])])
+    }
+
+    #[test]
+    fn top_level_errors_list() {
+        fn test(data_type: &str) {
+            let err =
+                serialize_to_error(schema(data_type), wrap(Value::FailWithError("test-error")));
+            assert_error_contains(&err, "test-error");
+            assert_error_contains(&err, "field: \"$.list\"");
+            assert_error_contains(&err, &format!("data_type: \"{data_type}\""));
+        }
+        test("List");
+        test("LargeList");
+        test("FixedSizeList(2)");
+    }
+
+    #[test]
+    fn element_errors() {
+        fn test(data_type: &str) {
+            let err = serialize_to_error(
+                schema(data_type),
+                wrap(Value::Seq(vec![Value::FailWithError("test-error")])),
+            );
+            assert_error_contains(&err, "test-error");
+            assert_error_contains(&err, "field: \"$.list.element\"");
+            assert_error_contains(&err, "data_type: \"UInt8\"");
+        }
+        test("List");
+        test("LargeList");
+        test("FixedSizeList(2)");
+    }
+
+    #[test]
+    fn fixed_size_list_too_may_items() {
+        let err = serialize_to_error(
+            schema("FixedSizeList(2)"),
+            wrap(Value::Seq(vec![
+                Value::U8(0),
+                Value::U8(1),
+                Value::U8(2),
+                Value::U8(3),
+            ])),
+        );
+        assert_error_contains(&err, "Invalid number of elements");
+        assert_error_contains(&err, "field: \"$.list\"");
+        assert_error_contains(&err, "data_type: \"FixedSizeList(2)\"");
+    }
+
+    #[test]
+    fn fixed_size_list_too_little_items() {
+        let err = serialize_to_error(
+            schema("FixedSizeList(2)"),
+            wrap(Value::Seq(vec![Value::U8(0)])),
+        );
+        assert_error_contains(&err, "Invalid number of elements");
+        assert_error_contains(&err, "field: \"$.list\"");
+        assert_error_contains(&err, "data_type: \"FixedSizeList(2)\"");
+    }
+}

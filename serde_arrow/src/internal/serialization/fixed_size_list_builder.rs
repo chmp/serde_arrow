@@ -103,6 +103,13 @@ impl FixedSizeListBuilder {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
+        if self.current_count == self.n {
+            fail!(
+                "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
+                n = self.n,
+                actual = self.current_count + 1,
+            );
+        }
         self.current_count += 1;
         self.seq.push_seq_elements(1)?;
         self.elements.serialize_value(value)
@@ -114,7 +121,7 @@ impl FixedSizeListBuilder {
             fail!(
                 "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
                 n = self.n,
-                actual = self.current_count
+                actual = self.current_count,
             );
         }
         self.seq.end_seq()
@@ -124,7 +131,11 @@ impl FixedSizeListBuilder {
 impl Context for FixedSizeListBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         prepend(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "FixedSizeList");
+        set_default(
+            annotations,
+            "data_type",
+            format!("FixedSizeList({n})", n = self.n),
+        );
     }
 }
 
