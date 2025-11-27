@@ -178,6 +178,7 @@ impl<'a> Serializer for &'a mut StructBuilder {
         override serialize_none,
         override serialize_struct,
         override serialize_tuple,
+        override serialize_seq,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -203,6 +204,11 @@ impl<'a> Serializer for &'a mut StructBuilder {
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         self.start()?;
         Ok(Self::SerializeTuple::Struct(self))
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        self.start()?;
+        Ok(Self::SerializeSeq::Struct(self))
     }
 }
 
@@ -242,6 +248,23 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
             self.element(self.next, value)?;
         }
         self.next = UNKNOWN_KEY;
+        Ok(())
+    }
+
+    fn end(self) -> Result<()> {
+        StructBuilder::end(self)
+    }
+}
+
+impl serde::ser::SerializeSeq for &mut StructBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        // ignore extra tuple fields
+        if self.next < self.fields.len() {
+            self.element(self.next, value)?;
+        }
         Ok(())
     }
 

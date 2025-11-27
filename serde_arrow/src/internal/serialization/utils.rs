@@ -433,6 +433,7 @@ impl serde::ser::SerializeStructVariant for SerializeStruct<'_> {
 
 define_serializer_wrapper!(SerializeSeq {
     dispatch dispatch_serialize_seq,
+    Struct(super::struct_builder::StructBuilder),
     Binary(super::binary_builder::BinaryBuilder<BytesArray<i32>>),
     LargeBinary(super::binary_builder::BinaryBuilder<BytesArray<i64>>),
     BinaryView(super::binary_builder::BinaryBuilder<BytesViewArray>),

@@ -46,6 +46,13 @@ fn struct_variant() {
 }
 
 #[test]
+fn seq() {
+    Test::new()
+        .with_schema(json!([{"name": "a", "data_type": "UInt8"}]))
+        .serialize(&Value::Seq(vec![Value::Seq(vec![Value::U8(0)])]));
+}
+
+#[test]
 fn tuple() {
     Test::new()
         .with_schema(json!([{"name": "a", "data_type": "UInt8"}]))

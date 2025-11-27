@@ -95,6 +95,45 @@ fn tuple_variant() {
 }
 
 #[test]
+fn serde_seq() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .serialize(&[Item(Value::Seq(vec![Value::U32(0), Value::Bool(true)]))]);
+}
+
+#[test]
+fn serde_map() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([
+            {
+                "name": "item",
+                "data_type": "Struct",
+                "children": [
+                    {"name": "a", "data_type": "U32"},
+                    {"name": "b", "data_type": "Bool"},
+                ],
+            }
+        ]))
+        .serialize(&[Item(Value::Map(vec![
+            (Value::StaticStr("a"), Value::U32(0)),
+            (Value::StaticStr("b"), Value::Bool(true)),
+        ]))]);
+}
+
+#[test]
 fn struct_nested() {
     let values = [Item(S::default()), Item(S::default())];
 
