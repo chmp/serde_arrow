@@ -12,7 +12,6 @@ breaking changes to the public interface, except for a polish of error messages.
 - Improved error reporting in serialization:
   - The field and data type is now reported more consistently across builders
 - More consistent handling of the serde data model in serialization:
-  - Unit variants, unit structs can be used where unit could be used
   - Tuple variants, tuple structs can be used where tuples could be used
   - Treat newtype variants as transparents wrappers
   - Struct variants can be used where structs could be used
