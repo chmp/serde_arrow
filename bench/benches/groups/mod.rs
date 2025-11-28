@@ -3,7 +3,6 @@ use criterion::measurement::Measurement;
 pub mod complex;
 pub mod json_to_arrow;
 pub mod primitives;
-pub mod primitives_subset;
 
 pub fn new_group<'a, M: Measurement>(
     c: &'a mut criterion::Criterion<M>,

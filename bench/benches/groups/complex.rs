@@ -26,8 +26,7 @@ struct Point {
 struct SubItem {
     first: bool,
     second: f64,
-    // TODO: fix this
-    // c: Option<f32>,
+    c: Option<f32>,
 }
 
 impl Item {
@@ -48,7 +47,7 @@ impl Item {
             child: SubItem {
                 first: Standard.sample(rng),
                 second: Standard.sample(rng),
-                // c: Standard.sample(rng),
+                c: Standard.sample(rng),
             },
         }
     }
@@ -60,9 +59,6 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     let items = (0..1_000)
         .map(|_| Item::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
-
-    use crate::mini_serde_arrow::r#static;
-    super::bench_impl!(group, r#static, items);
 
     use crate::impls::serde_arrow_arrow;
     super::bench_impl!(group, serde_arrow_arrow, items);
