@@ -32,9 +32,15 @@ modules can can be run without installing further packages.
 ## Running the benchmarks
 
 1. `uv run x.py bench`
-2. (optional)  `uv run x.py summarize-bench --update` to update the readme
+2. (optional) `uv run x.py summarize-bench --update` to update the readme
 
 On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
+
+The examples in the `benches` packages can be used to to generate flamegraphs:
+
+```bash
+cargo flamegraph --example serialize_nested_struct --package bench --profile bench
+```
 
 ## Adding a new arrow version
 
@@ -46,7 +52,8 @@ On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
 Style:
 
 - Use uppercase letters to start the error message
-- Do not include trailing punctuation (e.g., "Not supported", not "Not supported.")
+- Do not include trailing punctuation (e.g., "Not supported", not "Not
+  supported.")
 
 Common annotations:
 
