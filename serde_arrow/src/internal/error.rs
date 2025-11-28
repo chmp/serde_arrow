@@ -4,10 +4,10 @@ use std::{
     convert::Infallible,
 };
 
-pub fn set_default<V: std::fmt::Display>(
+pub fn set_default(
     annotations: &mut BTreeMap<String, String>,
     key: &str,
-    value: V,
+    value: impl std::fmt::Display,
 ) {
     if !annotations.contains_key(key) {
         annotations.insert(String::from(key), value.to_string());
@@ -42,12 +42,6 @@ impl std::fmt::Display for FieldName<'_> {
 ///
 /// This function is mostly useful to add annotations to a complex block of operations
 pub fn try_<T>(func: impl FnOnce() -> Result<T>) -> Result<T> {
-    func()
-}
-
-/// Execute a faillible function and return the result
-///
-pub fn try_opt<T>(func: impl FnOnce() -> Option<T>) -> Option<T> {
     func()
 }
 
@@ -273,7 +267,8 @@ impl serde::de::Error for Error {
 }
 
 macro_rules! fail {
-    // TODO: remove and adapt deserializers
+    // TODO: Remove context support. Context should only be added add specified recursion points in
+    // serializers or deserializers making this macro form obsolete
     (in $context:expr, $($tt:tt)*) => {
         {
             #[allow(unused)]

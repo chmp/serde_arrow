@@ -6,7 +6,7 @@ use marrow::{
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{set_default, try_, try_opt, Context, ContextSupport, Error, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, Result},
     utils::{array_view_ext::ViewAccess, NamedType},
 };
 
@@ -31,25 +31,26 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
     }
 
     pub fn get_string_repr(&self, ts: i64) -> Result<String> {
-        try_opt(|| {
-            let (secs, nano) = match self.unit {
-                TimeUnit::Second => (ts, 0),
-                TimeUnit::Millisecond => (ts / 1_000, (ts % 1_000) * 1_000_000),
-                TimeUnit::Microsecond => (ts / 1_000_000, (ts % 1_000_000) * 1_000),
-                TimeUnit::Nanosecond => (ts / 1_000_000_000, ts % 1_000_000_000),
-            };
-            let time = NaiveTime::from_num_seconds_from_midnight_opt(
+        fn build_time(secs: i64, nanos: i64) -> Option<NaiveTime> {
+            NaiveTime::from_num_seconds_from_midnight_opt(
                 u32::try_from(secs).ok()?,
-                u32::try_from(nano).ok()?,
-            )?;
-            Some(time.to_string())
-        })
-        .ok_or_else(|| {
+                u32::try_from(nanos).ok()?,
+            )
+        }
+
+        let (secs, nanos) = match self.unit {
+            TimeUnit::Second => (ts, 0),
+            TimeUnit::Millisecond => (ts / 1_000, (ts % 1_000) * 1_000_000),
+            TimeUnit::Microsecond => (ts / 1_000_000, (ts % 1_000_000) * 1_000),
+            TimeUnit::Nanosecond => (ts / 1_000_000_000, ts % 1_000_000_000),
+        };
+        let time = build_time(secs, nanos).ok_or_else(|| {
             Error::custom(format!(
                 "Cannot convert {ts} into Time64({unit})",
                 unit = self.unit
             ))
-        })
+        })?;
+        Ok(time.to_string())
     }
 }
 
