@@ -118,11 +118,23 @@ impl ArrayBuilder {
     pub fn take(&mut self) -> ArrayBuilder {
         dispatch!(self, Self(builder) => builder.take())
     }
+}
 
+/// Support for reservation of elements
+impl ArrayBuilder {
     pub fn reserve(&mut self, additional: usize) {
         dispatch!(self, Self(builder) => builder.reserve(additional))
     }
+}
 
+/// Support for "nested" serialization
+///
+/// To support correct error reporting, points where a nested structure is started need
+/// to be correctly handled. These functions support this behavior. They indicate where a
+/// builder is delegating to a nested builder. Implementation must provide a context for
+/// errors generated in these functions. All other functions, in particular
+/// implementations of `serde::Serializer` should not provide context.
+impl ArrayBuilder {
     pub fn serialize_default_value(&mut self) -> Result<()> {
         dispatch!(self, Self(builder) => builder.serialize_default_value())
     }
