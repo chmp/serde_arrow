@@ -99,20 +99,16 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
         }
     }
 
-    pub fn take_self(&mut self) -> Self {
-        Self {
-            name: self.name.clone(),
-            metadata: self.metadata.clone(),
-            array: self.array.take(),
-        }
-    }
-
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        B::ARRAY_BUILDER_VARIANT(self.take_self())
+        B::ARRAY_BUILDER_VARIANT(Self {
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
+            array: self.array.take(),
+        })
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
@@ -143,10 +139,8 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        let mut u8_serializer = U8Serializer(0);
-        value.serialize(&mut u8_serializer)?;
-
-        self.array.push_byte(u8_serializer.0);
+        let byte = value.serialize(U8Serializer)?;
+        self.array.push_byte(byte);
         self.array.push_seq_elements(1)
     }
 
@@ -223,11 +217,19 @@ impl<B: BinaryBuilderArray> serde::ser::SerializeTuple for &mut BinaryBuilder<B>
     }
 }
 
-pub struct U8Serializer(pub u8);
+pub struct U8Serializer;
 
-impl<'a> serde::Serializer for &'a mut U8Serializer {
+impl serde::Serializer for U8Serializer {
     impl_serializer!(
-        'a, U8Serializer;
+        'static, U8Serializer;
+        override Ok,
+        override SerializeStruct,
+        override SerializeMap,
+        override SerializeTupleVariant,
+        override SerializeStructVariant,
+        override SerializeTuple,
+        override SerializeSeq,
+        override SerializeTupleStruct,
         override serialize_u8,
         override serialize_u16,
         override serialize_u32,
@@ -238,36 +240,44 @@ impl<'a> serde::Serializer for &'a mut U8Serializer {
         override serialize_i64,
     );
 
-    fn serialize_u8(self, v: u8) -> Result<()> {
-        self.0 = v;
-        Ok(())
+    type Ok = u8;
+    type SerializeStruct = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeMap = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = serde::ser::Impossible<Self::Ok, Self::Error>;
+
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
+        Ok(v)
     }
 
-    fn serialize_u16(self, v: u16) -> Result<()> {
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u32(self, v: u32) -> Result<()> {
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u64(self, v: u64) -> Result<()> {
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i8(self, v: i8) -> Result<()> {
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i16(self, v: i16) -> Result<()> {
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i32(self, v: i32) -> Result<()> {
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i64(self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 }

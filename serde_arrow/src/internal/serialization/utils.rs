@@ -106,6 +106,8 @@ define_impl_no_match!(
     serialize_unit,
     serialize_unit_struct,
     serialize_unit_variant,
+    Ok,
+    Error,
     SerializeStruct,
     SerializeStructVariant,
     SerializeTupleVariant,
@@ -123,9 +125,14 @@ macro_rules! impl_serializer {
         $(override $override:ident),*
         $(,)?
     ) => {
-        type Ok = ();
-        type Error = $crate::internal::error::Error;
-
+        $crate::internal::serialization::utils::impl_no_match!(
+            Ok, [$($override),*],
+            type Ok = ();
+        );
+        $crate::internal::serialization::utils::impl_no_match!(
+            Error, [$($override),*],
+            type Error = $crate::internal::error::Error;
+        );
         $crate::internal::serialization::utils::impl_no_match!(
             SerializeStruct, [$($override),*],
             type SerializeStruct = $crate::internal::serialization::utils::SerializeStruct<$lifetime>;

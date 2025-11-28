@@ -99,10 +99,8 @@ impl FixedSizeBinaryBuilder {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        let mut u8_serializer = U8Serializer(0);
-        value.serialize(&mut u8_serializer)?;
-
-        self.buffer.push(u8_serializer.0);
+        let byte = value.serialize(U8Serializer)?;
+        self.buffer.push(byte);
         self.current_n += 1;
 
         Ok(())
