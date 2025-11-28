@@ -96,7 +96,7 @@ impl<I: DatePrimitive> DateBuilder<I> {
         let date = s.parse::<NaiveDate>()?;
         let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH).num_days();
         let Ok(days_since_epoch) = I::try_from(duration_since_epoch) else {
-            fail!("cannot convert {duration_since_epoch} to {I}", I = I::NAME);
+            fail!("Cannot convert {duration_since_epoch} to {I}", I = I::NAME);
         };
 
         Ok(days_since_epoch * I::DAY_TO_VALUE_FACTOR)
