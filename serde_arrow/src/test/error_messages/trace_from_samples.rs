@@ -6,25 +6,25 @@ use crate::{
 
 #[test]
 fn non_sequence() {
-    let res = SerdeArrowSchema::from_samples(42, TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "Cannot trace non-sequences with `from_samples`");
-    assert_error_contains(&res, "path: \"$\"");
+    let err = SerdeArrowSchema::from_samples(42, TracingOptions::default()).unwrap_err();
+    assert_error_contains(&err, "Cannot trace non-sequences with `from_samples`");
+    assert_error_contains(&err, "path: \"$\"");
 }
 
 #[test]
 fn incompatible_primitives() {
-    let res =
+    let err =
         SerdeArrowSchema::from_samples((Item(42_u32), Item("foo bar")), TracingOptions::default())
             .unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
+    assert_error_contains(&err, "path: \"$.item\"");
 }
 
 #[test]
 fn number_coercion() {
-    let res =
+    let err =
         SerdeArrowSchema::from_samples((&32.0_f32, 42_u64), TracingOptions::default()).unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "consider setting `coerce_numbers` to `true` to coerce different numeric types.",
     );
 }

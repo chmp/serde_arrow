@@ -12,47 +12,47 @@ use crate::internal::{
 
 #[test]
 fn from_type_budget() {
-    let res = SerdeArrowSchema::from_type::<f32>(TracingOptions::default().from_type_budget(0))
+    let err = SerdeArrowSchema::from_type::<f32>(TracingOptions::default().from_type_budget(0))
         .unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Could not determine schema from the type after 0 iterations.",
     );
     assert_error_contains(
-        &res,
+        &err,
         "Consider increasing the budget option or using `from_samples`.",
     );
 }
 
 #[test]
 fn non_self_describing_types() {
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<serde_json::Value>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Non self describing types cannot be traced with `from_type`.",
     );
-    assert_error_contains(&res, "Consider using `from_samples`.");
+    assert_error_contains(&err, "Consider using `from_samples`.");
 }
 
 #[test]
 fn map_as_struct() {
-    let res = SerdeArrowSchema::from_type::<HashMap<String, usize>>(
+    let err = SerdeArrowSchema::from_type::<HashMap<String, usize>>(
         TracingOptions::default().map_as_struct(true),
     )
     .unwrap_err();
-    assert_error_contains(&res, "Cannot trace maps as structs with `from_type`");
-    assert_error_contains(&res, "Consider using `from_samples`");
+    assert_error_contains(&err, "Cannot trace maps as structs with `from_type`");
+    assert_error_contains(&err, "Consider using `from_samples`");
 }
 
 #[test]
 fn outer_struct() {
-    let res = SerdeArrowSchema::from_type::<i32>(TracingOptions::default()).unwrap_err();
+    let err = SerdeArrowSchema::from_type::<i32>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Only struct-like types are supported as root types in schema tracing.",
     );
-    assert_error_contains(&res, "Consider using the `Item` wrapper,");
+    assert_error_contains(&err, "Consider using the `Item` wrapper,");
 }
 
 #[test]
@@ -63,8 +63,8 @@ fn enums_without_data() {
         B,
     }
 
-    let res = SerdeArrowSchema::from_type::<E>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "by setting `enums_without_data_as_strings` to `true`");
+    let err = SerdeArrowSchema::from_type::<E>(TracingOptions::default()).unwrap_err();
+    assert_error_contains(&err, "by setting `enums_without_data_as_strings` to `true`");
 }
 
 #[test]
@@ -75,13 +75,13 @@ fn missing_overwrites() {
         a: i64,
     }
 
-    let res = SerdeArrowSchema::from_type::<S>(
+    let err = SerdeArrowSchema::from_type::<S>(
         TracingOptions::default()
             .overwrite("b", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&res, "Overwritten fields could not be found:");
+    assert_error_contains(&err, "Overwritten fields could not be found:");
 }
 
 #[test]
@@ -92,13 +92,13 @@ fn mismatched_overwrite_name() {
         a: i64,
     }
 
-    let res = SerdeArrowSchema::from_type::<S>(
+    let err = SerdeArrowSchema::from_type::<S>(
         TracingOptions::default()
             .overwrite("a", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&res, "Invalid name for overwritten field");
+    assert_error_contains(&err, "Invalid name for overwritten field");
 }
 
 #[test]
@@ -109,14 +109,14 @@ fn overwrite_invalid_name() {
         a: i64,
     }
 
-    let res = SerdeArrowSchema::from_type::<S>(
+    let err = SerdeArrowSchema::from_type::<S>(
         TracingOptions::default()
             .overwrite("a", json!({"name": "b", "data_type": "I64"}))
             .unwrap(),
     )
     .unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
     );
 }

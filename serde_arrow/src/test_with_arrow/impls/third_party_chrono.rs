@@ -48,9 +48,9 @@ mod datetime_utc {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default())
+        let err = SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default())
             .unwrap_err();
-        assert_error_contains(&res, "premature end of input");
+        assert_error_contains(&err, "premature end of input");
     }
 
     #[test]
@@ -133,9 +133,9 @@ mod naive_date_time {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default())
+        let err = SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default())
             .unwrap_err();
-        assert_error_contains(&res, "premature end of input");
+        assert_error_contains(&err, "premature end of input");
     }
 
     #[test]
@@ -249,9 +249,9 @@ mod naive_time {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res =
+        let err =
             SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default()).unwrap_err();
-        assert_error_contains(&res, "premature end of input");
+        assert_error_contains(&err, "premature end of input");
     }
 
     #[test]
@@ -346,9 +346,9 @@ mod naive_date {
 
     #[test]
     fn trace_from_type_does_not_work() {
-        let res =
+        let err =
             SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default()).unwrap_err();
-        assert_error_contains(&res, "premature end of input");
+        assert_error_contains(&err, "premature end of input");
     }
 
     #[test]

@@ -14,45 +14,45 @@ use crate::{
 #[test]
 fn example() {
     // NOTE: Value cannot be traced with from_type, as it is not self-describing
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<Item<Vec<Value>>>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
-        &res,
+        &err,
         "Non self describing types cannot be traced with `from_type`.",
     );
-    assert_error_contains(&res, "path: \"$.item.element\"");
-    assert_error_contains(&res, "tracer_type: \"Unknown\"");
+    assert_error_contains(&err, "path: \"$.item.element\"");
+    assert_error_contains(&err, "tracer_type: \"Unknown\"");
 }
 
 #[test]
 fn chrono_types_are_not_self_describing() {
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<Item<DateTime<Utc>>>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
-    assert_error_contains(&res, "non self describing type");
+    assert_error_contains(&err, "path: \"$.item\"");
+    assert_error_contains(&err, "non self describing type");
 
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<Item<NaiveDateTime>>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
-    assert_error_contains(&res, "non self describing type");
+    assert_error_contains(&err, "path: \"$.item\"");
+    assert_error_contains(&err, "non self describing type");
 
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<Item<NaiveTime>>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
-    assert_error_contains(&res, "non self describing type");
+    assert_error_contains(&err, "path: \"$.item\"");
+    assert_error_contains(&err, "non self describing type");
 
-    let res =
+    let err =
         SerdeArrowSchema::from_type::<Item<NaiveDate>>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
-    assert_error_contains(&res, "non self describing type");
+    assert_error_contains(&err, "path: \"$.item\"");
+    assert_error_contains(&err, "non self describing type");
 }
 
 #[test]
 fn net_ip_addr_is_not_self_describing() {
-    let res = SerdeArrowSchema::from_type::<Item<std::net::IpAddr>>(TracingOptions::default())
+    let err = SerdeArrowSchema::from_type::<Item<std::net::IpAddr>>(TracingOptions::default())
         .unwrap_err();
-    assert_error_contains(&res, "path: \"$.item\"");
-    assert_error_contains(&res, "non self describing type");
+    assert_error_contains(&err, "path: \"$.item\"");
+    assert_error_contains(&err, "non self describing type");
 }
 
 #[test]
@@ -64,8 +64,8 @@ fn unsupported_recursive_types() {
         right: Option<Box<Tree>>,
     }
 
-    let res = SerdeArrowSchema::from_type::<Tree>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&res, "Too deeply nested type detected");
+    let err = SerdeArrowSchema::from_type::<Tree>(TracingOptions::default()).unwrap_err();
+    assert_error_contains(&err, "Too deeply nested type detected");
     // NOTE: do not check the complete path, it depends on the recursion limit
-    assert_error_contains(&res, "path: \"$.left.left.left.left.left.left");
+    assert_error_contains(&err, "path: \"$.left.left.left.left.left.left");
 }

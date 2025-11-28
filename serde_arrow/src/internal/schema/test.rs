@@ -409,7 +409,7 @@ fn test_metadata_strategy_from_metadata() {
 #[test]
 fn test_invalid_metadata() {
     // strategies cannot be given both in metadata and strategy field
-    let res = SerdeArrowSchema::from_value(json!([
+    let err = SerdeArrowSchema::from_value(json!([
         {
             "name": "example",
             "data_type": "Null",
@@ -421,7 +421,7 @@ fn test_invalid_metadata() {
     ]))
     .unwrap_err();
 
-    assert_error_contains(&res, "Duplicate strategy");
+    assert_error_contains(&err, "Duplicate strategy");
 }
 
 #[test]
