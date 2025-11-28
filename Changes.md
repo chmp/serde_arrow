@@ -2,8 +2,10 @@
 
 ## 0.14.0
 
-- Major refactor of the implementation: Directly implement `serde::Serializer`
-  for all Serialization structs
+This release refactors the implementation for serialization. All serializers now
+directly implement `serde::Serializer` instead of a custom trait. There are no
+breaking changes to the public interface, except for a polish of error messages.
+
 - Performance improvements:
   - Avoid unncessary allocations in serialization
   - Reserve elements up front
@@ -16,6 +18,9 @@
   - Struct variants can be used where structs could be used
   - Support tuples, tuple, structs, tuple variants, bytes for `FixedSizeList`
   - Allow to serialize sequences for structs, similar to tuples
+- Add options to consume the builder `ArrayBuilder::into_arrow`,
+  `ArrayBuilder::into_record_batch`, `ArrayBuilder::into_marrow` that avoid
+  additional allocations for metadata
 
 ## 0.13.7
 
