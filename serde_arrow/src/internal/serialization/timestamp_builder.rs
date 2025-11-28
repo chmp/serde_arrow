@@ -125,7 +125,15 @@ impl TimestampBuilder {
 impl Context for TimestampBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "Timestamp(..)");
+        set_default(
+            annotations,
+            "data_type",
+            format!(
+                "Timestamp({unit}, {tz:?})",
+                unit = self.unit,
+                tz = self.timezone
+            ),
+        );
     }
 }
 

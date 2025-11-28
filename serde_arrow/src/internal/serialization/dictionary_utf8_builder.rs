@@ -96,7 +96,7 @@ impl DictionaryUtf8Builder {
 impl Context for DictionaryUtf8Builder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "Dictionary(..)");
+        set_default(annotations, "data_type", "Dictionary");
     }
 }
 

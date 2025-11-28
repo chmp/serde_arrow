@@ -97,7 +97,15 @@ impl DecimalBuilder {
 impl Context for DecimalBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "filed", &self.name);
-        set_default(annotations, "data_type", "Decimal128(..)");
+        set_default(
+            annotations,
+            "data_type",
+            format!(
+                "Decimal128({precision}, {scale})",
+                precision = self.precision,
+                scale = self.scale,
+            ),
+        );
     }
 }
 

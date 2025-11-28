@@ -56,7 +56,7 @@ impl<'a> EnumDeserializer<'a> {
 impl Context for EnumDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "Union(..)");
+        set_default(annotations, "data_type", "Union");
     }
 }
 

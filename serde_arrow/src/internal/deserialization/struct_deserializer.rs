@@ -55,7 +55,7 @@ impl<'a> StructDeserializer<'a> {
 impl Context for StructDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "Struct(..)");
+        set_default(annotations, "data_type", "Struct");
     }
 }
 

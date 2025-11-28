@@ -11,6 +11,7 @@ use super::random_access_deserializer::RandomAccessDeserializer;
 pub struct DecimalDeserializer<'a> {
     path: String,
     view: PrimitiveView<'a, i128>,
+    precision: u8,
     scale: i8,
 }
 
@@ -22,6 +23,7 @@ impl<'a> DecimalDeserializer<'a> {
                 validity: view.validity,
                 values: view.values,
             },
+            precision: view.precision,
             scale: view.scale,
         }
     }
@@ -38,7 +40,15 @@ impl<'a> DecimalDeserializer<'a> {
 impl Context for DecimalDeserializer<'_> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "Decimal128(..)");
+        set_default(
+            annotations,
+            "data_type",
+            format!(
+                "Decimal128({precision}, {scale})",
+                precision = self.precision,
+                scale = self.scale
+            ),
+        );
     }
 }
 

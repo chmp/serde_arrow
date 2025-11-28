@@ -81,7 +81,11 @@ impl DurationBuilder {
 impl Context for DurationBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "Duration(..)");
+        set_default(
+            annotations,
+            "data_type",
+            format!("Duration({unit})", unit = self.unit),
+        );
     }
 }
 

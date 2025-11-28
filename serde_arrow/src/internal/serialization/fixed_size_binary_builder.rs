@@ -121,7 +121,11 @@ impl FixedSizeBinaryBuilder {
 impl Context for FixedSizeBinaryBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         set_default(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "FixedSizeBinary(..)");
+        set_default(
+            annotations,
+            "data_type",
+            format!("FixedSizeBinary({n})", n = self.n),
+        );
     }
 }
 
