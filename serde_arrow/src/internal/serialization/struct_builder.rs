@@ -99,9 +99,10 @@ impl StructBuilder {
         Ok((array, meta))
     }
 
-    pub fn reserve(&mut self, len: usize) {
+    pub fn reserve(&mut self, additional: usize) {
+        self.seq.reserve(additional);
         for builder in &mut self.fields {
-            builder.reserve(len);
+            builder.reserve(additional);
         }
     }
 

@@ -57,7 +57,7 @@ impl<T: Default + 'static> ArrayExt for PrimitiveArray<T> {
 
     fn reserve(&mut self, additional: usize) {
         if let Some(validity) = &mut self.validity {
-            validity.reserve(additional / 8);
+            reserve_bits(validity, self.values.len(), additional);
         }
         self.values.reserve(additional);
     }
@@ -108,10 +108,10 @@ impl<O: Offset> ArrayExt for BytesArray<O> {
 
     fn reserve(&mut self, additional: usize) {
         if let Some(validity) = &mut self.validity {
-            validity.reserve(additional / 8);
+            reserve_bits(validity, self.offsets.len().saturating_sub(1), additional);
         }
         self.offsets.reserve(additional);
-        self.data.reserve(additional * ASSUMED_BYTES_PER_ELEMENT);
+        reserve_to_new_capacity(&mut self.data, additional * ASSUMED_BYTES_PER_ELEMENT);
     }
 }
 
@@ -197,8 +197,11 @@ impl ArrayExt for BytesViewArray {
         }
     }
 
-    fn reserve(&mut self, _additional: usize) {
-        // TODO: implement
+    fn reserve(&mut self, additional: usize) {
+        if let Some(validity) = &mut self.validity {
+            reserve_bits(validity, self.data.len(), additional);
+        }
+        self.data.reserve(additional);
     }
 }
 
@@ -342,7 +345,7 @@ impl<O: Offset> ArrayExt for OffsetsArray<O> {
 
     fn reserve(&mut self, additional: usize) {
         if let Some(validity) = &mut self.validity {
-            validity.reserve(additional / 8);
+            reserve_bits(validity, self.offsets.len().saturating_sub(1), additional);
         }
         self.offsets.reserve(additional);
     }
@@ -412,7 +415,7 @@ impl ArrayExt for CountArray {
 
     fn reserve(&mut self, additional: usize) {
         if let Some(validity) = &mut self.validity {
-            validity.reserve(additional / 8);
+            reserve_bits(validity, self.len, additional);
         }
     }
 }
@@ -459,6 +462,34 @@ pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     };
     *last = *last + O::try_form_usize(inc)?;
     Ok(())
+}
+
+pub fn reserve_bits(bits: &mut Vec<u8>, len: usize, additional: usize) {
+    bits.reserve(calculate_bytes_to_reserve(bits.capacity(), len, additional));
+}
+
+fn calculate_bytes_to_reserve(capacity: usize, len: usize, additional: usize) -> usize {
+    let target_bits_capacity = len + additional;
+    let target_byte_capacity = if target_bits_capacity % 8 == 0 {
+        target_bits_capacity / 8
+    } else {
+        target_bits_capacity / 8 + 1
+    };
+    target_byte_capacity.saturating_sub(capacity)
+}
+
+#[test]
+fn test_calculate_bytes_to_reserve() {
+    assert_eq!(calculate_bytes_to_reserve(0, 0, 0), 0);
+    assert_eq!(calculate_bytes_to_reserve(2, 8, 8), 0);
+    assert_eq!(calculate_bytes_to_reserve(2, 8, 9), 1);
+    assert_eq!(calculate_bytes_to_reserve(2, 9, 8), 1);
+    assert_eq!(calculate_bytes_to_reserve(2, 8, 16), 1);
+    assert_eq!(calculate_bytes_to_reserve(2, 8, 17), 2);
+}
+
+pub fn reserve_to_new_capacity<T>(vec: &mut Vec<T>, additional: usize) {
+    vec.reserve((vec.len() + additional).saturating_sub(vec.capacity()));
 }
 
 pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Result<()> {

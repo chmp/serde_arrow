@@ -10,7 +10,7 @@ use marrow::{
 use crate::internal::{
     error::{set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
-    utils::array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
+    utils::array_ext::{reserve_to_new_capacity, ArrayExt, ScalarArrayExt, SeqArrayExt},
 };
 
 use super::array_builder::ArrayBuilder;
@@ -25,6 +25,7 @@ pub trait BinaryBuilderArray:
     fn push_byte(&mut self, byte: u8);
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_>;
     fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_>;
+    fn reserve_values(&mut self, additional: usize);
 }
 
 impl BinaryBuilderArray for BytesArray<i32> {
@@ -42,6 +43,10 @@ impl BinaryBuilderArray for BytesArray<i32> {
 
     fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
         super::utils::SerializeTuple::Binary(builder)
+    }
+
+    fn reserve_values(&mut self, additional: usize) {
+        reserve_to_new_capacity(&mut self.data, additional);
     }
 }
 
@@ -62,6 +67,10 @@ impl BinaryBuilderArray for BytesArray<i64> {
     fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
         super::utils::SerializeTuple::LargeBinary(builder)
     }
+
+    fn reserve_values(&mut self, additional: usize) {
+        reserve_to_new_capacity(&mut self.data, additional);
+    }
 }
 
 impl BinaryBuilderArray for BytesViewArray {
@@ -79,6 +88,10 @@ impl BinaryBuilderArray for BytesViewArray {
 
     fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
         super::utils::SerializeTuple::BinaryView(builder)
+    }
+
+    fn reserve_values(&mut self, _additional: usize) {
+        // assume already reserved
     }
 }
 
@@ -170,14 +183,16 @@ impl<'a, B: BinaryBuilderArray> Serializer for &'a mut BinaryBuilder<B> {
         self.array.push_scalar_none()
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        // TODO: fix reservation
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.array.reserve_values(len);
+        }
         self.start()?;
         Ok(B::as_serialize_seq(self))
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        // TODO: fix reservation
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        self.array.reserve_values(len);
         self.start()?;
         Ok(B::as_serialize_tuple(self))
     }

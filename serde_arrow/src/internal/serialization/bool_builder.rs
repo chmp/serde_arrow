@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
-    utils::array_ext::{set_bit_buffer, set_validity, set_validity_default},
+    utils::array_ext::{reserve_bits, set_bit_buffer, set_validity, set_validity_default},
 };
 
 use super::array_builder::ArrayBuilder;
@@ -63,9 +63,9 @@ impl BoolBuilder {
 
     pub fn reserve(&mut self, additional: usize) {
         if let Some(validity) = &mut self.array.validity {
-            validity.reserve(additional / 8 + 1);
+            reserve_bits(validity, self.array.len, additional);
         }
-        self.array.values.reserve(additional / 8 + 1);
+        reserve_bits(&mut self.array.values, self.array.len, additional);
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {

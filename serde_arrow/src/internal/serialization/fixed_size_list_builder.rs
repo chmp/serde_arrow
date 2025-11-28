@@ -76,8 +76,8 @@ impl FixedSizeListBuilder {
     }
 
     pub fn reserve(&mut self, additional: usize) {
-        self.elements.reserve(additional * self.n);
         self.seq.reserve(additional);
+        self.elements.reserve(additional * self.n);
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {

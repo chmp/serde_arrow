@@ -72,8 +72,9 @@ impl UnionBuilder {
         Ok((array, meta))
     }
 
-    pub fn reserve(&mut self, _additional: usize) {
-        // TODO: figure out what to do here
+    pub fn reserve(&mut self, additional: usize) {
+        self.offsets.reserve(additional);
+        self.types.reserve(additional);
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {

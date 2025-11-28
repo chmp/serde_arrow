@@ -7,7 +7,7 @@ use marrow::{
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
@@ -83,7 +83,7 @@ impl<A: Utf8BuilderArray> Utf8Builder<A> {
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+        self.array.push_scalar_default().ctx(self)
     }
 
     pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
