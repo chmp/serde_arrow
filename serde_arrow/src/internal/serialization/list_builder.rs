@@ -75,15 +75,6 @@ impl<O: ListOffset> ListBuilder<O> {
         }
     }
 
-    pub fn take_self(&mut self) -> Self {
-        Self {
-            name: self.name.clone(),
-            metadata: self.metadata.clone(),
-            offsets: self.offsets.take(),
-            elements: Box::new(self.elements.take()),
-        }
-    }
-
     pub fn is_nullable(&self) -> bool {
         self.offsets.validity.is_some()
     }
@@ -101,7 +92,12 @@ impl<O: ListOffset> ListBuilder<O> {
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        O::ARRAY_BUILDER_VARIANT(self.take_self())
+        O::ARRAY_BUILDER_VARIANT(Self {
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
+            offsets: self.offsets.take(),
+            elements: Box::new(self.elements.take()),
+        })
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {

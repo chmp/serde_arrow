@@ -98,14 +98,6 @@ impl<I: IntType> IntBuilder<I> {
         }
     }
 
-    pub fn take_self(&mut self) -> Self {
-        Self {
-            name: self.name.clone(),
-            metadata: self.metadata.clone(),
-            array: self.array.take(),
-        }
-    }
-
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
@@ -115,7 +107,11 @@ impl<I: IntType> IntBuilder<I> {
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        I::ARRAY_BUILDER_VARIANT(self.take_self())
+        I::ARRAY_BUILDER_VARIANT(Self {
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
+            array: self.array.take(),
+        })
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {

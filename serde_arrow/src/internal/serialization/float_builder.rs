@@ -16,8 +16,8 @@ use crate::internal::{
 use super::array_builder::ArrayBuilder;
 
 pub trait FloatPrimitive: Sized + Copy + Default + 'static {
-    const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder;
-    const ARRAY: fn(PrimitiveArray<Self>) -> Array;
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array;
     const NAME: &'static str;
 
     fn from_i8(value: i8) -> Self;
@@ -33,8 +33,8 @@ pub trait FloatPrimitive: Sized + Copy + Default + 'static {
 }
 
 impl FloatPrimitive for f16 {
-    const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F16;
-    const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float16;
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F16;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float16;
     const NAME: &'static str = "Float16";
 
     fn from_i8(value: i8) -> Self {
@@ -79,8 +79,8 @@ impl FloatPrimitive for f16 {
 }
 
 impl FloatPrimitive for f32 {
-    const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F32;
-    const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float32;
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F32;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float32;
     const NAME: &'static str = "Float32";
 
     fn from_i8(value: i8) -> Self {
@@ -125,8 +125,8 @@ impl FloatPrimitive for f32 {
 }
 
 impl FloatPrimitive for f64 {
-    const BUILDER: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F64;
-    const ARRAY: fn(PrimitiveArray<Self>) -> Array = Array::Float64;
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F64;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float64;
     const NAME: &'static str = "Float64";
 
     fn from_i8(value: i8) -> Self {
@@ -186,14 +186,6 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
         }
     }
 
-    pub fn take_self(&mut self) -> Self {
-        Self {
-            name: self.name.clone(),
-            metadata: self.metadata.clone(),
-            array: self.array.take(),
-        }
-    }
-
     pub fn is_nullable(&self) -> bool {
         self.array.is_nullable()
     }
@@ -203,7 +195,11 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        F::BUILDER(self.take_self())
+        F::ARRAY_BUILDER_VARIANT(Self {
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
+            array: self.array.take(),
+        })
     }
 
     pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
@@ -212,7 +208,7 @@ impl<F: FloatPrimitive> FloatBuilder<F> {
             metadata: self.metadata,
             nullable: self.array.is_nullable(),
         };
-        Ok((F::ARRAY(self.array), meta))
+        Ok((F::ARRAY_VARIANT(self.array), meta))
     }
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
