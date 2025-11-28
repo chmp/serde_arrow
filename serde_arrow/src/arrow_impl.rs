@@ -191,19 +191,14 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        Ok(self
-            .to_marrow()?
-            .into_iter()
-            .map(ArrayRef::try_from)
-            .collect::<Result<_, MarrowError>>()?)
+        self.take().into_arrow()
     }
 
     /// Consume the builder and construct the `arrow` arrays (*requires one of
     /// the `arrow-*` features*)
     pub fn into_arrow(self) -> Result<Vec<ArrayRef>> {
-        Ok(self
-            .into_arrays_and_field_metas()?
-            .0
+        let (arrays, _) = self.into_arrays_and_field_metas()?;
+        Ok(arrays
             .into_iter()
             .map(ArrayRef::try_from)
             .collect::<Result<_, MarrowError>>()?)
@@ -212,23 +207,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
-        let mut arrays = Vec::with_capacity(self.builder.num_fields());
-        let mut fields = Vec::with_capacity(self.builder.num_fields());
-
-        for builder in &mut self.builder.fields {
-            let (array, meta) = builder.take().into_array_and_field_meta()?;
-            let array = ArrayRef::try_from(array)?;
-            let field = FieldRef::new(
-                ArrowField::new(&meta.name, array.data_type().clone(), meta.nullable)
-                    .with_metadata(meta.metadata.clone()),
-            );
-            arrays.push(array);
-            fields.push(field)
-        }
-
-        let schema = Schema::new(fields);
-        RecordBatch::try_new(Arc::new(schema), arrays)
-            .map_err(|err| Error::custom_from(err.to_string(), err))
+        self.take().into_record_batch()
     }
 
     /// Construct a [`RecordBatch`] and consume the builder (*requires one of the
