@@ -167,7 +167,7 @@ impl StructBuilder {
 impl Context for StructBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
         prepend(annotations, "field", &self.name);
-        set_default(annotations, "data_type", "Struct(..)");
+        set_default(annotations, "data_type", "Struct");
     }
 }
 
