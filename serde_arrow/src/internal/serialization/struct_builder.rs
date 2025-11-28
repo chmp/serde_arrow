@@ -20,8 +20,8 @@ const UNKNOWN_KEY: usize = usize::MAX;
 pub struct StructBuilder {
     pub name: String,
     pub fields: Vec<ArrayBuilder>,
-    // Note: for the complex_1000 benchmark this optimization results in approx
-    // 1.26 arrow2_convert times reduction
+    // Note: for the complex_1000 benchmark this optimization reduces the relative
+    // runtime compared with `arrow2_convert` by 1.26
     lookup_cache: CachedNameLookup,
     pub next: usize,
     pub seen: Vec<bool>,
