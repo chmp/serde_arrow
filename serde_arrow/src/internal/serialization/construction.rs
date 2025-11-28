@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use marrow::datatypes::{DataType, Field, MapMeta, TimeUnit};
+use marrow::datatypes::{DataType, Field, TimeUnit};
 
 use crate::internal::{
     error::{fail, Result},
@@ -10,7 +10,6 @@ use crate::internal::{
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
         fixed_size_list_builder::FixedSizeListBuilder,
     },
-    utils::meta_from_field,
 };
 
 use super::{
@@ -123,24 +122,21 @@ fn build_builder(
         T::Map(entry_field, sorted) => {
             let DataType::Struct(entries_field) = entry_field.data_type else {
                 fail!(
-                    "unexpected data type for map array: {:?}",
+                    "Unexpected data type for map array: Expected Struct, got {:?}",
                     entry_field.data_type
                 );
             };
             let Ok([keys_field, values_field]) = <[Field; 2]>::try_from(entries_field) else {
                 fail!("A map field must be a struct with exactly two fields");
             };
-
-            let meta = MapMeta {
-                sorted,
-                entries_name: entry_field.name.clone(),
-                keys: meta_from_field(keys_field.clone()),
-                values: meta_from_field(values_field.clone()),
-            };
+            if sorted {
+                fail!("Sorted maps are not supported");
+            }
 
             A::Map(MapBuilder::new(
                 name,
-                meta,
+                entry_field.name,
+                sorted,
                 build_builder(
                     keys_field.name,
                     keys_field.data_type,
