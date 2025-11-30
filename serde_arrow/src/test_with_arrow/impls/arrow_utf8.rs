@@ -1,4 +1,5 @@
 use marrow::datatypes::DataType;
+use serde::Serialize;
 
 use crate::internal::{schema::TracingOptions, utils::Item};
 
@@ -293,4 +294,20 @@ fn char_to_utf8() {
         .with_schema(vec![field])
         .serialize(&input)
         .deserialize_borrowed(&output);
+}
+
+#[test]
+fn unit_variants() {
+    let field = new_field("item", DataType::Utf8, false);
+
+    #[derive(Serialize)]
+    enum E {
+        A,
+        B,
+        C,
+    }
+
+    Test::new()
+        .with_schema(vec![field])
+        .serialize(&[Item(E::A), Item(E::B), Item(E::C)]);
 }

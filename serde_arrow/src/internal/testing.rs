@@ -5,14 +5,9 @@ use marrow::array::{Array, BytesArray};
 
 use crate::internal::error::{fail, Error, Result};
 
-pub fn assert_error_contains<T, E: std::fmt::Display>(actual: &Result<T, E>, expected: &str) {
-    let Err(actual) = actual else {
-        panic!("Expected an error, but no error was raised");
-    };
-
-    let actual = actual.to_string();
-    if !actual.contains(expected) {
-        panic!("Error did not contain {expected:?}. Full error: {actual}");
+pub fn assert_error_contains(actual: &Error, expected: &str) {
+    if !actual.to_string().contains(expected) {
+        panic!("Error did not contain {expected:?}.\nFull error: {actual:?}");
     }
 }
 
@@ -31,8 +26,26 @@ macro_rules! hash_map {
 
 pub(crate) use hash_map;
 
+#[allow(unused)]
+macro_rules! btree_map {
+    () => {
+        ::std::collections::BTreeMap::new()
+    };
+    ($($key:expr => $value:expr),* $(,)?) => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(m.insert($key.into(), $value.into());)*
+            m
+        }
+    };
+}
+
+#[allow(unused)]
+pub(crate) use btree_map;
+
 use super::utils::array_ext::get_bit_buffer;
 
+#[allow(unused)]
 pub(crate) trait ArrayAccess {
     fn get_utf8(&self, idx: usize) -> Result<Option<&str>>;
 }
@@ -47,6 +60,7 @@ impl ArrayAccess for Array {
     }
 }
 
+#[allow(unused)]
 fn get_utf8_impl<O>(array: &BytesArray<O>, idx: usize) -> Result<Option<&str>>
 where
     O: Copy,

@@ -4,13 +4,37 @@ use std::{
     convert::Infallible,
 };
 
-pub fn set_default<V: Into<String>>(
+pub fn set_default(
     annotations: &mut BTreeMap<String, String>,
     key: &str,
-    value: V,
+    value: impl std::fmt::Display,
 ) {
     if !annotations.contains_key(key) {
-        annotations.insert(String::from(key), value.into());
+        annotations.insert(String::from(key), value.to_string());
+    }
+}
+
+pub fn prepend(
+    annotations: &mut BTreeMap<String, String>,
+    key: &str,
+    value: impl std::fmt::Display,
+) {
+    if let Some(prev) = annotations.get_mut(key) {
+        *prev = format!("{}.{}", value, prev);
+    } else {
+        annotations.insert(String::from(key), value.to_string());
+    }
+}
+
+pub struct FieldName<'a>(pub &'a str);
+
+impl std::fmt::Display for FieldName<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            std::fmt::Display::fmt(self.0, f)
+        } else {
+            write!(f, "<empty>")
+        }
     }
 }
 
@@ -18,12 +42,6 @@ pub fn set_default<V: Into<String>>(
 ///
 /// This function is mostly useful to add annotations to a complex block of operations
 pub fn try_<T>(func: impl FnOnce() -> Result<T>) -> Result<T> {
-    func()
-}
-
-/// Execute a faillible function and return the result
-///
-pub fn try_opt<T>(func: impl FnOnce() -> Option<T>) -> Option<T> {
     func()
 }
 
@@ -65,9 +83,7 @@ impl<E: Into<Error>> ContextSupport for E {
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
         let Error::Custom(mut error) = self.into();
-        if error.0.annotations.is_empty() {
-            context.annotate(&mut error.0.annotations);
-        }
+        context.annotate(&mut error.0.annotations);
         Error::Custom(error)
     }
 }
@@ -251,6 +267,8 @@ impl serde::de::Error for Error {
 }
 
 macro_rules! fail {
+    // TODO: Remove context support. Context should only be added add specified recursion points in
+    // serializers or deserializers making this macro form obsolete
     (in $context:expr, $($tt:tt)*) => {
         {
             #[allow(unused)]

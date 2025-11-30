@@ -28,7 +28,7 @@ fn example_issue_187() -> PanicOnError<()> {
     let actual = SerdeArrowSchema::from_type::<Example>(options.clone())?;
     assert_eq!(actual, expected);
 
-    let actual = SerdeArrowSchema::from_samples(&[Example { expiry: Utc::now() }], options)?;
+    let actual = SerdeArrowSchema::from_samples([Example { expiry: Utc::now() }], options)?;
     assert_eq!(actual, expected);
 
     Ok(())

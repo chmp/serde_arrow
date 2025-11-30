@@ -1,42 +1,51 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use marrow::array::{Array, FixedSizeBinaryArray};
-use serde::Serialize;
+use marrow::{
+    array::{Array, FixedSizeBinaryArray},
+    datatypes::FieldMeta,
+};
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, CountArray, SeqArrayExt},
-        Mut,
-    },
+    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
+    utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::{array_builder::ArrayBuilder, binary_builder::U8Serializer};
 
 #[derive(Debug, Clone)]
 
 pub struct FixedSizeBinaryBuilder {
-    pub path: String,
+    pub name: String,
     pub seq: CountArray,
     pub buffer: Vec<u8>,
     pub current_n: usize,
     pub n: usize,
+    metadata: HashMap<String, String>,
 }
 
 impl FixedSizeBinaryBuilder {
-    pub fn new(path: String, n: usize, is_nullable: bool) -> Self {
+    pub fn new(
+        name: String,
+        n: usize,
+        is_nullable: bool,
+        metadata: HashMap<String, String>,
+    ) -> Self {
         Self {
-            path,
+            name,
             seq: CountArray::new(is_nullable),
             buffer: Vec::new(),
             n,
             current_n: 0,
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::FixedSizeBinary(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             seq: self.seq.take(),
             buffer: std::mem::take(&mut self.buffer),
             current_n: std::mem::take(&mut self.current_n),
@@ -48,12 +57,38 @@ impl FixedSizeBinaryBuilder {
         self.seq.validity.is_some()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::FixedSizeBinary(FixedSizeBinaryArray {
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.seq.validity.is_some(),
+        };
+        let array = Array::FixedSizeBinary(FixedSizeBinaryArray {
             n: self.n.try_into()?,
             validity: self.seq.validity,
             data: self.buffer,
-        }))
+        });
+        Ok((array, meta))
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.seq.reserve(additional);
+        self.buffer.reserve(additional * self.n);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        try_(|| {
+            self.seq.push_seq_default()?;
+            for _ in 0..self.n {
+                self.buffer.push(0);
+            }
+            Ok(())
+        })
+        .ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -64,10 +99,8 @@ impl FixedSizeBinaryBuilder {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        let mut u8_serializer = U8Serializer(0);
-        value.serialize(Mut(&mut u8_serializer))?;
-
-        self.buffer.push(u8_serializer.0);
+        let byte = value.serialize(U8Serializer)?;
+        self.buffer.push(byte);
         self.current_n += 1;
 
         Ok(())
@@ -87,129 +120,87 @@ impl FixedSizeBinaryBuilder {
 
 impl Context for FixedSizeBinaryBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "FixedSizeBinary(..)");
+        set_default(annotations, "field", &self.name);
+        set_default(
+            annotations,
+            "data_type",
+            format!("FixedSizeBinary({n})", n = self.n),
+        );
     }
 }
 
-impl SimpleSerializer for FixedSizeBinaryBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_default()?;
-            for _ in 0..self.n {
-                self.buffer.push(0);
-            }
-            Ok(())
-        })
-        .ctx(self)
-    }
+impl<'a> Serializer for &'a mut FixedSizeBinaryBuilder {
+    impl_serializer!(
+        'a, FixedSizeBinaryBuilder;
+        override serialize_none,
+        override serialize_seq,
+        override serialize_tuple,
+        override serialize_bytes,
+        override serialize_str,
+    );
 
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| {
-            self.seq.push_seq_none()?;
-            for _ in 0..self.n {
-                self.buffer.push(0);
-            }
-            Ok(())
-        })
-        .ctx(self)
-    }
-
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        try_(|| self.start()).ctx(self)
-    }
-
-    fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
-    }
-
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
-    }
-
-    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_tuple_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
-    }
-
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        try_(|| self.start()).ctx(self)
-    }
-
-    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        try_(|| self.element(value)).ctx(self)
-    }
-
-    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        try_(|| self.end()).ctx(self)
-    }
-
-    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        try_(|| {
-            if v.len() != self.n {
-                fail!(
-                    in self,
-                    "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
-                    actual = v.len(),
-                    expected = self.n,
-                );
-            }
-
-            self.seq.start_seq()?;
-            self.buffer.extend(v);
-            self.seq.end_seq()
-        }).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.serialize_bytes(v.as_bytes())
-    }
-}
-
-struct U8Serializer(u8);
-
-impl Context for U8Serializer {
-    fn annotate(&self, _: &mut BTreeMap<String, String>) {}
-}
-
-impl SimpleSerializer for U8Serializer {
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.0 = v;
+    fn serialize_none(self) -> Result<()> {
+        self.seq.push_seq_none()?;
+        for _ in 0..self.n {
+            self.buffer.push(0);
+        }
         Ok(())
     }
 
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        // TOOD: fix reservation
+        self.start()?;
+        Ok(super::utils::SerializeSeq::FixedSizeBinary(self))
     }
 
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        // TOOD: fix reservation
+        self.start()?;
+        Ok(Self::SerializeTuple::FixedSizeBinary(self))
     }
 
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        if v.len() != self.n {
+            fail!(
+                in self,
+                "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
+                actual = v.len(),
+                expected = self.n,
+            );
+        }
+
+        self.seq.start_seq()?;
+        self.buffer.extend(v);
+        self.seq.end_seq()
     }
 
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn serialize_str(self, v: &str) -> Result<()> {
+        serde::Serializer::serialize_bytes(self, v.as_bytes())
+    }
+}
+
+impl serde::ser::SerializeSeq for &mut FixedSizeBinaryBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value)
     }
 
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn end(self) -> Result<()> {
+        FixedSizeBinaryBuilder::end(&mut *self)
+    }
+}
+
+impl serde::ser::SerializeTuple for &mut FixedSizeBinaryBuilder {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value)
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        self.serialize_u8(v.try_into()?)
+    fn end(self) -> Result<()> {
+        FixedSizeBinaryBuilder::end(&mut *self)
     }
 }

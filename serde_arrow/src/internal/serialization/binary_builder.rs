@@ -1,18 +1,19 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
-use marrow::array::{Array, BytesArray, BytesViewArray};
-
-use crate::internal::{
-    error::{set_default, Context, ContextSupport, Result},
-    utils::{
-        array_ext::{ArrayExt, ScalarArrayExt, SeqArrayExt},
-        Mut,
-    },
+use marrow::{
+    array::{Array, BytesArray, BytesViewArray},
+    datatypes::FieldMeta,
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use crate::internal::{
+    error::{set_default, Context, ContextSupport, Error, Result},
+    serialization::utils::impl_serializer,
+    utils::array_ext::{reserve_to_new_capacity, ArrayExt, ScalarArrayExt, SeqArrayExt},
+};
+
+use super::array_builder::ArrayBuilder;
 
 pub trait BinaryBuilderArray:
     ArrayExt + for<'s> ScalarArrayExt<'s, Value = &'s [u8]> + SeqArrayExt + Sized
@@ -22,6 +23,9 @@ pub trait BinaryBuilderArray:
     const ARRAY_VARIANT: fn(Self) -> Array;
 
     fn push_byte(&mut self, byte: u8);
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_>;
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_>;
+    fn reserve_values(&mut self, additional: usize);
 }
 
 impl BinaryBuilderArray for BytesArray<i32> {
@@ -31,6 +35,18 @@ impl BinaryBuilderArray for BytesArray<i32> {
 
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
+    }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::Binary(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::Binary(builder)
+    }
+
+    fn reserve_values(&mut self, additional: usize) {
+        reserve_to_new_capacity(&mut self.data, additional);
     }
 }
 
@@ -43,6 +59,18 @@ impl BinaryBuilderArray for BytesArray<i64> {
     fn push_byte(&mut self, byte: u8) {
         self.data.push(byte);
     }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::LargeBinary(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::LargeBinary(builder)
+    }
+
+    fn reserve_values(&mut self, additional: usize) {
+        reserve_to_new_capacity(&mut self.data, additional);
+    }
 }
 
 impl BinaryBuilderArray for BytesViewArray {
@@ -53,27 +81,34 @@ impl BinaryBuilderArray for BytesViewArray {
     fn push_byte(&mut self, byte: u8) {
         self.buffers[0].push(byte);
     }
+
+    fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
+        super::utils::SerializeSeq::BinaryView(builder)
+    }
+
+    fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_> {
+        super::utils::SerializeTuple::BinaryView(builder)
+    }
+
+    fn reserve_values(&mut self, _additional: usize) {
+        // assume already reserved
+    }
 }
 
 #[derive(Debug, Clone)]
 
 pub struct BinaryBuilder<A> {
-    path: String,
+    pub name: String,
+    metadata: HashMap<String, String>,
     array: A,
 }
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
             array: B::new(is_nullable),
-        }
-    }
-
-    pub fn take_self(&mut self) -> Self {
-        Self {
-            path: self.path.clone(),
-            array: self.array.take(),
+            metadata,
         }
     }
 
@@ -82,11 +117,32 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        B::ARRAY_BUILDER_VARIANT(self.take_self())
+        B::ARRAY_BUILDER_VARIANT(Self {
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
+            array: self.array.take(),
+        })
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(B::ARRAY_VARIANT(self.array))
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            nullable: self.array.is_nullable(),
+            metadata: self.metadata,
+        };
+        Ok((B::ARRAY_VARIANT(self.array), meta))
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -96,10 +152,8 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        let mut u8_serializer = U8Serializer(0);
-        value.serialize(Mut(&mut u8_serializer))?;
-
-        self.array.push_byte(u8_serializer.0);
+        let byte = value.serialize(U8Serializer)?;
+        self.array.push_byte(byte);
         self.array.push_seq_elements(1)
     }
 
@@ -110,102 +164,135 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
 impl<B: BinaryBuilderArray> Context for BinaryBuilder<B> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", B::DATA_TYPE_NAME);
     }
 }
 
-impl<B: BinaryBuilderArray> SimpleSerializer for BinaryBuilder<B> {
-    fn serialize_default(&mut self) -> Result<()> {
-        self.array.push_scalar_default().ctx(self)
+impl<'a, B: BinaryBuilderArray> Serializer for &'a mut BinaryBuilder<B> {
+    impl_serializer!(
+        'a, BinaryBuilder;
+        override serialize_none,
+        override serialize_seq,
+        override serialize_tuple,
+        override serialize_bytes,
+        override serialize_str,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.array.push_scalar_none()
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        self.array.push_scalar_none().ctx(self)
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            self.array.reserve_values(len);
+        }
+        self.start()?;
+        Ok(B::as_serialize_seq(self))
     }
 
-    fn serialize_seq_start(&mut self, _: Option<usize>) -> Result<()> {
-        self.start().ctx(self)
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        self.array.reserve_values(len);
+        self.start()?;
+        Ok(B::as_serialize_tuple(self))
     }
 
-    fn serialize_seq_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        self.array.push_scalar_value(v)
     }
 
-    fn serialize_seq_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_tuple_start(&mut self, _: usize) -> Result<()> {
-        self.start().ctx(self)
-    }
-
-    fn serialize_tuple_element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
-    }
-
-    fn serialize_tuple_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_tuple_struct_start(&mut self, _: &'static str, _: usize) -> Result<()> {
-        self.start().ctx(self)
-    }
-
-    fn serialize_tuple_struct_field<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.element(value).ctx(self)
-    }
-
-    fn serialize_tuple_struct_end(&mut self) -> Result<()> {
-        self.end().ctx(self)
-    }
-
-    fn serialize_bytes(&mut self, v: &[u8]) -> Result<()> {
-        self.array.push_scalar_value(v).ctx(self)
-    }
-
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        self.serialize_bytes(v.as_bytes())
+    fn serialize_str(self, v: &str) -> Result<()> {
+        self.array.push_scalar_value(v.as_bytes())
     }
 }
 
-struct U8Serializer(u8);
+impl<B: BinaryBuilderArray> serde::ser::SerializeSeq for &mut BinaryBuilder<B> {
+    type Ok = ();
+    type Error = Error;
 
-impl Context for U8Serializer {
-    fn annotate(&self, _: &mut BTreeMap<String, String>) {}
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value)
+    }
+
+    fn end(self) -> Result<()> {
+        BinaryBuilder::end(self)
+    }
 }
 
-impl SimpleSerializer for U8Serializer {
-    fn serialize_u8(&mut self, v: u8) -> Result<()> {
-        self.0 = v;
-        Ok(())
+impl<B: BinaryBuilderArray> serde::ser::SerializeTuple for &mut BinaryBuilder<B> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
+        self.element(value)
     }
 
-    fn serialize_u16(&mut self, v: u16) -> Result<()> {
+    fn end(self) -> Result<()> {
+        BinaryBuilder::end(self)
+    }
+}
+
+pub struct U8Serializer;
+
+impl serde::Serializer for U8Serializer {
+    impl_serializer!(
+        'static, U8Serializer;
+        override Ok,
+        override SerializeStruct,
+        override SerializeMap,
+        override SerializeTupleVariant,
+        override SerializeStructVariant,
+        override SerializeTuple,
+        override SerializeSeq,
+        override SerializeTupleStruct,
+        override serialize_u8,
+        override serialize_u16,
+        override serialize_u32,
+        override serialize_u64,
+        override serialize_i8,
+        override serialize_i16,
+        override serialize_i32,
+        override serialize_i64,
+    );
+
+    type Ok = u8;
+    type SerializeStruct = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeMap = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = serde::ser::Impossible<Self::Ok, Self::Error>;
+
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
+        Ok(v)
+    }
+
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u32(&mut self, v: u32) -> Result<()> {
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_u64(&mut self, v: u64) -> Result<()> {
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i8(&mut self, v: i8) -> Result<()> {
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i16(&mut self, v: i16) -> Result<()> {
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
         self.serialize_u8(v.try_into()?)
     }
 }

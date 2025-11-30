@@ -176,11 +176,11 @@ fn serde_json_nullable_strings_non_nullable_field() {
         {"name": "a", "data_type": "Utf8"},
     ]));
 
-    let res = test.try_serialize_arrow(&items);
+    let res = test.try_serialize_arrow(&items).unwrap_err();
     assert_error_contains(&res, "Cannot push null for non-nullable array");
     assert_error_contains(&res, "field: \"$.a\"");
 
-    let res = test.try_serialize_arrow2(&items);
+    let res = test.try_serialize_arrow2(&items).unwrap_err();
     assert_error_contains(&res, "Cannot push null for non-nullable array");
     assert_error_contains(&res, "field: \"$.a\"");
 }

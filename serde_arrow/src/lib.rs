@@ -306,31 +306,81 @@ pub mod deserializer {
     pub use crate::internal::deserializer::{DeserializerItem, DeserializerIterator};
 }
 
-/// The mapping between Rust and Arrow types
+/// Type mapping between Rust, Serde, and Arrow
 ///
-/// To convert between Rust objects and Arrow types, `serde_arrows` requires
-/// schema information as a list of Arrow fields with additional metadata. See
-/// [`SchemaLike`][crate::schema::SchemaLike] for details on how to specify the
-/// schema.
+/// `serde_arrow` bridges three distinct type systems: Rust types, the actual
+/// types in your Rust code (`Vec<T>`, structs, enums, etc.),
+/// [Serde data model][serde-model], the abstract representation Serde uses
+/// during serialization, and [Arrow types][arrow-model], the columnar data
+/// types defined by Apache Arrow. To convert between thse type systems ,
+/// `serde_arrow` requires schema information as a list of Arrow fields with
+/// additional metadata. See [`SchemaLike`][crate::schema::SchemaLike] for
+/// details on how to specify the schema.
 ///
-/// The default mapping of Rust types to [Arrow types][arrow-types] is as
-/// follows:
 ///
-/// [arrow-types]:
-///     https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html
+/// In most cases, `serde_arrow` expects data as a sequence of records:
 ///
-/// - Unit (`()`): `Null`
-/// - Booleans (`bool`): `Boolean`
-/// - Integers (`u8`, .., `u64`, `i8`, .., `i64`): `UInt8`, .., `Uint64`,
-///   `Int8`, .. `UInt64`
-/// - Floats (`f32`, `f64`): `Float32`, `Float64`
-/// - Strings (`str`, `String`, ..): `LargeUtf8` with i64 offsets
-/// - Sequences: `LargeList` with i64 offsets
-/// - Structs / Map / Tuples: `Struct` type
-/// - Enums: dense Unions. Each variant is mapped to a separate field. Its type
-///   depends on the union type: Field-less variants are mapped to `NULL`. New
-///   type variants are mapped according to their inner type. Other variant
-///   types are mapped to struct types.
+/// ```rust
+/// # struct Record { f0: i32, f1: i32 }
+/// # let (v0, v1, v2, v3) = (0_i32, 1_i32, 2_i32, 3_i32);
+/// vec![
+///     Record { f0: v0, f1: v1 },
+///     Record { f0: v2, f1: v3 },
+///     // ..
+/// ]
+/// # ;
+/// ```
+///
+/// The outer container must be one of these [Serde data types][serde-model]:
+///
+/// | Serde data type | Example Rust types | Comment |
+/// |---|---|---|
+/// |`seq` | [`Vec<T>`][std::vec::Vec], `&[T]` | variable-sized sequences |
+/// | `tuple`, `tuple_struct`, `tuple_variant` |  `(T0, T1)`, `[T; N]`, `struct S(T0, T1)`) | fixed-sized sequences|
+/// | `newtype_struct`, `newtype_variant` | `struct S(T)`, `enum E { V(T) }` | wrappers around the preceding types |
+///
+/// Each record must be one of these Serde data types:
+///
+/// | Serde data type | Example Rust types | Comment |
+/// |---|---|---|
+/// | `struct`, `struct_variant` | `struct S { f0: T0, f1: T1 }` | named fields |
+/// | `map` | [`HashMap<K, V>`][std::collections::HashMap], [`BTreeMap<K, V>`][std::collections::BTreeMap] | key-value pairs |
+/// | `seq`, `tuple`, `tuple_struct`, `tuple_variant` | `(T0, T1)`, `[T; N]` |  ordered fields |
+/// | `newtype_struct`, `newtype_variant` | `struct S(T)` | wrappers around the preceding types |
+///
+/// Schema fields and struct fields do not have to be specified in the same
+/// order, but matching order improves lookup performance. Missing schema
+/// fields are serialized as null. Extra struct fields are ignored. Maps follow
+/// the same semantics.
+///
+/// The following table shows how [Serde data types][serde-model], Rust types,
+/// and [Arrow types][arrow-model] map to each other:
+///
+///
+/// | Serde data type | Example Rust types | Default Arrow type |
+/// |------------------|-------------------|------------|
+/// | `unit` | `()` | `Null` |
+/// | `bool` | `bool` | `Boolean` |
+/// | `i8`, `i16`, `i32`, `i64` | `i8`, `i16`, `i32`, `i64` | `Int8`, `Int16`, `Int32`, `Int64` |
+/// | `u8`, `u16`, `u32`, `u64` | `u8`, `u16`, `u32`, `u64` | `UInt8`, `UInt16`, `UInt32`, `UInt64` |
+/// | `char` | `char` | `UInt32` |
+/// | `bytes` | | `LargeBinary` |
+/// | `f32`, `f64` | `f32`, `f64` | `Float32`, `Float64` |
+/// | `str` | `str`, `String`, `&str` | `LargeUtf8` |
+/// | `seq` | `Vec<T>`, `&[T]` | `LargeList` |
+/// | `struct`, `tuple`, `tuple_struct` | `struct S { .. }`, `(T0, T1)` | `Struct` |
+/// | `map` | [`HashMap<K, V>`][std::collections::HashMap], [`BTreeMap<K, V>`][std::collections::BTreeMap] | `Map` |
+/// | `unit_variant`, `struct_variant`, `tuple_variant`, `newtype_variant` | `enum E { .. }` | Dense `Union` |
+///
+///
+/// Enums are mapped to dense Arrow `Union` types, with each variant becoming a separate field:
+///
+/// - Unit variants (`V`) map to the `Null` Arrow type, but can also be serialized as arrow string types
+/// - Newtype variants (`V(T)`) map to the inner type `T`
+/// - Tuple variants or struct variants (`V(T0, T1)`, `V { f0: T0 }`) map to the Arrow `Struct` type
+///
+/// [serde-model]: https://serde.rs/data-model.html
+/// [arrow-model]: https://arrow.apache.org/docs/format/Columnar.html
 #[deny(missing_docs)]
 pub mod schema {
     pub use crate::internal::schema::{

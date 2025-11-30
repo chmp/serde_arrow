@@ -38,7 +38,9 @@ mod bool8;
 mod examples;
 mod primitives;
 mod tuple;
-mod wrappers;
+
+mod wrappers_sequence;
+mod wrappers_struct;
 
 mod issue_74_unknown_fields;
 mod issue_79_declared_but_missing_fields;

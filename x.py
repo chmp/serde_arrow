@@ -161,7 +161,7 @@ def _generate_workflow_check_steps():
     for feature in (*all_arrow2_features, *all_arrow_features):
         yield {
             "name": f"Check {feature}",
-            "run": f"cargo check --all-features --features {feature}",
+            "run": f"cargo check --all-targets --features {feature}",
         }
 
     yield {

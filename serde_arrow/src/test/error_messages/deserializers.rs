@@ -46,20 +46,20 @@ fn example_exhausted() {
 
     let deserializer = Deserializer::new(&schema.fields, views).unwrap();
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     struct S {
         #[allow(dead_code)]
         item: Nested,
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     struct Nested {
         #[allow(dead_code)]
         nested: bool,
     }
 
-    let res = Vec::<S>::deserialize(deserializer);
-    assert_error_contains(&res, "Out of bounds access");
-    assert_error_contains(&res, "field: \"$.item.nested\"");
-    assert_error_contains(&res, "data_type: \"Boolean\"");
+    let err = Vec::<S>::deserialize(deserializer).unwrap_err();
+    assert_error_contains(&err, "Out of bounds access");
+    assert_error_contains(&err, "field: \"$.item.nested\"");
+    assert_error_contains(&err, "data_type: \"Boolean\"");
 }

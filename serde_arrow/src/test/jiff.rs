@@ -15,7 +15,7 @@ fn string_repr_examples() {
     assert_eq!(value::transmute::<String>(&obj).unwrap(), "-000010-10-30");
     assert_eq!(value::transmute::<Date>("-000010-10-30").unwrap(), obj);
     assert_error_contains(
-        &value::transmute::<Date>("-0010-10-30"),
+        &value::transmute::<Date>("-0010-10-30").unwrap_err(),
         "six digit integer",
     );
 
@@ -111,9 +111,9 @@ fn transmute_jiff_chrono() {
         .and_utc();
     let jiff = date(1234, 5, 6).at(7, 8, 9, 0).in_tz("UTC").unwrap();
 
-    assert_error_contains(&value::transmute::<Zoned>(&chrono), "");
+    assert_error_contains(&value::transmute::<Zoned>(&chrono).unwrap_err(), "");
     assert_error_contains(
-        &value::transmute::<chrono::DateTime<chrono::Utc>>(&jiff),
+        &value::transmute::<chrono::DateTime<chrono::Utc>>(&jiff).unwrap_err(),
         "",
     );
 
@@ -131,13 +131,28 @@ fn transmute_jiff_chrono() {
 
 #[test]
 fn invalid_utc_formats() {
-    assert_error_contains(&value::transmute::<Zoned>("2023-12-31T18:30:00+00:00"), "");
-    assert_error_contains(&value::transmute::<Zoned>("2023-12-31T18:30:00Z"), "");
+    assert_error_contains(
+        &value::transmute::<Zoned>("2023-12-31T18:30:00+00:00").unwrap_err(),
+        "",
+    );
+    assert_error_contains(
+        &value::transmute::<Zoned>("2023-12-31T18:30:00Z").unwrap_err(),
+        "",
+    );
 }
 
 #[test]
 fn empty_string_errors() {
-    assert_error_contains(&value::transmute::<Date>(""), "found end of input");
-    assert_error_contains(&value::transmute::<Time>(""), "found end of input");
-    assert_error_contains(&value::transmute::<Zoned>(""), "found end of input");
+    assert_error_contains(
+        &value::transmute::<Date>("").unwrap_err(),
+        "found end of input",
+    );
+    assert_error_contains(
+        &value::transmute::<Time>("").unwrap_err(),
+        "found end of input",
+    );
+    assert_error_contains(
+        &value::transmute::<Zoned>("").unwrap_err(),
+        "found end of input",
+    );
 }

@@ -1,14 +1,19 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{NaiveDate, NaiveDateTime};
-use marrow::array::{Array, PrimitiveArray};
+use marrow::{
+    array::{Array, PrimitiveArray},
+    datatypes::FieldMeta,
+};
+use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 pub trait DatePrimitive:
     TryFrom<i32>
@@ -45,21 +50,24 @@ impl DatePrimitive for i64 {
 
 #[derive(Debug, Clone)]
 pub struct DateBuilder<I: DatePrimitive> {
-    path: String,
+    pub name: String,
     array: PrimitiveArray<I>,
+    metadata: HashMap<String, String>,
 }
 
 impl<I: DatePrimitive> DateBuilder<I> {
-    pub fn new(path: String, is_nullable: bool) -> Self {
+    pub fn new(name: String, is_nullable: bool, metadata: HashMap<String, String>) -> Self {
         Self {
-            path,
+            name,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         }
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         I::ARRAY_BUILDER_VARIANT(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
+            metadata: self.metadata.clone(),
             array: self.array.take(),
         })
     }
@@ -68,8 +76,17 @@ impl<I: DatePrimitive> DateBuilder<I> {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(I::ARRAY_VARIANT(self.array))
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        Ok((I::ARRAY_VARIANT(self.array), meta))
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
     }
 
     fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<I> {
@@ -79,54 +96,57 @@ impl<I: DatePrimitive> DateBuilder<I> {
         let date = s.parse::<NaiveDate>()?;
         let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH).num_days();
         let Ok(days_since_epoch) = I::try_from(duration_since_epoch) else {
-            fail!("cannot convert {duration_since_epoch} to {I}", I = I::NAME);
+            fail!("Cannot convert {duration_since_epoch} to {I}", I = I::NAME);
         };
 
         Ok(days_since_epoch * I::DAY_TO_VALUE_FACTOR)
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
 impl<I: DatePrimitive> Context for DateBuilder<I> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
+        set_default(annotations, "field", &self.name);
         set_default(annotations, "data_type", I::DATA_TYPE_NAME);
     }
 }
 
-impl<I: DatePrimitive> SimpleSerializer for DateBuilder<I> {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+impl<'a, D: DatePrimitive> Serializer for &'a mut DateBuilder<D> {
+    impl_serializer!(
+        'a, DateBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i32,
+        override serialize_i64,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.array.push_scalar_none()
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+    fn serialize_str(self, v: &str) -> Result<()> {
+        let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
+        self.array.push_scalar_value(days_since_epoch)
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let days_since_epoch = self.parse_str_to_days_since_epoch(v)?;
-            self.array.push_scalar_value(days_since_epoch)
-        })
-        .ctx(self)
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        let Ok(v) = D::try_from(v) else {
+            fail!("cannot convert {v} to {D}", D = D::NAME);
+        };
+        self.array.push_scalar_value(v)
     }
 
-    fn serialize_i32(&mut self, v: i32) -> Result<()> {
-        try_(|| {
-            let Ok(v) = I::try_from(v) else {
-                fail!("cannot convert {v} to {I}", I = I::NAME);
-            };
-            self.array.push_scalar_value(v)
-        })
-        .ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| {
-            let Ok(v) = I::try_from(v) else {
-                fail!("cannot convert {v} to {I}", I = I::NAME);
-            };
-            self.array.push_scalar_value(v)
-        })
-        .ctx(self)
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        let Ok(v) = D::try_from(v) else {
+            fail!("cannot convert {v} to {D}", D = D::NAME);
+        };
+        self.array.push_scalar_value(v)
     }
 }

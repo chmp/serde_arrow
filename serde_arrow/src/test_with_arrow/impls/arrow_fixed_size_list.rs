@@ -68,8 +68,8 @@ fn incorrect_number_of_elements() {
     }]))
     .unwrap();
 
-    let res = crate::to_record_batch(&fields, &items);
-    assert_error_contains(&res, "Invalid number of elements for FixedSizedList(2).");
+    let err = crate::to_record_batch(&fields, &items).unwrap_err();
+    assert_error_contains(&err, "Invalid number of elements for FixedSizedList(2).");
 }
 
 #[test]
@@ -84,4 +84,66 @@ fn deserialize_from_schema() {
     let fields_from_fields = Vec::<FieldRef>::from_value(&fields).unwrap();
 
     assert_eq!(fields, fields_from_fields);
+}
+
+#[test]
+fn tuple_as_fixed_size_list() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::Tuple(vec![
+            Value::U8(0),
+            Value::U8(1),
+            Value::U8(2),
+        ]))]);
+}
+
+#[test]
+fn tuple_struct_as_fixed_size_list() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::TupleStruct(
+            "Tuple",
+            vec![Value::U8(0), Value::U8(1), Value::U8(2)],
+        ))]);
+}
+
+#[test]
+fn tuple_variant_as_fixed_size_list() {
+    use crate::internal::utils::value::{Value, Variant};
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::TupleVariant(
+            Variant("Tuple", 0, "Variant"),
+            vec![Value::U8(0), Value::U8(1), Value::U8(2)],
+        ))]);
+}
+
+#[test]
+fn bytes_size_list() {
+    use crate::internal::utils::value::Value;
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(&[Item(Value::Bytes(vec![0, 1, 2]))]);
 }

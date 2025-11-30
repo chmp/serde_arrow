@@ -55,8 +55,8 @@ impl<O: NamedType + Offset> Context for ListDeserializer<'_, O> {
             annotations,
             "data_type",
             match O::NAME {
-                "i32" => "List(..)",
-                "i64" => "LargeList(..)",
+                "i32" => "List",
+                "i64" => "LargeList",
                 _ => "<unknown>",
             },
         );

@@ -1,33 +1,44 @@
-use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
     Rng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_arrow::marrow::datatypes::Field;
+use serde_arrow::schema::SchemaLike;
 
-// required for arrow2_convert
-use serde_arrow::_impl::arrow2;
+const NUM_REPETITIONS: usize = 100_000;
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+fn main() {
+    let items = (0..100)
+        .map(|_| Item::random(&mut rand::thread_rng()))
+        .collect::<Vec<_>>();
+
+    let fields = Vec::<Field>::from_samples(&items, Default::default()).unwrap();
+
+    for _ in 0..NUM_REPETITIONS {
+        let arrays = serde_arrow::to_marrow(&fields, &items).unwrap();
+        criterion::black_box(arrays);
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct Item {
     string: String,
     points: Vec<Point>,
     child: SubItem,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize)]
 struct Point {
     x: f32,
     y: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize)]
 struct SubItem {
-    first: bool,
-    second: f64,
-    // TODO: fix this
-    // c: Option<f32>,
+    a: bool,
+    b: f64,
 }
 
 impl Item {
@@ -46,12 +57,9 @@ impl Item {
                 })
                 .collect(),
             child: SubItem {
-                first: Standard.sample(rng),
-                second: Standard.sample(rng),
-                // c: Standard.sample(rng),
+                a: Standard.sample(rng),
+                b: Standard.sample(rng),
             },
         }
     }
 }
-
-crate::groups::impls::define_benchmark!(complex_common, ty = Item, n = [1_000],);

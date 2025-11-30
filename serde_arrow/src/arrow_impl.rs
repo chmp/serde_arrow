@@ -67,7 +67,7 @@ pub fn to_arrow<T: Serialize>(fields: &[FieldRef], items: T) -> Result<Vec<Array
     items
         .serialize(Serializer::new(builder))?
         .into_inner()
-        .to_arrow()
+        .into_arrow()
 }
 
 /// Deserialize items from arrow arrays (*requires one of the `arrow-*`
@@ -148,7 +148,7 @@ pub fn to_record_batch<T: Serialize>(fields: &[FieldRef], items: &T) -> Result<R
     items
         .serialize(Serializer::new(builder))?
         .into_inner()
-        .to_record_batch()
+        .into_record_batch()
 }
 
 /// Deserialize items from a record batch (*requires one of the `arrow-*`
@@ -191,8 +191,14 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct `arrow` arrays and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_arrow(&mut self) -> Result<Vec<ArrayRef>> {
-        Ok(self
-            .build_arrays()?
+        self.take().into_arrow()
+    }
+
+    /// Consume the builder and construct the `arrow` arrays (*requires one of
+    /// the `arrow-*` features*)
+    pub fn into_arrow(self) -> Result<Vec<ArrayRef>> {
+        let (arrays, _) = self.into_arrays_and_field_metas()?;
+        Ok(arrays
             .into_iter()
             .map(ArrayRef::try_from)
             .collect::<Result<_, MarrowError>>()?)
@@ -201,8 +207,27 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Construct a [`RecordBatch`] and reset the builder (*requires one of the
     /// `arrow-*` features*)
     pub fn to_record_batch(&mut self) -> Result<RecordBatch> {
-        let arrays = self.to_arrow()?;
-        let fields = Vec::<FieldRef>::try_from(&self.schema)?;
+        self.take().into_record_batch()
+    }
+
+    /// Construct a [`RecordBatch`] and consume the builder (*requires one of the
+    /// `arrow-*` features*)
+    pub fn into_record_batch(self) -> Result<RecordBatch> {
+        let (arrays, metas) = self.into_arrays_and_field_metas()?;
+
+        let arrays = arrays
+            .into_iter()
+            .map(ArrayRef::try_from)
+            .collect::<Result<Vec<ArrayRef>, MarrowError>>()?;
+
+        let mut fields = Vec::with_capacity(arrays.len());
+        for (array, meta) in std::iter::zip(&arrays, metas) {
+            fields.push(FieldRef::new(
+                ArrowField::new(meta.name, array.data_type().clone(), meta.nullable)
+                    .with_metadata(meta.metadata),
+            ));
+        }
+
         let schema = Schema::new(fields);
         RecordBatch::try_new(Arc::new(schema), arrays)
             .map_err(|err| Error::custom_from(err.to_string(), err))

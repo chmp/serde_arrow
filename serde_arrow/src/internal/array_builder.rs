@@ -1,9 +1,13 @@
 use serde::Serialize;
 
-use marrow::array::Array;
+use marrow::{
+    array::Array,
+    datatypes::{Field, FieldMeta},
+};
 
-use crate::internal::{
-    error::Result, schema::SerdeArrowSchema, serialization::OuterSequenceBuilder,
+use crate::{
+    internal::{error::Result, schema::SerdeArrowSchema, serialization::StructBuilder},
+    Serializer,
 };
 
 /// Construct arrays by pushing individual records
@@ -49,18 +53,23 @@ use crate::internal::{
 /// # fn main() {}
 /// ```
 pub struct ArrayBuilder {
-    pub(crate) builder: OuterSequenceBuilder,
-    #[allow(unused)]
-    pub(crate) schema: SerdeArrowSchema,
+    pub(crate) builder: StructBuilder,
 }
 
 impl ArrayBuilder {
     /// Construct an array builder from an [`SerdeArrowSchema`]
     pub fn new(schema: SerdeArrowSchema) -> Result<Self> {
+        Self::from_marrow_vec(schema.fields)
+    }
+
+    pub(crate) fn from_marrow_vec(fields: Vec<Field>) -> Result<Self> {
         Ok(Self {
-            builder: OuterSequenceBuilder::new(&schema)?,
-            schema,
+            builder: StructBuilder::from_fields(fields)?,
         })
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.builder.reserve(additional);
     }
 }
 
@@ -74,21 +83,32 @@ impl ArrayBuilder {
     /// Add a single record to the arrays
     ///
     pub fn push<T: Serialize>(&mut self, item: T) -> Result<()> {
-        self.builder.push(item)
+        self.builder.serialize_value(item)
     }
 
     /// Add multiple records to the arrays
     ///
     pub fn extend<T: Serialize>(&mut self, items: T) -> Result<()> {
-        self.builder.extend(items)
+        items.serialize(Serializer::new(self))?;
+        Ok(())
     }
 
-    pub(crate) fn build_arrays(&mut self) -> Result<Vec<Array>> {
-        let mut arrays = Vec::new();
-        for field in self.builder.take_records()? {
-            arrays.push(field.into_array()?);
+    pub(crate) fn take(&mut self) -> Self {
+        Self {
+            builder: self.builder.take_self(),
         }
-        Ok(arrays)
+    }
+
+    #[inline]
+    pub(crate) fn into_arrays_and_field_metas(self) -> Result<(Vec<Array>, Vec<FieldMeta>)> {
+        let mut arrays = Vec::with_capacity(self.builder.num_fields());
+        let mut metas = Vec::with_capacity(self.builder.num_fields());
+        for builder in self.builder.fields {
+            let (array, meta) = builder.into_array_and_field_meta()?;
+            arrays.push(array);
+            metas.push(meta);
+        }
+        Ok((arrays, metas))
     }
 }
 

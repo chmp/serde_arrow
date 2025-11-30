@@ -1,15 +1,38 @@
 # Change log
 
+## 0.14.0
+
+This release refactors the implementation for serialization. All serializers now
+directly implement `serde::Serializer` instead of a custom trait. There are no
+breaking changes to the public interface, except for a polish of error messages.
+
+- Performance improvements:
+  - Avoid unncessary allocations in serialization
+  - Reserve elements up front
+- Improved error reporting in serialization:
+  - The field and data type is now reported more consistently across builders
+- More consistent handling of the serde data model in serialization:
+  - Tuple variants, tuple structs can be used where tuples could be used
+  - Treat newtype variants as transparents wrappers
+  - Struct variants can be used where structs could be used
+  - Support tuples, tuple, structs, tuple variants, bytes for `FixedSizeList`
+  - Allow to serialize sequences for structs, similar to tuples
+- Add options to consume the builder `ArrayBuilder::into_arrow`,
+  `ArrayBuilder::into_record_batch`, `ArrayBuilder::into_marrow` that avoid
+  additional allocations for metadata
+
 ## 0.13.7
 
-- [@lonless9](https://github.com/lonless9) Add 57 support + Release 0.13.7 ([#287](https://github.com/chmp/serde_arrow/pull/287))
+- [@lonless9](https://github.com/lonless9) Add 57 support + Release 0.13.7
+  ([#287](https://github.com/chmp/serde_arrow/pull/287))
 
 ## 0.13.6
 
-- [@jpopesculian](https://github.com/jpopesculian) added the option `bytes_as_large_binary`
-  to `TracingOptions` ([#281](https://github.com/chmp/serde_arrow/pull/282))
-- [@jpopesculian](https://github.com/jpopesculian) added support to serialize strings as
-  bytes ([#281](https://github.com/chmp/serde_arrow/pull/281))
+- [@jpopesculian](https://github.com/jpopesculian) added the option
+  `bytes_as_large_binary` to `TracingOptions`
+  ([#281](https://github.com/chmp/serde_arrow/pull/282))
+- [@jpopesculian](https://github.com/jpopesculian) added support to serialize
+  strings as bytes ([#281](https://github.com/chmp/serde_arrow/pull/281))
 
 ## 0.13.5
 
@@ -17,14 +40,15 @@
 
 ## 0.13.4
 
-- Allow dictionaries with nullable values to be deserialized, if all values are valid
+- Allow dictionaries with nullable values to be deserialized, if all values are
+  valid
 
 ### Thanks
 
 The following people contributed to this release:
 
-- [@ryzhyk](https://github.com/ryzhyk) improved the null checks in dictionary deserialization
-  ([#277](https://github.com/chmp/serde_arrow/pull/277))
+- [@ryzhyk](https://github.com/ryzhyk) improved the null checks in dictionary
+  deserialization ([#277](https://github.com/chmp/serde_arrow/pull/277))
 
 ## 0.13.3
 
@@ -33,60 +57,66 @@ The following people contributed to this release:
 ## 0.13.2
 
 - Add `arrow=55` support
-- Allow primitive to string conversion ([#272](https://github.com/chmp/serde_arrow/pull/272))
-  - Adds the option `allow_to_string` to `TracerOptions` to allow numbers, booleans and chars
-    to coerce to strings (`false` by default)
+- Allow primitive to string conversion
+  ([#272](https://github.com/chmp/serde_arrow/pull/272))
+  - Adds the option `allow_to_string` to `TracerOptions` to allow numbers,
+    booleans and chars to coerce to strings (`false` by default)
   - Allows for numbers, booleans and chars to be serialized to strings
 
 ### Thanks
 
 The following people contributed to this release:
 
-- [@jpopesculian](https://github.com/jpopesculian) added support for serializing primitives to
-  string ([#272](https://github.com/chmp/serde_arrow/pull/272))
+- [@jpopesculian](https://github.com/jpopesculian) added support for serializing
+  primitives to string ([#272](https://github.com/chmp/serde_arrow/pull/272))
 
 ## 0.13.1
 
-- Allow to use enums / unions in nullable structs. The arrow format requires that each child field
-  of a null struct value contains a dummy value. For union fields such a dummy value was not
-  supported before. With this release the following dummy values for unions are used:
+- Allow to use enums / unions in nullable structs. The arrow format requires
+  that each child field of a null struct value contains a dummy value. For union
+  fields such a dummy value was not supported before. With this release the
+  following dummy values for unions are used:
   - For unions, the first variant is used as a dummy
-  - For dictionary encoded strings, the first non-null value is used as a dummy value or an empty
-    string if no values are encountered
+  - For dictionary encoded strings, the first non-null value is used as a dummy
+    value or an empty string if no values are encountered
 
 ### Thanks
 
 The following people contributed to this release:
 
-- [@bartek358](https://github.com/bartek358) discovered that unions in nullable structs are not
-  supported and fixed the implementation in ([#265](https://github.com/chmp/serde_arrow/pull/265))
+- [@bartek358](https://github.com/bartek358) discovered that unions in nullable
+  structs are not supported and fixed the implementation in
+  ([#265](https://github.com/chmp/serde_arrow/pull/265))
 
 ## 0.13.0
 
-- Migrate internal array abstraction to  [`marrow`](https://github.com/chmp/marrow)
+- Migrate internal array abstraction to
+  [`marrow`](https://github.com/chmp/marrow)
   - Breaking change: Dictionary data types no longer support sorting
-  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow::error::ArrowError>`
-  - Breaking change: `serde_arrow::Error` no longer implements `From<arrow2::error::Error>`
+  - Breaking change: `serde_arrow::Error` no longer implements
+    `From<arrow::error::ArrowError>`
+  - Breaking change: `serde_arrow::Error` no longer implements
+    `From<arrow2::error::Error>`
 - Add support for view types `Utf8View`, `BytesView`
-- Add APIs to interact with `marorw` arrays directly. Allows to use `serde_arrow` with different
-  arrow versions at the same time.
-- Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp` for date times
-  - Trace date time strings as `Timestamp(Millisecond, tz)` with `tz` either being `None` or
-    `Some("UTC")`
+- Add APIs to interact with `marorw` arrays directly. Allows to use
+  `serde_arrow` with different arrow versions at the same time.
+- Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp`
+  for date times
+  - Trace date time strings as `Timestamp(Millisecond, tz)` with `tz` either
+    being `None` or `Some("UTC")`
   - Remove the `UtcAsDate64Str` and `NaiveAsDate64Str` strategies
 - Fix bug in deserialization of sub seconds for `Time32` and `Time64`
 - Fix bug that prevented to deserialize `String` from `Decimal` arrays
 - Improve performance when deserializing from sliced arrays
-- Allow to treat deserializers as sequence of deserializers by iterating over them or accessing
-  individual items
+- Allow to treat deserializers as sequence of deserializers by iterating over
+  them or accessing individual items
 
 ### Thanks
 
 The following people contributed to this release:
 
-- [@ryzhyk](https://github.com/ryzhyk) discovered and fixed a bug introduced during refactoring
-  ([#261](https://github.com/chmp/serde_arrow/pull/261))
-
+- [@ryzhyk](https://github.com/ryzhyk) discovered and fixed a bug introduced
+  during refactoring ([#261](https://github.com/chmp/serde_arrow/pull/261))
 
 ## 0.12.3
 
@@ -96,37 +126,40 @@ The following people contributed to this release:
 
 Bug fixes:
 
-- Fixed deserialization from sliced arrays ([#248](https://github.com/chmp/serde_arrow/issues/248)).
-  Note that the current solution requires up front work when constructing the array deserializers,
-  as described in the issue. The removal of the performance penalty is tracked in
-  ([#250](https://github.com/chmp/serde_arrow/issues/250))
+- Fixed deserialization from sliced arrays
+  ([#248](https://github.com/chmp/serde_arrow/issues/248)). Note that the
+  current solution requires up front work when constructing the array
+  deserializers, as described in the issue. The removal of the performance
+  penalty is tracked in ([#250](https://github.com/chmp/serde_arrow/issues/250))
 
 ### Thanks
 
 - [@jkylling](https://github.com/jkylling) for reporting
-  ([#248](https://github.com/chmp/serde_arrow/issues/248)) and for discussing potential solutions
+  ([#248](https://github.com/chmp/serde_arrow/issues/248)) and for discussing
+  potential solutions
 
 ## 0.12.1
 
 New features
 
-- Add support for various `jiff` types (`jiff::Date`, `jiff::Time`, `jiff::DateTime`,
-  `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
-- Add support for tracing lists as `List` instead of `LargeList` by setting `sequence_as_large_list`
-  to `false` in `TracingOptions`
-- Add support for tracing strings and strings in dictionaries as `Utf8` instead of `LargeUtf8` by
-  setting `strings_as_large_utf8` to `false` in `TracingOptions`
-- Add support to auto-detect dates (`2024-09-30`, mapped to `Date32`) and times (`12:00:00`, mapped
-  to `Time64(Nanosecond))`) in `from_samples`
-- Improved error messages for non self describing types (`chrono::*`, `uuid::Uuid`,
-  `std::net::IpAddr`)
+- Add support for various `jiff` types (`jiff::Date`, `jiff::Time`,
+  `jiff::DateTime`, `jiff::Timestamp`, `jiff::Span`, `jiff::SignedDuration`)
+- Add support for tracing lists as `List` instead of `LargeList` by setting
+  `sequence_as_large_list` to `false` in `TracingOptions`
+- Add support for tracing strings and strings in dictionaries as `Utf8` instead
+  of `LargeUtf8` by setting `strings_as_large_utf8` to `false` in
+  `TracingOptions`
+- Add support to auto-detect dates (`2024-09-30`, mapped to `Date32`) and times
+  (`12:00:00`, mapped to `Time64(Nanosecond))`) in `from_samples`
+- Improved error messages for non self describing types (`chrono::*`,
+  `uuid::Uuid`, `std::net::IpAddr`)
 
 ### Thanks
 
 The following people contributed to this release:
 
-- [@jkylling](https://github.com/jkylling) added support for tracing lists as `List` and strings as
-  `Utf8`
+- [@jkylling](https://github.com/jkylling) added support for tracing lists as
+  `List` and strings as `Utf8`
 
 ## 0.12.0
 
@@ -134,7 +167,8 @@ Refactor the underlying implementation to prepare for further development
 
 New features
 
-- Add `Binary`, `LargeBinary`, `FixedSizeBinary(n)`, `FixedSizeList(n)` support for `arrow2`
+- Add `Binary`, `LargeBinary`, `FixedSizeBinary(n)`, `FixedSizeList(n)` support
+  for `arrow2`
 - Add support to serialize / deserialize `bool` from integer arrays
 - Add a helper to construct `Bool8` arrays
 - Include the path of the field that caused an error in the error message
@@ -242,7 +276,8 @@ Further changes:
 - Add `to_record_batch`, `from_record_batch` to offer more streamlined APIs for
   working with record batches
 - Allow to perform zero-copy deserialization from arrow arrays
-- Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g., `let fields
+- Allow to use `arrow` schemas in `SchemaLike::from_value()`, e.g.,
+  `let fields
   = Vec::<Field>::from_value(&batch.schema())`.
 - Implement `SchemaLike` for `arrow::datatypes::FieldRef`s
 - Fix bug in `SchemaLike::from_type()` for nested unions
@@ -315,8 +350,8 @@ Deprecations (see the documentation of deprecated items for how to migrate):
 - Rename `serde_arrow::schema::Schema` to
   `serde_arrow::schema::SerdeArrowSchema` to prevent name clashes with the
   schema types of `arrow` and `arrow2`.
-- Deprecate `serialize_into_arrays`, `deserialize_from_arrays` methods in favor of
-  `to_arrow` / `to_arrow2` and `from_arrow` / `from_arrow2`
+- Deprecate `serialize_into_arrays`, `deserialize_from_arrays` methods in favor
+  of `to_arrow` / `to_arrow2` and `from_arrow` / `from_arrow2`
 - Deprecate `serialize_into_fields` methods in favor of
   `SchemaLike::from_samples`
 - Deprecated single item methods in favor of using the `Items` and `Item`
@@ -324,7 +359,7 @@ Deprecations (see the documentation of deprecated items for how to migrate):
 
 ## 0.8.0
 
-Make bytecode based serialization  and deserialization the default
+Make bytecode based serialization and deserialization the default
 
 - Remove state machine serialization, and use bytecode serialization as the
   default. This change results in a 2.6x speed up for the default configuration
@@ -377,16 +412,16 @@ Bug fixes:
 
 - **Breaking change**: add new `Item` event emitted before list items, tuple
   items, or map entries
-- Add support for `arrow=38` and `arrow=39` with the  `arrow-38` and `arrow-39`
+- Add support for `arrow=38` and `arrow=39` with the `arrow-38` and `arrow-39`
   features
 - Add support for an experimental bytecode serializer that shows speeds of up to
   4x. Enable it with
 
-    ```rust
-    serde_arrow::experimental::configure(|config| {
-        config.serialize_with_bytecode = true;
-    });
-    ```
+  ```rust
+  serde_arrow::experimental::configure(|config| {
+      config.serialize_with_bytecode = true;
+  });
+  ```
 
   This setting is global and used for all calls to `serialize_to_array` and
   `serialize_to_arrays`. At the moment the following features are not supported
@@ -410,8 +445,9 @@ The following people contributed to this release:
 
 ### Add support for arrow2
 
-Now both [arrow][] and [arrow2][] are supported. Use the features to select the
-relevant version of either crate. E.g., to use `serde_arrow` with `arrow=0.36`:
+Now both [arrow][arrow] and [arrow2][arrow2] are supported. Use the features to
+select the relevant version of either crate. E.g., to use `serde_arrow` with
+`arrow=0.36`:
 
 ```
 serde_arrow = { version = "0.6", features = ["arrow-36"] }

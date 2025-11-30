@@ -109,7 +109,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// `arrow2-*` features*)
     pub fn to_arrow2(&mut self) -> Result<Vec<Box<dyn Array>>> {
         Ok(self
-            .build_arrays()?
+            .to_marrow()?
             .into_iter()
             .map(Box::<dyn Array>::try_from)
             .collect::<Result<_, MarrowError>>()?)

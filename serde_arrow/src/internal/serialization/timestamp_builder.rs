@@ -1,49 +1,55 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use marrow::{
     array::{Array, PrimitiveArray, TimestampArray},
-    datatypes::TimeUnit,
+    datatypes::{FieldMeta, TimeUnit},
 };
+use serde::Serialize;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, Context, ContextSupport, Result},
+    serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
-use super::{array_builder::ArrayBuilder, simple_serializer::SimpleSerializer};
+use super::array_builder::ArrayBuilder;
 
 #[derive(Debug, Clone)]
 pub struct TimestampBuilder {
-    path: String,
+    pub name: String,
     pub unit: TimeUnit,
     pub timezone: Option<String>,
     pub utc: bool,
     pub array: PrimitiveArray<i64>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl TimestampBuilder {
     pub fn new(
-        path: String,
+        name: String,
         unit: TimeUnit,
         timezone: Option<String>,
         is_nullable: bool,
+        metadata: HashMap<String, String>,
     ) -> Result<Self> {
         Ok(Self {
             utc: is_utc_tz(timezone.as_deref())?,
-            path,
+            name,
             unit,
             timezone,
             array: PrimitiveArray::new(is_nullable),
+            metadata,
         })
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
         ArrayBuilder::Timestamp(Self {
-            path: self.path.clone(),
+            name: self.name.clone(),
             unit: self.unit,
             timezone: self.timezone.clone(),
             utc: self.utc,
             array: self.array.take(),
+            metadata: self.metadata.clone(),
         })
     }
 
@@ -51,13 +57,31 @@ impl TimestampBuilder {
         self.array.is_nullable()
     }
 
-    pub fn into_array(self) -> Result<Array> {
-        Ok(Array::Timestamp(TimestampArray {
+    pub fn into_array_and_field_meta(self) -> Result<(Array, FieldMeta)> {
+        let meta = FieldMeta {
+            name: self.name,
+            metadata: self.metadata,
+            nullable: self.array.is_nullable(),
+        };
+        let array = Array::Timestamp(TimestampArray {
             unit: self.unit,
             timezone: self.timezone,
             validity: self.array.validity,
             values: self.array.values,
-        }))
+        });
+        Ok((array, meta))
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.array.reserve(additional);
+    }
+
+    pub fn serialize_default_value(&mut self) -> Result<()> {
+        self.array.push_scalar_default().ctx(self)
+    }
+
+    pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {
+        value.serialize(&mut *self).ctx(self)
     }
 }
 
@@ -100,29 +124,37 @@ impl TimestampBuilder {
 
 impl Context for TimestampBuilder {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "field", &self.path);
-        set_default(annotations, "data_type", "Timestamp(..)");
+        set_default(annotations, "field", &self.name);
+        set_default(
+            annotations,
+            "data_type",
+            format!(
+                "Timestamp({unit}, {tz:?})",
+                unit = self.unit,
+                tz = self.timezone
+            ),
+        );
     }
 }
 
-impl SimpleSerializer for TimestampBuilder {
-    fn serialize_default(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_default()).ctx(self)
+impl<'a> serde::Serializer for &'a mut TimestampBuilder {
+    impl_serializer!(
+        'a, TimestampBuilder;
+        override serialize_none,
+        override serialize_str,
+        override serialize_i64,
+    );
+
+    fn serialize_none(self) -> Result<()> {
+        self.array.push_scalar_none()
     }
 
-    fn serialize_none(&mut self) -> Result<()> {
-        try_(|| self.array.push_scalar_none()).ctx(self)
+    fn serialize_str(self, v: &str) -> Result<()> {
+        let timestamp = self.parse_str_to_timestamp(v)?;
+        self.array.push_scalar_value(timestamp)
     }
 
-    fn serialize_str(&mut self, v: &str) -> Result<()> {
-        try_(|| {
-            let timestamp = self.parse_str_to_timestamp(v)?;
-            self.array.push_scalar_value(timestamp)
-        })
-        .ctx(self)
-    }
-
-    fn serialize_i64(&mut self, v: i64) -> Result<()> {
-        try_(|| self.array.push_scalar_value(v)).ctx(self)
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        self.array.push_scalar_value(v)
     }
 }
