@@ -1,6 +1,6 @@
 # Change log
 
-## 0.14.0
+## 0.14.0 (pre-release)
 
 This release refactors the implementation for serialization. All serializers now
 directly implement `serde::Serializer` instead of a custom trait. There are no
