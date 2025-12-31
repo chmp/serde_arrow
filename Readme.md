@@ -76,8 +76,10 @@ This `RecordBatch` can now be written to disk using [ArrowWriter] from the [parq
 
 
 ```rust
+use use parquet::arrow::ArrowWriter;
+
 let file = File::create("example.pq");
-let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
+let mut writer = ArrowWriter::try_new(file?, batch.schema(), None)?;
 writer.write(&batch)?;
 writer.close()?;
 ```
