@@ -140,10 +140,7 @@ impl StructBuilder {
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
                 if !field.is_nullable() {
-                    fail!(
-                        "Missing non-nullable field {:?} in struct",
-                        field.get_name(),
-                    );
+                    return Err(Error::missing_field(field.get_name()));
                 }
 
                 field.serialize_none()?;
