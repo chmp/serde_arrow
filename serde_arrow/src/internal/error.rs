@@ -82,9 +82,16 @@ impl<E: Into<Error>> ContextSupport for E {
     type Output = Error;
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
-        let Error::Custom(mut error) = self.into();
-        context.annotate(&mut error.0.annotations);
-        Error::Custom(error)
+        match self.into() {
+            Error::Custom(mut error) => {
+                context.annotate(&mut error.0.annotations);
+                Error::Custom(error)
+            }
+            Error::Data(mut error) => {
+                context.annotate(error.annotations_mut());
+                Error::Data(error)
+            }
+        }
     }
 }
 
@@ -93,9 +100,6 @@ impl<E: Into<Error>> ContextSupport for E {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Common errors during `serde_arrow`'s usage
-///
-/// At the moment only a generic string error is supported, but it is planned to offer concrete
-/// types to match against.
 ///
 /// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`] for details. This
 /// backtrace is included when printing the error. If the error is caused by another error, that
@@ -110,7 +114,88 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(PartialEq)]
 #[non_exhaustive]
 pub enum Error {
+    /// A generic error with a custom message
     Custom(CustomError),
+    /// A data validation error
+    Data(DataError),
+}
+
+/// Data validation errors
+///
+/// These errors occur when data fails validation constraints, such as
+/// null values in non-nullable fields or missing required fields.
+#[derive(Debug)]
+pub struct DataError {
+    pub kind: DataErrorKind,
+    backtrace: Backtrace,
+    annotations: BTreeMap<String, String>,
+}
+
+impl PartialEq for DataError {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare kind and annotations, but not backtrace
+        self.kind == other.kind && self.annotations == other.annotations
+    }
+}
+
+/// The specific kind of data validation error
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DataErrorKind {
+    /// Attempted to write null to a non-nullable field
+    NullabilityViolation {
+        /// The field name, if known
+        field: Option<String>,
+    },
+    /// Missing required field in struct
+    MissingField {
+        /// The name of the missing field
+        field_name: String,
+    },
+}
+
+/// Classifies an error for pattern matching
+///
+/// Use [`Error::kind()`] to get the kind of an error for matching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ErrorKind {
+    /// A generic error with a custom message
+    Custom,
+    /// Attempted to write null to a non-nullable field
+    NullabilityViolation,
+    /// Missing required field in struct
+    MissingField,
+}
+
+impl DataError {
+    fn backtrace(&self) -> &Backtrace {
+        &self.backtrace
+    }
+
+    fn annotations(&self) -> &BTreeMap<String, String> {
+        &self.annotations
+    }
+
+    fn annotations_mut(&mut self) -> &mut BTreeMap<String, String> {
+        &mut self.annotations
+    }
+}
+
+impl std::fmt::Display for DataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            DataErrorKind::NullabilityViolation { field: Some(name) } => {
+                write!(f, "Cannot push null for non-nullable field {name:?}")
+            }
+            DataErrorKind::NullabilityViolation { field: None } => {
+                write!(f, "Cannot push null for non-nullable array")
+            }
+            DataErrorKind::MissingField { field_name } => {
+                write!(f, "Missing non-nullable field {field_name:?} in struct")
+            }
+        }
+    }
 }
 
 /// Error creation
@@ -135,19 +220,46 @@ impl Error {
             annotations: BTreeMap::new(),
         })))
     }
+
+    /// Create an error for a null value in a non-nullable field
+    pub fn nullability_violation(field: Option<&str>) -> Self {
+        Self::Data(DataError {
+            kind: DataErrorKind::NullabilityViolation {
+                field: field.map(Into::into),
+            },
+            backtrace: Backtrace::capture(),
+            annotations: BTreeMap::new(),
+        })
+    }
+
+    /// Create an error for a missing required field
+    pub fn missing_field(field_name: &str) -> Self {
+        Self::Data(DataError {
+            kind: DataErrorKind::MissingField {
+                field_name: field_name.to_owned(),
+            },
+            backtrace: Backtrace::capture(),
+            annotations: BTreeMap::new(),
+        })
+    }
 }
 
 /// Access information about the error
 impl Error {
-    pub fn message(&self) -> &str {
+    /// Get the error message
+    ///
+    /// For structured errors, this returns a generated message describing the error.
+    pub fn message(&self) -> String {
         match self {
-            Self::Custom(err) => &err.0.message,
+            Self::Custom(err) => err.0.message.clone(),
+            Self::Data(err) => err.to_string(),
         }
     }
 
     pub fn backtrace(&self) -> &Backtrace {
         match self {
             Self::Custom(err) => &err.0.backtrace,
+            Self::Data(err) => err.backtrace(),
         }
     }
 
@@ -155,13 +267,49 @@ impl Error {
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
         match self {
             Self::Custom(err) => Some(&err.0.annotations),
+            Self::Data(err) => Some(err.annotations()),
         }
     }
 
     pub(crate) fn modify_message<F: FnOnce(&mut String)>(&mut self, func: F) {
-        let Error::Custom(this) = self;
-        let inner = this.0.as_mut();
-        func(&mut inner.message);
+        if let Error::Custom(this) = self {
+            let inner = this.0.as_mut();
+            func(&mut inner.message);
+        }
+        // Data errors have fixed messages, no modification needed
+    }
+
+    /// Get the kind of this error for pattern matching
+    pub fn kind(&self) -> ErrorKind {
+        match self {
+            Self::Custom(_) => ErrorKind::Custom,
+            Self::Data(err) => match &err.kind {
+                DataErrorKind::NullabilityViolation { .. } => ErrorKind::NullabilityViolation,
+                DataErrorKind::MissingField { .. } => ErrorKind::MissingField,
+            },
+        }
+    }
+
+    /// Returns `true` if this is a nullability violation error
+    pub fn is_nullability_violation(&self) -> bool {
+        matches!(
+            self,
+            Self::Data(DataError {
+                kind: DataErrorKind::NullabilityViolation { .. },
+                ..
+            })
+        )
+    }
+
+    /// Returns `true` if this is a missing field error
+    pub fn is_missing_field(&self) -> bool {
+        matches!(
+            self,
+            Self::Data(DataError {
+                kind: DataErrorKind::MissingField { .. },
+                ..
+            })
+        )
     }
 }
 
@@ -240,10 +388,12 @@ impl std::fmt::Display for BacktraceDisplay<'_> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        let Self::Custom(this) = self;
-        match this.0.cause.as_ref() {
-            Some(cause) => Some(cause.as_ref()),
-            None => None,
+        match self {
+            Self::Custom(this) => match this.0.cause.as_ref() {
+                Some(cause) => Some(cause.as_ref()),
+                None => None,
+            },
+            Self::Data(_) => None,
         }
     }
 }
@@ -273,7 +423,9 @@ macro_rules! fail {
         {
             #[allow(unused)]
             use $crate::internal::error::Context;
-            let $crate::internal::error::Error::Custom(mut err) = $crate::internal::error::Error::custom(format!($($tt)*));
+            let $crate::internal::error::Error::Custom(mut err) = $crate::internal::error::Error::custom(format!($($tt)*)) else {
+                unreachable!("Error::custom always returns Custom variant")
+            };
             $context.annotate(&mut err.0.annotations);
             return Err($crate::internal::error::Error::Custom(err));
         }
