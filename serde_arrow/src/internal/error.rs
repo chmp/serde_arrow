@@ -213,7 +213,6 @@ impl Error {
         if let ErrorKind::Custom { message } = &mut self.kind {
             func(message);
         }
-        // Structured errors have fixed messages, no modification needed
     }
 
     /// Get the kind of this error for pattern matching
