@@ -107,7 +107,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub struct Error {
     kind: ErrorKind,
     backtrace: Backtrace,
-    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    cause: Option<Box<dyn std::error::Error + Send + Sync>>,
     pub(crate) annotations: BTreeMap<String, String>,
 }
 
@@ -147,7 +147,7 @@ impl Error {
         Self {
             kind: ErrorKind::Custom { message },
             backtrace: Backtrace::capture(),
-            source: None,
+            cause: None,
             annotations: BTreeMap::new(),
         }
     }
@@ -159,7 +159,7 @@ impl Error {
         Self {
             kind: ErrorKind::Custom { message },
             backtrace: Backtrace::capture(),
-            source: Some(Box::new(cause)),
+            cause: Some(Box::new(cause)),
             annotations: BTreeMap::new(),
         }
     }
@@ -171,7 +171,7 @@ impl Error {
                 field: field.map(Into::into),
             },
             backtrace: Backtrace::capture(),
-            source: None,
+            cause: None,
             annotations: BTreeMap::new(),
         }
     }
@@ -183,7 +183,7 @@ impl Error {
                 field: field_name.to_owned(),
             },
             backtrace: Backtrace::capture(),
-            source: None,
+            cause: None,
             annotations: BTreeMap::new(),
         }
     }
@@ -290,7 +290,7 @@ impl std::fmt::Display for BacktraceDisplay<'_> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source
+        self.cause
             .as_ref()
             .map(|s| s.as_ref() as &(dyn std::error::Error + 'static))
     }
