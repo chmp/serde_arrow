@@ -229,16 +229,6 @@ impl Error {
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
-
-    /// Returns `true` if this is a nullability violation error
-    pub fn is_nullability_violation(&self) -> bool {
-        matches!(self.kind, ErrorKind::NullabilityViolation { .. })
-    }
-
-    /// Returns `true` if this is a missing field error
-    pub fn is_missing_field(&self) -> bool {
-        matches!(self.kind, ErrorKind::MissingField { .. })
-    }
 }
 
 impl std::fmt::Debug for Error {
