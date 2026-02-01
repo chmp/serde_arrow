@@ -143,49 +143,40 @@ pub enum ErrorKind {
 
 /// Error creation
 impl Error {
-    pub fn custom(message: String) -> Self {
+    fn new(kind: ErrorKind) -> Self {
         Self {
-            kind: ErrorKind::Custom { message },
+            kind,
             backtrace: Backtrace::capture(),
             cause: None,
             annotations: BTreeMap::new(),
         }
+    }
+
+    pub fn custom(message: String) -> Self {
+        Self::new(ErrorKind::Custom { message })
     }
 
     pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
         message: String,
         cause: E,
     ) -> Self {
-        Self {
-            kind: ErrorKind::Custom { message },
-            backtrace: Backtrace::capture(),
-            cause: Some(Box::new(cause)),
-            annotations: BTreeMap::new(),
-        }
+        let mut err = Self::new(ErrorKind::Custom { message });
+        err.cause = Some(Box::new(cause));
+        err
     }
 
     /// Create an error for a null value in a non-nullable field
     pub fn nullability_violation(field: Option<&str>) -> Self {
-        Self {
-            kind: ErrorKind::NullabilityViolation {
-                field: field.map(Into::into),
-            },
-            backtrace: Backtrace::capture(),
-            cause: None,
-            annotations: BTreeMap::new(),
-        }
+        Self::new(ErrorKind::NullabilityViolation {
+            field: field.map(Into::into),
+        })
     }
 
     /// Create an error for a missing required field
     pub fn missing_field(field_name: &str) -> Self {
-        Self {
-            kind: ErrorKind::MissingField {
-                field: field_name.to_owned(),
-            },
-            backtrace: Backtrace::capture(),
-            cause: None,
-            annotations: BTreeMap::new(),
-        }
+        Self::new(ErrorKind::MissingField {
+            field: field_name.to_owned(),
+        })
     }
 }
 
