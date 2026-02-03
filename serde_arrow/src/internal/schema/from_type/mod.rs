@@ -36,7 +36,7 @@ impl Tracer {
             }
             let res = T::deserialize(TraceAny(&mut tracer));
             if let Err(err) = res {
-                if !is_non_self_describing_error(&err.message()) {
+                if !is_non_self_describing_error(err.message()) {
                     return Err(err);
                 }
                 let mut err = err;

@@ -2,6 +2,7 @@ use std::{
     backtrace::{Backtrace, BacktraceStatus},
     collections::BTreeMap,
     convert::Infallible,
+    fmt::Write,
 };
 
 pub fn set_default(
@@ -106,15 +107,17 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 pub struct Error {
     kind: ErrorKind,
-    backtrace: Backtrace,
+    message: String,
+    backtrace: Box<Backtrace>,
     cause: Option<Box<dyn std::error::Error + Send + Sync>>,
     pub(crate) annotations: BTreeMap<String, String>,
 }
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
-        // Compare kind and annotations, but not backtrace or source
-        self.kind == other.kind && self.annotations == other.annotations
+        self.kind == other.kind
+            && self.message == other.message
+            && self.annotations == other.annotations
     }
 }
 
@@ -125,10 +128,7 @@ impl PartialEq for Error {
 #[non_exhaustive]
 pub enum ErrorKind {
     /// A generic error with a custom message
-    Custom {
-        /// The error message
-        message: String,
-    },
+    Custom,
     /// Attempted to write null to a non-nullable field
     NullabilityViolation {
         /// The field name, if known
@@ -143,61 +143,65 @@ pub enum ErrorKind {
 
 /// Error creation
 impl Error {
-    fn new(kind: ErrorKind) -> Self {
+    fn new(kind: ErrorKind, message: String) -> Self {
         Self {
             kind,
-            backtrace: Backtrace::capture(),
+            message,
+            backtrace: Box::new(Backtrace::capture()),
             cause: None,
             annotations: BTreeMap::new(),
         }
     }
 
     pub fn custom(message: String) -> Self {
-        Self::new(ErrorKind::Custom { message })
+        Self::new(ErrorKind::Custom, message)
     }
 
     pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
         message: String,
         cause: E,
     ) -> Self {
-        let mut err = Self::new(ErrorKind::Custom { message });
+        let mut err = Self::new(ErrorKind::Custom, message);
         err.cause = Some(Box::new(cause));
         err
     }
 
     /// Create an error for a null value in a non-nullable field
     pub fn nullability_violation(field: Option<&str>) -> Self {
-        Self::new(ErrorKind::NullabilityViolation {
-            field: field.map(Into::into),
-        })
+        let message = match field {
+            Some(name) => format!("Cannot push null for non-nullable field {name:?}"),
+            None => String::from("Cannot push null for non-nullable array"),
+        };
+        Self::new(
+            ErrorKind::NullabilityViolation {
+                field: field.map(Into::into),
+            },
+            message,
+        )
     }
 
     /// Create an error for a missing required field
     pub fn missing_field(field_name: &str) -> Self {
-        Self::new(ErrorKind::MissingField {
-            field: field_name.to_owned(),
-        })
+        Self::new(
+            ErrorKind::MissingField {
+                field: field_name.to_owned(),
+            },
+            format!("Missing non-nullable field {field_name:?} in struct"),
+        )
+    }
+
+    /// Add additional context to the error message
+    pub fn with_reason(mut self, reason: &str) -> Self {
+        _ = write!(self.message, ": {reason}");
+        self
     }
 }
 
 /// Access information about the error
 impl Error {
     /// Get the error message
-    ///
-    /// For structured errors, this returns a generated message describing the error.
-    pub fn message(&self) -> String {
-        match &self.kind {
-            ErrorKind::Custom { message } => message.clone(),
-            ErrorKind::NullabilityViolation { field: Some(name) } => {
-                format!("Cannot push null for non-nullable field {name:?}")
-            }
-            ErrorKind::NullabilityViolation { field: None } => {
-                String::from("Cannot push null for non-nullable array")
-            }
-            ErrorKind::MissingField { field } => {
-                format!("Missing non-nullable field {field:?} in struct")
-            }
-        }
+    pub fn message(&self) -> &str {
+        &self.message
     }
 
     pub fn backtrace(&self) -> &Backtrace {
@@ -210,9 +214,7 @@ impl Error {
     }
 
     pub(crate) fn modify_message<F: FnOnce(&mut String)>(&mut self, func: F) {
-        if let ErrorKind::Custom { message } = &mut self.kind {
-            func(message);
-        }
+        func(&mut self.message);
     }
 
     /// Get the kind of this error for pattern matching

@@ -499,7 +499,8 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     } else if value {
         Ok(())
     } else {
-        Err(Error::nullability_violation(None))
+        Err(Error::nullability_violation(None)
+            .with_reason("dictionaries do not support nullable values"))
     }
 }
 
