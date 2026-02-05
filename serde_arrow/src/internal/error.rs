@@ -152,11 +152,12 @@ impl Error {
         }
     }
 
-    pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
+    pub fn new_from<E: std::error::Error + Send + Sync + 'static>(
+        kind: ErrorKind,
         message: String,
         cause: E,
     ) -> Self {
-        let mut err = Self::new(ErrorKind::Custom, message);
+        let mut err = Self::new(kind, message);
         err.cause = Some(Box::new(cause));
         err
     }
@@ -290,49 +291,57 @@ pub(crate) use fail;
 
 impl From<marrow::error::MarrowError> for Error {
     fn from(err: marrow::error::MarrowError) -> Self {
-        Self::custom_from(format!("marrow::error::MarrowError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("marrow::error::MarrowError: {err}"),
+            err,
+        )
     }
 }
 
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {
-        Self::custom_from(format!("chrono::ParseError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("chrono::ParseError: {err}"), err)
     }
 }
 
 impl From<std::char::CharTryFromError> for Error {
     fn from(err: std::char::CharTryFromError) -> Error {
-        Self::custom_from(format!("CharTryFromError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("CharTryFromError: {err}"), err)
     }
 }
 
 impl From<std::char::TryFromCharError> for Error {
     fn from(err: std::char::TryFromCharError) -> Error {
-        Self::custom_from(format!("TryFromCharError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("TryFromCharError: {err}"), err)
     }
 }
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
-        Self::custom_from(format!("TryFromIntError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("TryFromIntError: {err}"), err)
     }
 }
 
 impl From<std::num::ParseIntError> for Error {
     fn from(err: std::num::ParseIntError) -> Self {
-        Self::custom_from(format!("ParseIntError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("ParseIntError: {err}"), err)
     }
 }
 
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
-        Self::custom_from(format!("std::fmt::Error: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("std::fmt::Error: {err}"), err)
     }
 }
 
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
-        Self::custom_from(format!("std::str::Utf8Error: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("std::str::Utf8Error: {err}"),
+            err,
+        )
     }
 }
 
