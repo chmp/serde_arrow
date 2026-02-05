@@ -20,6 +20,17 @@ breaking changes to the public interface, except for a polish of error messages.
 - Add options to consume the builder `ArrayBuilder::into_arrow`,
   `ArrayBuilder::into_record_batch`, `ArrayBuilder::into_marrow` that avoid
   additional allocations for metadata
+- Breaking change: refactored error handling
+  - Turn `Error` into a struct
+  - Expand `ErrorKind` with the variants `MissingField`, `NullabilityViolation`
+  - Remove `Error::custom` in favor of `Error::new`
+  - Remove `Error::custom_from` in favor of `Error::new_from`
+
+### Thanks
+
+- [@benjamin-awd](https://github.com/benjamin-awd) refactored the error type and
+  allowed to match on nullability or missing field errors
+  ([#296](https://github.com/chmp/serde_arrow/pull/296))
 
 ## 0.13.7
 

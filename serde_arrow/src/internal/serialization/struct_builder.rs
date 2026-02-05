@@ -7,7 +7,7 @@ use marrow::{
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{fail, prepend, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{fail, prepend, set_default, try_, Context, ContextSupport, Error, ErrorKind, Result},
     serialization::{construction::build_struct, utils::impl_serializer},
     utils::array_ext::{ArrayExt, CountArray, SeqArrayExt},
 };
@@ -140,10 +140,15 @@ impl StructBuilder {
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
                 if !field.is_nullable() {
-                    fail!(
-                        "Missing non-nullable field {:?} in struct",
-                        field.get_name(),
-                    );
+                    return Err(Error::new(
+                        ErrorKind::MissingField {
+                            field: field.get_name().into(),
+                        },
+                        format!(
+                            "Missing non-nullable field {:?} in struct",
+                            field.get_name()
+                        ),
+                    ));
                 }
 
                 field.serialize_none()?;

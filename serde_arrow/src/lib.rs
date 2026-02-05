@@ -270,7 +270,7 @@ mod test_with_arrow;
 #[cfg(test)]
 mod test;
 
-pub use crate::internal::error::{Error, Result};
+pub use crate::internal::error::{Error, ErrorKind, Result};
 
 pub use crate::internal::deserializer::Deserializer;
 pub use crate::internal::serializer::Serializer;

@@ -17,7 +17,7 @@ use crate::{
     internal::{
         array_builder::ArrayBuilder,
         deserializer::Deserializer,
-        error::{fail, Error, Result},
+        error::{fail, Error, ErrorKind, Result},
         schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
         schema::{SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
         serializer::Serializer,
@@ -230,7 +230,7 @@ impl crate::internal::array_builder::ArrayBuilder {
 
         let schema = Schema::new(fields);
         RecordBatch::try_new(Arc::new(schema), arrays)
-            .map_err(|err| Error::custom_from(err.to_string(), err))
+            .map_err(|err| Error::new_from(ErrorKind::Custom, err.to_string(), err))
     }
 }
 

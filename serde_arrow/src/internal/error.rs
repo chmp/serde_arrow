@@ -82,9 +82,9 @@ impl<E: Into<Error>> ContextSupport for E {
     type Output = Error;
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
-        let Error::Custom(mut error) = self.into();
-        context.annotate(&mut error.0.annotations);
-        Error::Custom(error)
+        let mut err = self.into();
+        context.annotate(&mut err.annotations);
+        err
     }
 }
 
@@ -93,9 +93,6 @@ impl<E: Into<Error>> ContextSupport for E {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Common errors during `serde_arrow`'s usage
-///
-/// At the moment only a generic string error is supported, but it is planned to offer concrete
-/// types to match against.
 ///
 /// The error carries a backtrace if `RUST_BACKTRACE=1`, see [`std::backtrace`] for details. This
 /// backtrace is included when printing the error. If the error is caused by another error, that
@@ -107,77 +104,88 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// (or converted to string) the error does not include a backtrace. Use the debug format (`{:?}`)
 /// to include the backtrace information.
 ///
-#[derive(PartialEq)]
+pub struct Error {
+    kind: ErrorKind,
+    message: String,
+    backtrace: Box<Backtrace>,
+    cause: Option<Box<dyn std::error::Error + Send + Sync>>,
+    pub(crate) annotations: BTreeMap<String, String>,
+}
+
+impl PartialEq for Error {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+            && self.message == other.message
+            && self.annotations == other.annotations
+    }
+}
+
+/// Classifies an error for pattern matching
+///
+/// Use [`Error::kind()`] to get the kind of an error for matching.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum Error {
-    Custom(CustomError),
+pub enum ErrorKind {
+    /// A generic error with a custom message
+    Custom,
+    /// Attempted to write null to a non-nullable field
+    NullabilityViolation {
+        /// The field name, if known
+        field: Option<String>,
+    },
+    /// Missing required field in struct
+    MissingField {
+        /// The name of the missing field
+        field: String,
+    },
 }
 
 /// Error creation
 impl Error {
-    pub fn custom(message: String) -> Self {
-        Self::Custom(CustomError(Box::new(CustomErrorImpl {
+    pub fn new(kind: ErrorKind, message: String) -> Self {
+        Self {
+            kind,
             message,
-            backtrace: Backtrace::capture(),
+            backtrace: Box::new(Backtrace::capture()),
             cause: None,
             annotations: BTreeMap::new(),
-        })))
+        }
     }
 
-    pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
+    pub fn new_from<E: std::error::Error + Send + Sync + 'static>(
+        kind: ErrorKind,
         message: String,
         cause: E,
     ) -> Self {
-        Self::Custom(CustomError(Box::new(CustomErrorImpl {
-            message,
-            backtrace: Backtrace::capture(),
-            cause: Some(Box::new(cause)),
-            annotations: BTreeMap::new(),
-        })))
+        let mut err = Self::new(kind, message);
+        err.cause = Some(Box::new(cause));
+        err
     }
 }
 
 /// Access information about the error
 impl Error {
+    /// Get the error message
     pub fn message(&self) -> &str {
-        match self {
-            Self::Custom(err) => &err.0.message,
-        }
+        &self.message
     }
 
     pub fn backtrace(&self) -> &Backtrace {
-        match self {
-            Self::Custom(err) => &err.0.backtrace,
-        }
+        &self.backtrace
     }
 
     /// Get a reference to the annotations of this error
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
-        match self {
-            Self::Custom(err) => Some(&err.0.annotations),
-        }
+        Some(&self.annotations)
     }
 
     pub(crate) fn modify_message<F: FnOnce(&mut String)>(&mut self, func: F) {
-        let Error::Custom(this) = self;
-        let inner = this.0.as_mut();
-        func(&mut inner.message);
+        func(&mut self.message);
     }
-}
 
-#[derive(PartialEq)]
-pub struct CustomError(pub(crate) Box<CustomErrorImpl>);
-
-pub struct CustomErrorImpl {
-    pub(crate) message: String,
-    pub(crate) backtrace: Backtrace,
-    pub(crate) cause: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
-    pub(crate) annotations: BTreeMap<String, String>,
-}
-
-impl std::cmp::PartialEq for CustomErrorImpl {
-    fn eq(&self, other: &Self) -> bool {
-        self.message == other.message && self.annotations == other.annotations
+    /// Get the kind of this error for pattern matching
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
     }
 }
 
@@ -240,11 +248,7 @@ impl std::fmt::Display for BacktraceDisplay<'_> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        let Self::Custom(this) = self;
-        match this.0.cause.as_ref() {
-            Some(cause) => Some(cause.as_ref()),
-            None => None,
-        }
+        Some(self.cause.as_ref()?.as_ref())
     }
 }
 
@@ -253,7 +257,7 @@ impl serde::ser::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::custom(format!("serde::ser::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("serde::ser::Error: {}", msg))
     }
 }
 
@@ -262,7 +266,7 @@ impl serde::de::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::custom(format!("serde::de::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("serde::de::Error: {}", msg))
     }
 }
 
@@ -273,13 +277,13 @@ macro_rules! fail {
         {
             #[allow(unused)]
             use $crate::internal::error::Context;
-            let $crate::internal::error::Error::Custom(mut err) = $crate::internal::error::Error::custom(format!($($tt)*));
-            $context.annotate(&mut err.0.annotations);
-            return Err($crate::internal::error::Error::Custom(err));
+            let mut err = $crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*));
+            $context.annotate(&mut err.annotations);
+            return Err(err);
         }
     };
     ($($tt:tt)*) => {
-        return Err($crate::internal::error::Error::custom(format!($($tt)*)))
+        return Err($crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*)))
     };
 }
 
@@ -287,49 +291,57 @@ pub(crate) use fail;
 
 impl From<marrow::error::MarrowError> for Error {
     fn from(err: marrow::error::MarrowError) -> Self {
-        Self::custom_from(format!("marrow::error::MarrowError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("marrow::error::MarrowError: {err}"),
+            err,
+        )
     }
 }
 
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {
-        Self::custom_from(format!("chrono::ParseError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("chrono::ParseError: {err}"), err)
     }
 }
 
 impl From<std::char::CharTryFromError> for Error {
     fn from(err: std::char::CharTryFromError) -> Error {
-        Self::custom_from(format!("CharTryFromError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("CharTryFromError: {err}"), err)
     }
 }
 
 impl From<std::char::TryFromCharError> for Error {
     fn from(err: std::char::TryFromCharError) -> Error {
-        Self::custom_from(format!("TryFromCharError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("TryFromCharError: {err}"), err)
     }
 }
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
-        Self::custom_from(format!("TryFromIntError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("TryFromIntError: {err}"), err)
     }
 }
 
 impl From<std::num::ParseIntError> for Error {
     fn from(err: std::num::ParseIntError) -> Self {
-        Self::custom_from(format!("ParseIntError: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("ParseIntError: {err}"), err)
     }
 }
 
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
-        Self::custom_from(format!("std::fmt::Error: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("std::fmt::Error: {err}"), err)
     }
 }
 
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
-        Self::custom_from(format!("std::str::Utf8Error: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("std::str::Utf8Error: {err}"),
+            err,
+        )
     }
 }
 
@@ -342,7 +354,7 @@ impl From<Infallible> for Error {
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
         // Note: bytemuck::PodCastError does not implement std::error::Error
-        Self::custom(format!("bytemuck::PodCastError: {err}"))
+        Self::new(ErrorKind::Custom, format!("bytemuck::PodCastError: {err}"))
     }
 }
 
@@ -362,7 +374,7 @@ impl<E: std::fmt::Display + std::fmt::Debug> From<E> for PanicOnErrorError {
 #[test]
 fn error_can_be_converted_to_anyhow() {
     fn func() -> anyhow::Result<()> {
-        Err(Error::custom("dummy".to_string()))?;
+        Err(Error::new(ErrorKind::Custom, "dummy".to_string()))?;
         Ok(())
     }
     assert!(func().is_err());

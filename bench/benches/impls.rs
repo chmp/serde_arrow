@@ -45,7 +45,7 @@ pub mod arrow {
 
     use serde_arrow::{
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
-        Error, Result,
+        Error, ErrorKind, Result,
         schema::SchemaLike,
     };
 
@@ -57,14 +57,14 @@ pub mod arrow {
         let schema = Schema::new(fields.to_vec());
         let mut decoder = ReaderBuilder::new(Arc::new(schema))
             .build_decoder()
-            .map_err(|err| Error::custom_from(err.to_string(), err))?;
+            .map_err(|err| Error::new_from(ErrorKind::Custom, err.to_string(), err))?;
         decoder
             .serialize(items)
-            .map_err(|err| Error::custom_from(err.to_string(), err))?;
+            .map_err(|err| Error::new_from(ErrorKind::Custom, err.to_string(), err))?;
         Ok(decoder
             .flush()
-            .map_err(|err| Error::custom_from(err.to_string(), err))?
-            .ok_or_else(|| Error::custom("no items".into()))?
+            .map_err(|err| Error::new_from(ErrorKind::Custom, err.to_string(), err))?
+            .ok_or_else(|| Error::new(ErrorKind::Custom, "no items".into()))?
             .columns()
             .to_vec())
     }
@@ -75,7 +75,7 @@ pub mod arrow2_convert {
         field::ArrowField,
         serialize::{ArrowSerialize, TryIntoArrow},
     };
-    use serde_arrow::{_impl::arrow2::array::Array, Error, Result};
+    use serde_arrow::{_impl::arrow2::array::Array, Error, ErrorKind, Result};
 
     pub fn trace<T>(_items: &T) {}
 
@@ -85,7 +85,7 @@ pub mod arrow2_convert {
     {
         let array: Box<dyn Array> = items
             .try_into_arrow()
-            .map_err(|err| Error::custom(err.to_string()))?;
+            .map_err(|err| Error::new(ErrorKind::Custom, err.to_string()))?;
 
         Ok(array)
     }
