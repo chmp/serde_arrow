@@ -30,6 +30,7 @@ breaking changes to the public interface, except for a polish of error messages.
 
 - [@benjamin-awd](https://github.com/benjamin-awd) refactored the error type and
   allowed to match on nullability or missing field errors
+  ([#296](https://github.com/chmp/serde_arrow/pull/296))
 
 ## 0.13.7
 
