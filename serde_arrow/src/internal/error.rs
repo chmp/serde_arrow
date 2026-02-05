@@ -160,37 +160,6 @@ impl Error {
         err.cause = Some(Box::new(cause));
         err
     }
-
-    /// Create an error for a null value in a non-nullable field
-    pub fn nullability_violation(field: Option<&str>) -> Self {
-        let message = match field {
-            Some(name) => format!("Cannot push null for non-nullable field {name:?}"),
-            None => String::from("Cannot push null for non-nullable array"),
-        };
-        Self::new(
-            ErrorKind::NullabilityViolation {
-                field: field.map(Into::into),
-            },
-            message,
-        )
-    }
-
-    /// Create an error for a missing required field
-    pub fn missing_field(field_name: &str) -> Self {
-        Self::new(
-            ErrorKind::MissingField {
-                field: field_name.to_owned(),
-            },
-            format!("Missing non-nullable field {field_name:?} in struct"),
-        )
-    }
-
-    /// Add additional context to the error message
-    pub fn with_reason(mut self, reason: &str) -> Self {
-        self.message.push_str(": ");
-        self.message.push_str(reason);
-        self
-    }
 }
 
 /// Access information about the error
