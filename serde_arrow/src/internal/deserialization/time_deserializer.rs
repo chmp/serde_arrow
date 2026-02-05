@@ -6,7 +6,7 @@ use marrow::{
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Error, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, ErrorKind, Result},
     utils::{array_view_ext::ViewAccess, NamedType},
 };
 
@@ -45,10 +45,10 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
             TimeUnit::Nanosecond => (ts / 1_000_000_000, ts % 1_000_000_000),
         };
         let time = build_time(secs, nanos).ok_or_else(|| {
-            Error::custom(format!(
-                "Cannot convert {ts} into Time64({unit})",
-                unit = self.unit
-            ))
+            Error::new(
+                ErrorKind::Custom,
+                format!("Cannot convert {ts} into Time64({unit})", unit = self.unit),
+            )
         })?;
         Ok(time.to_string())
     }

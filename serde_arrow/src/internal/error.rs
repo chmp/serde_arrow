@@ -142,7 +142,7 @@ pub enum ErrorKind {
 
 /// Error creation
 impl Error {
-    fn new(kind: ErrorKind, message: String) -> Self {
+    pub fn new(kind: ErrorKind, message: String) -> Self {
         Self {
             kind,
             message,
@@ -150,10 +150,6 @@ impl Error {
             cause: None,
             annotations: BTreeMap::new(),
         }
-    }
-
-    pub fn custom(message: String) -> Self {
-        Self::new(ErrorKind::Custom, message)
     }
 
     pub fn custom_from<E: std::error::Error + Send + Sync + 'static>(
@@ -291,7 +287,7 @@ impl serde::ser::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::custom(format!("serde::ser::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("serde::ser::Error: {}", msg))
     }
 }
 
@@ -300,7 +296,7 @@ impl serde::de::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::custom(format!("serde::de::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("serde::de::Error: {}", msg))
     }
 }
 
@@ -311,13 +307,13 @@ macro_rules! fail {
         {
             #[allow(unused)]
             use $crate::internal::error::Context;
-            let mut err = $crate::internal::error::Error::custom(format!($($tt)*));
+            let mut err = $crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*));
             $context.annotate(&mut err.annotations);
             return Err(err);
         }
     };
     ($($tt:tt)*) => {
-        return Err($crate::internal::error::Error::custom(format!($($tt)*)))
+        return Err($crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*)))
     };
 }
 
@@ -380,7 +376,7 @@ impl From<Infallible> for Error {
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
         // Note: bytemuck::PodCastError does not implement std::error::Error
-        Self::custom(format!("bytemuck::PodCastError: {err}"))
+        Self::new(ErrorKind::Custom, format!("bytemuck::PodCastError: {err}"))
     }
 }
 
@@ -400,7 +396,7 @@ impl<E: std::fmt::Display + std::fmt::Debug> From<E> for PanicOnErrorError {
 #[test]
 fn error_can_be_converted_to_anyhow() {
     fn func() -> anyhow::Result<()> {
-        Err(Error::custom("dummy".to_string()))?;
+        Err(Error::new(ErrorKind::Custom, "dummy".to_string()))?;
         Ok(())
     }
     assert!(func().is_err());

@@ -3,7 +3,7 @@ use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Error, ErrorKind, Result},
     utils::array_view_ext::ViewAccess,
 };
 
@@ -42,7 +42,7 @@ impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
     pub fn get_string_repr(&self, ts: I) -> Result<String> {
         let ts = (ts / I::DAY_TO_VALUE_FACTOR)
             .try_into()
-            .map_err(|_| Error::custom(format!("Cannot convert {ts} to i64")))?;
+            .map_err(|_| Error::new(ErrorKind::Custom, format!("Cannot convert {ts} to i64")))?;
 
         #[allow(deprecated)]
         const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
