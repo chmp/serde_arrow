@@ -2,7 +2,6 @@ use std::{
     backtrace::{Backtrace, BacktraceStatus},
     collections::BTreeMap,
     convert::Infallible,
-    fmt::Write,
 };
 
 pub fn set_default(
@@ -192,7 +191,8 @@ impl Error {
 
     /// Add additional context to the error message
     pub fn with_reason(mut self, reason: &str) -> Self {
-        _ = write!(self.message, ": {reason}");
+        self.message.push_str(": ");
+        self.message.push_str(reason);
         self
     }
 }
@@ -282,9 +282,7 @@ impl std::fmt::Display for BacktraceDisplay<'_> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.cause
-            .as_ref()
-            .map(|s| s.as_ref() as &(dyn std::error::Error + 'static))
+        Some(self.cause.as_ref()?.as_ref())
     }
 }
 
