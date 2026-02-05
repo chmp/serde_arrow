@@ -73,7 +73,7 @@ mod time_string_conversion {
     }
 
     fn assert_deserialization<T: DatePrimitive>(items: &[Item<String>], times: &[T]) {
-        let arrays = vec![T::ARRAY_VARIANT(PrimitiveArray {
+        let arrays = [T::ARRAY_VARIANT(PrimitiveArray {
             validity: None,
             values: times.to_vec(),
         })];

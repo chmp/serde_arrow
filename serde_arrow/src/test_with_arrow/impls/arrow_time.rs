@@ -111,7 +111,7 @@ mod time_string_conversion {
         times: &[T],
         unit: TimeUnit,
     ) {
-        let arrays = vec![T::ARRAY_VARIANT(TimeArray {
+        let arrays = [T::ARRAY_VARIANT(TimeArray {
             unit,
             validity: None,
             values: times.to_vec(),
