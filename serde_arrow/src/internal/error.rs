@@ -83,7 +83,7 @@ impl<E: Into<Error>> ContextSupport for E {
 
     fn ctx<C: Context>(self, context: &C) -> Self::Output {
         let mut err = self.into();
-        context.annotate(&mut err.annotations);
+        context.annotate(&mut err.inner.annotations);
         err
     }
 }
@@ -105,6 +105,10 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// to include the backtrace information.
 ///
 pub struct Error {
+    pub(crate) inner: Box<ErrorInner>,
+}
+
+pub(crate) struct ErrorInner {
     kind: ErrorKind,
     message: String,
     backtrace: Box<Backtrace>,
@@ -114,9 +118,9 @@ pub struct Error {
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-            && self.message == other.message
-            && self.annotations == other.annotations
+        self.inner.kind == other.inner.kind
+            && self.inner.message == other.inner.message
+            && self.inner.annotations == other.inner.annotations
     }
 }
 
@@ -144,11 +148,13 @@ pub enum ErrorKind {
 impl Error {
     pub fn new(kind: ErrorKind, message: String) -> Self {
         Self {
-            kind,
-            message,
-            backtrace: Box::new(Backtrace::capture()),
-            cause: None,
-            annotations: BTreeMap::new(),
+            inner: Box::new(ErrorInner {
+                kind,
+                message,
+                backtrace: Box::new(Backtrace::capture()),
+                cause: None,
+                annotations: BTreeMap::new(),
+            }),
         }
     }
 
@@ -158,7 +164,7 @@ impl Error {
         cause: E,
     ) -> Self {
         let mut err = Self::new(kind, message);
-        err.cause = Some(Box::new(cause));
+        err.inner.cause = Some(Box::new(cause));
         err
     }
 }
@@ -167,25 +173,25 @@ impl Error {
 impl Error {
     /// Get the error message
     pub fn message(&self) -> &str {
-        &self.message
+        &self.inner.message
     }
 
     pub fn backtrace(&self) -> &Backtrace {
-        &self.backtrace
+        &self.inner.backtrace
     }
 
     /// Get a reference to the annotations of this error
     pub(crate) fn annotations(&self) -> Option<&BTreeMap<String, String>> {
-        Some(&self.annotations)
+        Some(&self.inner.annotations)
     }
 
     pub(crate) fn modify_message<F: FnOnce(&mut String)>(&mut self, func: F) {
-        func(&mut self.message);
+        func(&mut self.inner.message);
     }
 
     /// Get the kind of this error for pattern matching
     pub fn kind(&self) -> &ErrorKind {
-        &self.kind
+        &self.inner.kind
     }
 }
 
@@ -248,7 +254,7 @@ impl std::fmt::Display for BacktraceDisplay<'_> {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(self.cause.as_ref()?.as_ref())
+        Some(self.inner.cause.as_ref()?.as_ref())
     }
 }
 
@@ -278,7 +284,7 @@ macro_rules! fail {
             #[allow(unused)]
             use $crate::internal::error::Context;
             let mut err = $crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*));
-            $context.annotate(&mut err.annotations);
+            $context.annotate(&mut err.inner.annotations);
             return Err(err);
         }
     };
