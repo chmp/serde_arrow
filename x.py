@@ -280,7 +280,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
 )
 def test_integration(backtrace=False):
     _sh(
-        "cargo test -q -p integration_tests",
+        "cargo test -p integration_tests",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
 

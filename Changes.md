@@ -1,11 +1,17 @@
 # Change log
 
-## 0.14.0 (pre-release)
+## 0.14.0
 
 This release refactors the implementation for serialization. All serializers now
-directly implement `serde::Serializer` instead of a custom trait. There are no
-breaking changes to the public interface, except for a polish of error messages.
+directly implement `serde::Serializer` instead of a custom trait. The changes
+do change behaviour.
 
+This release refactors the error type to allow matching by kind, while
+preserving human readable error messages.
+
+All changes:
+
+- Add `arrow=58` support
 - Performance improvements:
   - Avoid unncessary allocations in serialization
   - Reserve elements up front
