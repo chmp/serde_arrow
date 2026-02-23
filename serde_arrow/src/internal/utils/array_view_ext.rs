@@ -2,7 +2,7 @@ use marrow::view::{BytesView, BytesViewView, PrimitiveView, View};
 
 use crate::internal::{
     deserialization::utils::bitset_is_set,
-    error::{fail, Result},
+    error::{fail, Error, ErrorKind, Result},
 };
 
 use super::Offset;
@@ -109,7 +109,10 @@ pub trait ViewAccess<'a, Item: ?Sized + 'a> {
         if let Some(val) = self.get(idx)? {
             Ok(val)
         } else {
-            fail!("Required item was not present");
+            Err(Error::new(
+                ErrorKind::NullabilityViolation { field: None },
+                "Required item was not present".into(),
+            ))
         }
     }
 
