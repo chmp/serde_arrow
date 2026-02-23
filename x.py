@@ -7,6 +7,7 @@ arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw
 
 all_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
+    "arrow-58",
     "arrow-57",
     "arrow-56",
     "arrow-55",
@@ -279,7 +280,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
 )
 def test_integration(backtrace=False):
     _sh(
-        "cargo test -q -p integration_tests",
+        "cargo test -p integration_tests",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
 

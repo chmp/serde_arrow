@@ -23,7 +23,7 @@ modules can can be run without installing further packages.
 1. Create a new branch with name `release/{VERSION}`
 2. Update the `version` field in
    [`serde_arrow/Cargo.toml`](serde_arrow/Cargo.toml)
-3. Updatt the changelog ([`Changes.md`](Changes.md))
+3. Update the changelog ([`Changes.md`](Changes.md))
 4. Create a pull request
 5. Merge the branch into main (requires maintainer access)
 6. Create a new release via the GH UI tagged with `v{VERSION}` to trigger the
