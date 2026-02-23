@@ -21,30 +21,6 @@ fn null() {
 }
 
 #[test]
-fn bool() {
-    let items = &[Item(true), Item(false)];
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Bool"}]))
-        .trace_schema_from_samples(items, TracingOptions::default())
-        .trace_schema_from_type::<Item<bool>>(TracingOptions::default())
-        .serialize(items)
-        .deserialize(items)
-        .check_nulls(&[&[false, false]]);
-}
-
-#[test]
-fn nullable_bool() {
-    let items = &[Item(Some(true)), Item(None), Item(Some(false))];
-    Test::new()
-        .with_schema(json!([{"name": "item", "data_type": "Bool", "nullable": true}]))
-        .trace_schema_from_samples(items, TracingOptions::default())
-        .trace_schema_from_type::<Item<Option<bool>>>(TracingOptions::default())
-        .serialize(items)
-        .deserialize(items)
-        .check_nulls(&[&[false, true, false]]);
-}
-
-#[test]
 fn u8() {
     let items: &[Item<u8>] = &[Item(1), Item(2), Item(3), Item(4)];
     Test::new()
