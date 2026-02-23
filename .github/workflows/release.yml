@@ -42,6 +42,10 @@
           "run": "cargo check --all-targets --features arrow2-0-16"
         },
         {
+          "name": "Check arrow-58",
+          "run": "cargo check --all-targets --features arrow-58"
+        },
+        {
           "name": "Check arrow-57",
           "run": "cargo check --all-targets --features arrow-57"
         },
@@ -139,11 +143,11 @@
         },
         {
           "name": "Build",
-          "run": "cargo build --features arrow2-0-17,arrow-57"
+          "run": "cargo build --features arrow2-0-17,arrow-58"
         },
         {
           "name": "Test",
-          "run": "cargo test --features arrow2-0-17,arrow-57"
+          "run": "cargo test --features arrow2-0-17,arrow-58"
         },
         {
           "name": "Auth with crates.io",
