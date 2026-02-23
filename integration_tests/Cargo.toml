@@ -6,11 +6,11 @@ publish = false
 
 [dependencies]
 # arrow-version:replace: arrow = {{ version = "{version}", features = ["ipc"] }}
-arrow = { version = "57", features = ["ipc"] }
+arrow = { version = "58", features = ["ipc"] }
 
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 
 # arrow-version:replace: serde_arrow = {{ path = "../serde_arrow", features = ["arrow-{version}"] }}
-serde_arrow = { path = "../serde_arrow", features = ["arrow-57"] }
+serde_arrow = { path = "../serde_arrow", features = ["arrow-58"] }
