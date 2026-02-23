@@ -95,6 +95,14 @@ impl<'a> Serializer for &'a mut BoolBuilder {
         'a, BoolBuilder;
         override serialize_none,
         override serialize_bool,
+        override serialize_i8,
+        override serialize_i16,
+        override serialize_i32,
+        override serialize_i64,
+        override serialize_u8,
+        override serialize_u16,
+        override serialize_u32,
+        override serialize_u64,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -109,5 +117,37 @@ impl<'a> Serializer for &'a mut BoolBuilder {
         set_bit_buffer(&mut self.array.values, self.array.len, v);
         self.array.len += 1;
         Ok(())
+    }
+
+    fn serialize_i8(self, v: i8) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_i16(self, v: i16) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_u8(self, v: u8) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_u16(self, v: u16) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_u32(self, v: u32) -> Result<()> {
+        self.serialize_bool(v != 0)
+    }
+
+    fn serialize_u64(self, v: u64) -> Result<()> {
+        self.serialize_bool(v != 0)
     }
 }

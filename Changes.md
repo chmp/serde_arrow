@@ -1,5 +1,9 @@
 # Change log
 
+## 0.14.1 (development)
+
+- Allow to build bools from integers. Nonzero integers are mapped to true
+
 ## 0.14.0
 
 - Add `arrow=58` support
