@@ -1,7 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
 self_path = __import__("pathlib").Path(__file__).parent.resolve()
 python = __import__("shlex").quote(__import__("sys").executable)
 
@@ -135,7 +131,8 @@ def update_workflows():
 
 
 def _update_workflow(path, template):
-    import copy, json
+    import copy
+    import json
 
     workflow = copy.deepcopy(template)
 
@@ -165,8 +162,8 @@ def _generate_workflow_check_steps():
         }
 
     yield {
-        "name": f"Check support packages",
-        "run": f"cargo check --all-features --package bench --package example --package integration_tests",
+        "name": "Check support packages",
+        "run": "cargo check --all-features --package bench --package example --package integration_tests",
     }
 
     yield {
@@ -363,10 +360,8 @@ def check_cargo_toml():
 @cmd(help="Run the benchmarks")
 @arg("--quick", action="store_true", default=False)
 def bench(quick=False):
-    import os
-
     _sh(
-        f"cargo bench -p bench",
+        "cargo bench -p bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
@@ -394,7 +389,8 @@ def summarize_bench(update=False):
 
 
 def load_times():
-    import json, statistics
+    import json
+    import statistics
 
     root = self_path / "target" / "criterion/"
 
@@ -472,7 +468,7 @@ def plot_times(mean_times, ignore_groups=()):
                 (
                     pl.col("time")
                     / pl.col("time")
-                    .where(
+                    .filter(
                         pl.col("impl")
                         == benchmark_renames.get("arrow2_convert", "arrow2_convert")
                     )

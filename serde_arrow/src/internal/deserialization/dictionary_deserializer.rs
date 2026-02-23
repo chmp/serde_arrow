@@ -2,7 +2,7 @@ use marrow::view::{BytesView, PrimitiveView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{fail, set_default, try_, Context, ContextSupport, Result},
+    error::{set_default, try_, Context, ContextSupport, Error, ErrorKind, Result},
     utils::{array_view_ext::ViewAccess, Offset},
 };
 
@@ -21,7 +21,11 @@ impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
         if let Some(validity) = &values.validity {
             if !bitset_all_set(validity, values.offsets.len() - 1)? {
-                fail!("Null for non-nullable type: dictionaries do not support nullable values");
+                return Err(Error::new(
+                    ErrorKind::NullabilityViolation { field: None },
+                    "Null for non-nullable type: dictionaries do not support nullable values"
+                        .into(),
+                ));
             }
         }
         Ok(Self {

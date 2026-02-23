@@ -1,7 +1,9 @@
 use marrow::view::FixedSizeBinaryView;
 use serde::de::Visitor;
 
-use crate::internal::error::{fail, set_default, try_, Context, ContextSupport, Result};
+use crate::internal::error::{
+    fail, set_default, try_, Context, ContextSupport, Error, ErrorKind, Result,
+};
 
 use super::{
     random_access_deserializer::RandomAccessDeserializer,
@@ -53,7 +55,10 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
 
     pub fn get_required(&self, idx: usize) -> Result<&'a [u8]> {
         let Some(s) = self.get(idx)? else {
-            fail!("Required value is not defined");
+            return Err(Error::new(
+                ErrorKind::NullabilityViolation { field: None },
+                "Required value is not defined".into(),
+            ));
         };
         Ok(s)
     }

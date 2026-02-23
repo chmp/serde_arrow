@@ -1,7 +1,9 @@
 use marrow::view::BooleanView;
 use serde::de::Visitor;
 
-use crate::internal::error::{fail, set_default, try_, Context, ContextSupport, Error, Result};
+use crate::internal::error::{
+    fail, set_default, try_, Context, ContextSupport, Error, ErrorKind, Result,
+};
 
 use super::{random_access_deserializer::RandomAccessDeserializer, utils::bitset_is_set};
 
@@ -32,7 +34,10 @@ impl<'a> BoolDeserializer<'a> {
         if let Some(value) = self.get(idx)? {
             Ok(value)
         } else {
-            fail!("Required value was not defined");
+            Err(Error::new(
+                ErrorKind::NullabilityViolation { field: None },
+                "Required value was not defined".into(),
+            ))
         }
     }
 }
