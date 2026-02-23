@@ -2,19 +2,15 @@
 
 ## 0.14.0
 
-This release refactors the implementation for serialization. All serializers now
-directly implement `serde::Serializer` instead of a custom trait. The changes
-do change behaviour.
-
-This release refactors the error type to allow matching by kind, while
-preserving human readable error messages.
-
-All changes:
-
 - Add `arrow=58` support
 - Performance improvements:
   - Avoid unncessary allocations in serialization
   - Reserve elements up front
+- Breaking change: refactored error handling
+  - Turn `Error` into a struct
+  - Expand `ErrorKind` with the variants `MissingField`, `NullabilityViolation`
+  - Remove `Error::custom` in favor of `Error::new`
+  - Remove `Error::custom_from` in favor of `Error::new_from`
 - Improved error reporting in serialization:
   - The field and data type is now reported more consistently across builders
 - More consistent handling of the serde data model in serialization:
@@ -26,11 +22,8 @@ All changes:
 - Add options to consume the builder `ArrayBuilder::into_arrow`,
   `ArrayBuilder::into_record_batch`, `ArrayBuilder::into_marrow` that avoid
   additional allocations for metadata
-- Breaking change: refactored error handling
-  - Turn `Error` into a struct
-  - Expand `ErrorKind` with the variants `MissingField`, `NullabilityViolation`
-  - Remove `Error::custom` in favor of `Error::new`
-  - Remove `Error::custom_from` in favor of `Error::new_from`
+- Refactored internals: all serializers now directly implement
+  `serde::Serializer` instead of a custom trait.
 
 ### Thanks
 
