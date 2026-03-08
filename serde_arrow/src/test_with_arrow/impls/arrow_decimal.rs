@@ -31,11 +31,23 @@ fn string_to_decimal() {
 }
 
 #[test]
+fn string_to_decimal_with_underscores() {
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal128(8, 2)"}]))
+        .serialize(&[
+            Item(String::from("1_234.56")),
+            Item(String::from("-7_890.12")),
+        ])
+        .also(|it| assert_eq!(get_i128_values(it), &[123456, -789012]));
+}
+
+#[test]
 fn decimal_to_string() {
+    let items = &[Item(String::from("1.23")), Item(String::from("4.56"))];
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, 2)"}]))
-        .serialize(&[Item(1.23_f64), Item(4.56_f64)])
-        .deserialize(&[Item(String::from("1.23")), Item(String::from("4.56"))]);
+        .serialize(items)
+        .deserialize(items);
 }
 
 /// Decimals with too many digits are truncated in serialization

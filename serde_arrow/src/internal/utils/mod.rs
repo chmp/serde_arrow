@@ -192,6 +192,33 @@ impl Offset for i64 {
     }
 }
 
+pub fn with_underscores_removed<const STACK_BUFFER_LEN: usize, T>(
+    input: &[u8],
+    parse: impl FnOnce(&[u8]) -> Result<T>,
+) -> Result<T> {
+    if !input.contains(&b'_') {
+        parse(input)
+    } else if input.len() <= STACK_BUFFER_LEN {
+        let mut stack_buffer = [0_u8; STACK_BUFFER_LEN];
+        let mut len = 0;
+        for &byte in input {
+            if byte != b'_' {
+                stack_buffer[len] = byte;
+                len += 1;
+            }
+        }
+        parse(&stack_buffer[..len])
+    } else {
+        let mut owned = Vec::with_capacity(input.len());
+        for &byte in input {
+            if byte != b'_' {
+                owned.push(byte);
+            }
+        }
+        parse(&owned)
+    }
+}
+
 pub struct ChildName<'a>(pub &'a str);
 
 impl std::fmt::Display for ChildName<'_> {

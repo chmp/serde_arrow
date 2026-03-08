@@ -12,6 +12,7 @@ use crate::internal::{
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         decimal::{self, DecimalParser},
+        with_underscores_removed,
     },
 };
 
@@ -132,9 +133,10 @@ impl<'a> Serializer for &'a mut DecimalBuilder {
 
     fn serialize_str(self, v: &str) -> Result<()> {
         let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
-        let val = self
-            .parser
-            .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
+        let val = with_underscores_removed::<{ decimal::BUFFER_SIZE_I128 }, _>(
+            v.as_bytes(),
+            |sanitized| self.parser.parse_decimal128(&mut parse_buffer, sanitized),
+        )?;
 
         self.array.push_scalar_value(val)
     }

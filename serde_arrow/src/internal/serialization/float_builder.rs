@@ -10,7 +10,10 @@ use serde::{Serialize, Serializer};
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
-    utils::array_ext::{ArrayExt, ScalarArrayExt},
+    utils::{
+        array_ext::{ArrayExt, ScalarArrayExt},
+        with_underscores_removed,
+    },
 };
 
 use super::array_builder::ArrayBuilder;
@@ -31,156 +34,6 @@ pub trait FloatPrimitive: Sized + Copy + Default + 'static {
     fn from_f32(value: f32) -> Self;
     fn from_f64(value: f64) -> Self;
     fn from_str(value: &str) -> Result<Self>;
-}
-
-impl FloatPrimitive for f16 {
-    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F16;
-    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float16;
-    const NAME: &'static str = "Float16";
-
-    fn from_i8(value: i8) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_i16(value: i16) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_i32(value: i32) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_i64(value: i64) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_u8(value: u8) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_u16(value: u16) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_u32(value: u32) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_u64(value: u64) -> Self {
-        f16::from_f64(value as f64)
-    }
-
-    fn from_f32(value: f32) -> Self {
-        f16::from_f32(value)
-    }
-
-    fn from_f64(value: f64) -> Self {
-        f16::from_f64(value)
-    }
-
-    fn from_str(value: &str) -> Result<Self> {
-        Ok(f16::from_f64(value.parse()?))
-    }
-}
-
-impl FloatPrimitive for f32 {
-    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F32;
-    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float32;
-    const NAME: &'static str = "Float32";
-
-    fn from_i8(value: i8) -> Self {
-        value as f32
-    }
-
-    fn from_i16(value: i16) -> Self {
-        value as f32
-    }
-
-    fn from_i32(value: i32) -> Self {
-        value as f32
-    }
-
-    fn from_i64(value: i64) -> Self {
-        value as f32
-    }
-
-    fn from_u8(value: u8) -> Self {
-        value as f32
-    }
-
-    fn from_u16(value: u16) -> Self {
-        value as f32
-    }
-
-    fn from_u32(value: u32) -> Self {
-        value as f32
-    }
-
-    fn from_u64(value: u64) -> Self {
-        value as f32
-    }
-
-    fn from_f32(value: f32) -> Self {
-        value
-    }
-
-    fn from_f64(value: f64) -> Self {
-        value as f32
-    }
-
-    fn from_str(value: &str) -> Result<Self> {
-        Ok(value.parse()?)
-    }
-}
-
-impl FloatPrimitive for f64 {
-    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F64;
-    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float64;
-    const NAME: &'static str = "Float64";
-
-    fn from_i8(value: i8) -> Self {
-        value as f64
-    }
-
-    fn from_i16(value: i16) -> Self {
-        value as f64
-    }
-
-    fn from_i32(value: i32) -> Self {
-        value as f64
-    }
-
-    fn from_i64(value: i64) -> Self {
-        value as f64
-    }
-
-    fn from_u8(value: u8) -> Self {
-        value as f64
-    }
-
-    fn from_u16(value: u16) -> Self {
-        value as f64
-    }
-
-    fn from_u32(value: u32) -> Self {
-        value as f64
-    }
-
-    fn from_u64(value: u64) -> Self {
-        value as f64
-    }
-
-    fn from_f32(value: f32) -> Self {
-        value as f64
-    }
-
-    fn from_f64(value: f64) -> Self {
-        value
-    }
-
-    fn from_str(value: &str) -> Result<Self> {
-        Ok(value.parse()?)
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -304,4 +157,169 @@ impl<'a, F: FloatPrimitive> Serializer for &'a mut FloatBuilder<F> {
     fn serialize_str(self, v: &str) -> Result<()> {
         self.array.push_scalar_value(F::from_str(v)?)
     }
+}
+
+impl FloatPrimitive for f16 {
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F16;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float16;
+    const NAME: &'static str = "Float16";
+
+    fn from_i8(value: i8) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_i16(value: i16) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_i32(value: i32) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_i64(value: i64) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_u8(value: u8) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_u16(value: u16) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_u32(value: u32) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_u64(value: u64) -> Self {
+        f16::from_f64(value as f64)
+    }
+
+    fn from_f32(value: f32) -> Self {
+        f16::from_f32(value)
+    }
+
+    fn from_f64(value: f64) -> Self {
+        f16::from_f64(value)
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        Ok(f16::from_f64(parse_float_with_underscores::<f64>(value)?))
+    }
+}
+
+impl FloatPrimitive for f32 {
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F32;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float32;
+    const NAME: &'static str = "Float32";
+
+    fn from_i8(value: i8) -> Self {
+        value as f32
+    }
+
+    fn from_i16(value: i16) -> Self {
+        value as f32
+    }
+
+    fn from_i32(value: i32) -> Self {
+        value as f32
+    }
+
+    fn from_i64(value: i64) -> Self {
+        value as f32
+    }
+
+    fn from_u8(value: u8) -> Self {
+        value as f32
+    }
+
+    fn from_u16(value: u16) -> Self {
+        value as f32
+    }
+
+    fn from_u32(value: u32) -> Self {
+        value as f32
+    }
+
+    fn from_u64(value: u64) -> Self {
+        value as f32
+    }
+
+    fn from_f32(value: f32) -> Self {
+        value
+    }
+
+    fn from_f64(value: f64) -> Self {
+        value as f32
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        parse_float_with_underscores(value)
+    }
+}
+
+impl FloatPrimitive for f64 {
+    const ARRAY_BUILDER_VARIANT: fn(FloatBuilder<Self>) -> ArrayBuilder = ArrayBuilder::F64;
+    const ARRAY_VARIANT: fn(PrimitiveArray<Self>) -> Array = Array::Float64;
+    const NAME: &'static str = "Float64";
+
+    fn from_i8(value: i8) -> Self {
+        value as f64
+    }
+
+    fn from_i16(value: i16) -> Self {
+        value as f64
+    }
+
+    fn from_i32(value: i32) -> Self {
+        value as f64
+    }
+
+    fn from_i64(value: i64) -> Self {
+        value as f64
+    }
+
+    fn from_u8(value: u8) -> Self {
+        value as f64
+    }
+
+    fn from_u16(value: u16) -> Self {
+        value as f64
+    }
+
+    fn from_u32(value: u32) -> Self {
+        value as f64
+    }
+
+    fn from_u64(value: u64) -> Self {
+        value as f64
+    }
+
+    fn from_f32(value: f32) -> Self {
+        value as f64
+    }
+
+    fn from_f64(value: f64) -> Self {
+        value
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        parse_float_with_underscores(value)
+    }
+}
+
+fn parse_float_with_underscores<T>(value: &str) -> Result<T>
+where
+    T: std::str::FromStr<Err = std::num::ParseFloatError>,
+{
+    const FLOAT_PARSE_STACK_SIZE: usize = 64;
+
+    let bytes = value.as_bytes();
+    with_underscores_removed::<FLOAT_PARSE_STACK_SIZE, _>(bytes, |sanitized| {
+        let Ok(sanitized) = std::str::from_utf8(sanitized) else {
+            unreachable!("Removing undercores keeps the UTF-8 valid");
+        };
+        Ok(sanitized.parse()?)
+    })
 }
