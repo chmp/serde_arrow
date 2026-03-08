@@ -12,6 +12,7 @@ mod arrow_dictionary;
 #[cfg(has_arrow_fixed_binary_support)]
 mod arrow_fixed_size_binary;
 mod arrow_fixed_size_list;
+mod arrow_floats;
 mod arrow_list;
 mod arrow_map;
 mod arrow_struct;

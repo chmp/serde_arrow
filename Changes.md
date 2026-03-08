@@ -3,6 +3,8 @@
 ## 0.14.1 (development)
 
 - Allow to build bools from integers. Nonzero integers are mapped to true
+- Allow to deserialize integers from floats to ensure feature parity with
+  serialization (`f{16,32,64}  -> {u,i}{8,16,32,64}`)
 
 ## 0.14.0
 
