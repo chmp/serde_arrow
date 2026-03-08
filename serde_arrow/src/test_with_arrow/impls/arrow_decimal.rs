@@ -22,6 +22,22 @@ fn example() {
         .also(|it| assert_eq!(get_i128_values(it), &[20, 42]));
 }
 
+#[test]
+fn string_to_decimal() {
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, 2)"}]))
+        .serialize(&[Item(String::from("1.23")), Item(String::from("4.56"))])
+        .also(|it| assert_eq!(get_i128_values(it), &[123, 456]));
+}
+
+#[test]
+fn decimal_to_string() {
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal128(5, 2)"}]))
+        .serialize(&[Item(1.23_f64), Item(4.56_f64)])
+        .deserialize(&[Item(String::from("1.23")), Item(String::from("4.56"))]);
+}
+
 /// Decimals with too many digits are truncated in serialization
 #[test]
 fn truncation() {
