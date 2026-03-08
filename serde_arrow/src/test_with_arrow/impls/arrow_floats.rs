@@ -274,6 +274,87 @@ fn f64_from_i64() {
 }
 
 #[test]
+fn f16_from_string() {
+    let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
+    let expected = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F16"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
+fn string_from_f16() {
+    let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
+    let expected = [
+        Item(String::from("-1")),
+        Item(String::from("2")),
+        Item(String::from("-3")),
+        Item(String::from("4")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F16"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
+fn f32_from_string() {
+    let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
+    let expected = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F32"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
+fn string_from_f32() {
+    let values = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
+    let expected = [
+        Item(String::from("-1")),
+        Item(String::from("2")),
+        Item(String::from("-3")),
+        Item(String::from("4")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F32"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
+fn f64_from_string() {
+    let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
+    let expected = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F64"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
+fn string_from_f64() {
+    let values = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
+    let expected = [
+        Item(String::from("-1")),
+        Item(String::from("2")),
+        Item(String::from("-3")),
+        Item(String::from("4")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "F64"}]))
+        .serialize(&values)
+        .deserialize(&expected);
+}
+
+#[test]
 fn f64() {
     let items: &[Item<f64>] = &[Item(-1.0), Item(2.0), Item(-3.0), Item(4.0)];
     Test::new()

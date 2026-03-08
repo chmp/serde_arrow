@@ -30,6 +30,7 @@ pub trait FloatPrimitive: Sized + Copy + Default + 'static {
     fn from_u64(value: u64) -> Self;
     fn from_f32(value: f32) -> Self;
     fn from_f64(value: f64) -> Self;
+    fn from_str(value: &str) -> Result<Self>;
 }
 
 impl FloatPrimitive for f16 {
@@ -75,6 +76,10 @@ impl FloatPrimitive for f16 {
 
     fn from_f64(value: f64) -> Self {
         f16::from_f64(value)
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        Ok(f16::from_f64(value.parse()?))
     }
 }
 
@@ -122,6 +127,10 @@ impl FloatPrimitive for f32 {
     fn from_f64(value: f64) -> Self {
         value as f32
     }
+
+    fn from_str(value: &str) -> Result<Self> {
+        Ok(value.parse()?)
+    }
 }
 
 impl FloatPrimitive for f64 {
@@ -167,6 +176,10 @@ impl FloatPrimitive for f64 {
 
     fn from_f64(value: f64) -> Self {
         value
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        Ok(value.parse()?)
     }
 }
 
@@ -241,6 +254,7 @@ impl<'a, F: FloatPrimitive> Serializer for &'a mut FloatBuilder<F> {
         override serialize_u64,
         override serialize_f32,
         override serialize_f64,
+        override serialize_str,
     );
 
     fn serialize_none(self) -> Result<()> {
@@ -285,5 +299,9 @@ impl<'a, F: FloatPrimitive> Serializer for &'a mut FloatBuilder<F> {
 
     fn serialize_f64(self, v: f64) -> Result<()> {
         self.array.push_scalar_value(F::from_f64(v))
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        self.array.push_scalar_value(F::from_str(v)?)
     }
 }
