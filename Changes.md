@@ -5,6 +5,8 @@
 - Allow to build bools from integers. Nonzero integers are mapped to true
 - Allow to deserialize integers from floats to ensure feature parity with
   serialization (`f{16,32,64}  -> {u,i}{8,16,32,64}`)
+- Support `_` separators when serializing strings to "Float16, Float32,
+  Float64", and "Decimal128"
 
 ## 0.14.0
 
