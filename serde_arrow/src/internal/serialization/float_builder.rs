@@ -10,10 +10,7 @@ use serde::{Serialize, Serializer};
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
-    utils::{
-        array_ext::{ArrayExt, ScalarArrayExt},
-        with_underscores_removed,
-    },
+    utils::array_ext::{ArrayExt, ScalarArrayExt},
 };
 
 use super::array_builder::ArrayBuilder;
@@ -309,17 +306,38 @@ impl FloatPrimitive for f64 {
     }
 }
 
+/// Copy the string into a temporary buffer if it contains underscores
 fn parse_float_with_underscores<T>(value: &str) -> Result<T>
 where
     T: std::str::FromStr<Err = std::num::ParseFloatError>,
 {
-    const FLOAT_PARSE_STACK_SIZE: usize = 64;
+    if !value.contains('_') {
+        return Ok(value.parse()?);
+    }
 
-    let bytes = value.as_bytes();
-    with_underscores_removed::<FLOAT_PARSE_STACK_SIZE, _>(bytes, |sanitized| {
-        let Ok(sanitized) = std::str::from_utf8(sanitized) else {
-            unreachable!("Removing undercores keeps the UTF-8 valid");
-        };
-        Ok(sanitized.parse()?)
-    })
+    const STACK_BUFFER_LEN: usize = 64;
+
+    let mut stack_buffer;
+    let mut heap_buffer;
+
+    let buffer = if value.len() <= STACK_BUFFER_LEN {
+        stack_buffer = [0_u8; STACK_BUFFER_LEN];
+        &mut stack_buffer
+    } else {
+        heap_buffer = vec![0_u8; value.len()];
+        heap_buffer.as_mut_slice()
+    };
+
+    let mut len = 0;
+    for &byte in value.as_bytes() {
+        if byte != b'_' {
+            buffer[len] = byte;
+            len += 1;
+        }
+    }
+
+    let Ok(sanitized) = std::str::from_utf8(&buffer[..len]) else {
+        unreachable!("Removing _ does not make a string invalid utf8");
+    };
+    Ok(sanitized.parse()?)
 }
