@@ -337,7 +337,7 @@ where
     }
 
     let Ok(sanitized) = std::str::from_utf8(&buffer[..len]) else {
-        unreachable!("Removing _ does not make a string invalid utf8");
+        unreachable!("removing _ does not make a string invalid utf8");
     };
     Ok(sanitized.parse()?)
 }
