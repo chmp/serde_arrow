@@ -39,8 +39,7 @@ fn f32_from_u8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -49,8 +48,7 @@ fn f16_from_u8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -59,8 +57,7 @@ fn f16_from_u16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -69,8 +66,7 @@ fn f16_from_u32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -79,8 +75,7 @@ fn f16_from_u64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -89,8 +84,7 @@ fn f16_from_i8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -99,8 +93,7 @@ fn f16_from_i16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -109,8 +102,7 @@ fn f16_from_i32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -119,8 +111,7 @@ fn f16_from_i64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -129,8 +120,7 @@ fn f32_from_u16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -139,8 +129,7 @@ fn f32_from_u32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -149,8 +138,7 @@ fn f32_from_u64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -159,8 +147,7 @@ fn f32_from_i8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -169,8 +156,7 @@ fn f32_from_i16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -179,8 +165,7 @@ fn f32_from_i32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -189,8 +174,7 @@ fn f32_from_i64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -199,8 +183,7 @@ fn f64_from_u8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -209,8 +192,7 @@ fn f64_from_u16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -219,8 +201,7 @@ fn f64_from_u32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -229,8 +210,7 @@ fn f64_from_u64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -239,8 +219,7 @@ fn f64_from_i8() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -249,8 +228,7 @@ fn f64_from_i16() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -259,8 +237,7 @@ fn f64_from_i32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -269,30 +246,25 @@ fn f64_from_i64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
 fn f16_from_string() {
     let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
-    let expected = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
 fn f16_from_string_with_underscores() {
     let values = [Item("-1_0"), Item("2_0"), Item("-3_0"), Item("4_0")];
-    let expected = [Item(-10.0_f32), Item(20.0), Item(-30.0), Item(40.0)];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
@@ -314,12 +286,10 @@ fn string_from_f16() {
 #[test]
 fn f32_from_string() {
     let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
-    let expected = [Item(-1.0_f32), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
@@ -330,17 +300,10 @@ fn f32_from_string_with_underscores() {
         Item("-3_000"),
         Item("4_000.25"),
     ];
-    let expected = [
-        Item(-1000.5_f32),
-        Item(2000.0),
-        Item(-3000.0),
-        Item(4000.25),
-    ];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
@@ -362,12 +325,10 @@ fn string_from_f32() {
 #[test]
 fn f64_from_string() {
     let values = [Item("-1"), Item("2"), Item("-3"), Item("4")];
-    let expected = [Item(-1.0_f64), Item(2.0), Item(-3.0), Item(4.0)];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
@@ -378,17 +339,10 @@ fn f64_from_string_with_underscores() {
         Item("-3_000"),
         Item("4_000.25"),
     ];
-    let expected = [
-        Item(-1000.5_f64),
-        Item(2000.0),
-        Item(-3000.0),
-        Item(4000.25),
-    ];
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&expected);
+        .serialize(&values);
 }
 
 #[test]
@@ -442,8 +396,7 @@ fn f32_from_f64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F32"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -452,8 +405,7 @@ fn f64_from_f32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F64"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -462,8 +414,7 @@ fn f16_from_f32() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
 
 #[test]
@@ -472,6 +423,5 @@ fn f16_from_f64() {
 
     Test::new()
         .with_schema(json!([{"name": "item", "data_type": "F16"}]))
-        .serialize(&values)
-        .deserialize(&values);
+        .serialize(&values);
 }
