@@ -18,30 +18,23 @@ pub const BUFFER_SIZE_I128: usize = 64;
 ///
 /// Parsing is performed by copying the relevant digits into a temporary buffer
 /// and using integer parsing.
+///
+/// All variants hvae the form `(precision, scale, truncated)`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DecimalParser {
-    IntegerOnly(usize, usize),
-    IntegerOnlyTruncated(usize, usize),
-    Mixed(usize, usize),
-    MixedTruncated(usize, usize),
-    FractionOnly(usize, usize),
-    FractionOnlyTruncated(usize, usize),
+    IntegerOnly(usize, usize, bool),
+    Mixed(usize, usize, bool),
+    FractionOnly(usize, usize, bool),
 }
 
 impl DecimalParser {
     pub fn new(precision: u8, scale: i8, truncated: bool) -> Self {
-        if scale <= 0 && !truncated {
-            Self::IntegerOnly(precision as usize, -scale as usize)
-        } else if scale < 0 {
-            Self::IntegerOnlyTruncated(precision as usize, -scale as usize)
-        } else if (scale as usize) < (precision as usize) && !truncated {
-            Self::Mixed(precision as usize, scale as usize)
+        if scale <= 0 {
+            Self::IntegerOnly(precision as usize, -scale as usize, truncated)
         } else if (scale as usize) < (precision as usize) {
-            Self::MixedTruncated(precision as usize, scale as usize)
-        } else if !truncated {
-            Self::FractionOnly(precision as usize, scale as usize)
+            Self::Mixed(precision as usize, scale as usize, truncated)
         } else {
-            Self::FractionOnlyTruncated(precision as usize, scale as usize)
+            Self::FractionOnly(precision as usize, scale as usize, truncated)
         }
     }
 
@@ -54,65 +47,16 @@ impl DecimalParser {
     }
 
     fn copy_digits(self, buffer: &mut [u8], len: usize) -> Result<&str> {
-        use DecimalParser::*;
-        let s = &buffer[..len];
-        let (before_period, after_period) = find_period(s);
-
         let out_len = match self {
-            IntegerOnly(precision, scale) => copy_digits_integer_only(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                false,
-            )?,
-            IntegerOnlyTruncated(precision, scale) => copy_digits_integer_only(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                true,
-            )?,
-            Mixed(precision, scale) => copy_digits_mixed(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                false,
-            )?,
-            MixedTruncated(precision, scale) => copy_digits_mixed(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                true,
-            )?,
-            FractionOnly(precision, scale) => copy_digits_fraction_only(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                false,
-            )?,
-            FractionOnlyTruncated(precision, scale) => copy_digits_fraction_only(
-                buffer,
-                len,
-                before_period,
-                after_period,
-                precision,
-                scale,
-                true,
-            )?,
+            Self::IntegerOnly(precision, scale, truncated) => {
+                copy_digits_integer_only(buffer, len, precision, scale, truncated)?
+            }
+            Self::Mixed(precision, scale, truncated) => {
+                copy_digits_mixed(buffer, len, precision, scale, truncated)?
+            }
+            Self::FractionOnly(precision, scale, truncated) => {
+                copy_digits_fraction_only(buffer, len, precision, scale, truncated)?
+            }
         };
 
         Ok(std::str::from_utf8(&buffer[..out_len]).unwrap())
@@ -160,12 +104,13 @@ impl Sign {
 fn copy_digits_integer_only(
     buffer: &mut [u8],
     len: usize,
-    before_period: usize,
-    after_period: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
 ) -> Result<usize> {
+    let s = &buffer[..len];
+    let (before_period, after_period) = find_period(s);
+
     let end_copy = before_period.saturating_sub(scale);
     let start_copy = end_copy.saturating_sub(precision);
 
@@ -187,13 +132,14 @@ fn copy_digits_integer_only(
 fn copy_digits_fraction_only(
     buffer: &mut [u8],
     len: usize,
-    before_period: usize,
-    after_period: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
 ) -> Result<usize> {
     debug_assert!(scale >= precision);
+
+    let s = &buffer[..len];
+    let (before_period, after_period) = find_period(s);
 
     let start_copy = std::cmp::min(len, after_period + scale - precision);
     let end_copy = std::cmp::min(len, after_period + scale);
@@ -218,13 +164,14 @@ fn copy_digits_fraction_only(
 fn copy_digits_mixed(
     buffer: &mut [u8],
     len: usize,
-    before_period: usize,
-    after_period: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
 ) -> Result<usize> {
     debug_assert!(scale < precision);
+
+    let s = &buffer[..len];
+    let (before_period, after_period) = find_period(s);
 
     let start_copy = before_period.saturating_sub(precision - scale);
     let end_copy = std::cmp::min(len, after_period + scale);
