@@ -19,7 +19,7 @@ pub const BUFFER_SIZE_I128: usize = 64;
 /// Parsing is performed by copying the relevant digits into a temporary buffer
 /// and using integer parsing.
 ///
-/// All variants hvae the form `(precision, scale, truncated)`.
+/// All variants have the form `(precision, scale, truncated)`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DecimalParser {
     IntegerOnly(usize, usize, bool),
