@@ -15,61 +15,66 @@ pub const BUFFER_SIZE_I128: usize = 64;
 /// - integer only: ` ----XXX----.----`
 /// - fraction only: `------.---XXX---`
 /// - mixed: `-----XXX.XXX----`
+///
+/// Parsing is performed by copying the relevant digits into a temporary buffer
+/// and using integer parsing.
+///
+/// All variants have the form `(precision, scale, truncated)`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DecimalParser {
-    IntegerOnly(usize, usize),
-    IntegerOnlyTruncated(usize, usize),
-    Mixed(usize, usize),
-    MixedTruncated(usize, usize),
-    FractionOnly(usize, usize),
-    FractionOnlyTruncated(usize, usize),
+    IntegerOnly(usize, usize, bool),
+    Mixed(usize, usize, bool),
+    FractionOnly(usize, usize, bool),
 }
 
 impl DecimalParser {
     pub fn new(precision: u8, scale: i8, truncated: bool) -> Self {
-        if scale <= 0 && !truncated {
-            Self::IntegerOnly(precision as usize, -scale as usize)
-        } else if scale < 0 {
-            Self::IntegerOnlyTruncated(precision as usize, -scale as usize)
-        } else if (scale as usize) < (precision as usize) && !truncated {
-            Self::Mixed(precision as usize, scale as usize)
+        if scale <= 0 {
+            Self::IntegerOnly(precision as usize, -scale as usize, truncated)
         } else if (scale as usize) < (precision as usize) {
-            Self::MixedTruncated(precision as usize, scale as usize)
-        } else if !truncated {
-            Self::FractionOnly(precision as usize, scale as usize)
+            Self::Mixed(precision as usize, scale as usize, truncated)
         } else {
-            Self::FractionOnlyTruncated(precision as usize, scale as usize)
+            Self::FractionOnly(precision as usize, scale as usize, truncated)
         }
     }
 
     pub fn parse_decimal128(self, buffer: &mut [u8], s: &[u8]) -> Result<i128> {
         let (s, sign) = parse_sign(s);
-        let val: i128 = self.copy_digits(buffer, s)?.parse()?;
+        let len = copy_into_buffer_without_underscores(buffer, s)?;
+        let val: i128 = self.copy_digits(buffer, len)?.parse()?;
         let val = sign.apply_i128(val);
         Ok(val)
     }
 
-    pub fn copy_digits<'b>(self, buffer: &'b mut [u8], s: &[u8]) -> Result<&'b str> {
-        use DecimalParser::*;
-        match self {
-            IntegerOnly(precision, scale) => {
-                copy_digits_integer_only(buffer, s, precision, scale, false)
+    fn copy_digits(self, buffer: &mut [u8], len: usize) -> Result<&str> {
+        let out_len = match self {
+            Self::IntegerOnly(precision, scale, truncated) => {
+                copy_digits_integer_only(buffer, len, precision, scale, truncated)?
             }
-            IntegerOnlyTruncated(precision, scale) => {
-                copy_digits_integer_only(buffer, s, precision, scale, true)
+            Self::Mixed(precision, scale, truncated) => {
+                copy_digits_mixed(buffer, len, precision, scale, truncated)?
             }
-            Mixed(precision, scale) => copy_digits_mixed(buffer, s, precision, scale, false),
-            MixedTruncated(precision, scale) => {
-                copy_digits_mixed(buffer, s, precision, scale, true)
+            Self::FractionOnly(precision, scale, truncated) => {
+                copy_digits_fraction_only(buffer, len, precision, scale, truncated)?
             }
-            FractionOnly(precision, scale) => {
-                copy_digits_fraction_only(buffer, s, precision, scale, false)
+        };
+
+        Ok(std::str::from_utf8(&buffer[..out_len]).unwrap())
+    }
+}
+
+fn copy_into_buffer_without_underscores(buffer: &mut [u8], s: &[u8]) -> Result<usize> {
+    let mut len = 0;
+    for &byte in s {
+        if byte != b'_' {
+            if len >= buffer.len() {
+                fail!("Invalid decimal: number too long");
             }
-            FractionOnlyTruncated(precision, scale) => {
-                copy_digits_fraction_only(buffer, s, precision, scale, true)
-            }
+            buffer[len] = byte;
+            len += 1;
         }
     }
+    Ok(len)
 }
 
 fn parse_sign(s: &[u8]) -> (&[u8], Sign) {
@@ -96,95 +101,102 @@ impl Sign {
     }
 }
 
-fn copy_digits_integer_only<'b>(
-    buffer: &'b mut [u8],
-    s: &[u8],
+fn copy_digits_integer_only(
+    buffer: &mut [u8],
+    len: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
-) -> Result<&'b str> {
+) -> Result<usize> {
+    let s = &buffer[..len];
     let (before_period, after_period) = find_period(s);
+
     let end_copy = before_period.saturating_sub(scale);
     let start_copy = end_copy.saturating_sub(precision);
 
-    check_all_ascii_zero(&s[0..start_copy], true)?;
+    check_all_ascii_zero(&buffer[0..start_copy], true)?;
     if !truncate {
-        check_all_ascii_digit(&s[start_copy..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..before_period], false)?;
-        check_all_ascii_zero(&s[after_period..s.len()], false)?;
+        check_all_ascii_digit(&buffer[start_copy..end_copy])?;
+        check_all_ascii_zero(&buffer[end_copy..before_period], false)?;
+        check_all_ascii_zero(&buffer[after_period..len], false)?;
     } else {
-        check_all_ascii_digit(&s[start_copy..before_period])?;
-        check_all_ascii_digit(&s[after_period..s.len()])?;
+        check_all_ascii_digit(&buffer[start_copy..before_period])?;
+        check_all_ascii_digit(&buffer[after_period..len])?;
     }
 
-    buffer[0..end_copy - start_copy].copy_from_slice(&s[start_copy..end_copy]);
-    let res = std::str::from_utf8(&buffer[..end_copy - start_copy]).unwrap();
-    Ok(res)
+    let out_len = end_copy - start_copy;
+    buffer.copy_within(start_copy..end_copy, 0);
+    Ok(out_len)
 }
 
-fn copy_digits_fraction_only<'b>(
-    buffer: &'b mut [u8],
-    s: &[u8],
+fn copy_digits_fraction_only(
+    buffer: &mut [u8],
+    len: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
-) -> Result<&'b str> {
+) -> Result<usize> {
     debug_assert!(scale >= precision);
 
+    let s = &buffer[..len];
     let (before_period, after_period) = find_period(s);
-    let start_copy = std::cmp::min(s.len(), after_period + scale - precision);
-    let end_copy = std::cmp::min(s.len(), after_period + scale);
+
+    let start_copy = std::cmp::min(len, after_period + scale - precision);
+    let end_copy = std::cmp::min(len, after_period + scale);
     let fill = precision - (end_copy - start_copy);
 
-    check_all_ascii_zero(&s[0..before_period], true)?;
-    check_all_ascii_zero(&s[after_period..start_copy], true)?;
+    check_all_ascii_zero(&buffer[0..before_period], true)?;
+    check_all_ascii_zero(&buffer[after_period..start_copy], true)?;
 
     if !truncate {
-        check_all_ascii_digit(&s[start_copy..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..s.len()], false)?;
+        check_all_ascii_digit(&buffer[start_copy..end_copy])?;
+        check_all_ascii_zero(&buffer[end_copy..len], false)?;
     } else {
-        check_all_ascii_digit(&s[start_copy..s.len()])?;
+        check_all_ascii_digit(&buffer[start_copy..len])?;
     }
 
-    buffer[0..end_copy - start_copy].copy_from_slice(&s[start_copy..end_copy]);
-    buffer[end_copy - start_copy..][..fill].fill(b'0');
-
-    let res = std::str::from_utf8(&buffer[..end_copy - start_copy + fill]).unwrap();
-    Ok(res)
+    let out_len = end_copy - start_copy;
+    buffer.copy_within(start_copy..end_copy, 0);
+    buffer[out_len..out_len + fill].fill(b'0');
+    Ok(out_len + fill)
 }
 
-fn copy_digits_mixed<'b>(
-    buffer: &'b mut [u8],
-    s: &[u8],
+fn copy_digits_mixed(
+    buffer: &mut [u8],
+    len: usize,
     precision: usize,
     scale: usize,
     truncate: bool,
-) -> Result<&'b str> {
+) -> Result<usize> {
     debug_assert!(scale < precision);
 
+    let s = &buffer[..len];
     let (before_period, after_period) = find_period(s);
+
     let start_copy = before_period.saturating_sub(precision - scale);
-    let end_copy = std::cmp::min(s.len(), after_period + scale);
+    let end_copy = std::cmp::min(len, after_period + scale);
 
     let copy_1 = start_copy..before_period;
     let copy_2 = after_period..end_copy;
     let fill = scale - (end_copy - after_period);
 
-    check_all_ascii_zero(&s[0..start_copy], true)?;
-    check_all_ascii_digit(&s[copy_1.clone()])?;
+    check_all_ascii_zero(&buffer[0..start_copy], true)?;
+    check_all_ascii_digit(&buffer[copy_1.clone()])?;
     if !truncate {
-        check_all_ascii_digit(&s[after_period..end_copy])?;
-        check_all_ascii_zero(&s[end_copy..s.len()], false)?;
+        check_all_ascii_digit(&buffer[after_period..end_copy])?;
+        check_all_ascii_zero(&buffer[end_copy..len], false)?;
     } else {
-        check_all_ascii_digit(&s[after_period..s.len()])?;
+        check_all_ascii_digit(&buffer[after_period..len])?;
     }
 
-    buffer[0..copy_1.len()].copy_from_slice(&s[copy_1.clone()]);
-    buffer[copy_1.len()..][..copy_2.len()].copy_from_slice(&s[copy_2.clone()]);
-    buffer[copy_1.len() + copy_2.len()..][..fill].fill(b'0');
+    let copy_1_len = copy_1.len();
+    let copy_2_len = copy_2.len();
 
-    let res = std::str::from_utf8(&buffer[..copy_1.len() + copy_2.len() + fill]).unwrap();
-    Ok(res)
+    buffer.copy_within(copy_1, 0);
+    buffer.copy_within(copy_2, copy_1_len);
+    buffer[copy_1_len + copy_2_len..copy_1_len + copy_2_len + fill].fill(b'0');
+
+    Ok(copy_1_len + copy_2_len + fill)
 }
 
 fn find_period(s: &[u8]) -> (usize, usize) {
@@ -307,52 +319,61 @@ fn test_positive_scale_fraction_truncation() {
 }
 
 #[test]
+fn test_underscores() {
+    assert_eq!(parse_decimal(b"1_234", 10, 0, false), Ok(1234_i128));
+    assert_eq!(parse_decimal(b"1_234.50", 10, 2, false), Ok(123450_i128));
+    assert_eq!(parse_decimal(b"-1_234.5_0", 10, 2, false), Ok(-123450_i128));
+    assert_eq!(parse_decimal(b"1_234_00", 10, -2, false), Ok(1234_i128));
+}
+
+#[test]
 fn test_copy_digits() {
-    fn copy_digits_str(s: &str, precision: u8, scale: i8) -> Result<String> {
-        let mut buffer = [0; 64];
-        let res =
-            DecimalParser::new(precision, scale, false).copy_digits(&mut buffer, s.as_bytes())?;
-        Ok(res.to_string())
+    fn assert_digits_value(s: &str, precision: u8, scale: i8, expected_digits: &str) {
+        let expected: i128 = expected_digits.parse().unwrap();
+        assert_eq!(
+            parse_decimal(s.as_bytes(), precision, scale, false),
+            Ok(expected)
+        );
     }
 
-    assert_eq!(copy_digits_str("0", 1, 0).unwrap(), "0");
-    assert_eq!(copy_digits_str("1", 1, 0).unwrap(), "1");
-    assert_eq!(copy_digits_str("5", 1, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("5", 2, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("5", 3, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("125", 3, 0).unwrap(), "125");
-    assert_eq!(copy_digits_str("12300", 3, -2).unwrap(), "123");
-    assert_eq!(copy_digits_str("5000", 1, -3).unwrap(), "5");
+    assert_digits_value("0", 1, 0, "0");
+    assert_digits_value("1", 1, 0, "1");
+    assert_digits_value("5", 1, 0, "5");
+    assert_digits_value("5", 2, 0, "5");
+    assert_digits_value("5", 3, 0, "5");
+    assert_digits_value("125", 3, 0, "125");
+    assert_digits_value("12300", 3, -2, "123");
+    assert_digits_value("5000", 1, -3, "5");
 
-    assert_eq!(copy_digits_str("0.0", 1, 0).unwrap(), "0");
-    assert_eq!(copy_digits_str("1.0", 1, 0).unwrap(), "1");
-    assert_eq!(copy_digits_str("5.0", 1, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("5.00", 2, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("5.0000", 3, 0).unwrap(), "5");
-    assert_eq!(copy_digits_str("125.00", 3, 0).unwrap(), "125");
-    assert_eq!(copy_digits_str("12300.00000", 3, -2).unwrap(), "123");
-    assert_eq!(copy_digits_str("5000.0000", 1, -3).unwrap(), "5");
+    assert_digits_value("0.0", 1, 0, "0");
+    assert_digits_value("1.0", 1, 0, "1");
+    assert_digits_value("5.0", 1, 0, "5");
+    assert_digits_value("5.00", 2, 0, "5");
+    assert_digits_value("5.0000", 3, 0, "5");
+    assert_digits_value("125.00", 3, 0, "125");
+    assert_digits_value("12300.00000", 3, -2, "123");
+    assert_digits_value("5000.0000", 1, -3, "5");
 
-    assert_eq!(copy_digits_str("0", 2, 2).unwrap(), "00");
-    assert_eq!(copy_digits_str("0.", 2, 2).unwrap(), "00");
-    assert_eq!(copy_digits_str("0.01", 2, 2).unwrap(), "01");
-    assert_eq!(copy_digits_str("0.10", 2, 2).unwrap(), "10");
-    assert_eq!(copy_digits_str("0.1", 2, 2).unwrap(), "10");
+    assert_digits_value("0", 2, 2, "00");
+    assert_digits_value("0.", 2, 2, "00");
+    assert_digits_value("0.01", 2, 2, "01");
+    assert_digits_value("0.10", 2, 2, "10");
+    assert_digits_value("0.1", 2, 2, "10");
 
-    assert_eq!(copy_digits_str("0.01", 2, 3).unwrap(), "10");
-    assert_eq!(copy_digits_str("0.012", 2, 3).unwrap(), "12");
-    assert_eq!(copy_digits_str("0.007", 2, 3).unwrap(), "07");
+    assert_digits_value("0.01", 2, 3, "10");
+    assert_digits_value("0.012", 2, 3, "12");
+    assert_digits_value("0.007", 2, 3, "07");
 
-    assert_eq!(copy_digits_str("01.230", 3, 2).unwrap(), "123");
-    assert_eq!(copy_digits_str("1.230", 3, 2).unwrap(), "123");
-    assert_eq!(copy_digits_str("1.23", 3, 2).unwrap(), "123");
-    assert_eq!(copy_digits_str("1.2", 3, 2).unwrap(), "120");
-    assert_eq!(copy_digits_str("1.", 3, 2).unwrap(), "100");
+    assert_digits_value("01.230", 3, 2, "123");
+    assert_digits_value("1.230", 3, 2, "123");
+    assert_digits_value("1.23", 3, 2, "123");
+    assert_digits_value("1.2", 3, 2, "120");
+    assert_digits_value("1.", 3, 2, "100");
 
-    assert_eq!(copy_digits_str("21.21", 4, 2).unwrap(), "2121");
-    assert_eq!(copy_digits_str("2", 4, 2).unwrap(), "200");
-    assert_eq!(copy_digits_str("20", 4, 2).unwrap(), "2000");
-    assert_eq!(copy_digits_str("42.00", 4, 2).unwrap(), "4200");
+    assert_digits_value("21.21", 4, 2, "2121");
+    assert_digits_value("2", 4, 2, "200");
+    assert_digits_value("20", 4, 2, "2000");
+    assert_digits_value("42.00", 4, 2, "4200");
 }
 
 pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {

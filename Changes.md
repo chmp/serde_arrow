@@ -3,6 +3,9 @@
 ## 0.14.1 (development)
 
 - Allow to build bools from integers. Nonzero integers are mapped to true
+- Allow to deserialize "Float16", "Float32", "Float64", "Decimal128" to string
+- Support `_` separators when serializing strings to "Float16, Float32,
+  Float64", and "Decimal128"
 
 ## 0.14.0
 

@@ -10,7 +10,6 @@ pub mod enums_as_string_impl;
 pub mod fixed_size_binary_deserializer;
 pub mod fixed_size_list_deserializer;
 pub mod float_deserializer;
-pub mod float_impls;
 pub mod integer_deserializer;
 pub mod integer_impls;
 pub mod list_deserializer;

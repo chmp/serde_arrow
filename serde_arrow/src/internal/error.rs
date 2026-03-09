@@ -335,6 +335,12 @@ impl From<std::num::ParseIntError> for Error {
     }
 }
 
+impl From<std::num::ParseFloatError> for Error {
+    fn from(err: std::num::ParseFloatError) -> Self {
+        Self::new_from(ErrorKind::Custom, format!("ParseFloatError: {err}"), err)
+    }
+}
+
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
         Self::new_from(ErrorKind::Custom, format!("std::fmt::Error: {err}"), err)

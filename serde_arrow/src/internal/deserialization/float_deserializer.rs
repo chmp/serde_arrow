@@ -1,3 +1,4 @@
+use half::f16;
 use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
@@ -17,6 +18,7 @@ pub trait Float: Copy {
 
     fn into_f32(self) -> Result<f32>;
     fn into_f64(self) -> Result<f64>;
+    fn into_string(self) -> Result<String>;
 }
 
 pub struct FloatDeserializer<'a, F: Float> {
@@ -61,5 +63,79 @@ impl<'de, F: NamedType + Float> RandomAccessDeserializer<'de> for FloatDeseriali
 
     fn deserialize_f64<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| visitor.visit_f64(self.view.get_required(idx)?.into_f64()?)).ctx(self)
+    }
+
+    fn deserialize_str<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_string(self.view.get_required(idx)?.into_string()?)).ctx(self)
+    }
+
+    fn deserialize_string<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        try_(|| visitor.visit_string(self.view.get_required(idx)?.into_string()?)).ctx(self)
+    }
+}
+
+impl Float for f16 {
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_f32(visitor, idx)
+    }
+
+    fn into_f32(self) -> Result<f32> {
+        Ok(self.to_f32())
+    }
+
+    fn into_f64(self) -> Result<f64> {
+        Ok(self.to_f64())
+    }
+
+    fn into_string(self) -> Result<String> {
+        Ok(self.to_f32().to_string())
+    }
+}
+
+impl Float for f32 {
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_f32(visitor, idx)
+    }
+
+    fn into_f32(self) -> Result<f32> {
+        Ok(self)
+    }
+
+    fn into_f64(self) -> Result<f64> {
+        Ok(self as f64)
+    }
+
+    fn into_string(self) -> Result<String> {
+        Ok(self.to_string())
+    }
+}
+
+impl Float for f64 {
+    fn deserialize_any_at<'de, S: RandomAccessDeserializer<'de>, V: Visitor<'de>>(
+        deser: &S,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        deser.deserialize_f64(visitor, idx)
+    }
+
+    fn into_f32(self) -> Result<f32> {
+        Ok(self as f32)
+    }
+
+    fn into_f64(self) -> Result<f64> {
+        Ok(self)
+    }
+
+    fn into_string(self) -> Result<String> {
+        Ok(self.to_string())
     }
 }
