@@ -1,8 +1,9 @@
 use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
-    Rng,
+    Rng, SeedableRng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
+    rngs::StdRng,
 };
 use serde::{Deserialize, Serialize};
 
@@ -55,9 +56,10 @@ impl Item {
 
 pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     let mut group = super::new_group(c, "complex_1000");
+    let mut rng = StdRng::seed_from_u64(0xFACE_FEED);
 
     let items = (0..1_000)
-        .map(|_| Item::random(&mut rand::thread_rng()))
+        .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
 
     use crate::impls::serde_arrow_arrow;

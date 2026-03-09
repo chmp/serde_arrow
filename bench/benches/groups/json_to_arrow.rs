@@ -8,10 +8,11 @@ use {
 use arrow_array::RecordBatch;
 use arrow_json::ReaderBuilder;
 use arrow_schema::{FieldRef, Schema as ArrowSchema};
+use rand::{SeedableRng, rngs::StdRng};
 use serde_json::Value;
 
 fn benchmark_json_to_arrow(c: &mut criterion::Criterion) {
-    let rng = &mut rand::thread_rng();
+    let rng = &mut StdRng::seed_from_u64(0xBADC_0FFE);
     let items = (0..1000).map(|_| Item::random(rng)).collect::<Vec<Item>>();
     let jsons_to_deserialize = items
         .iter()

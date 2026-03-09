@@ -11,7 +11,7 @@ pub fn new_group<'a, M: Measurement>(
     let mut group = c.benchmark_group(name);
 
     group.sampling_mode(criterion::SamplingMode::Flat);
-    group.sample_size(10);
+    group.sample_size(30);
     group.measurement_time(std::time::Duration::from_secs(5));
 
     group

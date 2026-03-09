@@ -2,9 +2,10 @@ use std::ops::Range;
 
 use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
-    Rng,
+    Rng, SeedableRng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
+    rngs::StdRng,
 };
 use serde::{Deserialize, Serialize};
 
@@ -56,9 +57,10 @@ pub fn random_string<R: Rng + ?Sized>(rng: &mut R, length: Range<usize>) -> Stri
 
 pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     let mut group = super::new_group(c, "primitives_1000");
+    let mut rng = StdRng::seed_from_u64(0xCAFE_BABE);
 
     let items = (0..1_000)
-        .map(|_| Item::random(&mut rand::thread_rng()))
+        .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
 
     use crate::impls::serde_arrow_arrow;
