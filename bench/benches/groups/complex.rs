@@ -1,4 +1,3 @@
-use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
     Rng, SeedableRng,
     distributions::{Standard, Uniform},
@@ -6,28 +5,29 @@ use rand::{
     rngs::StdRng,
 };
 use serde::{Deserialize, Serialize};
+use serde_arrow::marrow::{
+    array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
+    datatypes::FieldMeta,
+};
 
-// required for arrow2_convert
-use serde_arrow::_impl::arrow2;
-
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
-    string: String,
-    points: Vec<Point>,
-    child: SubItem,
+    pub(crate) string: String,
+    pub(crate) points: Vec<Point>,
+    pub(crate) child: SubItem,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
-struct Point {
-    x: f32,
-    y: f32,
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct Point {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
-struct SubItem {
-    first: bool,
-    second: f64,
-    c: Option<f32>,
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct SubItem {
+    pub(crate) first: bool,
+    pub(crate) second: f64,
+    pub(crate) c: Option<f32>,
 }
 
 impl Item {
@@ -54,6 +54,137 @@ impl Item {
     }
 }
 
+fn push_bit(values: &mut Vec<u8>, idx: usize, bit: bool) {
+    let byte_idx = idx / 8;
+    if values.len() <= byte_idx {
+        values.resize(byte_idx + 1, 0);
+    }
+    if bit {
+        values[byte_idx] |= 1 << (idx % 8);
+    }
+}
+
+fn field_meta(name: &str, nullable: bool) -> FieldMeta {
+    FieldMeta {
+        name: name.into(),
+        nullable,
+        metadata: Default::default(),
+    }
+}
+
+impl crate::impls::marrow_direct::DirectMarrowBuild for Item {
+    fn build_marrow_arrays(items: &[Self]) -> Vec<Array> {
+        let len = items.len();
+
+        let mut string_offsets = Vec::with_capacity(len + 1);
+        let mut string_data = Vec::new();
+
+        let mut points_offsets = Vec::with_capacity(len + 1);
+        let mut point_x = Vec::new();
+        let mut point_y = Vec::new();
+
+        let mut child_first_values = Vec::with_capacity(len.div_ceil(8));
+        let mut child_second_values = Vec::with_capacity(len);
+        let mut child_c_validity = Vec::with_capacity(len.div_ceil(8));
+        let mut child_c_values = Vec::with_capacity(len);
+
+        string_offsets.push(0);
+        points_offsets.push(0);
+
+        for (row_idx, item) in items.iter().enumerate() {
+            let string_bytes = item.string.as_bytes();
+            string_data.extend_from_slice(string_bytes);
+            string_offsets
+                .push(i32::try_from(string_data.len()).expect("string data offset overflow"));
+
+            for point in &item.points {
+                point_x.push(point.x);
+                point_y.push(point.y);
+            }
+            points_offsets
+                .push(i32::try_from(point_x.len()).expect("list element offset overflow"));
+
+            push_bit(&mut child_first_values, row_idx, item.child.first);
+            child_second_values.push(item.child.second);
+
+            if let Some(v) = item.child.c {
+                push_bit(&mut child_c_validity, row_idx, true);
+                child_c_values.push(v);
+            } else {
+                push_bit(&mut child_c_validity, row_idx, false);
+                child_c_values.push(f32::default());
+            }
+        }
+
+        let points_elements = Array::Struct(StructArray {
+            len: point_x.len(),
+            validity: None,
+            fields: vec![
+                (
+                    field_meta("x", false),
+                    Array::Float32(PrimitiveArray {
+                        validity: None,
+                        values: point_x,
+                    }),
+                ),
+                (
+                    field_meta("y", false),
+                    Array::Float32(PrimitiveArray {
+                        validity: None,
+                        values: point_y,
+                    }),
+                ),
+            ],
+        });
+
+        let points_array = Array::List(ListArray {
+            validity: None,
+            offsets: points_offsets,
+            elements: Box::new(points_elements),
+            meta: field_meta("item", false),
+        });
+
+        let child_array = Array::Struct(StructArray {
+            len,
+            validity: None,
+            fields: vec![
+                (
+                    field_meta("first", false),
+                    Array::Boolean(BooleanArray {
+                        len,
+                        validity: None,
+                        values: child_first_values,
+                    }),
+                ),
+                (
+                    field_meta("second", false),
+                    Array::Float64(PrimitiveArray {
+                        validity: None,
+                        values: child_second_values,
+                    }),
+                ),
+                (
+                    field_meta("c", true),
+                    Array::Float32(PrimitiveArray {
+                        validity: Some(child_c_validity),
+                        values: child_c_values,
+                    }),
+                ),
+            ],
+        });
+
+        vec![
+            Array::Utf8(BytesArray {
+                validity: None,
+                offsets: string_offsets,
+                data: string_data,
+            }),
+            points_array,
+            child_array,
+        ]
+    }
+}
+
 pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     let mut group = super::new_group(c, "complex_1000");
     let mut rng = StdRng::seed_from_u64(0xFACE_FEED);
@@ -71,8 +202,8 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     use crate::impls::arrow;
     super::bench_impl!(group, arrow, items);
 
-    use crate::impls::arrow2_convert;
-    super::bench_impl!(group, arrow2_convert, items);
+    use crate::impls::marrow_direct;
+    super::bench_impl!(group, marrow_direct, items);
 
     group.finish();
 }

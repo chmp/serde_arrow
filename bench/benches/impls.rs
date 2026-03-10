@@ -68,23 +68,21 @@ pub mod arrow {
     }
 }
 
-pub mod arrow2_convert {
-    use arrow2_convert::{
-        field::ArrowField,
-        serialize::{ArrowSerialize, TryIntoArrow},
-    };
-    use serde_arrow::{_impl::arrow2::array::Array, Error, ErrorKind, Result};
+pub mod marrow_direct {
+    use serde_arrow::{Result, marrow::array::Array};
 
     pub fn trace<T>(_items: &T) {}
 
-    pub fn serialize<Element>(_fields: &(), items: &[Element]) -> Result<Box<dyn Array>>
+    pub fn serialize<Element>(_fields: &(), items: &[Element]) -> Result<Vec<Array>>
     where
-        Element: ArrowSerialize + ArrowField<Type = Element> + 'static,
+        Element: DirectMarrowBuild,
     {
-        let array: Box<dyn Array> = items
-            .try_into_arrow()
-            .map_err(|err| Error::new(ErrorKind::Custom, err.to_string()))?;
+        Ok(Element::build_marrow_arrays(items))
+    }
 
-        Ok(array)
+    pub trait DirectMarrowBuild {
+        fn build_marrow_arrays(items: &[Self]) -> Vec<Array>
+        where
+            Self: Sized;
     }
 }
