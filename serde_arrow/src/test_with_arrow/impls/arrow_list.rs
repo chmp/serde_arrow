@@ -1,3 +1,4 @@
+use serde_bytes::ByteBuf;
 use serde_json::json;
 
 use crate::internal::{schema::TracingOptions, utils::Item};
@@ -240,4 +241,50 @@ fn tuple_variant_as_list() {
             Variant("Tuple", 0, "Variant"),
             vec![Value::U8(0), Value::U8(1), Value::U8(2)],
         ))]);
+}
+
+#[test]
+fn arrays() {
+    let items: &[Item<[i32; 3]>] = &[Item([1, 2, 3]), Item([4, 5, 6])];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "List",
+            "children": [{"name": "element", "data_type": "I32"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
+}
+
+#[test]
+fn tuples() {
+    let items: &[Item<(i32, i32, i32)>] = &[Item((1, 2, 3)), Item((4, 5, 6))];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "List",
+            "children": [{"name": "element", "data_type": "I32"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
+}
+
+#[test]
+fn byte_buf() {
+    let items = &[
+        Item(ByteBuf::from(b"foo")),
+        Item(ByteBuf::from(b"bar")),
+        Item(ByteBuf::from(b"baz")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "List",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
 }

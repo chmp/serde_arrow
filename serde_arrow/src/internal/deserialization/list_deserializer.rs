@@ -83,6 +83,15 @@ impl<'de, O: Offset + NamedType> RandomAccessDeserializer<'de> for ListDeseriali
         try_(|| visitor.visit_seq(self.get(idx)?)).ctx(self)
     }
 
+    fn deserialize_tuple<V: Visitor<'de>>(
+        &self,
+        _len: usize,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_seq(self.get(idx)?)).ctx(self)
+    }
+
     fn deserialize_bytes<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| visitor.visit_seq(self.get(idx)?)).ctx(self)
     }
