@@ -6,8 +6,8 @@
 - Allow to deserialize "Float16", "Float32", "Float64", "Decimal128" to string
 - Support `_` separators when serializing strings to "Float16, Float32,
   Float64", and "Decimal128"
-- Allow to deserialize fixed length arrays and bytes from `List`,
-  `FixedSizeList` arrays
+- Allow to deserialize tuples and bytes from `FixedSizeList`
+- Allow to deserialize bytes from `List` arrays
 
 ## 0.14.0
 
