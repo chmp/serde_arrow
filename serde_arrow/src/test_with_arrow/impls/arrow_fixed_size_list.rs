@@ -1,3 +1,4 @@
+use serde_bytes::ByteBuf;
 use serde_json::json;
 
 use super::utils::Test;
@@ -146,4 +147,50 @@ fn bytes_size_list() {
             "children": [{"name": "element", "data_type": "U8"}],
         }]))
         .serialize(&[Item(Value::Bytes(vec![0, 1, 2]))]);
+}
+
+#[test]
+fn arrays() {
+    let items: &[Item<[i32; 3]>] = &[Item([1, 2, 3]), Item([4, 5, 6])];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "I32"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
+}
+
+#[test]
+fn tuples() {
+    let items: &[Item<(i32, i32, i32)>] = &[Item((1, 2, 3)), Item((4, 5, 6))];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "I32"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
+}
+
+#[test]
+fn byte_buf() {
+    let items = &[
+        Item(ByteBuf::from(b"foo")),
+        Item(ByteBuf::from(b"bar")),
+        Item(ByteBuf::from(b"baz")),
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "item",
+            "data_type": "FixedSizeList(3)",
+            "children": [{"name": "element", "data_type": "U8"}],
+        }]))
+        .serialize(items)
+        .deserialize(items);
 }

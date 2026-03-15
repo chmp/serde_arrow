@@ -75,4 +75,17 @@ impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
             end: (idx + 1) * self.n,
         })
     }
+
+    fn deserialize_tuple<V: Visitor<'de>>(
+        &self,
+        _len: usize,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        self.deserialize_seq(visitor, idx)
+    }
+
+    fn deserialize_byte_buf<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        self.deserialize_seq(visitor, idx)
+    }
 }

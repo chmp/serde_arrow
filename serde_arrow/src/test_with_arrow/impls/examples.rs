@@ -497,3 +497,36 @@ fn fixed_size_list_example_issue_263() {
         .serialize(&items)
         .deserialize(&items);
 }
+
+#[test]
+fn fixed_size_list_example_issue_263_rust_array() {
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    struct Record {
+        dense_text_vector: [f32; 4],
+    }
+
+    let options = TracingOptions::default().overwrite(
+        "dense_text_vector",
+        json!({"name": "dense_text_vector", "data_type": "FixedSizeList(4)", "children": [{"name": "item", "data_type": "F32"}]})
+    ).unwrap();
+
+    let items = [
+        Record {
+            dense_text_vector: [1.0, 2.0, 3.0, 4.0],
+        },
+        Record {
+            dense_text_vector: [5.0, 6.0, 7.0, 8.0],
+        },
+    ];
+
+    Test::new()
+        .with_schema(json!([{
+            "name": "dense_text_vector",
+            "data_type": "FixedSizeList(4)",
+            "children": [{"name": "item", "data_type": "F32"}],
+        }]))
+        .trace_schema_from_samples(&items, options.clone())
+        .trace_schema_from_type::<Record>(options.clone())
+        .serialize(&items)
+        .deserialize(&items);
+}
