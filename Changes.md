@@ -1,11 +1,13 @@
 # Change log
 
-## 0.14.1 (development)
+## `development`
 
-- Allow to build bools from integers. Nonzero integers are mapped to true
-- Allow to deserialize "Float16", "Float32", "Float64", "Decimal128" to string
+## 0.14.1
+
 - Support `_` separators when serializing strings to "Float16, Float32,
   Float64", and "Decimal128"
+- Allow to build bools from integers. Nonzero integers are mapped to true
+- Allow to deserialize "Float16", "Float32", "Float64", "Decimal128" to string
 - Allow to deserialize tuples and bytes from `FixedSizeList`
 - Allow to deserialize bytes from `List` arrays
 
