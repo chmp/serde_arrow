@@ -182,7 +182,21 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, true, [None::<&str>, None])),
         });
 
-        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(0)).unwrap(),
+            None
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(1)).unwrap(),
+            None
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(2)).unwrap(),
+            None
+        );
     }
 
     #[test]
@@ -196,11 +210,25 @@ mod construction {
             )),
         });
 
-        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(0)).unwrap(),
+            None
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(1)).unwrap(),
+            None
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(2)).unwrap(),
+            Some(String::from("foo")),
+        );
     }
 
     #[test]
-    fn some_null_values_v2() {
+    fn some_null_values_out_of_range() {
         let array = Array::Dictionary(DictionaryArray {
             keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
             values: Box::new(to_array(
@@ -224,6 +252,14 @@ mod construction {
             )),
         });
 
-        assert!(ArrayDeserializer::new(String::from("$"), None, array.as_view()).is_err());
+        let deserializer =
+            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+
+        for i in 0..3 {
+            assert_eq!(
+                Option::<String>::deserialize(deserializer.at(i)).unwrap(),
+                Some(String::from("1")),
+            );
+        }
     }
 }
