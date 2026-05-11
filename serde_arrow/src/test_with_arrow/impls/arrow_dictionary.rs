@@ -228,38 +228,26 @@ mod construction {
     }
 
     #[test]
-    fn some_null_values_out_of_range() {
+    fn some_null_keys() {
         let array = Array::Dictionary(DictionaryArray {
-            keys: Box::new(to_array(DataType::Int8, false, [1, 1, 0])),
-            values: Box::new(to_array(
-                DataType::Utf8,
-                true,
-                [
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    Some("1"),
-                    None,
-                    Some("bar"),
-                ],
-            )),
+            keys: Box::new(to_array(DataType::Int8, true, [Some(1), None, Some(0)])),
+            values: Box::new(to_array(DataType::Utf8, false, ["foo", "bar"])),
         });
 
         let deserializer =
             ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
 
-        for i in 0..3 {
-            assert_eq!(
-                Option::<String>::deserialize(deserializer.at(i)).unwrap(),
-                Some(String::from("1")),
-            );
-        }
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(0)).unwrap(),
+            Some(String::from("bar")),
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(1)).unwrap(),
+            None
+        );
+        assert_eq!(
+            Option::<String>::deserialize(deserializer.at(2)).unwrap(),
+            Some(String::from("foo")),
+        );
     }
 }
