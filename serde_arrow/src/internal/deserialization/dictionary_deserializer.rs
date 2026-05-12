@@ -2,13 +2,13 @@ use marrow::view::{BytesView, PrimitiveView};
 use serde::de::Visitor;
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Error, ErrorKind, Result},
+    error::{set_default, try_, Context, ContextSupport, Result},
     utils::{array_view_ext::ViewAccess, Offset},
 };
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
-    random_access_deserializer::RandomAccessDeserializer, utils::bitset_all_set,
+    random_access_deserializer::RandomAccessDeserializer,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
@@ -19,15 +19,6 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
     pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
-        if let Some(validity) = &values.validity {
-            if !bitset_all_set(validity, values.offsets.len() - 1)? {
-                return Err(Error::new(
-                    ErrorKind::NullabilityViolation { field: None },
-                    "Null for non-nullable type: dictionaries do not support nullable values"
-                        .into(),
-                ));
-            }
-        }
         Ok(Self {
             path,
             keys: keys.clone(),
@@ -53,7 +44,11 @@ impl<'de, K: Integer, V: Offset> RandomAccessDeserializer<'de>
     for DictionaryDeserializer<'de, K, V>
 {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        self.keys.is_some(idx)
+        if !self.keys.is_some(idx)? {
+            return Ok(false);
+        }
+        let key: usize = self.keys.get_required(idx)?.into_i64()?.try_into()?;
+        ViewAccess::<[u8]>::is_some(&self.values, key)
     }
 
     fn deserialize_any_some<VV: Visitor<'de>>(&self, visitor: VV, idx: usize) -> Result<VV::Value> {
