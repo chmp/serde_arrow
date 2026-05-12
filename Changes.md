@@ -8,6 +8,7 @@
 
 - [@bennetthardwick](https://github.com/bennetthardwick) added support to
   deserialize dictionaries with null values
+  ([#309](https://github.com/chmp/serde_arrow/pull/309))
 
 ## 0.14.1
 
