@@ -4,6 +4,11 @@
 
 - Support deserializing dictionary encoded arrays with null values
 
+## Thanks
+
+- [@bennetthardwick](https://github.com/bennetthardwick) added support to
+  deserialize dictionaries with null values
+
 ## 0.14.1
 
 - Support `_` separators when serializing strings to "Float16, Float32,
