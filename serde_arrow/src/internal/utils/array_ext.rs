@@ -318,7 +318,7 @@ pub mod bytes_view {
         };
         let len_bytes = u128::from(data.len().truncating_cast::<u32>("range checked before"));
 
-        let prefix = u128::from(data.get(0).copied().unwrap_or_default())
+        let prefix = u128::from(data.first().copied().unwrap_or_default())
             | (u128::from(data.get(1).copied().unwrap_or_default()) << 8)
             | (u128::from(data.get(2).copied().unwrap_or_default()) << 16)
             | (u128::from(data.get(3).copied().unwrap_or_default()) << 24);

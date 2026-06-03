@@ -4,7 +4,6 @@
 
 - Add `arrow=59` support
 - Support deserializing dictionary encoded arrays with null values
-- Bump MSRV to Rust 1.80
 
 ### Thanks
 

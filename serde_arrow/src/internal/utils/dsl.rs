@@ -167,9 +167,12 @@ fn parse_ident_term_name(s: &str) -> Result<(String, &str)> {
     let pos = s
         .find(|c: char| !c.is_alphanumeric() && !matches!(c, '-' | '+'))
         .unwrap_or(s.len());
-    let Some((ident, rest)) = s.split_at_checked(pos) else {
-        fail!("no identifier found");
-    };
+    let ident = s
+        .get(..pos)
+        .unwrap_or_else(|| unreachable!("pos is from s.find"));
+    let rest = s
+        .get(pos..)
+        .unwrap_or_else(|| unreachable!("pos is from s.find"));
 
     if ident.is_empty() {
         fail!("No identifier found");
