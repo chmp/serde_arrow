@@ -50,7 +50,11 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         }
         let start = idx * self.n;
         let end = (idx + 1) * self.n;
-        Ok(Some(&self.view.data[start..end]))
+        let Some(data) = self.view.data.get(start..end) else {
+            fail!("out of bounds access");
+        };
+
+        Ok(Some(data))
     }
 
     pub fn get_required(&self, idx: usize) -> Result<&'a [u8]> {

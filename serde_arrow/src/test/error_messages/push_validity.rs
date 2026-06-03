@@ -20,9 +20,7 @@ fn int_nested() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    array_builder
-        .push(json!({"nested": {"field": 32}}))
-        .unwrap();
+    array_builder.push(json!({"nested": {"field": 32}}))?;
 
     let err = array_builder
         .push(json!({"nested": {"field": null}}))
@@ -39,7 +37,7 @@ fn int_top_level() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    array_builder.push(json!({"field": 32})).unwrap();
+    array_builder.push(json!({"field": 32}))?;
 
     let err = array_builder.push(json!({"field": null})).unwrap_err();
     assert_error_contains(&err, "field: \"$.field\"");
@@ -60,9 +58,7 @@ fn struct_nested() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    array_builder
-        .push(json!({"nested": {"field": {}}}))
-        .unwrap();
+    array_builder.push(json!({"nested": {"field": {}}}))?;
 
     let err = array_builder
         .push(json!({"nested": {"field": null}}))
@@ -79,7 +75,7 @@ fn struct_top_level() -> PanicOnError<()> {
     ]))?;
 
     let mut array_builder = ArrayBuilder::new(schema)?;
-    array_builder.push(json!({"field": {}})).unwrap();
+    array_builder.push(json!({"field": {}}))?;
 
     let err = array_builder.push(json!({"field": null})).unwrap_err();
     assert_error_contains(&err, "field: \"$.field\"");

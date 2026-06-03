@@ -3,6 +3,7 @@ use marrow::view::{BytesView, BytesViewView, PrimitiveView, View};
 use crate::internal::{
     deserialization::utils::bitset_is_set,
     error::{fail, Error, ErrorKind, Result},
+    utils::truncating_cast::TruncatingCast,
 };
 
 use super::Offset;
@@ -154,9 +155,20 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
             }
         }
 
-        let start = self.offsets[idx].try_into_usize()?;
-        let end = self.offsets[idx + 1].try_into_usize()?;
-        Ok(Some(&self.data[start..end]))
+        let Some(start) = self.offsets.get(idx) else {
+            fail!("out of bound access");
+        };
+        let Some(end) = self.offsets.get(idx + 1) else {
+            fail!("out of bound access");
+        };
+
+        let start = start.try_into_usize()?;
+        let end = end.try_into_usize()?;
+
+        let Some(data) = self.data.get(start..end) else {
+            fail!("out of bound access");
+        };
+        Ok(Some(data))
     }
 }
 
@@ -175,14 +187,20 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
             }
         }
 
-        let len = (*desc as u32) as usize;
+        let len = (*desc).truncating_cast::<u32>("first u32 is the length") as usize;
         let res = || -> Option<&'a [u8]> {
             if len <= 12 {
                 let bytes: &[u8] = bytemuck::try_cast_slice(std::slice::from_ref(desc)).ok()?;
                 bytes.get(4..4 + len)
             } else {
-                let buf_idx = ((*desc >> 64) as u32) as usize;
-                let offset = ((*desc >> 96) as u32) as usize;
+                let buf_idx = usize::try_from(
+                    (*desc >> 64).truncating_cast::<u32>("third u32 is the buf idx"),
+                )
+                .ok()?;
+                let offset = usize::try_from(
+                    (*desc >> 96).truncating_cast::<u32>("fourth u32 is the ofset"),
+                )
+                .ok()?;
                 self.buffers.get(buf_idx)?.get(offset..offset + len)
             }
         }();

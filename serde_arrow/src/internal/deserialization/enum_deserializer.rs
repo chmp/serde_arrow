@@ -79,16 +79,21 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        if idx >= self.types.len() {
+        let Some((type_id, offset)) = self.types.get(idx).zip(self.offsets.get(idx)) else {
             fail!("Exhausted deserializer");
-        }
-        let type_id = self.types[idx];
-        let offset = self.offsets[idx].try_into_usize()?;
-        let (name, variant) = &self.variants[type_id as usize];
+        };
+        let offset = offset.try_into_usize()?;
+        let Ok(variant_id) = usize::try_from(*type_id) else {
+            fail!("invalid type id for {idx}");
+        };
+
+        let Some((name, variant)) = self.variants.get(variant_id) else {
+            fail!("non existing enum variant for {idx}");
+        };
 
         visitor.visit_enum(VariantItemDeserializer {
             deserializer: variant.at(offset),
-            type_id,
+            type_id: *type_id,
             name,
         })
     }

@@ -785,6 +785,10 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         visitor.visit_i64(self.0.try_into()?)
     }
 
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "f64 to f32 cannot happen without truncation"
+    )]
     fn deserialize_f32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f32(v.0),

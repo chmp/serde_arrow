@@ -1,3 +1,10 @@
+#![allow(
+    clippy::indexing_slicing,
+    clippy::unwrap_used,
+    clippy::unwrap_in_result,
+    clippy::cast_sign_loss,
+    reason = "needs more work to fix"
+)]
 //! Decimal support
 //!
 //! Decimals are stored either as 128 or 256 bit integers. They are
@@ -426,8 +433,9 @@ pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
         }
     };
 
-    // safety only ASCII characters used -> conversion into str is safe
-    std::str::from_utf8(res).unwrap()
+    std::str::from_utf8(res).unwrap_or_else(|_err| {
+        unreachable!("conversion into str is safe, only ASCII characters used")
+    })
 }
 
 #[test]

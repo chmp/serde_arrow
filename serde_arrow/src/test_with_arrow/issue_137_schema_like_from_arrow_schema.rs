@@ -4,7 +4,8 @@ use serde_json::json;
 
 use crate::{
     self as serde_arrow,
-    _impl::{arrow::datatypes::FieldRef, PanicOnError},
+    _impl::arrow::datatypes::FieldRef,
+    internal::error::PanicOnError,
     schema::{SchemaLike, TracingOptions},
     utils::Item,
     Result,

@@ -342,17 +342,20 @@ mod parsing {
     /// Note: this function is more permissive than some libraries (e.g., jiff)
     pub fn match_utc_timezone(s: &str) -> Result<(&str, &str), &str> {
         for prefix in ["Z", "+0000", "+00:00"] {
-            if let Some(rest) = s.strip_prefix(prefix) {
-                return Ok((rest, get_prefix(s, rest)));
+            if let Some((prefix, rest)) = split_prefix(s, prefix) {
+                return Ok((rest, prefix));
             }
         }
         Err(s)
     }
 
-    fn get_prefix<'a>(s: &'a str, rest: &str) -> &'a str {
-        debug_assert!(s.ends_with(rest), "Invalid call to get prefix");
-        let len_prefix = s.len() - rest.len();
-        &s[..len_prefix]
+    fn split_prefix<'a>(s: &'a str, prefix: &str) -> Option<(&'a str, &'a str)> {
+        let rest = s.strip_prefix(prefix)?;
+        let prefix = s
+            .get(..prefix.len())
+            .unwrap_or_else(|| unreachable!("s starts with prefix"));
+
+        Some((prefix, rest))
     }
 
     /// Match a value in a span
@@ -381,13 +384,24 @@ mod parsing {
         while let Some(new_rest) = rest.strip_prefix(DIGIT) {
             rest = new_rest;
         }
-        Ok((rest, get_prefix(s, rest)))
+
+        let prefix_len = s.len() - rest.len();
+        let prefix = s
+            .get(..prefix_len)
+            .unwrap_or_else(|| unreachable!("rest ends s"));
+
+        Ok((rest, prefix))
     }
 
     pub fn match_one_or_two_digits(s: &str) -> Result<(&str, &str), &str> {
         let rest = s.strip_prefix(DIGIT).ok_or(s)?;
         let rest = rest.strip_prefix(DIGIT).unwrap_or(rest);
-        Ok((rest, get_prefix(s, rest)))
+        let prefix_len = s.len() - rest.len();
+        let prefix = s
+            .get(..prefix_len)
+            .unwrap_or_else(|| unreachable!("rest ends s"));
+
+        Ok((rest, prefix))
     }
 
     pub fn match_char(s: &str, c: char) -> Result<(&str, char), &str> {

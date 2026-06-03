@@ -234,17 +234,22 @@ impl SeqArrayExt for BytesViewArray {
         };
 
         let n = bytes_view::get_len(*curr);
-        if self.buffers[0].len() < n {
-            fail!("Inconsistent length and data in BytesViewArray");
-        }
-        let start = self.buffers[0].len() - n;
-        let data = &self.buffers[0][start..];
+
+        let Some(first_buffer) = self.buffers.first_mut() else {
+            fail!("sequence operations without underlying buffer");
+        };
+        let Some(start) = first_buffer.len().checked_sub(n) else {
+            fail!("inconsistent length and data in BytesViewArray");
+        };
+        let data = first_buffer
+            .get(start..)
+            .unwrap_or_else(|| unreachable!("checked length before hand"));
 
         if data.len() <= 12 {
             *curr = bytes_view::pack_inline(data);
-            self.buffers[0].truncate(start);
+            first_buffer.truncate(start);
         } else {
-            *curr = bytes_view::pack_extern(data, 0, start);
+            *curr = bytes_view::pack_extern(data, 0, start)?;
         }
         Ok(())
     }
@@ -270,16 +275,23 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
         if value.len() <= 12 {
             self.data.push(bytes_view::pack_inline(value));
         } else {
-            assert!(!self.buffers.is_empty());
             self.data
-                .push(bytes_view::pack_extern(value, 0, self.buffers[0].len()));
-            self.buffers[0].extend(value);
+                .push(bytes_view::pack_extern(value, 0, self.buffers[0].len())?);
+            let Some(first_buffer) = self.buffers.first_mut() else {
+                fail!("need at least one buffer to push a larget with len > 12");
+            };
+            first_buffer.extend(value);
         }
         Ok(())
     }
 }
 
 pub mod bytes_view {
+    use crate::internal::{
+        error::{fail, Result},
+        utils::truncating_cast::TruncatingCast,
+    };
+
     pub fn get_len(packed: u128) -> usize {
         // NOTE: first truncate to only select the first 4 bytes
         (packed as u32) as usize
@@ -300,21 +312,29 @@ pub mod bytes_view {
         result
     }
 
-    pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> u128 {
-        assert!(data.len() >= 4);
-        assert!(data.len() <= i32::MAX as usize);
-        assert!(buffer <= i32::MAX as usize);
-        assert!(offset <= i32::MAX as usize);
+    pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> Result<u128> {
+        if i32::try_from(data.len()).is_err() {
+            fail!("data too large for string view type");
+        };
+        let len_bytes = u128::from(data.len().truncating_cast::<u32>("range checked before"));
 
-        let len_bytes = (data.len() as u32) as u128;
-        let prefix = (data[0] as u128)
-            | ((data[1] as u128) << 8)
-            | ((data[2] as u128) << 16)
-            | ((data[3] as u128) << 24);
-        let buffer_bytes = (buffer as u32) as u128;
-        let offset_bytes = (offset as u32) as u128;
+        let prefix = u128::from(data.get(0).copied().unwrap_or_default())
+            | (u128::from(data.get(1).copied().unwrap_or_default()) << 8)
+            | (u128::from(data.get(2).copied().unwrap_or_default()) << 16)
+            | (u128::from(data.get(3).copied().unwrap_or_default()) << 24);
 
-        len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96)
+        if i32::try_from(buffer).is_err() {
+            fail!("too large buffer index for view type");
+        };
+        let buffer_bytes =
+            u128::from(buffer.truncating_cast::<u32>("range checked before")) as u128;
+
+        if i32::try_from(offset).is_err() {
+            fail!("offset too large for view type");
+        }
+        let offset_bytes = u128::from(offset.truncating_cast::<u32>("range checked before"));
+
+        Ok(len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96))
     }
 }
 
@@ -517,12 +537,15 @@ pub fn set_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
     while idx / 8 >= buffer.len() {
         buffer.push(0);
     }
+    let dest = buffer
+        .get_mut(idx / 8)
+        .unwrap_or_else(|| unreachable!("ensured enough bytes are available"));
 
     let bit_mask: u8 = 1 << (idx % 8);
     if value {
-        buffer[idx / 8] |= bit_mask;
+        *dest |= bit_mask;
     } else {
-        buffer[idx / 8] &= !bit_mask;
+        *dest &= !bit_mask;
     }
 }
 

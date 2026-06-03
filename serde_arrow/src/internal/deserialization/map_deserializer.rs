@@ -83,10 +83,17 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
                 fail!("Out of bounds access")
             }
 
+            let Some(start) = self.offsets.get(idx) else {
+                fail!("out of bound access");
+            };
+            let Some(end) = self.offsets.get(idx + 1) else {
+                fail!("out of bound access");
+            };
+
             visitor.visit_map(MapItemDeserializer {
                 deserializer: self,
-                start: self.offsets[idx].try_into_usize()?,
-                end: self.offsets[idx + 1].try_into_usize()?,
+                start: start.try_into_usize()?,
+                end: end.try_into_usize()?,
             })
         })
         .ctx(self)

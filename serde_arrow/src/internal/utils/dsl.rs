@@ -152,8 +152,13 @@ fn parse_quoted_term_name(s: &str) -> Result<(String, &str)> {
         fail!("Missing end quote");
     };
 
-    let ident = s[..end].to_owned();
-    let s = &s[end + quote.len_utf8()..];
+    let ident = s
+        .get(..end)
+        .unwrap_or_else(|| unreachable!("end is obtained from char_indices"))
+        .to_owned();
+    let s = s
+        .get(end + quote.len_utf8()..)
+        .unwrap_or_else(|| unreachable!("end is the position where a quote was found"));
 
     Ok((ident, s))
 }
@@ -162,14 +167,15 @@ fn parse_ident_term_name(s: &str) -> Result<(String, &str)> {
     let pos = s
         .find(|c: char| !c.is_alphanumeric() && !matches!(c, '-' | '+'))
         .unwrap_or(s.len());
-    let ident = s[..pos].to_string();
-    let rest = &s[pos..];
+    let Some((ident, rest)) = s.split_at_checked(pos) else {
+        fail!("no identifier found");
+    };
 
     if ident.is_empty() {
         fail!("No identifier found");
     }
 
-    Ok((ident, rest))
+    Ok((ident.to_owned(), rest))
 }
 
 fn parse_arguments(s: &str) -> Result<(Vec<Term>, &str)> {

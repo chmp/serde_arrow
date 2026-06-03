@@ -84,7 +84,7 @@ pub fn to_arrow<T: Serialize>(fields: &[FieldRef], items: T) -> Result<Vec<Array
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
 ///
-/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
+/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays()?;
 /// #
 /// ##[derive(Deserialize, Serialize)]
 /// struct Record {
@@ -160,7 +160,7 @@ pub fn to_record_batch<T: Serialize>(fields: &[FieldRef], items: &T) -> Result<R
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
-/// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
+/// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch()?;
 /// #
 /// use serde::Deserialize;
 ///
@@ -241,7 +241,7 @@ impl<'de> Deserializer<'de> {
     /// Usage
     /// ```rust
     /// # fn main() -> serde_arrow::Result<()> {
-    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays();
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow_arrays()?;
     /// # use serde_arrow::_impl::arrow;
     /// use arrow::datatypes::FieldRef;
     /// use serde::{Deserialize, Serialize};
@@ -289,7 +289,7 @@ impl<'de> Deserializer<'de> {
     ///
     /// ```rust
     /// # fn main() -> serde_arrow::Result<()> {
-    /// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch();
+    /// # let record_batch = serde_arrow::_impl::docs::defs::example_record_batch()?;
     /// #
     /// use serde::Deserialize;
     /// use serde_arrow::Deserializer;
