@@ -7,12 +7,11 @@ use marrow::{
 use serde::{Serialize, Serializer};
 
 use crate::internal::{
-    error::{set_default, try_, Context, ContextSupport, Result},
+    error::{fail, set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         decimal::{self, DecimalParser},
-        truncating_cast::TruncatingCast,
     },
 };
 
@@ -125,13 +124,12 @@ impl<'a> Serializer for &'a mut DecimalBuilder {
 
     fn serialize_f32(self, v: f32) -> Result<()> {
         self.array
-            .push_scalar_value((v * self.f32_factor).truncating_cast("user requested conversion"))
+            .push_scalar_value(scaled_f32_to_i128(v * self.f32_factor)?)
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        self.array.push_scalar_value(
-            (v * self.f64_factor).truncating_cast::<i128>("user requested conversion"),
-        )
+        self.array
+            .push_scalar_value(scaled_f64_to_i128(v * self.f64_factor)?)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
@@ -141,5 +139,43 @@ impl<'a> Serializer for &'a mut DecimalBuilder {
             .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
 
         self.array.push_scalar_value(val)
+    }
+}
+
+fn scaled_f32_to_i128(value: f32) -> Result<i128> {
+    let exclusive_i128_bound = 2.0_f32.powi(127);
+
+    if !value.is_finite() {
+        fail!("cannot serialize non-finite float as decimal");
+    }
+    if !(-exclusive_i128_bound..exclusive_i128_bound).contains(&value) {
+        fail!("float value is out of range for Decimal128");
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "range and finite checks above rule out saturating float to int casts"
+    )]
+    {
+        Ok(value as i128)
+    }
+}
+
+fn scaled_f64_to_i128(value: f64) -> Result<i128> {
+    let exclusive_i128_bound = 2.0_f64.powi(127);
+
+    if !value.is_finite() {
+        fail!("cannot serialize non-finite float as decimal");
+    }
+    if !(-exclusive_i128_bound..exclusive_i128_bound).contains(&value) {
+        fail!("float value is out of range for Decimal128");
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "range and finite checks above rule out saturating float to int casts"
+    )]
+    {
+        Ok(value as i128)
     }
 }

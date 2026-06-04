@@ -316,7 +316,7 @@ pub mod bytes_view {
         if i32::try_from(data.len()).is_err() {
             fail!("data too large for string view type");
         };
-        let len_bytes = u128::from(data.len().truncating_cast::<u32>("range checked before"));
+        let len_bytes = u128::from(u32::try_from(data.len())?);
 
         let prefix = u128::from(data.first().copied().unwrap_or_default())
             | (u128::from(data.get(1).copied().unwrap_or_default()) << 8)
@@ -326,12 +326,12 @@ pub mod bytes_view {
         if i32::try_from(buffer).is_err() {
             fail!("too large buffer index for view type");
         };
-        let buffer_bytes = u128::from(buffer.truncating_cast::<u32>("range checked before"));
+        let buffer_bytes = u128::from(u32::try_from(buffer)?);
 
         if i32::try_from(offset).is_err() {
             fail!("offset too large for view type");
         }
-        let offset_bytes = u128::from(offset.truncating_cast::<u32>("range checked before"));
+        let offset_bytes = u128::from(u32::try_from(offset)?);
 
         Ok(len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96))
     }
