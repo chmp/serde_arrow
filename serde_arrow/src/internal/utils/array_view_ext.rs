@@ -201,7 +201,8 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
                     (*desc >> 96).truncating_cast::<u32>("fourth u32 is the ofset"),
                 )
                 .ok()?;
-                self.buffers.get(buf_idx)?.get(offset..offset + len)
+                let end = offset.checked_add(len)?;
+                self.buffers.get(buf_idx)?.get(offset..end)
             }
         }();
 
