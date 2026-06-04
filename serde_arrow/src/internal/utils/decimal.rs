@@ -240,14 +240,14 @@ fn parse_decimal(s: &[u8], precision: u8, scale: i8, truncate: bool) -> Result<i
 
 #[test]
 fn test_missing_number() {
-    assert!(parse_decimal(b"", 5, 0, false).is_err());
-    assert!(parse_decimal(b"+", 5, 0, false).is_err());
-    assert!(parse_decimal(b"-", 5, 0, false).is_err());
+    parse_decimal(b"", 5, 0, false).unwrap_err();
+    parse_decimal(b"+", 5, 0, false).unwrap_err();
+    parse_decimal(b"-", 5, 0, false).unwrap_err();
 }
 
 #[test]
 fn test_insufficient_precision_missing_number() {
-    assert!(parse_decimal(b"123", 2, 0, false).is_err());
+    parse_decimal(b"123", 2, 0, false).unwrap_err();
 }
 
 #[test]
@@ -286,8 +286,9 @@ fn test_negative_scale() {
 #[test]
 fn test_negative_scale_truncation() {
     assert_eq!(parse_decimal(b"210", 10, -1, false), Ok(21_i128));
-    assert!(parse_decimal(b"213", 10, -1, false).is_err());
     assert_eq!(parse_decimal(b"213", 10, -1, true), Ok(21_i128));
+
+    parse_decimal(b"213", 10, -1, false).unwrap_err();
 }
 
 #[test]
@@ -320,9 +321,10 @@ fn test_positive_scale_fraction() {
 fn test_positive_scale_fraction_truncation() {
     assert_eq!(parse_decimal(b"13.2", 10, 1, false), Ok(132_i128));
     assert_eq!(parse_decimal(b"-42.500", 10, 1, false), Ok(-425_i128));
-    assert!(parse_decimal(b"-42.560", 10, 1, false).is_err());
     assert_eq!(parse_decimal(b"-42.560", 10, 1, true), Ok(-425_i128));
     assert_eq!(parse_decimal(b"-42.567", 10, 1, true), Ok(-425_i128));
+
+    parse_decimal(b"-42.560", 10, 1, false).unwrap_err();
 }
 
 #[test]

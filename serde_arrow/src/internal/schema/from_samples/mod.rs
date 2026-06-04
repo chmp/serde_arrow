@@ -261,11 +261,7 @@ impl<'a> TracerSerializer<'a> {
             unreachable!();
         };
         let variant_index: usize = variant_index.try_into()?;
-        tracer.ensure_variant(variant_name, variant_index)?;
-        let Some(variant) = &mut tracer.variants[variant_index] else {
-            unreachable!();
-        };
-        Ok(variant)
+        tracer.ensure_variant(variant_name, variant_index)
     }
 }
 

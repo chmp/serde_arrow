@@ -96,10 +96,13 @@ impl UnionBuilder {
         let Some(variant_builder) = self.fields.get_mut(variant_index) else {
             fail!("Could not find variant {variant_name} with index {variant_index} in Union");
         };
+        let Some(current_offset) = self.current_offset.get_mut(variant_index) else {
+            fail!("invalid variant index");
+        };
 
-        self.offsets.push(self.current_offset[variant_index]);
+        self.offsets.push(*current_offset);
         self.types.push(i8::try_from(variant_index)?);
-        self.current_offset[variant_index] += 1;
+        *current_offset += 1;
 
         Ok(variant_builder)
     }

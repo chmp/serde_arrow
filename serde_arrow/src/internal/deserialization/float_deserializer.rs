@@ -4,7 +4,7 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{array_view_ext::ViewAccess, NamedType},
+    utils::{array_view_ext::ViewAccess, truncating_cast::TruncatingCast, NamedType},
 };
 
 use super::random_access_deserializer::RandomAccessDeserializer;
@@ -128,7 +128,7 @@ impl Float for f64 {
     }
 
     fn into_f32(self) -> Result<f32> {
-        Ok(self as f32)
+        Ok(self.truncating_cast::<f32>("user request truncation"))
     }
 
     fn into_f64(self) -> Result<f64> {

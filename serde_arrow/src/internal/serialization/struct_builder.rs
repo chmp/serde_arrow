@@ -159,12 +159,19 @@ impl StructBuilder {
 
     pub fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
-        if self.seen[idx] {
-            fail!("Duplicate field {key:?}", key = self.fields[idx].get_name());
+        let Some(seen) = self.seen.get_mut(idx) else {
+            fail!("invalid element index");
+        };
+        let Some(field) = self.fields.get_mut(idx) else {
+            fail!("invalid element index");
+        };
+
+        if *seen {
+            fail!("Duplicate field {key:?}", key = field.get_name());
         }
 
-        self.fields[idx].serialize_value(value)?;
-        self.seen[idx] = true;
+        field.serialize_value(value)?;
+        *seen = true;
         self.next = idx + 1;
         Ok(())
     }
@@ -300,8 +307,10 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StaticFieldName(*const u8, usize);
 
+// SAFETY: StaticFieldName is always construted from a &static str and never read
 unsafe impl Send for StaticFieldName {}
 
+// SAFETY: StaticFieldName is always construted from a &static str and never read
 unsafe impl Sync for StaticFieldName {}
 
 impl StaticFieldName {
@@ -339,32 +348,20 @@ impl CachedNameLookup {
     }
 
     fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
-        if guess >= fields.len() || guess >= self.cache.len() {
-            return self.lookup_field_loop(name, fields);
-        }
-
-        if self.cache[guess] == Some(StaticFieldName::new(name)) {
+        if self.cache.get(guess).copied().flatten() == Some(StaticFieldName::new(name)) {
             Some(guess)
-        } else if let Some(idx) = self.lookup_field_uncached(guess, name, fields) {
-            if idx < self.cache.len() && self.cache[idx].is_none() {
-                self.cache[idx] = Some(StaticFieldName::new(name));
+        } else if fields.get(guess).map(|field| field.get_name()) == Some(name) {
+            if let Some(cached) = self.cache.get_mut(guess) {
+                *cached = cached.or(Some(StaticFieldName::new(name)));
+            }
+            Some(guess)
+        } else if let Some(idx) = self.lookup_field_loop(name, fields) {
+            if let Some(cached) = self.cache.get_mut(idx) {
+                *cached = cached.or(Some(StaticFieldName::new(name)));
             }
             Some(idx)
         } else {
             None
-        }
-    }
-
-    pub fn lookup_field_uncached(
-        &self,
-        guess: usize,
-        name: &str,
-        fields: &[impl Named],
-    ) -> Option<usize> {
-        if fields[guess].get_name() == name {
-            Some(guess)
-        } else {
-            self.lookup_field_loop(name, fields)
         }
     }
 

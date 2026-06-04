@@ -10,7 +10,10 @@ use serde::{Serialize, Serializer};
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
-    utils::array_ext::{ArrayExt, ScalarArrayExt},
+    utils::{
+        array_ext::{ArrayExt, ScalarArrayExt},
+        truncating_cast::TruncatingCast,
+    },
 };
 
 use super::array_builder::ArrayBuilder;
@@ -162,35 +165,35 @@ impl FloatPrimitive for f16 {
     const NAME: &'static str = "Float16";
 
     fn from_i8(value: i8) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_i16(value: i16) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_i32(value: i32) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_i64(value: i64) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_u8(value: u8) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_u16(value: u16) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_u32(value: u32) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_u64(value: u64) -> Self {
-        f16::from_f64(value as f64)
+        f16::from_f64(value.truncating_cast::<f64>("user requested conversion"))
     }
 
     fn from_f32(value: f32) -> Self {
@@ -212,35 +215,35 @@ impl FloatPrimitive for f32 {
     const NAME: &'static str = "Float32";
 
     fn from_i8(value: i8) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_i16(value: i16) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_i32(value: i32) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_i64(value: i64) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_u8(value: u8) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_u16(value: u16) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_u32(value: u32) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_u64(value: u64) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_f32(value: f32) -> Self {
@@ -248,7 +251,7 @@ impl FloatPrimitive for f32 {
     }
 
     fn from_f64(value: f64) -> Self {
-        value as f32
+        value.truncating_cast::<f32>("user requested conversion")
     }
 
     fn from_str(value: &str) -> Result<Self> {
@@ -262,39 +265,39 @@ impl FloatPrimitive for f64 {
     const NAME: &'static str = "Float64";
 
     fn from_i8(value: i8) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_i16(value: i16) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_i32(value: i32) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_i64(value: i64) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_u8(value: u8) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_u16(value: u16) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_u32(value: u32) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_u64(value: u64) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_f32(value: f32) -> Self {
-        value as f64
+        value.truncating_cast::<f64>("user requested conversion")
     }
 
     fn from_f64(value: f64) -> Self {
@@ -331,13 +334,20 @@ where
     let mut len = 0;
     for &byte in value.as_bytes() {
         if byte != b'_' {
-            buffer[len] = byte;
+            let target = buffer.get_mut(len).unwrap_or_else(|| {
+                unreachable!(
+                    "buffer has the length of value's bytes and len < len of value's bytes"
+                )
+            });
+            *target = byte;
             len += 1;
         }
     }
 
-    let Ok(sanitized) = std::str::from_utf8(&buffer[..len]) else {
-        unreachable!("removing _ does not make a string invalid utf8");
-    };
+    let written_bytes = buffer
+        .get(..len)
+        .unwrap_or_else(|| unreachable!("len is at most bytes.len()"));
+    let sanitized = std::str::from_utf8(written_bytes)
+        .unwrap_or_else(|_err| unreachable!("removing _ does not make a string invalid utf8"));
     Ok(sanitized.parse()?)
 }

@@ -378,6 +378,7 @@ pub struct PanicOnErrorError;
 
 // use Display to not match PanicOnErrorError itself, use Debug for printing to include stacktrace
 impl<E: std::fmt::Display + std::fmt::Debug> From<E> for PanicOnErrorError {
+    #[allow(clippy::panic, reason = "PanicOnErrorError is only used in tests")]
     fn from(value: E) -> Self {
         panic!("{value:?}");
     }

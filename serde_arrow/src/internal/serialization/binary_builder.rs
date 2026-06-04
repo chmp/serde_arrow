@@ -8,7 +8,7 @@ use marrow::{
 };
 
 use crate::internal::{
-    error::{set_default, Context, ContextSupport, Error, Result},
+    error::{fail, set_default, Context, ContextSupport, Error, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{reserve_to_new_capacity, ArrayExt, ScalarArrayExt, SeqArrayExt},
 };
@@ -22,7 +22,7 @@ pub trait BinaryBuilderArray:
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder;
     const ARRAY_VARIANT: fn(Self) -> Array;
 
-    fn push_byte(&mut self, byte: u8);
+    fn push_byte(&mut self, byte: u8) -> Result<()>;
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_>;
     fn as_serialize_tuple(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeTuple<'_>;
     fn reserve_values(&mut self, additional: usize);
@@ -33,8 +33,9 @@ impl BinaryBuilderArray for BytesArray<i32> {
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::Binary;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::Binary;
 
-    fn push_byte(&mut self, byte: u8) {
+    fn push_byte(&mut self, byte: u8) -> Result<()> {
         self.data.push(byte);
+        Ok(())
     }
 
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
@@ -56,8 +57,9 @@ impl BinaryBuilderArray for BytesArray<i64> {
         ArrayBuilder::LargeBinary;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::LargeBinary;
 
-    fn push_byte(&mut self, byte: u8) {
+    fn push_byte(&mut self, byte: u8) -> Result<()> {
         self.data.push(byte);
+        Ok(())
     }
 
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
@@ -78,8 +80,12 @@ impl BinaryBuilderArray for BytesViewArray {
     const ARRAY_BUILDER_VARIANT: fn(BinaryBuilder<Self>) -> ArrayBuilder = ArrayBuilder::BinaryView;
     const ARRAY_VARIANT: fn(Self) -> Array = Array::BinaryView;
 
-    fn push_byte(&mut self, byte: u8) {
-        self.buffers[0].push(byte);
+    fn push_byte(&mut self, byte: u8) -> Result<()> {
+        let Some(buffer) = self.buffers.first_mut() else {
+            fail!("push into BytesViewArray without buffer");
+        };
+        buffer.push(byte);
+        Ok(())
     }
 
     fn as_serialize_seq(builder: &mut BinaryBuilder<Self>) -> super::utils::SerializeSeq<'_> {
@@ -153,7 +159,7 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         let byte = value.serialize(U8Serializer)?;
-        self.array.push_byte(byte);
+        self.array.push_byte(byte)?;
         self.array.push_seq_elements(1)
     }
 

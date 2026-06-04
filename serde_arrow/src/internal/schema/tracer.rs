@@ -892,7 +892,9 @@ impl TupleTracer {
                 self.options.clone(),
             ));
         }
-        &mut self.field_tracers[idx]
+        self.field_tracers
+            .get_mut(idx)
+            .unwrap_or_else(|| unreachable!("the vector has at minimum idx elements"))
     }
 }
 
@@ -1052,15 +1054,18 @@ impl Context for UnionTracer {
 impl UnionTracer {
     pub fn ensure_variant<S: Into<String> + AsRef<str>>(
         &mut self,
-        variant: S,
+        variant_name: S,
         idx: usize,
-    ) -> Result<()> {
+    ) -> Result<&mut UnionVariant> {
         while self.variants.len() <= idx {
             self.variants.push(None);
         }
+        let Some(variant) = self.variants.get_mut(idx) else {
+            unreachable!("the variant slot was just inserted");
+        };
 
-        if let Some(prev) = self.variants[idx].as_mut() {
-            let variant = variant.as_ref();
+        if let Some(prev) = variant {
+            let variant = variant_name.as_ref();
             if prev.name != variant {
                 fail!(
                     "Incompatible names for variant {idx}: {prev}, {variant}",
@@ -1069,16 +1074,23 @@ impl UnionTracer {
             }
         } else {
             let tracer = Tracer::new(
-                variant.as_ref().to_string(),
-                format!("{path}.{key}", path = self.path, key = variant.as_ref()),
+                variant_name.as_ref().to_string(),
+                format!(
+                    "{path}.{key}",
+                    path = self.path,
+                    key = variant_name.as_ref()
+                ),
                 self.options.clone(),
             );
-            let name = variant.into();
+            let name = variant_name.into();
 
-            self.variants[idx] = Some(UnionVariant { name, tracer });
+            *variant = Some(UnionVariant { name, tracer });
         }
 
-        Ok(())
+        let Some(res) = variant else {
+            unreachable!("the variant was just inserted");
+        };
+        Ok(res)
     }
 
     pub fn get_path(&self) -> &str {

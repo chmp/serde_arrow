@@ -275,11 +275,11 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
         if value.len() <= 12 {
             self.data.push(bytes_view::pack_inline(value));
         } else {
-            self.data
-                .push(bytes_view::pack_extern(value, 0, self.buffers[0].len())?);
             let Some(first_buffer) = self.buffers.first_mut() else {
                 fail!("need at least one buffer to push a larget with len > 12");
             };
+            self.data
+                .push(bytes_view::pack_extern(value, 0, first_buffer.len())?);
             first_buffer.extend(value);
         }
         Ok(())
@@ -294,7 +294,7 @@ pub mod bytes_view {
 
     pub fn get_len(packed: u128) -> usize {
         // NOTE: first truncate to only select the first 4 bytes
-        (packed as u32) as usize
+        packed.truncating_cast::<u32>("first u32 is the length") as usize
     }
 
     pub fn pack_len(len: usize) -> u128 {
@@ -326,8 +326,7 @@ pub mod bytes_view {
         if i32::try_from(buffer).is_err() {
             fail!("too large buffer index for view type");
         };
-        let buffer_bytes =
-            u128::from(buffer.truncating_cast::<u32>("range checked before")) as u128;
+        let buffer_bytes = u128::from(buffer.truncating_cast::<u32>("range checked before"));
 
         if i32::try_from(offset).is_err() {
             fail!("offset too large for view type");

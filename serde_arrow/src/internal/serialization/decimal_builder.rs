@@ -12,6 +12,7 @@ use crate::internal::{
     utils::{
         array_ext::{ArrayExt, ScalarArrayExt},
         decimal::{self, DecimalParser},
+        truncating_cast::TruncatingCast,
     },
 };
 
@@ -123,11 +124,14 @@ impl<'a> Serializer for &'a mut DecimalBuilder {
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        self.array.push_scalar_value((v * self.f32_factor) as i128)
+        self.array
+            .push_scalar_value((v * self.f32_factor).truncating_cast("user requested conversion"))
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        self.array.push_scalar_value((v * self.f64_factor) as i128)
+        self.array.push_scalar_value(
+            (v * self.f64_factor).truncating_cast::<i128>("user requested conversion"),
+        )
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
