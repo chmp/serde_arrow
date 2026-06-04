@@ -4,6 +4,7 @@
 
 - Add `arrow=59` support
 - Support deserializing dictionary encoded arrays with null values
+- Stricter clippy config and refactoring of internals for improved robustness
 
 ### Thanks
 
