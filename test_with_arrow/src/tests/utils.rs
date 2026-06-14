@@ -34,9 +34,9 @@ impl<E: std::error::Error> From<E> for PanicOnErrorError {
 pub type PanicOnError<T, E = PanicOnErrorError> = std::result::Result<T, E>;
 
 pub fn as_array_ref<A: arrow_array::Array + 'static>(
-    values: impl Into<A>,
+    values: impl TryInto<A, Error = impl std::fmt::Debug>,
 ) -> arrow_array::ArrayRef {
-    Arc::new(values.into()) as arrow_array::ArrayRef
+    Arc::new(values.try_into().unwrap()) as arrow_array::ArrayRef
 }
 
 pub fn assert_arrays_eq(

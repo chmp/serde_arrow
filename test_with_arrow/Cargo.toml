@@ -9,6 +9,7 @@ edition = "2021"
 [features]
 
 # arrow-version:insert: arrow-{version} = ["marrow/arrow-{version}", "dep:arrow-array-{version}", "dep:arrow-schema-{version}"]
+arrow-59 = ["marrow/arrow-59", "dep:arrow-array-59", "dep:arrow-schema-59"]
 arrow-58 = ["marrow/arrow-58", "dep:arrow-array-58", "dep:arrow-schema-58"]
 arrow-57 = ["marrow/arrow-57", "dep:arrow-array-57", "dep:arrow-schema-57"]
 arrow-56 = ["marrow/arrow-56", "dep:arrow-array-56", "dep:arrow-schema-56"]
@@ -40,6 +41,7 @@ serde_json = "1"
 chrono = { version = "0.4", default-features = false }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version="{version}", optional = true, default-features = false }}
+arrow-array-59 = { package = "arrow-array", version="59", optional = true, default-features = false }
 arrow-array-58 = { package = "arrow-array", version="58", optional = true, default-features = false }
 arrow-array-57 = { package = "arrow-array", version="57", optional = true, default-features = false }
 arrow-array-56 = { package = "arrow-array", version="56", optional = true, default-features = false }
@@ -64,6 +66,7 @@ arrow-array-38 = { package = "arrow-array", version="38", optional = true, defau
 arrow-array-37 = { package = "arrow-array", version="37", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false, features = ["serde"] }}
+arrow-schema-59 = { package = "arrow-schema", version = "59", optional = true, default-features = false, features = ["serde"] }
 arrow-schema-58 = { package = "arrow-schema", version = "58", optional = true, default-features = false, features = ["serde"] }
 arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true, default-features = false, features = ["serde"] }
 arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true, default-features = false, features = ["serde"] }
