@@ -2,7 +2,7 @@
 
 ## 0.14.2
 
-- Add `arrow=59`
+- Add `arrow=59` support
 - Support deserializing dictionary encoded arrays with null values
 
 ## Thanks
