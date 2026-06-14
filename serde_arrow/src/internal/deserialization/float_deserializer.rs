@@ -128,7 +128,7 @@ impl Float for f64 {
     }
 
     fn into_f32(self) -> Result<f32> {
-        Ok(self.truncating_cast::<f32>("user request truncation"))
+        Ok(self.truncating_cast::<f32>("user requested truncation"))
     }
 
     fn into_f64(self) -> Result<f64> {
