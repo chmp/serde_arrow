@@ -1,10 +1,11 @@
 # Change log
 
-## `development`
+## 0.14.2
 
+- Add `arrow=59` support
 - Support deserializing dictionary encoded arrays with null values
 
-## Thanks
+### Thanks
 
 - [@bennetthardwick](https://github.com/bennetthardwick) added support to
   deserialize dictionaries with null values
