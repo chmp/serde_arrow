@@ -1,5 +1,9 @@
 # Change log
 
+## 0.2.7
+
+- Add `arrow=57` support
+
 ## 0.2.6
 
 - Add `arrow=58` support

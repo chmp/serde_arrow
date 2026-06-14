@@ -2,7 +2,7 @@
 edition = "2021"
 
 name = "marrow"
-version = "0.2.6"
+version = "0.2.7"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 description  = "Minimalist Arrow interop"
 readme = "../Readme.md"

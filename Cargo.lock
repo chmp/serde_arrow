@@ -1462,7 +1462,7 @@ checksum = "953f07c43838f8e6f9758cab68bf5bed85465e7587ebe0b823f1bcd81978ad3a"
 
 [[package]]
 name = "marrow"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "arrow-array 37.0.0",
  "arrow-array 38.0.0",
