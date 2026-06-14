@@ -1,7 +1,8 @@
 # Change log
 
-## `development`
+## 0.14.2
 
+- Add `arrow=59`
 - Support deserializing dictionary encoded arrays with null values
 
 ## Thanks
