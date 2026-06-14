@@ -2,7 +2,7 @@
 
 ## 0.2.7
 
-- Add `arrow=57` support
+- Add `arrow=59` support
 
 ## 0.2.6
 
