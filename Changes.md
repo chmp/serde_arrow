@@ -1,5 +1,11 @@
 # Change log
 
+## Development
+
+- Breaking. Stricter f32 / f64 to decimal conversions. Only finite floats that
+  are in the range that can be presented are converted.
+- Breaking. Updated error messages.
+
 ## 0.14.2
 
 - Add `arrow=59` support
