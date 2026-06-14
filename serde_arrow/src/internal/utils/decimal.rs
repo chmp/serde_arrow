@@ -418,33 +418,33 @@ fn test_copy_digits() {
     assert_digits_value("42.00", 4, 2, "4200");
 }
 
-pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
-    fn write_val(buffer: &mut [u8], val: i128) -> usize {
+pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> Result<&str> {
+    fn write_val(buffer: &mut [u8], val: i128) -> Result<usize> {
         use std::io::Write;
 
         let initial_length = buffer.len();
 
         let mut buffer = &mut *buffer;
-        write!(buffer, "{val}").unwrap_or_else(|_err| {
-            unreachable!("writing to a byte slice can only fail if the buffer is too small")
-        });
-        initial_length - buffer.len()
+        if write!(buffer, "{val}").is_err() {
+            fail!("decimal formatting buffer is too small");
+        }
+        Ok(initial_length - buffer.len())
     }
 
     let res = if scale == 0 {
-        let num_bytes_written = write_val(buffer, val);
+        let num_bytes_written = write_val(buffer, val)?;
         expect_to(buffer, ..num_bytes_written)
     } else if scale < 0 && val == 0 {
         b"0"
     } else if scale < 0 {
         let scale = usize::from(scale.unsigned_abs());
-        let num_bytes_written = write_val(buffer, val);
+        let num_bytes_written = write_val(buffer, val)?;
 
-        expect_mut(buffer, num_bytes_written..num_bytes_written + scale).fill(b'0');
+        expect_mut(buffer, num_bytes_written..num_bytes_written + scale)?.fill(b'0');
         expect_to(buffer, ..num_bytes_written + scale)
     } else {
         let scale = usize::from(scale.unsigned_abs());
-        let num_bytes_written = write_val(buffer, val);
+        let num_bytes_written = write_val(buffer, val)?;
         let num_sign_bytes = if val >= 0 { 0 } else { 1 };
         let num_digits_written = num_bytes_written - num_sign_bytes;
 
@@ -470,9 +470,9 @@ pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
         }
     };
 
-    std::str::from_utf8(res).unwrap_or_else(|_err| {
+    Ok(std::str::from_utf8(res).unwrap_or_else(|_err| {
         unreachable!("conversion into str is safe, only ASCII characters used")
-    })
+    }))
 }
 
 fn expect_to(buffer: &[u8], range: RangeTo<usize>) -> &[u8] {
@@ -481,10 +481,11 @@ fn expect_to(buffer: &[u8], range: RangeTo<usize>) -> &[u8] {
         .unwrap_or_else(|| unreachable!("decimal formatting uses a sufficiently large buffer"))
 }
 
-fn expect_mut(buffer: &mut [u8], range: Range<usize>) -> &mut [u8] {
-    buffer
-        .get_mut(range)
-        .unwrap_or_else(|| unreachable!("decimal formatting uses a sufficiently large buffer"))
+fn expect_mut(buffer: &mut [u8], range: Range<usize>) -> Result<&mut [u8]> {
+    let Some(buffer) = buffer.get_mut(range) else {
+        fail!("decimal formatting buffer is too small");
+    };
+    Ok(buffer)
 }
 
 fn expect_byte_mut(buffer: &mut [u8], idx: usize) -> &mut u8 {
@@ -497,7 +498,7 @@ fn expect_byte_mut(buffer: &mut [u8], idx: usize) -> &mut u8 {
 fn test_format_decimal() {
     fn format_decimal_str(val: i128, scale: i8) -> String {
         let mut buffer = [0; BUFFER_SIZE_I128];
-        format_decimal(&mut buffer, val, scale).to_owned()
+        format_decimal(&mut buffer, val, scale).unwrap().to_owned()
     }
 
     assert_eq!(format_decimal_str(0, 0), "0");
@@ -548,4 +549,13 @@ fn test_format_decimal() {
             "0".repeat(usize::from(i8::MAX.unsigned_abs()) - 1)
         )
     );
+}
+
+#[test]
+fn test_format_decimal_buffer_too_small() {
+    let mut empty_buffer = [];
+    assert!(format_decimal(&mut empty_buffer, 1, 0).is_err());
+
+    let mut integer_only_buffer = [0; 1];
+    assert!(format_decimal(&mut integer_only_buffer, 1, -1).is_err());
 }
