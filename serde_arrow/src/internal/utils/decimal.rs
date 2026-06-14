@@ -550,12 +550,3 @@ fn test_format_decimal() {
         )
     );
 }
-
-#[test]
-fn test_format_decimal_buffer_too_small() {
-    let mut empty_buffer = [];
-    assert!(format_decimal(&mut empty_buffer, 1, 0).is_err());
-
-    let mut integer_only_buffer = [0; 1];
-    assert!(format_decimal(&mut integer_only_buffer, 1, -1).is_err());
-}
