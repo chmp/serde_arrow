@@ -139,7 +139,7 @@ impl<'a> Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 
     fn serialize_tuple_variant(
@@ -149,7 +149,7 @@ impl<'a> Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant(
@@ -159,6 +159,6 @@ impl<'a> Serializer for &'a mut DictionaryUtf8Builder {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 }

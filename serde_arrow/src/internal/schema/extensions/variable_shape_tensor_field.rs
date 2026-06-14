@@ -31,7 +31,7 @@ impl VariableShapeTensorField {
     pub fn new(name: &str, element: impl serde::ser::Serialize, ndim: usize) -> Result<Self> {
         let element = transmute_field(element)?;
         if element.name != "element" {
-            fail!("The element field of FixedShapeTensorField must be named \"element\"");
+            fail!("the element field of FixedShapeTensorField must be named \"element\"");
         }
 
         Ok(Self {
@@ -68,7 +68,7 @@ impl VariableShapeTensorField {
     /// Set the uniform shape
     pub fn uniform_shape(mut self, value: Vec<Option<usize>>) -> Result<Self> {
         if value.len() != self.ndim {
-            fail!("Invalid uniform_shape value");
+            fail!("invalid uniform_shape value");
         }
         self.uniform_shape = Some(value);
         Ok(self)

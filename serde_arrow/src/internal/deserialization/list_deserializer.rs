@@ -38,7 +38,7 @@ impl<'de, O: Offset> ListDeserializer<'de, O> {
 
     fn get<'this>(&'this self, idx: usize) -> Result<ListItemDeserializer<'this, 'de>> {
         if idx + 1 >= self.offsets.len() {
-            fail!("Outs of bound access");
+            fail!("outs of bound access");
         }
         let Some(start) = self.offsets.get(idx) else {
             fail!("out of bound access");
@@ -73,7 +73,7 @@ impl<O: NamedType + Offset> Context for ListDeserializer<'_, O> {
 impl<'de, O: Offset + NamedType> RandomAccessDeserializer<'de> for ListDeserializer<'de, O> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx + 1 >= self.offsets.len() {
-            fail!("Out of bounds access")
+            fail!("out of bounds access")
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)

@@ -122,7 +122,7 @@ impl ArrowOrCustomDataType {
             Self::Custom(data_type) => build_data_type(data_type, children),
             Self::Arrow(data_type) => {
                 if !children.is_empty() {
-                    fail!("Cannot use children with an arrow data type");
+                    fail!("cannot use children with an arrow data type");
                 }
                 Ok(data_type)
             }
@@ -173,31 +173,31 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Struct", []) => T::Struct(children),
         ("List", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("Invalid children for List: expected one child");
+                fail!("invalid children for List: expected one child");
             };
             T::List(Box::new(child))
         }
         ("LargeList", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("Invalid children for List: expected one child");
+                fail!("invalid children for List: expected one child");
             };
             T::LargeList(Box::new(child))
         }
         ("FixedSizeList", [n]) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("Invalid children for LargeList: expected one child");
+                fail!("invalid children for LargeList: expected one child");
             };
             T::FixedSizeList(Box::new(child), n.as_ident()?.parse()?)
         }
         ("Dictionary", []) => {
             let Ok([key, value]) = <[_; 2]>::try_from(children) else {
-                fail!("Invalid children for Dictionary: expected two children");
+                fail!("invalid children for Dictionary: expected two children");
             };
             T::Dictionary(Box::new(key.data_type), Box::new(value.data_type))
         }
         ("Map", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("Invalid children for Map: expected one child");
+                fail!("invalid children for Map: expected one child");
             };
             T::Map(Box::new(child), false)
         }
@@ -272,7 +272,7 @@ pub fn merge_strategy_with_metadata(
     strategy: Option<Strategy>,
 ) -> Result<HashMap<String, String>> {
     if metadata.contains_key(STRATEGY_KEY) && strategy.is_some() {
-        fail!("Duplicate strategy: metadata map contains {STRATEGY_KEY} and strategy given");
+        fail!("duplicate strategy: metadata map contains {STRATEGY_KEY} and strategy given");
     }
     if let Some(strategy) = strategy {
         metadata.insert(STRATEGY_KEY.to_owned(), strategy.to_string());

@@ -16,7 +16,7 @@ fn from_type_budget() {
         .unwrap_err();
     assert_error_contains(
         &err,
-        "Could not determine schema from the type after 0 iterations.",
+        "could not determine schema from the type after 0 iterations.",
     );
     assert_error_contains(
         &err,
@@ -30,7 +30,7 @@ fn non_self_describing_types() {
         SerdeArrowSchema::from_type::<serde_json::Value>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
         &err,
-        "Non self describing types cannot be traced with `from_type`.",
+        "non self describing types cannot be traced with `from_type`.",
     );
     assert_error_contains(&err, "Consider using `from_samples`.");
 }
@@ -41,7 +41,7 @@ fn map_as_struct() {
         TracingOptions::default().map_as_struct(true),
     )
     .unwrap_err();
-    assert_error_contains(&err, "Cannot trace maps as structs with `from_type`");
+    assert_error_contains(&err, "cannot trace maps as structs with `from_type`");
     assert_error_contains(&err, "Consider using `from_samples`");
 }
 
@@ -81,7 +81,7 @@ fn missing_overwrites() {
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&err, "Overwritten fields could not be found:");
+    assert_error_contains(&err, "overwritten fields could not be found:");
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn mismatched_overwrite_name() {
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&err, "Invalid name for overwritten field");
+    assert_error_contains(&err, "invalid name for overwritten field");
 }
 
 #[test]
@@ -117,6 +117,6 @@ fn overwrite_invalid_name() {
     .unwrap_err();
     assert_error_contains(
         &err,
-        "Invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
+        "invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
     );
 }

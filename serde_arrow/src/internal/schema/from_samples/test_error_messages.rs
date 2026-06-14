@@ -32,7 +32,7 @@ fn outer_sequence_issue_97() {
     };
 
     let err = SerdeArrowSchema::from_samples(b, TracingOptions::default()).unwrap_err();
-    assert_error_contains(&err, "Cannot trace non-sequences with `from_samples`");
+    assert_error_contains(&err, "cannot trace non-sequences with `from_samples`");
     assert_error_contains(&err, "consider wrapping the argument in an array");
 }
 

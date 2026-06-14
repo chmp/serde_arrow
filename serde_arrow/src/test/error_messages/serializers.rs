@@ -90,7 +90,7 @@ mod root_struct {
                 ],
             )]),
         );
-        assert_error_contains(&err, "Duplicate field \"a\"");
+        assert_error_contains(&err, "duplicate field \"a\"");
         assert_error_contains(&err, "field: \"$\"");
     }
 
@@ -104,7 +104,7 @@ mod root_struct {
                 vec![("a", Value::U8(0))],
             )]),
         );
-        assert_error_contains(&err, "Missing non-nullable field \"b\"");
+        assert_error_contains(&err, "missing non-nullable field \"b\"");
         assert_error_contains(&err, "field: \"$\"");
     }
 
@@ -184,7 +184,7 @@ mod nested_struct {
                 ],
             )),
         );
-        assert_error_contains(&err, "Duplicate field \"a\"");
+        assert_error_contains(&err, "duplicate field \"a\"");
         assert_error_contains(&err, "field: \"$.top-level\"");
     }
 
@@ -195,7 +195,7 @@ mod nested_struct {
             schema(),
             wrap(Value::Struct("TopLevel", vec![("a", Value::U8(0))])),
         );
-        assert_error_contains(&err, "Missing non-nullable field \"b\"");
+        assert_error_contains(&err, "missing non-nullable field \"b\"");
         assert_error_contains(&err, "field: \"$.top-level\"");
     }
 
@@ -406,7 +406,7 @@ mod lists {
                 Value::U8(3),
             ])),
         );
-        assert_error_contains(&err, "Invalid number of elements");
+        assert_error_contains(&err, "invalid number of elements");
         assert_error_contains(&err, "field: \"$.list\"");
         assert_error_contains(&err, "data_type: \"FixedSizeList(2)\"");
     }
@@ -417,7 +417,7 @@ mod lists {
             schema("FixedSizeList(2)"),
             wrap(Value::Seq(vec![Value::U8(0)])),
         );
-        assert_error_contains(&err, "Invalid number of elements");
+        assert_error_contains(&err, "invalid number of elements");
         assert_error_contains(&err, "field: \"$.list\"");
         assert_error_contains(&err, "data_type: \"FixedSizeList(2)\"");
     }

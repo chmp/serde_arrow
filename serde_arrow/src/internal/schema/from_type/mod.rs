@@ -28,7 +28,7 @@ impl Tracer {
             if budget == 0 {
                 fail!(
                     concat!(
-                        "Could not determine schema from the type after {budget} iterations. ",
+                        "could not determine schema from the type after {budget} iterations. ",
                         "Consider increasing the budget option or using `from_samples`.",
                     ),
                     budget = tracer.get_options().from_type_budget,
@@ -93,7 +93,7 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
         fail!(
             in self,
             concat!(
-            "Non self describing types cannot be traced with `from_type`. ",
+            "non self describing types cannot be traced with `from_type`. ",
             "Consider using `from_samples`. ",
             "One example is `serde_json::Value`: ",
             "the schema depends on the JSON content and cannot be determined from the type alone."
@@ -308,7 +308,7 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
         try_(|| {
             if self.0.get_options().map_as_struct {
                 fail!(concat!(
-                    "Cannot trace maps as structs with `from_type`. ",
+                    "cannot trace maps as structs with `from_type`. ",
                     "The struct fields cannot be known from the type alone.",
                     "Consider using `from_samples`. ",
                 ));
@@ -371,10 +371,10 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
                 .unwrap_or_default();
 
             let Some(variant) = tracer.variants.get_mut(idx) else {
-                fail!("Invalid variant index");
+                fail!("invalid variant index");
             };
             let Some(variant) = variant else {
-                fail!("Invalid state");
+                fail!("invalid state");
             };
 
             let res = visitor.visit_enum(TraceEnum {

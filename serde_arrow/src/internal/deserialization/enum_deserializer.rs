@@ -22,18 +22,18 @@ pub struct EnumDeserializer<'a> {
 impl<'a> EnumDeserializer<'a> {
     pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
         let Some(offsets) = view.offsets else {
-            fail!("Only dense unions are supported");
+            fail!("only dense unions are supported");
         };
 
         if view.types.len() != offsets.len() {
-            fail!("Offsets and type ids must have the same length")
+            fail!("offsets and type ids must have the same length")
         }
 
         let mut variants = Vec::new();
         for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate() {
             // TODO: introduce translation table?
             if usize::try_from(type_id) != Ok(idx) {
-                fail!("Only unions with consecutive type ids are currently supported");
+                fail!("only unions with consecutive type ids are currently supported");
             }
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
             let field_deserializer = ArrayDeserializer::new(
@@ -63,7 +63,7 @@ impl Context for EnumDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.types.len() {
-            fail!("Access beyond bounds");
+            fail!("access beyond bounds");
         }
         Ok(true)
     }
@@ -80,7 +80,7 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
         idx: usize,
     ) -> Result<V::Value> {
         let Some((type_id, offset)) = self.types.get(idx).zip(self.offsets.get(idx)) else {
-            fail!("Exhausted deserializer");
+            fail!("exhausted deserializer");
         };
         let offset = offset.try_into_usize()?;
         let Ok(variant_id) = usize::try_from(*type_id) else {
@@ -126,7 +126,7 @@ struct VariantIdDeserializer<'a> {
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("Unsupported: EnumDeserializer does not implement {}", stringify!($name))
+            fail!("unsupported: EnumDeserializer does not implement {}", stringify!($name))
         }
     };
 }

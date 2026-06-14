@@ -188,7 +188,7 @@ impl<'a, A: Utf8BuilderArray> Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 
     fn serialize_struct_variant(
@@ -198,7 +198,7 @@ impl<'a, A: Utf8BuilderArray> Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 
     fn serialize_newtype_variant<V: serde::Serialize + ?Sized>(
@@ -208,6 +208,6 @@ impl<'a, A: Utf8BuilderArray> Serializer for &'a mut Utf8Builder<A> {
         _: &'static str,
         _: &V,
     ) -> Result<()> {
-        fail!("Cannot serialize enum with data as string");
+        fail!("cannot serialize enum with data as string");
     }
 }

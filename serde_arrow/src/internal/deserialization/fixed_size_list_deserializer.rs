@@ -53,7 +53,7 @@ impl Context for FixedSizeListDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.len {
-            fail!("Out of bounds access");
+            fail!("out of bounds access");
         }
         if let Some(validity) = self.validity.as_ref() {
             return bitset_is_set(validity, idx);
@@ -67,7 +67,7 @@ impl<'de> RandomAccessDeserializer<'de> for FixedSizeListDeserializer<'de> {
 
     fn deserialize_seq<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         if idx >= self.len {
-            fail!("Out of bounds access");
+            fail!("out of bounds access");
         }
         visitor.visit_seq(ListItemDeserializer {
             item: self.item.as_ref(),

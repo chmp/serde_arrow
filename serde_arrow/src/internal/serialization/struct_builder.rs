@@ -145,7 +145,7 @@ impl StructBuilder {
                             field: field.get_name().into(),
                         },
                         format!(
-                            "Missing non-nullable field {:?} in struct",
+                            "missing non-nullable field {:?} in struct",
                             field.get_name()
                         ),
                     ));
@@ -167,7 +167,7 @@ impl StructBuilder {
         };
 
         if *seen {
-            fail!("Duplicate field {key:?}", key = field.get_name());
+            fail!("duplicate field {key:?}", key = field.get_name());
         }
 
         field.serialize_value(value)?;

@@ -92,7 +92,7 @@ impl FromStr for Strategy {
             "TupleAsStruct" => Ok(Self::TupleAsStruct),
             "MapAsStruct" => Ok(Self::MapAsStruct),
             "UnknownVariant" => Ok(Self::UnknownVariant),
-            _ => fail!("Unknown strategy {s}"),
+            _ => fail!("unknown strategy {s}"),
         }
     }
 }

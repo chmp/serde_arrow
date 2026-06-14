@@ -175,9 +175,9 @@ impl<'a> ArrayDeserializer<'a> {
                 (V::UInt64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU64I64(
                     DictionaryDeserializer::new(path, keys, values)?,
                 )),
-                _ => fail!("Unsupported dictionary array type"),
+                _ => fail!("unsupported dictionary array type"),
             },
-            _ => fail!("Unknown view"),
+            _ => fail!("unknown view"),
         }
     }
 }

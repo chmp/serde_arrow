@@ -94,7 +94,7 @@ impl UnionBuilder {
     ) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
         let Some(variant_builder) = self.fields.get_mut(variant_index) else {
-            fail!("Could not find variant {variant_name} with index {variant_index} in Union");
+            fail!("could not find variant {variant_name} with index {variant_index} in Union");
         };
         let Some(current_offset) = self.current_offset.get_mut(variant_index) else {
             fail!("invalid variant index");

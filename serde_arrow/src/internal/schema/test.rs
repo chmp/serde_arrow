@@ -421,7 +421,7 @@ fn test_invalid_metadata() {
     ]))
     .unwrap_err();
 
-    assert_error_contains(&err, "Duplicate strategy");
+    assert_error_contains(&err, "duplicate strategy");
 }
 
 #[test]

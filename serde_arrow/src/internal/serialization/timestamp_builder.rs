@@ -89,7 +89,7 @@ fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
     match tz {
         None => Ok(false),
         Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
-        Some(tz) => fail!("Timezone {tz} is not supported"),
+        Some(tz) => fail!("timezone {tz} is not supported"),
     }
 }
 

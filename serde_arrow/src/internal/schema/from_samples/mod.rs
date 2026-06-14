@@ -36,7 +36,7 @@ mod impl_outer_sequence_serializer {
 
     macro_rules! unimplemented_fn {
         ($ctx:ident ) => {
-            fail!(in $ctx, "Cannot trace non-sequences with `from_samples`: consider wrapping the argument in an array")
+            fail!(in $ctx, "cannot trace non-sequences with `from_samples`: consider wrapping the argument in an array")
         };
     }
 
@@ -728,7 +728,7 @@ impl serde::ser::SerializeMap for MapSerializer<'_> {
         try_(|| match self {
             Self::AsStruct(tracer, next_key) => {
                 let Some(next_key) = next_key.take() else {
-                    fail!("Invalid call to serialization methods: serialize_value called without prior call to serialize_key");
+                    fail!("invalid call to serialization methods: serialize_value called without prior call to serialize_key");
                 };
                 let field_idx = tracer.ensure_field(&next_key)?;
                 let Some(field_tracer) = tracer.get_field_tracer_mut(field_idx) else {
@@ -758,7 +758,7 @@ mod impl_serialize_to_string {
     macro_rules! unimplemented_fn {
         ($name:ident $($args:tt)* ) => {
             fn $name $($args)* {
-                fail!("Invalid argument: cannot interpret key as string");
+                fail!("invalid argument: cannot interpret key as string");
             }
         };
     }

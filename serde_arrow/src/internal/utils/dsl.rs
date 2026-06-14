@@ -18,16 +18,16 @@ impl Term {
     pub fn as_ident(&self) -> Result<&str> {
         match self.as_parts() {
             (name, false, []) => Ok(name),
-            (_, true, _) => fail!("Expected identifier, found quoted string"),
-            (_, _, [_, ..]) => fail!("Expected identifier, found call"),
+            (_, true, _) => fail!("expected identifier, found quoted string"),
+            (_, _, [_, ..]) => fail!("expected identifier, found call"),
         }
     }
 
     pub fn as_string(&self) -> Result<&str> {
         match self.as_parts() {
             (name, true, []) => Ok(name),
-            (_, false, _) => fail!("Expected string, found identifier"),
-            (_, _, [_, ..]) => fail!("Expected identifier, found call"),
+            (_, false, _) => fail!("expected string, found identifier"),
+            (_, _, [_, ..]) => fail!("expected identifier, found call"),
         }
     }
 
@@ -35,14 +35,14 @@ impl Term {
         match self.as_parts() {
             ("None", false, []) => Ok(None),
             ("Some", false, [arg]) => Ok(Some(arg)),
-            _ => fail!("Expected Some(arg) or None found quoted string"),
+            _ => fail!("expected Some(arg) or None found quoted string"),
         }
     }
 
     pub fn as_call(&self) -> Result<(&str, &[Term])> {
         match self.as_parts() {
             (name, false, args) => Ok((name, args)),
-            (_, true, _) => fail!("Expected call, found quoted string"),
+            (_, true, _) => fail!("expected call, found quoted string"),
         }
     }
 }
@@ -100,7 +100,7 @@ impl FromStr for Term {
     fn from_str(s: &str) -> Result<Self> {
         let (res, rest) = parse_term(s)?;
         if !rest.trim().is_empty() {
-            fail!("Trailing content in term: {rest:?}");
+            fail!("trailing content in term: {rest:?}");
         }
         Ok(res)
     }
@@ -134,7 +134,7 @@ fn parse_term_name(s: &str) -> Result<(String, bool, &str)> {
 
 fn parse_quoted_term_name(s: &str) -> Result<(String, &str)> {
     let Some(s) = s.strip_prefix('"') else {
-        fail!("Missing start quote");
+        fail!("missing start quote");
     };
 
     let mut quoted = false;
@@ -149,7 +149,7 @@ fn parse_quoted_term_name(s: &str) -> Result<(String, &str)> {
             *c == '"'
         }
     }) else {
-        fail!("Missing end quote");
+        fail!("missing end quote");
     };
 
     let ident = s
@@ -175,7 +175,7 @@ fn parse_ident_term_name(s: &str) -> Result<(String, &str)> {
         .unwrap_or_else(|| unreachable!("pos is from s.find"));
 
     if ident.is_empty() {
-        fail!("No identifier found");
+        fail!("no identifier found");
     }
 
     Ok((ident.to_owned(), rest))
@@ -205,7 +205,7 @@ fn parse_arguments(s: &str) -> Result<(Vec<Term>, &str)> {
 
     let s = s.trim_start();
     let Some(s) = s.strip_prefix(')') else {
-        fail!("Missing ')'");
+        fail!("missing ')'");
     };
 
     Ok((arguments, s))

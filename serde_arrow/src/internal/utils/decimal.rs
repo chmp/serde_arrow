@@ -80,10 +80,10 @@ fn copy_into_buffer_without_underscores(buffer: &mut [u8], s: &[u8]) -> Result<u
     for &byte in s {
         if byte != b'_' {
             if len >= buffer.len() {
-                fail!("Invalid decimal: number too long");
+                fail!("invalid decimal: number too long");
             }
             let Some(target) = buffer.get_mut(len) else {
-                fail!("Invalid decimal: number too long");
+                fail!("invalid decimal: number too long");
             };
             *target = byte;
             len += 1;
@@ -220,21 +220,21 @@ fn copy_digits_mixed(
 
 fn get(buffer: &[u8], range: Range<usize>) -> Result<&[u8]> {
     let Some(slice) = buffer.get(range) else {
-        fail!("Invalid decimal: number too long");
+        fail!("invalid decimal: number too long");
     };
     Ok(slice)
 }
 
 fn get_to(buffer: &[u8], range: RangeTo<usize>) -> Result<&[u8]> {
     let Some(slice) = buffer.get(range) else {
-        fail!("Invalid decimal: number too long");
+        fail!("invalid decimal: number too long");
     };
     Ok(slice)
 }
 
 fn get_mut(buffer: &mut [u8], range: Range<usize>) -> Result<&mut [u8]> {
     let Some(slice) = buffer.get_mut(range) else {
-        fail!("Invalid decimal: number too long");
+        fail!("invalid decimal: number too long");
     };
     Ok(slice)
 }
@@ -250,9 +250,9 @@ fn find_period(s: &[u8]) -> (usize, usize) {
 fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
     if s.iter().any(|c| *c != b'0') {
         if leading {
-            fail!("Invalid decimal: not enough precision");
+            fail!("invalid decimal: not enough precision");
         } else {
-            fail!("Invalid decimal: not enough scale, the given number would be truncated");
+            fail!("invalid decimal: not enough scale, the given number would be truncated");
         }
     }
     Ok(())
@@ -260,7 +260,7 @@ fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
 
 fn check_all_ascii_digit(s: &[u8]) -> Result<()> {
     if s.iter().any(|c| *c < b'0' || *c > b'9') {
-        fail!("Invalid decimal: only ascii digits are supported");
+        fail!("invalid decimal: only ascii digits are supported");
     }
     Ok(())
 }

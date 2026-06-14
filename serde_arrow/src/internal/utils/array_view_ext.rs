@@ -51,7 +51,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.validity.is_some()),
             V::Struct(view) => Ok(view.validity.is_some()),
             V::Dictionary(view) => view.keys.is_nullable(),
-            _ => fail!("Unknown view type"),
+            _ => fail!("unknown view type"),
         }
     }
 
@@ -95,7 +95,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.offsets.len().saturating_sub(1)),
             V::Struct(view) => Ok(view.len),
             V::Dictionary(view) => view.keys.len(),
-            _ => fail!("Unknown view type"),
+            _ => fail!("unknown view type"),
         }
     }
 }
@@ -112,7 +112,7 @@ pub trait ViewAccess<'a, Item: ?Sized + 'a> {
         } else {
             Err(Error::new(
                 ErrorKind::NullabilityViolation { field: None },
-                "Required item was not present".into(),
+                "required item was not present".into(),
             ))
         }
     }
@@ -135,7 +135,7 @@ impl<'a, T> ViewAccess<'a, T> for PrimitiveView<'a, T> {
             }
             Ok(Some(value))
         } else {
-            fail!("Access beyond array length");
+            fail!("access beyond array length");
         }
     }
 }
@@ -144,7 +144,7 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx + 1 > self.offsets.len() {
             fail!(
-                "Invalid access: tried to get element {idx} of array with {len} elements",
+                "invalid access: tried to get element {idx} of array with {len} elements",
                 len = self.offsets.len().saturating_sub(1)
             );
         }
@@ -176,7 +176,7 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         let Some(desc) = self.data.get(idx) else {
             fail!(
-                "Invalid access: tried to get element {idx} of array with {len} elements",
+                "invalid access: tried to get element {idx} of array with {len} elements",
                 len = self.data.len()
             );
         };

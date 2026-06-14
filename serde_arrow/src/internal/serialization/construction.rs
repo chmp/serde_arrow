@@ -122,15 +122,15 @@ fn build_builder(
         T::Map(entry_field, sorted) => {
             let DataType::Struct(entries_field) = entry_field.data_type else {
                 fail!(
-                    "Unexpected data type for map array: Expected Struct, got {:?}",
+                    "unexpected data type for map array: Expected Struct, got {:?}",
                     entry_field.data_type
                 );
             };
             let Ok([keys_field, values_field]) = <[Field; 2]>::try_from(entries_field) else {
-                fail!("A map field must be a struct with exactly two fields");
+                fail!("a map field must be a struct with exactly two fields");
             };
             if sorted {
-                fail!("Sorted maps are not supported");
+                fail!("sorted maps are not supported");
             }
 
             A::Map(MapBuilder::new(
@@ -176,7 +176,7 @@ fn build_builder(
 
             A::Union(UnionBuilder::new(name, fields, metadata))
         }
-        dt => fail!("Cannot build ArrayBuilder for data type {dt:?}"),
+        dt => fail!("cannot build ArrayBuilder for data type {dt:?}"),
     };
     Ok(builder)
 }

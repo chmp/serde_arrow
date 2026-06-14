@@ -64,7 +64,7 @@ impl Context for MapDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx + 1 >= self.offsets.len() {
-            fail!("Out of bounds access")
+            fail!("out of bounds access")
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)
@@ -80,7 +80,7 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
             if idx + 1 >= self.offsets.len() {
-                fail!("Out of bounds access")
+                fail!("out of bounds access")
             }
 
             let Some(start) = self.offsets.get(idx) else {
@@ -119,7 +119,7 @@ impl<'de> MapAccess<'de> for MapItemDeserializer<'_, 'de> {
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         if self.start >= self.end {
-            fail!("Invalid state in MapItemDeserializer");
+            fail!("invalid state in MapItemDeserializer");
         }
         let value = seed.deserialize(self.deserializer.value.at(self.start))?;
         self.start += 1;

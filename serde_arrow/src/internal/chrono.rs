@@ -38,7 +38,7 @@ impl parsing::Span<'_> {
     /// Convert the `Span` into an `i64`` with the given `unit`
     pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
         if get_optional_digit_value(self.year)? != 0 || get_optional_digit_value(self.month)? != 0 {
-            fail!("Cannot convert interval style spans to a duration");
+            fail!("cannot convert interval style spans to a duration");
         }
 
         let second_value = self.get_second_value()?;
@@ -78,15 +78,15 @@ impl parsing::Span<'_> {
             TimeUnit::Second => second_value,
             TimeUnit::Millisecond => match second_value.checked_mul(1_000_i64) {
                 Some(res) => res + nanosecond_value / 1_000_000,
-                None => fail!("Cannot represent {second_value} with Microsecond resolution"),
+                None => fail!("cannot represent {second_value} with Microsecond resolution"),
             },
             TimeUnit::Microsecond => match second_value.checked_mul(1_000_000_i64) {
                 Some(res) => res + nanosecond_value / 1_000,
-                None => fail!("Cannot represent {second_value} with Millisecond resolution"),
+                None => fail!("cannot represent {second_value} with Millisecond resolution"),
             },
             TimeUnit::Nanosecond => match second_value.checked_mul(1_000_000_000_i64) {
                 Some(res) => res + nanosecond_value,
-                None => fail!("Cannot represent {second_value} with Nanosecond resolution"),
+                None => fail!("cannot represent {second_value} with Nanosecond resolution"),
             },
         };
 
@@ -163,7 +163,7 @@ mod parsing {
             match self {
                 Ok(("", output)) => Ok(output),
                 Ok((unmatched, _)) | Err(unmatched) => crate::internal::error::fail!(
-                    "Could not parse the string as {output_type}, unmatched content: {unmatched:?}"
+                    "could not parse the string as {output_type}, unmatched content: {unmatched:?}"
                 ),
             }
         }

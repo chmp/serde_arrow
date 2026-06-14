@@ -358,7 +358,7 @@ pub fn validate_field(field: &Field) -> Result<()> {
         DataType::Dictionary(key, values) => {
             validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
-        dt => fail!("Unsupported data type {dt:?}"),
+        dt => fail!("unsupported data type {dt:?}"),
     }
 }
 
@@ -381,14 +381,14 @@ fn validate_primitive_field(field: &Field) -> Result<()> {
 
 fn validate_fixed_size_binary_field(field: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("Invalid FixedSizedBinary with negative number of elements");
+        fail!("invalid FixedSizedBinary with negative number of elements");
     }
     validate_primitive_field(field)
 }
 
 fn validate_fixed_size_list_field(field: &Field, child: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("Invalid FixedSizeList with negative number of elements");
+        fail!("invalid FixedSizeList with negative number of elements");
     }
     validate_list_field(field, child)
 }
@@ -480,13 +480,13 @@ fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
         fail!("invalid strategy for Map field: {strategy}");
     }
     let DataType::Map(entry, _) = &field.data_type else {
-        fail!("Invalid data type for map child, expected a map");
+        fail!("invalid data type for map child, expected a map");
     };
     let DataType::Struct(entry_fields) = &entry.data_type else {
-        fail!("Invalid child data type for map, expected struct with 2 fields");
+        fail!("invalid child data type for map, expected struct with 2 fields");
     };
     if entry_fields.len() != 2 {
-        fail!("Invalid child data type for map, expected struct with 2 fields");
+        fail!("invalid child data type for map, expected struct with 2 fields");
     }
     Ok(())
 }

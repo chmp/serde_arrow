@@ -469,7 +469,7 @@ impl SeqArrayExt for CountArray {
 
 pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
     let Some(last) = vec.last() else {
-        fail!("Invalid offset array: expected at least a single element")
+        fail!("invalid offset array: expected at least a single element")
     };
     vec.push(last.clone());
     Ok(())
@@ -477,7 +477,7 @@ pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
 
 pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     let Some(last) = vec.last_mut() else {
-        fail!("Invalid offset array: expected at least a single element")
+        fail!("invalid offset array: expected at least a single element")
     };
     *last = *last + O::try_form_usize(inc)?;
     Ok(())
@@ -520,7 +520,7 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     } else {
         Err(Error::new(
             ErrorKind::NullabilityViolation { field: None },
-            "Cannot push null for non-nullable array".into(),
+            "cannot push null for non-nullable array".into(),
         ))
     }
 }
@@ -551,7 +551,7 @@ pub fn set_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
 pub fn get_bit_buffer(data: &[u8], offset: usize, idx: usize) -> Result<bool> {
     let flag = 1 << ((idx + offset) % 8);
     let Some(byte) = data.get((idx + offset) / 8) else {
-        fail!("Invalid access in bitset");
+        fail!("invalid access in bitset");
     };
     Ok(byte & flag == flag)
 }

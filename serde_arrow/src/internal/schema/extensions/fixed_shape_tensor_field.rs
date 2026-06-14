@@ -60,7 +60,7 @@ impl FixedShapeTensorField {
     pub fn new(name: &str, element: impl serde::ser::Serialize, shape: Vec<usize>) -> Result<Self> {
         let element = transmute_field(element)?;
         if element.name != "element" {
-            fail!("The element field of FixedShapeTensorField must be named \"element\"");
+            fail!("the element field of FixedShapeTensorField must be named \"element\"");
         }
 
         Ok(Self {

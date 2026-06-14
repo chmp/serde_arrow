@@ -39,7 +39,7 @@ impl<'a> TimestampDeserializer<'a> {
             TimeUnit::Microsecond => DateTime::from_timestamp_micros(ts),
             TimeUnit::Nanosecond => Some(DateTime::from_timestamp_nanos(ts)),
         }) else {
-            fail!("Unsupported timestamp value: {ts}");
+            fail!("unsupported timestamp value: {ts}");
         };
 
         if self.is_utc {
@@ -76,7 +76,7 @@ impl<'a> TimestampDeserializer<'a> {
 fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
     match timezone {
         Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
-        Some(tz) => fail!("Unsupported timezone: {} is not supported", tz),
+        Some(tz) => fail!("unsupported timezone: {} is not supported", tz),
         None => Ok(false),
     }
 }
