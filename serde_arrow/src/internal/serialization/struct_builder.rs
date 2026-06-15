@@ -314,10 +314,10 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StaticFieldName(*const u8, usize);
 
-// SAFETY: StaticFieldName is always construted from a &static str and never read
+// SAFETY: StaticFieldName is always constructed from a &static str and never read
 unsafe impl Send for StaticFieldName {}
 
-// SAFETY: StaticFieldName is always construted from a &static str and never read
+// SAFETY: StaticFieldName is always constructed from a &static str and never read
 unsafe impl Sync for StaticFieldName {}
 
 impl StaticFieldName {
