@@ -10,7 +10,7 @@ pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// Check that the permutation array contains indeed a permutation of dimension `ndim`
+/// Check that the permutation array contains a permutation of dimension `ndim`
 pub fn check_permutation(ndim: usize, permutation: &[usize]) -> Result<()> {
     if permutation.len() != ndim {
         fail!(

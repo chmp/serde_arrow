@@ -1,7 +1,6 @@
-//! Support for the `arrow` crate (*requires one the `arrow-*` features*)
+//! Support for the `arrow` crate (*requires one of the `arrow-*` features*)
 //!
-//! Functions to convert Rust objects into arrow Arrays. Deserialization from
-//! `arrow` arrays to Rust objects is not yet supported.
+//! Functions to convert Rust objects into Arrow arrays and back.
 //!
 #![deny(missing_docs)]
 use std::sync::Arc;
@@ -27,9 +26,9 @@ use crate::{
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
 /// features*)
 ///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs). To serialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// `items` should be given in the form of a list of records (e.g., a vector of
+/// structs). To serialize single values, use the [`Items`][crate::utils::Items]
+/// wrapper.
 ///
 /// To build arrays record by record use [`ArrayBuilder`]. To construct a record
 /// batch, consider using [`to_record_batch`].
@@ -74,8 +73,7 @@ pub fn to_arrow<T: Serialize>(fields: &[FieldRef], items: T) -> Result<Vec<Array
 /// features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
-/// deserialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// deserialize single values, use the [`Items`][crate::utils::Items] wrapper.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -109,9 +107,9 @@ where
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
 /// features*)
 ///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs). To serialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// `items` should be given in the form of a list of records (e.g., a vector of
+/// structs). To serialize single values, use the [`Items`][crate::utils::Items]
+/// wrapper.
 ///
 /// To build arrays record by record use [`ArrayBuilder`].
 ///
@@ -155,8 +153,7 @@ pub fn to_record_batch<T: Serialize>(fields: &[FieldRef], items: &T) -> Result<R
 /// features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
-/// deserialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// deserialize single values, use the [`Items`][crate::utils::Items] wrapper.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {

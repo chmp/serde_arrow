@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Helper to build variable shape tensor fields (`arrow.variable_shape_tensor`)
+/// Helper to build variable-shape tensor fields (`arrow.variable_shape_tensor`)
 ///
 /// See the [arrow docs][variable-shape-tensor-field-docs] for details on the
 /// different fields.

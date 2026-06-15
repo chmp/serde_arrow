@@ -32,7 +32,7 @@ modules and can be run without installing further packages.
 ## Running the benchmarks
 
 1. `uv run x.py bench`
-2. (optional) `uv run x.py summarize-bench --update` to update the readme
+2. (optional) `uv run x.py summarize-bench --update` to update the README
 
 On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
 
@@ -51,8 +51,8 @@ cargo flamegraph --example serialize_nested_struct --package bench --profile ben
 
 Style:
 
-- Use uppercase letters to start the error message
-- Do not include trailing punctuation (e.g., "Not supported", not "Not
+- Use lowercase letters to start error messages
+- Do not include trailing punctuation (e.g., "not supported", not "not
   supported.")
 
 Common annotations:

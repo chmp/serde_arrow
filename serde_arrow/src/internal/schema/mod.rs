@@ -31,7 +31,7 @@ pub trait Sealed {}
 ///
 /// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON value
 /// 2. [`SchemaLike::from_type`]: determine the schema from the record type
-/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of data
+/// 3. [`SchemaLike::from_samples`]: determine the schema from samples of data
 ///
 /// The following types implement [`SchemaLike`] and can be constructed with the methods mentioned
 /// above:
@@ -51,7 +51,7 @@ pub trait Sealed {}
     doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
 )]
 ///
-/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized. The format is that
+/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized using the format
 /// described in [`SchemaLike::from_value`].
 ///
 /// ```rust
@@ -67,7 +67,7 @@ pub trait Sealed {}
 /// ```
 ///
 pub trait SchemaLike: Sized + Sealed {
-    /// Build the schema from an object that implements serialize (e.g., `serde_json::Value`)
+    /// Build the schema from an object that implements `Serialize` (e.g., `serde_json::Value`)
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -110,7 +110,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
     /// - date objects: `"Date32"`, `"Date64"`
-    /// - date time objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
+    /// - datetime objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
     ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
     ///   `None` or `Some("Utc")`.
     /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
@@ -132,11 +132,11 @@ pub trait SchemaLike: Sized + Sealed {
     /// options.
     ///
     /// This approach requires the type `T` to implement [`Deserialize`][::serde::Deserialize]. As
-    /// only type information is used, it is not possible to detect data dependent properties.
+    /// only type information is used, it is not possible to detect data-dependent properties.
     /// Examples of unsupported features:
     ///
-    /// - auto detection of date time strings
-    /// - non self-describing types such as `serde_json::Value`
+    /// - automatic detection of datetime strings
+    /// - non-self-describing types such as `serde_json::Value`
     /// - flattened structures (`#[serde(flatten)]`)
     /// - types that require specific data to be deserialized, such as the `DateTime` type of
     ///   `chrono` or the `Uuid` type of the `uuid` package
@@ -268,7 +268,7 @@ pub trait SchemaLike: Sized + Sealed {
 
 /// A collection of fields as understood by `serde_arrow`
 ///
-/// It can be converted from / to arrow or arrow2 fields.
+/// It can be converted to and from Arrow or arrow2 fields.
 ///
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct SerdeArrowSchema {
@@ -309,7 +309,7 @@ impl SchemaLike for Vec<Field> {
 
 /// Wrapper around `SerdeArrowSchema::from_value` to convert a single field
 ///
-/// This function takes anything that serialized into a field and converts it into a field.
+/// This function takes anything that serializes into a field and converts it into a field.
 pub fn transmute_field(field: impl Serialize) -> Result<Field> {
     let expected = SerdeArrowSchema::from_value(&[field])?;
     let Some(field) = expected.fields.into_iter().next() else {

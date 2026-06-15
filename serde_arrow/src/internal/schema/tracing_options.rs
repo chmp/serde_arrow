@@ -103,7 +103,7 @@ pub struct TracingOptions {
     /// Currently the naive datetime (`YYYY-MM-DDThh:mm:ss`) and UTC datetimes
     /// (`YYYY-MM-DDThh:mm:ssZ`) are understood.
     ///
-    /// For string fields where all values are either missing or conform to one of the format the
+    /// For string fields where all values are either missing or conform to one of the formats, the
     /// data type is set as `Timestamp(Millisecond, tz)` with timezone `tz` `Some("UTC")` or `None`.
     pub guess_dates: bool,
 

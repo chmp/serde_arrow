@@ -36,7 +36,7 @@ use crate::internal::{
 /// # }
 /// ```
 ///
-/// It can also be converted to a `arrow` `Field` for manual schema manipulation.
+/// It can also be converted to an `arrow` `Field` for manual schema manipulation.
 ///
 pub struct Bool8Field {
     name: String,

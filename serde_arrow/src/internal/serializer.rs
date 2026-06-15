@@ -5,7 +5,7 @@ use crate::internal::{
     error::{fail, Error, Result},
 };
 
-/// Wrap an [`ArrayBuilder`] with as a Serializer
+/// Wrap an [`ArrayBuilder`] as a serializer
 ///
 /// To support serialization, the wrapped object must implement
 /// `AsMut<ArrayBuilder>`. This requirement is covered by [`ArrayBuilder`] and
@@ -13,7 +13,7 @@ use crate::internal::{
 ///
 /// Calls to `serialize` will return the Serializer itself on success. Therefore
 /// the underlying ArrayBuilder passed to [`Serializer::new`] can be
-/// retrieved and be used to construct the arrays.
+/// retrieved and used to construct the arrays.
 ///
 /// Usage:
 ///
@@ -35,7 +35,7 @@ use crate::internal::{
 ///
 /// let mut builder = ArrayBuilder::from_arrow(&fields)?;
 ///
-/// // note: when constructing the serialize with a mutable reference,
+/// // note: when constructing the serializer with a mutable reference,
 /// // different item sequences can be pushed into the same builder
 /// items1.serialize(Serializer::new(&mut builder))?;
 /// items2.serialize(Serializer::new(&mut builder))?;

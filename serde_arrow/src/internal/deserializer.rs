@@ -24,7 +24,7 @@ use super::{
 #[cfg_attr(has_arrow, doc = r"- [`Deserializer::from_arrow`]")]
 #[cfg_attr(has_arrow2, doc = r"- [`Deserializer::from_arrow2`]")]
 ///
-/// Instances of [`Deserializer`] deserialize into a sequences of records. They can also be used as a
+/// Instances of [`Deserializer`] deserialize into sequences of records. They can also be used as a
 /// sequence of deserializers for the individual records ([`DeserializerItem`]).
 ///
 /// The supported sequence operations are:

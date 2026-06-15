@@ -1,6 +1,6 @@
 # Status
 
-The page documents the supported types both from an Arrow and a Rust perspective.
+This page documents supported types from both Arrow and Rust perspectives.
 
 - [Arrow data types](#arrow-data-types)
 - [Rust types](#rust-types)
@@ -128,7 +128,7 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 
 `chrono::Duration` does not support Serde and is therefore not supported
 
-###  `jiff` types
+### `jiff` types
 
 #### `jiff::Date`
 
@@ -163,7 +163,7 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 - can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Timestamp(Millisecond, Some("UTC"))` when setting  `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Span`
@@ -179,7 +179,7 @@ Same as `jiff::Span`
 
 #### `jiff::Zoned`
 
-is not supported as there is no clear way of implementation
+is not supported because there is no clear mapping to an Arrow type
 
 ### [`rust_decimal::Decimal`][rust_decimal::Decimal]
 

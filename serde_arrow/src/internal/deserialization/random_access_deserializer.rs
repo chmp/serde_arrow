@@ -1,4 +1,4 @@
-//! An extension of the serde interface that allows to deserialize a value at a given index
+//! An extension of the Serde interface for deserializing a value at a given index
 //!
 
 use serde::{de::Visitor, Deserializer};

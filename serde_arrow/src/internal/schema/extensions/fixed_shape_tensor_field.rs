@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Easily construct a fixed shape tensor fields (`arrow.fixed_shape_tensor`)
+/// Easily construct fixed-shape tensor fields (`arrow.fixed_shape_tensor`)
 ///
 /// See the [arrow docs][fixed-shape-tensor-docs] for details on the different
 /// fields.

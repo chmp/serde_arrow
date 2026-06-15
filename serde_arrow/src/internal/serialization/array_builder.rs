@@ -127,24 +127,24 @@ impl ArrayBuilder {
 /// - `Null`: no-op
 /// - `Boolean`: reserve the number of bytes to encode the relevant bits
 /// - Other primitives: reserve the number of elements
-/// - `Struct`: reserve validity, add reserve each field builder
+/// - `Struct`: reserve validity and reserve each field builder
 /// - `Dictionary`: reserve the indices (and their validity)
 /// - `FixedSizeBinary`, `FixedSizeList`: reserve validity and the exact number
 ///   of elements
 /// - `Union`: reserve offsets and types
 /// - `LargeString`, `String`: reserve the validity and offsets, reserve
-///   additional as many bytes, assuming 8 bytes per element, that the total
-///   capacity allows to store current len + additional elements
+///   enough additional bytes, assuming 8 bytes per element, for the total
+///   capacity to store the current length plus the additional elements
 /// - `LargeBinary`, `Binary`: the same as for strings, but reserve the exact
 ///   elements if called with a sequence
 /// - `BytesView`, `StringView`: reserve validity and packed strings, do not
 ///   reserve unpacked strings
 /// - `LargeList`, `List`: reserve validity and offsets, reserve elements for
-///   each element itself (eg, on start seq)
+///   each element itself (e.g., on start seq)
 /// - `Map`: reserve validity and offsets, reserve elements for each element
-///   itself (eg, on start map)
+///   itself (e.g., on start map)
 ///
-/// In addition all validity arrays, if present, are treated as `Boolean`
+/// In addition, all validity arrays, if present, are treated as `Boolean`
 /// arrays.
 impl ArrayBuilder {
     pub fn reserve(&mut self, additional: usize) {
