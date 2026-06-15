@@ -219,7 +219,7 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
         }();
 
         let Some(res) = res else {
-            fail!("invalid bytes-view array descriptor at index {idx}: length {len}");
+            fail!("bytes-view array has an invalid value at index {idx} with length {len}");
         };
         Ok(Some(res))
     }

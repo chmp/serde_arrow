@@ -89,18 +89,15 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
             );
         };
         let Some(offset) = self.offsets.get(idx) else {
-            fail!(
-                "index {idx} is out of bounds for Union offset array with length {}",
-                self.offsets.len()
-            );
+            fail!("Union array is missing data for index {idx}");
         };
         let offset = offset.try_into_usize()?;
         let Ok(variant_id) = usize::try_from(*type_id) else {
-            fail!("invalid type id for {idx}");
+            fail!("Union array has an invalid type ID at index {idx}");
         };
 
         let Some((name, variant)) = self.variants.get(variant_id) else {
-            fail!("non existing enum variant for {idx}");
+            fail!("Union array references a non-existing variant at index {idx}");
         };
 
         visitor.visit_enum(VariantItemDeserializer {

@@ -78,15 +78,14 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
         try_(|| {
             let Some(start) = self.offsets.get(idx) else {
                 fail!(
-                    "offset index {idx} is out of bounds for offset array with {} entries",
-                    self.offsets.len()
+                    "index {idx} is out of bounds for Map array with length {}",
+                    self.offsets.len().saturating_sub(1)
                 );
             };
             let Some(end) = self.offsets.get(idx + 1) else {
                 fail!(
-                    "offset index {} is out of bounds for offset array with {} entries",
-                    idx + 1,
-                    self.offsets.len()
+                    "index {idx} is out of bounds for Map array with length {}",
+                    self.offsets.len().saturating_sub(1)
                 );
             };
 

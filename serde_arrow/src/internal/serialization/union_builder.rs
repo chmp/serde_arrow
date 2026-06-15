@@ -93,14 +93,14 @@ impl UnionBuilder {
         variant_name: &str,
     ) -> Result<&mut ArrayBuilder> {
         let variant_index = variant_index as usize;
+        let num_variants = self.fields.len();
         let Some(variant_builder) = self.fields.get_mut(variant_index) else {
             fail!("could not find variant {variant_name} with index {variant_index} in Union");
         };
-        let num_offsets = self.current_offset.len();
         let Some(current_offset) = self.current_offset.get_mut(variant_index) else {
             fail!(
-                "variant index {variant_index} is out of bounds for offset array with length {}",
-                num_offsets
+                "variant index {variant_index} is out of bounds for Union with {} variants",
+                num_variants
             );
         };
 

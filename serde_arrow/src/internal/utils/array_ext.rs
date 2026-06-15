@@ -325,7 +325,7 @@ pub mod bytes_view {
             | (u128::from(data.get(3).copied().unwrap_or_default()) << 24);
 
         if i32::try_from(buffer).is_err() {
-            fail!("too large buffer index for view type");
+            fail!("view-type buffer reference is too large");
         };
         let buffer_bytes = u128::from(u32::try_from(buffer)?);
 
