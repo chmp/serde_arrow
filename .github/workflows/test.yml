@@ -40,7 +40,7 @@
         },
         {
           "name": "Check MSRV with arrow-53",
-          "run": "cargo check --features arrow-53"
+          "run": "cargo check --package serde_arrow --features arrow-53"
         }
       ]
     },
