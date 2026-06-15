@@ -125,7 +125,7 @@ impl<'de> Deserializer<'de> {
         self.deserializer.len
     }
 
-    /// Check wether the deserialize contains zero records
+    /// Check whether the deserializer contains zero records
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

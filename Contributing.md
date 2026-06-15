@@ -16,7 +16,7 @@ uv run x.py precommit
 ```
 
 Run `uv run x.py --help` for details. The script only uses standard Python
-modules can can be run without installing further packages.
+modules and can be run without installing further packages.
 
 ## Creating a release
 
@@ -36,7 +36,7 @@ modules can can be run without installing further packages.
 
 On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
 
-The examples in the `benches` packages can be used to to generate flamegraphs:
+The examples in the `benches` packages can be used to generate flamegraphs:
 
 ```bash
 cargo flamegraph --example serialize_nested_struct --package bench --profile bench

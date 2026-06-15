@@ -151,7 +151,7 @@ pub struct TracingOptions {
     /// Overwrites can be added with `options.overwrite(path, field)`. The `field` parameter must
     /// serialize to a valid field. See [`from_value`][crate::schema::SchemaLike::from_value] for
     /// details. Examples are instances of `serde_json::Value` with the correct content or of
-    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using dotted paths, e.g.m
+    /// `arrow::datatypes::Field`. Nested fields can be overwritten by using dotted paths, e.g.,
     /// `"foo.bar"`.
     ///
     /// Overwrites can be used to change the data type of field, e.g., to ensure a field is a

@@ -135,7 +135,7 @@ The following people contributed to this release:
   - Breaking change: `serde_arrow::Error` no longer implements
     `From<arrow2::error::Error>`
 - Add support for view types `Utf8View`, `BytesView`
-- Add APIs to interact with `marorw` arrays directly. Allows to use
+- Add APIs to interact with `marrow` arrays directly. Allows to use
   `serde_arrow` with different arrow versions at the same time.
 - Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp`
   for date times

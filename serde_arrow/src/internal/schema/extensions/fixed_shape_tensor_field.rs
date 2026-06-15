@@ -55,7 +55,7 @@ impl FixedShapeTensorField {
     /// Construct a new non-nullable `FixedShapeTensorField`
     ///
     /// Note the element parameter must serialize into a valid field definition
-    /// with the the name `"element"`. The field type can be any valid Arrow
+    /// with the name `"element"`. The field type can be any valid Arrow
     /// type.
     pub fn new(name: &str, element: impl serde::ser::Serialize, shape: Vec<usize>) -> Result<Self> {
         let element = transmute_field(element)?;

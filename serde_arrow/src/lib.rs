@@ -316,7 +316,7 @@ pub mod deserializer {
 /// types in your Rust code (`Vec<T>`, structs, enums, etc.),
 /// [Serde data model][serde-model], the abstract representation Serde uses
 /// during serialization, and [Arrow types][arrow-model], the columnar data
-/// types defined by Apache Arrow. To convert between thse type systems ,
+/// types defined by Apache Arrow. To convert between these type systems,
 /// `serde_arrow` requires schema information as a list of Arrow fields with
 /// additional metadata. See [`SchemaLike`][crate::schema::SchemaLike] for
 /// details on how to specify the schema.

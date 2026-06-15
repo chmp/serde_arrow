@@ -139,7 +139,7 @@ fn get_optional_digit_value(s: Option<&str>) -> Result<i64> {
 
 /// Minimalistic monadic parsers for datetime objects
 ///
-/// Each parser has the the following interface:
+/// Each parser has the following interface:
 ///
 /// `fn (string_to_parse, ..extra_args) -> Result<(rest, result), unmatched_string>`
 ///
