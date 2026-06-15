@@ -32,7 +32,7 @@ modules and can be run without installing further packages.
 ## Running the benchmarks
 
 1. `uv run x.py bench`
-2. (optional) `uv run x.py summarize-bench --update` to update the README
+2. (optional) `uv run x.py summarize-bench --update` to update the Readme
 
 On GitHub, execute `gh workflow run Bench --ref {BRANCH}`
 
