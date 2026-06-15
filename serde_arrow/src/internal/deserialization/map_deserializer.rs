@@ -63,6 +63,10 @@ impl Context for MapDeserializer<'_> {
 
 impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
+        let len = self.offsets.len().saturating_sub(1);
+        if idx >= len {
+            fail!("index {idx} is out of bounds for Map array with length {len}");
+        }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)
         } else {
