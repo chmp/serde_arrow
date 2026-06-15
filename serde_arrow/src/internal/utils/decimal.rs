@@ -80,10 +80,16 @@ fn copy_into_buffer_without_underscores(buffer: &mut [u8], s: &[u8]) -> Result<u
     for &byte in s {
         if byte != b'_' {
             if len >= buffer.len() {
-                fail!("invalid decimal: number too long");
+                fail!(
+                    "invalid decimal: input exceeds buffer capacity of {} bytes",
+                    buffer.len()
+                );
             }
             let Some(target) = buffer.get_mut(len) else {
-                fail!("invalid decimal: number too long");
+                fail!(
+                    "invalid decimal: input exceeds buffer capacity of {} bytes",
+                    buffer.len()
+                );
             };
             *target = byte;
             len += 1;
@@ -129,11 +135,11 @@ fn copy_digits_integer_only(
     let end_copy = before_period.saturating_sub(scale);
     let start_copy = end_copy.saturating_sub(precision);
 
-    check_all_ascii_zero(get(buffer, 0..start_copy)?, true)?;
+    check_all_ascii_zero(get(buffer, 0..start_copy)?, true, precision)?;
     if !truncate {
         check_all_ascii_digit(get(buffer, start_copy..end_copy)?)?;
-        check_all_ascii_zero(get(buffer, end_copy..before_period)?, false)?;
-        check_all_ascii_zero(get(buffer, after_period..len)?, false)?;
+        check_all_ascii_zero(get(buffer, end_copy..before_period)?, false, 0)?;
+        check_all_ascii_zero(get(buffer, after_period..len)?, false, 0)?;
     } else {
         check_all_ascii_digit(get(buffer, start_copy..before_period)?)?;
         check_all_ascii_digit(get(buffer, after_period..len)?)?;
@@ -160,12 +166,12 @@ fn copy_digits_fraction_only(
     let end_copy = std::cmp::min(len, after_period + scale);
     let fill = precision - (end_copy - start_copy);
 
-    check_all_ascii_zero(get(buffer, 0..before_period)?, true)?;
-    check_all_ascii_zero(get(buffer, after_period..start_copy)?, true)?;
+    check_all_ascii_zero(get(buffer, 0..before_period)?, true, precision)?;
+    check_all_ascii_zero(get(buffer, after_period..start_copy)?, true, precision)?;
 
     if !truncate {
         check_all_ascii_digit(get(buffer, start_copy..end_copy)?)?;
-        check_all_ascii_zero(get(buffer, end_copy..len)?, false)?;
+        check_all_ascii_zero(get(buffer, end_copy..len)?, false, scale)?;
     } else {
         check_all_ascii_digit(get(buffer, start_copy..len)?)?;
     }
@@ -195,11 +201,11 @@ fn copy_digits_mixed(
     let copy_2 = after_period..end_copy;
     let fill = scale - (end_copy - after_period);
 
-    check_all_ascii_zero(get(buffer, 0..start_copy)?, true)?;
+    check_all_ascii_zero(get(buffer, 0..start_copy)?, true, precision)?;
     check_all_ascii_digit(get(buffer, copy_1.clone())?)?;
     if !truncate {
         check_all_ascii_digit(get(buffer, after_period..end_copy)?)?;
-        check_all_ascii_zero(get(buffer, end_copy..len)?, false)?;
+        check_all_ascii_zero(get(buffer, end_copy..len)?, false, scale)?;
     } else {
         check_all_ascii_digit(get(buffer, after_period..len)?)?;
     }
@@ -220,21 +226,30 @@ fn copy_digits_mixed(
 
 fn get(buffer: &[u8], range: Range<usize>) -> Result<&[u8]> {
     let Some(slice) = buffer.get(range) else {
-        fail!("invalid decimal: number too long");
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {} bytes",
+            buffer.len()
+        );
     };
     Ok(slice)
 }
 
 fn get_to(buffer: &[u8], range: RangeTo<usize>) -> Result<&[u8]> {
     let Some(slice) = buffer.get(range) else {
-        fail!("invalid decimal: number too long");
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {} bytes",
+            buffer.len()
+        );
     };
     Ok(slice)
 }
 
 fn get_mut(buffer: &mut [u8], range: Range<usize>) -> Result<&mut [u8]> {
+    let buffer_len = buffer.len();
     let Some(slice) = buffer.get_mut(range) else {
-        fail!("invalid decimal: number too long");
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {buffer_len} bytes"
+        );
     };
     Ok(slice)
 }
@@ -247,12 +262,18 @@ fn find_period(s: &[u8]) -> (usize, usize) {
     }
 }
 
-fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
-    if s.iter().any(|c| *c != b'0') {
+fn check_all_ascii_zero(s: &[u8], leading: bool, configured: usize) -> Result<()> {
+    if let Some(first_nonzero) = s.iter().position(|c| *c != b'0') {
         if leading {
-            fail!("invalid decimal: not enough precision");
+            let required = configured + s.len() - first_nonzero;
+            fail!(
+                "invalid decimal: configured precision {configured} is insufficient; required precision is at least {required}"
+            );
         } else {
-            fail!("invalid decimal: not enough scale, the given number would be truncated");
+            let required = configured + s.iter().rposition(|c| *c != b'0').unwrap_or_default() + 1;
+            fail!(
+                "invalid decimal: configured scale {configured} is insufficient; required scale is at least {required}"
+            );
         }
     }
     Ok(())
@@ -260,7 +281,7 @@ fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
 
 fn check_all_ascii_digit(s: &[u8]) -> Result<()> {
     if s.iter().any(|c| *c < b'0' || *c > b'9') {
-        fail!("invalid decimal: only ascii digits are supported");
+        fail!("invalid decimal: only ASCII digits are supported");
     }
     Ok(())
 }

@@ -79,10 +79,10 @@ fn too_small_precision() {
         Test::new().with_schema(json!([{"name": "item", "data_type": "Decimal128(2, 2)"}]));
 
     let err = test.try_serialize_arrow(items).expect_err("Expected error");
-    assert!(err.to_string().contains("not enough precision"));
+    assert!(err.to_string().contains("configured precision"));
 
     let err = test
         .try_serialize_arrow2(items)
         .expect_err("Expected error");
-    assert!(err.to_string().contains("not enough precision"));
+    assert!(err.to_string().contains("configured precision"));
 }

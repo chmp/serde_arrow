@@ -159,11 +159,19 @@ impl StructBuilder {
 
     pub fn element<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
+        let num_seen_fields = self.seen.len();
         let Some(seen) = self.seen.get_mut(idx) else {
-            fail!("invalid element index");
+            fail!(
+                "element index {idx} is out of bounds for seen-field array with length {}",
+                num_seen_fields
+            );
         };
+        let num_fields = self.fields.len();
         let Some(field) = self.fields.get_mut(idx) else {
-            fail!("invalid element index");
+            fail!(
+                "element index {idx} is out of bounds for struct with {} fields",
+                num_fields
+            );
         };
 
         if *seen {

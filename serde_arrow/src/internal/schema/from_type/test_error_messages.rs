@@ -81,7 +81,7 @@ fn missing_overwrites() {
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&err, "overwritten fields could not be found:");
+    assert_error_contains(&err, "field overrides reference unknown paths:");
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn mismatched_overwrite_name() {
             .unwrap(),
     )
     .unwrap_err();
-    assert_error_contains(&err, "invalid name for overwritten field");
+    assert_error_contains(&err, "invalid overwrite name for field");
 }
 
 #[test]
@@ -117,6 +117,6 @@ fn overwrite_invalid_name() {
     .unwrap_err();
     assert_error_contains(
         &err,
-        "invalid name for overwritten field \"a\": found \"b\", expected \"a\"",
+        "invalid overwrite name for field \"a\": expected \"a\", got \"b\"",
     );
 }

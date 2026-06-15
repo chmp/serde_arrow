@@ -63,7 +63,10 @@ impl Context for EnumDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.types.len() {
-            fail!("access beyond bounds");
+            fail!(
+                "index {idx} is out of bounds for Union array with length {}",
+                self.types.len()
+            );
         }
         Ok(true)
     }
@@ -126,7 +129,7 @@ struct VariantIdDeserializer<'a> {
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("unsupported: EnumDeserializer does not implement {}", stringify!($name))
+            fail!("EnumDeserializer does not support {}", stringify!($name))
         }
     };
 }

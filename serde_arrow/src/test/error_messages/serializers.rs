@@ -18,7 +18,7 @@ fn top_level_errors() {
         json!([{"name": "test", "data_type": "I32"}]),
         Value::FailWithError("test-error"),
     );
-    assert_eq!(err.message(), "serde::ser::Error: test-error");
+    assert_eq!(err.message(), "serialization failed: test-error");
 
     let err = serialize_to_error(
         json!([{"name": "test", "data_type": "I32"}]),

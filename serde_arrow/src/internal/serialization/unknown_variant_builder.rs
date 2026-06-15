@@ -48,7 +48,7 @@ impl UnknownVariantBuilder {
     pub fn reserve(&mut self, _additional: usize) {}
 
     pub fn serialize_default_value(&mut self) -> Result<()> {
-        fail!("unknown variant does not support serialize_default")
+        fail!("UnknownVariantBuilder does not support serialize_default")
     }
 
     pub fn serialize_value<V: Serialize>(&mut self, value: V) -> Result<()> {

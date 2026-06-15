@@ -146,10 +146,10 @@ fn scaled_f32_to_i128(value: f32) -> Result<i128> {
     let exclusive_i128_bound = 2.0_f32.powi(127);
 
     if !value.is_finite() {
-        fail!("cannot serialize non-finite float as decimal");
+        fail!("cannot serialize non-finite float {value} as decimal");
     }
     if !(-exclusive_i128_bound..exclusive_i128_bound).contains(&value) {
-        fail!("float value is out of range for Decimal128");
+        fail!("float value {value} is out of range for Decimal128");
     }
 
     #[expect(
@@ -165,10 +165,10 @@ fn scaled_f64_to_i128(value: f64) -> Result<i128> {
     let exclusive_i128_bound = 2.0_f64.powi(127);
 
     if !value.is_finite() {
-        fail!("cannot serialize non-finite float as decimal");
+        fail!("cannot serialize non-finite float {value} as decimal");
     }
     if !(-exclusive_i128_bound..exclusive_i128_bound).contains(&value) {
-        fail!("float value is out of range for Decimal128");
+        fail!("float value {value} is out of range for Decimal128");
     }
 
     #[expect(

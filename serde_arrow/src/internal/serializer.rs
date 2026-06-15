@@ -131,63 +131,63 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
     }
 
     fn serialize_bool(self, _: bool) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single bool")
+        fail!("serializer expects a sequence of records, not a single bool")
     }
 
     fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single byte slice")
+        fail!("serializer expects a sequence of records, not a single byte slice")
     }
 
     fn serialize_char(self, _: char) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single char")
+        fail!("serializer expects a sequence of records, not a single char")
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single f32")
+        fail!("serializer expects a sequence of records, not a single f32")
     }
 
     fn serialize_f64(self, _: f64) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single f64")
+        fail!("serializer expects a sequence of records, not a single f64")
     }
 
     fn serialize_i8(self, _: i8) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single i8")
+        fail!("serializer expects a sequence of records, not a single i8")
     }
 
     fn serialize_i16(self, _: i16) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single i16")
+        fail!("serializer expects a sequence of records, not a single i16")
     }
 
     fn serialize_i32(self, _: i32) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single i32")
+        fail!("serializer expects a sequence of records, not a single i32")
     }
 
     fn serialize_i64(self, _: i64) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single i64")
+        fail!("serializer expects a sequence of records, not a single i64")
     }
 
     fn serialize_i128(self, _: i128) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single i128")
+        fail!("serializer expects a sequence of records, not a single i128")
     }
 
     fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap> {
-        fail!("Serializer expects a sequence of records, not a single map")
+        fail!("serializer expects a sequence of records, not a single map")
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single option")
+        fail!("serializer expects a sequence of records, not a single option")
     }
 
     fn serialize_some<T: Serialize + ?Sized>(self, _: &T) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single option")
+        fail!("serializer expects a sequence of records, not a single option")
     }
 
     fn serialize_str(self, _: &str) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single string slice")
+        fail!("serializer expects a sequence of records, not a single string slice")
     }
 
     fn serialize_struct(self, _: &'static str, _: usize) -> Result<Self::SerializeStruct> {
-        fail!("Serializer expects a sequence of records, not a single struct")
+        fail!("serializer expects a sequence of records, not a single struct")
     }
 
     fn serialize_struct_variant(
@@ -197,39 +197,39 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::Serializer for Serializer<A> {
         _: &'static str,
         _: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        fail!("Serializer expects a sequence of records, not a single struct variant")
+        fail!("serializer expects a sequence of records, not a single struct variant")
     }
 
     fn serialize_u8(self, _: u8) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single u8")
+        fail!("serializer expects a sequence of records, not a single u8")
     }
 
     fn serialize_u16(self, _: u16) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single u16")
+        fail!("serializer expects a sequence of records, not a single u16")
     }
 
     fn serialize_u32(self, _: u32) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single u32")
+        fail!("serializer expects a sequence of records, not a single u32")
     }
 
     fn serialize_u64(self, _: u64) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single u64")
+        fail!("serializer expects a sequence of records, not a single u64")
     }
 
     fn serialize_u128(self, _: u128) -> Result<Self::Ok, Self::Error> {
-        fail!("Serializer expects a sequence of records, not a single u128")
+        fail!("serializer expects a sequence of records, not a single u128")
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single unit")
+        fail!("serializer expects a sequence of records, not a single unit")
     }
 
     fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single unit struct")
+        fail!("serializer expects a sequence of records, not a single unit struct")
     }
 
     fn serialize_unit_variant(self, _: &'static str, _: u32, _: &'static str) -> Result<Self::Ok> {
-        fail!("Serializer expects a sequence of records, not a single unit variant")
+        fail!("serializer expects a sequence of records, not a single unit variant")
     }
 
     fn is_human_readable(&self) -> bool {

@@ -19,7 +19,10 @@ impl<'a> BoolDeserializer<'a> {
 
     fn get(&self, idx: usize) -> Result<Option<bool>> {
         if idx >= self.view.len {
-            fail!("out of bounds access");
+            fail!(
+                "index {idx} is out of bounds for Boolean array with length {}",
+                self.view.len
+            );
         }
         if let Some(validity) = &self.view.validity {
             if !bitset_is_set(validity, idx)? {
@@ -36,7 +39,7 @@ impl<'a> BoolDeserializer<'a> {
         } else {
             Err(Error::new(
                 ErrorKind::NullabilityViolation { field: None },
-                "required value was not defined".into(),
+                "required Boolean value is null".into(),
             ))
         }
     }

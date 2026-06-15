@@ -122,7 +122,10 @@ impl ArrowOrCustomDataType {
             Self::Custom(data_type) => build_data_type(data_type, children),
             Self::Arrow(data_type) => {
                 if !children.is_empty() {
-                    fail!("cannot use children with an arrow data type");
+                    fail!(
+                        "cannot use {} children with an Arrow data type",
+                        children.len()
+                    );
                 }
                 Ok(data_type)
             }
@@ -133,6 +136,7 @@ impl ArrowOrCustomDataType {
 fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> {
     use DataType as T;
 
+    let num_children = children.len();
     let res = match Term::from_str(&data_type)?.as_call()? {
         ("Null", []) => T::Null,
         ("Bool" | "Boolean", []) => T::Boolean,
@@ -173,31 +177,31 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Struct", []) => T::Struct(children),
         ("List", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("invalid children for List: expected one child");
+                fail!("invalid children for List: expected 1, got {num_children}");
             };
             T::List(Box::new(child))
         }
         ("LargeList", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("invalid children for List: expected one child");
+                fail!("invalid children for LargeList: expected 1, got {num_children}");
             };
             T::LargeList(Box::new(child))
         }
         ("FixedSizeList", [n]) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("invalid children for LargeList: expected one child");
+                fail!("invalid children for FixedSizeList: expected 1, got {num_children}");
             };
             T::FixedSizeList(Box::new(child), n.as_ident()?.parse()?)
         }
         ("Dictionary", []) => {
             let Ok([key, value]) = <[_; 2]>::try_from(children) else {
-                fail!("invalid children for Dictionary: expected two children");
+                fail!("invalid children for Dictionary: expected 2, got {num_children}");
             };
             T::Dictionary(Box::new(key.data_type), Box::new(value.data_type))
         }
         ("Map", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("invalid children for Map: expected one child");
+                fail!("invalid children for Map: expected 1, got {num_children}");
             };
             T::Map(Box::new(child), false)
         }

@@ -59,7 +59,10 @@ fn example_exhausted() {
     }
 
     let err = Vec::<S>::deserialize(deserializer).unwrap_err();
-    assert_error_contains(&err, "out of bounds access");
+    assert_error_contains(
+        &err,
+        "index 2 is out of bounds for Boolean array with length 2",
+    );
     assert_error_contains(&err, "field: \"$.item.nested\"");
     assert_error_contains(&err, "data_type: \"Boolean\"");
 }

@@ -2,7 +2,10 @@ use crate::internal::error::{fail, Result};
 
 pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
     if dim_names.len() != ndim {
-        fail!("number of dim names must be equal to the number of dimensions");
+        fail!(
+            "invalid number of dimension names: expected {ndim}, got {}",
+            dim_names.len()
+        );
     }
     Ok(())
 }
@@ -10,7 +13,10 @@ pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
 /// Check that the permutation array contains indeed a permutation of dimension `ndim`
 pub fn check_permutation(ndim: usize, permutation: &[usize]) -> Result<()> {
     if permutation.len() != ndim {
-        fail!("number of permutation entries must be equal to the number of dimensions");
+        fail!(
+            "invalid number of permutation entries: expected {ndim}, got {}",
+            permutation.len()
+        );
     }
     let mut seen = vec![false; permutation.len()];
     for &i in permutation {
@@ -21,7 +27,7 @@ pub fn check_permutation(ndim: usize, permutation: &[usize]) -> Result<()> {
             );
         };
         if *i_was_seen {
-            fail!("invalid permutation: index {i} found multiple times");
+            fail!("invalid permutation: index {i} appears more than once");
         }
         *i_was_seen = true;
     }

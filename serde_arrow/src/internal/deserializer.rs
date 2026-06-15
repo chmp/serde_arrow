@@ -98,8 +98,12 @@ impl<'de> Deserializer<'de> {
 
         let mut deserializers = Vec::new();
         for (field, view) in std::iter::zip(fields, views) {
-            if view.len()? != len {
-                fail!("cannot deserialize from arrays with different lengths");
+            let actual_len = view.len()?;
+            if actual_len != len {
+                fail!(
+                    "cannot deserialize arrays with different lengths: expected {len}, got {actual_len} for field {:?}",
+                    field.name
+                );
             }
             let strategy = get_strategy_from_metadata(&field.metadata)?;
             let deserializer = ArrayDeserializer::new(
@@ -394,19 +398,19 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single bools")
+        fail!("cannot deserialize a single bool: expected a sequence of records")
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize byte buffers")
+        fail!("cannot deserialize a single byte buffer: expected a sequence of records")
     }
 
     fn deserialize_bytes<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize byte arrays")
+        fail!("cannot deserialize a single byte array: expected a sequence of records")
     }
 
     fn deserialize_char<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single chars")
+        fail!("cannot deserialize a single char: expected a sequence of records")
     }
 
     fn deserialize_enum<V: Visitor<'de>>(
@@ -415,55 +419,55 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         _: &'static [&'static str],
         _: V,
     ) -> Result<V::Value> {
-        fail!("cannot deserialize single enums")
+        fail!("cannot deserialize a single enum: expected a sequence of records")
     }
 
     fn deserialize_f32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single floats")
+        fail!("cannot deserialize a single f32: expected a sequence of records")
     }
 
     fn deserialize_f64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single floats")
+        fail!("cannot deserialize a single f64: expected a sequence of records")
     }
 
     fn deserialize_i128<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single i128: expected a sequence of records")
     }
 
     fn deserialize_i16<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single i16: expected a sequence of records")
     }
 
     fn deserialize_i32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single i32: expected a sequence of records")
     }
 
     fn deserialize_i64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single i64: expected a sequence of records")
     }
 
     fn deserialize_i8<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single i8: expected a sequence of records")
     }
 
     fn deserialize_identifier<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single identifiers")
+        fail!("cannot deserialize a single identifier: expected a sequence of records")
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single maps")
+        fail!("cannot deserialize a single map: expected a sequence of records")
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single options")
+        fail!("cannot deserialize a single option: expected a sequence of records")
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single strings")
+        fail!("cannot deserialize a single borrowed string: expected a sequence of records")
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single strings")
+        fail!("cannot deserialize a single owned string: expected a sequence of records")
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
@@ -472,35 +476,35 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer<'de> {
         _: &'static [&'static str],
         _: V,
     ) -> Result<V::Value> {
-        fail!("cannot deserialize single structs")
+        fail!("cannot deserialize a single struct: expected a sequence of records")
     }
 
     fn deserialize_u128<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single u128: expected a sequence of records")
     }
 
     fn deserialize_u16<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single u16: expected a sequence of records")
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single u32: expected a sequence of records")
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single u64: expected a sequence of records")
     }
 
     fn deserialize_u8<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single integers")
+        fail!("cannot deserialize a single u8: expected a sequence of records")
     }
 
     fn deserialize_unit<V: Visitor<'de>>(self, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single units")
+        fail!("cannot deserialize a single unit: expected a sequence of records")
     }
 
     fn deserialize_unit_struct<V: Visitor<'de>>(self, _: &'static str, _: V) -> Result<V::Value> {
-        fail!("cannot deserialize single units")
+        fail!("cannot deserialize a single unit struct: expected a sequence of records")
     }
 
     fn deserialize_newtype_struct<V: Visitor<'de>>(

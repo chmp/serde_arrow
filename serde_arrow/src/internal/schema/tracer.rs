@@ -152,7 +152,7 @@ impl Tracer {
             let tracer_name = dispatch_tracer!(self, tracer => &tracer.name);
             if *overwrite_name != *tracer_name {
                 let path = path.strip_prefix("$.").unwrap_or(path);
-                fail!("invalid name for overwritten field {path:?}: found {overwrite_name:?}, expected {tracer_name:?}");
+                fail!("invalid overwrite name for field {path:?}: expected {tracer_name:?}, got {overwrite_name:?}");
             }
             Ok(overwrite.clone())
         } else {
@@ -174,7 +174,7 @@ impl Tracer {
 
     pub fn check(&self) -> Result<()> {
         if dispatch_tracer!(self, tracer => tracer.name != "$") {
-            fail!("check must be called on the root tracer");
+            fail!("internal tracer check must be called on the root tracer");
         }
         let options = self.get_options();
         self.check_overwrites(&options.overwrites)
@@ -201,7 +201,7 @@ impl Tracer {
                 .collect::<Vec<_>>();
             paths.sort();
 
-            fail!("overwritten fields could not be found: missing fields {missing:?}, known fields: {paths:?}");
+            fail!("field overrides reference unknown paths: {missing:?}; known paths: {paths:?}");
         }
 
         Ok(())
@@ -345,7 +345,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Tuple(_tracer) => {}
             _ => fail!(
-                "mismatched types, previous {:?}, current struct",
+                "mismatched types: previous {:?}, current tuple",
                 self.get_type()
             ),
         }
@@ -446,7 +446,7 @@ impl Tracer {
             }
             Self::Map(_tracer) => {}
             _ => fail!(
-                "mismatched types: previous {:?}, current list",
+                "mismatched types: previous {:?}, current map",
                 self.get_type()
             ),
         }
@@ -492,7 +492,7 @@ impl Tracer {
                     dispatch_tracer!(this, tracer => { tracer.nullable = true });
                 } else {
                     fail!(
-                        "cannot merge {ty:?} with {item_type:?}",
+                        "mismatched types while merging: previous {item_type:?}, current {ty:?}",
                         ty = this.get_type()
                     );
                 }
@@ -629,7 +629,7 @@ fn coerce_primitive_type(
                 ""
             };
             fail!(
-                "cannot accept {curr_ty:?} {curr_st} for tracer of primitive type {prev_ty:?} {prev_st}{extra}",
+                "mismatched primitive types: previous {prev_ty:?} {prev_st}, current {curr_ty:?} {curr_st}{extra}",
                 curr_st = OptionalStrategyDisplay(curr_st.as_ref()),
                 prev_st = OptionalStrategyDisplay(prev_st),
             )
@@ -939,7 +939,7 @@ impl StructTracer {
     pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
         if let Some(&field_idx) = self.index.get(key) {
             let Some(field) = self.fields.get_mut(field_idx) else {
-                fail!("invalid state: no tracer found for field with name {key}");
+                fail!("invalid tracer state: field {key:?} has stale index {field_idx}");
             };
             field.last_seen_in_sample = self.seen_samples;
 

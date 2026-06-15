@@ -108,9 +108,9 @@ impl TimestampBuilder {
                 Some(timestamp) => Ok(timestamp),
                 _ => fail!(
                     concat!(
-                        "Timestamp '{date_time}' cannot be converted to nanoseconds. ",
-                        "The dates that can be represented as nanoseconds are between ",
-                        "1677-09-21T00:12:44.0 and 2262-04-11T23:47:16.854775804.",
+                        "timestamp {date_time:?} cannot be converted to nanoseconds: ",
+                        "supported range is 1677-09-21T00:12:44.0 through ",
+                        "2262-04-11T23:47:16.854775804",
                     ),
                     date_time = date_time,
                 ),

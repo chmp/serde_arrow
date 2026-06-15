@@ -23,8 +23,8 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         if view.data.len() % n != 0 {
             fail!(
                 concat!(
-                    "invalid FixedSizeBinary array: Data of len {len} is not ",
-                    "evenly divisible into chunks of size {n}",
+                    "invalid FixedSizeBinary array: data length {len} is not ",
+                    "divisible by element size {n}",
                 ),
                 len = view.data.len(),
                 n = n,
@@ -41,7 +41,10 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
 
     pub fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx >= self.len {
-            fail!("out of bounds access")
+            fail!(
+                "index {idx} is out of bounds for FixedSizeBinary array with length {}",
+                self.len
+            )
         }
         if let Some(validity) = &self.view.validity {
             if !bitset_is_set(validity, idx)? {
@@ -51,7 +54,10 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         let start = idx * self.n;
         let end = (idx + 1) * self.n;
         let Some(data) = self.view.data.get(start..end) else {
-            fail!("out of bounds access");
+            fail!(
+                "invalid FixedSizeBinary array: element {idx} requires byte range {start}..{end}, but data length is {}",
+                self.view.data.len()
+            );
         };
 
         Ok(Some(data))
@@ -61,7 +67,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         let Some(s) = self.get(idx)? else {
             return Err(Error::new(
                 ErrorKind::NullabilityViolation { field: None },
-                "required value is not defined".into(),
+                "required FixedSizeBinary value is null".into(),
             ));
         };
         Ok(s)

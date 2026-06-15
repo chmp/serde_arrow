@@ -276,7 +276,9 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
             self.data.push(bytes_view::pack_inline(value));
         } else {
             let Some(first_buffer) = self.buffers.first_mut() else {
-                fail!("need at least one buffer to push a larget with len > 12");
+                fail!(
+                    "cannot append value with length greater than 12 without an underlying buffer"
+                );
             };
             self.data
                 .push(bytes_view::pack_extern(value, 0, first_buffer.len())?);
@@ -520,7 +522,7 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     } else {
         Err(Error::new(
             ErrorKind::NullabilityViolation { field: None },
-            "cannot push null for non-nullable array".into(),
+            "cannot serialize null into non-nullable array".into(),
         ))
     }
 }

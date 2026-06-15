@@ -55,7 +55,7 @@ impl ArrayAccess for Array {
         match self {
             Self::Binary(array) | Self::Utf8(array) => get_utf8_impl(array, idx),
             Self::LargeBinary(array) | Self::LargeUtf8(array) => get_utf8_impl(array, idx),
-            _ => fail!("invalid array type. does not support `get_utf8`"),
+            _ => fail!("array type does not support `get_utf8`"),
         }
     }
 }
@@ -74,16 +74,16 @@ where
     }
 
     let Some(start) = array.offsets.get(idx) else {
-        fail!("Could not get start for element {idx}");
+        fail!("could not get start offset for element {idx}");
     };
     let Some(end) = array.offsets.get(idx + 1) else {
-        fail!("Could not get end for element {idx}");
+        fail!("could not get end offset for element {idx}");
     };
 
     let start = usize::try_from(*start)?;
     let end = usize::try_from(*end)?;
     let Some(data) = array.data.get(start..end) else {
-        fail!("Invalid array. Could not get byte slice");
+        fail!("invalid array: could not get byte slice");
     };
 
     Ok(Some(str::from_utf8(data)?))

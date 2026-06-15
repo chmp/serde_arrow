@@ -370,11 +370,15 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
                 })
                 .unwrap_or_default();
 
+            let num_variants = tracer.variants.len();
             let Some(variant) = tracer.variants.get_mut(idx) else {
-                fail!("invalid variant index");
+                fail!(
+                    "variant index {idx} is out of bounds for {} variants",
+                    num_variants
+                );
             };
             let Some(variant) = variant else {
-                fail!("invalid state");
+                fail!("invalid union tracer state: variant slot {idx} is empty");
             };
 
             let res = visitor.visit_enum(TraceEnum {
@@ -465,8 +469,13 @@ impl<'de> serde::de::MapAccess<'de> for TraceStruct<'_> {
     }
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
+        let num_fields = self.fields.len();
         let Some(field) = self.fields.get_mut(self.pos) else {
-            fail!("invalid state in TraceStruct")
+            fail!(
+                "invalid TraceStruct state: field position {} is out of bounds for {} fields",
+                self.pos,
+                num_fields
+            )
         };
         let value = seed.deserialize(TraceAny(&mut field.tracer))?;
         self.pos += 1;

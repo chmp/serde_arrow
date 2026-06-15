@@ -51,7 +51,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.validity.is_some()),
             V::Struct(view) => Ok(view.validity.is_some()),
             V::Dictionary(view) => view.keys.is_nullable(),
-            _ => fail!("unknown view type"),
+            _ => fail!("array view does not expose nullability"),
         }
     }
 
@@ -95,7 +95,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.offsets.len().saturating_sub(1)),
             V::Struct(view) => Ok(view.len),
             V::Dictionary(view) => view.keys.len(),
-            _ => fail!("unknown view type"),
+            _ => fail!("array view does not expose a length"),
         }
     }
 }
@@ -112,7 +112,7 @@ pub trait ViewAccess<'a, Item: ?Sized + 'a> {
         } else {
             Err(Error::new(
                 ErrorKind::NullabilityViolation { field: None },
-                "required item was not present".into(),
+                "required array value is null".into(),
             ))
         }
     }
@@ -135,7 +135,10 @@ impl<'a, T> ViewAccess<'a, T> for PrimitiveView<'a, T> {
             }
             Ok(Some(value))
         } else {
-            fail!("access beyond array length");
+            fail!(
+                "index {idx} is out of bounds for primitive array with length {}",
+                self.values.len()
+            );
         }
     }
 }
@@ -144,7 +147,7 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx + 1 > self.offsets.len() {
             fail!(
-                "invalid access: tried to get element {idx} of array with {len} elements",
+                "index {idx} is out of bounds for bytes array with length {len}",
                 len = self.offsets.len().saturating_sub(1)
             );
         }
@@ -156,17 +159,26 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
         }
 
         let Some(start) = self.offsets.get(idx) else {
-            fail!("out of bound access");
+            fail!(
+                "element index {idx} is out of bounds for offset array with {} entries",
+                self.offsets.len()
+            );
         };
         let Some(end) = self.offsets.get(idx + 1) else {
-            fail!("out of bound access");
+            fail!(
+                "element index {idx} is out of bounds for offset array with {} entries",
+                self.offsets.len()
+            );
         };
 
         let start = start.try_into_usize()?;
         let end = end.try_into_usize()?;
 
         let Some(data) = self.data.get(start..end) else {
-            fail!("out of bound access");
+            fail!(
+                "invalid bytes array: byte range {start}..{end} exceeds data length {}",
+                self.data.len()
+            );
         };
         Ok(Some(data))
     }
@@ -176,7 +188,7 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         let Some(desc) = self.data.get(idx) else {
             fail!(
-                "invalid access: tried to get element {idx} of array with {len} elements",
+                "index {idx} is out of bounds for bytes-view array with length {len}",
                 len = self.data.len()
             );
         };
@@ -206,10 +218,10 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
             }
         }();
 
-        if res.is_none() {
-            fail!("invalid state in bytes deserialization");
-        }
-        Ok(res)
+        let Some(res) = res else {
+            fail!("invalid bytes-view array descriptor at index {idx}: length {len}");
+        };
+        Ok(Some(res))
     }
 }
 

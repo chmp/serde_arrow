@@ -358,21 +358,21 @@ pub fn validate_field(field: &Field) -> Result<()> {
         DataType::Dictionary(key, values) => {
             validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
-        dt => fail!("unsupported data type {dt:?}"),
+        dt => fail!("data type {dt:?} is not supported in schema validation"),
     }
 }
 
 fn validate_null_field(field: &Field) -> Result<()> {
     match get_strategy_from_metadata(&field.metadata)? {
         None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant) => Ok(()),
-        Some(strategy) => fail!("invalid strategy for Null field: {strategy}"),
+        Some(strategy) => fail!("strategy {strategy} is not supported for Null fields"),
     }
 }
 
 fn validate_primitive_field(field: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
         fail!(
-            "invalid strategy for {data_type}: {strategy}",
+            "strategy {strategy} is not supported for {data_type} fields",
             data_type = DataTypeDisplay(&field.data_type),
         );
     }
@@ -381,28 +381,28 @@ fn validate_primitive_field(field: &Field) -> Result<()> {
 
 fn validate_fixed_size_binary_field(field: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("invalid FixedSizedBinary with negative number of elements");
+        fail!("invalid FixedSizeBinary: size must be non-negative, got {n}");
     }
     validate_primitive_field(field)
 }
 
 fn validate_fixed_size_list_field(field: &Field, child: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("invalid FixedSizeList with negative number of elements");
+        fail!("invalid FixedSizeList: size must be non-negative, got {n}");
     }
     validate_list_field(field, child)
 }
 
 fn validate_list_field(field: &Field, child: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for List field: {strategy}");
+        fail!("strategy {strategy} is not supported for List fields");
     }
     validate_field(child)
 }
 
 fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Dictionary field: {strategy}");
+        fail!("strategy {strategy} is not supported for Dictionary fields");
     }
     if !matches!(
         key,
@@ -416,13 +416,13 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
             | DataType::Int64
     ) {
         fail!(
-            "invalid child for Dictionary. Expected integer keys, found: {key}",
+            "invalid Dictionary key data type: expected integer, got {key}",
             key = DataTypeDisplay(key),
         );
     }
     if !matches!(value, DataType::Utf8 | DataType::LargeUtf8) {
         fail!(
-            "invalid child for Dictionary. Expected string values, found: {value}",
+            "invalid Dictionary value data type: expected Utf8 or LargeUtf8, got {value}",
             value = DataTypeDisplay(value)
         );
     }
@@ -431,34 +431,34 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
 
 fn validate_date64_field(field: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Date64 field: {strategy}");
+        fail!("strategy {strategy} is not supported for Date64 fields");
     }
     Ok(())
 }
 
 fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Timestamp({unit}, {tz:?}) fields");
     }
     Ok(())
 }
 
 fn validate_time32_field(field: &Field, unit: TimeUnit) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Time32({unit}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Time32({unit}) fields");
     }
     if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
-        fail!("Time32 field must have Second or Millisecond unit");
+        fail!("invalid Time32 unit {unit}: expected Second or Millisecond");
     }
     Ok(())
 }
 
 fn validate_time64_field(field: &Field, unit: TimeUnit) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Time64({unit}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Time64({unit}) fields");
     }
     if !matches!(unit, TimeUnit::Microsecond | TimeUnit::Nanosecond) {
-        fail!("Time64 field must have Microsecond or Nanosecond unit");
+        fail!("invalid Time64 unit {unit}: expected Microsecond or Nanosecond");
     }
     Ok(())
 }
@@ -467,7 +467,7 @@ fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
     // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
     match get_strategy_from_metadata(&field.metadata)? {
         None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
-        Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
+        Some(strategy) => fail!("strategy {strategy} is not supported for Struct fields"),
     }
     for child in children {
         validate_field(child)?;
@@ -477,23 +477,32 @@ fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
 
 fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Map field: {strategy}");
+        fail!("strategy {strategy} is not supported for Map fields");
     }
     let DataType::Map(entry, _) = &field.data_type else {
-        fail!("invalid data type for map child, expected a map");
+        fail!(
+            "invalid map field data type: expected Map, got {}",
+            DataTypeDisplay(&field.data_type)
+        );
     };
     let DataType::Struct(entry_fields) = &entry.data_type else {
-        fail!("invalid child data type for map, expected struct with 2 fields");
+        fail!(
+            "invalid map entry data type: expected Struct with 2 fields, got {}",
+            DataTypeDisplay(&entry.data_type)
+        );
     };
     if entry_fields.len() != 2 {
-        fail!("invalid child data type for map, expected struct with 2 fields");
+        fail!(
+            "invalid map entry field count: expected 2, got {}",
+            entry_fields.len()
+        );
     }
     Ok(())
 }
 
 fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMode) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Union field: {strategy}");
+        fail!("strategy {strategy} is not supported for Union fields");
     }
     for (_, child) in children {
         validate_field(child)?;

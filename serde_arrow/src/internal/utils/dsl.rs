@@ -19,7 +19,7 @@ impl Term {
         match self.as_parts() {
             (name, false, []) => Ok(name),
             (_, true, _) => fail!("expected identifier, found quoted string"),
-            (_, _, [_, ..]) => fail!("expected identifier, found call"),
+            (_, _, [_, ..]) => fail!("expected string, found call"),
         }
     }
 
@@ -35,7 +35,7 @@ impl Term {
         match self.as_parts() {
             ("None", false, []) => Ok(None),
             ("Some", false, [arg]) => Ok(Some(arg)),
-            _ => fail!("expected Some(arg) or None found quoted string"),
+            _ => fail!("expected Some(arg) or None, found {self}"),
         }
     }
 
@@ -134,7 +134,7 @@ fn parse_term_name(s: &str) -> Result<(String, bool, &str)> {
 
 fn parse_quoted_term_name(s: &str) -> Result<(String, &str)> {
     let Some(s) = s.strip_prefix('"') else {
-        fail!("missing start quote");
+        fail!("expected quoted string, got {s:?}");
     };
 
     let mut quoted = false;
@@ -149,7 +149,7 @@ fn parse_quoted_term_name(s: &str) -> Result<(String, &str)> {
             *c == '"'
         }
     }) else {
-        fail!("missing end quote");
+        fail!("unterminated quoted string");
     };
 
     let ident = s
@@ -175,7 +175,7 @@ fn parse_ident_term_name(s: &str) -> Result<(String, &str)> {
         .unwrap_or_else(|| unreachable!("pos is from s.find"));
 
     if ident.is_empty() {
-        fail!("no identifier found");
+        fail!("expected identifier, got {s:?}");
     }
 
     Ok((ident.to_owned(), rest))
@@ -205,7 +205,7 @@ fn parse_arguments(s: &str) -> Result<(Vec<Term>, &str)> {
 
     let s = s.trim_start();
     let Some(s) = s.strip_prefix(')') else {
-        fail!("missing ')'");
+        fail!("unterminated argument list: expected ')'");
     };
 
     Ok((arguments, s))

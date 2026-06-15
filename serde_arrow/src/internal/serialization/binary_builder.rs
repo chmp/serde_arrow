@@ -82,7 +82,7 @@ impl BinaryBuilderArray for BytesViewArray {
 
     fn push_byte(&mut self, byte: u8) -> Result<()> {
         let Some(buffer) = self.buffers.first_mut() else {
-            fail!("push into BytesViewArray without buffer");
+            fail!("cannot serialize into BytesViewArray without an underlying buffer");
         };
         buffer.push(byte);
         Ok(())

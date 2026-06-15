@@ -64,7 +64,10 @@ impl Context for MapDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx + 1 >= self.offsets.len() {
-            fail!("out of bounds access")
+            fail!(
+                "element index {idx} is out of bounds for map offset array with {} entries",
+                self.offsets.len()
+            )
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)
@@ -80,14 +83,23 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
             if idx + 1 >= self.offsets.len() {
-                fail!("out of bounds access")
+                fail!(
+                    "element index {idx} is out of bounds for map offset array with {} entries",
+                    self.offsets.len()
+                )
             }
 
             let Some(start) = self.offsets.get(idx) else {
-                fail!("out of bound access");
+                fail!(
+                    "element index {idx} is out of bounds for map offset array with {} entries",
+                    self.offsets.len()
+                );
             };
             let Some(end) = self.offsets.get(idx + 1) else {
-                fail!("out of bound access");
+                fail!(
+                    "element index {idx} is out of bounds for map offset array with {} entries",
+                    self.offsets.len()
+                );
             };
 
             visitor.visit_map(MapItemDeserializer {
@@ -119,7 +131,7 @@ impl<'de> MapAccess<'de> for MapItemDeserializer<'_, 'de> {
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         if self.start >= self.end {
-            fail!("invalid state in MapItemDeserializer");
+            fail!("next_value_seed called without a remaining map entry");
         }
         let value = seed.deserialize(self.deserializer.value.at(self.start))?;
         self.start += 1;

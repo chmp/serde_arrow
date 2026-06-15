@@ -498,9 +498,7 @@ impl serde::ser::SerializeMap for MapSerializer {
 
     fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<()> {
         if self.next_key.is_some() {
-            fail!(
-                "invalid call to serialize_key: serialize_key must be followed by serialize_value"
-            );
+            fail!("serialize_key called before serialize_value for the previous key");
         }
         self.next_key = Some(key.serialize(ValueSerializer)?);
         Ok(())
@@ -508,7 +506,7 @@ impl serde::ser::SerializeMap for MapSerializer {
 
     fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         let Some(key) = self.next_key.take() else {
-            fail!("invalid call to serialize_value: serialize_value must be preceded by serialize_key");
+            fail!("serialize_value called before serialize_key");
         };
         let value = value.serialize(ValueSerializer)?;
         self.entries.push((key, value));
@@ -517,7 +515,7 @@ impl serde::ser::SerializeMap for MapSerializer {
 
     fn end(self) -> Result<Self::Ok> {
         if self.next_key.is_some() {
-            fail!("invalid call to end: serialize_key must be followed by serialize_value before calling end");
+            fail!("end called before serialize_value for the previous key");
         }
         Ok(Value::Map(self.entries))
     }
@@ -720,7 +718,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         match self.0 {
             &Value::Char(v) => visitor.visit_char(v),
             Value::FailWithError(message) => Err(Error::custom(message.to_string())),
-            v => fail!("cannot deserializer char from non-char value {v:?}"),
+            v => fail!("cannot deserialize char from non-char value {v:?}"),
         }
     }
 
@@ -954,7 +952,7 @@ impl<'de> serde::de::MapAccess<'de> for StructDeserializer<'_> {
 
     fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let Some(value) = self.1.take() else {
-            fail!("invalid usage");
+            fail!("next_value_seed called before next_key_seed");
         };
         seed.deserialize(ValueDeserializer::new(value))
     }
@@ -1010,7 +1008,7 @@ impl<'de> serde::de::MapAccess<'de> for MapDeserializer<'_> {
 
     fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let Some(value) = self.1.take() else {
-            fail!("invalid usage");
+            fail!("next_value_seed called before next_key_seed");
         };
         seed.deserialize(ValueDeserializer::new(value))
     }

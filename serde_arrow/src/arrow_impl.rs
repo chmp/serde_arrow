@@ -229,8 +229,13 @@ impl crate::internal::array_builder::ArrayBuilder {
         }
 
         let schema = Schema::new(fields);
-        RecordBatch::try_new(Arc::new(schema), arrays)
-            .map_err(|err| Error::new_from(ErrorKind::Custom, err.to_string(), err))
+        RecordBatch::try_new(Arc::new(schema), arrays).map_err(|err| {
+            Error::new_from(
+                ErrorKind::Custom,
+                format!("failed to create Arrow RecordBatch: {err}"),
+                err,
+            )
+        })
     }
 }
 

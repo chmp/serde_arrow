@@ -70,7 +70,10 @@ fn incorrect_number_of_elements() {
     .unwrap();
 
     let err = crate::to_record_batch(&fields, &items).unwrap_err();
-    assert_error_contains(&err, "invalid number of elements for FixedSizedList(2).");
+    assert_error_contains(
+        &err,
+        "invalid number of elements for FixedSizeList(2): expected 2, got 1",
+    );
 }
 
 #[test]
