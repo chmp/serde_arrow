@@ -5,6 +5,7 @@
 - Breaking. Stricter f32 / f64 to decimal conversions. Only finite floats that
   are in the range that can be presented are converted.
 - Breaking. Updated error messages.
+- Breaking. Bumped the MSRV to Rust 1.81.
 
 ## 0.14.2
 
