@@ -39,7 +39,7 @@ impl<'a> TimestampDeserializer<'a> {
             TimeUnit::Microsecond => DateTime::from_timestamp_micros(ts),
             TimeUnit::Nanosecond => Some(DateTime::from_timestamp_nanos(ts)),
         }) else {
-            fail!("unsupported timestamp value: {ts}");
+            fail!("{ts} is an invalid timestamp value");
         };
 
         if self.is_utc {

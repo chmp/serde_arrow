@@ -2,10 +2,7 @@ use crate::internal::error::{fail, Result};
 
 pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
     if dim_names.len() != ndim {
-        fail!(
-            "invalid number of dimension names: expected {ndim}, got {}",
-            dim_names.len()
-        );
+        fail!("expected {ndim} dimension names, got {}", dim_names.len());
     }
     Ok(())
 }

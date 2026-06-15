@@ -177,7 +177,7 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Struct", []) => T::Struct(children),
         ("List", []) => {
             let Ok([child]) = <[_; 1]>::try_from(children) else {
-                fail!("invalid children for List: expected 1, got {num_children}");
+                fail!("List must have exactly 1 child, got {num_children}");
             };
             T::List(Box::new(child))
         }

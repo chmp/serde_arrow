@@ -295,7 +295,6 @@ pub mod bytes_view {
     };
 
     pub fn get_len(packed: u128) -> usize {
-        // NOTE: first truncate to only select the first 4 bytes
         packed.truncating_cast::<u32>("first u32 is the length") as usize
     }
 
@@ -471,7 +470,7 @@ impl SeqArrayExt for CountArray {
 
 pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
     let Some(last) = vec.last() else {
-        fail!("invalid offset array: expected at least a single element")
+        fail!("offset array must contain at least one element")
     };
     vec.push(last.clone());
     Ok(())
@@ -479,7 +478,7 @@ pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
 
 pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     let Some(last) = vec.last_mut() else {
-        fail!("invalid offset array: expected at least a single element")
+        fail!("offset array must contain at least one element")
     };
     *last = *last + O::try_form_usize(inc)?;
     Ok(())

@@ -9,7 +9,10 @@ use serde::{
     Serialize,
 };
 
-use crate::internal::error::{fail, Error, Result};
+use crate::internal::{
+    error::{fail, Error, Result},
+    utils::truncating_cast::TruncatingCast,
+};
 
 pub fn transmute<T: DeserializeOwned>(value: impl Serialize) -> Result<T> {
     let value = value.serialize(ValueSerializer)?;
@@ -783,14 +786,12 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'_> {
         visitor.visit_i64(self.0.try_into()?)
     }
 
-    #[allow(
-        clippy::cast_possible_truncation,
-        reason = "f64 to f32 cannot happen without truncation"
-    )]
     fn deserialize_f32<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.0 {
             &Value::F32(v) => visitor.visit_f32(v.0),
-            &Value::F64(v) => visitor.visit_f32(v.0 as f32),
+            &Value::F64(v) => {
+                visitor.visit_f32(v.0.truncating_cast::<f32>("f64 value requested as f32"))
+            }
             Value::FailWithError(message) => Err(Error::custom(message.to_string())),
             v => fail!("cannot deserialize f32 from non-float value {v:?}"),
         }

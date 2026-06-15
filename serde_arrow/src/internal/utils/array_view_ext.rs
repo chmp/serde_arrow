@@ -160,14 +160,14 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
 
         let Some(start) = self.offsets.get(idx) else {
             fail!(
-                "element index {idx} is out of bounds for offset array with {} entries",
-                self.offsets.len()
+                "index {idx} is out of bounds for bytes array with length {}",
+                self.offsets.len().saturating_sub(1)
             );
         };
         let Some(end) = self.offsets.get(idx + 1) else {
             fail!(
-                "element index {idx} is out of bounds for offset array with {} entries",
-                self.offsets.len()
+                "index {idx} is out of bounds for bytes array with length {}",
+                self.offsets.len().saturating_sub(1)
             );
         };
 

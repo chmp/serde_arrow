@@ -22,10 +22,7 @@ impl<'a> FixedSizeBinaryDeserializer<'a> {
         let n = usize::try_from(view.n)?;
         if view.data.len() % n != 0 {
             fail!(
-                concat!(
-                    "invalid FixedSizeBinary array: data length {len} is not ",
-                    "divisible by element size {n}",
-                ),
+                "invalid FixedSizeBinary array: data length {len} is not divisible by element size {n}",
                 len = view.data.len(),
                 n = n,
             );

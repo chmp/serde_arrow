@@ -469,13 +469,8 @@ impl<'de> serde::de::MapAccess<'de> for TraceStruct<'_> {
     }
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let num_fields = self.fields.len();
         let Some(field) = self.fields.get_mut(self.pos) else {
-            fail!(
-                "invalid TraceStruct state: field position {} is out of bounds for {} fields",
-                self.pos,
-                num_fields
-            )
+            fail!("TraceStruct field position {} is out of bounds", self.pos)
         };
         let value = seed.deserialize(TraceAny(&mut field.tracer))?;
         self.pos += 1;

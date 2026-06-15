@@ -381,7 +381,7 @@ fn validate_primitive_field(field: &Field) -> Result<()> {
 
 fn validate_fixed_size_binary_field(field: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("invalid FixedSizeBinary: size must be non-negative, got {n}");
+        fail!("FixedSizeBinary size must be non-negative, got {n}");
     }
     validate_primitive_field(field)
 }

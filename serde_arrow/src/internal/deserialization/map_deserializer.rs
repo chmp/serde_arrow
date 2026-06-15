@@ -63,12 +63,6 @@ impl Context for MapDeserializer<'_> {
 
 impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        if idx + 1 >= self.offsets.len() {
-            fail!(
-                "element index {idx} is out of bounds for map offset array with {} entries",
-                self.offsets.len()
-            )
-        }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)
         } else {
@@ -82,22 +76,16 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
 
     fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            if idx + 1 >= self.offsets.len() {
-                fail!(
-                    "element index {idx} is out of bounds for map offset array with {} entries",
-                    self.offsets.len()
-                )
-            }
-
             let Some(start) = self.offsets.get(idx) else {
                 fail!(
-                    "element index {idx} is out of bounds for map offset array with {} entries",
+                    "offset index {idx} is out of bounds for offset array with {} entries",
                     self.offsets.len()
                 );
             };
             let Some(end) = self.offsets.get(idx + 1) else {
                 fail!(
-                    "element index {idx} is out of bounds for map offset array with {} entries",
+                    "offset index {} is out of bounds for offset array with {} entries",
+                    idx + 1,
                     self.offsets.len()
                 );
             };

@@ -758,7 +758,7 @@ mod impl_serialize_to_string {
     macro_rules! unimplemented_fn {
         ($name:ident $($args:tt)* ) => {
             fn $name $($args)* {
-                fail!("invalid argument: cannot interpret key as string");
+                fail!("cannot interpret key as string");
             }
         };
     }

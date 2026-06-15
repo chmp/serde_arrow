@@ -82,8 +82,17 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        let Some((type_id, offset)) = self.types.get(idx).zip(self.offsets.get(idx)) else {
-            fail!("exhausted deserializer");
+        let Some(type_id) = self.types.get(idx) else {
+            fail!(
+                "index {idx} is out of bounds for Union array with length {}",
+                self.types.len()
+            );
+        };
+        let Some(offset) = self.offsets.get(idx) else {
+            fail!(
+                "index {idx} is out of bounds for Union offset array with length {}",
+                self.offsets.len()
+            );
         };
         let offset = offset.try_into_usize()?;
         let Ok(variant_id) = usize::try_from(*type_id) else {
