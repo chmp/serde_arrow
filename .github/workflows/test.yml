@@ -40,11 +40,11 @@
         },
         {
           "name": "Update dependencies",
-          "run": "cargo update --config 'resolve.incompatible-rust-versions=\"fallback\"'"
+          "run": "cargo +stable update --config 'resolver.incompatible-rust-versions=\"fallback\"'"
         },
         {
           "name": "Check MSRV with arrow-53",
-          "run": "cargo check --package serde_arrow --features arrow-53"
+          "run": "cargo +1.83.0 check --package serde_arrow --features arrow-53"
         }
       ]
     },
