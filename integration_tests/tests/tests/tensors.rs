@@ -9,7 +9,7 @@ use serde_arrow::{
 };
 use serde_json::json;
 
-use super::utils::{assert_pyarrow, Result};
+use super::utils::{assert_pyarrow, write_pyarrow, Result};
 
 #[test]
 fn fixed_shape_tensor() -> Result<()> {
@@ -287,4 +287,45 @@ fn nullable_tensor_fields() -> Result<()> {
         ]
     "#,
     )
+}
+
+#[test]
+fn pyarrow_fixed_shape_tensor_to_rust() -> Result<()> {
+    let batch = write_pyarrow(
+        "pyarrow_fixed_shape_tensor.ipc",
+        r#"
+        import sys
+        import numpy as np
+        import pyarrow as pa
+
+        values = np.array(
+            [
+                [[[1], [2]], [[3], [4]], [[5], [6]]],
+                [[[7], [8]], [[9], [0]], [[1], [2]]],
+                [[[3], [4]], [[5], [6]], [[7], [8]]],
+                [[[9], [0]], [[1], [2]], [[3], [4]]],
+            ],
+            dtype=np.int64,
+        )
+        tensor = pa.FixedShapeTensorArray.from_numpy_ndarray(values)
+        tbl = pa.table({"item": tensor})
+
+        with pa.OSFile(sys.argv[1], "wb") as sink:
+            with pa.ipc.new_file(sink, tbl.schema) as writer:
+                writer.write_table(tbl)
+    "#,
+    )?;
+
+    let actual: Vec<Item<Vec<i64>>> = serde_arrow::from_record_batch(&batch)?;
+    assert_eq!(
+        actual,
+        vec![
+            Item(vec![1, 2, 3, 4, 5, 6]),
+            Item(vec![7, 8, 9, 0, 1, 2]),
+            Item(vec![3, 4, 5, 6, 7, 8]),
+            Item(vec![9, 0, 1, 2, 3, 4]),
+        ]
+    );
+
+    Ok(())
 }

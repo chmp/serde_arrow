@@ -9,11 +9,15 @@ use arrow::array::RecordBatch;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-pub fn write_file(name: &str, batch: &RecordBatch) -> Result<PathBuf> {
+fn file_path(name: &str) -> Result<PathBuf> {
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
-    let file_path = tmp_dir.join(name);
-
     fs::create_dir_all(&tmp_dir)?;
+    Ok(tmp_dir.join(name))
+}
+
+pub fn write_file(name: &str, batch: &RecordBatch) -> Result<PathBuf> {
+    let file_path = file_path(name)?;
+
     let file = File::create(&file_path)?;
     let mut writer = arrow::ipc::writer::FileWriter::try_new(file, &batch.schema())?;
     writer.write(batch)?;
@@ -21,10 +25,25 @@ pub fn write_file(name: &str, batch: &RecordBatch) -> Result<PathBuf> {
     Ok(file_path)
 }
 
+pub fn read_file(name: &str) -> Result<RecordBatch> {
+    let file = File::open(file_path(name)?)?;
+    let mut reader = arrow::ipc::reader::FileReader::try_new(file, None)?;
+    reader
+        .next()
+        .transpose()?
+        .ok_or_else(|| std::io::Error::other("IPC file did not contain a record batch").into())
+}
+
 pub fn assert_pyarrow(batch_name: &str, batch: &RecordBatch, source: &str) -> Result<()> {
     let path = write_file(batch_name, batch)?;
     let _output = execute_python(source, &[&path])?;
     Ok(())
+}
+
+pub fn write_pyarrow(batch_name: &str, source: &str) -> Result<RecordBatch> {
+    let path = file_path(batch_name)?;
+    let _output = execute_python(source, &[&path])?;
+    read_file(batch_name)
 }
 
 pub fn execute_python(source: &str, args: &[&Path]) -> Result<String> {
