@@ -21,6 +21,12 @@ pub fn write_file(name: &str, batch: &RecordBatch) -> Result<PathBuf> {
     Ok(file_path)
 }
 
+pub fn assert_pyarrow(batch_name: &str, batch: &RecordBatch, source: &str) -> Result<()> {
+    let path = write_file(batch_name, batch)?;
+    let _output = execute_python(source, &[&path])?;
+    Ok(())
+}
+
 pub fn execute_python(source: &str, args: &[&Path]) -> Result<String> {
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     fs::create_dir_all(&tmp_dir)?;

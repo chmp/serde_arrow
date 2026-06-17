@@ -9,13 +9,7 @@ use serde_arrow::{
 };
 use serde_json::json;
 
-use super::utils::{execute_python, write_file, Result};
-
-fn assert_pyarrow(batch_name: &str, batch: &arrow::array::RecordBatch, source: &str) -> Result<()> {
-    let path = write_file(batch_name, batch)?;
-    let _output = execute_python(source, &[&path])?;
-    Ok(())
-}
+use super::utils::{assert_pyarrow, Result};
 
 #[test]
 fn fixed_shape_tensor() -> Result<()> {
