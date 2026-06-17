@@ -331,24 +331,21 @@ impl<'a> serde::ser::Serializer for TracerSerializer<'a> {
 
     fn serialize_str(self, s: &str) -> Result<Self::Ok> {
         try_(|| {
-            #[allow(clippy::collapsible_else_if)]
             let (ty, st) = if !self.0.get_options().guess_dates {
                 (self.0.get_options().string_type(), None)
+            } else if chrono::matches_naive_datetime(s) {
+                (DataType::Timestamp(TimeUnit::Millisecond, None), None)
+            } else if chrono::matches_utc_datetime(s) {
+                (
+                    DataType::Timestamp(TimeUnit::Millisecond, Some(String::from("UTC"))),
+                    None,
+                )
+            } else if chrono::matches_naive_time(s) {
+                (DataType::Time64(TimeUnit::Nanosecond), None)
+            } else if chrono::matches_naive_date(s) {
+                (DataType::Date32, None)
             } else {
-                if chrono::matches_naive_datetime(s) {
-                    (DataType::Timestamp(TimeUnit::Millisecond, None), None)
-                } else if chrono::matches_utc_datetime(s) {
-                    (
-                        DataType::Timestamp(TimeUnit::Millisecond, Some(String::from("UTC"))),
-                        None,
-                    )
-                } else if chrono::matches_naive_time(s) {
-                    (DataType::Time64(TimeUnit::Nanosecond), None)
-                } else if chrono::matches_naive_date(s) {
-                    (DataType::Date32, None)
-                } else {
-                    (self.0.get_options().string_type(), None)
-                }
+                (self.0.get_options().string_type(), None)
             };
             self.0.ensure_primitive_with_strategy(ty, st)
         })

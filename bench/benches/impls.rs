@@ -2,8 +2,8 @@ pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
-        Result,
         schema::SchemaLike,
+        Result,
     };
 
     pub fn trace(items: &(impl ?Sized + Serialize)) -> Vec<FieldRef> {
@@ -43,8 +43,8 @@ pub mod arrow {
 
     use serde_arrow::{
         _impl::arrow::{array::ArrayRef, datatypes::FieldRef},
-        Error, ErrorKind, Result,
         schema::SchemaLike,
+        Error, ErrorKind, Result,
     };
 
     pub fn trace(items: &(impl ?Sized + Serialize)) -> Vec<FieldRef> {

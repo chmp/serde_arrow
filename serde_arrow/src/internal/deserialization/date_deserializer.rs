@@ -1,4 +1,4 @@
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Datelike, Duration, NaiveDate};
 use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
@@ -44,11 +44,9 @@ impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
             .try_into()
             .map_err(|_err| Error::new(ErrorKind::Custom, format!("cannot convert {ts} to i64")))?;
 
-        #[allow(deprecated)]
-        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
-        #[allow(deprecated)]
+        let unix_epoch: NaiveDate = DateTime::UNIX_EPOCH.date_naive();
         let delta = Duration::days(ts);
-        let date = UNIX_EPOCH + delta;
+        let date = unix_epoch + delta;
 
         // special handling of negative dates:
         //

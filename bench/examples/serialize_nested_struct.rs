@@ -1,7 +1,7 @@
 use rand::{
-    Rng,
     distributions::{Standard, Uniform},
     prelude::Distribution,
+    Rng,
 };
 use serde::Serialize;
 use serde_arrow::marrow::datatypes::Field;

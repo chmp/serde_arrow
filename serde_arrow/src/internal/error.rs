@@ -281,7 +281,7 @@ macro_rules! fail {
     // serializers or deserializers making this macro form obsolete
     (in $context:expr, $($tt:tt)*) => {
         {
-            #[allow(unused)]
+            #[allow(unused, reason = "simplify macro")]
             use $crate::internal::error::Context;
             let mut err = $crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*));
             $context.annotate(&mut err.inner.annotations);
@@ -413,7 +413,7 @@ fn error_can_be_converted_to_anyhow() {
     assert!(func().is_err());
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Error {}

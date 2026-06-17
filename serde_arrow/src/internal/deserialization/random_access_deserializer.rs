@@ -9,7 +9,7 @@ use crate::internal::error::{fail, try_, Context, ContextSupport, Error, Result}
 // the lifetime of the contained arrays
 pub struct PositionedDeserializer<'this, D>(pub &'this D, pub usize);
 
-#[allow(unused)]
+#[allow(unused, reason = "keep unused variables in default methods")]
 pub trait RandomAccessDeserializer<'de>: Context + Sized {
     fn at(&self, idx: usize) -> PositionedDeserializer<'_, Self> {
         PositionedDeserializer(self, idx)

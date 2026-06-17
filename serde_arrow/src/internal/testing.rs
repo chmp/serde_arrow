@@ -26,7 +26,7 @@ macro_rules! hash_map {
 
 pub(crate) use hash_map;
 
-#[allow(unused)]
+#[allow(unused, reason = "tests")]
 macro_rules! btree_map {
     () => {
         ::std::collections::BTreeMap::new()
@@ -40,12 +40,12 @@ macro_rules! btree_map {
     };
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "tests")]
 pub(crate) use btree_map;
 
 use super::utils::array_ext::get_bit_buffer;
 
-#[allow(unused)]
+#[allow(unused, reason = "tests")]
 pub(crate) trait ArrayAccess {
     fn get_utf8(&self, idx: usize) -> Result<Option<&str>>;
 }
@@ -60,7 +60,7 @@ impl ArrayAccess for Array {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "tests")]
 fn get_utf8_impl<O>(array: &BytesArray<O>, idx: usize) -> Result<Option<&str>>
 where
     O: Copy,

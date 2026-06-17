@@ -71,7 +71,7 @@ fn enums_without_data() {
 fn missing_overwrites() {
     #[derive(Debug, Deserialize)]
     pub struct S {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "tests")]
         a: i64,
     }
 
@@ -88,7 +88,7 @@ fn missing_overwrites() {
 fn mismatched_overwrite_name() {
     #[derive(Debug, Deserialize)]
     pub struct S {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "tests")]
         a: i64,
     }
 
@@ -105,7 +105,7 @@ fn mismatched_overwrite_name() {
 fn overwrite_invalid_name() {
     #[derive(Debug, Deserialize)]
     pub struct S {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "tests")]
         a: i64,
     }
 

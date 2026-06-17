@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File};
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime};
 use serde::Serialize;
 
 use arrow::datatypes::FieldRef;
@@ -48,7 +48,6 @@ struct Nested2 {
     foo: String,
 }
 
-#[allow(deprecated)]
 fn main() -> Result<(), PanicOnError> {
     let examples = vec![
         Example {
@@ -56,7 +55,7 @@ fn main() -> Result<(), PanicOnError> {
             float32: 1.0,
             int8: 1,
             int32: 4,
-            date64: NaiveDateTime::from_timestamp(0, 0),
+            date64: DateTime::from_timestamp(0, 0).unwrap().naive_utc(),
             boolean: true,
             map: hashmap! { "a" => 2 },
             nested: Nested {
@@ -71,7 +70,9 @@ fn main() -> Result<(), PanicOnError> {
             float32: 2.0,
             int8: 2,
             int32: 5,
-            date64: NaiveDateTime::from_timestamp(5 * 24 * 60 * 60, 0),
+            date64: DateTime::from_timestamp(5 * 24 * 60 * 60, 0)
+                .unwrap()
+                .naive_utc(),
             boolean: false,
             map: hashmap! { "a" => 3 },
             nested: Nested {
@@ -86,7 +87,9 @@ fn main() -> Result<(), PanicOnError> {
             float32: 12.0,
             int8: -5,
             int32: 50,
-            date64: NaiveDateTime::from_timestamp(5 * 24 * 60 * 60, 0),
+            date64: DateTime::from_timestamp(5 * 24 * 60 * 60, 0)
+                .unwrap()
+                .naive_utc(),
             boolean: true,
             map: hashmap! { "a" => 3, "b" => 4 },
             nested: Nested {

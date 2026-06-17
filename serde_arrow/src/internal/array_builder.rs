@@ -124,7 +124,7 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for ArrayBuilder {}

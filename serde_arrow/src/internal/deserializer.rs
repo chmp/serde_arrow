@@ -533,7 +533,7 @@ impl<'de> SeqAccess<'de> for Private<DeserializerIterator<'_, 'de>> {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertion")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Deserializer<'_> {}

@@ -57,7 +57,7 @@ fn net_ip_addr_is_not_self_describing() {
 
 #[test]
 fn unsupported_recursive_types() {
-    #[allow(unused)]
+    #[allow(unused, reason = "tests")]
     #[derive(Deserialize)]
     struct Tree {
         left: Option<Box<Tree>>,

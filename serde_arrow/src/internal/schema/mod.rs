@@ -557,7 +557,7 @@ impl std::fmt::Display for DataTypeDisplay<'_> {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for SerdeArrowSchema {}

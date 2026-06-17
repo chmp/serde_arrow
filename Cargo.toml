@@ -10,7 +10,6 @@ codegen-units = 1
 lto = "fat"
 
 [workspace.lints.clippy]
-allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 assertions_on_result_states = "warn"
 await_holding_lock = "warn"

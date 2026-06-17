@@ -7,7 +7,7 @@ pub use bool8_field::Bool8Field;
 pub use fixed_shape_tensor_field::FixedShapeTensorField;
 pub use variable_shape_tensor_field::VariableShapeTensorField;
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Bool8Field {}

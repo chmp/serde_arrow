@@ -289,7 +289,7 @@ impl<A: AsMut<ArrayBuilder>> serde::ser::SerializeTupleVariant for CollectionSer
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl<A: Send + Sync> AssertSendSync for Serializer<A> {}

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate};
 use marrow::{
     array::{Array, PrimitiveArray},
     datatypes::FieldMeta,
@@ -90,11 +90,10 @@ impl<I: DatePrimitive> DateBuilder<I> {
     }
 
     fn parse_str_to_days_since_epoch(&self, s: &str) -> Result<I> {
-        #[allow(deprecated)]
-        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
+        let unix_epoch: NaiveDate = DateTime::UNIX_EPOCH.date_naive();
 
         let date = s.parse::<NaiveDate>()?;
-        let duration_since_epoch = date.signed_duration_since(UNIX_EPOCH).num_days();
+        let duration_since_epoch = date.signed_duration_since(unix_epoch).num_days();
         let Ok(days_since_epoch) = I::try_from(duration_since_epoch) else {
             fail!("cannot convert {duration_since_epoch} to {I}", I = I::NAME);
         };

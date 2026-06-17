@@ -48,13 +48,13 @@ fn example_exhausted() {
 
     #[derive(Deserialize, Debug)]
     struct S {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "tests")]
         item: Nested,
     }
 
     #[derive(Deserialize, Debug)]
     struct Nested {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "tests")]
         nested: bool,
     }
 

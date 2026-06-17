@@ -199,7 +199,7 @@ pub mod _impl {
     #[cfg(has_arrow2_0_16)]
     pub use arrow2_0_16 as arrow2;
 
-    #[allow(unused)]
+    #[allow(unused, reason="there may be no arrow feature activated")]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_schema:ident) => {
             /// A "fake" arrow crate re-exporting the relevant definitions of the

@@ -18,7 +18,7 @@ mod enum_without_data {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum Enum {
-        #[allow(unused)]
+        #[allow(unused, reason = "test")]
         Variant,
     }
 
@@ -71,7 +71,7 @@ mod enums_with_data {
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum Enum {
-        #[allow(unused)]
+        #[allow(unused, reason = "tests")]
         Variant { b: u8 },
     }
 
