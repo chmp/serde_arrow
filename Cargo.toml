@@ -8,3 +8,77 @@ resolver = "2"
 debug = 'line-tables-only'
 codegen-units = 1
 lto = "fat"
+
+[workspace.lints.clippy]
+allow_attributes_without_reason = "warn"
+assertions_on_result_states = "warn"
+await_holding_lock = "warn"
+await_holding_refcell_ref = "warn"
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+dbg_macro = "warn"
+debug_assert_with_mut_call = "warn"
+expl_impl_clone_on_copy = "warn"
+float_cmp = "warn"
+float_cmp_const = "warn"
+get_unwrap = "warn"
+indexing_slicing = "warn"
+infallible_try_from = "warn"
+invalid_upcast_comparisons = "warn"
+iter_not_returning_iterator = "warn"
+large_futures = "warn"
+let_underscore_future = "warn"
+let_underscore_must_use = "warn"
+lossy_float_literal = "warn"
+map_err_ignore = "warn"
+mem_forget = "warn"
+multiple_unsafe_ops_per_block = "warn"
+panic = "warn"
+rc_mutex = "warn"
+string_slice = "warn"
+todo = "warn"
+unchecked_time_subtraction = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+unused_result_ok = "warn"
+unwrap_in_result = "warn"
+unwrap_used = "warn"
+
+[workspace.lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    'cfg(has_arrow2)',
+    'cfg(has_arrow2_0_17)',
+    'cfg(has_arrow2_0_16)',
+    'cfg(has_arrow)',
+    'cfg(has_arrow_fixed_binary_support)',
+    'cfg(has_arrow_bytes_view_support)',
+    # arrow-version:insert:     'cfg(has_arrow_{version})',
+    'cfg(has_arrow_59)',
+    'cfg(has_arrow_58)',
+    'cfg(has_arrow_57)',
+    'cfg(has_arrow_56)',
+    'cfg(has_arrow_55)',
+    'cfg(has_arrow_54)',
+    'cfg(has_arrow_53)',
+    'cfg(has_arrow_52)',
+    'cfg(has_arrow_51)',
+    'cfg(has_arrow_50)',
+    'cfg(has_arrow_49)',
+    'cfg(has_arrow_48)',
+    'cfg(has_arrow_47)',
+    'cfg(has_arrow_46)',
+    'cfg(has_arrow_45)',
+    'cfg(has_arrow_44)',
+    'cfg(has_arrow_43)',
+    'cfg(has_arrow_42)',
+    'cfg(has_arrow_41)',
+    'cfg(has_arrow_40)',
+    'cfg(has_arrow_39)',
+    'cfg(has_arrow_38)',
+    'cfg(has_arrow_37)',
+]

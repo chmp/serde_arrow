@@ -55,7 +55,6 @@ fn example() -> PanicOnError<()> {
 #[test]
 fn example_top_level_none() -> PanicOnError<()> {
     // top-level options are not supported if fields are are extracted
-    let res = Vec::<FieldRef>::from_type::<Option<Distribution>>(TracingOptions::default());
-    assert!(res.is_err());
+    Vec::<FieldRef>::from_type::<Option<Distribution>>(TracingOptions::default()).unwrap_err();
     Ok(())
 }

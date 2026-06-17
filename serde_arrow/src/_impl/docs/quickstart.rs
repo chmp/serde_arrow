@@ -27,7 +27,7 @@
 //! ## Modifying data types
 //!
 //! When using `chrono`'s types, such as `NaiveDate`, `NaiveTime`, `DateTime<Utc>`, or
-//! `NaiveDateTime`, the values are per default encoded as strings. To store them compactly as
+//! `NaiveDateTime`, the values are encoded as strings by default. To store them compactly as
 //! integer columns, the data type has to be modified.
 //!
 //! For example, consider a list of [`NaiveDateTime`][chrono::NaiveDateTime] objects. The traced
@@ -161,7 +161,7 @@
 //!
 //! Rust enums correspond to arrow's union types and are supported by `serde_arrow`. Both enums with
 //! and without fields are supported. Variants without fields are mapped to null arrays. Only
-//! variants that are included in schema can be serialized or deserialized and the variants must
+//! variants included in the schema can be serialized or deserialized, and the variants must
 //! have the correct index. When using
 //! [`SchemaLike::from_type`][crate::schema::SchemaLike::from_type] these requirements will
 //! automatically be met.
@@ -190,7 +190,7 @@
 //! Enums without data can also be serialized to and deserialized from strings, both dictionary
 //! encoded or non-dictionary encoded. To select this encoding, either set the field data type
 //! manually to a string data type or trace the field with `enums_without_data_as_strings(true)`.
-//! E.g.,
+//! For example:
 //!
 //! ```rust
 //! # use serde::{Deserialize, Serialize};

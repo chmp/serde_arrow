@@ -1,4 +1,4 @@
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Datelike, Duration, NaiveDate};
 use marrow::view::PrimitiveView;
 use serde::de::Visitor;
 
@@ -42,13 +42,11 @@ impl<'a, I: DatePrimitive> DateDeserializer<'a, I> {
     pub fn get_string_repr(&self, ts: I) -> Result<String> {
         let ts = (ts / I::DAY_TO_VALUE_FACTOR)
             .try_into()
-            .map_err(|_| Error::new(ErrorKind::Custom, format!("Cannot convert {ts} to i64")))?;
+            .map_err(|_err| Error::new(ErrorKind::Custom, format!("cannot convert {ts} to i64")))?;
 
-        #[allow(deprecated)]
-        const UNIX_EPOCH: NaiveDate = NaiveDateTime::UNIX_EPOCH.date();
-        #[allow(deprecated)]
+        let unix_epoch: NaiveDate = DateTime::UNIX_EPOCH.date_naive();
         let delta = Duration::days(ts);
-        let date = UNIX_EPOCH + delta;
+        let date = unix_epoch + delta;
 
         // special handling of negative dates:
         //
@@ -93,7 +91,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
         try_(|| {
             let val = self.view.get_required(idx)?;
             let Ok(val) = (*val).try_into() else {
-                fail!("Cannot convert {val} to i32");
+                fail!("cannot convert {val} to i32");
             };
             visitor.visit_i32(val)
         })
@@ -104,7 +102,7 @@ impl<'de, I: DatePrimitive> RandomAccessDeserializer<'de> for DateDeserializer<'
         try_(|| {
             let val = self.view.get_required(idx)?;
             let Ok(val) = (*val).try_into() else {
-                fail!("Cannot convert {val} to i64");
+                fail!("cannot convert {val} to i64");
             };
             visitor.visit_i64(val)
         })

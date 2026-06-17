@@ -31,8 +31,9 @@ fn non_nullable() {
                 &[
                     bytes_view::pack_inline(b"foo"),
                     bytes_view::pack_inline(b"bar"),
-                    bytes_view::pack_extern(b"a long string", 0, 0),
-                    bytes_view::pack_extern(b"an even longer string", 0, b"a long string".len()),
+                    bytes_view::pack_extern(b"a long string", 0, 0).unwrap(),
+                    bytes_view::pack_extern(b"an even longer string", 0, b"a long string".len())
+                        .unwrap(),
                     bytes_view::pack_inline(b"baz"),
                 ],
             );
@@ -68,7 +69,7 @@ fn nullable() {
                     bytes_view::pack_inline(b"foo"),
                     bytes_view::pack_inline(b""),
                     bytes_view::pack_inline(b""),
-                    bytes_view::pack_extern(b"an even longer string", 0, 0),
+                    bytes_view::pack_extern(b"an even longer string", 0, 0).unwrap(),
                     bytes_view::pack_inline(b"baz"),
                 ],
             );

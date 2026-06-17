@@ -31,7 +31,7 @@ impl<'a> DecimalDeserializer<'a> {
     fn with_value<F: FnOnce(&str) -> Result<R>, R>(&self, idx: usize, func: F) -> Result<R> {
         let val = self.view.get_required(idx)?;
         let mut buffer = [0; decimal::BUFFER_SIZE_I128];
-        let formatted = decimal::format_decimal(&mut buffer, *val, self.scale);
+        let formatted = decimal::format_decimal(&mut buffer, *val, self.scale)?;
 
         func(formatted)
     }

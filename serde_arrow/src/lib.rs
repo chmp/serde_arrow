@@ -1,8 +1,8 @@
-//! # `serde_arrow` - convert sequences Rust objects to / from arrow arrays
+//! # `serde_arrow` - convert sequences of Rust objects to and from Arrow arrays
 //!
-//! The arrow in-memory format is a powerful way to work with data frame like structures. However,
+//! The Arrow in-memory format is a powerful way to work with data-frame-like structures. However,
 //! the API of the underlying Rust crates can be at times cumbersome to use due to the statically
-//! typed nature of Rust. `serde_arrow`, offers a simple way to convert Rust objects into Arrow
+//! typed nature of Rust. `serde_arrow` offers a simple way to convert Rust objects into Arrow
 //! arrays and back. `serde_arrow` relies on [Serde](https://serde.rs) to interpret Rust objects.
 //! Therefore, adding support for `serde_arrow` to custom types is as easy as using Serde's derive
 //! macros.
@@ -13,9 +13,9 @@
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as their type systems do
 //! not directly match. The schema is expressed as a collection of Arrow fields with additional
-//! metadata describing the arrays. E.g., to convert a vector of Rust strings representing
-//! timestamps to an arrow `Timestamp` array, the schema should contain a field with data type
-//! `Timestamp`. `serde_arrow` supports to derive the schema from the data or the Rust types
+//! metadata describing the arrays. For example, to convert a vector of Rust strings representing
+//! timestamps to an Arrow `Timestamp` array, the schema should contain a field with data type
+//! `Timestamp`. `serde_arrow` can derive the schema from the data or the Rust types
 //! themselves via schema tracing, but does not require it. It is always possible to specify the
 //! schema manually. See the [`schema` module][schema] and [`SchemaLike`][schema::SchemaLike] for
 //! further details.
@@ -38,7 +38,7 @@
 //! See also:
 //!
 //! - the [quickstart guide][_impl::docs::quickstart] for more examples of how to use this package
-//! - the [status summary][_impl::docs::status] for an overview over the supported Arrow and Rust
+//! - the [status summary][_impl::docs::status] for an overview of the supported Arrow and Rust
 //!   constructs
 //!
 //! ## Example
@@ -83,13 +83,13 @@
 //!
 //! # Features:
 //!
-//! The version of `arrow` or `arrow2` used can be selected via features. Per default no arrow
+//! The version of `arrow` or `arrow2` used can be selected via features. By default, no Arrow
 //! implementation is used. In that case only the base features of `serde_arrow` are available.
 //!
-//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other. I.e., it is possible
-//! to use `arrow` and `arrow2` together. Within each group the highest version is selected, if
-//! multiple features are activated. E.g, when selecting  `arrow2-0-16` and `arrow2-0-17`,
-//! `arrow2=0.17` will be used.
+//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other. This means it is
+//! possible to use `arrow` and `arrow2` together. Within each group, the highest version is selected
+//! if multiple features are activated. For example, when selecting `arrow2-0-16` and
+//! `arrow2-0-17`, `arrow2=0.17` will be used.
 //!
 //! Note that because the highest version is selected, the features are not additive. In particular,
 //! it is not possible to use `serde_arrow::to_arrow` for multiple different `arrow` versions at the
@@ -126,13 +126,13 @@
 //! | `arrow2-0-17` | `arrow2=0.17` |
 //! | `arrow2-0-16` | `arrow2=0.16` |
 //!
-//! # Usage in  libraries
+//! # Usage in libraries
 //!
 //! In libraries, it is not recommended to use the `arrow` and `arrow2` functions directly. Rather
-//! it is recommended to rely on the [`marrow`] based functionality, as the features of [`marrow`]
+//! it is recommended to rely on the [`marrow`]-based functionality, as the features of [`marrow`]
 //! are designed to be strictly additive.
 //!
-//! For example to build a record batch, first build the corresponding marrow types and then use
+//! For example, to build a record batch, first build the corresponding marrow types and then use
 //! them to build the record batch:
 //!
 //! ```rust
@@ -186,7 +186,7 @@ mod internal;
 /// *Internal. Do not use*
 ///
 /// This module is an internal implementation detail and not subject to any
-/// compatibility promises. It re-exports the  arrow impls selected via features
+/// compatibility promises. It re-exports the Arrow implementations selected via features
 /// to allow usage in doc tests or benchmarks.
 ///
 #[rustfmt::skip]
@@ -199,7 +199,7 @@ pub mod _impl {
     #[cfg(has_arrow2_0_16)]
     pub use arrow2_0_16 as arrow2;
 
-    #[allow(unused)]
+    #[allow(unused, reason="there may be no arrow feature activated")]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_schema:ident) => {
             /// A "fake" arrow crate re-exporting the relevant definitions of the
@@ -310,13 +310,13 @@ pub mod deserializer {
     pub use crate::internal::deserializer::{DeserializerItem, DeserializerIterator};
 }
 
-/// Type mapping between Rust, Serde, and Arrow
+/// Type mappings between Rust, Serde, and Arrow
 ///
 /// `serde_arrow` bridges three distinct type systems: Rust types, the actual
-/// types in your Rust code (`Vec<T>`, structs, enums, etc.),
+/// types in your Rust code (`Vec<T>`, structs, enums, etc.);
 /// [Serde data model][serde-model], the abstract representation Serde uses
-/// during serialization, and [Arrow types][arrow-model], the columnar data
-/// types defined by Apache Arrow. To convert between thse type systems ,
+/// during serialization; and [Arrow types][arrow-model], the columnar data
+/// types defined by Apache Arrow. To convert between these type systems,
 /// `serde_arrow` requires schema information as a list of Arrow fields with
 /// additional metadata. See [`SchemaLike`][crate::schema::SchemaLike] for
 /// details on how to specify the schema.
@@ -340,7 +340,7 @@ pub mod deserializer {
 /// | Serde data type | Example Rust types | Comment |
 /// |---|---|---|
 /// |`seq` | [`Vec<T>`][std::vec::Vec], `&[T]` | variable-sized sequences |
-/// | `tuple`, `tuple_struct`, `tuple_variant` |  `(T0, T1)`, `[T; N]`, `struct S(T0, T1)`) | fixed-sized sequences|
+/// | `tuple`, `tuple_struct`, `tuple_variant` |  `(T0, T1)`, `[T; N]`, `struct S(T0, T1)` | fixed-size sequences|
 /// | `newtype_struct`, `newtype_variant` | `struct S(T)`, `enum E { V(T) }` | wrappers around the preceding types |
 ///
 /// Each record must be one of these Serde data types:

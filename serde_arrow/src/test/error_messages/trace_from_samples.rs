@@ -7,7 +7,7 @@ use crate::{
 #[test]
 fn non_sequence() {
     let err = SerdeArrowSchema::from_samples(42, TracingOptions::default()).unwrap_err();
-    assert_error_contains(&err, "Cannot trace non-sequences with `from_samples`");
+    assert_error_contains(&err, "cannot trace non-sequences with `from_samples`");
     assert_error_contains(&err, "path: \"$\"");
 }
 

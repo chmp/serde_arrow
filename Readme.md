@@ -9,18 +9,18 @@
 | [Changes](Changes.md)
 | [Contributing](Contributing.md)
 
-The arrow in-memory format is a powerful way to work with data frame like
+The Arrow in-memory format is a powerful way to work with data-frame-like
 structures. The surrounding ecosystem includes a rich set of libraries, ranging
 from data frames such as [Polars][polars] to query engines such as
 [DataFusion][datafusion]. However, the API of the underlying Rust crates can be
 at times cumbersome to use due to the statically typed nature of Rust.
 
-`serde_arrow`, offers a simple way to convert Rust objects into Arrow arrays and
-back.  `serde_arrow` relies on the [Serde](https://serde.rs) package to
+`serde_arrow` offers a simple way to convert Rust objects into Arrow arrays and
+back. `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
 types is as easy as using Serde's derive macros.
 
-In the Rust ecosystem there are two competing implementations of the arrow
+In the Rust ecosystem there are two competing implementations of the Arrow
 in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
 [`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
 arrays, and deserialization from arrays to Rust structs.
@@ -40,7 +40,7 @@ correct feature (e.g., `arrow-51` to support `arrow=51`). See
 
 [feature-docs]: https://docs.rs/serde_arrow/latest/serde_arrow/#features
 
-The following examples use the following Rust structure and example records
+The following examples use this Rust structure and example records:
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -69,14 +69,15 @@ let fields = Vec::<FieldRef>::from_type::<Record>(TracingOptions::default())?;
 let batch = serde_arrow::to_record_batch(&fields, &records)?;
 ```
 
-This `RecordBatch` can now be written to disk using [ArrowWriter] from the [parquet] crate.
+This `RecordBatch` can now be written to disk using [ArrowWriter] from the
+[parquet] crate.
 
 [ArrowWriter]: https://docs.rs/parquet/latest/parquet/arrow/arrow_writer/struct.ArrowWriter.html
 [parquet]: https://docs.rs/parquet/latest/parquet/
 
 
 ```rust
-use use parquet::arrow::ArrowWriter;
+use parquet::arrow::ArrowWriter;
 
 let file = File::create("example.pq")?;
 let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
@@ -84,7 +85,7 @@ writer.write(&batch)?;
 writer.close()?;
 ```
 
-### Usage from python
+### Usage from Python
 
 The written files can be read in Python via
 
@@ -117,27 +118,27 @@ shape: (3, 2)
 ## Related packages & Performance
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports
-   serializing objects that support serialize via the [Decoder][serde-decoder]
-   object. It supports primitives types, structs and lists
+  serializing objects via the [Decoder][serde-decoder]. It supports primitive
+  types, structs, and lists
 - [`arrow2-convert`][arrow2-convert]: adds derive macros to convert objects from
-  and to arrow2 arrays. It supports primitive types, structs, lists, and
-  chrono's date time types. Enum support is experimental according to the
-  Readme. If performance is the main objective, `arrow2-convert` is a good
+  and from arrow2 arrays. It supports primitive types, structs, lists, and
+  chrono's datetime types. Enum support is experimental according to the
+  README. If performance is the main objective, `arrow2-convert` is a good
   choice as it has no or minimal overhead over building the arrays manually.
 - [`arrow-convert`][arrow-convert]: a port of `arrow2-convert` to `arrow-rs`
-- [`typed-arrow`][typed-arrow]: derive based converter of Rust structs to arrow
+- [`typed-arrow`][typed-arrow]: derive-based converter of Rust structs to Arrow
 
 [serde-decoder]: https://docs.rs/arrow-json/latest/arrow_json/reader/struct.Decoder.html
 [arrow-convert]: https://github.com/Swoorup/arrow-convert
 [arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
-The different implementation have the following performance differences, when
+The different implementations have the following performance differences when
 compared to arrow2-convert:
 
 ![Time ](timings.png)
 
-The detailed runtimes of the [benchmarks](./serde_arrow/benches/groups/) are listed below.
+The detailed runtimes of the [benchmarks](./bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
 ### complex_common_serialize(100000)

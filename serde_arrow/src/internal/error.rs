@@ -263,7 +263,7 @@ impl serde::ser::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::new(ErrorKind::Custom, format!("serde::ser::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("serialization failed: {msg}"))
     }
 }
 
@@ -272,7 +272,7 @@ impl serde::de::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::new(ErrorKind::Custom, format!("serde::de::Error: {}", msg))
+        Self::new(ErrorKind::Custom, format!("deserialization failed: {msg}"))
     }
 }
 
@@ -281,7 +281,7 @@ macro_rules! fail {
     // serializers or deserializers making this macro form obsolete
     (in $context:expr, $($tt:tt)*) => {
         {
-            #[allow(unused)]
+            #[allow(unused, reason = "simplify macro")]
             use $crate::internal::error::Context;
             let mut err = $crate::internal::error::Error::new($crate::internal::error::ErrorKind::Custom, format!($($tt)*));
             $context.annotate(&mut err.inner.annotations);
@@ -299,7 +299,7 @@ impl From<marrow::error::MarrowError> for Error {
     fn from(err: marrow::error::MarrowError) -> Self {
         Self::new_from(
             ErrorKind::Custom,
-            format!("marrow::error::MarrowError: {err}"),
+            format!("failed to convert Arrow data: {err}"),
             err,
         )
     }
@@ -307,53 +307,73 @@ impl From<marrow::error::MarrowError> for Error {
 
 impl From<chrono::format::ParseError> for Error {
     fn from(err: chrono::format::ParseError) -> Self {
-        Self::new_from(ErrorKind::Custom, format!("chrono::ParseError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("failed to parse date or time: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::char::CharTryFromError> for Error {
     fn from(err: std::char::CharTryFromError) -> Error {
-        Self::new_from(ErrorKind::Custom, format!("CharTryFromError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("failed to convert integer to character: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::char::TryFromCharError> for Error {
     fn from(err: std::char::TryFromCharError) -> Error {
-        Self::new_from(ErrorKind::Custom, format!("TryFromCharError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("failed to convert character to integer: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Error {
-        Self::new_from(ErrorKind::Custom, format!("TryFromIntError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("integer conversion failed: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::num::ParseIntError> for Error {
     fn from(err: std::num::ParseIntError) -> Self {
-        Self::new_from(ErrorKind::Custom, format!("ParseIntError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("failed to parse integer: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::num::ParseFloatError> for Error {
     fn from(err: std::num::ParseFloatError) -> Self {
-        Self::new_from(ErrorKind::Custom, format!("ParseFloatError: {err}"), err)
+        Self::new_from(
+            ErrorKind::Custom,
+            format!("failed to parse floating-point value: {err}"),
+            err,
+        )
     }
 }
 
 impl From<std::fmt::Error> for Error {
     fn from(err: std::fmt::Error) -> Self {
-        Self::new_from(ErrorKind::Custom, format!("std::fmt::Error: {err}"), err)
+        Self::new_from(ErrorKind::Custom, format!("formatting failed: {err}"), err)
     }
 }
 
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
-        Self::new_from(
-            ErrorKind::Custom,
-            format!("std::str::Utf8Error: {err}"),
-            err,
-        )
+        Self::new_from(ErrorKind::Custom, format!("invalid UTF-8 data: {err}"), err)
     }
 }
 
@@ -366,7 +386,7 @@ impl From<Infallible> for Error {
 impl From<bytemuck::PodCastError> for Error {
     fn from(err: bytemuck::PodCastError) -> Self {
         // Note: bytemuck::PodCastError does not implement std::error::Error
-        Self::new(ErrorKind::Custom, format!("bytemuck::PodCastError: {err}"))
+        Self::new(ErrorKind::Custom, format!("byte cast failed: {err}"))
     }
 }
 
@@ -378,6 +398,7 @@ pub struct PanicOnErrorError;
 
 // use Display to not match PanicOnErrorError itself, use Debug for printing to include stacktrace
 impl<E: std::fmt::Display + std::fmt::Debug> From<E> for PanicOnErrorError {
+    #[allow(clippy::panic, reason = "PanicOnErrorError is only used in tests")]
     fn from(value: E) -> Self {
         panic!("{value:?}");
     }
@@ -392,7 +413,7 @@ fn error_can_be_converted_to_anyhow() {
     assert!(func().is_err());
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for Error {}

@@ -1,9 +1,17 @@
 # Change log
 
+## Development
+
+- Breaking. Stricter f32 / f64 to decimal conversions. Only finite floats that
+  are in the range that can be presented are converted.
+- Breaking. Updated error messages.
+- Breaking. Bumped the MSRV to Rust 1.83.
+
 ## 0.14.2
 
 - Add `arrow=59` support
 - Support deserializing dictionary encoded arrays with null values
+- Stricter clippy config and refactoring of internals for improved robustness
 
 ### Thanks
 
@@ -128,7 +136,7 @@ The following people contributed to this release:
   - Breaking change: `serde_arrow::Error` no longer implements
     `From<arrow2::error::Error>`
 - Add support for view types `Utf8View`, `BytesView`
-- Add APIs to interact with `marorw` arrays directly. Allows to use
+- Add APIs to interact with `marrow` arrays directly, allowing users to use
   `serde_arrow` with different arrow versions at the same time.
 - Fix `Date64` semantics: use `Date64` exclusively for dates, and `Timestamp`
   for date times
@@ -423,7 +431,7 @@ really useful. Remove for now and think about a better design.
 Bug fixes:
 
 - Fix bug in bytecode serialization for missing fields (#79)
-- Fix bytecode serialization for nested options, .e.g, `Option<Option<T>>`.
+- Fix bytecode serialization for nested options, e.g., `Option<Option<T>>`.
 - Fix bytecode serialization of structs with missing fields, e.g., missing keys
   with maps serialized as structs
 - Fix nullable top-level fields in bytecode serialization
@@ -485,8 +493,8 @@ serde_arrow = { version = "0.6", features = ["arrow-36"] }
 
 ### Deserialization support (arrow2 only)
 
-`serde_arrow` now supports to deserialize Rust objects from arrays. At the
-moment this operation is only support for `arrow2`. Adding support `arrow` is
+`serde_arrow` now supports deserializing Rust objects from arrays. At the
+moment, this operation is supported only for `arrow2`. Adding support for `arrow` is
 [planned](https://github.com/chmp/serde_arrow/issues/38).
 
 ### More flexible support for Rust / Arrow features

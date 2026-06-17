@@ -2,33 +2,46 @@ use crate::internal::error::{fail, Result};
 
 pub fn check_dim_names(ndim: usize, dim_names: &[String]) -> Result<()> {
     if dim_names.len() != ndim {
-        fail!("Number of dim names must be equal to the number of dimensions");
+        fail!("expected {ndim} dimension names, got {}", dim_names.len());
     }
     Ok(())
 }
 
+/// Check that the permutation array contains a permutation of dimension `ndim`
 pub fn check_permutation(ndim: usize, permutation: &[usize]) -> Result<()> {
     if permutation.len() != ndim {
-        fail!("Number of permutation entries must be equal to the number of dimensions");
+        fail!(
+            "invalid number of permutation entries: expected {ndim}, got {}",
+            permutation.len()
+        );
     }
-    let seen = vec![false; permutation.len()];
+    let mut seen = vec![false; permutation.len()];
     for &i in permutation {
-        if i >= seen.len() {
+        let Some(i_was_seen) = seen.get_mut(i) else {
             fail!(
-                "Invalid permutation: index {i} is not in range 0..{len}",
+                "invalid permutation: index {i} is not in range 0..{len}",
                 len = seen.len()
             );
+        };
+        if *i_was_seen {
+            fail!("invalid permutation: index {i} appears more than once");
         }
-        if seen[i] {
-            fail!("Invalid permutation: index {i} found multiple times");
-        }
+        *i_was_seen = true;
     }
     for (i, seen) in seen.into_iter().enumerate() {
         if !seen {
-            fail!("Invalid permutation: index {i} is not present");
+            fail!("invalid permutation: index {i} is not present");
         }
     }
     Ok(())
+}
+
+#[test]
+fn test_check_permutation() {
+    check_permutation(3, &[0, 1, 2]).unwrap();
+    check_permutation(3, &[2, 0, 1]).unwrap();
+    check_permutation(3, &[4, 1, 2]).unwrap_err();
+    check_permutation(3, &[0, 0, 2]).unwrap_err();
 }
 
 pub fn write_list(

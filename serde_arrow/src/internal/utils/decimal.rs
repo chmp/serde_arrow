@@ -5,8 +5,18 @@
 //! position of the decimal point.
 
 use crate::internal::error::{fail, Result};
+use std::ops::{Range, RangeTo};
 
-pub const BUFFER_SIZE_I128: usize = 64;
+const MAX_I128_FORMATTED_LEN_WITH_SIGN: usize = 40;
+const MAX_I8_ABS: usize = i8::MIN.unsigned_abs() as usize;
+
+/// Large enough to format any `i128` decimal with any `i8` scale.
+///
+/// The worst case is `i128::MIN` with scale `i8::MIN`: the 40-byte integer
+/// representation, including its sign, plus 128 appended zeros.
+/// Underscores do not affect the size: formatting never emits them, and parsing
+/// removes them before writing into this buffer.
+pub const BUFFER_SIZE_I128: usize = MAX_I128_FORMATTED_LEN_WITH_SIGN + MAX_I8_ABS;
 
 /// Helper to parse decimals
 ///
@@ -29,12 +39,14 @@ pub enum DecimalParser {
 
 impl DecimalParser {
     pub fn new(precision: u8, scale: i8, truncated: bool) -> Self {
+        let precision = usize::from(precision);
+        let abs_scale = usize::from(scale.unsigned_abs());
         if scale <= 0 {
-            Self::IntegerOnly(precision as usize, -scale as usize, truncated)
-        } else if (scale as usize) < (precision as usize) {
-            Self::Mixed(precision as usize, scale as usize, truncated)
+            Self::IntegerOnly(precision, abs_scale, truncated)
+        } else if abs_scale < precision {
+            Self::Mixed(precision, abs_scale, truncated)
         } else {
-            Self::FractionOnly(precision as usize, scale as usize, truncated)
+            Self::FractionOnly(precision, abs_scale, truncated)
         }
     }
 
@@ -59,7 +71,7 @@ impl DecimalParser {
             }
         };
 
-        Ok(std::str::from_utf8(&buffer[..out_len]).unwrap())
+        Ok(std::str::from_utf8(get_to(buffer, ..out_len)?)?)
     }
 }
 
@@ -68,9 +80,18 @@ fn copy_into_buffer_without_underscores(buffer: &mut [u8], s: &[u8]) -> Result<u
     for &byte in s {
         if byte != b'_' {
             if len >= buffer.len() {
-                fail!("Invalid decimal: number too long");
+                fail!(
+                    "invalid decimal: input exceeds buffer capacity of {} bytes",
+                    buffer.len()
+                );
             }
-            buffer[len] = byte;
+            let Some(target) = buffer.get_mut(len) else {
+                fail!(
+                    "invalid decimal: input exceeds buffer capacity of {} bytes",
+                    buffer.len()
+                );
+            };
+            *target = byte;
             len += 1;
         }
     }
@@ -78,9 +99,9 @@ fn copy_into_buffer_without_underscores(buffer: &mut [u8], s: &[u8]) -> Result<u
 }
 
 fn parse_sign(s: &[u8]) -> (&[u8], Sign) {
-    match s.first() {
-        Some(b'+') => (&s[1..], Sign::Plus),
-        Some(b'-') => (&s[1..], Sign::Minus),
+    match s.split_first() {
+        Some((b'+', rest)) => (rest, Sign::Plus),
+        Some((b'-', rest)) => (rest, Sign::Minus),
         _ => (s, Sign::None),
     }
 }
@@ -108,20 +129,20 @@ fn copy_digits_integer_only(
     scale: usize,
     truncate: bool,
 ) -> Result<usize> {
-    let s = &buffer[..len];
+    let s = get_to(buffer, ..len)?;
     let (before_period, after_period) = find_period(s);
 
     let end_copy = before_period.saturating_sub(scale);
     let start_copy = end_copy.saturating_sub(precision);
 
-    check_all_ascii_zero(&buffer[0..start_copy], true)?;
+    check_all_ascii_zero(get(buffer, 0..start_copy)?, true, precision)?;
     if !truncate {
-        check_all_ascii_digit(&buffer[start_copy..end_copy])?;
-        check_all_ascii_zero(&buffer[end_copy..before_period], false)?;
-        check_all_ascii_zero(&buffer[after_period..len], false)?;
+        check_all_ascii_digit(get(buffer, start_copy..end_copy)?)?;
+        check_all_ascii_zero(get(buffer, end_copy..before_period)?, false, 0)?;
+        check_all_ascii_zero(get(buffer, after_period..len)?, false, 0)?;
     } else {
-        check_all_ascii_digit(&buffer[start_copy..before_period])?;
-        check_all_ascii_digit(&buffer[after_period..len])?;
+        check_all_ascii_digit(get(buffer, start_copy..before_period)?)?;
+        check_all_ascii_digit(get(buffer, after_period..len)?)?;
     }
 
     let out_len = end_copy - start_copy;
@@ -138,26 +159,26 @@ fn copy_digits_fraction_only(
 ) -> Result<usize> {
     debug_assert!(scale >= precision);
 
-    let s = &buffer[..len];
+    let s = get_to(buffer, ..len)?;
     let (before_period, after_period) = find_period(s);
 
     let start_copy = std::cmp::min(len, after_period + scale - precision);
     let end_copy = std::cmp::min(len, after_period + scale);
     let fill = precision - (end_copy - start_copy);
 
-    check_all_ascii_zero(&buffer[0..before_period], true)?;
-    check_all_ascii_zero(&buffer[after_period..start_copy], true)?;
+    check_all_ascii_zero(get(buffer, 0..before_period)?, true, precision)?;
+    check_all_ascii_zero(get(buffer, after_period..start_copy)?, true, precision)?;
 
     if !truncate {
-        check_all_ascii_digit(&buffer[start_copy..end_copy])?;
-        check_all_ascii_zero(&buffer[end_copy..len], false)?;
+        check_all_ascii_digit(get(buffer, start_copy..end_copy)?)?;
+        check_all_ascii_zero(get(buffer, end_copy..len)?, false, scale)?;
     } else {
-        check_all_ascii_digit(&buffer[start_copy..len])?;
+        check_all_ascii_digit(get(buffer, start_copy..len)?)?;
     }
 
     let out_len = end_copy - start_copy;
     buffer.copy_within(start_copy..end_copy, 0);
-    buffer[out_len..out_len + fill].fill(b'0');
+    get_mut(buffer, out_len..out_len + fill)?.fill(b'0');
     Ok(out_len + fill)
 }
 
@@ -170,7 +191,7 @@ fn copy_digits_mixed(
 ) -> Result<usize> {
     debug_assert!(scale < precision);
 
-    let s = &buffer[..len];
+    let s = get_to(buffer, ..len)?;
     let (before_period, after_period) = find_period(s);
 
     let start_copy = before_period.saturating_sub(precision - scale);
@@ -180,13 +201,13 @@ fn copy_digits_mixed(
     let copy_2 = after_period..end_copy;
     let fill = scale - (end_copy - after_period);
 
-    check_all_ascii_zero(&buffer[0..start_copy], true)?;
-    check_all_ascii_digit(&buffer[copy_1.clone()])?;
+    check_all_ascii_zero(get(buffer, 0..start_copy)?, true, precision)?;
+    check_all_ascii_digit(get(buffer, copy_1.clone())?)?;
     if !truncate {
-        check_all_ascii_digit(&buffer[after_period..end_copy])?;
-        check_all_ascii_zero(&buffer[end_copy..len], false)?;
+        check_all_ascii_digit(get(buffer, after_period..end_copy)?)?;
+        check_all_ascii_zero(get(buffer, end_copy..len)?, false, scale)?;
     } else {
-        check_all_ascii_digit(&buffer[after_period..len])?;
+        check_all_ascii_digit(get(buffer, after_period..len)?)?;
     }
 
     let copy_1_len = copy_1.len();
@@ -194,9 +215,43 @@ fn copy_digits_mixed(
 
     buffer.copy_within(copy_1, 0);
     buffer.copy_within(copy_2, copy_1_len);
-    buffer[copy_1_len + copy_2_len..copy_1_len + copy_2_len + fill].fill(b'0');
+    get_mut(
+        buffer,
+        copy_1_len + copy_2_len..copy_1_len + copy_2_len + fill,
+    )?
+    .fill(b'0');
 
     Ok(copy_1_len + copy_2_len + fill)
+}
+
+fn get(buffer: &[u8], range: Range<usize>) -> Result<&[u8]> {
+    let Some(slice) = buffer.get(range) else {
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {} bytes",
+            buffer.len()
+        );
+    };
+    Ok(slice)
+}
+
+fn get_to(buffer: &[u8], range: RangeTo<usize>) -> Result<&[u8]> {
+    let Some(slice) = buffer.get(range) else {
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {} bytes",
+            buffer.len()
+        );
+    };
+    Ok(slice)
+}
+
+fn get_mut(buffer: &mut [u8], range: Range<usize>) -> Result<&mut [u8]> {
+    let buffer_len = buffer.len();
+    let Some(slice) = buffer.get_mut(range) else {
+        fail!(
+            "invalid decimal: requested byte range exceeds buffer capacity of {buffer_len} bytes"
+        );
+    };
+    Ok(slice)
 }
 
 fn find_period(s: &[u8]) -> (usize, usize) {
@@ -207,12 +262,18 @@ fn find_period(s: &[u8]) -> (usize, usize) {
     }
 }
 
-fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
-    if s.iter().any(|c| *c != b'0') {
+fn check_all_ascii_zero(s: &[u8], leading: bool, configured: usize) -> Result<()> {
+    if let Some(first_nonzero) = s.iter().position(|c| *c != b'0') {
         if leading {
-            fail!("Invalid decimal: not enough precision");
+            let required = configured + s.len() - first_nonzero;
+            fail!(
+                "invalid decimal: configured precision {configured} is insufficient; required precision is at least {required}"
+            );
         } else {
-            fail!("Invalid decimal: not enough scale, the given number would be truncated");
+            let required = configured + s.iter().rposition(|c| *c != b'0').unwrap_or_default() + 1;
+            fail!(
+                "invalid decimal: configured scale {configured} is insufficient; required scale is at least {required}"
+            );
         }
     }
     Ok(())
@@ -220,7 +281,7 @@ fn check_all_ascii_zero(s: &[u8], leading: bool) -> Result<()> {
 
 fn check_all_ascii_digit(s: &[u8]) -> Result<()> {
     if s.iter().any(|c| *c < b'0' || *c > b'9') {
-        fail!("Invalid decimal: only ascii digits are supported");
+        fail!("invalid decimal: only ASCII digits are supported");
     }
     Ok(())
 }
@@ -233,14 +294,14 @@ fn parse_decimal(s: &[u8], precision: u8, scale: i8, truncate: bool) -> Result<i
 
 #[test]
 fn test_missing_number() {
-    assert!(parse_decimal(b"", 5, 0, false).is_err());
-    assert!(parse_decimal(b"+", 5, 0, false).is_err());
-    assert!(parse_decimal(b"-", 5, 0, false).is_err());
+    parse_decimal(b"", 5, 0, false).unwrap_err();
+    parse_decimal(b"+", 5, 0, false).unwrap_err();
+    parse_decimal(b"-", 5, 0, false).unwrap_err();
 }
 
 #[test]
 fn test_insufficient_precision_missing_number() {
-    assert!(parse_decimal(b"123", 2, 0, false).is_err());
+    parse_decimal(b"123", 2, 0, false).unwrap_err();
 }
 
 #[test]
@@ -279,8 +340,9 @@ fn test_negative_scale() {
 #[test]
 fn test_negative_scale_truncation() {
     assert_eq!(parse_decimal(b"210", 10, -1, false), Ok(21_i128));
-    assert!(parse_decimal(b"213", 10, -1, false).is_err());
     assert_eq!(parse_decimal(b"213", 10, -1, true), Ok(21_i128));
+
+    parse_decimal(b"213", 10, -1, false).unwrap_err();
 }
 
 #[test]
@@ -313,9 +375,10 @@ fn test_positive_scale_fraction() {
 fn test_positive_scale_fraction_truncation() {
     assert_eq!(parse_decimal(b"13.2", 10, 1, false), Ok(132_i128));
     assert_eq!(parse_decimal(b"-42.500", 10, 1, false), Ok(-425_i128));
-    assert!(parse_decimal(b"-42.560", 10, 1, false).is_err());
     assert_eq!(parse_decimal(b"-42.560", 10, 1, true), Ok(-425_i128));
     assert_eq!(parse_decimal(b"-42.567", 10, 1, true), Ok(-425_i128));
+
+    parse_decimal(b"-42.560", 10, 1, false).unwrap_err();
 }
 
 #[test]
@@ -376,31 +439,33 @@ fn test_copy_digits() {
     assert_digits_value("42.00", 4, 2, "4200");
 }
 
-pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
-    fn write_val(buffer: &mut [u8], val: i128) -> usize {
+pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> Result<&str> {
+    fn write_val(buffer: &mut [u8], val: i128) -> Result<usize> {
         use std::io::Write;
 
         let initial_length = buffer.len();
 
         let mut buffer = &mut *buffer;
-        write!(buffer, "{val}").unwrap();
-        initial_length - buffer.len()
+        if write!(buffer, "{val}").is_err() {
+            fail!("decimal formatting buffer is too small");
+        }
+        Ok(initial_length - buffer.len())
     }
 
     let res = if scale == 0 {
-        let num_bytes_written = write_val(buffer, val);
-        &buffer[..num_bytes_written]
+        let num_bytes_written = write_val(buffer, val)?;
+        expect_to(buffer, ..num_bytes_written)
     } else if scale < 0 && val == 0 {
         b"0"
     } else if scale < 0 {
-        let scale = -scale as usize;
-        let num_bytes_written = write_val(buffer, val);
+        let scale = usize::from(scale.unsigned_abs());
+        let num_bytes_written = write_val(buffer, val)?;
 
-        buffer[num_bytes_written..][..scale].fill(b'0');
-        &buffer[..num_bytes_written + scale]
+        expect_mut(buffer, num_bytes_written..num_bytes_written + scale)?.fill(b'0');
+        expect_to(buffer, ..num_bytes_written + scale)
     } else {
-        let scale = scale as usize;
-        let num_bytes_written = write_val(buffer, val);
+        let scale = usize::from(scale.unsigned_abs());
+        let num_bytes_written = write_val(buffer, val)?;
         let num_sign_bytes = if val >= 0 { 0 } else { 1 };
         let num_digits_written = num_bytes_written - num_sign_bytes;
 
@@ -410,31 +475,51 @@ pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> &str {
                 num_sign_bytes..num_bytes_written,
                 num_sign_bytes + 2 + num_missing_zeros,
             );
-            buffer[num_sign_bytes] = b'0';
-            buffer[num_sign_bytes + 1] = b'.';
+            *expect_byte_mut(buffer, num_sign_bytes) = b'0';
+            *expect_byte_mut(buffer, num_sign_bytes + 1) = b'.';
             for i in 0..num_missing_zeros {
-                buffer[num_sign_bytes + 2 + i] = b'0';
+                *expect_byte_mut(buffer, num_sign_bytes + 2 + i) = b'0';
             }
 
-            &buffer[..num_bytes_written + num_missing_zeros + 2]
+            expect_to(buffer, ..num_bytes_written + num_missing_zeros + 2)
         } else {
             let end_integer = num_sign_bytes + num_digits_written - scale;
             buffer.copy_within(end_integer..num_bytes_written, end_integer + 1);
-            buffer[end_integer] = b'.';
+            *expect_byte_mut(buffer, end_integer) = b'.';
 
-            &buffer[..num_bytes_written + 1]
+            expect_to(buffer, ..num_bytes_written + 1)
         }
     };
 
-    // safety only ASCII characters used -> conversion into str is safe
-    std::str::from_utf8(res).unwrap()
+    Ok(std::str::from_utf8(res).unwrap_or_else(|_err| {
+        unreachable!("conversion into str is safe, only ASCII characters used")
+    }))
+}
+
+fn expect_to(buffer: &[u8], range: RangeTo<usize>) -> &[u8] {
+    buffer
+        .get(range)
+        .unwrap_or_else(|| unreachable!("decimal formatting uses a sufficiently large buffer"))
+}
+
+fn expect_mut(buffer: &mut [u8], range: Range<usize>) -> Result<&mut [u8]> {
+    let Some(buffer) = buffer.get_mut(range) else {
+        fail!("decimal formatting buffer is too small");
+    };
+    Ok(buffer)
+}
+
+fn expect_byte_mut(buffer: &mut [u8], idx: usize) -> &mut u8 {
+    buffer
+        .get_mut(idx)
+        .unwrap_or_else(|| unreachable!("decimal formatting uses a sufficiently large buffer"))
 }
 
 #[test]
 fn test_format_decimal() {
     fn format_decimal_str(val: i128, scale: i8) -> String {
         let mut buffer = [0; BUFFER_SIZE_I128];
-        format_decimal(&mut buffer, val, scale).to_owned()
+        format_decimal(&mut buffer, val, scale).unwrap().to_owned()
     }
 
     assert_eq!(format_decimal_str(0, 0), "0");
@@ -469,4 +554,20 @@ fn test_format_decimal() {
     assert_eq!(format_decimal_str(-123, 4), "-0.0123");
 
     assert_eq!(format_decimal_str(12345, 3), "12.345");
+
+    assert_eq!(
+        format_decimal_str(i128::MIN, i8::MIN),
+        format!(
+            "{}{}",
+            i128::MIN,
+            "0".repeat(usize::from(i8::MIN.unsigned_abs()))
+        )
+    );
+    assert_eq!(
+        format_decimal_str(-1, i8::MAX),
+        format!(
+            "-0.{}1",
+            "0".repeat(usize::from(i8::MAX.unsigned_abs()) - 1)
+        )
+    );
 }

@@ -2,6 +2,7 @@ pub mod array_ext;
 pub mod array_view_ext;
 pub mod decimal;
 pub mod dsl;
+pub mod truncating_cast;
 pub mod value;
 
 #[cfg(test)]

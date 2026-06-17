@@ -18,7 +18,7 @@ fn example() {
         SerdeArrowSchema::from_type::<Item<Vec<Value>>>(TracingOptions::default()).unwrap_err();
     assert_error_contains(
         &err,
-        "Non self describing types cannot be traced with `from_type`.",
+        "non self describing types cannot be traced with `from_type`.",
     );
     assert_error_contains(&err, "path: \"$.item.element\"");
     assert_error_contains(&err, "tracer_type: \"Unknown\"");
@@ -57,7 +57,7 @@ fn net_ip_addr_is_not_self_describing() {
 
 #[test]
 fn unsupported_recursive_types() {
-    #[allow(unused)]
+    #[allow(unused, reason = "tests")]
     #[derive(Deserialize)]
     struct Tree {
         left: Option<Box<Tree>>,
@@ -65,7 +65,7 @@ fn unsupported_recursive_types() {
     }
 
     let err = SerdeArrowSchema::from_type::<Tree>(TracingOptions::default()).unwrap_err();
-    assert_error_contains(&err, "Too deeply nested type detected");
+    assert_error_contains(&err, "too deeply nested type detected");
     // NOTE: do not check the complete path, it depends on the recursion limit
     assert_error_contains(&err, "path: \"$.left.left.left.left.left.left");
 }

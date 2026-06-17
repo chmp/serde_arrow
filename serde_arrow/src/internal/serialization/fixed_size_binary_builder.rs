@@ -109,7 +109,7 @@ impl FixedSizeBinaryBuilder {
     fn end(&mut self) -> Result<()> {
         if self.current_n != self.n {
             fail!(
-                "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
+                "invalid number of elements for fixed size binary: got {actual}, expected {expected}",
                 actual = self.current_n,
                 expected = self.n,
             );
@@ -163,7 +163,7 @@ impl<'a> Serializer for &'a mut FixedSizeBinaryBuilder {
         if v.len() != self.n {
             fail!(
                 in self,
-                "Invalid number of elements for fixed size binary: got {actual}, expected {expected}",
+                "invalid number of elements for fixed size binary: got {actual}, expected {expected}",
                 actual = v.len(),
                 expected = self.n,
             );

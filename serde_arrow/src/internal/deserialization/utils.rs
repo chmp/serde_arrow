@@ -18,7 +18,7 @@ pub struct U8Deserializer(pub u8);
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("Unsupported: U8Deserializer does not implement {}", stringify!($name))
+            fail!("U8Deserializer does not support {}", stringify!($name))
         }
     };
 }

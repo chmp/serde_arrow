@@ -26,14 +26,14 @@ fn new_field(name: &str, nullable: bool, data_type: DataType) -> Field {
 
 #[test]
 fn issue_90() {
-    #[allow(unused)]
+    #[allow(unused, reason = "tests")]
     #[derive(Deserialize)]
     pub struct Distribution {
         pub samples: Vec<f64>,
         pub statistic: String,
     }
 
-    #[allow(unused)]
+    #[allow(unused, reason = "tests")]
     #[derive(Deserialize)]
     pub struct VectorMetric {
         pub distribution: Option<Distribution>,
@@ -127,7 +127,7 @@ fn trace_option() {
 
 #[test]
 fn trace_struct() {
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "tests")]
     #[derive(Deserialize)]
     struct Example {
         a: bool,
@@ -169,7 +169,7 @@ fn trace_tuple_as_struct() {
 
 #[test]
 fn trace_union() {
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "tests")]
     #[derive(Deserialize)]
     enum Example {
         A(i8),

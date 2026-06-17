@@ -1,3 +1,10 @@
+#![allow(
+    clippy::indexing_slicing,
+    clippy::unwrap_used,
+    clippy::unwrap_in_result,
+    clippy::panic,
+    reason = "allow panic in tests"
+)]
 //! Test with an arrow implementation
 //!
 mod impls;

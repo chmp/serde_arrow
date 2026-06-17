@@ -28,7 +28,7 @@ impl Tracer {
             if budget == 0 {
                 fail!(
                     concat!(
-                        "Could not determine schema from the type after {budget} iterations. ",
+                        "could not determine schema from the type after {budget} iterations. ",
                         "Consider increasing the budget option or using `from_samples`.",
                     ),
                     budget = tracer.get_options().from_type_budget,
@@ -93,7 +93,7 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
         fail!(
             in self,
             concat!(
-            "Non self describing types cannot be traced with `from_type`. ",
+            "non self describing types cannot be traced with `from_type`. ",
             "Consider using `from_samples`. ",
             "One example is `serde_json::Value`: ",
             "the schema depends on the JSON content and cannot be determined from the type alone."
@@ -308,7 +308,7 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
         try_(|| {
             if self.0.get_options().map_as_struct {
                 fail!(concat!(
-                    "Cannot trace maps as structs with `from_type`. ",
+                    "cannot trace maps as structs with `from_type`. ",
                     "The struct fields cannot be known from the type alone.",
                     "Consider using `from_samples`. ",
                 ));
@@ -360,17 +360,25 @@ impl<'de> serde::de::Deserializer<'de> for TraceAny<'_> {
                 unreachable!();
             };
 
+            // find the next non-complete variant
             let idx = tracer
                 .variants
                 .iter()
-                .position(|opt| !opt.as_ref().unwrap().tracer.is_complete())
+                .position(|opt| match opt.as_ref() {
+                    Some(variant) => !variant.tracer.is_complete(),
+                    None => false,
+                })
                 .unwrap_or_default();
-            if idx >= tracer.variants.len() {
-                fail!("Invalid variant index");
-            }
 
-            let Some(variant) = tracer.variants[idx].as_mut() else {
-                fail!("Invalid state");
+            let num_variants = tracer.variants.len();
+            let Some(variant) = tracer.variants.get_mut(idx) else {
+                fail!(
+                    "variant index {idx} is out of bounds for {} variants",
+                    num_variants
+                );
+            };
+            let Some(variant) = variant else {
+                fail!("invalid union tracer state: variant slot {idx} is empty");
             };
 
             let res = visitor.visit_enum(TraceEnum {
@@ -429,11 +437,11 @@ impl<'de> serde::de::SeqAccess<'de> for TraceTupleStruct<'_> {
     type Error = Error;
 
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
-        if self.pos >= self.tracers.len() {
+        let Some(tracer) = self.tracers.get_mut(self.pos) else {
             return Ok(None);
-        }
+        };
 
-        let item = seed.deserialize(TraceAny(&mut self.tracers[self.pos]))?;
+        let item = seed.deserialize(TraceAny(tracer))?;
         self.pos += 1;
 
         Ok(Some(item))
@@ -450,18 +458,21 @@ impl<'de> serde::de::MapAccess<'de> for TraceStruct<'_> {
     type Error = Error;
 
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>> {
-        if self.pos >= self.names.len() {
+        let Some(name) = self.names.get(self.pos) else {
             return Ok(None);
-        }
+        };
         let key = seed.deserialize(IdentifierDeserializer {
             idx: self.pos,
-            name: self.names[self.pos],
+            name,
         })?;
         Ok(Some(key))
     }
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
-        let value = seed.deserialize(TraceAny(&mut self.fields[self.pos].tracer))?;
+        let Some(field) = self.fields.get_mut(self.pos) else {
+            fail!("TraceStruct field position {} is out of bounds", self.pos)
+        };
+        let value = seed.deserialize(TraceAny(&mut field.tracer))?;
         self.pos += 1;
 
         Ok(value)

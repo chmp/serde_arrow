@@ -38,7 +38,7 @@ impl parsing::Span<'_> {
     /// Convert the `Span` into an `i64`` with the given `unit`
     pub fn to_arrow_duration(&self, unit: TimeUnit) -> Result<i64> {
         if get_optional_digit_value(self.year)? != 0 || get_optional_digit_value(self.month)? != 0 {
-            fail!("Cannot convert interval style spans to a duration");
+            fail!("cannot convert span with years or months to a fixed duration");
         }
 
         let second_value = self.get_second_value()?;
@@ -78,15 +78,19 @@ impl parsing::Span<'_> {
             TimeUnit::Second => second_value,
             TimeUnit::Millisecond => match second_value.checked_mul(1_000_i64) {
                 Some(res) => res + nanosecond_value / 1_000_000,
-                None => fail!("Cannot represent {second_value} with Microsecond resolution"),
+                None => {
+                    fail!("cannot represent {second_value} seconds with Millisecond resolution")
+                }
             },
             TimeUnit::Microsecond => match second_value.checked_mul(1_000_000_i64) {
                 Some(res) => res + nanosecond_value / 1_000,
-                None => fail!("Cannot represent {second_value} with Millisecond resolution"),
+                None => {
+                    fail!("cannot represent {second_value} seconds with Microsecond resolution")
+                }
             },
             TimeUnit::Nanosecond => match second_value.checked_mul(1_000_000_000_i64) {
                 Some(res) => res + nanosecond_value,
-                None => fail!("Cannot represent {second_value} with Nanosecond resolution"),
+                None => fail!("cannot represent {second_value} seconds with Nanosecond resolution"),
             },
         };
 
@@ -135,7 +139,7 @@ fn get_optional_digit_value(s: Option<&str>) -> Result<i64> {
 
 /// Minimalistic monadic parsers for datetime objects
 ///
-/// Each parser has the the following interface:
+/// Each parser has the following interface:
 ///
 /// `fn (string_to_parse, ..extra_args) -> Result<(rest, result), unmatched_string>`
 ///
@@ -163,7 +167,7 @@ mod parsing {
             match self {
                 Ok(("", output)) => Ok(output),
                 Ok((unmatched, _)) | Err(unmatched) => crate::internal::error::fail!(
-                    "Could not parse the string as {output_type}, unmatched content: {unmatched:?}"
+                    "could not parse the string as {output_type}, unmatched content: {unmatched:?}"
                 ),
             }
         }
@@ -342,17 +346,20 @@ mod parsing {
     /// Note: this function is more permissive than some libraries (e.g., jiff)
     pub fn match_utc_timezone(s: &str) -> Result<(&str, &str), &str> {
         for prefix in ["Z", "+0000", "+00:00"] {
-            if let Some(rest) = s.strip_prefix(prefix) {
-                return Ok((rest, get_prefix(s, rest)));
+            if let Some((prefix, rest)) = split_prefix(s, prefix) {
+                return Ok((rest, prefix));
             }
         }
         Err(s)
     }
 
-    fn get_prefix<'a>(s: &'a str, rest: &str) -> &'a str {
-        debug_assert!(s.ends_with(rest), "Invalid call to get prefix");
-        let len_prefix = s.len() - rest.len();
-        &s[..len_prefix]
+    fn split_prefix<'a>(s: &'a str, prefix: &str) -> Option<(&'a str, &'a str)> {
+        let rest = s.strip_prefix(prefix)?;
+        let prefix = s
+            .get(..prefix.len())
+            .unwrap_or_else(|| unreachable!("s starts with prefix"));
+
+        Some((prefix, rest))
     }
 
     /// Match a value in a span
@@ -381,13 +388,24 @@ mod parsing {
         while let Some(new_rest) = rest.strip_prefix(DIGIT) {
             rest = new_rest;
         }
-        Ok((rest, get_prefix(s, rest)))
+
+        let prefix_len = s.len() - rest.len();
+        let prefix = s
+            .get(..prefix_len)
+            .unwrap_or_else(|| unreachable!("rest ends s"));
+
+        Ok((rest, prefix))
     }
 
     pub fn match_one_or_two_digits(s: &str) -> Result<(&str, &str), &str> {
         let rest = s.strip_prefix(DIGIT).ok_or(s)?;
         let rest = rest.strip_prefix(DIGIT).unwrap_or(rest);
-        Ok((rest, get_prefix(s, rest)))
+        let prefix_len = s.len() - rest.len();
+        let prefix = s
+            .get(..prefix_len)
+            .unwrap_or_else(|| unreachable!("rest ends s"));
+
+        Ok((rest, prefix))
     }
 
     pub fn match_char(s: &str, c: char) -> Result<(&str, char), &str> {

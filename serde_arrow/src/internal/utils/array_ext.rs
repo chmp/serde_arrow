@@ -234,17 +234,22 @@ impl SeqArrayExt for BytesViewArray {
         };
 
         let n = bytes_view::get_len(*curr);
-        if self.buffers[0].len() < n {
-            fail!("Inconsistent length and data in BytesViewArray");
-        }
-        let start = self.buffers[0].len() - n;
-        let data = &self.buffers[0][start..];
+
+        let Some(first_buffer) = self.buffers.first_mut() else {
+            fail!("sequence operations without underlying buffer");
+        };
+        let Some(start) = first_buffer.len().checked_sub(n) else {
+            fail!("inconsistent length and data in BytesViewArray");
+        };
+        let data = first_buffer
+            .get(start..)
+            .unwrap_or_else(|| unreachable!("checked length before hand"));
 
         if data.len() <= 12 {
             *curr = bytes_view::pack_inline(data);
-            self.buffers[0].truncate(start);
+            first_buffer.truncate(start);
         } else {
-            *curr = bytes_view::pack_extern(data, 0, start);
+            *curr = bytes_view::pack_extern(data, 0, start)?;
         }
         Ok(())
     }
@@ -270,19 +275,27 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
         if value.len() <= 12 {
             self.data.push(bytes_view::pack_inline(value));
         } else {
-            assert!(!self.buffers.is_empty());
+            let Some(first_buffer) = self.buffers.first_mut() else {
+                fail!(
+                    "cannot append value with length greater than 12 without an underlying buffer"
+                );
+            };
             self.data
-                .push(bytes_view::pack_extern(value, 0, self.buffers[0].len()));
-            self.buffers[0].extend(value);
+                .push(bytes_view::pack_extern(value, 0, first_buffer.len())?);
+            first_buffer.extend(value);
         }
         Ok(())
     }
 }
 
 pub mod bytes_view {
+    use crate::internal::{
+        error::{fail, Result},
+        utils::truncating_cast::TruncatingCast,
+    };
+
     pub fn get_len(packed: u128) -> usize {
-        // NOTE: first truncate to only select the first 4 bytes
-        (packed as u32) as usize
+        packed.truncating_cast::<u32>("first u32 is the length") as usize
     }
 
     pub fn pack_len(len: usize) -> u128 {
@@ -300,21 +313,28 @@ pub mod bytes_view {
         result
     }
 
-    pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> u128 {
-        assert!(data.len() >= 4);
-        assert!(data.len() <= i32::MAX as usize);
-        assert!(buffer <= i32::MAX as usize);
-        assert!(offset <= i32::MAX as usize);
+    pub fn pack_extern(data: &[u8], buffer: usize, offset: usize) -> Result<u128> {
+        if i32::try_from(data.len()).is_err() {
+            fail!("data too large for string view type");
+        };
+        let len_bytes = u128::from(u32::try_from(data.len())?);
 
-        let len_bytes = (data.len() as u32) as u128;
-        let prefix = (data[0] as u128)
-            | ((data[1] as u128) << 8)
-            | ((data[2] as u128) << 16)
-            | ((data[3] as u128) << 24);
-        let buffer_bytes = (buffer as u32) as u128;
-        let offset_bytes = (offset as u32) as u128;
+        let prefix = u128::from(data.first().copied().unwrap_or_default())
+            | (u128::from(data.get(1).copied().unwrap_or_default()) << 8)
+            | (u128::from(data.get(2).copied().unwrap_or_default()) << 16)
+            | (u128::from(data.get(3).copied().unwrap_or_default()) << 24);
 
-        len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96)
+        if i32::try_from(buffer).is_err() {
+            fail!("view-type buffer reference is too large");
+        };
+        let buffer_bytes = u128::from(u32::try_from(buffer)?);
+
+        if i32::try_from(offset).is_err() {
+            fail!("offset too large for view type");
+        }
+        let offset_bytes = u128::from(u32::try_from(offset)?);
+
+        Ok(len_bytes | (prefix << 32) | (buffer_bytes << 64) | (offset_bytes << 96))
     }
 }
 
@@ -450,7 +470,7 @@ impl SeqArrayExt for CountArray {
 
 pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
     let Some(last) = vec.last() else {
-        fail!("Invalid offset array: expected at least a single element")
+        fail!("offset array must contain at least one element")
     };
     vec.push(last.clone());
     Ok(())
@@ -458,7 +478,7 @@ pub fn duplicate_last<T: Clone>(vec: &mut Vec<T>) -> Result<()> {
 
 pub fn increment_last<O: Offset>(vec: &mut [O], inc: usize) -> Result<()> {
     let Some(last) = vec.last_mut() else {
-        fail!("Invalid offset array: expected at least a single element")
+        fail!("offset array must contain at least one element")
     };
     *last = *last + O::try_form_usize(inc)?;
     Ok(())
@@ -501,7 +521,7 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     } else {
         Err(Error::new(
             ErrorKind::NullabilityViolation { field: None },
-            "Cannot push null for non-nullable array".into(),
+            "cannot serialize null into non-nullable array".into(),
         ))
     }
 }
@@ -517,19 +537,22 @@ pub fn set_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
     while idx / 8 >= buffer.len() {
         buffer.push(0);
     }
+    let dest = buffer
+        .get_mut(idx / 8)
+        .unwrap_or_else(|| unreachable!("ensured enough bytes are available"));
 
     let bit_mask: u8 = 1 << (idx % 8);
     if value {
-        buffer[idx / 8] |= bit_mask;
+        *dest |= bit_mask;
     } else {
-        buffer[idx / 8] &= !bit_mask;
+        *dest &= !bit_mask;
     }
 }
 
 pub fn get_bit_buffer(data: &[u8], offset: usize, idx: usize) -> Result<bool> {
     let flag = 1 << ((idx + offset) % 8);
     let Some(byte) = data.get((idx + offset) / 8) else {
-        fail!("Invalid access in bitset");
+        fail!("invalid access in bitset");
     };
     Ok(byte & flag == flag)
 }

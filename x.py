@@ -54,6 +54,23 @@ workflow_test_template = {
     },
     "env": {"CARGO_TERM_COLOR": "always"},
     "jobs": {
+        "msrv": {
+            "runs-on": "ubuntu-latest",
+            "steps": [
+                {"uses": "actions/checkout@v4"},
+                {"name": "Install Rust 1.83", "uses": "dtolnay/rust-toolchain@1.83.0"},
+                {"name": "rustc", "run": "rustc --version"},
+                {"name": "cargo", "run": "cargo --version"},
+                {
+                    "name": "Update dependencies",
+                    "run": "cargo +stable update --config 'resolver.incompatible-rust-versions=\"fallback\"'",
+                },
+                {
+                    "name": "Check MSRV with arrow-53",
+                    "run": "cargo +1.83.0 check --package serde_arrow --features arrow-53",
+                },
+            ],
+        },
         "build": {
             "runs-on": "ubuntu-latest",
             "steps": [
@@ -62,7 +79,7 @@ workflow_test_template = {
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
             ],
-        }
+        },
     },
 }
 

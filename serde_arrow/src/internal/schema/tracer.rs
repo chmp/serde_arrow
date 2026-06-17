@@ -16,7 +16,7 @@ use crate::internal::{
 // TODO: allow to customize
 const MAX_TYPE_DEPTH: usize = 20;
 const RECURSIVE_TYPE_WARNING: &str =
-    "Too deeply nested type detected: recursive types are not supported in schema tracing";
+    "too deeply nested type detected: recursive types are not supported in schema tracing";
 
 fn default_dictionary_field(name: &str, nullable: bool, string_type: DataType) -> Field {
     Field {
@@ -45,7 +45,7 @@ impl std::fmt::Display for NullFieldMessage<'_> {
         write!(
             f,
             concat!(
-                "Encountered null only field {name}. ",
+                "encountered null only field {name}. ",
                 "This error can be disabled by setting `allow_null_fields` to `true` in `TracingOptions`.",
             ),
             name = self.0
@@ -59,7 +59,7 @@ impl std::fmt::Display for EnumWithoutDataMessage<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,
             concat!(
-                "Encountered enums without data {name}. ",
+                "encountered enums without data {name}. ",
                 "This error can be disabled by setting `enums_without_data_as_strings` to `true` in `TracingOptions`. ",
                 "In this case the enum will be encoded as strings. ",
                 "Alternatively, this error can be disabled by setting `allow_null_fields` to `true` in `TracingOptions`. ",
@@ -107,17 +107,17 @@ impl Tracer {
         let root = self.to_field()?;
 
         if root.nullable {
-            fail!("The root type cannot be nullable");
+            fail!("the root type cannot be nullable");
         }
 
         let tracing_mode = dispatch_tracer!(self, tracer => tracer.options.tracing_mode);
 
         let fields = match root.data_type {
             DataType::Struct(children) => children,
-            DataType::Null => fail!("No records found to determine schema"),
+            DataType::Null => fail!("no records found to determine schema"),
             dt => fail!(
                 concat!(
-                    "Schema tracing is not directly supported for the root data type {dt}. ",
+                    "schema tracing is not directly supported for the root data type {dt}. ",
                     "Only struct-like types are supported as root types in schema tracing. ",
                     "{mitigation}",
                 ),
@@ -152,7 +152,7 @@ impl Tracer {
             let tracer_name = dispatch_tracer!(self, tracer => &tracer.name);
             if *overwrite_name != *tracer_name {
                 let path = path.strip_prefix("$.").unwrap_or(path);
-                fail!("Invalid name for overwritten field {path:?}: found {overwrite_name:?}, expected {tracer_name:?}");
+                fail!("invalid overwrite name for field {path:?}: expected {tracer_name:?}, got {overwrite_name:?}");
             }
             Ok(overwrite.clone())
         } else {
@@ -174,7 +174,7 @@ impl Tracer {
 
     pub fn check(&self) -> Result<()> {
         if dispatch_tracer!(self, tracer => tracer.name != "$") {
-            fail!("Check must be called on the root tracer");
+            fail!("internal tracer check must be called on the root tracer");
         }
         let options = self.get_options();
         self.check_overwrites(&options.overwrites)
@@ -201,7 +201,7 @@ impl Tracer {
                 .collect::<Vec<_>>();
             paths.sort();
 
-            fail!("Overwritten fields could not be found: missing fields {missing:?}, known fields: {paths:?}");
+            fail!("field overrides reference unknown paths: {missing:?}; known paths: {paths:?}");
         }
 
         Ok(())
@@ -311,7 +311,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Struct(_tracer) => {}
             _ => fail!(
-                "Mismatched types: previous {:?}, current struct",
+                "mismatched types: previous {:?}, current struct",
                 self.get_type()
             ),
         }
@@ -345,7 +345,7 @@ impl Tracer {
             // TODO: check fields are equal
             Self::Tuple(_tracer) => {}
             _ => fail!(
-                "Mismatched types, previous {:?}, current struct",
+                "mismatched types: previous {:?}, current tuple",
                 self.get_type()
             ),
         }
@@ -383,7 +383,7 @@ impl Tracer {
             // TODO: check fields are equal or fill missing fields
             Self::Union(_tracer) => {}
             _ => fail!(
-                "Mismatched types: previous {:?}, current union",
+                "mismatched types: previous {:?}, current union",
                 self.get_type()
             ),
         }
@@ -412,7 +412,7 @@ impl Tracer {
             }
             Self::List(_tracer) => {}
             _ => fail!(
-                "Mismatched types: previous {:?}, current list",
+                "mismatched types: previous {:?}, current list",
                 self.get_type()
             ),
         }
@@ -446,7 +446,7 @@ impl Tracer {
             }
             Self::Map(_tracer) => {}
             _ => fail!(
-                "Mismatched types: previous {:?}, current list",
+                "mismatched types: previous {:?}, current map",
                 self.get_type()
             ),
         }
@@ -492,7 +492,7 @@ impl Tracer {
                     dispatch_tracer!(this, tracer => { tracer.nullable = true });
                 } else {
                     fail!(
-                        "Cannot merge {ty:?} with {item_type:?}",
+                        "mismatched types while merging: previous {item_type:?}, current {ty:?}",
                         ty = this.get_type()
                     );
                 }
@@ -629,7 +629,7 @@ fn coerce_primitive_type(
                 ""
             };
             fail!(
-                "Cannot accept {curr_ty:?} {curr_st} for tracer of primitive type {prev_ty:?} {prev_st}{extra}",
+                "mismatched primitive types: previous {prev_ty:?} {prev_st}, current {curr_ty:?} {curr_st}{extra}",
                 curr_st = OptionalStrategyDisplay(curr_st.as_ref()),
                 prev_st = OptionalStrategyDisplay(prev_st),
             )
@@ -892,7 +892,9 @@ impl TupleTracer {
                 self.options.clone(),
             ));
         }
-        &mut self.field_tracers[idx]
+        self.field_tracers
+            .get_mut(idx)
+            .unwrap_or_else(|| unreachable!("the vector has at minimum idx elements"))
     }
 }
 
@@ -937,7 +939,7 @@ impl StructTracer {
     pub fn ensure_field(&mut self, key: &str) -> Result<usize> {
         if let Some(&field_idx) = self.index.get(key) {
             let Some(field) = self.fields.get_mut(field_idx) else {
-                fail!("Invalid state: no tracer found for field with name {key}");
+                fail!("invalid tracer state: field {key:?} has stale index {field_idx}");
             };
             field.last_seen_in_sample = self.seen_samples;
 
@@ -1052,33 +1054,43 @@ impl Context for UnionTracer {
 impl UnionTracer {
     pub fn ensure_variant<S: Into<String> + AsRef<str>>(
         &mut self,
-        variant: S,
+        variant_name: S,
         idx: usize,
-    ) -> Result<()> {
+    ) -> Result<&mut UnionVariant> {
         while self.variants.len() <= idx {
             self.variants.push(None);
         }
+        let Some(variant) = self.variants.get_mut(idx) else {
+            unreachable!("the variant slot was just inserted");
+        };
 
-        if let Some(prev) = self.variants[idx].as_mut() {
-            let variant = variant.as_ref();
+        if let Some(prev) = variant {
+            let variant = variant_name.as_ref();
             if prev.name != variant {
                 fail!(
-                    "Incompatible names for variant {idx}: {prev}, {variant}",
+                    "incompatible names for variant {idx}: {prev}, {variant}",
                     prev = prev.name
                 );
             }
         } else {
             let tracer = Tracer::new(
-                variant.as_ref().to_string(),
-                format!("{path}.{key}", path = self.path, key = variant.as_ref()),
+                variant_name.as_ref().to_string(),
+                format!(
+                    "{path}.{key}",
+                    path = self.path,
+                    key = variant_name.as_ref()
+                ),
                 self.options.clone(),
             );
-            let name = variant.into();
+            let name = variant_name.into();
 
-            self.variants[idx] = Some(UnionVariant { name, tracer });
+            *variant = Some(UnionVariant { name, tracer });
         }
 
-        Ok(())
+        let Some(res) = variant else {
+            unreachable!("the variant was just inserted");
+        };
+        Ok(res)
     }
 
     pub fn get_path(&self) -> &str {

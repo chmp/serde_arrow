@@ -31,7 +31,7 @@ pub trait Sealed {}
 ///
 /// 1. [`SchemaLike::from_value`]: specify the schema manually, e.g., as a JSON value
 /// 2. [`SchemaLike::from_type`]: determine the schema from the record type
-/// 3. [`SchemaLike::from_samples`]: Determine the schema from samples of data
+/// 3. [`SchemaLike::from_samples`]: determine the schema from samples of data
 ///
 /// The following types implement [`SchemaLike`] and can be constructed with the methods mentioned
 /// above:
@@ -51,7 +51,7 @@ pub trait Sealed {}
     doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
 )]
 ///
-/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized. The format is that
+/// Instances of `SerdeArrowSchema` can be directly serialized and deserialized using the format
 /// described in [`SchemaLike::from_value`].
 ///
 /// ```rust
@@ -67,7 +67,7 @@ pub trait Sealed {}
 /// ```
 ///
 pub trait SchemaLike: Sized + Sealed {
-    /// Build the schema from an object that implements serialize (e.g., `serde_json::Value`)
+    /// Build the schema from an object that implements `Serialize` (e.g., `serde_json::Value`)
     ///
     /// ```rust
     /// # #[cfg(has_arrow)]
@@ -110,7 +110,7 @@ pub trait SchemaLike: Sized + Sealed {
     /// - strings: `"Utf8"`, `"LargeUtf8"`
     /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
     /// - date objects: `"Date32"`, `"Date64"`
-    /// - date time objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
+    /// - datetime objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
     ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
     ///   `None` or `Some("Utc")`.
     /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
@@ -132,11 +132,11 @@ pub trait SchemaLike: Sized + Sealed {
     /// options.
     ///
     /// This approach requires the type `T` to implement [`Deserialize`][::serde::Deserialize]. As
-    /// only type information is used, it is not possible to detect data dependent properties.
+    /// only type information is used, it is not possible to detect data-dependent properties.
     /// Examples of unsupported features:
     ///
-    /// - auto detection of date time strings
-    /// - non self-describing types such as `serde_json::Value`
+    /// - automatic detection of datetime strings
+    /// - non-self-describing types such as `serde_json::Value`
     /// - flattened structures (`#[serde(flatten)]`)
     /// - types that require specific data to be deserialized, such as the `DateTime` type of
     ///   `chrono` or the `Uuid` type of the `uuid` package
@@ -268,7 +268,7 @@ pub trait SchemaLike: Sized + Sealed {
 
 /// A collection of fields as understood by `serde_arrow`
 ///
-/// It can be converted from / to arrow or arrow2 fields.
+/// It can be converted to and from Arrow or arrow2 fields.
 ///
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct SerdeArrowSchema {
@@ -309,7 +309,7 @@ impl SchemaLike for Vec<Field> {
 
 /// Wrapper around `SerdeArrowSchema::from_value` to convert a single field
 ///
-/// This function takes anything that serialized into a field and converts it into a field.
+/// This function takes anything that serializes into a field and converts it into a field.
 pub fn transmute_field(field: impl Serialize) -> Result<Field> {
     let expected = SerdeArrowSchema::from_value(&[field])?;
     let Some(field) = expected.fields.into_iter().next() else {
@@ -358,21 +358,21 @@ pub fn validate_field(field: &Field) -> Result<()> {
         DataType::Dictionary(key, values) => {
             validate_dictionary_field(field, key.as_ref(), values.as_ref())
         }
-        dt => fail!("Unsupported data type {dt:?}"),
+        dt => fail!("data type {dt:?} is not supported in schema validation"),
     }
 }
 
 fn validate_null_field(field: &Field) -> Result<()> {
     match get_strategy_from_metadata(&field.metadata)? {
         None | Some(Strategy::InconsistentTypes) | Some(Strategy::UnknownVariant) => Ok(()),
-        Some(strategy) => fail!("invalid strategy for Null field: {strategy}"),
+        Some(strategy) => fail!("strategy {strategy} is not supported for Null fields"),
     }
 }
 
 fn validate_primitive_field(field: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
         fail!(
-            "invalid strategy for {data_type}: {strategy}",
+            "strategy {strategy} is not supported for {data_type} fields",
             data_type = DataTypeDisplay(&field.data_type),
         );
     }
@@ -381,28 +381,28 @@ fn validate_primitive_field(field: &Field) -> Result<()> {
 
 fn validate_fixed_size_binary_field(field: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("Invalid FixedSizedBinary with negative number of elements");
+        fail!("FixedSizeBinary size must be non-negative, got {n}");
     }
     validate_primitive_field(field)
 }
 
 fn validate_fixed_size_list_field(field: &Field, child: &Field, n: i32) -> Result<()> {
     if n < 0 {
-        fail!("Invalid FixedSizeList with negative number of elements");
+        fail!("invalid FixedSizeList: size must be non-negative, got {n}");
     }
     validate_list_field(field, child)
 }
 
 fn validate_list_field(field: &Field, child: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for List field: {strategy}");
+        fail!("strategy {strategy} is not supported for List fields");
     }
     validate_field(child)
 }
 
 fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Dictionary field: {strategy}");
+        fail!("strategy {strategy} is not supported for Dictionary fields");
     }
     if !matches!(
         key,
@@ -416,13 +416,13 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
             | DataType::Int64
     ) {
         fail!(
-            "invalid child for Dictionary. Expected integer keys, found: {key}",
+            "invalid Dictionary key data type: expected integer, got {key}",
             key = DataTypeDisplay(key),
         );
     }
     if !matches!(value, DataType::Utf8 | DataType::LargeUtf8) {
         fail!(
-            "invalid child for Dictionary. Expected string values, found: {value}",
+            "invalid Dictionary value data type: expected Utf8 or LargeUtf8, got {value}",
             value = DataTypeDisplay(value)
         );
     }
@@ -431,34 +431,34 @@ fn validate_dictionary_field(field: &Field, key: &DataType, value: &DataType) ->
 
 fn validate_date64_field(field: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Date64 field: {strategy}");
+        fail!("strategy {strategy} is not supported for Date64 fields");
     }
     Ok(())
 }
 
 fn validate_timestamp_field(field: &Field, unit: TimeUnit, tz: Option<&str>) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Timestamp({unit}, {tz:?}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Timestamp({unit}, {tz:?}) fields");
     }
     Ok(())
 }
 
 fn validate_time32_field(field: &Field, unit: TimeUnit) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Time32({unit}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Time32({unit}) fields");
     }
     if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
-        fail!("Time32 field must have Second or Millisecond unit");
+        fail!("invalid Time32 unit {unit}: expected Second or Millisecond");
     }
     Ok(())
 }
 
 fn validate_time64_field(field: &Field, unit: TimeUnit) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Time64({unit}) field: {strategy}");
+        fail!("strategy {strategy} is not supported for Time64({unit}) fields");
     }
     if !matches!(unit, TimeUnit::Microsecond | TimeUnit::Nanosecond) {
-        fail!("Time64 field must have Microsecond or Nanosecond unit");
+        fail!("invalid Time64 unit {unit}: expected Microsecond or Nanosecond");
     }
     Ok(())
 }
@@ -467,7 +467,7 @@ fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
     // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
     match get_strategy_from_metadata(&field.metadata)? {
         None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
-        Some(strategy) => fail!("invalid strategy for Struct field: {strategy}"),
+        Some(strategy) => fail!("strategy {strategy} is not supported for Struct fields"),
     }
     for child in children {
         validate_field(child)?;
@@ -477,23 +477,32 @@ fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
 
 fn validate_map_field(field: &Field, _entry: &Field) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Map field: {strategy}");
+        fail!("strategy {strategy} is not supported for Map fields");
     }
     let DataType::Map(entry, _) = &field.data_type else {
-        fail!("Invalid data type for map child, expected a map");
+        fail!(
+            "invalid map field data type: expected Map, got {}",
+            DataTypeDisplay(&field.data_type)
+        );
     };
     let DataType::Struct(entry_fields) = &entry.data_type else {
-        fail!("Invalid child data type for map, expected struct with 2 fields");
+        fail!(
+            "invalid map entry data type: expected Struct with 2 fields, got {}",
+            DataTypeDisplay(&entry.data_type)
+        );
     };
     if entry_fields.len() != 2 {
-        fail!("Invalid child data type for map, expected struct with 2 fields");
+        fail!(
+            "invalid map entry field count: expected 2, got {}",
+            entry_fields.len()
+        );
     }
     Ok(())
 }
 
 fn validate_union_field(field: &Field, children: &[(i8, Field)], _mode: UnionMode) -> Result<()> {
     if let Some(strategy) = get_strategy_from_metadata(&field.metadata)? {
-        fail!("invalid strategy for Union field: {strategy}");
+        fail!("strategy {strategy} is not supported for Union fields");
     }
     for (_, child) in children {
         validate_field(child)?;
@@ -548,7 +557,7 @@ impl std::fmt::Display for DataTypeDisplay<'_> {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for SerdeArrowSchema {}

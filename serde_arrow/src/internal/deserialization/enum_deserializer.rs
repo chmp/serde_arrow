@@ -22,18 +22,18 @@ pub struct EnumDeserializer<'a> {
 impl<'a> EnumDeserializer<'a> {
     pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
         let Some(offsets) = view.offsets else {
-            fail!("Only dense unions are supported");
+            fail!("only dense unions are supported");
         };
 
         if view.types.len() != offsets.len() {
-            fail!("Offsets and type ids must have the same length")
+            fail!("offsets and type ids must have the same length")
         }
 
         let mut variants = Vec::new();
         for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate() {
             // TODO: introduce translation table?
             if usize::try_from(type_id) != Ok(idx) {
-                fail!("Only unions with consecutive type ids are currently supported");
+                fail!("only unions with consecutive type ids are currently supported");
             }
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
             let field_deserializer = ArrayDeserializer::new(
@@ -63,7 +63,10 @@ impl Context for EnumDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.types.len() {
-            fail!("Access beyond bounds");
+            fail!(
+                "index {idx} is out of bounds for Union array with length {}",
+                self.types.len()
+            );
         }
         Ok(true)
     }
@@ -79,16 +82,27 @@ impl<'de> RandomAccessDeserializer<'de> for EnumDeserializer<'de> {
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        if idx >= self.types.len() {
-            fail!("Exhausted deserializer");
-        }
-        let type_id = self.types[idx];
-        let offset = self.offsets[idx].try_into_usize()?;
-        let (name, variant) = &self.variants[type_id as usize];
+        let Some(type_id) = self.types.get(idx) else {
+            fail!(
+                "index {idx} is out of bounds for Union array with length {}",
+                self.types.len()
+            );
+        };
+        let Some(offset) = self.offsets.get(idx) else {
+            fail!("Union array is missing data for index {idx}");
+        };
+        let offset = offset.try_into_usize()?;
+        let Ok(variant_id) = usize::try_from(*type_id) else {
+            fail!("Union array has an invalid type ID at index {idx}");
+        };
+
+        let Some((name, variant)) = self.variants.get(variant_id) else {
+            fail!("Union array references a non-existing variant at index {idx}");
+        };
 
         visitor.visit_enum(VariantItemDeserializer {
             deserializer: variant.at(offset),
-            type_id,
+            type_id: *type_id,
             name,
         })
     }
@@ -121,7 +135,7 @@ struct VariantIdDeserializer<'a> {
 macro_rules! unimplemented {
     ($lifetime:lifetime, $name:ident $($tt:tt)*) => {
         fn $name<V: Visitor<$lifetime>>(self $($tt)*, _: V) -> Result<V::Value> {
-            fail!("Unsupported: EnumDeserializer does not implement {}", stringify!($name))
+            fail!("EnumDeserializer does not support {}", stringify!($name))
         }
     };
 }

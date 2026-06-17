@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::utils::{check_dim_names, check_permutation, write_list, DebugRepr};
 
-/// Easily construct a fixed shape tensor fields (`arrow.fixed_shape_tensor`)
+/// Easily construct fixed-shape tensor fields (`arrow.fixed_shape_tensor`)
 ///
 /// See the [arrow docs][fixed-shape-tensor-docs] for details on the different
 /// fields.
@@ -55,12 +55,12 @@ impl FixedShapeTensorField {
     /// Construct a new non-nullable `FixedShapeTensorField`
     ///
     /// Note the element parameter must serialize into a valid field definition
-    /// with the the name `"element"`. The field type can be any valid Arrow
+    /// with the name `"element"`. The field type can be any valid Arrow
     /// type.
     pub fn new(name: &str, element: impl serde::ser::Serialize, shape: Vec<usize>) -> Result<Self> {
         let element = transmute_field(element)?;
         if element.name != "element" {
-            fail!("The element field of FixedShapeTensorField must be named \"element\"");
+            fail!("the element field of FixedShapeTensorField must be named \"element\"");
         }
 
         Ok(Self {

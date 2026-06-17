@@ -42,7 +42,7 @@ use crate::{
 /// // push multiple items
 /// builder.extend(&items)?;
 ///
-/// // push a single items
+/// // push a single item
 /// builder.push(&item)?;
 ///
 /// // build the arrays
@@ -57,7 +57,7 @@ pub struct ArrayBuilder {
 }
 
 impl ArrayBuilder {
-    /// Construct an array builder from an [`SerdeArrowSchema`]
+    /// Construct an array builder from a [`SerdeArrowSchema`]
     pub fn new(schema: SerdeArrowSchema) -> Result<Self> {
         Self::from_marrow_vec(schema.fields)
     }
@@ -124,7 +124,7 @@ impl std::convert::AsMut<ArrayBuilder> for ArrayBuilder {
     }
 }
 
-#[allow(unused)]
+#[allow(unused, reason = "trait assertions")]
 const _: () = {
     trait AssertSendSync: Send + Sync {}
     impl AssertSendSync for ArrayBuilder {}

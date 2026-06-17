@@ -1,4 +1,4 @@
-//! Support for the `arrow2` crate (requires one the `arrow2-*` features)
+//! Support for the `arrow2` crate (requires one of the `arrow2-*` features)
 //!
 //! Functions to convert Rust objects into Arrow arrays and back.
 //!
@@ -21,9 +21,9 @@ use crate::{
 /// Build arrow2 arrays from the given items  (*requires one of the `arrow2-*`
 /// features*)
 ///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs). To serialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// `items` should be given in the form of a list of records (e.g., a vector of
+/// structs). To serialize single values, use the [`Items`][crate::utils::Items]
+/// wrapper.
 ///
 /// To build arrays record by record use [`ArrayBuilder`].
 ///
@@ -65,13 +65,12 @@ pub fn to_arrow2<T: Serialize>(fields: &[ArrowField], items: T) -> Result<Vec<Bo
 /// `arrow2-*` features*)
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
-/// deserialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// deserialize single values, use the [`Items`][crate::utils::Items] wrapper.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
 /// # use serde_arrow::_impl::arrow2;
-/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+/// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays()?;
 /// use arrow2::datatypes::Field;
 /// use serde::{Deserialize, Serialize};
 /// use serde_arrow::schema::{SchemaLike, TracingOptions};
@@ -125,7 +124,7 @@ impl<'de> Deserializer<'de> {
     /// ```rust
     /// # fn main() -> serde_arrow::Result<()> {
     /// # use serde_arrow::_impl::arrow2;
-    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays();
+    /// # let (_, arrays) = serde_arrow::_impl::docs::defs::example_arrow2_arrays()?;
     /// use arrow2::datatypes::Field;
     /// use serde::{Deserialize, Serialize};
     /// use serde_arrow::{Deserializer, schema::{SchemaLike, TracingOptions}};

@@ -5,11 +5,11 @@ use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
 
-/// Build [marrow array][marrow::array::Array] from the given items
+/// Build [marrow arrays][marrow::array::Array] from the given items
 ///
-/// `items` should be given in the form a list of records (e.g., a vector of
-/// structs). To serialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// `items` should be given in the form of a list of records (e.g., a vector of
+/// structs). To serialize single values, use the [`Items`][crate::utils::Items]
+/// wrapper.
 ///
 /// To build arrays record by record use [`ArrayBuilder`].
 ///
@@ -63,8 +63,7 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
 /// Deserialize items from [marrow views][marrow::view::View]
 ///
 /// The type should be a list of records (e.g., a vector of structs). To
-/// deserialize items encoding single values consider the
-/// [`Items`][crate::utils::Items] wrapper.
+/// deserialize single values, use the [`Items`][crate::utils::Items] wrapper.
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {

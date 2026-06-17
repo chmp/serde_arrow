@@ -47,7 +47,7 @@ impl<'a, T: Integer> TimeDeserializer<'a, T> {
         let time = build_time(secs, nanos).ok_or_else(|| {
             Error::new(
                 ErrorKind::Custom,
-                format!("Cannot convert {ts} into Time64({unit})", unit = self.unit),
+                format!("cannot convert {ts} into Time64({unit})", unit = self.unit),
             )
         })?;
         Ok(time.to_string())

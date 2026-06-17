@@ -124,7 +124,7 @@ impl FixedSizeListBuilder {
         };
         if !is_valid {
             fail!(
-                "Invalid number of elements for FixedSizedList({n}). Expected {n}, got {actual}",
+                "invalid number of elements for FixedSizeList({n}): expected {n}, got {actual}",
                 n = self.n,
             );
         }

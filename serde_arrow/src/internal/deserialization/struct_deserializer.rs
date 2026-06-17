@@ -62,7 +62,10 @@ impl Context for StructDeserializer<'_> {
 impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         if idx >= self.len {
-            fail!("Out of bounds access");
+            fail!(
+                "index {idx} is out of bounds for Struct array with length {}",
+                self.len
+            );
         }
         if let Some(validity) = self.validity.as_ref() {
             Ok(bitset_is_set(validity, idx)?)
@@ -73,7 +76,10 @@ impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         if idx >= self.len {
-            fail!("Exhausted deserializer");
+            fail!(
+                "index {idx} is out of bounds for Struct array with length {}",
+                self.len
+            );
         }
         visitor.visit_map(StructItemDeserializer::new(self, idx))
     }
@@ -150,7 +156,10 @@ impl<'de> MapAccess<'de> for StructItemDeserializer<'_, 'de> {
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         let Some((_, field_deserializer)) = self.deserializer.fields.get(self.field) else {
-            fail!("Invalid state in struct deserializer");
+            fail!(
+                "next_value_seed called without a remaining struct field at position {}",
+                self.field
+            );
         };
 
         let res = seed.deserialize(field_deserializer.at(self.item))?;

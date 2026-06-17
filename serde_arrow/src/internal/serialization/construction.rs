@@ -73,13 +73,13 @@ fn build_builder(
         }
         T::Time32(unit) => {
             if !matches!(unit, TimeUnit::Second | TimeUnit::Millisecond) {
-                fail!("Time32 only supports second or millisecond resolutions");
+                fail!("invalid Time32 unit {unit}: expected Second or Millisecond");
             }
             A::Time32(TimeBuilder::new(name, unit, nullable, metadata))
         }
         T::Time64(unit) => {
             if !matches!(unit, TimeUnit::Nanosecond | TimeUnit::Microsecond) {
-                fail!("Time64 only supports nanosecond or microsecond resolutions");
+                fail!("invalid Time64 unit {unit}: expected Microsecond or Nanosecond");
             }
             A::Time64(TimeBuilder::new(name, unit, nullable, metadata))
         }
@@ -122,15 +122,16 @@ fn build_builder(
         T::Map(entry_field, sorted) => {
             let DataType::Struct(entries_field) = entry_field.data_type else {
                 fail!(
-                    "Unexpected data type for map array: Expected Struct, got {:?}",
+                    "unexpected map entry data type: expected Struct, got {:?}",
                     entry_field.data_type
                 );
             };
+            let num_entry_fields = entries_field.len();
             let Ok([keys_field, values_field]) = <[Field; 2]>::try_from(entries_field) else {
-                fail!("A map field must be a struct with exactly two fields");
+                fail!("invalid map entry field count: expected 2, got {num_entry_fields}");
             };
             if sorted {
-                fail!("Sorted maps are not supported");
+                fail!("sorted maps are not supported");
             }
 
             A::Map(MapBuilder::new(
@@ -164,7 +165,7 @@ fn build_builder(
             let mut fields = Vec::new();
             for (idx, (type_id, field)) in union_fields.into_iter().enumerate() {
                 if usize::try_from(type_id) != Ok(idx) {
-                    fail!("Union with non consecutive type ids are not supported");
+                    fail!("non-consecutive Union type ID: expected {idx}, got {type_id}");
                 }
                 fields.push(build_builder(
                     field.name,
@@ -176,7 +177,7 @@ fn build_builder(
 
             A::Union(UnionBuilder::new(name, fields, metadata))
         }
-        dt => fail!("Cannot build ArrayBuilder for data type {dt:?}"),
+        dt => fail!("cannot build ArrayBuilder for data type {dt:?}"),
     };
     Ok(builder)
 }

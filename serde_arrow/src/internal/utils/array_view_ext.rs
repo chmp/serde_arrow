@@ -3,6 +3,7 @@ use marrow::view::{BytesView, BytesViewView, PrimitiveView, View};
 use crate::internal::{
     deserialization::utils::bitset_is_set,
     error::{fail, Error, ErrorKind, Result},
+    utils::truncating_cast::TruncatingCast,
 };
 
 use super::Offset;
@@ -50,7 +51,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.validity.is_some()),
             V::Struct(view) => Ok(view.validity.is_some()),
             V::Dictionary(view) => view.keys.is_nullable(),
-            _ => fail!("Unknown view type"),
+            _ => fail!("array view does not expose nullability"),
         }
     }
 
@@ -94,7 +95,7 @@ impl ViewExt for View<'_> {
             V::Map(view) => Ok(view.offsets.len().saturating_sub(1)),
             V::Struct(view) => Ok(view.len),
             V::Dictionary(view) => view.keys.len(),
-            _ => fail!("Unknown view type"),
+            _ => fail!("array view does not expose a length"),
         }
     }
 }
@@ -111,7 +112,7 @@ pub trait ViewAccess<'a, Item: ?Sized + 'a> {
         } else {
             Err(Error::new(
                 ErrorKind::NullabilityViolation { field: None },
-                "Required item was not present".into(),
+                "required array value is null".into(),
             ))
         }
     }
@@ -134,7 +135,10 @@ impl<'a, T> ViewAccess<'a, T> for PrimitiveView<'a, T> {
             }
             Ok(Some(value))
         } else {
-            fail!("Access beyond array length");
+            fail!(
+                "index {idx} is out of bounds for primitive array with length {}",
+                self.values.len()
+            );
         }
     }
 }
@@ -143,7 +147,7 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         if idx + 1 > self.offsets.len() {
             fail!(
-                "Invalid access: tried to get element {idx} of array with {len} elements",
+                "index {idx} is out of bounds for bytes array with length {len}",
                 len = self.offsets.len().saturating_sub(1)
             );
         }
@@ -154,9 +158,29 @@ impl<'a, O: Offset> ViewAccess<'a, [u8]> for BytesView<'a, O> {
             }
         }
 
-        let start = self.offsets[idx].try_into_usize()?;
-        let end = self.offsets[idx + 1].try_into_usize()?;
-        Ok(Some(&self.data[start..end]))
+        let Some(start) = self.offsets.get(idx) else {
+            fail!(
+                "index {idx} is out of bounds for bytes array with length {}",
+                self.offsets.len().saturating_sub(1)
+            );
+        };
+        let Some(end) = self.offsets.get(idx + 1) else {
+            fail!(
+                "index {idx} is out of bounds for bytes array with length {}",
+                self.offsets.len().saturating_sub(1)
+            );
+        };
+
+        let start = start.try_into_usize()?;
+        let end = end.try_into_usize()?;
+
+        let Some(data) = self.data.get(start..end) else {
+            fail!(
+                "invalid bytes array: byte range {start}..{end} exceeds data length {}",
+                self.data.len()
+            );
+        };
+        Ok(Some(data))
     }
 }
 
@@ -164,7 +188,7 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
     fn get(&self, idx: usize) -> Result<Option<&'a [u8]>> {
         let Some(desc) = self.data.get(idx) else {
             fail!(
-                "Invalid access: tried to get element {idx} of array with {len} elements",
+                "index {idx} is out of bounds for bytes-view array with length {len}",
                 len = self.data.len()
             );
         };
@@ -175,22 +199,29 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
             }
         }
 
-        let len = (*desc as u32) as usize;
+        let len = (*desc).truncating_cast::<u32>("first u32 is the length") as usize;
         let res = || -> Option<&'a [u8]> {
             if len <= 12 {
                 let bytes: &[u8] = bytemuck::try_cast_slice(std::slice::from_ref(desc)).ok()?;
                 bytes.get(4..4 + len)
             } else {
-                let buf_idx = ((*desc >> 64) as u32) as usize;
-                let offset = ((*desc >> 96) as u32) as usize;
-                self.buffers.get(buf_idx)?.get(offset..offset + len)
+                let buf_idx = usize::try_from(
+                    (*desc >> 64).truncating_cast::<u32>("third u32 is the buf idx"),
+                )
+                .ok()?;
+                let offset = usize::try_from(
+                    (*desc >> 96).truncating_cast::<u32>("fourth u32 is the ofset"),
+                )
+                .ok()?;
+                let end = offset.checked_add(len)?;
+                self.buffers.get(buf_idx)?.get(offset..end)
             }
         }();
 
-        if res.is_none() {
-            fail!("invalid state in bytes deserialization");
-        }
-        Ok(res)
+        let Some(res) = res else {
+            fail!("bytes-view array has an invalid value at index {idx} with length {len}");
+        };
+        Ok(Some(res))
     }
 }
 

@@ -1,6 +1,6 @@
 # Status
 
-The page documents the supported types both from an Arrow and a Rust perspective.
+This page documents supported types from both Arrow and Rust perspectives.
 
 - [Arrow data types](#arrow-data-types)
 - [Rust types](#rust-types)
@@ -128,12 +128,12 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 
 `chrono::Duration` does not support Serde and is therefore not supported
 
-###  `jiff` types
+### `jiff` types
 
 #### `jiff::Date`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Date32`
+- can be mapped to `Utf8`, `LargeUtf8`, `Date32`
 - `from_samples` detects
   - `LargeUtf8` without configuration
   - `Date32` when setting `guess_dates = true`
@@ -142,16 +142,16 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 #### `jiff::Time`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Time32(..)`, `Time64(..)`
+- can be mapped to `Utf8`, `LargeUtf8`, `Time32(..)`, `Time64(..)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Time64(Nanosecond)` when setitng `guess_dates = true`
+  - `Time64(Nanosecond)` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::DateTime`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestmap(.., None)`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., None)`
 - `from_samples` detects
   - `LargeUtf8` without configuration
   - `Timestamp(Millisecond, None)` when setting `guess_dates = true`
@@ -160,16 +160,16 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 #### `jiff::Timestamp`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
+- can be mapped to `Utf8`, `LargeUtf8`, `Timestamp(.., Some("UTC"))`
 - `from_samples` detects
   - `LargeUtf8` without configuration
-  - `Timestamp(Millisecond, Some("UTC"))` when setting  `guess_dates = true`
+  - `Timestamp(Millisecond, Some("UTC"))` when setting `guess_dates = true`
 - `from_type` is not supported, as the type is not self-describing
 
 #### `jiff::Span`
 
 - is serialized as Serde strings
-- can me mapped to `Utf8`, `LargeUtf8`, `Duration(..)`
+- can be mapped to `Utf8`, `LargeUtf8`, `Duration(..)`
 - `from_samples` detects `LargeUtf8`
 - `from_type` is not supported, as the type is not self-describing
 
@@ -179,7 +179,7 @@ Same as `jiff::Span`
 
 #### `jiff::Zoned`
 
-is not supported as there is no clear way of implementation
+is not supported because there is no clear mapping to an Arrow type
 
 ### [`rust_decimal::Decimal`][rust_decimal::Decimal]
 

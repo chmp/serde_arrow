@@ -63,8 +63,9 @@ impl Context for MapDeserializer<'_> {
 
 impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
-        if idx + 1 >= self.offsets.len() {
-            fail!("Out of bounds access")
+        let len = self.offsets.len().saturating_sub(1);
+        if idx >= len {
+            fail!("index {idx} is out of bounds for Map array with length {len}");
         }
         if let Some(validity) = &self.validity {
             Ok(bitset_is_set(validity, idx)?)
@@ -79,14 +80,23 @@ impl<'de> RandomAccessDeserializer<'de> for MapDeserializer<'de> {
 
     fn deserialize_map<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
         try_(|| {
-            if idx + 1 >= self.offsets.len() {
-                fail!("Out of bounds access")
-            }
+            let Some(start) = self.offsets.get(idx) else {
+                fail!(
+                    "index {idx} is out of bounds for Map array with length {}",
+                    self.offsets.len().saturating_sub(1)
+                );
+            };
+            let Some(end) = self.offsets.get(idx + 1) else {
+                fail!(
+                    "index {idx} is out of bounds for Map array with length {}",
+                    self.offsets.len().saturating_sub(1)
+                );
+            };
 
             visitor.visit_map(MapItemDeserializer {
                 deserializer: self,
-                start: self.offsets[idx].try_into_usize()?,
-                end: self.offsets[idx + 1].try_into_usize()?,
+                start: start.try_into_usize()?,
+                end: end.try_into_usize()?,
             })
         })
         .ctx(self)
@@ -112,7 +122,7 @@ impl<'de> MapAccess<'de> for MapItemDeserializer<'_, 'de> {
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value> {
         if self.start >= self.end {
-            fail!("Invalid state in MapItemDeserializer");
+            fail!("next_value_seed called without a remaining map entry");
         }
         let value = seed.deserialize(self.deserializer.value.at(self.start))?;
         self.start += 1;
