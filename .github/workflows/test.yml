@@ -185,6 +185,10 @@
         {
           "name": "Test",
           "run": "cargo test --features arrow2-0-17,arrow-59"
+        },
+        {
+          "name": "Integration test",
+          "run": "uv run python x.py test-integration"
         }
       ]
     }

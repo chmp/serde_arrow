@@ -197,6 +197,10 @@ def _generate_workflow_check_steps():
         "name": "Test",
         "run": f"cargo test --features {default_features}",
     }
+    yield {
+        "name": "Integration test",
+        "run": "uv run python x.py test-integration",
+    }
 
 
 @cmd(help="Format the code")
@@ -297,9 +301,13 @@ def test_unit(test_name=None, backtrace=False, full=False):
     help="If given, print a backtrace on error",
 )
 def test_integration(backtrace=False):
+    env = {"SERDE_ARROW_PYTHON": __import__("sys").executable}
+    if backtrace:
+        env["RUST_BACKTRACE"] = "1"
+
     _sh(
         "cargo test -p integration_tests",
-        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+        env=env,
     )
 
 

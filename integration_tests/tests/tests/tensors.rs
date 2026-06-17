@@ -28,14 +28,16 @@ fn fixed_shape_tensor() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    write_file("fixed_shape_tensor.ipc", &batch)?;
+    let path = write_file("fixed_shape_tensor.ipc", &batch)?;
 
     let output = execute_python(
         r#"
+        import sys
         import pyarrow as pa
-        tbl = pa.ipc.open_file("fixed_shape_tensor.ipc").read_all()
+        tbl = pa.ipc.open_file(sys.argv[1]).read_all()
         print(tbl["item"].combine_chunks().to_numpy_ndarray().shape)
     "#,
+        &[&path],
     )?;
     assert_eq!(output.trim(), "(4, 3, 2, 1)");
     Ok(())
@@ -71,13 +73,15 @@ fn variable_shape_tensor() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    write_file("variable_shape_tensor.ipc", &batch)?;
+    let path = write_file("variable_shape_tensor.ipc", &batch)?;
 
     let output = execute_python(
         r#"
+        import sys
         import pyarrow as pa
-        tbl = pa.ipc.open_file("variable_shape_tensor.ipc").read_all()
+        tbl = pa.ipc.open_file(sys.argv[1]).read_all()
     "#,
+        &[&path],
     )?;
     let _ = output;
 
