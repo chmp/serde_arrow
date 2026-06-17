@@ -58,9 +58,13 @@ workflow_test_template = {
             "runs-on": "ubuntu-latest",
             "steps": [
                 {"uses": "actions/checkout@v4"},
-                {"name": "Install Rust 1.81", "uses": "dtolnay/rust-toolchain@1.81.0"},
+                {"name": "Install Rust 1.83", "uses": "dtolnay/rust-toolchain@1.83.0"},
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
+                {
+                    "name": "Update dependencies",
+                    "run": "cargo update --config 'resolve.incompatible-rust-versions=\"fallback\"'",
+                },
                 {
                     "name": "Check MSRV with arrow-53",
                     "run": "cargo check --package serde_arrow --features arrow-53",

@@ -27,8 +27,8 @@
           "uses": "actions/checkout@v4"
         },
         {
-          "name": "Install Rust 1.81",
-          "uses": "dtolnay/rust-toolchain@1.81.0"
+          "name": "Install Rust 1.83",
+          "uses": "dtolnay/rust-toolchain@1.83.0"
         },
         {
           "name": "rustc",
@@ -37,6 +37,10 @@
         {
           "name": "cargo",
           "run": "cargo --version"
+        },
+        {
+          "name": "Update dependencies",
+          "run": "cargo update --config 'resolve.incompatible-rust-versions=\"fallback\"'"
         },
         {
           "name": "Check MSRV with arrow-53",
