@@ -73,7 +73,7 @@ pub mod arrow2_convert {
         field::ArrowField,
         serialize::{ArrowSerialize, TryIntoArrow},
     };
-    use serde_arrow::{Error, ErrorKind, Result, _impl::arrow2::array::Array};
+    use serde_arrow::{_impl::arrow2::array::Array, Error, ErrorKind, Result};
 
     pub fn trace<T>(_items: &T) {}
 
