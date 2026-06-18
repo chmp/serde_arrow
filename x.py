@@ -37,6 +37,17 @@ default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
+# actions/checkout v7.0.0
+ACTION_CHECKOUT = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+
+# astral-sh/setup-uv v8.2.0
+ACTION_SETUP_UV = "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39"
+
+# dtolnay/rust-toolchain branch 1.83.0
+ACTION_RUST_TOOLCHAIN = (
+    "dtolnay/rust-toolchain@bd41891a8e7f4b8649f6d684415e1a6155fe4e22"
+)
+
 workflow_test_template = {
     "name": "Test",
     "on": {
@@ -57,8 +68,12 @@ workflow_test_template = {
         "msrv": {
             "runs-on": "ubuntu-latest",
             "steps": [
-                {"uses": "actions/checkout@v4"},
-                {"name": "Install Rust 1.83", "uses": "dtolnay/rust-toolchain@1.83.0"},
+                {"uses": ACTION_CHECKOUT},
+                {
+                    "name": "Install Rust 1.83",
+                    "uses": ACTION_RUST_TOOLCHAIN,
+                    "with": {"toolchain": "1.83.0"},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 {
@@ -74,7 +89,12 @@ workflow_test_template = {
         "build": {
             "runs-on": "ubuntu-latest",
             "steps": [
-                {"uses": "actions/checkout@v4"},
+                {"uses": ACTION_CHECKOUT},
+                {
+                    "name": "Install uv",
+                    "uses": ACTION_SETUP_UV,
+                    "with": {"enable-cache": True},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
@@ -95,7 +115,12 @@ workflow_release_template = {
             "environment": "release",
             "permissions": {"id-token": "write"},
             "steps": [
-                {"uses": "actions/checkout@v4"},
+                {"uses": ACTION_CHECKOUT},
+                {
+                    "name": "Install uv",
+                    "uses": ACTION_SETUP_UV,
+                    "with": {"enable-cache": True},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
@@ -197,6 +222,10 @@ def _generate_workflow_check_steps():
         "name": "Test",
         "run": f"cargo test --features {default_features}",
     }
+    yield {
+        "name": "Integration test",
+        "run": "uv run python x.py test-integration",
+    }
 
 
 @cmd(help="Format the code")
@@ -297,9 +326,13 @@ def test_unit(test_name=None, backtrace=False, full=False):
     help="If given, print a backtrace on error",
 )
 def test_integration(backtrace=False):
+    env = {"SERDE_ARROW_PYTHON": __import__("sys").executable}
+    if backtrace:
+        env["RUST_BACKTRACE"] = "1"
+
     _sh(
         "cargo test -p integration_tests",
-        env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
+        env=env,
     )
 
 

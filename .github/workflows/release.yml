@@ -19,7 +19,14 @@
       },
       "steps": [
         {
-          "uses": "actions/checkout@v4"
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "Install uv",
+          "uses": "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
+          "with": {
+            "enable-cache": true
+          }
         },
         {
           "name": "rustc",
@@ -152,6 +159,10 @@
         {
           "name": "Test",
           "run": "cargo test --features arrow2-0-17,arrow-59"
+        },
+        {
+          "name": "Integration test",
+          "run": "uv run python x.py test-integration"
         },
         {
           "name": "Auth with crates.io",

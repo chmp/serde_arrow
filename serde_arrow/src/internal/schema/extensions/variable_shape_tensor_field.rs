@@ -83,34 +83,33 @@ impl VariableShapeTensorField {
     fn get_ext_metadata(&self) -> Result<String> {
         use std::fmt::Write;
 
-        let mut first_field = true;
+        fn write_sep(target: &mut String, first_field: &mut bool) -> Result<()> {
+            if *first_field {
+                *first_field = false;
+            } else {
+                write!(target, ",")?;
+            }
+            Ok(())
+        }
 
+        let mut first_field = true;
         let mut ext_metadata = String::new();
         write!(&mut ext_metadata, "{{")?;
 
         if let Some(permutation) = self.permutation.as_ref() {
-            if first_field {
-                first_field = false;
-                write!(&mut ext_metadata, ",")?;
-            }
+            write_sep(&mut ext_metadata, &mut first_field)?;
             write!(&mut ext_metadata, "\"permutation\":")?;
             write_list(&mut ext_metadata, permutation.iter())?;
         }
 
         if let Some(dim_names) = self.dim_names.as_ref() {
-            if first_field {
-                first_field = false;
-                write!(&mut ext_metadata, ",")?;
-            }
+            write_sep(&mut ext_metadata, &mut first_field)?;
             write!(&mut ext_metadata, "\"dim_names\":")?;
             write_list(&mut ext_metadata, dim_names.iter().map(DebugRepr))?;
         }
 
         if let Some(uniform_shape) = self.uniform_shape.as_ref() {
-            if first_field {
-                first_field = false;
-                write!(&mut ext_metadata, ",")?;
-            }
+            write_sep(&mut ext_metadata, &mut first_field)?;
             write!(&mut ext_metadata, "\"uniform_shape\":")?;
             write_list(
                 &mut ext_metadata,
@@ -121,12 +120,34 @@ impl VariableShapeTensorField {
             )?;
         }
 
-        // silence "value not read" warning
-        let _ = first_field;
-
         write!(&mut ext_metadata, "}}")?;
         Ok(ext_metadata)
     }
+}
+
+#[test]
+fn test_serialization_with_metadata_options() -> crate::internal::error::PanicOnError<()> {
+    use serde_json::json;
+
+    let field = VariableShapeTensorField::new(
+        "foo bar",
+        json!({"name": "element", "data_type": "F64"}),
+        3,
+    )?
+    .permutation(vec![2, 1, 0])?
+    .dim_names(vec!["depth".into(), "height".into(), "width".into()])?
+    .uniform_shape(vec![Some(3), None, Some(1)])?;
+    let field = Field::try_from(&field)?;
+
+    assert_eq!(
+        field.metadata.get("ARROW:extension:metadata"),
+        Some(
+            &r#"{"permutation":[2,1,0],"dim_names":["depth","height","width"],"uniform_shape":[3,null,1]}"#
+                .to_owned()
+        )
+    );
+
+    Ok(())
 }
 
 impl TryFrom<&VariableShapeTensorField> for Field {
