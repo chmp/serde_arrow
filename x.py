@@ -75,6 +75,11 @@ workflow_test_template = {
             "runs-on": "ubuntu-latest",
             "steps": [
                 {"uses": "actions/checkout@v4"},
+                {
+                    "name": "Install uv",
+                    "uses": "astral-sh/setup-uv@v5",
+                    "with": {"enable-cache": True},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
@@ -96,6 +101,11 @@ workflow_release_template = {
             "permissions": {"id-token": "write"},
             "steps": [
                 {"uses": "actions/checkout@v4"},
+                {
+                    "name": "Install uv",
+                    "uses": "astral-sh/setup-uv@v5",
+                    "with": {"enable-cache": True},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 CHECKS_PLACEHOLDER,
