@@ -37,6 +37,12 @@ default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
+ACTION_CHECKOUT = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+ACTION_SETUP_UV = "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39"
+ACTION_RUST_TOOLCHAIN = (
+    "dtolnay/rust-toolchain@bd41891a8e7f4b8649f6d684415e1a6155fe4e22"
+)
+
 workflow_test_template = {
     "name": "Test",
     "on": {
@@ -57,8 +63,12 @@ workflow_test_template = {
         "msrv": {
             "runs-on": "ubuntu-latest",
             "steps": [
-                {"uses": "actions/checkout@v4"},
-                {"name": "Install Rust 1.83", "uses": "dtolnay/rust-toolchain@1.83.0"},
+                {"uses": ACTION_CHECKOUT},
+                {
+                    "name": "Install Rust 1.83",
+                    "uses": ACTION_RUST_TOOLCHAIN,
+                    "with": {"toolchain": "1.83.0"},
+                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
                 {
@@ -74,10 +84,10 @@ workflow_test_template = {
         "build": {
             "runs-on": "ubuntu-latest",
             "steps": [
-                {"uses": "actions/checkout@v4"},
+                {"uses": ACTION_CHECKOUT},
                 {
                     "name": "Install uv",
-                    "uses": "astral-sh/setup-uv@v5",
+                    "uses": ACTION_SETUP_UV,
                     "with": {"enable-cache": True},
                 },
                 {"name": "rustc", "run": "rustc --version"},
@@ -100,10 +110,10 @@ workflow_release_template = {
             "environment": "release",
             "permissions": {"id-token": "write"},
             "steps": [
-                {"uses": "actions/checkout@v4"},
+                {"uses": ACTION_CHECKOUT},
                 {
                     "name": "Install uv",
-                    "uses": "astral-sh/setup-uv@v5",
+                    "uses": ACTION_SETUP_UV,
                     "with": {"enable-cache": True},
                 },
                 {"name": "rustc", "run": "rustc --version"},
