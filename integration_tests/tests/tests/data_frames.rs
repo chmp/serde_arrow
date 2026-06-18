@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_arrow::schema::SchemaLike;
 use serde_json::json;
 
-use super::utils::{assert_pyarrow, write_pyarrow, Result};
+use super::utils::{execute_python, read_file, write_file, Result};
 
 #[test]
 fn list_columns() -> Result<()> {
@@ -47,9 +47,8 @@ fn list_columns() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "list_columns.ipc",
-        &batch,
+    write_file("list_columns.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -71,7 +70,10 @@ fn list_columns() -> Result<()> {
             [None, 50],
         ]
     "#,
-    )
+        &["list_columns.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -163,9 +165,8 @@ fn struct_columns_and_list_of_structs() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "struct_columns_and_list_of_structs.ipc",
-        &batch,
+    write_file("struct_columns_and_list_of_structs.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -215,7 +216,10 @@ fn struct_columns_and_list_of_structs() -> Result<()> {
             [{"name": "c", "value": 30}],
         ]
     "#,
-    )
+        &["struct_columns_and_list_of_structs.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -227,8 +231,7 @@ fn pyarrow_list_columns_to_rust() -> Result<()> {
         maybe_values: Option<Vec<Option<i32>>>,
     }
 
-    let batch = write_pyarrow(
-        "pyarrow_list_columns.ipc",
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -250,7 +253,9 @@ fn pyarrow_list_columns_to_rust() -> Result<()> {
             with pa.ipc.new_file(sink, tbl.schema) as writer:
                 writer.write_table(tbl)
     "#,
+        &["pyarrow_list_columns.ipc"],
     )?;
+    let batch = read_file("pyarrow_list_columns.ipc")?;
 
     let actual: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
     assert_eq!(
@@ -299,8 +304,7 @@ fn pyarrow_struct_columns_to_rust() -> Result<()> {
         measurements: Vec<Measurement>,
     }
 
-    let batch = write_pyarrow(
-        "pyarrow_struct_columns.ipc",
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -359,7 +363,9 @@ fn pyarrow_struct_columns_to_rust() -> Result<()> {
             with pa.ipc.new_file(sink, tbl.schema) as writer:
                 writer.write_table(tbl)
     "#,
+        &["pyarrow_struct_columns.ipc"],
     )?;
+    let batch = read_file("pyarrow_struct_columns.ipc")?;
 
     let actual: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
     assert_eq!(

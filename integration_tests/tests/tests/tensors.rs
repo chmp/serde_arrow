@@ -9,7 +9,7 @@ use serde_arrow::{
 };
 use serde_json::json;
 
-use super::utils::{assert_pyarrow, write_pyarrow, Result};
+use super::utils::{execute_python, read_file, write_file, Result};
 
 #[test]
 fn fixed_shape_tensor() -> Result<()> {
@@ -27,9 +27,8 @@ fn fixed_shape_tensor() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "fixed_shape_tensor.ipc",
-        &batch,
+    write_file("fixed_shape_tensor.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -58,7 +57,10 @@ fn fixed_shape_tensor() -> Result<()> {
             [[[9], [0]], [[1], [2]], [[3], [4]]],
         ]
     "#,
-    )
+        &["fixed_shape_tensor.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -91,9 +93,8 @@ fn variable_shape_tensor() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "variable_shape_tensor.ipc",
-        &batch,
+    write_file("variable_shape_tensor.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -113,7 +114,10 @@ fn variable_shape_tensor() -> Result<()> {
             {"data": [1, 2, 3, 4], "shape": [2, 2, 1]},
         ]
     "#,
-    )
+        &["variable_shape_tensor.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -132,9 +136,8 @@ fn fixed_shape_tensor_with_metadata_options() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "fixed_shape_tensor_with_metadata_options.ipc",
-        &batch,
+    write_file("fixed_shape_tensor_with_metadata_options.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -153,7 +156,10 @@ fn fixed_shape_tensor_with_metadata_options() -> Result<()> {
             [5.0, 6.0, 7.0, 8.0],
         ]
     "#,
-    )
+        &["fixed_shape_tensor_with_metadata_options.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -185,9 +191,8 @@ fn variable_shape_tensor_with_metadata_options() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "variable_shape_tensor_with_metadata_options.ipc",
-        &batch,
+    write_file("variable_shape_tensor_with_metadata_options.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -204,7 +209,10 @@ fn variable_shape_tensor_with_metadata_options() -> Result<()> {
             {"data": [5.0, 6.0], "shape": [1, 2, 1]},
         ]
     "#,
-    )
+        &["variable_shape_tensor_with_metadata_options.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -258,9 +266,8 @@ fn nullable_tensor_fields() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "nullable_tensor_fields.ipc",
-        &batch,
+    write_file("nullable_tensor_fields.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -286,13 +293,15 @@ fn nullable_tensor_fields() -> Result<()> {
             {"data": [5, 6], "shape": [1, 2]},
         ]
     "#,
-    )
+        &["nullable_tensor_fields.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
 fn pyarrow_fixed_shape_tensor_to_rust() -> Result<()> {
-    let batch = write_pyarrow(
-        "pyarrow_fixed_shape_tensor.ipc",
+    let _output = execute_python(
         r#"
         import sys
         import numpy as np
@@ -314,7 +323,9 @@ fn pyarrow_fixed_shape_tensor_to_rust() -> Result<()> {
             with pa.ipc.new_file(sink, tbl.schema) as writer:
                 writer.write_table(tbl)
     "#,
+        &["pyarrow_fixed_shape_tensor.ipc"],
     )?;
+    let batch = read_file("pyarrow_fixed_shape_tensor.ipc")?;
 
     let actual: Vec<Item<Vec<i64>>> = serde_arrow::from_record_batch(&batch)?;
     assert_eq!(

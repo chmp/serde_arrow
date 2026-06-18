@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_arrow::schema::SchemaLike;
 use serde_json::json;
 
-use super::utils::{assert_pyarrow, write_pyarrow, Result};
+use super::utils::{execute_python, read_file, write_file, Result};
 
 #[test]
 fn rust_view_columns_to_pyarrow() -> Result<()> {
@@ -33,9 +33,8 @@ fn rust_view_columns_to_pyarrow() -> Result<()> {
 
     let batch = serde_arrow::to_record_batch(&fields, &items)?;
 
-    assert_pyarrow(
-        "rust_view_columns.ipc",
-        &batch,
+    write_file("rust_view_columns.ipc", &batch)?;
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -55,7 +54,10 @@ fn rust_view_columns_to_pyarrow() -> Result<()> {
             None,
         ]
     "#,
-    )
+        &["rust_view_columns.ipc"],
+    )?;
+
+    Ok(())
 }
 
 #[test]
@@ -66,8 +68,7 @@ fn pyarrow_view_columns_to_rust() -> Result<()> {
         bytes: Option<Vec<u8>>,
     }
 
-    let batch = write_pyarrow(
-        "pyarrow_view_columns.ipc",
+    let _output = execute_python(
         r#"
         import sys
         import pyarrow as pa
@@ -93,7 +94,9 @@ fn pyarrow_view_columns_to_rust() -> Result<()> {
             with pa.ipc.new_file(sink, tbl.schema) as writer:
                 writer.write_table(tbl)
     "#,
+        &["pyarrow_view_columns.ipc"],
     )?;
+    let batch = read_file("pyarrow_view_columns.ipc")?;
 
     let actual: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
     assert_eq!(

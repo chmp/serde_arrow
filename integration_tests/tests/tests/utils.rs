@@ -1,19 +1,13 @@
 use std::{
     env,
     fs::{self, File},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
 };
 
 use arrow::array::RecordBatch;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-fn file_path(name: &str) -> Result<PathBuf> {
-    let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
-    fs::create_dir_all(&tmp_dir)?;
-    Ok(tmp_dir.join(name))
-}
 
 pub fn write_file(name: &str, batch: &RecordBatch) -> Result<PathBuf> {
     let file_path = file_path(name)?;
@@ -34,28 +28,24 @@ pub fn read_file(name: &str) -> Result<RecordBatch> {
         .ok_or_else(|| std::io::Error::other("IPC file did not contain a record batch").into())
 }
 
-pub fn assert_pyarrow(batch_name: &str, batch: &RecordBatch, source: &str) -> Result<()> {
-    let path = write_file(batch_name, batch)?;
-    let _output = execute_python(source, &[&path])?;
-    Ok(())
-}
-
-pub fn write_pyarrow(batch_name: &str, source: &str) -> Result<RecordBatch> {
-    let path = file_path(batch_name)?;
-    let _output = execute_python(source, &[&path])?;
-    read_file(batch_name)
-}
-
-pub fn execute_python(source: &str, args: &[&Path]) -> Result<String> {
+/// Run a Python snippet in the test temp directory.
+///
+/// Each entry in `paths` is interpreted relative to `CARGO_TARGET_TMPDIR` and
+/// passed to Python as an absolute path via `sys.argv`.
+pub fn execute_python(source: &str, paths: &[&str]) -> Result<String> {
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     fs::create_dir_all(&tmp_dir)?;
 
     let python = env::var("SERDE_ARROW_PYTHON").unwrap_or_else(|_| "python".into());
     let script = dedent(source);
+    let paths = paths
+        .iter()
+        .map(|path| tmp_dir.join(path))
+        .collect::<Vec<_>>();
     let output = Command::new(&python)
         .arg("-c")
         .arg(&script)
-        .args(args)
+        .args(&paths)
         .current_dir(tmp_dir)
         .output()
         .map_err(|err| {
@@ -77,6 +67,12 @@ pub fn execute_python(source: &str, args: &[&Path]) -> Result<String> {
     }
 
     Ok(String::from_utf8(output.stdout)?)
+}
+
+fn file_path(name: &str) -> Result<PathBuf> {
+    let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
+    fs::create_dir_all(&tmp_dir)?;
+    Ok(tmp_dir.join(name))
 }
 
 fn dedent(source: &str) -> String {
