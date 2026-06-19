@@ -5,9 +5,9 @@ default-members = ["serde_arrow"]
 resolver = "2"
 
 [profile.bench]
-debug = 'line-tables-only'
-codegen-units = 1
-lto = "fat"
+debug = 0
+codegen-units = 16
+lto = "thin"
 
 [workspace.lints.clippy]
 allow_attributes_without_reason = "warn"

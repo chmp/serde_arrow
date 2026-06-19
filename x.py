@@ -126,12 +126,12 @@ workflow_release_template = {
 
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
-    "marrow_arrays": "marrow arrays",
+    "marrow_to_arrow": "marrow to arrow",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
     "serde_arrow_marrow": "serde_arrow::to_marrow",
 }
 
-BENCHMARK_BASELINE = "marrow arrays"
+BENCHMARK_BASELINE = "marrow to arrow"
 
 
 @cmd(help="Run all common development tasks before a commit")

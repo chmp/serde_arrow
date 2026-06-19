@@ -123,13 +123,31 @@ shape: (3, 2)
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
 The different implementations have the following performance differences compared to direct
-construction of marrow arrays:
+marrow-to-Arrow array construction:
 
 ![Time ](timings.png)
 
 The detailed runtimes of the [benchmarks](./bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
+### `complex_1000`
+
+| label                     | time [ms] | marrow to arrow | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
+| marrow to arrow           |      0.31 |            1.00 |            0.19 |            0.19 |            0.14 |
+| serde_arrow::to_marrow    |      1.62 |            5.24 |            1.00 |            1.00 |            0.75 |
+| serde_arrow::to_arrow     |      1.62 |            5.24 |            1.00 |            1.00 |            0.75 |
+| arrow_json::ReaderBuilder |      2.15 |            6.94 |            1.33 |            1.32 |            1.00 |
+
+### `primitives_1000`
+
+| label                     | time [ms] | marrow to arrow | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
+| marrow to arrow           |      0.23 |            1.00 |            0.46 |            0.44 |            0.26 |
+| serde_arrow::to_marrow    |      0.49 |            2.17 |            1.00 |            0.95 |            0.56 |
+| serde_arrow::to_arrow     |      0.52 |            2.28 |            1.05 |            1.00 |            0.59 |
+| arrow_json::ReaderBuilder |      0.88 |            3.88 |            1.79 |            1.71 |            1.00 |
+
 <!-- end:benchmarks -->
 
 ## License
