@@ -126,8 +126,12 @@ workflow_release_template = {
 
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
+    "marrow_arrays": "marrow arrays",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
+    "serde_arrow_marrow": "serde_arrow::to_marrow",
 }
+
+BENCHMARK_BASELINE = "marrow arrays"
 
 
 @cmd(help="Run all common development tasks before a commit")
@@ -492,7 +496,13 @@ def plot_times(mean_times, ignore_groups=()):
         df.select(
             [
                 pl.col("impl"),
-                (pl.col("time") / pl.col("time").min().over("group")),
+                (
+                    pl.col("time")
+                    / pl.col("time")
+                    .filter(pl.col("impl") == BENCHMARK_BASELINE)
+                    .mean()
+                    .over("group")
+                ),
             ]
         )
         .group_by("impl")
@@ -515,7 +525,7 @@ def plot_times(mean_times, ignore_groups=()):
     plt.grid(axis="x", zorder=0)
     plt.xlim(0, 1.15 * agg_df["time"].max())
     plt.subplots_adjust(left=0.32, right=0.975, top=0.95, bottom=0.15)
-    plt.xlabel("Mean runtime compared to fastest implementation")
+    plt.xlabel(f"Mean runtime compared to {BENCHMARK_BASELINE}")
     plt.savefig(self_path / "timings.png")
 
 

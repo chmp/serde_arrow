@@ -6,6 +6,10 @@ use rand::{
     Rng,
 };
 use serde::{Deserialize, Serialize};
+use serde_arrow::marrow::{
+    array::{Array, BooleanArray, BytesArray, PrimitiveArray},
+    bits,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
@@ -57,6 +61,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
         .map(|_| Item::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
 
+    use self::marrow_arrays;
+    super::bench_impl!(group, marrow_arrays, items);
+
     use crate::impls::serde_arrow_arrow;
     super::bench_impl!(group, serde_arrow_arrow, items);
 
@@ -70,3 +77,67 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
 }
 
 criterion::criterion_group!(benchmark, benchmark_serialize);
+
+mod marrow_arrays {
+    use super::*;
+
+    pub fn trace(_items: &[Item]) {}
+
+    pub fn serialize(_fields: &(), items: &[Item]) -> Vec<Array> {
+        vec![
+            Array::Boolean(BooleanArray {
+                len: items.len(),
+                validity: None,
+                values: bit_vec(items.iter().map(|item| item.k)),
+            }),
+            primitive_array(items, |item| item.a, Array::UInt8),
+            primitive_array(items, |item| item.b, Array::UInt16),
+            primitive_array(items, |item| item.c, Array::UInt32),
+            primitive_array(items, |item| item.d, Array::UInt64),
+            primitive_array(items, |item| item.e, Array::Int8),
+            primitive_array(items, |item| item.f, Array::Int16),
+            primitive_array(items, |item| item.g, Array::Int32),
+            primitive_array(items, |item| item.h, Array::Int64),
+            primitive_array(items, |item| item.i, Array::Float32),
+            primitive_array(items, |item| item.j, Array::Float64),
+            Array::LargeUtf8(bytes_array(items, |item| item.l.as_bytes())),
+        ]
+    }
+
+    fn primitive_array<T: Copy>(
+        items: &[Item],
+        value: impl Fn(&Item) -> T,
+        array: impl FnOnce(PrimitiveArray<T>) -> Array,
+    ) -> Array {
+        array(PrimitiveArray {
+            validity: None,
+            values: items.iter().map(value).collect(),
+        })
+    }
+
+    fn bytes_array<'a>(items: &'a [Item], value: impl Fn(&'a Item) -> &'a [u8]) -> BytesArray<i64> {
+        let mut offsets = Vec::with_capacity(items.len() + 1);
+        let mut data = Vec::new();
+        offsets.push(0);
+
+        for item in items {
+            data.extend_from_slice(value(item));
+            offsets.push(data.len() as i64);
+        }
+
+        BytesArray {
+            validity: None,
+            offsets,
+            data,
+        }
+    }
+
+    fn bit_vec(values: impl IntoIterator<Item = bool>) -> Vec<u8> {
+        let mut res = Vec::new();
+        let mut len = 0;
+        for value in values {
+            bits::push(&mut res, &mut len, value);
+        }
+        res
+    }
+}

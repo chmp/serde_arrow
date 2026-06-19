@@ -122,7 +122,8 @@ shape: (3, 2)
 [arrow-convert]: https://github.com/Swoorup/arrow-convert
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
-The different implementations have the following performance differences:
+The different implementations have the following performance differences compared to direct
+construction of marrow arrays:
 
 ![Time ](timings.png)
 
