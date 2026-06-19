@@ -1,4 +1,3 @@
-use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
@@ -6,23 +5,20 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 
-// required for arrow2_convert
-use serde_arrow::_impl::arrow2;
-
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
     string: String,
     points: Vec<Point>,
     child: SubItem,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Point {
     x: f32,
     y: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct SubItem {
     first: bool,
     second: f64,
@@ -68,9 +64,6 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
 
     use crate::impls::arrow;
     super::bench_impl!(group, arrow, items);
-
-    use crate::impls::arrow2_convert;
-    super::bench_impl!(group, arrow2_convert, items);
 
     group.finish();
 }

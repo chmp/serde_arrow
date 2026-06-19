@@ -7,9 +7,8 @@
 //! Therefore, adding support for `serde_arrow` to custom types is as easy as using Serde's derive
 //! macros.
 //!
-//! `serde_arrow` mainly targets the [`arrow`](https://github.com/apache/arrow-rs) crate, but also
-//! supports the deprecated [`arrow2`](https://github.com/jorgecarleitao/arrow2) crate. The arrow
-//! implementations can be selected via [features](#features).
+//! `serde_arrow` supports the [`arrow`](https://github.com/apache/arrow-rs) crate. The Arrow
+//! version can be selected via [features](#features).
 //!
 //! `serde_arrow` relies on a schema to translate between Rust and Arrow as their type systems do
 //! not directly match. The schema is expressed as a collection of Arrow fields with additional
@@ -21,17 +20,17 @@
 //! further details.
 //!
 #![cfg_attr(
-    all(has_arrow, has_arrow2),
+    has_arrow,
     doc = r#"
 ## Overview
 
-| Operation        | [`arrow-*`](#features)                                            | [`arrow2-*`](#features)                             | `marrow`                                            |
-|:-----------------|:------------------------------------------------------------------|:----------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_arrow2`]                                       | [`to_marrow`]                                       |
-| Arrow to Rust    | [`from_record_batch`], [`from_arrow`]                             | [`from_arrow2`]                                     | [`from_marrow`]                                     |
-| [`ArrayBuilder`] | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_arrow2`]                       | [`ArrayBuilder::from_marrow`]                       |
-| [`Serializer`]   | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_arrow2`] + [`Serializer::new`] | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
-| [`Deserializer`] | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_arrow2`]                       | [`Deserializer::from_marrow`]                       |
+| Operation        | [`arrow-*`](#features)                                            | `marrow`                                            |
+|:-----------------|:------------------------------------------------------------------|:----------------------------------------------------|
+| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_marrow`]                                       |
+| Arrow to Rust    | [`from_record_batch`], [`from_arrow`]                             | [`from_marrow`]                                     |
+| [`ArrayBuilder`] | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_marrow`]                       |
+| [`Serializer`]   | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
+| [`Deserializer`] | [`Deserializer::from_record_batch`], [`Deserializer::from_arrow`] | [`Deserializer::from_marrow`]                       |
 "#
 )]
 //!
@@ -83,13 +82,10 @@
 //!
 //! # Features:
 //!
-//! The version of `arrow` or `arrow2` used can be selected via features. By default, no Arrow
-//! implementation is used. In that case only the base features of `serde_arrow` are available.
+//! The version of `arrow` used can be selected via features. By default, no Arrow implementation
+//! is used. In that case only the base features of `serde_arrow` are available.
 //!
-//! The `arrow-*` and `arrow2-*` feature groups are compatible with each other. This means it is
-//! possible to use `arrow` and `arrow2` together. Within each group, the highest version is selected
-//! if multiple features are activated. For example, when selecting `arrow2-0-16` and
-//! `arrow2-0-17`, `arrow2=0.17` will be used.
+//! The highest selected `arrow-*` version is used if multiple features are activated.
 //!
 //! Note that because the highest version is selected, the features are not additive. In particular,
 //! it is not possible to use `serde_arrow::to_arrow` for multiple different `arrow` versions at the
@@ -107,29 +103,11 @@
 //! | `arrow-55`    | `arrow=55`    |
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
-//! | `arrow-52`    | `arrow=52`    |
-//! | `arrow-51`    | `arrow=51`    |
-//! | `arrow-50`    | `arrow=50`    |
-//! | `arrow-49`    | `arrow=49`    |
-//! | `arrow-48`    | `arrow=48`    |
-//! | `arrow-47`    | `arrow=47`    |
-//! | `arrow-46`    | `arrow=46`    |
-//! | `arrow-45`    | `arrow=45`    |
-//! | `arrow-44`    | `arrow=44`    |
-//! | `arrow-43`    | `arrow=43`    |
-//! | `arrow-42`    | `arrow=42`    |
-//! | `arrow-41`    | `arrow=41`    |
-//! | `arrow-40`    | `arrow=40`    |
-//! | `arrow-39`    | `arrow=39`    |
-//! | `arrow-38`    | `arrow=38`    |
-//! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
 //!
 //! # Usage in libraries
 //!
-//! In libraries, it is not recommended to use the `arrow` and `arrow2` functions directly. Rather
-//! it is recommended to rely on the [`marrow`]-based functionality, as the features of [`marrow`]
+//! In libraries, it is not recommended to use the `arrow` functions directly. Rather it is
+//! recommended to rely on the [`marrow`]-based functionality, as the features of [`marrow`]
 //! are designed to be strictly additive.
 //!
 //! For example, to build a record batch, first build the corresponding marrow types and then use
@@ -180,7 +158,7 @@
 //! ```
 
 // be more forgiving without any active implementation
-#[cfg_attr(not(any(has_arrow, has_arrow2)), allow(unused))]
+#[cfg_attr(not(has_arrow), allow(unused))]
 mod internal;
 
 /// *Internal. Do not use*
@@ -191,14 +169,6 @@ mod internal;
 ///
 #[rustfmt::skip]
 pub mod _impl {
-
-    #[cfg(has_arrow2_0_17)]
-    #[doc(hidden)]
-    pub use arrow2_0_17 as arrow2;
-
-    #[cfg(has_arrow2_0_16)]
-    pub use arrow2_0_16 as arrow2;
-
     #[allow(unused, reason="there may be no arrow feature activated")]
     macro_rules! build_arrow_crate {
         ($arrow_array:ident, $arrow_schema:ident) => {
@@ -231,22 +201,6 @@ pub mod _impl {
     #[cfg(has_arrow_55)] build_arrow_crate!(arrow_array_55, arrow_schema_55);
     #[cfg(has_arrow_54)] build_arrow_crate!(arrow_array_54, arrow_schema_54);
     #[cfg(has_arrow_53)] build_arrow_crate!(arrow_array_53, arrow_schema_53);
-    #[cfg(has_arrow_52)] build_arrow_crate!(arrow_array_52, arrow_schema_52);
-    #[cfg(has_arrow_51)] build_arrow_crate!(arrow_array_51, arrow_schema_51);
-    #[cfg(has_arrow_50)] build_arrow_crate!(arrow_array_50, arrow_schema_50);
-    #[cfg(has_arrow_49)] build_arrow_crate!(arrow_array_49, arrow_schema_49);
-    #[cfg(has_arrow_48)] build_arrow_crate!(arrow_array_48, arrow_schema_48);
-    #[cfg(has_arrow_47)] build_arrow_crate!(arrow_array_47, arrow_schema_47);
-    #[cfg(has_arrow_46)] build_arrow_crate!(arrow_array_46, arrow_schema_46);
-    #[cfg(has_arrow_45)] build_arrow_crate!(arrow_array_45, arrow_schema_45);
-    #[cfg(has_arrow_44)] build_arrow_crate!(arrow_array_44, arrow_schema_44);
-    #[cfg(has_arrow_43)] build_arrow_crate!(arrow_array_43, arrow_schema_43);
-    #[cfg(has_arrow_42)] build_arrow_crate!(arrow_array_42, arrow_schema_42);
-    #[cfg(has_arrow_41)] build_arrow_crate!(arrow_array_41, arrow_schema_41);
-    #[cfg(has_arrow_40)] build_arrow_crate!(arrow_array_40, arrow_schema_40);
-    #[cfg(has_arrow_39)] build_arrow_crate!(arrow_array_39, arrow_schema_39);
-    #[cfg(has_arrow_38)] build_arrow_crate!(arrow_array_38, arrow_schema_38);
-    #[cfg(has_arrow_37)] build_arrow_crate!(arrow_array_37, arrow_schema_37);
 
     /// Documentation
     pub mod docs {
@@ -268,7 +222,7 @@ pub mod _impl {
     };
 }
 
-#[cfg(all(test, has_arrow, has_arrow2))]
+#[cfg(all(test, has_arrow))]
 mod test_with_arrow;
 
 #[cfg(test)]
@@ -286,12 +240,6 @@ mod arrow_impl;
 
 #[cfg(has_arrow)]
 pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
-
-#[cfg(has_arrow2)]
-mod arrow2_impl;
-
-#[cfg(has_arrow2)]
-pub use arrow2_impl::{from_arrow2, to_arrow2};
 
 #[deny(missing_docs)]
 mod marrow_impl;

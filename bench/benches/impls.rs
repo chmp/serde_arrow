@@ -67,24 +67,3 @@ pub mod arrow {
             .to_vec())
     }
 }
-
-pub mod arrow2_convert {
-    use arrow2_convert::{
-        field::ArrowField,
-        serialize::{ArrowSerialize, TryIntoArrow},
-    };
-    use serde_arrow::{_impl::arrow2::array::Array, Error, ErrorKind, Result};
-
-    pub fn trace<T>(_items: &T) {}
-
-    pub fn serialize<Element>(_fields: &(), items: &[Element]) -> Result<Box<dyn Array>>
-    where
-        Element: ArrowSerialize + ArrowField<Type = Element> + 'static,
-    {
-        let array: Box<dyn Array> = items
-            .try_into_arrow()
-            .map_err(|err| Error::new(ErrorKind::Custom, err.to_string()))?;
-
-        Ok(array)
-    }
-}

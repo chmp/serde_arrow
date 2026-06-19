@@ -15,7 +15,6 @@ fn non_nullable() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([
             {"name": "item", "data_type": "Utf8View"},
         ]))
@@ -52,7 +51,6 @@ fn nullable() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([
             {"name": "item", "data_type": "Utf8View", "nullable": true},
         ]))

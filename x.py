@@ -14,26 +14,8 @@ all_arrow_features = [
     "arrow-55",
     "arrow-54",
     "arrow-53",
-    "arrow-52",
-    "arrow-51",
-    "arrow-50",
-    "arrow-50",
-    "arrow-49",
-    "arrow-48",
-    "arrow-47",
-    "arrow-46",
-    "arrow-45",
-    "arrow-44",
-    "arrow-43",
-    "arrow-42",
-    "arrow-41",
-    "arrow-40",
-    "arrow-39",
-    "arrow-38",
-    "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
-default_features = f"{all_arrow2_features[0]},{all_arrow_features[0]}"
+default_features = all_arrow_features[0]
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -145,8 +127,6 @@ workflow_release_template = {
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
-    "serde_arrow_arrow2": "serde_arrow::to_arrow2",
-    "arrow2_convert": "arrow2_convert::TryIntoArrow",
 }
 
 
@@ -199,7 +179,7 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in (*all_arrow2_features, *all_arrow_features):
+    for feature in all_arrow_features:
         yield {
             "name": f"Check {feature}",
             "run": f"cargo check --all-targets --features {feature}",
@@ -251,7 +231,7 @@ def check(all=False, fix=False):
     )
 
     if all:
-        for arrow_feature in (*all_arrow2_features, *all_arrow_features):
+        for arrow_feature in all_arrow_features:
             _sh(f"cargo check --features {arrow_feature}")
 
 
@@ -297,13 +277,8 @@ def test_unit(test_name=None, backtrace=False, full=False):
 
     else:
         feature_selections = [
-            (
-                f"--features {', '.join(arrow_feature + arrow2_feature)}"
-                if arrow_feature or arrow2_feature
-                else ""
-            )
+            f"--features {', '.join(arrow_feature)}" if arrow_feature else ""
             for arrow_feature in [[], *([feat] for feat in all_arrow_features)]
-            for arrow2_feature in [[], *([feat] for feat in all_arrow2_features)]
         ]
 
     for feature_selection in feature_selections:
@@ -517,16 +492,7 @@ def plot_times(mean_times, ignore_groups=()):
         df.select(
             [
                 pl.col("impl"),
-                (
-                    pl.col("time")
-                    / pl.col("time")
-                    .filter(
-                        pl.col("impl")
-                        == benchmark_renames.get("arrow2_convert", "arrow2_convert")
-                    )
-                    .mean()
-                    .over("group")
-                ),
+                (pl.col("time") / pl.col("time").min().over("group")),
             ]
         )
         .group_by("impl")
@@ -549,7 +515,7 @@ def plot_times(mean_times, ignore_groups=()):
     plt.grid(axis="x", zorder=0)
     plt.xlim(0, 1.15 * agg_df["time"].max())
     plt.subplots_adjust(left=0.32, right=0.975, top=0.95, bottom=0.15)
-    plt.xlabel("Mean runtime compared to arrow2_convert")
+    plt.xlabel("Mean runtime compared to fastest implementation")
     plt.savefig(self_path / "timings.png")
 
 

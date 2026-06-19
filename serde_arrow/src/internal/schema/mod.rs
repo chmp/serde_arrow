@@ -46,10 +46,6 @@ pub trait Sealed {}
     has_arrow,
     doc = "- `Vec<`[`arrow::datatypes::Field`][crate::_impl::arrow::datatypes::Field]`>`"
 )]
-#[cfg_attr(
-    has_arrow2,
-    doc = "- `Vec<`[`arrow2::datatypes::Field`][crate::_impl::arrow2::datatypes::Field]`>`"
-)]
 ///
 /// Instances of `SerdeArrowSchema` can be directly serialized and deserialized using the format
 /// described in [`SchemaLike::from_value`].
@@ -268,7 +264,7 @@ pub trait SchemaLike: Sized + Sealed {
 
 /// A collection of fields as understood by `serde_arrow`
 ///
-/// It can be converted to and from Arrow or arrow2 fields.
+/// It can be converted to and from Arrow fields.
 ///
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct SerdeArrowSchema {
@@ -464,7 +460,7 @@ fn validate_time64_field(field: &Field, unit: TimeUnit) -> Result<()> {
 }
 
 fn validate_struct_field(field: &Field, children: &[Field]) -> Result<()> {
-    // NOTE: do not check number of children: arrow-rs can 0 children, arrow2 not
+    // NOTE: do not check number of children: arrow-rs can use 0 children
     match get_strategy_from_metadata(&field.metadata)? {
         None | Some(Strategy::MapAsStruct) | Some(Strategy::TupleAsStruct) => {}
         Some(strategy) => fail!("strategy {strategy} is not supported for Struct fields"),

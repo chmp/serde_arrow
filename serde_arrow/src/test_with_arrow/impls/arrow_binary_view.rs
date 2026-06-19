@@ -14,7 +14,6 @@ fn as_binary_view() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "BinaryView"}]))
         .serialize(&items)
         .deserialize(&items);
@@ -29,7 +28,6 @@ fn nullable_as_binary_view() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "BinaryView", "nullable": true}]))
         .serialize(&items)
         .deserialize(&items)
@@ -45,7 +43,6 @@ fn vec_as_binary_view() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "BinaryView"}]))
         .serialize(&items)
         .deserialize(&items);
@@ -60,7 +57,6 @@ fn vec_of_nullable_as_binary_view() {
     ];
 
     Test::new()
-        .skip_arrow2()
         .with_schema(json!([{"name": "item", "data_type": "BinaryView", "nullable": true}]))
         .serialize(&items)
         .check_nulls(&[&[false, true, false]])
