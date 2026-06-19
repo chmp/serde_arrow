@@ -64,6 +64,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     use self::marrow_to_arrow;
     super::bench_impl!(group, marrow_to_arrow, items);
 
+    use self::marrow;
+    super::bench_impl!(group, marrow, items);
+
     use crate::impls::serde_arrow_arrow;
     super::bench_impl!(group, serde_arrow_arrow, items);
 
@@ -87,11 +90,21 @@ mod marrow_to_arrow {
         _fields: &(),
         items: &[Item],
     ) -> Vec<serde_arrow::_impl::arrow::array::ArrayRef> {
-        crate::impls::marrow_to_arrow_arrays(vec![
+        crate::impls::marrow_to_arrow_arrays(super::marrow::serialize(&(), items))
+    }
+}
+
+mod marrow {
+    use super::*;
+
+    pub fn trace(_items: &[Item]) {}
+
+    pub fn serialize(_fields: &(), items: &[Item]) -> Vec<Array> {
+        vec![
             Array::LargeUtf8(bytes_array(items, |item| item.string.as_bytes())),
             points_array(items),
             child_array(items),
-        ])
+        ]
     }
 
     fn points_array(items: &[Item]) -> Array {
