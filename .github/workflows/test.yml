@@ -210,7 +210,7 @@
         },
         {
           "name": "Check support packages",
-          "run": "cargo check --all-features --package bench --package example --package integration_tests --package test_with_arrow"
+          "run": "cargo check --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration"
         },
         {
           "name": "Check format",

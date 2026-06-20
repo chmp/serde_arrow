@@ -200,7 +200,7 @@ def precommit(backtrace=False):
     format()
     check()
     test(backtrace=backtrace)
-    example(backtrace)
+    serde_arrow_example(backtrace)
 
 
 @cmd(help="Update the github workflows")
@@ -255,7 +255,7 @@ def _generate_workflow_check_steps():
 
     yield {
         "name": "Check support packages",
-        "run": "cargo check --all-features --package bench --package example --package integration_tests --package test_with_arrow",
+        "run": "cargo check --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration",
     }
 
     yield {
@@ -293,7 +293,7 @@ def format():
             rustfmt
                 {_q([*self_path.joinpath("marrow", "src", "impl_arrow").glob("impl*.rs")])}
                 {_q([*self_path.joinpath("marrow", "src", "impl_arrow2").glob("impl*.rs")])}
-                {_q([*self_path.joinpath("test_with_arrow", "src", "tests").glob("*.rs")])}
+                {_q([*self_path.joinpath("marrow_integration", "src", "tests").glob("*.rs")])}
         """
     )
 
@@ -317,10 +317,10 @@ def check(all=False, fix=False):
         f"cargo clippy --all-targets --package marrow --features {default_marrow_features} {'--fix' if fix else ''}"
     )
     _sh(
-        "cargo check --all-targets --package bench --package example --package integration_tests --package test_with_arrow --all-features"
+        "cargo check --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
     )
     _sh(
-        "cargo clippy --all-targets --package bench --package example --package integration_tests --package test_with_arrow --all-features"
+        "cargo clippy --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
     )
 
     if all:
@@ -336,14 +336,16 @@ def check(all=False, fix=False):
             )
 
 
-@cmd(help="Run the example")
+@cmd(help="Run the serde_arrow_example")
 @arg("--backtrace", action="store_true", default=False)
-def example(backtrace=False):
+def serde_arrow_example(backtrace=False):
     _sh(
-        "cargo run -p example",
+        "cargo run -p serde_arrow_example",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
-    _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
+    _sh(
+        f"{python} -c 'import polars as pl; print(pl.read_ipc(\"serde_arrow_example.ipc\"))'"
+    )
 
 
 @cmd(help="Run both unit and integration tests")
@@ -419,7 +421,7 @@ def test_integration(backtrace=False):
         env["RUST_BACKTRACE"] = "1"
 
     _sh(
-        "cargo test -p integration_tests",
+        "cargo test -p serde_arrow_integration",
         env=env,
     )
 
@@ -456,7 +458,7 @@ def check_cargo_toml():
     print(":: check Cargo.toml")
     serde_arrow_config = load_config("serde_arrow")
     marrow_config = load_config("marrow")
-    test_with_arrow_config = load_config("test_with_arrow")
+    marrow_integration_config = load_config("marrow_integration")
 
     check_feature_list(
         "serde_arrow",
@@ -521,9 +523,9 @@ def check_cargo_toml():
             )
 
         check_feature_list(
-            "test_with_arrow",
+            "marrow_integration",
             f"feature definition for {feature}",
-            test_with_arrow_config["features"][feature],
+            marrow_integration_config["features"][feature],
             [
                 f"marrow/arrow-{version}",
                 f"dep:arrow-array-{version}",
@@ -544,9 +546,9 @@ def check_cargo_toml():
 
 @cmd(help="Run the benchmarks")
 @arg("--quick", action="store_true", default=False)
-def bench(quick=False):
+def serde_arrow_bench(quick=False):
     _sh(
-        "cargo bench -p bench",
+        "cargo bench -p serde_arrow_bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()

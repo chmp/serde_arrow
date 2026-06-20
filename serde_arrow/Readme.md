@@ -127,7 +127,7 @@ Arrow builder construction. These benchmark results are workload-specific and on
 
 ![Time ](timings.png)
 
-The detailed runtimes of the [benchmarks](./bench/benches/groups/) are listed below.
+The detailed runtimes of the [benchmarks](../serde_arrow_bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
 ### `complex_1000`

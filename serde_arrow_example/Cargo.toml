@@ -1,5 +1,5 @@
 [package]
-name = "example"
+name = "serde_arrow_example"
 version = "0.1.0"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2021"

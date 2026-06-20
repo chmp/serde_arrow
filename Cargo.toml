@@ -2,10 +2,10 @@
 members = [
     "serde_arrow",
     "marrow",
-    "bench",
-    "example",
-    "integration_tests",
-    "test_with_arrow",
+    "serde_arrow_bench",
+    "serde_arrow_example",
+    "serde_arrow_integration",
+    "marrow_integration",
 ]
 default-members = ["serde_arrow", "marrow"]
 

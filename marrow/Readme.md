@@ -42,7 +42,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-Tests in `test_with_arrow` use snippets from the arrow documentation licensed under the Apache
+Tests in `marrow_integration` use snippets from the arrow documentation licensed under the Apache
 Software License 2.0. Copies of the license and notice files can be found at
-[`test_with_arrow/LICENSE.arrow.txt`](test_with_arrow/LICENSE.arrow.txt) and
-[`test_with_arrow/NOTICE.arrow.txt`](test_with_arrow/NOTICE.arrow.txt).
+[`marrow_integration/LICENSE.arrow.txt`](marrow_integration/LICENSE.arrow.txt) and
+[`marrow_integration/NOTICE.arrow.txt`](marrow_integration/NOTICE.arrow.txt).

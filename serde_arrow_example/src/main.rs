@@ -110,7 +110,7 @@ fn main() -> Result<(), PanicOnError> {
     let fields = Vec::<FieldRef>::from_samples(&examples, tracing_options)?;
     let batch = serde_arrow::to_record_batch(&fields, &examples)?;
 
-    let file = File::create("example.ipc")?;
+    let file = File::create("serde_arrow_example.ipc")?;
 
     let mut writer = arrow::ipc::writer::FileWriter::try_new(file, &batch.schema())?;
     writer.write(&batch)?;
