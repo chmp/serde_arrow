@@ -4,7 +4,7 @@ version = "0.14.2"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 edition = "2021"
 description  = "Convert sequences of Rust objects to Arrow arrays and back again"
-readme = "../Readme.md"
+readme = "Readme.md"
 repository = "https://github.com/chmp/serde_arrow"
 license = "MIT"
 rust-version = "1.83.0"
@@ -29,7 +29,7 @@ arrow-54 = ["dep:arrow-array-54", "dep:arrow-schema-54", "marrow/arrow-54"]
 arrow-53 = ["dep:arrow-array-53", "dep:arrow-schema-53", "marrow/arrow-53"]
 
 [dependencies]
-marrow = { version = "0.2.7", default-features = false, features = ["serde"] }
+marrow = { path = "../marrow", version = "0.2.7", default-features = false, features = ["serde"] }
 
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
