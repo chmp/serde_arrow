@@ -1,6 +1,12 @@
-use std::ops::Range;
+use std::{ops::Range, sync::Arc};
 
-use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
+use arrow_array::{
+    builder::{
+        BooleanBuilder, Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
+        Int8Builder, LargeStringBuilder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
+    },
+    ArrayRef,
+};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
@@ -8,10 +14,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 
-// required for arrow2_convert
-use serde_arrow::_impl::arrow2;
-
-#[derive(Debug, Serialize, Deserialize, ArrowField, ArrowSerialize, ArrowDeserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
     pub k: bool,
     pub a: u8,
@@ -61,6 +64,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
         .map(|_| Item::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
 
+    use self::arrow_builder;
+    super::bench_impl!(group, arrow_builder, items);
+
     use crate::impls::serde_arrow_arrow;
     super::bench_impl!(group, serde_arrow_arrow, items);
 
@@ -70,10 +76,57 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     use crate::impls::arrow;
     super::bench_impl!(group, arrow, items);
 
-    use crate::impls::arrow2_convert;
-    super::bench_impl!(group, arrow2_convert, items);
-
     group.finish();
 }
 
 criterion::criterion_group!(benchmark, benchmark_serialize);
+
+mod arrow_builder {
+    use super::*;
+
+    macro_rules! primitive_array {
+        ($items:expr, $builder:ty, $field:ident) => {{
+            let mut builder = <$builder>::with_capacity($items.len());
+            for item in $items {
+                builder.append_value(item.$field);
+            }
+            Arc::new(builder.finish()) as ArrayRef
+        }};
+    }
+
+    pub fn trace(_items: &[Item]) {}
+
+    pub fn serialize(_fields: &(), items: &[Item]) -> Vec<ArrayRef> {
+        vec![
+            boolean_array(items),
+            primitive_array!(items, UInt8Builder, a),
+            primitive_array!(items, UInt16Builder, b),
+            primitive_array!(items, UInt32Builder, c),
+            primitive_array!(items, UInt64Builder, d),
+            primitive_array!(items, Int8Builder, e),
+            primitive_array!(items, Int16Builder, f),
+            primitive_array!(items, Int32Builder, g),
+            primitive_array!(items, Int64Builder, h),
+            primitive_array!(items, Float32Builder, i),
+            primitive_array!(items, Float64Builder, j),
+            string_array(items),
+        ]
+    }
+
+    fn boolean_array(items: &[Item]) -> ArrayRef {
+        let mut builder = BooleanBuilder::with_capacity(items.len());
+        for item in items {
+            builder.append_value(item.k);
+        }
+        Arc::new(builder.finish())
+    }
+
+    fn string_array(items: &[Item]) -> ArrayRef {
+        let data_len = items.iter().map(|item| item.l.len()).sum();
+        let mut builder = LargeStringBuilder::with_capacity(items.len(), data_len);
+        for item in items {
+            builder.append_value(&item.l);
+        }
+        Arc::new(builder.finish())
+    }
+}

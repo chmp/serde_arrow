@@ -17,13 +17,11 @@ use crate::{
 /// - [`ArrayBuilder::new`]
 /// - [`ArrayBuilder::from_marrow`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::from_arrow`]")]
-#[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::from_arrow2`]")]
 ///
 /// It supports array construction via
 /// - [`ArrayBuilder::to_marrow`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_arrow`]")]
-#[cfg_attr(has_arrow2, doc = r"- [`ArrayBuilder::to_arrow2`]")]
 ///
 /// Usage:
 ///

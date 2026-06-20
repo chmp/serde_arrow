@@ -20,13 +20,10 @@ back. `serde_arrow` relies on the [Serde](https://serde.rs) package to
 interpret Rust objects. Therefore, adding support for `serde_arrow` to custom
 types is as easy as using Serde's derive macros.
 
-In the Rust ecosystem there are two competing implementations of the Arrow
-in-memory format. `serde_arrow` supports both [`arrow`][arrow] and
-[`arrow2`][arrow2] for schema tracing, serialization from Rust structs to
-arrays, and deserialization from arrays to Rust structs.
+`serde_arrow` supports [`arrow`][arrow] for schema tracing, serialization from
+Rust structs to arrays, and deserialization from arrays to Rust structs.
 
 [arrow]: https://docs.rs/arrow/latest/arrow/
-[arrow2]: https://docs.rs/arrow2/latest/arrow2/
 [polars]: https://github.com/pola-rs/polars
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
@@ -34,8 +31,8 @@ arrays, and deserialization from arrays to Rust structs.
 
 The following examples assume that `serde_arrow` is added to the `Cargo.toml`
 file and its features are configured. `serde_arrow` supports different `arrow`
-and `arrow2` versions. The relevant one can be selected by specifying the
-correct feature (e.g., `arrow-51` to support `arrow=51`). See
+versions. The relevant one can be selected by specifying the correct feature
+(e.g., `arrow-53` to support `arrow=53`). See
 [here][feature-docs] for more details.
 
 [feature-docs]: https://docs.rs/serde_arrow/latest/serde_arrow/#features
@@ -113,69 +110,43 @@ shape: (3, 2)
 2  3.0  3
 ```
 
-[arrow2-guide]: https://jorgecarleitao.github.io/arrow2
-
 ## Related packages & Performance
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports
   serializing objects via the [Decoder][serde-decoder]. It supports primitive
   types, structs, and lists
-- [`arrow2-convert`][arrow2-convert]: adds derive macros to convert objects from
-  and from arrow2 arrays. It supports primitive types, structs, lists, and
-  chrono's datetime types. Enum support is experimental according to the
-  README. If performance is the main objective, `arrow2-convert` is a good
-  choice as it has no or minimal overhead over building the arrays manually.
-- [`arrow-convert`][arrow-convert]: a port of `arrow2-convert` to `arrow-rs`
+- [`arrow-convert`][arrow-convert]: a derive-based converter for `arrow-rs`
 - [`typed-arrow`][typed-arrow]: derive-based converter of Rust structs to Arrow
 
 [serde-decoder]: https://docs.rs/arrow-json/latest/arrow_json/reader/struct.Decoder.html
 [arrow-convert]: https://github.com/Swoorup/arrow-convert
-[arrow2-convert]: https://github.com/DataEngineeringLabs/arrow2-convert
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
-The different implementations have the following performance differences when
-compared to arrow2-convert:
+The different implementations have the following performance differences compared to direct
+Arrow builder construction. These benchmark results are workload-specific and only indicative.
 
 ![Time ](timings.png)
 
 The detailed runtimes of the [benchmarks](./bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
-### complex_common_serialize(100000)
+### `complex_1000`
 
-| label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |     54.01 |            1.00 |            0.31 |            0.30 |            0.14 |
-| serde_arrow::to_arrow2       |    173.84 |            3.22 |            1.00 |            0.98 |            0.46 |
-| serde_arrow::to_arrow        |    177.92 |            3.29 |            1.02 |            1.00 |            0.47 |
-| arrow_json::ReaderBuilder    |    378.48 |            7.01 |            2.18 |            2.13 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.36 |          1.00 |            0.21 |            0.18 |            0.12 |
+| serde_arrow::to_arrow     |      1.74 |          4.86 |            1.00 |            0.87 |            0.59 |
+| serde_arrow::to_marrow    |      2.00 |          5.58 |            1.15 |            1.00 |            0.68 |
+| arrow_json::ReaderBuilder |      2.97 |          8.27 |            1.70 |            1.48 |            1.00 |
 
-### complex_common_serialize(1000000)
+### `primitives_1000`
 
-| label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |    576.81 |            1.00 |            0.34 |            0.33 |            0.16 |
-| serde_arrow::to_arrow2       |   1701.46 |            2.95 |            1.00 |            0.97 |            0.46 |
-| serde_arrow::to_arrow        |   1748.89 |            3.03 |            1.03 |            1.00 |            0.48 |
-| arrow_json::ReaderBuilder    |   3676.51 |            6.37 |            2.16 |            2.10 |            1.00 |
-
-### primitives_serialize(100000)
-
-| label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |     15.83 |            1.00 |            0.51 |            0.36 |            0.12 |
-| serde_arrow::to_arrow2       |     30.90 |            1.95 |            1.00 |            0.70 |            0.23 |
-| serde_arrow::to_arrow        |     43.96 |            2.78 |            1.42 |            1.00 |            0.33 |
-| arrow_json::ReaderBuilder    |    133.97 |            8.46 |            4.34 |            3.05 |            1.00 |
-
-### primitives_serialize(1000000)
-
-| label                        | time [ms] | arrow2_convert: | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|------------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| arrow2_convert::TryIntoArrow |    153.07 |            1.00 |            0.47 |            0.35 |            0.11 |
-| serde_arrow::to_arrow2       |    327.32 |            2.14 |            1.00 |            0.74 |            0.23 |
-| serde_arrow::to_arrow        |    440.39 |            2.88 |            1.35 |            1.00 |            0.31 |
-| arrow_json::ReaderBuilder    |   1429.31 |            9.34 |            4.37 |            3.25 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.05 |          1.00 |            0.10 |            0.10 |            0.06 |
+| serde_arrow::to_marrow    |      0.49 |         10.42 |            1.00 |            0.99 |            0.58 |
+| serde_arrow::to_arrow     |      0.50 |         10.51 |            1.01 |            1.00 |            0.59 |
+| arrow_json::ReaderBuilder |      0.85 |         17.89 |            1.72 |            1.70 |            1.00 |
 
 <!-- end:benchmarks -->
 

@@ -48,8 +48,4 @@ fn declared_but_missing_fields_non_nullable() {
     let err = test.try_serialize_arrow(&items).unwrap_err();
     assert_error_contains(&err, "missing non-nullable field \"b\" in struct");
     assert_error_contains(&err, "field: \"$\"");
-
-    let err = test.try_serialize_arrow2(&items).unwrap_err();
-    assert_error_contains(&err, "missing non-nullable field \"b\" in struct");
-    assert_error_contains(&err, "field: \"$\"");
 }

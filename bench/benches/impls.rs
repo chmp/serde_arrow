@@ -1,3 +1,13 @@
+pub fn marrow_to_arrow_arrays(
+    arrays: Vec<serde_arrow::marrow::array::Array>,
+) -> Vec<serde_arrow::_impl::arrow::array::ArrayRef> {
+    arrays
+        .into_iter()
+        .map(serde_arrow::_impl::arrow::array::ArrayRef::try_from)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap()
+}
+
 pub mod serde_arrow_arrow {
     use serde::Serialize;
     use serde_arrow::{
@@ -20,15 +30,15 @@ pub mod serde_arrow_arrow {
 
 pub mod serde_arrow_marrow {
     use serde::Serialize;
-    use serde_arrow::marrow::{array::Array, datatypes::Field};
     use serde_arrow::schema::SchemaLike;
+    use serde_arrow::{_impl::arrow::array::ArrayRef, marrow::datatypes::Field};
 
     pub fn trace(items: &(impl ?Sized + Serialize)) -> Vec<Field> {
         Vec::<Field>::from_samples(items, Default::default()).unwrap()
     }
 
-    pub fn serialize(fields: &[Field], items: &(impl Serialize + ?Sized)) -> Vec<Array> {
-        serde_arrow::to_marrow(fields, items).unwrap()
+    pub fn serialize(fields: &[Field], items: &(impl Serialize + ?Sized)) -> Vec<ArrayRef> {
+        super::marrow_to_arrow_arrays(serde_arrow::to_marrow(fields, items).unwrap())
     }
 }
 
@@ -65,26 +75,5 @@ pub mod arrow {
             .ok_or_else(|| Error::new(ErrorKind::Custom, "no items".into()))?
             .columns()
             .to_vec())
-    }
-}
-
-pub mod arrow2_convert {
-    use arrow2_convert::{
-        field::ArrowField,
-        serialize::{ArrowSerialize, TryIntoArrow},
-    };
-    use serde_arrow::{_impl::arrow2::array::Array, Error, ErrorKind, Result};
-
-    pub fn trace<T>(_items: &T) {}
-
-    pub fn serialize<Element>(_fields: &(), items: &[Element]) -> Result<Box<dyn Array>>
-    where
-        Element: ArrowSerialize + ArrowField<Type = Element> + 'static,
-    {
-        let array: Box<dyn Array> = items
-            .try_into_arrow()
-            .map_err(|err| Error::new(ErrorKind::Custom, err.to_string()))?;
-
-        Ok(array)
     }
 }

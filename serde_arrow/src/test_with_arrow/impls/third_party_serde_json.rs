@@ -58,19 +58,6 @@ impl Test {
             assert_eq!(ApproxEq(&roundtripped), ApproxEq(items));
         }
 
-        if self.impls.arrow2 {
-            let fields = self.get_arrow2_fields();
-            let roundtripped: Value = crate::from_arrow2(
-                &fields,
-                self.arrays
-                    .arrow2
-                    .as_ref()
-                    .expect("Deserialization requires known arrow2 arrays"),
-            )
-            .expect("Failed arrow2 deserialization");
-            assert_eq!(ApproxEq(&roundtripped), ApproxEq(items));
-        }
-
         self
     }
 }
@@ -177,10 +164,6 @@ fn serde_json_nullable_strings_non_nullable_field() {
     ]));
 
     let res = test.try_serialize_arrow(&items).unwrap_err();
-    assert_error_contains(&res, "cannot serialize null into non-nullable array");
-    assert_error_contains(&res, "field: \"$.a\"");
-
-    let res = test.try_serialize_arrow2(&items).unwrap_err();
     assert_error_contains(&res, "cannot serialize null into non-nullable array");
     assert_error_contains(&res, "field: \"$.a\"");
 }
