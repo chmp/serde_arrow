@@ -1,14 +1,19 @@
+use std::sync::Arc;
+
+use arrow_array::{
+    builder::{
+        BooleanBuilder, Float32Builder, Float64Builder, LargeListBuilder, LargeStringBuilder,
+        StructBuilder,
+    },
+    ArrayRef,
+};
+use arrow_schema::{DataType, Field};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
     Rng,
 };
 use serde::{Deserialize, Serialize};
-use serde_arrow::marrow::{
-    array::{Array, BooleanArray, BytesArray, ListArray, PrimitiveArray, StructArray},
-    bits,
-    datatypes::FieldMeta,
-};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
@@ -61,11 +66,8 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
         .map(|_| Item::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
 
-    use self::marrow_to_arrow;
-    super::bench_impl!(group, marrow_to_arrow, items);
-
-    use self::marrow;
-    super::bench_impl!(group, marrow, items);
+    use self::arrow_builder;
+    super::bench_impl!(group, arrow_builder, items);
 
     use crate::impls::serde_arrow_arrow;
     super::bench_impl!(group, serde_arrow_arrow, items);
@@ -81,140 +83,87 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
 
 criterion::criterion_group!(benchmark, benchmark_serialize);
 
-mod marrow_to_arrow {
+mod arrow_builder {
     use super::*;
 
     pub fn trace(_items: &[Item]) {}
 
-    pub fn serialize(
-        _fields: &(),
-        items: &[Item],
-    ) -> Vec<serde_arrow::_impl::arrow::array::ArrayRef> {
-        crate::impls::marrow_to_arrow_arrays(super::marrow::serialize(&(), items))
-    }
-}
-
-mod marrow {
-    use super::*;
-
-    pub fn trace(_items: &[Item]) {}
-
-    pub fn serialize(_fields: &(), items: &[Item]) -> Vec<Array> {
-        vec![
-            Array::LargeUtf8(bytes_array(items, |item| item.string.as_bytes())),
-            points_array(items),
-            child_array(items),
-        ]
+    pub fn serialize(_fields: &(), items: &[Item]) -> Vec<ArrayRef> {
+        vec![string_array(items), points_array(items), child_array(items)]
     }
 
-    fn points_array(items: &[Item]) -> Array {
-        let mut offsets = Vec::with_capacity(items.len() + 1);
-        let mut points = Vec::new();
-        offsets.push(0);
+    fn string_array(items: &[Item]) -> ArrayRef {
+        let data_len = items.iter().map(|item| item.string.len()).sum();
+        let mut builder = LargeStringBuilder::with_capacity(items.len(), data_len);
+        for item in items {
+            builder.append_value(&item.string);
+        }
+        Arc::new(builder.finish())
+    }
+
+    fn points_array(items: &[Item]) -> ArrayRef {
+        let total_points = items.iter().map(|item| item.points.len()).sum();
+        let point_fields = vec![
+            Field::new("x", DataType::Float32, false),
+            Field::new("y", DataType::Float32, false),
+        ];
+        let point_builders = vec![
+            Box::new(Float32Builder::with_capacity(total_points))
+                as Box<dyn arrow_array::builder::ArrayBuilder>,
+            Box::new(Float32Builder::with_capacity(total_points)),
+        ];
+        let point_builder = StructBuilder::new(point_fields, point_builders);
+        let mut builder = LargeListBuilder::with_capacity(point_builder, items.len());
 
         for item in items {
-            points.extend(&item.points);
-            offsets.push(points.len() as i64);
+            for point in &item.points {
+                builder
+                    .values()
+                    .field_builder::<Float32Builder>(0)
+                    .unwrap()
+                    .append_value(point.x);
+                builder
+                    .values()
+                    .field_builder::<Float32Builder>(1)
+                    .unwrap()
+                    .append_value(point.y);
+                builder.values().append(true);
+            }
+            builder.append(true);
         }
 
-        Array::LargeList(ListArray {
-            validity: None,
-            offsets,
-            meta: field_meta("item", false),
-            elements: Box::new(Array::Struct(StructArray {
-                len: points.len(),
-                validity: None,
-                fields: vec![
-                    (
-                        field_meta("x", false),
-                        primitive_array(&points, |point| point.x, Array::Float32),
-                    ),
-                    (
-                        field_meta("y", false),
-                        primitive_array(&points, |point| point.y, Array::Float32),
-                    ),
-                ],
-            })),
-        })
+        Arc::new(builder.finish())
     }
 
-    fn child_array(items: &[Item]) -> Array {
-        Array::Struct(StructArray {
-            len: items.len(),
-            validity: None,
-            fields: vec![
-                (
-                    field_meta("first", false),
-                    Array::Boolean(BooleanArray {
-                        len: items.len(),
-                        validity: None,
-                        values: bit_vec(items.iter().map(|item| item.child.first)),
-                    }),
-                ),
-                (
-                    field_meta("second", false),
-                    primitive_array(items, |item| item.child.second, Array::Float64),
-                ),
-                (
-                    field_meta("c", true),
-                    optional_f32_array(items, |item| item.child.c),
-                ),
-            ],
-        })
-    }
-
-    fn primitive_array<T: Copy, I>(
-        items: &[I],
-        value: impl Fn(&I) -> T,
-        array: impl FnOnce(PrimitiveArray<T>) -> Array,
-    ) -> Array {
-        array(PrimitiveArray {
-            validity: None,
-            values: items.iter().map(value).collect(),
-        })
-    }
-
-    fn optional_f32_array(items: &[Item], value: impl Fn(&Item) -> Option<f32>) -> Array {
-        Array::Float32(PrimitiveArray {
-            validity: Some(bit_vec(items.iter().map(|item| value(item).is_some()))),
-            values: items
-                .iter()
-                .map(|item| value(item).unwrap_or_default())
-                .collect(),
-        })
-    }
-
-    fn bytes_array<'a>(items: &'a [Item], value: impl Fn(&'a Item) -> &'a [u8]) -> BytesArray<i64> {
-        let mut offsets = Vec::with_capacity(items.len() + 1);
-        let mut data = Vec::new();
-        offsets.push(0);
-
+    fn child_array(items: &[Item]) -> ArrayRef {
+        let child_fields = vec![
+            Field::new("first", DataType::Boolean, false),
+            Field::new("second", DataType::Float64, false),
+            Field::new("c", DataType::Float32, true),
+        ];
+        let child_builders = vec![
+            Box::new(BooleanBuilder::with_capacity(items.len()))
+                as Box<dyn arrow_array::builder::ArrayBuilder>,
+            Box::new(Float64Builder::with_capacity(items.len())),
+            Box::new(Float32Builder::with_capacity(items.len())),
+        ];
+        let mut builder = StructBuilder::new(child_fields, child_builders);
         for item in items {
-            data.extend_from_slice(value(item));
-            offsets.push(data.len() as i64);
+            builder
+                .field_builder::<BooleanBuilder>(0)
+                .unwrap()
+                .append_value(item.child.first);
+            builder
+                .field_builder::<Float64Builder>(1)
+                .unwrap()
+                .append_value(item.child.second);
+            builder
+                .field_builder::<Float32Builder>(2)
+                .unwrap()
+                .append_option(item.child.c);
+            builder.append(true);
         }
 
-        BytesArray {
-            validity: None,
-            offsets,
-            data,
-        }
-    }
-
-    fn field_meta(name: &str, nullable: bool) -> FieldMeta {
-        FieldMeta {
-            name: name.to_owned(),
-            nullable,
-            metadata: Default::default(),
-        }
-    }
-
-    fn bit_vec(values: impl IntoIterator<Item = bool>) -> Vec<u8> {
-        let mut res = Vec::new();
-        let mut len = 0;
-        for value in values {
-            bits::push(&mut res, &mut len, value);
-        }
-        res
+        Arc::new(builder.finish())
     }
 }

@@ -123,7 +123,7 @@ shape: (3, 2)
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
 The different implementations have the following performance differences compared to direct
-marrow-to-Arrow array construction:
+Arrow builder construction. These benchmark results are workload-specific and only indicative.
 
 ![Time ](timings.png)
 
@@ -132,21 +132,21 @@ The detailed runtimes of the [benchmarks](./bench/benches/groups/) are listed be
 <!-- start:benchmarks -->
 ### `complex_1000`
 
-| label                     | time [ms] | marrow to arrow | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|---------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| marrow to arrow           |      0.31 |            1.00 |            0.19 |            0.19 |            0.14 |
-| serde_arrow::to_marrow    |      1.62 |            5.24 |            1.00 |            1.00 |            0.75 |
-| serde_arrow::to_arrow     |      1.62 |            5.24 |            1.00 |            1.00 |            0.75 |
-| arrow_json::ReaderBuilder |      2.15 |            6.94 |            1.33 |            1.32 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.36 |          1.00 |            0.21 |            0.18 |            0.12 |
+| serde_arrow::to_arrow     |      1.74 |          4.86 |            1.00 |            0.87 |            0.59 |
+| serde_arrow::to_marrow    |      2.00 |          5.58 |            1.15 |            1.00 |            0.68 |
+| arrow_json::ReaderBuilder |      2.97 |          8.27 |            1.70 |            1.48 |            1.00 |
 
 ### `primitives_1000`
 
-| label                     | time [ms] | marrow to arrow | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|---------------------------|-----------|-----------------|-----------------|-----------------|-----------------|
-| marrow to arrow           |      0.23 |            1.00 |            0.46 |            0.44 |            0.26 |
-| serde_arrow::to_marrow    |      0.49 |            2.17 |            1.00 |            0.95 |            0.56 |
-| serde_arrow::to_arrow     |      0.52 |            2.28 |            1.05 |            1.00 |            0.59 |
-| arrow_json::ReaderBuilder |      0.88 |            3.88 |            1.79 |            1.71 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.05 |          1.00 |            0.10 |            0.10 |            0.06 |
+| serde_arrow::to_marrow    |      0.49 |         10.42 |            1.00 |            0.99 |            0.58 |
+| serde_arrow::to_arrow     |      0.50 |         10.51 |            1.01 |            1.00 |            0.59 |
+| arrow_json::ReaderBuilder |      0.85 |         17.89 |            1.72 |            1.70 |            1.00 |
 
 <!-- end:benchmarks -->
 
