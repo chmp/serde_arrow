@@ -6,6 +6,8 @@
   are in the range that can be presented are converted.
 - Breaking. Updated error messages.
 - Breaking. Bumped the MSRV to Rust 1.83.
+- Breaking. Drop `arrow<53` support
+- Breaking. Drop `arrow2` support
 
 ## 0.14.2
 
