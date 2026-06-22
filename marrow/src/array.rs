@@ -69,16 +69,10 @@ pub enum Array {
     /// An `i64` array of durations
     Duration(TimeArray<i64>),
     /// Interval with `YearMonth` unit
-    ///
-    /// Interval arrays are not supported for `arrow2`.
     YearMonthInterval(PrimitiveArray<i32>),
     /// Interval with `DayTime` unit
-    ///
-    /// Interval arrays are not supported for `arrow2`.
     DayTimeInterval(PrimitiveArray<DayTimeInterval>),
     /// Interval with `MonthDayNano` unit
-    ///
-    /// Interval arrays are not supported for `arrow2`.
     MonthDayNanoInterval(PrimitiveArray<MonthDayNanoInterval>),
     /// A `[u8]` array with `i32` offsets interpreted as strings
     Utf8(BytesArray<i32>),

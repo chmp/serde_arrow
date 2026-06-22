@@ -38,14 +38,6 @@
           "run": "cargo check --all-targets --package marrow --features serde"
         },
         {
-          "name": "Check marrow arrow2-0-17",
-          "run": "cargo check --all-targets --package marrow --features arrow2-0-17"
-        },
-        {
-          "name": "Check marrow arrow2-0-16",
-          "run": "cargo check --all-targets --package marrow --features arrow2-0-16"
-        },
-        {
           "name": "Check marrow arrow-59",
           "run": "cargo check --all-targets --package marrow --features arrow-59"
         },
@@ -74,72 +66,8 @@
           "run": "cargo check --all-targets --package marrow --features arrow-53"
         },
         {
-          "name": "Check marrow arrow-52",
-          "run": "cargo check --all-targets --package marrow --features arrow-52"
-        },
-        {
-          "name": "Check marrow arrow-51",
-          "run": "cargo check --all-targets --package marrow --features arrow-51"
-        },
-        {
-          "name": "Check marrow arrow-50",
-          "run": "cargo check --all-targets --package marrow --features arrow-50"
-        },
-        {
-          "name": "Check marrow arrow-49",
-          "run": "cargo check --all-targets --package marrow --features arrow-49"
-        },
-        {
-          "name": "Check marrow arrow-48",
-          "run": "cargo check --all-targets --package marrow --features arrow-48"
-        },
-        {
-          "name": "Check marrow arrow-47",
-          "run": "cargo check --all-targets --package marrow --features arrow-47"
-        },
-        {
-          "name": "Check marrow arrow-46",
-          "run": "cargo check --all-targets --package marrow --features arrow-46"
-        },
-        {
-          "name": "Check marrow arrow-45",
-          "run": "cargo check --all-targets --package marrow --features arrow-45"
-        },
-        {
-          "name": "Check marrow arrow-44",
-          "run": "cargo check --all-targets --package marrow --features arrow-44"
-        },
-        {
-          "name": "Check marrow arrow-43",
-          "run": "cargo check --all-targets --package marrow --features arrow-43"
-        },
-        {
-          "name": "Check marrow arrow-42",
-          "run": "cargo check --all-targets --package marrow --features arrow-42"
-        },
-        {
-          "name": "Check marrow arrow-41",
-          "run": "cargo check --all-targets --package marrow --features arrow-41"
-        },
-        {
-          "name": "Check marrow arrow-40",
-          "run": "cargo check --all-targets --package marrow --features arrow-40"
-        },
-        {
-          "name": "Check marrow arrow-39",
-          "run": "cargo check --all-targets --package marrow --features arrow-39"
-        },
-        {
-          "name": "Check marrow arrow-38",
-          "run": "cargo check --all-targets --package marrow --features arrow-38"
-        },
-        {
-          "name": "Check marrow arrow-37",
-          "run": "cargo check --all-targets --package marrow --features arrow-37"
-        },
-        {
           "name": "Test marrow",
-          "run": "cargo test --package marrow --features serde,arrow2-0-17,arrow-59"
+          "run": "cargo test --package marrow --features serde,arrow-59"
         },
         {
           "name": "Package marrow",

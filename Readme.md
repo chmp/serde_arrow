@@ -160,7 +160,7 @@ The detailed runtimes of the [benchmarks](../serde_arrow_bench/benches/groups/) 
 ## License
 
 ```text
-Copyright (c) 2021 - 2024 Christopher Prohm and contributors
+Copyright (c) 2021 - 2026 Christopher Prohm and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

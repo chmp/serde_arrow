@@ -1,5 +1,11 @@
 # Change log
 
+## Development
+
+- Breaking. Drop MSRV to `1.83`
+- Breaking. Drop `arrow2` support
+- Breaking. Drop `arrow<53` support
+
 ## 0.2.7
 
 - Add `arrow=59` support
