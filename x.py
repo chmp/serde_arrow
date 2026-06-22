@@ -160,7 +160,7 @@ def _release_workflow_template(crate, check_steps):
     return {
         "name": f"Release {crate}",
         "on": {
-            "push": {"tags": [f"{crate}/v*.*.*"]},
+            "push": {"tags": [f"{crate}/v*"]},
         },
         "env": {"CARGO_TERM_COLOR": "always"},
         "jobs": {

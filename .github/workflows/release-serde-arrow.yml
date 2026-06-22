@@ -3,7 +3,7 @@
   "on": {
     "push": {
       "tags": [
-        "serde_arrow/v*.*.*"
+        "serde_arrow/v*"
       ]
     }
   },
