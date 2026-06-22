@@ -1,5 +1,6 @@
 target/
 /example.ipc
+/serde_arrow_example.ipc
 
 __pycache__/
 .ipynb_checkpoints/

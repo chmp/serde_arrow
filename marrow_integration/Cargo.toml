@@ -1,0 +1,91 @@
+[package]
+# make sure this package is not accidentally published
+publish = false
+
+name = "marrow_integration"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+
+# arrow-version:insert: arrow-{version} = ["marrow/arrow-{version}", "dep:arrow-array-{version}", "dep:arrow-schema-{version}"]
+arrow-59 = ["marrow/arrow-59", "dep:arrow-array-59", "dep:arrow-schema-59"]
+arrow-58 = ["marrow/arrow-58", "dep:arrow-array-58", "dep:arrow-schema-58"]
+arrow-57 = ["marrow/arrow-57", "dep:arrow-array-57", "dep:arrow-schema-57"]
+arrow-56 = ["marrow/arrow-56", "dep:arrow-array-56", "dep:arrow-schema-56"]
+arrow-55 = ["marrow/arrow-55", "dep:arrow-array-55", "dep:arrow-schema-55"]
+arrow-54 = ["marrow/arrow-54", "dep:arrow-array-54", "dep:arrow-schema-54"]
+arrow-53 = ["marrow/arrow-53", "dep:arrow-array-53", "dep:arrow-schema-53"]
+arrow-52 = ["marrow/arrow-52", "dep:arrow-array-52", "dep:arrow-schema-52"]
+arrow-51 = ["marrow/arrow-51", "dep:arrow-array-51", "dep:arrow-schema-51"]
+arrow-50 = ["marrow/arrow-50", "dep:arrow-array-50", "dep:arrow-schema-50"]
+arrow-49 = ["marrow/arrow-49", "dep:arrow-array-49", "dep:arrow-schema-49"]
+arrow-48 = ["marrow/arrow-48", "dep:arrow-array-48", "dep:arrow-schema-48"]
+arrow-47 = ["marrow/arrow-47", "dep:arrow-array-47", "dep:arrow-schema-47"]
+arrow-46 = ["marrow/arrow-46", "dep:arrow-array-46", "dep:arrow-schema-46"]
+arrow-45 = ["marrow/arrow-45", "dep:arrow-array-45", "dep:arrow-schema-45"]
+arrow-44 = ["marrow/arrow-44", "dep:arrow-array-44", "dep:arrow-schema-44"]
+arrow-43 = ["marrow/arrow-43", "dep:arrow-array-43", "dep:arrow-schema-43"]
+arrow-42 = ["marrow/arrow-42", "dep:arrow-array-42", "dep:arrow-schema-42"]
+arrow-41 = ["marrow/arrow-41", "dep:arrow-array-41", "dep:arrow-schema-41"]
+arrow-40 = ["marrow/arrow-40", "dep:arrow-array-40", "dep:arrow-schema-40"]
+arrow-39 = ["marrow/arrow-39", "dep:arrow-array-39", "dep:arrow-schema-39"]
+arrow-38 = ["marrow/arrow-38", "dep:arrow-array-38", "dep:arrow-schema-38"]
+arrow-37 = ["marrow/arrow-37", "dep:arrow-array-37", "dep:arrow-schema-37"]
+
+[dependencies]
+marrow = { path = "../marrow", features = ["serde"]}
+
+half = { version = "2", default-features = false }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false }
+
+# arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version="{version}", optional = true, default-features = false }}
+arrow-array-59 = { package = "arrow-array", version="59", optional = true, default-features = false }
+arrow-array-58 = { package = "arrow-array", version="58", optional = true, default-features = false }
+arrow-array-57 = { package = "arrow-array", version="57", optional = true, default-features = false }
+arrow-array-56 = { package = "arrow-array", version="56", optional = true, default-features = false }
+arrow-array-55 = { package = "arrow-array", version="55", optional = true, default-features = false }
+arrow-array-54 = { package = "arrow-array", version="54", optional = true, default-features = false }
+arrow-array-53 = { package = "arrow-array", version = "53.3.0", optional = true, default-features = false }
+arrow-array-52 = { package = "arrow-array", version = "52", optional = true, default-features = false }
+arrow-array-51 = { package = "arrow-array", version = "51", optional = true, default-features = false }
+arrow-array-50 = { package = "arrow-array", version = "50", optional = true, default-features = false }
+arrow-array-49 = { package = "arrow-array", version="49", optional = true, default-features = false }
+arrow-array-48 = { package = "arrow-array", version="48", optional = true, default-features = false }
+arrow-array-47 = { package = "arrow-array", version="47", optional = true, default-features = false }
+arrow-array-46 = { package = "arrow-array", version="46", optional = true, default-features = false }
+arrow-array-45 = { package = "arrow-array", version="45", optional = true, default-features = false }
+arrow-array-44 = { package = "arrow-array", version="44", optional = true, default-features = false }
+arrow-array-43 = { package = "arrow-array", version="43", optional = true, default-features = false }
+arrow-array-42 = { package = "arrow-array", version="42", optional = true, default-features = false }
+arrow-array-41 = { package = "arrow-array", version="41", optional = true, default-features = false }
+arrow-array-40 = { package = "arrow-array", version="40", optional = true, default-features = false }
+arrow-array-39 = { package = "arrow-array", version="39", optional = true, default-features = false }
+arrow-array-38 = { package = "arrow-array", version="38", optional = true, default-features = false }
+arrow-array-37 = { package = "arrow-array", version="37", optional = true, default-features = false }
+
+# arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false, features = ["serde"] }}
+arrow-schema-59 = { package = "arrow-schema", version = "59", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-58 = { package = "arrow-schema", version = "58", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-56 = { package = "arrow-schema", version = "56", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-55 = { package = "arrow-schema", version = "55", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-54 = { package = "arrow-schema", version = "54", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-53 = { package = "arrow-schema", version = "53.3.0", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-52 = { package = "arrow-schema", version = "52", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-51 = { package = "arrow-schema", version = "51", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-50 = { package = "arrow-schema", version = "50", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-49 = { package = "arrow-schema", version = "49", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-48 = { package = "arrow-schema", version = "48", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-47 = { package = "arrow-schema", version = "47", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-46 = { package = "arrow-schema", version = "46", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-45 = { package = "arrow-schema", version = "45", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-44 = { package = "arrow-schema", version = "44", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-43 = { package = "arrow-schema", version = "43", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-42 = { package = "arrow-schema", version = "42", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-41 = { package = "arrow-schema", version = "41", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-40 = { package = "arrow-schema", version = "40", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-39 = { package = "arrow-schema", version = "39", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-38 = { package = "arrow-schema", version = "38", optional = true, default-features = false, features = ["serde"] }
+arrow-schema-37 = { package = "arrow-schema", version = "37", optional = true, default-features = false, features = ["serde"] }

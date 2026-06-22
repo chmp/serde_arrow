@@ -5,7 +5,7 @@ __effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
 cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
-all_arrow_features = [
+serde_arrow_features = [
     # arrow-version:insert: "arrow-{version}",
     "arrow-59",
     "arrow-58",
@@ -15,7 +15,39 @@ all_arrow_features = [
     "arrow-54",
     "arrow-53",
 ]
-default_features = all_arrow_features[0]
+marrow_arrow_features = [
+    # arrow-version:insert: "arrow-{version}",
+    "arrow-59",
+    "arrow-58",
+    "arrow-57",
+    "arrow-56",
+    "arrow-55",
+    "arrow-54",
+    "arrow-53",
+    "arrow-52",
+    "arrow-51",
+    "arrow-50",
+    "arrow-49",
+    "arrow-48",
+    "arrow-47",
+    "arrow-46",
+    "arrow-45",
+    "arrow-44",
+    "arrow-43",
+    "arrow-42",
+    "arrow-41",
+    "arrow-40",
+    "arrow-39",
+    "arrow-38",
+    "arrow-37",
+]
+all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
+default_serde_arrow_feature = serde_arrow_features[0]
+default_marrow_features = f"serde,{all_arrow2_features[0]},{marrow_arrow_features[0]}"
+default_workspace_features = (
+    f"serde_arrow/{default_serde_arrow_feature},"
+    f"marrow/serde,marrow/{all_arrow2_features[0]},marrow/{marrow_arrow_features[0]}"
+)
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -85,44 +117,88 @@ workflow_test_template = {
     },
 }
 
-workflow_release_template = {
-    "name": "Release",
-    "on": {
-        "release": {"types": ["published"]},
-    },
-    "env": {"CARGO_TERM_COLOR": "always"},
-    "jobs": {
-        "build": {
-            "runs-on": "ubuntu-latest",
-            "environment": "release",
-            "permissions": {"id-token": "write"},
-            "steps": [
-                {"uses": ACTION_CHECKOUT},
-                {
-                    "name": "Install uv",
-                    "uses": ACTION_SETUP_UV,
-                    "with": {"enable-cache": True},
-                },
-                {"name": "rustc", "run": "rustc --version"},
-                {"name": "cargo", "run": "cargo --version"},
-                CHECKS_PLACEHOLDER,
-                {
-                    "name": "Auth with crates.io",
-                    "uses": "rust-lang/crates-io-auth-action@v1",
-                    "id": "auth",
-                },
-                {
-                    "name": "Publish to crates.io",
-                    "working-directory": "serde_arrow",
-                    "run": "cargo publish",
-                    "env": {
-                        "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
-                    },
-                },
-            ],
+
+def _generate_marrow_release_check_steps():
+    yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
+
+    for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
+        yield {
+            "name": f"Check marrow {feature}",
+            "run": f"cargo check --all-targets --package marrow --features {feature}",
         }
-    },
-}
+
+    yield {
+        "name": "Test marrow",
+        "run": f"cargo test --package marrow --features {default_marrow_features}",
+    }
+    yield {"name": "Package marrow", "run": "cargo package -p marrow --allow-dirty"}
+
+
+def _generate_serde_arrow_release_check_steps():
+    yield {
+        "name": "Check serde_arrow",
+        "run": "cargo check --all-targets --package serde_arrow",
+    }
+
+    for feature in serde_arrow_features:
+        yield {
+            "name": f"Check serde_arrow {feature}",
+            "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
+        }
+
+    yield {
+        "name": "Test serde_arrow",
+        "run": f"cargo test --package serde_arrow --features {default_serde_arrow_feature}",
+    }
+    yield {
+        "name": "Package serde_arrow",
+        "run": "cargo package -p serde_arrow --allow-dirty",
+    }
+
+
+def _release_workflow_template(crate, check_steps):
+    return {
+        "name": f"Release {crate}",
+        "on": {
+            "push": {"tags": [f"{crate}/v*"]},
+        },
+        "env": {"CARGO_TERM_COLOR": "always"},
+        "jobs": {
+            "publish": {
+                "runs-on": "ubuntu-latest",
+                "environment": "release",
+                "permissions": {"id-token": "write"},
+                "steps": [
+                    {"uses": ACTION_CHECKOUT},
+                    {"name": "rustc", "run": "rustc --version"},
+                    {"name": "cargo", "run": "cargo --version"},
+                    *check_steps,
+                    {
+                        "name": "Auth with crates.io",
+                        "uses": "rust-lang/crates-io-auth-action@v1",
+                        "id": "auth",
+                    },
+                    {
+                        "name": "Publish to crates.io",
+                        "run": f"cargo publish -p {crate}",
+                        "env": {
+                            "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
+                        },
+                    },
+                ],
+            },
+        },
+    }
+
+
+workflow_release_marrow_template = _release_workflow_template(
+    "marrow",
+    [*_generate_marrow_release_check_steps()],
+)
+workflow_release_serde_arrow_template = _release_workflow_template(
+    "serde_arrow",
+    [*_generate_serde_arrow_release_check_steps()],
+)
 
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
@@ -142,7 +218,7 @@ def precommit(backtrace=False):
     format()
     check()
     test(backtrace=backtrace)
-    example(backtrace)
+    serde_arrow_example(backtrace)
 
 
 @cmd(help="Update the github workflows")
@@ -153,8 +229,13 @@ def update_workflows():
     )
 
     _update_workflow(
-        self_path / ".github" / "workflows" / "release.yml",
-        workflow_release_template,
+        self_path / ".github" / "workflows" / "release-marrow.yml",
+        workflow_release_marrow_template,
+    )
+
+    _update_workflow(
+        self_path / ".github" / "workflows" / "release-serde-arrow.yml",
+        workflow_release_serde_arrow_template,
     )
 
 
@@ -183,15 +264,21 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in all_arrow_features:
+    for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
         yield {
-            "name": f"Check {feature}",
-            "run": f"cargo check --all-targets --features {feature}",
+            "name": f"Check marrow {feature}",
+            "run": f"cargo check --all-targets --package marrow --features {feature}",
+        }
+
+    for feature in serde_arrow_features:
+        yield {
+            "name": f"Check serde_arrow {feature}",
+            "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
         }
 
     yield {
         "name": "Check support packages",
-        "run": "cargo check --all-features --package bench --package example --package integration_tests",
+        "run": "cargo check --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration",
     }
 
     yield {
@@ -200,11 +287,19 @@ def _generate_workflow_check_steps():
     }
     yield {
         "name": "Build",
-        "run": f"cargo build --features {default_features}",
+        "run": (
+            "cargo build "
+            "--package serde_arrow --package marrow "
+            f"--features {default_workspace_features}"
+        ),
     }
     yield {
         "name": "Test",
-        "run": f"cargo test --features {default_features}",
+        "run": (
+            "cargo test "
+            "--package serde_arrow --package marrow "
+            f"--features {default_workspace_features}"
+        ),
     }
     yield {
         "name": "Integration test",
@@ -216,6 +311,14 @@ def _generate_workflow_check_steps():
 def format():
     _sh(f"{python} -m ruff format {_q(__file__)}")
     _sh("cargo fmt")
+    _sh(
+        f"""
+            rustfmt
+                {_q([*self_path.joinpath("marrow", "src", "impl_arrow").glob("impl*.rs")])}
+                {_q([*self_path.joinpath("marrow", "src", "impl_arrow2").glob("impl*.rs")])}
+                {_q([*self_path.joinpath("marrow_integration", "src", "tests").glob("*.rs")])}
+        """
+    )
 
 
 @cmd(help="Run the linters")
@@ -223,30 +326,49 @@ def format():
 @arg("--fix", action="store_true")
 def check(all=False, fix=False):
     check_cargo_toml()
-    _sh(f"cargo check --all-targets --features {default_features}")
+    _sh("cargo check")
     _sh(
-        f"cargo clippy --all-targets --features {default_features} {'--fix' if fix else ''}"
+        f"cargo check --all-targets --package serde_arrow --features {default_serde_arrow_feature}"
     )
     _sh(
-        "cargo check --all-targets --package bench --package example --package integration_tests"
+        f"cargo check --all-targets --package marrow --features {default_marrow_features}"
     )
     _sh(
-        "cargo clippy --all-targets --package bench --package example --package integration_tests"
+        f"cargo clippy --all-targets --package serde_arrow --features {default_serde_arrow_feature} {'--fix' if fix else ''}"
+    )
+    _sh(
+        f"cargo clippy --all-targets --package marrow --features {default_marrow_features} {'--fix' if fix else ''}"
+    )
+    _sh(
+        "cargo check --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
+    )
+    _sh(
+        "cargo clippy --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
     )
 
     if all:
-        for arrow_feature in all_arrow_features:
-            _sh(f"cargo check --features {arrow_feature}")
+        for arrow_feature in marrow_arrow_features:
+            _sh(f"cargo check --package marrow --features {arrow_feature}")
+
+        for arrow2_feature in all_arrow2_features:
+            _sh(f"cargo check --package marrow --features {arrow2_feature}")
+
+        for arrow_feature in serde_arrow_features:
+            _sh(
+                f"cargo check --package serde_arrow --all-targets --features {arrow_feature}"
+            )
 
 
-@cmd(help="Run the example")
+@cmd(help="Run the serde_arrow_example")
 @arg("--backtrace", action="store_true", default=False)
-def example(backtrace=False):
+def serde_arrow_example(backtrace=False):
     _sh(
-        "cargo run -p example",
+        "cargo run -p serde_arrow_example",
         env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
     )
-    _sh(f"{python} -c 'import polars as pl; print(pl.read_ipc(\"example.ipc\"))'")
+    _sh(
+        f"{python} -c 'import polars as pl; print(pl.read_ipc(\"serde_arrow_example.ipc\"))'"
+    )
 
 
 @cmd(help="Run both unit and integration tests")
@@ -277,20 +399,32 @@ def test(backtrace=False):
 @arg("test_name", nargs="?", help="Filter of test names")
 def test_unit(test_name=None, backtrace=False, full=False):
     if not full:
-        feature_selections = [f"--features {default_features}"]
-
-    else:
-        feature_selections = [
-            f"--features {', '.join(arrow_feature)}" if arrow_feature else ""
-            for arrow_feature in [[], *([feat] for feat in all_arrow_features)]
+        commands = [
+            f"cargo test -q --package serde_arrow --features {default_serde_arrow_feature}",
+            f"cargo test -q --package marrow --features {default_marrow_features}",
         ]
 
-    for feature_selection in feature_selections:
+    else:
+        commands = [
+            "cargo test -q --package marrow --features serde",
+            *(
+                f"cargo test -q --package marrow --features {feature}"
+                for feature in all_arrow2_features
+            ),
+            *(
+                f"cargo test -q --package marrow --features {feature}"
+                for feature in marrow_arrow_features
+            ),
+            *(
+                f"cargo test -q --package serde_arrow --features {feature}"
+                for feature in serde_arrow_features
+            ),
+        ]
+
+    for command in commands:
         _sh(
             f"""
-                cargo test
-                    -q
-                    {feature_selection}
+                {command}
                     {_q(test_name) if test_name else ""}
             """,
             env=({"RUST_BACKTRACE": "1"} if backtrace else {}),
@@ -310,7 +444,7 @@ def test_integration(backtrace=False):
         env["RUST_BACKTRACE"] = "1"
 
     _sh(
-        "cargo test -p integration_tests",
+        "cargo test -p serde_arrow_integration",
         env=env,
     )
 
@@ -319,80 +453,137 @@ def test_integration(backtrace=False):
 def check_cargo_toml():
     import tomllib
 
-    print(":: check Cargo.toml")
-    with open(self_path / "serde_arrow" / "Cargo.toml", "rb") as fobj:
-        config = tomllib.load(fobj)
+    def load_config(crate):
+        with open(self_path / crate / "Cargo.toml", "rb") as fobj:
+            return tomllib.load(fobj)
 
-    for label, features in [
-        (
-            "docs.rs configuration",
-            config["package"]["metadata"]["docs"]["rs"]["features"],
-        ),
-        *[
-            (f"test {target['name']}", target["required-features"])
-            for target in config.get("test", [])
-        ],
-        *[
-            (f"bench {target['name']}", target["required-features"])
-            for target in config.get("bench", [])
-        ],
-    ]:
-        actual_features = sorted(features)
-        expected_features = sorted(default_features.split(","))
+    def check_feature_list(crate, label, actual, expected):
+        actual_features = sorted(actual)
+        expected_features = sorted(expected)
 
         if actual_features != expected_features:
             raise ValueError(
-                f"Invalid {label}. "
+                f"Invalid {crate} {label}. "
                 f"Expected: {expected_features}, found: {actual_features}"
             )
 
-    # TODO: check the features / dependencies
-    for feature in all_arrow_features:
-        *_, version = feature.partition("-")
+    def check_dependency(crate, config, name, expected):
+        actual = config["dependencies"].get(name)
+        if actual is None:
+            raise ValueError(f"Missing {crate} dependency {name}")
 
-        actual_feature_def = sorted(config["features"][feature])
-        expected_feature_def = sorted(
+        if actual != expected:
+            raise ValueError(
+                f"Invalid {crate} dependency {name}. "
+                f"Expected: {expected}, found: {actual}"
+            )
+
+    print(":: check Cargo.toml")
+    serde_arrow_config = load_config("serde_arrow")
+    marrow_config = load_config("marrow")
+    marrow_integration_config = load_config("marrow_integration")
+
+    serde_arrow_marrow_dep = serde_arrow_config["dependencies"].get("marrow")
+    if serde_arrow_marrow_dep is None:
+        raise ValueError("Missing serde_arrow dependency marrow")
+
+    serde_arrow_marrow_version = serde_arrow_marrow_dep.get("version")
+    marrow_version = marrow_config["package"]["version"]
+    if serde_arrow_marrow_version != marrow_version:
+        raise ValueError(
+            "Invalid serde_arrow marrow dependency version. "
+            f"Expected: {marrow_version}, found: {serde_arrow_marrow_version}"
+        )
+
+    check_feature_list(
+        "serde_arrow",
+        "docs.rs configuration",
+        serde_arrow_config["package"]["metadata"]["docs"]["rs"]["features"],
+        [default_serde_arrow_feature],
+    )
+    check_feature_list(
+        "marrow",
+        "docs.rs configuration",
+        marrow_config["package"]["metadata"]["docs"]["rs"]["features"],
+        default_marrow_features.split(","),
+    )
+
+    for feature in serde_arrow_features:
+        *_, version = feature.partition("-")
+        check_feature_list(
+            "serde_arrow",
+            f"feature definition for {feature}",
+            serde_arrow_config["features"][feature],
             [
                 f"dep:arrow-array-{version}",
                 f"dep:arrow-schema-{version}",
                 f"marrow/arrow-{version}",
-            ]
+            ],
         )
 
-        if actual_feature_def != expected_feature_def:
-            raise ValueError(
-                f"Invalid feature definition for {feature}. "
-                f"Expected: {expected_feature_def}, found: {actual_feature_def}"
+        for component in ["arrow-array", "arrow-schema"]:
+            check_dependency(
+                "serde_arrow",
+                serde_arrow_config,
+                f"{component}-{version}",
+                {
+                    "package": component,
+                    "version": version,
+                    "optional": True,
+                    "default-features": False,
+                },
             )
 
-        for component in ["arrow-array", "arrow-schema"]:
-            expected_dep = {
-                "package": component,
-                "version": version,
-                "optional": True,
-                "default-features": False,
-            }
-            actual_dep = config["dependencies"].get(f"{component}-{version}")
+    marrow_components = ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]
+    for feature in marrow_arrow_features:
+        *_, version = feature.partition("-")
+        check_feature_list(
+            "marrow",
+            f"feature definition for {feature}",
+            marrow_config["features"][feature],
+            [f"dep:{component}-{version}" for component in marrow_components],
+        )
 
-            if actual_dep is None:
-                raise ValueError(f"Missing dependency {component}-{version}")
+        for component in marrow_components:
+            check_dependency(
+                "marrow",
+                marrow_config,
+                f"{component}-{version}",
+                {
+                    "package": component,
+                    "version": version,
+                    "optional": True,
+                    "default-features": False,
+                },
+            )
 
-            if actual_dep != expected_dep:
-                raise ValueError(
-                    f"Invalid dependency {component}-{version}. "
-                    f"Expected: {expected_dep}, found: {actual_dep}"
-                )
+        check_feature_list(
+            "marrow_integration",
+            f"feature definition for {feature}",
+            marrow_integration_config["features"][feature],
+            [
+                f"marrow/arrow-{version}",
+                f"dep:arrow-array-{version}",
+                f"dep:arrow-schema-{version}",
+            ],
+        )
 
+    for crate, config in [
+        ("serde_arrow", serde_arrow_config),
+        ("marrow", marrow_config),
+    ]:
         for name, dep in config["dependencies"].items():
             if dep.get("default-features", True):
-                raise ValueError(f"Default features for {name} not deactivated")
+                raise ValueError(
+                    f"Default features for {crate} dependency {name} not deactivated"
+                )
 
 
 @cmd(help="Run the benchmarks")
 @arg("--quick", action="store_true", default=False)
-def bench(quick=False):
+def serde_arrow_bench(quick=False):
     _sh(
-        "cargo bench -p bench",
+        "cargo bench -p serde_arrow_bench",
         env=({"SERDE_ARROW_BENCH_QUICK": "1"} if quick else {}),
     )
     summarize_bench()
@@ -581,11 +772,12 @@ def doc(private=False, open=False):
     _sh(
         f"""
             cargo doc
-                --features {default_features}
+                --package serde_arrow
+                --package marrow
+                --features {default_workspace_features}
                 {"--document-private-items" if private else ""}
                 {"--open" if open else ""}
         """,
-        cwd=self_path / "serde_arrow",
     )
 
 
@@ -646,7 +838,11 @@ _sh = lambda c, env=(), **kw: __import__("subprocess").run(
         **kw,
     },
 )
-_q = lambda arg: __import__("shlex").quote(str(arg))
+_q = lambda arg: (
+    __import__("shlex").quote(str(arg))
+    if not isinstance(arg, (tuple, list))
+    else " ".join(_q(item) for item in arg)
+)
 
 if __name__ == "__main__":
     _sps = (_p := __import__("argparse").ArgumentParser()).add_subparsers()

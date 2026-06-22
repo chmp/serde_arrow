@@ -1,7 +1,8 @@
 [package]
-name = "bench"
+name = "serde_arrow_bench"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [[bench]]
 name = "serde_arrow_bench"
