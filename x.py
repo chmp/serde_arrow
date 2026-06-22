@@ -527,6 +527,18 @@ def check_cargo_toml():
     marrow_config = load_config("marrow")
     marrow_integration_config = load_config("marrow_integration")
 
+    serde_arrow_marrow_dep = serde_arrow_config["dependencies"].get("marrow")
+    if serde_arrow_marrow_dep is None:
+        raise ValueError("Missing serde_arrow dependency marrow")
+
+    serde_arrow_marrow_version = serde_arrow_marrow_dep.get("version")
+    marrow_version = marrow_config["package"]["version"]
+    if serde_arrow_marrow_version != marrow_version:
+        raise ValueError(
+            "Invalid serde_arrow marrow dependency version. "
+            f"Expected: {marrow_version}, found: {serde_arrow_marrow_version}"
+        )
+
     check_feature_list(
         "serde_arrow",
         "docs.rs configuration",

@@ -9,14 +9,13 @@ versions simultaneously.
 
 ## Development
 
-All important development tasks are packaged in the `x.py` script. It does not require any external
-dependencies and can be executed with any recent Python version.
+This crate lives in the `serde_arrow` monorepo. Run development commands from the repository root.
 
-- `python x.py precommit`: wrapper around `format`, `check`, `test`
-- `python x.py test`: execute the tests
-- `python x.py check`: run linters
-- `python x.py format`: format the source code
-- `cargo test --all-features`: execute the tests without the `x.py` script
+- `uv run python x.py precommit`: wrapper around `format`, `check`, `test`
+- `uv run python x.py test`: execute the default test set
+- `uv run python x.py check`: run linters
+- `uv run python x.py format`: format the source code
+- `cargo test -p marrow --all-features`: execute this crate's tests without the `x.py` script
 
 ## License
 
@@ -44,5 +43,5 @@ SOFTWARE.
 
 Tests in `marrow_integration` use snippets from the arrow documentation licensed under the Apache
 Software License 2.0. Copies of the license and notice files can be found at
-[`marrow_integration/LICENSE.arrow.txt`](marrow_integration/LICENSE.arrow.txt) and
-[`marrow_integration/NOTICE.arrow.txt`](marrow_integration/NOTICE.arrow.txt).
+[`marrow_integration/LICENSE.arrow.txt`](../marrow_integration/LICENSE.arrow.txt) and
+[`marrow_integration/NOTICE.arrow.txt`](../marrow_integration/NOTICE.arrow.txt).
