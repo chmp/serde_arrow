@@ -189,65 +189,50 @@ def _generate_serde_arrow_release_check_steps():
     }
 
 
-workflow_release_template = {
-    "name": "Release",
-    "on": {
-        "push": {"tags": ["marrow/v*.*.*", "serde_arrow/v*.*.*"]},
-    },
-    "env": {"CARGO_TERM_COLOR": "always"},
-    "jobs": {
-        "marrow": {
-            "runs-on": "ubuntu-latest",
-            "environment": "release",
-            "permissions": {"id-token": "write"},
-            "if": "startsWith(github.ref_name, 'marrow/v')",
-            "steps": [
-                {"uses": ACTION_CHECKOUT},
-                {"name": "rustc", "run": "rustc --version"},
-                {"name": "cargo", "run": "cargo --version"},
-                _release_tag_check_step("marrow"),
-                *_generate_marrow_release_check_steps(),
-                {
-                    "name": "Auth with crates.io",
-                    "uses": "rust-lang/crates-io-auth-action@v1",
-                    "id": "auth",
-                },
-                {
-                    "name": "Publish to crates.io",
-                    "run": "cargo publish -p marrow",
-                    "env": {
-                        "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
-                    },
-                },
-            ],
+def _release_workflow_template(crate, check_steps):
+    return {
+        "name": f"Release {crate}",
+        "on": {
+            "push": {"tags": [f"{crate}/v*.*.*"]},
         },
-        "serde_arrow": {
-            "runs-on": "ubuntu-latest",
-            "environment": "release",
-            "permissions": {"id-token": "write"},
-            "if": "startsWith(github.ref_name, 'serde_arrow/v')",
-            "steps": [
-                {"uses": ACTION_CHECKOUT},
-                {"name": "rustc", "run": "rustc --version"},
-                {"name": "cargo", "run": "cargo --version"},
-                _release_tag_check_step("serde_arrow"),
-                *_generate_serde_arrow_release_check_steps(),
-                {
-                    "name": "Auth with crates.io",
-                    "uses": "rust-lang/crates-io-auth-action@v1",
-                    "id": "auth",
-                },
-                {
-                    "name": "Publish to crates.io",
-                    "run": "cargo publish -p serde_arrow",
-                    "env": {
-                        "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
+        "env": {"CARGO_TERM_COLOR": "always"},
+        "jobs": {
+            "publish": {
+                "runs-on": "ubuntu-latest",
+                "environment": "release",
+                "permissions": {"id-token": "write"},
+                "steps": [
+                    {"uses": ACTION_CHECKOUT},
+                    {"name": "rustc", "run": "rustc --version"},
+                    {"name": "cargo", "run": "cargo --version"},
+                    _release_tag_check_step(crate),
+                    *check_steps,
+                    {
+                        "name": "Auth with crates.io",
+                        "uses": "rust-lang/crates-io-auth-action@v1",
+                        "id": "auth",
                     },
-                },
-            ],
+                    {
+                        "name": "Publish to crates.io",
+                        "run": f"cargo publish -p {crate}",
+                        "env": {
+                            "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
+                        },
+                    },
+                ],
+            },
         },
-    },
-}
+    }
+
+
+workflow_release_marrow_template = _release_workflow_template(
+    "marrow",
+    [*_generate_marrow_release_check_steps()],
+)
+workflow_release_serde_arrow_template = _release_workflow_template(
+    "serde_arrow",
+    [*_generate_serde_arrow_release_check_steps()],
+)
 
 benchmark_renames = {
     "arrow": "arrow_json::ReaderBuilder",
@@ -278,8 +263,13 @@ def update_workflows():
     )
 
     _update_workflow(
-        self_path / ".github" / "workflows" / "release.yml",
-        workflow_release_template,
+        self_path / ".github" / "workflows" / "release-marrow.yml",
+        workflow_release_marrow_template,
+    )
+
+    _update_workflow(
+        self_path / ".github" / "workflows" / "release-serde-arrow.yml",
+        workflow_release_serde_arrow_template,
     )
 
 

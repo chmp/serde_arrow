@@ -1,0 +1,92 @@
+{
+  "name": "Release serde_arrow",
+  "on": {
+    "push": {
+      "tags": [
+        "serde_arrow/v*.*.*"
+      ]
+    }
+  },
+  "env": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "jobs": {
+    "publish": {
+      "runs-on": "ubuntu-latest",
+      "environment": "release",
+      "permissions": {
+        "id-token": "write"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Validate release tag",
+          "shell": "bash",
+          "run": "tag=\"${GITHUB_REF_NAME}\"\ncrate=\"serde_arrow\"\nexpected_prefix=\"serde_arrow/v\"\nversion=\"${tag#${expected_prefix}}\"\nif [ \"${tag}\" = \"${version}\" ]; then\n  echo \"tag ${tag} does not start with ${expected_prefix}\" >&2\n  exit 1\nfi\nactual=\"$(python3 - \"${crate}\" <<'PY'\nimport pathlib\nimport sys\nimport tomllib\n\ncrate = sys.argv[1]\nwith open(pathlib.Path(crate) / \"Cargo.toml\", \"rb\") as fobj:\n    print(tomllib.load(fobj)[\"package\"][\"version\"])\nPY\n)\"\nif [ \"${actual}\" != \"${version}\" ]; then\n  echo \"tag version ${version} does not match ${crate} package version ${actual}\" >&2\n  exit 1\nfi"
+        },
+        {
+          "name": "Check serde_arrow",
+          "run": "cargo check --all-targets --package serde_arrow"
+        },
+        {
+          "name": "Check serde_arrow arrow-59",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Check serde_arrow arrow-58",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-58"
+        },
+        {
+          "name": "Check serde_arrow arrow-57",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-57"
+        },
+        {
+          "name": "Check serde_arrow arrow-56",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-56"
+        },
+        {
+          "name": "Check serde_arrow arrow-55",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-55"
+        },
+        {
+          "name": "Check serde_arrow arrow-54",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-54"
+        },
+        {
+          "name": "Check serde_arrow arrow-53",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-53"
+        },
+        {
+          "name": "Test serde_arrow",
+          "run": "cargo test --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Package serde_arrow",
+          "run": "cargo package -p serde_arrow --allow-dirty"
+        },
+        {
+          "name": "Auth with crates.io",
+          "uses": "rust-lang/crates-io-auth-action@v1",
+          "id": "auth"
+        },
+        {
+          "name": "Publish to crates.io",
+          "run": "cargo publish -p serde_arrow",
+          "env": {
+            "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}"
+          }
+        }
+      ]
+    }
+  }
+}
