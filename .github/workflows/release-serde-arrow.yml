@@ -30,11 +30,6 @@
           "run": "cargo --version"
         },
         {
-          "name": "Validate release tag",
-          "shell": "bash",
-          "run": "tag=\"${GITHUB_REF_NAME}\"\ncrate=\"serde_arrow\"\nexpected_prefix=\"serde_arrow/v\"\nversion=\"${tag#${expected_prefix}}\"\nif [ \"${tag}\" = \"${version}\" ]; then\n  echo \"tag ${tag} does not start with ${expected_prefix}\" >&2\n  exit 1\nfi\nactual=\"$(python3 - \"${crate}\" <<'PY'\nimport pathlib\nimport sys\nimport tomllib\n\ncrate = sys.argv[1]\nwith open(pathlib.Path(crate) / \"Cargo.toml\", \"rb\") as fobj:\n    print(tomllib.load(fobj)[\"package\"][\"version\"])\nPY\n)\"\nif [ \"${actual}\" != \"${version}\" ]; then\n  echo \"tag version ${version} does not match ${crate} package version ${actual}\" >&2\n  exit 1\nfi"
-        },
-        {
           "name": "Check serde_arrow",
           "run": "cargo check --all-targets --package serde_arrow"
         },

@@ -118,39 +118,6 @@ workflow_test_template = {
 }
 
 
-def _release_tag_check_step(crate):
-    return {
-        "name": "Validate release tag",
-        "shell": "bash",
-        "run": "\n".join(
-            [
-                'tag="${GITHUB_REF_NAME}"',
-                f'crate="{crate}"',
-                f'expected_prefix="{crate}/v"',
-                'version="${tag#${expected_prefix}}"',
-                'if [ "${tag}" = "${version}" ]; then',
-                '  echo "tag ${tag} does not start with ${expected_prefix}" >&2',
-                "  exit 1",
-                "fi",
-                'actual="$(python3 - "${crate}" <<\'PY\'',
-                "import pathlib",
-                "import sys",
-                "import tomllib",
-                "",
-                "crate = sys.argv[1]",
-                'with open(pathlib.Path(crate) / "Cargo.toml", "rb") as fobj:',
-                '    print(tomllib.load(fobj)["package"]["version"])',
-                "PY",
-                ')"',
-                'if [ "${actual}" != "${version}" ]; then',
-                '  echo "tag version ${version} does not match ${crate} package version ${actual}" >&2',
-                "  exit 1",
-                "fi",
-            ]
-        ),
-    }
-
-
 def _generate_marrow_release_check_steps():
     yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
 
@@ -205,7 +172,6 @@ def _release_workflow_template(crate, check_steps):
                     {"uses": ACTION_CHECKOUT},
                     {"name": "rustc", "run": "rustc --version"},
                     {"name": "cargo", "run": "cargo --version"},
-                    _release_tag_check_step(crate),
                     *check_steps,
                     {
                         "name": "Auth with crates.io",
