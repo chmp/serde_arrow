@@ -5,7 +5,7 @@ __effect = lambda effect: lambda func: [func, effect(func.__dict__)][0]
 cmd = lambda **kw: __effect(lambda d: d.setdefault("@cmd", {}).update(kw))
 arg = lambda *a, **kw: __effect(lambda d: d.setdefault("@arg", []).append((a, kw)))
 
-serde_arrow_features = [
+arrow_features = [
     # arrow-version:insert: "arrow-{version}",
     "arrow-59",
     "arrow-58",
@@ -15,21 +15,10 @@ serde_arrow_features = [
     "arrow-54",
     "arrow-53",
 ]
-marrow_arrow_features = [
-    # arrow-version:insert: "arrow-{version}",
-    "arrow-59",
-    "arrow-58",
-    "arrow-57",
-    "arrow-56",
-    "arrow-55",
-    "arrow-54",
-    "arrow-53",
-]
-default_serde_arrow_feature = serde_arrow_features[0]
-default_marrow_features = f"serde,{marrow_arrow_features[0]}"
+default_serde_arrow_feature = arrow_features[0]
+default_marrow_features = f"serde,{arrow_features[0]}"
 default_workspace_features = (
-    f"serde_arrow/{default_serde_arrow_feature},"
-    f"marrow/serde,marrow/{marrow_arrow_features[0]}"
+    f"serde_arrow/{arrow_features[0]},marrow/serde,marrow/{arrow_features[0]}"
 )
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
@@ -104,7 +93,7 @@ workflow_test_template = {
 def _generate_marrow_release_check_steps():
     yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
 
-    for feature in ("serde", *marrow_arrow_features):
+    for feature in ("serde", *arrow_features):
         yield {
             "name": f"Check marrow {feature}",
             "run": f"cargo check --all-targets --package marrow --features {feature}",
@@ -123,7 +112,7 @@ def _generate_serde_arrow_release_check_steps():
         "run": "cargo check --all-targets --package serde_arrow",
     }
 
-    for feature in serde_arrow_features:
+    for feature in arrow_features:
         yield {
             "name": f"Check serde_arrow {feature}",
             "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
@@ -247,13 +236,13 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in ("serde", *marrow_arrow_features):
+    for feature in ("serde", *arrow_features):
         yield {
             "name": f"Check marrow {feature}",
             "run": f"cargo check --all-targets --package marrow --features {feature}",
         }
 
-    for feature in serde_arrow_features:
+    for feature in arrow_features:
         yield {
             "name": f"Check serde_arrow {feature}",
             "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
@@ -329,10 +318,10 @@ def check(all=False, fix=False):
     )
 
     if all:
-        for arrow_feature in marrow_arrow_features:
+        for arrow_feature in arrow_features:
             _sh(f"cargo check --package marrow --features {arrow_feature}")
 
-        for arrow_feature in serde_arrow_features:
+        for arrow_feature in arrow_features:
             _sh(
                 f"cargo check --package serde_arrow --all-targets --features {arrow_feature}"
             )
@@ -388,11 +377,11 @@ def test_unit(test_name=None, backtrace=False, full=False):
             "cargo test -q --package marrow --features serde",
             *(
                 f"cargo test -q --package marrow --features {feature}"
-                for feature in marrow_arrow_features
+                for feature in arrow_features
             ),
             *(
                 f"cargo test -q --package serde_arrow --features {feature}"
-                for feature in serde_arrow_features
+                for feature in arrow_features
             ),
         ]
 
@@ -483,7 +472,7 @@ def check_cargo_toml():
         default_marrow_features.split(","),
     )
 
-    for feature in serde_arrow_features:
+    for feature in arrow_features:
         *_, version = feature.partition("-")
         check_feature_list(
             "serde_arrow",
@@ -510,7 +499,7 @@ def check_cargo_toml():
             )
 
     marrow_components = ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]
-    for feature in marrow_arrow_features:
+    for feature in arrow_features:
         *_, version = feature.partition("-")
         check_feature_list(
             "marrow",
