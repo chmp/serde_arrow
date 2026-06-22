@@ -24,29 +24,12 @@ marrow_arrow_features = [
     "arrow-55",
     "arrow-54",
     "arrow-53",
-    "arrow-52",
-    "arrow-51",
-    "arrow-50",
-    "arrow-49",
-    "arrow-48",
-    "arrow-47",
-    "arrow-46",
-    "arrow-45",
-    "arrow-44",
-    "arrow-43",
-    "arrow-42",
-    "arrow-41",
-    "arrow-40",
-    "arrow-39",
-    "arrow-38",
-    "arrow-37",
 ]
-all_arrow2_features = ["arrow2-0-17", "arrow2-0-16"]
 default_serde_arrow_feature = serde_arrow_features[0]
-default_marrow_features = f"serde,{all_arrow2_features[0]},{marrow_arrow_features[0]}"
+default_marrow_features = f"serde,{marrow_arrow_features[0]}"
 default_workspace_features = (
     f"serde_arrow/{default_serde_arrow_feature},"
-    f"marrow/serde,marrow/{all_arrow2_features[0]},marrow/{marrow_arrow_features[0]}"
+    f"marrow/serde,marrow/{marrow_arrow_features[0]}"
 )
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
@@ -121,7 +104,7 @@ workflow_test_template = {
 def _generate_marrow_release_check_steps():
     yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
 
-    for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
+    for feature in ("serde", *marrow_arrow_features):
         yield {
             "name": f"Check marrow {feature}",
             "run": f"cargo check --all-targets --package marrow --features {feature}",
@@ -264,7 +247,7 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
+    for feature in ("serde", *marrow_arrow_features):
         yield {
             "name": f"Check marrow {feature}",
             "run": f"cargo check --all-targets --package marrow --features {feature}",
@@ -315,7 +298,6 @@ def format():
         f"""
             rustfmt
                 {_q([*self_path.joinpath("marrow", "src", "impl_arrow").glob("impl*.rs")])}
-                {_q([*self_path.joinpath("marrow", "src", "impl_arrow2").glob("impl*.rs")])}
                 {_q([*self_path.joinpath("marrow_integration", "src", "tests").glob("*.rs")])}
         """
     )
@@ -349,9 +331,6 @@ def check(all=False, fix=False):
     if all:
         for arrow_feature in marrow_arrow_features:
             _sh(f"cargo check --package marrow --features {arrow_feature}")
-
-        for arrow2_feature in all_arrow2_features:
-            _sh(f"cargo check --package marrow --features {arrow2_feature}")
 
         for arrow_feature in serde_arrow_features:
             _sh(
@@ -407,10 +386,6 @@ def test_unit(test_name=None, backtrace=False, full=False):
     else:
         commands = [
             "cargo test -q --package marrow --features serde",
-            *(
-                f"cargo test -q --package marrow --features {feature}"
-                for feature in all_arrow2_features
-            ),
             *(
                 f"cargo test -q --package marrow --features {feature}"
                 for feature in marrow_arrow_features

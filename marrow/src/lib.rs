@@ -7,7 +7,6 @@
 //! Supported arrow implementations:
 //!
 //! - [`arrow`](https://docs.rs/arrow/)
-//! - [`arrow2`](https://docs.rs/arrow2)
 //!
 //! The main types are
 //!
@@ -37,8 +36,6 @@
 //! - `TryFrom<&arrow::datatypes::DataType> for `[`marrow::datatypes::DataType`][crate::datatypes::DataType]
 //! - `TryFrom<arrow::datatypes::TimeUnit> for `[`marrow::datatypes::TimeUnit`][crate::datatypes::TimeUnit]
 //! - `TryFrom<arrow::datatypes::UnionMode> for `[`marrow::datatypes::UnionMode`][crate::datatypes::UnionMode]
-//!
-//! For `arrow2` the corresponding conversions are implemented.
 //!
 //! For example to access the data in an arrow array:
 //!
@@ -88,11 +85,10 @@
 //!   ([Field][crate::datatypes::Field], [DataType][crate::datatypes::DataType], ...). The format
 //!   will match the `arrow` crate
 //! - `arrow-{version}`: enable conversions between `marrow` and `arrow={version}`
-//! - `arrow2-{version}`: enable conversions between `marrow` and `arrow2={version}`
 //!
-//! This crate supports conversions from and to different version of `arrow` or `arrow2`. These
-//! conversions can be enabled by selecting the relevant features. Any combination of features can
-//! be selected, e.g., both `arrow-53` and `arrow-52` can be used at the same time.
+//! This crate supports conversions from and to different versions of `arrow`. These conversions can
+//! be enabled by selecting the relevant features. Any combination of features can be selected, e.g.,
+//! both `arrow-59` and `arrow-53` can be used at the same time.
 //!
 //! Supported arrow versions:
 //!
@@ -105,26 +101,6 @@
 //! | `arrow-55`    | `arrow=55`    |
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
-//! | `arrow-52`    | `arrow=52`    |
-//! | `arrow-51`    | `arrow=51`    |
-//! | `arrow-50`    | `arrow=50`    |
-//! | `arrow-49`    | `arrow=49`    |
-//! | `arrow-48`    | `arrow=48`    |
-//! | `arrow-47`    | `arrow=47`    |
-//! | `arrow-46`    | `arrow=46`    |
-//! | `arrow-45`    | `arrow=45`    |
-//! | `arrow-44`    | `arrow=44`    |
-//! | `arrow-43`    | `arrow=43`    |
-//! | `arrow-42`    | `arrow=42`    |
-//! | `arrow-41`    | `arrow=41`    |
-//! | `arrow-40`    | `arrow=40`    |
-//! | `arrow-39`    | `arrow=39`    |
-//! | `arrow-38`    | `arrow=38`    |
-//! | `arrow-37`    | `arrow=37`    |
-//! | `arrow2-0-17` | `arrow2=0.17` |
-//! | `arrow2-0-16` | `arrow2=0.16` |
-//!
-//! Note, `arrow2=0.18` is not supported as the source code was not tagged on GitHub.
 //!
 #[deny(missing_docs)]
 pub mod array;
@@ -141,7 +117,6 @@ pub mod view;
 pub mod bits;
 
 mod impl_arrow;
-mod impl_arrow2;
 
 #[doc(hidden)]
 pub mod r#impl;

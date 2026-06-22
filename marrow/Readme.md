@@ -20,7 +20,7 @@ This crate lives in the `serde_arrow` monorepo. Run development commands from th
 ## License
 
 ```text
-Copyright (c) 2024 Christopher Prohm
+Copyright (c) 2024 - 2026 Christopher Prohm and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

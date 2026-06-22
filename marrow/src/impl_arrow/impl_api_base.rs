@@ -253,7 +253,7 @@ impl TryFrom<Array> for Arc<dyn arrow_array::Array> {
     }
 }
 
-/// Conversion from `arrow` interval units (*requires one of the `arrow2-{version}` features*)
+/// Conversion from `arrow` interval units (*requires one of the `arrow-{version}` features*)
 impl TryFrom<arrow_schema::IntervalUnit> for IntervalUnit {
     type Error = MarrowError;
 
@@ -266,7 +266,7 @@ impl TryFrom<arrow_schema::IntervalUnit> for IntervalUnit {
     }
 }
 
-/// Conversion to `arrow` interval units (*requires one of the `arrow2-{version}` features*)
+/// Conversion to `arrow` interval units (*requires one of the `arrow-{version}` features*)
 impl TryFrom<IntervalUnit> for arrow_schema::IntervalUnit {
     type Error = MarrowError;
 
