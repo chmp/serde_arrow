@@ -117,6 +117,78 @@ workflow_test_template = {
     },
 }
 
+
+def _release_tag_check_step(crate):
+    return {
+        "name": "Validate release tag",
+        "shell": "bash",
+        "run": "\n".join(
+            [
+                'tag="${GITHUB_REF_NAME}"',
+                f'crate="{crate}"',
+                f'expected_prefix="{crate}/v"',
+                'version="${tag#${expected_prefix}}"',
+                'if [ "${tag}" = "${version}" ]; then',
+                '  echo "tag ${tag} does not start with ${expected_prefix}" >&2',
+                "  exit 1",
+                "fi",
+                'actual="$(python3 - "${crate}" <<\'PY\'',
+                "import pathlib",
+                "import sys",
+                "import tomllib",
+                "",
+                "crate = sys.argv[1]",
+                'with open(pathlib.Path(crate) / "Cargo.toml", "rb") as fobj:',
+                '    print(tomllib.load(fobj)["package"]["version"])',
+                "PY",
+                ')"',
+                'if [ "${actual}" != "${version}" ]; then',
+                '  echo "tag version ${version} does not match ${crate} package version ${actual}" >&2',
+                "  exit 1",
+                "fi",
+            ]
+        ),
+    }
+
+
+def _generate_marrow_release_check_steps():
+    yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
+
+    for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
+        yield {
+            "name": f"Check marrow {feature}",
+            "run": f"cargo check --all-targets --package marrow --features {feature}",
+        }
+
+    yield {
+        "name": "Test marrow",
+        "run": f"cargo test --package marrow --features {default_marrow_features}",
+    }
+    yield {"name": "Package marrow", "run": "cargo package -p marrow --allow-dirty"}
+
+
+def _generate_serde_arrow_release_check_steps():
+    yield {
+        "name": "Check serde_arrow",
+        "run": "cargo check --all-targets --package serde_arrow",
+    }
+
+    for feature in serde_arrow_features:
+        yield {
+            "name": f"Check serde_arrow {feature}",
+            "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
+        }
+
+    yield {
+        "name": "Test serde_arrow",
+        "run": f"cargo test --package serde_arrow --features {default_serde_arrow_feature}",
+    }
+    yield {
+        "name": "Package serde_arrow",
+        "run": "cargo package -p serde_arrow --allow-dirty",
+    }
+
+
 workflow_release_template = {
     "name": "Release",
     "on": {
@@ -124,47 +196,17 @@ workflow_release_template = {
     },
     "env": {"CARGO_TERM_COLOR": "always"},
     "jobs": {
-        "build": {
+        "marrow": {
             "runs-on": "ubuntu-latest",
             "environment": "release",
             "permissions": {"id-token": "write"},
+            "if": "startsWith(github.ref_name, 'marrow/v')",
             "steps": [
                 {"uses": ACTION_CHECKOUT},
-                {
-                    "name": "Install uv",
-                    "uses": ACTION_SETUP_UV,
-                    "with": {"enable-cache": True},
-                },
                 {"name": "rustc", "run": "rustc --version"},
                 {"name": "cargo", "run": "cargo --version"},
-                {
-                    "name": "Validate release tag",
-                    "shell": "bash",
-                    "run": "\n".join(
-                        [
-                            'tag="${GITHUB_REF_NAME}"',
-                            'crate="${tag%%/v*}"',
-                            'version="${tag#*/v}"',
-                            'case "${crate}" in marrow|serde_arrow) ;; *) echo "unsupported crate: ${crate}" >&2; exit 1 ;; esac',
-                            'actual="$(python - "${crate}" <<\'PY\'',
-                            "import pathlib",
-                            "import sys",
-                            "import tomllib",
-                            "",
-                            "crate = sys.argv[1]",
-                            'with open(pathlib.Path(crate) / "Cargo.toml", "rb") as fobj:',
-                            '    print(tomllib.load(fobj)["package"]["version"])',
-                            "PY",
-                            ')"',
-                            'if [ "${actual}" != "${version}" ]; then',
-                            '  echo "tag version ${version} does not match ${crate} package version ${actual}" >&2',
-                            "  exit 1",
-                            "fi",
-                            'echo "RELEASE_CRATE=${crate}" >> "${GITHUB_ENV}"',
-                        ]
-                    ),
-                },
-                CHECKS_PLACEHOLDER,
+                _release_tag_check_step("marrow"),
+                *_generate_marrow_release_check_steps(),
                 {
                     "name": "Auth with crates.io",
                     "uses": "rust-lang/crates-io-auth-action@v1",
@@ -172,13 +214,38 @@ workflow_release_template = {
                 },
                 {
                     "name": "Publish to crates.io",
-                    "run": "cargo publish -p ${RELEASE_CRATE}",
+                    "run": "cargo publish -p marrow",
                     "env": {
                         "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
                     },
                 },
             ],
-        }
+        },
+        "serde_arrow": {
+            "runs-on": "ubuntu-latest",
+            "environment": "release",
+            "permissions": {"id-token": "write"},
+            "if": "startsWith(github.ref_name, 'serde_arrow/v')",
+            "steps": [
+                {"uses": ACTION_CHECKOUT},
+                {"name": "rustc", "run": "rustc --version"},
+                {"name": "cargo", "run": "cargo --version"},
+                _release_tag_check_step("serde_arrow"),
+                *_generate_serde_arrow_release_check_steps(),
+                {
+                    "name": "Auth with crates.io",
+                    "uses": "rust-lang/crates-io-auth-action@v1",
+                    "id": "auth",
+                },
+                {
+                    "name": "Publish to crates.io",
+                    "run": "cargo publish -p serde_arrow",
+                    "env": {
+                        "CARGO_REGISTRY_TOKEN": "${{ steps.auth.outputs.token }}",
+                    },
+                },
+            ],
+        },
     },
 }
 
@@ -244,7 +311,7 @@ def _generate_workflow_check_steps():
     for feature in ("serde", *all_arrow2_features, *marrow_arrow_features):
         yield {
             "name": f"Check marrow {feature}",
-            "run": f"cargo check --package marrow --features {feature}",
+            "run": f"cargo check --all-targets --package marrow --features {feature}",
         }
 
     for feature in serde_arrow_features:
@@ -618,9 +685,7 @@ def update_readme(mean_times, ignore_groups=()):
         lines = [line.rstrip() for line in fobj]
 
     active = False
-    with open(
-        self_path / "Readme.md", "wt", encoding="utf8", newline="\n"
-    ) as fobj:
+    with open(self_path / "Readme.md", "wt", encoding="utf8", newline="\n") as fobj:
         for line in lines:
             if not active:
                 print(line, file=fobj)
