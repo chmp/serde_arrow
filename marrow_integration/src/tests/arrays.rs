@@ -475,8 +475,7 @@ mod date64 {
 
     fn ymd_as_num(y: i32, m: u32, d: u32) -> i64 {
         let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
-        (NaiveDate::from_ymd_opt(y, m, d).unwrap() - unix_epoch).num_days() as i64
-            * (24 * 60 * 60 * 1000)
+        (NaiveDate::from_ymd_opt(y, m, d).unwrap() - unix_epoch).num_days() * (24 * 60 * 60 * 1000)
     }
 
     #[test]
