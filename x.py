@@ -614,12 +614,12 @@ def load_times():
 
 def update_readme(mean_times, ignore_groups=()):
     print("Update readme")
-    with open(self_path / "serde_arrow" / "Readme.md", "rt", encoding="utf8") as fobj:
+    with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
         lines = [line.rstrip() for line in fobj]
 
     active = False
     with open(
-        self_path / "serde_arrow" / "Readme.md", "wt", encoding="utf8", newline="\n"
+        self_path / "Readme.md", "wt", encoding="utf8", newline="\n"
     ) as fobj:
         for line in lines:
             if not active:
