@@ -7,6 +7,7 @@ use marrow::{
 use serde::Serialize;
 
 use crate::internal::{
+    chrono::is_utc_timezone,
     error::{fail, set_default, Context, ContextSupport, Result},
     serialization::utils::impl_serializer,
     utils::array_ext::{ArrayExt, ScalarArrayExt},
@@ -88,7 +89,7 @@ impl TimestampBuilder {
 fn is_utc_tz(tz: Option<&str>) -> Result<bool> {
     match tz {
         None => Ok(false),
-        Some(tz) if tz.to_uppercase() == "UTC" => Ok(true),
+        Some(tz) if is_utc_timezone(tz) => Ok(true),
         Some(tz) => fail!("timezone {tz} is not supported"),
     }
 }

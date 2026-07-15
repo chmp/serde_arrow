@@ -269,3 +269,69 @@ mod schema_tracing {
             .check_nulls(&[&[false, false]]);
     }
 }
+
+/// A timezone-aware Arrow timestamp is a UTC instant, so every zero-offset
+/// timezone designator must deserialize. Iceberg tags its `timestamptz` columns
+/// with the fixed offset `+00:00`.
+mod timezone_utc_designators {
+    use super::*;
+
+    const UTC_DESIGNATORS: &[&str] =
+        &["+00:00", "-00:00", "+0000", "-0000", "Z", "z", "UTC", "utc"];
+
+    #[test]
+    fn deserializes_every_utc_designator_as_zulu() {
+        // 2025-01-20T19:30:42 UTC as microseconds since the epoch.
+        let micros = NaiveDateTime::parse_from_str("2025-01-20T19:30:42", "%Y-%m-%dT%H:%M:%S")
+            .unwrap()
+            .and_utc()
+            .timestamp_micros();
+
+        for tz in UTC_DESIGNATORS {
+            let array = Array::Timestamp(TimestampArray {
+                unit: TimeUnit::Microsecond,
+                timezone: Some(String::from(*tz)),
+                validity: None,
+                values: vec![micros],
+            });
+            let view = array.as_view();
+            let deserializer = Deserializer::from_marrow(&[tz_field(tz)], &[view])
+                .unwrap_or_else(|e| panic!("timezone {tz:?} rejected: {e}"));
+            let actual = Vec::<Item<String>>::deserialize(deserializer).unwrap();
+
+            assert_eq!(
+                actual,
+                [Item(String::from("2025-01-20T19:30:42Z"))],
+                "timezone {tz:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_utc_offset() {
+        let array = Array::Timestamp(TimestampArray {
+            unit: TimeUnit::Microsecond,
+            timezone: Some(String::from("+01:00")),
+            validity: None,
+            values: vec![0],
+        });
+        let view = array.as_view();
+        let err = match Deserializer::from_marrow(&[tz_field("+01:00")], &[view]) {
+            Ok(_) => panic!("expected the +01:00 offset to be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("+01:00"),
+            "unexpected error: {err}"
+        );
+    }
+
+    fn tz_field(tz: &str) -> Field {
+        Field {
+            name: String::from("item"),
+            data_type: DataType::Timestamp(TimeUnit::Microsecond, Some(String::from(tz))),
+            nullable: false,
+            metadata: Default::default(),
+        }
+    }
+}

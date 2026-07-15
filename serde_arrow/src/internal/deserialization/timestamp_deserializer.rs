@@ -6,6 +6,7 @@ use marrow::{
 use serde::de::Visitor;
 
 use crate::internal::{
+    chrono::is_utc_timezone,
     error::{fail, set_default, try_, Context, ContextSupport, Result},
     utils::array_view_ext::ViewAccess,
 };
@@ -75,9 +76,9 @@ impl<'a> TimestampDeserializer<'a> {
 
 fn is_utc_timestamp(timezone: Option<&str>) -> Result<bool> {
     match timezone {
-        Some(tz) if tz.to_lowercase() == "utc" => Ok(true),
-        Some(tz) => fail!("unsupported timezone: {} is not supported", tz),
         None => Ok(false),
+        Some(tz) if is_utc_timezone(tz) => Ok(true),
+        Some(tz) => fail!("unsupported timezone: {} is not supported", tz),
     }
 }
 

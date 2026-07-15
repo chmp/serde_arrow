@@ -29,6 +29,16 @@ pub fn matches_naive_time(s: &str) -> bool {
     parsing::match_naive_time(s).matches()
 }
 
+/// Check whether an Arrow timezone string denotes UTC (a zero offset).
+///
+/// Arrow encodes every timezone-aware timestamp as a UTC instant; the timezone
+/// string only records how to display it. Recognize the name `UTC` and the fixed
+/// zero-offset designators.
+pub fn is_utc_timezone(tz: &str) -> bool {
+    tz.eq_ignore_ascii_case("utc")
+        || matches!(tz, "Z" | "z" | "+00:00" | "-00:00" | "+0000" | "-0000")
+}
+
 /// Parse `s` as a span
 pub fn parse_span(s: &str) -> Result<Span<'_>> {
     parsing::match_span(s).into_result("Span")
