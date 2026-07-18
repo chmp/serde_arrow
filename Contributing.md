@@ -42,6 +42,14 @@ workflow generation logic or supported Arrow versions, run:
 uv run python x.py update-workflows
 ```
 
+## `marrow`
+
+This repository also contains [`marrow`](marrow/Readme.md), the minimal Arrow
+interop crate used by `serde_arrow`. See [`marrow/Changes.md`](marrow/Changes.md)
+for its changelog. The crates are versioned and released independently with
+crate-scoped tags such as `marrow/v1.0.0` and `serde_arrow/v1.0.0`.
+
+
 ## Creating a release
 
 1. Create a new branch with name `release/{VERSION}`

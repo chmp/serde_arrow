@@ -27,13 +27,6 @@ Rust structs to arrays, and deserialization from arrays to Rust structs.
 [polars]: https://github.com/pola-rs/polars
 [datafusion]: https://github.com/apache/arrow-datafusion/
 
-## Monorepo
-
-This repository also contains [`marrow`](marrow/Readme.md), the minimal Arrow
-interop crate used by `serde_arrow`. See [`marrow/Changes.md`](marrow/Changes.md)
-for its changelog. The crates are versioned and released independently with
-crate-scoped tags such as `marrow/v1.0.0` and `serde_arrow/v1.0.0`.
-
 ## Example
 
 The following examples assume that `serde_arrow` is added to the `Cargo.toml`
