@@ -245,6 +245,7 @@ benchmark_renames = {
 }
 
 BENCHMARK_BASELINE = "arrow builder"
+README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
 
 
 @cmd(help="Run all common development tasks before a commit")
@@ -622,8 +623,8 @@ def summarize_bench(update=False):
     print(format_benchmark(mean_times))
 
     if update:
-        update_readme(mean_times, ignore_groups={"json_to_arrow"})
-        plot_times(mean_times, ignore_groups={"json_to_arrow"})
+        update_readme(mean_times, ignore_groups=README_BENCHMARK_IGNORE_GROUPS)
+        plot_times(mean_times, ignore_groups=README_BENCHMARK_IGNORE_GROUPS)
 
 
 def load_times():
