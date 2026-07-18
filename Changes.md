@@ -1,13 +1,24 @@
 # Change log
 
-## Development
+## 0.15.0-rc.1
 
-- Breaking. Stricter f32 / f64 to decimal conversions. Only finite floats that
-  are in the range that can be presented are converted.
-- Breaking. Updated error messages.
-- Breaking. Bumped the MSRV to Rust 1.83.
-- Breaking. Drop `arrow<53` support
-- Breaking. Drop `arrow2` support
+Breaking changes:
+
+- Stricter f32 / f64 to decimal conversions. Only finite floats that are in the
+  range that can be presented are converted.
+- Updated error messages.
+- Bumped the MSRV to Rust 1.83.
+- Drop `arrow<53` support.
+- Drop `arrow2` support.
+- Updated the `marrow` dependency to `0.3.0-rc.1`.
+
+Bug fixes:
+
+- Fixed variable-shape tensor extension metadata generation when metadata
+  options are present.
+- Improved validation for decimal parsing and formatting and the implementation
+  of Arrow view arrays to avoid Rust APIs that may panic in favor of error
+  producing APIs.
 
 ## 0.14.2
 
@@ -496,8 +507,8 @@ serde_arrow = { version = "0.6", features = ["arrow-36"] }
 ### Deserialization support (arrow2 only)
 
 `serde_arrow` now supports deserializing Rust objects from arrays. At the
-moment, this operation is supported only for `arrow2`. Adding support for `arrow` is
-[planned](https://github.com/chmp/serde_arrow/issues/38).
+moment, this operation is supported only for `arrow2`. Adding support for
+`arrow` is [planned](https://github.com/chmp/serde_arrow/issues/38).
 
 ### More flexible support for Rust / Arrow features
 
