@@ -28,6 +28,8 @@ support_packages = (
     "serde_arrow_integration",
     "marrow_integration",
 )
+serde_arrow_components = ("arrow-array", "arrow-schema")
+marrow_components = ("arrow-array", "arrow-schema", "arrow-data", "arrow-buffer")
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -500,6 +502,31 @@ def check_cargo_toml():
                 f"Expected: {expected}, found: {actual}"
             )
 
+    def check_arrow_feature(crate, config, feature, components, extra_features=()):
+        *_, version = feature.partition("-")
+        check_feature_list(
+            crate,
+            f"feature definition for {feature}",
+            config["features"][feature],
+            [
+                *(f"dep:{component}-{version}" for component in components),
+                *(feature.format(version=version) for feature in extra_features),
+            ],
+        )
+
+        for component in components:
+            check_dependency(
+                crate,
+                config,
+                f"{component}-{version}",
+                {
+                    "package": component,
+                    "version": version,
+                    "optional": True,
+                    "default-features": False,
+                },
+            )
+
     print(":: check Cargo.toml")
     serde_arrow_config = load_config("serde_arrow")
     marrow_config = load_config("marrow")
@@ -531,54 +558,21 @@ def check_cargo_toml():
     )
 
     for feature in arrow_features:
-        *_, version = feature.partition("-")
-        check_feature_list(
+        check_arrow_feature(
             "serde_arrow",
-            f"feature definition for {feature}",
-            serde_arrow_config["features"][feature],
-            [
-                f"dep:arrow-array-{version}",
-                f"dep:arrow-schema-{version}",
-                f"marrow/arrow-{version}",
-            ],
+            serde_arrow_config,
+            feature,
+            serde_arrow_components,
+            extra_features=("marrow/arrow-{version}",),
         )
-
-        for component in ["arrow-array", "arrow-schema"]:
-            check_dependency(
-                "serde_arrow",
-                serde_arrow_config,
-                f"{component}-{version}",
-                {
-                    "package": component,
-                    "version": version,
-                    "optional": True,
-                    "default-features": False,
-                },
-            )
-
-    marrow_components = ["arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"]
-    for feature in arrow_features:
-        *_, version = feature.partition("-")
-        check_feature_list(
+        check_arrow_feature(
             "marrow",
-            f"feature definition for {feature}",
-            marrow_config["features"][feature],
-            [f"dep:{component}-{version}" for component in marrow_components],
+            marrow_config,
+            feature,
+            marrow_components,
         )
 
-        for component in marrow_components:
-            check_dependency(
-                "marrow",
-                marrow_config,
-                f"{component}-{version}",
-                {
-                    "package": component,
-                    "version": version,
-                    "optional": True,
-                    "default-features": False,
-                },
-            )
-
+        *_, version = feature.partition("-")
         check_feature_list(
             "marrow_integration",
             f"feature definition for {feature}",
