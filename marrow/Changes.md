@@ -24,7 +24,8 @@ Other:
 
 - Add `arrow=57` support
 
-Thanks [@lonless9](https://github.com/lonless9) for the [contribution](https://github.com/chmp/marrow/pull/33)
+Thanks [@lonless9](https://github.com/lonless9) for the
+[contribution](https://github.com/chmp/marrow/pull/33)
 
 ## 0.2.4
 
@@ -50,14 +51,15 @@ Thanks [@jpopesculian](https://github.com/jpopesculian) for the
 
 Breaking changes:
 
-- Rework map arrays to use explicit keys and values array to simplify interaction the underlying
-  arrays
-- Rename `DenseUnion` to `Union` and change offsets to be `Option<Vec<i32>>`, implement sparse
-  unions
+- Rework map arrays to use explicit keys and values array to simplify
+  interaction the underlying arrays
+- Rename `DenseUnion` to `Union` and change offsets to be `Option<Vec<i32>>`,
+  implement sparse unions
 - Rename `Dictionary::indices` to `Dictionary::keys`
-- Remove the sorted flag from the dictionary `DataType` it is not supported by `arrow`
-- Rework `StructArray` and `UnionArray`: place metadata in front of arrays in `StructArray::fields`,
-  `UnionArray::fields`
+- Remove the sorted flag from the dictionary `DataType` it is not supported by
+  `arrow`
+- Rework `StructArray` and `UnionArray`: place metadata in front of arrays in
+  `StructArray::fields`, `UnionArray::fields`
 
 New features
 
