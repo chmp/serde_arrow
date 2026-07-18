@@ -669,22 +669,36 @@ def update_readme(mean_times, ignore_groups=()):
     with open(self_path / "Readme.md", "rt", encoding="utf8") as fobj:
         lines = [line.rstrip() for line in fobj]
 
-    active = False
     with open(self_path / "Readme.md", "wt", encoding="utf8", newline="\n") as fobj:
-        for line in lines:
-            if not active:
-                print(line, file=fobj)
-                if line.strip() == "<!-- start:benchmarks -->":
-                    active = True
+        for line in replace_marked_section(
+            lines,
+            start_marker="<!-- start:benchmarks -->",
+            end_marker="<!-- end:benchmarks -->",
+            content=format_benchmark(mean_times, ignore_groups=ignore_groups),
+        ):
+            print(line, file=fobj)
 
-            else:
-                if line.strip() == "<!-- end:benchmarks -->":
-                    print(
-                        format_benchmark(mean_times, ignore_groups=ignore_groups),
-                        file=fobj,
-                    )
-                    print(line, file=fobj)
-                    active = False
+
+def replace_marked_section(lines, *, start_marker, end_marker, content):
+    start = None
+    end = None
+    for idx, line in enumerate(lines):
+        if line.strip() == start_marker:
+            start = idx
+        elif line.strip() == end_marker:
+            end = idx
+            break
+
+    if start is None or end is None or end < start:
+        raise RuntimeError(
+            f"Could not find marker block {start_marker!r}..{end_marker!r}"
+        )
+
+    return [
+        *lines[: start + 1],
+        *content.splitlines(),
+        *lines[end:],
+    ]
 
 
 def plot_times(mean_times, ignore_groups=()):
