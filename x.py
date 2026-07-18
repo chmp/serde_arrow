@@ -31,8 +31,6 @@ SUPPORT_PACKAGES = (
 SERDE_ARROW_COMPONENTS = ("arrow-array", "arrow-schema")
 MARROW_COMPONENTS = ("arrow-array", "arrow-schema", "arrow-data", "arrow-buffer")
 
-CHECKS_PLACEHOLDER = "<<< checks >>>"
-
 # actions/checkout v7.0.0
 ACTION_CHECKOUT = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
 
