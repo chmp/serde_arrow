@@ -16,9 +16,11 @@ arrow_features = [
     "arrow-53",
 ]
 default_serde_arrow_feature = arrow_features[0]
-default_marrow_features = f"serde,{arrow_features[0]}"
+default_marrow_features = ("serde", arrow_features[0])
 default_workspace_features = (
-    f"serde_arrow/{arrow_features[0]},marrow/serde,marrow/{arrow_features[0]}"
+    f"serde_arrow/{arrow_features[0]}",
+    "marrow/serde",
+    f"marrow/{arrow_features[0]}",
 )
 support_packages = (
     "serde_arrow_bench",
@@ -525,7 +527,7 @@ def check_cargo_toml():
         "marrow",
         "docs.rs configuration",
         marrow_config["package"]["metadata"]["docs"]["rs"]["features"],
-        default_marrow_features.split(","),
+        default_marrow_features,
     )
 
     for feature in arrow_features:
