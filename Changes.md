@@ -17,7 +17,7 @@ Bug fixes:
 - Fixed variable-shape tensor extension metadata generation when metadata
   options are present.
 - Improved validation for decimal parsing and formatting and the implementation
-  of Arrow view arrays to avoid Rust API that may panic in favor of error
+  of Arrow view arrays to avoid Rust APIs that may panic in favor of error
   producing APIs.
 
 ## 0.14.2
