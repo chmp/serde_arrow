@@ -30,6 +30,12 @@ modules and can be run without installing further packages.
    trigger the release workflow (requires maintainer access). Use
    `marrow/v{VERSION}` to release a new `marrow` version.
 
+This repository uses the following tags:
+
+- `serde_arrow/v*`: `serde_arrow` releases
+- `marrow/v*`: `marrow` releases
+- `v*`: `serde_arrow` releases `<0.15.0`
+
 ## Running the benchmarks
 
 1. `uv run x.py bench`
