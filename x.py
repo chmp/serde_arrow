@@ -230,7 +230,7 @@ def _workflow_test():
                     },
                 ],
             },
-            "build": {
+            "test": {
                 "runs-on": "ubuntu-latest",
                 "steps": [
                     {"uses": ACTION_CHECKOUT},
@@ -363,6 +363,26 @@ def check():
 
     for command in commands:
         _sh(command)
+
+
+@cmd()
+@arg("path")
+@arg("job", nargs="?")
+def run_workflow(path, job):
+    import json
+
+    with open(path, "rt") as fobj:
+        workflow = json.load(fobj)
+
+    if not job:
+        print(sorted(workflow["jobs"]))
+        return
+
+    for step in workflow["jobs"][job]["steps"]:
+        if "run" not in step:
+            print(step)
+        else:
+            _sh(step["run"])
 
 
 @cmd(help="Run the serde_arrow_example")
