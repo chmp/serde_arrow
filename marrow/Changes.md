@@ -1,10 +1,10 @@
 # Change log
 
-## Development
+## 0.3.0-rc.1
 
-- Breaking. Drop MSRV to `1.83`
-- Breaking. Drop `arrow2` support
-- Breaking. Drop `arrow<53` support
+- Breaking. Bumped the MSRV to Rust 1.83.
+- Breaking. Drop `arrow2` support.
+- Breaking. Drop `arrow<53` support.
 
 ## 0.2.7
 
