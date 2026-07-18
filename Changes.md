@@ -9,6 +9,12 @@ Breaking changes:
 - Bumped the MSRV to Rust 1.83.
 - Drop `arrow<53` support.
 - Drop `arrow2` support.
+- Updated the `marrow` dependency to `0.3.0-rc.1`.
+
+Bug fixes:
+
+- Fixed variable-shape tensor extension metadata generation when metadata options are present.
+- Improved validation for decimal parsing / formatting and Arrow view arrays so invalid data produces errors instead of panics.
 
 ## 0.14.2
 

@@ -8,6 +8,10 @@ Breaking changes:
 - Drop `arrow2` support.
 - Drop `arrow<53` support.
 
+Other:
+
+- Moved `marrow` into the `serde_arrow` workspace.
+
 ## 0.2.7
 
 - Add `arrow=59` support
