@@ -26,8 +26,9 @@ modules and can be run without installing further packages.
 3. Update the changelog ([`Changes.md`](Changes.md))
 4. Create a pull request
 5. Merge the branch into main (requires maintainer access)
-6. Create a new release via the GH UI tagged with `v{VERSION}` to trigger the
-   release workflow (requires maintainer access)
+6. Create a new release via the GH UI tagged with `serde_arrow/v{VERSION}` to
+   trigger the release workflow (requires maintainer access). Use
+   `marrow/v{VERSION}` to release a new `marrow` version.
 
 ## Running the benchmarks
 
