@@ -126,30 +126,12 @@ def _cargo(
     )
 
 
-def _cargo_step(
-    name, command, *packages, features=(), all_targets=False, all_features=False
-):
-    return {
-        "name": name,
-        "run": _cargo(
-            command,
-            *packages,
-            features=features,
-            all_targets=all_targets,
-            all_features=all_features,
-        ),
-    }
-
-
 def _feature_check_steps(crate, features):
     for feature in features:
-        yield _cargo_step(
-            f"Check {crate} {feature}",
-            "check",
-            crate,
-            features=feature,
-            all_targets=True,
-        )
+        yield {
+            "name": f"Check {crate} {feature}",
+            "run": _cargo("check", crate, features=feature, all_targets=True),
+        }
 
 
 def _support_package_command(command):
@@ -168,25 +150,32 @@ def _clippy(*packages, features=(), all_features=False, fix=False):
 
 
 def _generate_marrow_release_check_steps():
-    yield _cargo_step("Check marrow", "check", "marrow", all_targets=True)
+    yield {
+        "name": "Check marrow",
+        "run": _cargo("check", "marrow", all_targets=True),
+    }
 
     yield from _feature_check_steps("marrow", ("serde", *arrow_features))
 
-    yield _cargo_step("Test marrow", "test", "marrow", features=default_marrow_features)
+    yield {
+        "name": "Test marrow",
+        "run": _cargo("test", "marrow", features=default_marrow_features),
+    }
     yield {"name": "Package marrow", "run": "cargo package -p marrow --allow-dirty"}
 
 
 def _generate_serde_arrow_release_check_steps():
-    yield _cargo_step("Check serde_arrow", "check", "serde_arrow", all_targets=True)
+    yield {
+        "name": "Check serde_arrow",
+        "run": _cargo("check", "serde_arrow", all_targets=True),
+    }
 
     yield from _feature_check_steps("serde_arrow", arrow_features)
 
-    yield _cargo_step(
-        "Test serde_arrow",
-        "test",
-        "serde_arrow",
-        features=default_serde_arrow_feature,
-    )
+    yield {
+        "name": "Test serde_arrow",
+        "run": _cargo("test", "serde_arrow", features=default_serde_arrow_feature),
+    }
     yield {
         "name": "Package serde_arrow",
         "run": "cargo package -p serde_arrow --allow-dirty",
@@ -305,12 +294,10 @@ def _generate_workflow_check_steps():
     yield from _feature_check_steps("marrow", ("serde", *arrow_features))
     yield from _feature_check_steps("serde_arrow", arrow_features)
 
-    yield _cargo_step(
-        "Check support packages",
-        "check",
-        *support_packages,
-        all_features=True,
-    )
+    yield {
+        "name": "Check support packages",
+        "run": _cargo("check", *support_packages, all_features=True),
+    }
 
     yield {
         "name": "Check format",
