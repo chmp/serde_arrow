@@ -3,6 +3,7 @@ target/
 /serde_arrow_example.ipc
 
 __pycache__/
+*.py[cod]
 .ipynb_checkpoints/
 
 # Editor directories and files

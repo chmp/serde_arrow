@@ -51,7 +51,7 @@
         }
       ]
     },
-    "build": {
+    "test": {
       "runs-on": "ubuntu-latest",
       "steps": [
         {
@@ -71,6 +71,10 @@
         {
           "name": "cargo",
           "run": "cargo --version"
+        },
+        {
+          "name": "Check Cargo.toml",
+          "run": "uv run python scripts/check-cargo-toml.py --arrow-features arrow-59 arrow-58 arrow-57 arrow-56 arrow-55 arrow-54 arrow-53"
         },
         {
           "name": "Check",
@@ -154,7 +158,7 @@
         },
         {
           "name": "Integration test",
-          "run": "uv run python x.py test-integration"
+          "run": "cargo test -p serde_arrow_integration"
         }
       ]
     }

@@ -36,13 +36,13 @@ pub fn execute_python(source: &str, paths: &[&str]) -> Result<String> {
     let tmp_dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     fs::create_dir_all(&tmp_dir)?;
 
-    let python = env::var("SERDE_ARROW_PYTHON").unwrap_or_else(|_| "python".into());
+    let (mut command, python) = python_command()?;
     let script = dedent(source);
     let paths = paths
         .iter()
         .map(|path| tmp_dir.join(path))
         .collect::<Vec<_>>();
-    let output = Command::new(&python)
+    let output = command
         .arg("-c")
         .arg(&script)
         .args(&paths)
@@ -67,6 +67,38 @@ pub fn execute_python(source: &str, paths: &[&str]) -> Result<String> {
     }
 
     Ok(String::from_utf8(output.stdout)?)
+}
+
+fn python_command() -> Result<(Command, String)> {
+    match env::var("SERDE_ARROW_PYTHON") {
+        Ok(python) => {
+            let path = PathBuf::from(&python);
+            let command = if path.is_relative() && path.components().count() > 1 {
+                resolve_relative_python_path(path)?
+            } else {
+                path
+            };
+            Ok((Command::new(command), python))
+        }
+        Err(_) => {
+            let mut command = Command::new("uv");
+            command.args(["run", "python"]);
+            Ok((command, "uv run python".into()))
+        }
+    }
+}
+
+fn resolve_relative_python_path(path: PathBuf) -> Result<PathBuf> {
+    let current_dir_path = env::current_dir()?.join(&path);
+    if current_dir_path.exists() {
+        return Ok(current_dir_path);
+    }
+
+    let workspace_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .ok_or_else(|| std::io::Error::other("crate manifest directory has no parent"))?
+        .join(path);
+    Ok(workspace_path)
 }
 
 fn file_path(name: &str) -> Result<PathBuf> {
