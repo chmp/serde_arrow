@@ -148,6 +148,21 @@ def _feature_check_steps(crate, features):
         )
 
 
+def _support_package_command(command):
+    return _cargo(command, *support_packages, all_targets=True, all_features=True)
+
+
+def _clippy(*packages, features=(), all_features=False, fix=False):
+    command = _cargo(
+        "clippy",
+        *packages,
+        features=features,
+        all_targets=True,
+        all_features=all_features,
+    )
+    return f"{command} --fix" if fix else command
+
+
 def _generate_marrow_release_check_steps():
     yield _cargo_step("Check marrow", "check", "marrow", all_targets=True)
 
@@ -338,33 +353,33 @@ def format():
 @arg("--fix", action="store_true")
 def check(all=False, fix=False):
     check_cargo_toml()
-    _sh("cargo check")
-    _sh(
-        f"cargo check --all-targets --package serde_arrow --features {default_serde_arrow_feature}"
-    )
-    _sh(
-        f"cargo check --all-targets --package marrow --features {default_marrow_features}"
-    )
-    _sh(
-        f"cargo clippy --all-targets --package serde_arrow --features {default_serde_arrow_feature} {'--fix' if fix else ''}"
-    )
-    _sh(
-        f"cargo clippy --all-targets --package marrow --features {default_marrow_features} {'--fix' if fix else ''}"
-    )
-    _sh(
-        "cargo check --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
-    )
-    _sh(
-        "cargo clippy --all-targets --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration --all-features"
-    )
+    for command in _check_commands(fix=fix, all=all):
+        _sh(command)
 
+
+def _check_commands(fix=False, all=False):
+    yield "cargo check"
+    yield _cargo(
+        "check",
+        "serde_arrow",
+        features=default_serde_arrow_feature,
+        all_targets=True,
+    )
+    yield _cargo("check", "marrow", features=default_marrow_features, all_targets=True)
+    yield _clippy("serde_arrow", features=default_serde_arrow_feature, fix=fix)
+    yield _clippy("marrow", features=default_marrow_features, fix=fix)
+    yield _support_package_command("check")
+    yield _clippy(*support_packages, all_features=True, fix=fix)
     if all:
         for arrow_feature in arrow_features:
-            _sh(f"cargo check --package marrow --features {arrow_feature}")
+            yield _cargo("check", "marrow", features=arrow_feature, all_targets=True)
 
         for arrow_feature in arrow_features:
-            _sh(
-                f"cargo check --package serde_arrow --all-targets --features {arrow_feature}"
+            yield _cargo(
+                "check",
+                "serde_arrow",
+                features=arrow_feature,
+                all_targets=True,
             )
 
 
