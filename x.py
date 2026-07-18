@@ -44,61 +44,6 @@ ACTION_RUST_TOOLCHAIN = (
     "dtolnay/rust-toolchain@bd41891a8e7f4b8649f6d684415e1a6155fe4e22"
 )
 
-workflow_test_template = {
-    "name": "Test",
-    "on": {
-        "workflow_dispatch": {},
-        "pull_request": {
-            "branches": ["main", "develop-*"],
-            "types": [
-                "opened",
-                "edited",
-                "reopened",
-                "ready_for_review",
-                "synchronize",
-            ],
-        },
-    },
-    "env": {"CARGO_TERM_COLOR": "always"},
-    "jobs": {
-        "msrv": {
-            "runs-on": "ubuntu-latest",
-            "steps": [
-                {"uses": ACTION_CHECKOUT},
-                {
-                    "name": "Install Rust 1.83",
-                    "uses": ACTION_RUST_TOOLCHAIN,
-                    "with": {"toolchain": "1.83.0"},
-                },
-                {"name": "rustc", "run": "rustc --version"},
-                {"name": "cargo", "run": "cargo --version"},
-                {
-                    "name": "Update dependencies",
-                    "run": "cargo +stable update --config 'resolver.incompatible-rust-versions=\"fallback\"'",
-                },
-                {
-                    "name": "Check MSRV with arrow-53",
-                    "run": "cargo +1.83.0 check --package serde_arrow --features arrow-53",
-                },
-            ],
-        },
-        "build": {
-            "runs-on": "ubuntu-latest",
-            "steps": [
-                {"uses": ACTION_CHECKOUT},
-                {
-                    "name": "Install uv",
-                    "uses": ACTION_SETUP_UV,
-                    "with": {"enable-cache": True},
-                },
-                {"name": "rustc", "run": "rustc --version"},
-                {"name": "cargo", "run": "cargo --version"},
-                CHECKS_PLACEHOLDER,
-            ],
-        },
-    },
-}
-
 
 def _features_arg(features):
     if not features:
@@ -109,7 +54,12 @@ def _features_arg(features):
 
 
 def _cargo(
-    command, *packages, features=(), all_targets=False, all_features=False, quiet=False
+    command,
+    *packages,
+    features=(),
+    all_targets=False,
+    all_features=False,
+    quiet=False,
 ):
     return " ".join(
         part
@@ -134,10 +84,6 @@ def _feature_check_steps(crate, features):
         }
 
 
-def _support_package_command(command):
-    return _cargo(command, *support_packages, all_targets=True, all_features=True)
-
-
 def _clippy(*packages, features=(), all_features=False, fix=False):
     command = _cargo(
         "clippy",
@@ -149,37 +95,85 @@ def _clippy(*packages, features=(), all_features=False, fix=False):
     return f"{command} --fix" if fix else command
 
 
-def _generate_marrow_release_check_steps():
-    yield {
-        "name": "Check marrow",
-        "run": _cargo("check", "marrow", all_targets=True),
-    }
+benchmark_renames = {
+    "arrow": "arrow_json::ReaderBuilder",
+    "arrow_builder": "arrow builder",
+    "serde_arrow_arrow": "serde_arrow::to_arrow",
+    "serde_arrow_marrow": "serde_arrow::to_marrow",
+}
 
-    yield from _feature_check_steps("marrow", ("serde", *arrow_features))
-
-    yield {
-        "name": "Test marrow",
-        "run": _cargo("test", "marrow", features=default_marrow_features),
-    }
-    yield {"name": "Package marrow", "run": "cargo package -p marrow --allow-dirty"}
+BENCHMARK_BASELINE = "arrow builder"
+README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
 
 
-def _generate_serde_arrow_release_check_steps():
-    yield {
-        "name": "Check serde_arrow",
-        "run": _cargo("check", "serde_arrow", all_targets=True),
-    }
+@cmd(help="Run all common development tasks before a commit")
+@arg("--backtrace", action="store_true", default=False)
+def precommit(backtrace=False):
+    update_workflows()
 
-    yield from _feature_check_steps("serde_arrow", arrow_features)
+    format()
+    check()
+    test(backtrace=backtrace)
+    serde_arrow_example(backtrace)
 
-    yield {
-        "name": "Test serde_arrow",
-        "run": _cargo("test", "serde_arrow", features=default_serde_arrow_feature),
-    }
-    yield {
-        "name": "Package serde_arrow",
-        "run": "cargo package -p serde_arrow --allow-dirty",
-    }
+
+@cmd(help="Update the github workflows")
+def update_workflows():
+    _update_workflow(self_path / ".github" / "workflows" / "test.yml", _workflow_test())
+
+    _update_workflow(
+        self_path / ".github" / "workflows" / "release-marrow.yml",
+        _release_workflow_template(
+            "marrow",
+            [
+                {
+                    "name": "Check marrow",
+                    "run": _cargo("check", "marrow", all_targets=True),
+                },
+                *_feature_check_steps("marrow", ("serde", *arrow_features)),
+                {
+                    "name": "Test marrow",
+                    "run": _cargo("test", "marrow", features=default_marrow_features),
+                },
+                {
+                    "name": "Package marrow",
+                    "run": "cargo package -p marrow --allow-dirty",
+                },
+            ],
+        ),
+    )
+
+    _update_workflow(
+        self_path / ".github" / "workflows" / "release-serde-arrow.yml",
+        _release_workflow_template(
+            "serde_arrow",
+            [
+                {
+                    "name": "Check serde_arrow",
+                    "run": _cargo("check", "serde_arrow", all_targets=True),
+                },
+                *_feature_check_steps("serde_arrow", arrow_features),
+                {
+                    "name": "Test serde_arrow",
+                    "run": _cargo(
+                        "test", "serde_arrow", features=default_serde_arrow_feature
+                    ),
+                },
+                {
+                    "name": "Package serde_arrow",
+                    "run": "cargo package -p serde_arrow --allow-dirty",
+                },
+            ],
+        ),
+    )
+
+
+def _update_workflow(path, workflow):
+    import json
+
+    print(f":: update {path}")
+    with open(path, "wt", encoding="utf8", newline="\n") as fobj:
+        json.dump(workflow, fobj, indent=2)
 
 
 def _release_workflow_template(crate, check_steps):
@@ -217,113 +211,92 @@ def _release_workflow_template(crate, check_steps):
     }
 
 
-workflow_release_marrow_template = _release_workflow_template(
-    "marrow",
-    [*_generate_marrow_release_check_steps()],
-)
-workflow_release_serde_arrow_template = _release_workflow_template(
-    "serde_arrow",
-    [*_generate_serde_arrow_release_check_steps()],
-)
-
-benchmark_renames = {
-    "arrow": "arrow_json::ReaderBuilder",
-    "arrow_builder": "arrow builder",
-    "serde_arrow_arrow": "serde_arrow::to_arrow",
-    "serde_arrow_marrow": "serde_arrow::to_marrow",
-}
-
-BENCHMARK_BASELINE = "arrow builder"
-README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
-
-
-@cmd(help="Run all common development tasks before a commit")
-@arg("--backtrace", action="store_true", default=False)
-def precommit(backtrace=False):
-    update_workflows()
-
-    format()
-    check()
-    test(backtrace=backtrace)
-    serde_arrow_example(backtrace)
-
-
-@cmd(help="Update the github workflows")
-def update_workflows():
-    _update_workflow(
-        self_path / ".github" / "workflows" / "test.yml",
-        workflow_test_template,
-    )
-
-    _update_workflow(
-        self_path / ".github" / "workflows" / "release-marrow.yml",
-        workflow_release_marrow_template,
-    )
-
-    _update_workflow(
-        self_path / ".github" / "workflows" / "release-serde-arrow.yml",
-        workflow_release_serde_arrow_template,
-    )
-
-
-def _update_workflow(path, template):
-    import copy
-    import json
-
-    workflow = copy.deepcopy(template)
-
-    for job in workflow["jobs"].values():
-        steps = []
-        for step in job["steps"]:
-            if step == CHECKS_PLACEHOLDER:
-                steps.extend(_generate_workflow_check_steps())
-
-            else:
-                assert isinstance(step, dict)
-                steps.append(step)
-
-        job["steps"] = steps
-
-    print(f":: update {path}")
-    with open(path, "wt", encoding="utf8", newline="\n") as fobj:
-        json.dump(workflow, fobj, indent=2)
-
-
-def _generate_workflow_check_steps():
-    yield {"name": "Check", "run": "cargo check"}
-    yield from _feature_check_steps("marrow", ("serde", *arrow_features))
-    yield from _feature_check_steps("serde_arrow", arrow_features)
-
-    yield {
-        "name": "Check support packages",
-        "run": _cargo("check", *support_packages, all_features=True),
-    }
-
-    yield {
-        "name": "Check format",
-        "run": "cargo fmt --check",
-    }
-    yield {
-        "name": "Build",
-        "run": _cargo(
-            "build",
-            "serde_arrow",
-            "marrow",
-            features=default_workspace_features,
-        ),
-    }
-    yield {
+def _workflow_test():
+    return {
         "name": "Test",
-        "run": _cargo(
-            "test",
-            "serde_arrow",
-            "marrow",
-            features=default_workspace_features,
-        ),
-    }
-    yield {
-        "name": "Integration test",
-        "run": "uv run python x.py test-integration",
+        "on": {
+            "workflow_dispatch": {},
+            "pull_request": {
+                "branches": ["main", "develop-*"],
+                "types": [
+                    "opened",
+                    "edited",
+                    "reopened",
+                    "ready_for_review",
+                    "synchronize",
+                ],
+            },
+        },
+        "env": {"CARGO_TERM_COLOR": "always"},
+        "jobs": {
+            "msrv": {
+                "runs-on": "ubuntu-latest",
+                "steps": [
+                    {"uses": ACTION_CHECKOUT},
+                    {
+                        "name": "Install Rust 1.83",
+                        "uses": ACTION_RUST_TOOLCHAIN,
+                        "with": {"toolchain": "1.83.0"},
+                    },
+                    {"name": "rustc", "run": "rustc --version"},
+                    {"name": "cargo", "run": "cargo --version"},
+                    {
+                        "name": "Update dependencies",
+                        "run": "cargo +stable update --config 'resolver.incompatible-rust-versions=\"fallback\"'",
+                    },
+                    {
+                        "name": "Check MSRV with arrow-53",
+                        "run": "cargo +1.83.0 check --package serde_arrow --features arrow-53",
+                    },
+                ],
+            },
+            "build": {
+                "runs-on": "ubuntu-latest",
+                "steps": [
+                    {"uses": ACTION_CHECKOUT},
+                    {
+                        "name": "Install uv",
+                        "uses": ACTION_SETUP_UV,
+                        "with": {"enable-cache": True},
+                    },
+                    {"name": "rustc", "run": "rustc --version"},
+                    {"name": "cargo", "run": "cargo --version"},
+                    {"name": "Check", "run": "cargo check"},
+                    *_feature_check_steps("marrow", ("serde", *arrow_features)),
+                    *_feature_check_steps("serde_arrow", arrow_features),
+                    {
+                        "name": "Check support packages",
+                        "run": _cargo("check", *support_packages, all_features=True),
+                    },
+                    {
+                        "name": "Check format",
+                        "run": "cargo fmt --check",
+                    },
+                    {
+                        "name": "Build",
+                        "run": _cargo(
+                            "build",
+                            "serde_arrow",
+                            "marrow",
+                            features=default_workspace_features,
+                        ),
+                    },
+                    {
+                        "name": "Test",
+                        "run": _cargo(
+                            "test",
+                            "serde_arrow",
+                            "marrow",
+                            features=default_workspace_features,
+                        ),
+                    },
+                    {
+                        "name": "Integration test",
+                        "run": "uv run python x.py test-integration",
+                    },
+                ],
+            },
+        },
     }
 
 
@@ -360,7 +333,7 @@ def _check_commands(fix=False, all=False):
     yield _cargo("check", "marrow", features=default_marrow_features, all_targets=True)
     yield _clippy("serde_arrow", features=default_serde_arrow_feature, fix=fix)
     yield _clippy("marrow", features=default_marrow_features, fix=fix)
-    yield _support_package_command("check")
+    yield _cargo("check", *support_packages, all_targets=True, all_features=True)
     yield _clippy(*support_packages, all_features=True, fix=fix)
     if all:
         for arrow_feature in arrow_features:
@@ -416,19 +389,24 @@ def test(backtrace=False):
 def test_unit(test_name=None, backtrace=False, full=False):
     if not full:
         commands = [
-            f"cargo test -q --package serde_arrow --features {default_serde_arrow_feature}",
-            f"cargo test -q --package marrow --features {default_marrow_features}",
+            _cargo(
+                "test",
+                "serde_arrow",
+                features=default_serde_arrow_feature,
+                quiet=True,
+            ),
+            _cargo("test", "marrow", features=default_marrow_features, quiet=True),
         ]
 
     else:
         commands = [
-            "cargo test -q --package marrow --features serde",
+            _cargo("test", "marrow", features="serde", quiet=True),
             *(
-                f"cargo test -q --package marrow --features {feature}"
+                _cargo("test", "marrow", features=feature, quiet=True)
                 for feature in arrow_features
             ),
             *(
-                f"cargo test -q --package serde_arrow --features {feature}"
+                _cargo("test", "serde_arrow", features=feature, quiet=True)
                 for feature in arrow_features
             ),
         ]
