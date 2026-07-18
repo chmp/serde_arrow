@@ -281,18 +281,12 @@ mod timezone_utc_designators {
 
     #[test]
     fn deserializes_every_utc_designator_as_zulu() {
-        // 2025-01-20T19:30:42 UTC as microseconds since the epoch.
-        let micros = NaiveDateTime::parse_from_str("2025-01-20T19:30:42", "%Y-%m-%dT%H:%M:%S")
-            .unwrap()
-            .and_utc()
-            .timestamp_micros();
-
         for tz in UTC_DESIGNATORS {
             let array = Array::Timestamp(TimestampArray {
                 unit: TimeUnit::Microsecond,
                 timezone: Some(String::from(*tz)),
                 validity: None,
-                values: vec![micros],
+                values: vec![zulu_micros()],
             });
             let view = array.as_view();
             let deserializer = Deserializer::from_marrow(&[tz_field(tz)], &[view])
@@ -304,6 +298,28 @@ mod timezone_utc_designators {
                 [Item(String::from("2025-01-20T19:30:42Z"))],
                 "timezone {tz:?}"
             );
+        }
+    }
+
+    /// Tagging the schema with a zero-offset designator sets the builder to UTC,
+    /// so a `Z`-suffixed string parses instead of being rejected as non-naive.
+    #[test]
+    fn serializes_every_utc_designator_from_zulu_string() {
+        for tz in UTC_DESIGNATORS {
+            let mut builder = ArrayBuilder::from_marrow(&[tz_field(tz)])
+                .unwrap_or_else(|e| panic!("timezone {tz:?} rejected: {e}"));
+            [Item(String::from("2025-01-20T19:30:42Z"))]
+                .serialize(Serializer::new(&mut builder))
+                .unwrap_or_else(|e| panic!("timezone {tz:?}: {e}"));
+
+            let arrays = builder.to_marrow().unwrap();
+            let [array] = <[_; 1]>::try_from(arrays).unwrap();
+            let Array::Timestamp(array) = array else {
+                panic!("timezone {tz:?}: expected a timestamp array");
+            };
+
+            assert_eq!(array.values, [zulu_micros()], "timezone {tz:?}");
+            assert_eq!(array.timezone.as_deref(), Some(*tz), "timezone {tz:?}");
         }
     }
 
@@ -324,6 +340,14 @@ mod timezone_utc_designators {
             err.to_string().contains("+01:00"),
             "unexpected error: {err}"
         );
+    }
+
+    /// `2025-01-20T19:30:42Z` as microseconds since the epoch.
+    fn zulu_micros() -> i64 {
+        NaiveDateTime::parse_from_str("2025-01-20T19:30:42", "%Y-%m-%dT%H:%M:%S")
+            .unwrap()
+            .and_utc()
+            .timestamp_micros()
     }
 
     fn tz_field(tz: &str) -> Field {

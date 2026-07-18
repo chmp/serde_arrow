@@ -1,5 +1,10 @@
 # Change log
 
+## Development
+
+- Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,
+  `Z`, `z`) alongside `Utc` as UTC when serializing and deserializing timestamps
+
 ## 0.15.0-rc.1
 
 Breaking changes:

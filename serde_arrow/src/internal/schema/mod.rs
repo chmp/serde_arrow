@@ -108,7 +108,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// - date objects: `"Date32"`, `"Date64"`
     /// - datetime objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
     ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
-    ///   `None` or `Some("Utc")`.
+    ///   `None` or a UTC zero-offset designator (`Some("Utc")`, `Some("Z")`, `Some("+00:00")`,
+    ///   `Some("-00:00")`, `Some("+0000")`, or `Some("-0000")`).
     /// - time objects: `"Time32(unit)"`, `"Time64(unit)"` with unit being one of `Second`,
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - durations: `"Duration(unit)"` with unit being one of `Second`, `Millisecond`,
