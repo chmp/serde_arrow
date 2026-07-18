@@ -15,7 +15,7 @@ arrow_features = [
     "arrow-54",
     "arrow-53",
 ]
-default_serde_arrow_feature = arrow_features[0]
+default_serde_arrow_features = (arrow_features[0],)
 default_marrow_features = ("serde", arrow_features[0])
 default_workspace_features = (
     f"serde_arrow/{arrow_features[0]}",
@@ -45,18 +45,11 @@ ACTION_RUST_TOOLCHAIN = (
 )
 
 
-def _features_arg(features):
-    if not features:
-        return []
-    if isinstance(features, str):
-        return ["--features", features]
-    return ["--features", ",".join(features)]
-
-
 def _cargo(
     command,
     *packages,
     features=(),
+    extra_args=(),
     all_targets=False,
     all_features=False,
     quiet=False,
@@ -70,7 +63,9 @@ def _cargo(
             "--all-targets" if all_targets else "",
             "--all-features" if all_features else "",
             *(f"--package {package}" for package in packages),
-            *_features_arg(features),
+            "--features" if features else "",
+            ",".join(features) if features else "",
+            *extra_args,
         ]
         if part
     )
@@ -80,7 +75,7 @@ def _feature_check_steps(crate, features):
     for feature in features:
         yield {
             "name": f"Check {crate} {feature}",
-            "run": _cargo("check", crate, features=feature, all_targets=True),
+            "run": _cargo("check", crate, features=(feature,), all_targets=True),
         }
 
 
@@ -156,7 +151,7 @@ def update_workflows():
                 {
                     "name": "Test serde_arrow",
                     "run": _cargo(
-                        "test", "serde_arrow", features=default_serde_arrow_feature
+                        "test", "serde_arrow", features=default_serde_arrow_features
                     ),
                 },
                 {
@@ -327,23 +322,23 @@ def _check_commands(fix=False, all=False):
     yield _cargo(
         "check",
         "serde_arrow",
-        features=default_serde_arrow_feature,
+        features=default_serde_arrow_features,
         all_targets=True,
     )
     yield _cargo("check", "marrow", features=default_marrow_features, all_targets=True)
-    yield _clippy("serde_arrow", features=default_serde_arrow_feature, fix=fix)
+    yield _clippy("serde_arrow", features=default_serde_arrow_features, fix=fix)
     yield _clippy("marrow", features=default_marrow_features, fix=fix)
     yield _cargo("check", *support_packages, all_targets=True, all_features=True)
     yield _clippy(*support_packages, all_features=True, fix=fix)
     if all:
         for arrow_feature in arrow_features:
-            yield _cargo("check", "marrow", features=arrow_feature, all_targets=True)
+            yield _cargo("check", "marrow", features=(arrow_feature,), all_targets=True)
 
         for arrow_feature in arrow_features:
             yield _cargo(
                 "check",
                 "serde_arrow",
-                features=arrow_feature,
+                features=(arrow_feature,),
                 all_targets=True,
             )
 
@@ -392,7 +387,7 @@ def test_unit(test_name=None, backtrace=False, full=False):
             _cargo(
                 "test",
                 "serde_arrow",
-                features=default_serde_arrow_feature,
+                features=default_serde_arrow_features,
                 quiet=True,
             ),
             _cargo("test", "marrow", features=default_marrow_features, quiet=True),
@@ -400,13 +395,13 @@ def test_unit(test_name=None, backtrace=False, full=False):
 
     else:
         commands = [
-            _cargo("test", "marrow", features="serde", quiet=True),
+            _cargo("test", "marrow", features=("serde",), quiet=True),
             *(
-                _cargo("test", "marrow", features=feature, quiet=True)
+                _cargo("test", "marrow", features=(feature,), quiet=True)
                 for feature in arrow_features
             ),
             *(
-                _cargo("test", "serde_arrow", features=feature, quiet=True)
+                _cargo("test", "serde_arrow", features=(feature,), quiet=True)
                 for feature in arrow_features
             ),
         ]
@@ -514,7 +509,7 @@ def check_cargo_toml():
         "serde_arrow",
         "docs.rs configuration",
         serde_arrow_config["package"]["metadata"]["docs"]["rs"]["features"],
-        [default_serde_arrow_feature],
+        default_serde_arrow_features,
     )
     check_feature_list(
         "marrow",
@@ -766,14 +761,14 @@ def collect(kv_pairs):
 @arg("--open", action="store_true", default=False)
 def doc(private=False, open=False):
     _sh(
-        f"""
-            cargo doc
-                --package serde_arrow
-                --package marrow
-                --features {default_workspace_features}
-                {"--document-private-items" if private else ""}
-                {"--open" if open else ""}
-        """,
+        _cargo(
+            "doc",
+            "serde_arrow",
+            "marrow",
+            features=default_workspace_features,
+            extra_args=(("--document-private-items",) if private else ())
+            + (("--open",) if open else ()),
+        ),
     )
 
 
