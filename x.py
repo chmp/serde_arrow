@@ -20,6 +20,12 @@ default_marrow_features = f"serde,{arrow_features[0]}"
 default_workspace_features = (
     f"serde_arrow/{arrow_features[0]},marrow/serde,marrow/{arrow_features[0]}"
 )
+support_packages = (
+    "serde_arrow_bench",
+    "serde_arrow_example",
+    "serde_arrow_integration",
+    "marrow_integration",
+)
 
 CHECKS_PLACEHOLDER = "<<< checks >>>"
 
@@ -90,38 +96,78 @@ workflow_test_template = {
 }
 
 
-def _generate_marrow_release_check_steps():
-    yield {"name": "Check marrow", "run": "cargo check --all-targets --package marrow"}
+def _features_arg(features):
+    if not features:
+        return []
+    if isinstance(features, str):
+        return ["--features", features]
+    return ["--features", ",".join(features)]
 
-    for feature in ("serde", *arrow_features):
-        yield {
-            "name": f"Check marrow {feature}",
-            "run": f"cargo check --all-targets --package marrow --features {feature}",
-        }
 
-    yield {
-        "name": "Test marrow",
-        "run": f"cargo test --package marrow --features {default_marrow_features}",
+def _cargo(
+    command, *packages, features=(), all_targets=False, all_features=False, quiet=False
+):
+    return " ".join(
+        part
+        for part in [
+            "cargo",
+            command,
+            "-q" if quiet else "",
+            "--all-targets" if all_targets else "",
+            "--all-features" if all_features else "",
+            *(f"--package {package}" for package in packages),
+            *_features_arg(features),
+        ]
+        if part
+    )
+
+
+def _cargo_step(
+    name, command, *packages, features=(), all_targets=False, all_features=False
+):
+    return {
+        "name": name,
+        "run": _cargo(
+            command,
+            *packages,
+            features=features,
+            all_targets=all_targets,
+            all_features=all_features,
+        ),
     }
+
+
+def _feature_check_steps(crate, features):
+    for feature in features:
+        yield _cargo_step(
+            f"Check {crate} {feature}",
+            "check",
+            crate,
+            features=feature,
+            all_targets=True,
+        )
+
+
+def _generate_marrow_release_check_steps():
+    yield _cargo_step("Check marrow", "check", "marrow", all_targets=True)
+
+    yield from _feature_check_steps("marrow", ("serde", *arrow_features))
+
+    yield _cargo_step("Test marrow", "test", "marrow", features=default_marrow_features)
     yield {"name": "Package marrow", "run": "cargo package -p marrow --allow-dirty"}
 
 
 def _generate_serde_arrow_release_check_steps():
-    yield {
-        "name": "Check serde_arrow",
-        "run": "cargo check --all-targets --package serde_arrow",
-    }
+    yield _cargo_step("Check serde_arrow", "check", "serde_arrow", all_targets=True)
 
-    for feature in arrow_features:
-        yield {
-            "name": f"Check serde_arrow {feature}",
-            "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
-        }
+    yield from _feature_check_steps("serde_arrow", arrow_features)
 
-    yield {
-        "name": "Test serde_arrow",
-        "run": f"cargo test --package serde_arrow --features {default_serde_arrow_feature}",
-    }
+    yield _cargo_step(
+        "Test serde_arrow",
+        "test",
+        "serde_arrow",
+        features=default_serde_arrow_feature,
+    )
     yield {
         "name": "Package serde_arrow",
         "run": "cargo package -p serde_arrow --allow-dirty",
@@ -236,22 +282,15 @@ def _update_workflow(path, template):
 
 def _generate_workflow_check_steps():
     yield {"name": "Check", "run": "cargo check"}
-    for feature in ("serde", *arrow_features):
-        yield {
-            "name": f"Check marrow {feature}",
-            "run": f"cargo check --all-targets --package marrow --features {feature}",
-        }
+    yield from _feature_check_steps("marrow", ("serde", *arrow_features))
+    yield from _feature_check_steps("serde_arrow", arrow_features)
 
-    for feature in arrow_features:
-        yield {
-            "name": f"Check serde_arrow {feature}",
-            "run": f"cargo check --all-targets --package serde_arrow --features {feature}",
-        }
-
-    yield {
-        "name": "Check support packages",
-        "run": "cargo check --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration",
-    }
+    yield _cargo_step(
+        "Check support packages",
+        "check",
+        *support_packages,
+        all_features=True,
+    )
 
     yield {
         "name": "Check format",
@@ -259,18 +298,20 @@ def _generate_workflow_check_steps():
     }
     yield {
         "name": "Build",
-        "run": (
-            "cargo build "
-            "--package serde_arrow --package marrow "
-            f"--features {default_workspace_features}"
+        "run": _cargo(
+            "build",
+            "serde_arrow",
+            "marrow",
+            features=default_workspace_features,
         ),
     }
     yield {
         "name": "Test",
-        "run": (
-            "cargo test "
-            "--package serde_arrow --package marrow "
-            f"--features {default_workspace_features}"
+        "run": _cargo(
+            "test",
+            "serde_arrow",
+            "marrow",
+            features=default_workspace_features,
         ),
     }
     yield {
