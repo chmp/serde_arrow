@@ -3,7 +3,7 @@
 ## Development
 
 - Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,
-  `Z`, `z`) alongside `Utc` as UTC when serializing and deserializing timestamps
+  `Z`, `z`) as UTC timezone metadata for timestamp fields
 - Infer strings with zero-offset timezone designators as UTC timestamps when
   date guessing is enabled
 
