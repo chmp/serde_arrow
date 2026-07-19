@@ -24,16 +24,14 @@ Run `uv run python x.py --help` for details.
 Useful commands:
 
 - `uv run python x.py format`: format Rust sources and `x.py`
-- `uv run python x.py check`: run linters and package checks
+- `uv run python x.py check`: run `cargo check`, clippy, and Cargo.toml checks
 - `uv run python x.py test`: run default unit and integration tests
-- `uv run python x.py test-unit --full`: run tests for all supported Arrow
-  feature combinations
-- `uv run python x.py test-unit {TEST_NAME}`: run tests matching a filter
-- `uv run python x.py test-integration`: run the PyArrow integration tests
+- `uv run python x.py ci-test`: run the full pull request test workflow locally
+- `uv run python x.py serde-arrow-example`: run the example and read its output
 - `uv run python x.py doc --open`: build and open local documentation
 
-Add `--backtrace` to `precommit`, `test`, `test-unit`, or `test-integration` to
-set `RUST_BACKTRACE=1`.
+Add `--backtrace` to `precommit`, `test`, `ci-test`, or
+`serde-arrow-example` to set `RUST_BACKTRACE=1`.
 
 The GitHub workflow files are generated from templates in `x.py`. If you change
 workflow generation logic or supported Arrow versions, run:
