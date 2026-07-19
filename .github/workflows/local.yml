@@ -1,0 +1,167 @@
+{
+  "name": "Local",
+  "on": {
+    "workflow_dispatch": {}
+  },
+  "env": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "jobs": {
+    "format": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "Install uv",
+          "uses": "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
+          "with": {
+            "enable-cache": true
+          }
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Format Python",
+          "run": "uv run ruff format x.py"
+        },
+        {
+          "name": "Format Cargo",
+          "run": "cargo fmt"
+        },
+        {
+          "name": "Format generated Rust",
+          "run": "rustfmt marrow/src/impl_arrow/impl_api_53.rs marrow/src/impl_arrow/impl_api_base.rs marrow_integration/src/tests/arrays.rs marrow_integration/src/tests/data_types.rs marrow_integration/src/tests/fixed_size_binary_arrays.rs marrow_integration/src/tests/intervals.rs marrow_integration/src/tests/struct_arrays.rs marrow_integration/src/tests/union_arrays.rs marrow_integration/src/tests/utils.rs marrow_integration/src/tests/views.rs"
+        }
+      ]
+    },
+    "check": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "Install uv",
+          "uses": "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
+          "with": {
+            "enable-cache": true
+          }
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Check Cargo.toml",
+          "run": "uv run python scripts/check-cargo-toml.py"
+        },
+        {
+          "name": "Check workspace",
+          "run": "cargo check"
+        },
+        {
+          "name": "Check serde_arrow",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Check marrow",
+          "run": "cargo check --all-targets --package marrow --features serde,arrow-59"
+        },
+        {
+          "name": "Clippy serde_arrow",
+          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Clippy marrow",
+          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-59"
+        },
+        {
+          "name": "Check support packages",
+          "run": "cargo check --all-targets --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration"
+        },
+        {
+          "name": "Clippy support packages",
+          "run": "cargo clippy --all-targets --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration"
+        }
+      ]
+    },
+    "test": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "Install uv",
+          "uses": "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
+          "with": {
+            "enable-cache": true
+          }
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Test serde_arrow",
+          "run": "cargo test -q --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Test marrow",
+          "run": "cargo test -q --package marrow --features serde,arrow-59"
+        },
+        {
+          "name": "Integration test",
+          "run": "cargo test -p serde_arrow_integration"
+        }
+      ]
+    },
+    "example": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+        },
+        {
+          "name": "Install uv",
+          "uses": "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
+          "with": {
+            "enable-cache": true
+          }
+        },
+        {
+          "name": "rustc",
+          "run": "rustc --version"
+        },
+        {
+          "name": "cargo",
+          "run": "cargo --version"
+        },
+        {
+          "name": "Run example",
+          "run": "cargo run -p serde_arrow_example"
+        },
+        {
+          "name": "Read example output",
+          "run": "uv run python -c 'import polars as pl; print(pl.read_ipc(\"serde_arrow_example.ipc\"))'"
+        }
+      ]
+    }
+  }
+}

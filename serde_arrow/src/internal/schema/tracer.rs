@@ -293,7 +293,7 @@ impl Tracer {
                             StructField {
                                 tracer: Tracer::new(
                                     field.to_owned(),
-                                    format!("{}.{}", tracer.path, &field),
+                                    format!("{path}.{field}", path = tracer.path),
                                     tracer.options.clone(),
                                 ),
                                 name: field,
