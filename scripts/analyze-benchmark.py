@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import pathlib
 import statistics
 
@@ -19,32 +20,39 @@ README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--criterion-root", type=pathlib.Path, required=True)
-    parser.add_argument("--plot-output", type=pathlib.Path, required=True)
-    parser.add_argument("--readme", type=pathlib.Path, required=True)
-    parser.add_argument("--update", action="store_true", default=False)
+    parser.add_argument(
+        "--plot-output", type=pathlib.Path, default=pathlib.Path("timings.png")
+    )
+    parser.add_argument("--update", type=pathlib.Path)
+    parser.add_argument("--update-github-summary", action="store_true", default=False)
     analyze_benchmark(parser.parse_args())
 
 
 def analyze_benchmark(args):
     root = resolve_path(args.criterion_root)
-    readme = resolve_path(args.readme)
+    update = resolve_path(args.update) if args.update else None
     plot_output = resolve_path(args.plot_output)
 
     mean_times = load_times(root)
-    print(format_benchmark(mean_times, ignore_groups=README_BENCHMARK_IGNORE_GROUPS))
+    benchmark = format_benchmark(
+        mean_times,
+        ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
+    )
 
-    if args.update:
-        update_readme(
-            readme,
-            mean_times,
-            ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
-        )
-        plot_times(
-            mean_times,
-            benchmark_baseline=BENCHMARK_BASELINE,
-            ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
-            output=plot_output,
-        )
+    print(benchmark)
+
+    if update is not None:
+        update_marked_output(update, benchmark)
+
+    if args.update_github_summary:
+        update_github_summary(benchmark)
+
+    plot_times(
+        mean_times,
+        benchmark_baseline=BENCHMARK_BASELINE,
+        ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
+        output=plot_output,
+    )
 
 
 def resolve_path(path):
@@ -131,19 +139,33 @@ def format_benchmark(mean_times, ignore_groups=()):
     return "\n".join(_parts())
 
 
-def update_readme(readme, mean_times, ignore_groups=()):
-    print("Update readme")
-    with open(readme, "rt", encoding="utf8") as fobj:
+def update_marked_output(output, content):
+    print(f"Update markers in {output}")
+    with open(output, "rt", encoding="utf8") as fobj:
         lines = [line.rstrip() for line in fobj]
 
-    with open(readme, "wt", encoding="utf8", newline="\n") as fobj:
+    with open(output, "wt", encoding="utf8", newline="\n") as fobj:
         for line in replace_marked_section(
             lines,
             start_marker="<!-- start:benchmarks -->",
             end_marker="<!-- end:benchmarks -->",
-            content=format_benchmark(mean_times, ignore_groups=ignore_groups),
+            content=content,
         ):
             print(line, file=fobj)
+
+
+def update_github_summary(content):
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path is None:
+        return
+
+    append_output(pathlib.Path(path), content)
+
+
+def append_output(path, content):
+    print(f"Append summary to {path}")
+    with open(path, "at", encoding="utf8", newline="\n") as fobj:
+        print(content, file=fobj)
 
 
 def replace_marked_section(lines, *, start_marker, end_marker, content):

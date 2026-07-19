@@ -1,4 +1,3 @@
-import argparse
 import pathlib
 import tomllib
 
@@ -9,12 +8,10 @@ MARROW_COMPONENTS = ("arrow-array", "arrow-schema", "arrow-data", "arrow-buffer"
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--arrow-features", required=True, nargs="+")
-    check_cargo_toml(parser.parse_args())
+    check_cargo_toml(load_script_config()["arrow-features"])
 
 
-def check_cargo_toml(args):
+def check_cargo_toml(arrow_features):
     print(":: check Cargo.toml")
     serde_arrow_config = load_config("serde_arrow")
     marrow_config = load_config("marrow")
@@ -36,16 +33,16 @@ def check_cargo_toml(args):
         "serde_arrow",
         "docs.rs configuration",
         serde_arrow_config["package"]["metadata"]["docs"]["rs"]["features"],
-        (args.arrow_features[0],),
+        (arrow_features[0],),
     )
     check_feature_list(
         "marrow",
         "docs.rs configuration",
         marrow_config["package"]["metadata"]["docs"]["rs"]["features"],
-        ("serde", args.arrow_features[0]),
+        ("serde", arrow_features[0]),
     )
 
-    for feature in args.arrow_features:
+    for feature in arrow_features:
         check_arrow_feature(
             "serde_arrow",
             serde_arrow_config,
@@ -85,6 +82,11 @@ def check_cargo_toml(args):
 
 def load_config(crate):
     with open(SELF_PATH / crate / "Cargo.toml", "rb") as fobj:
+        return tomllib.load(fobj)
+
+
+def load_script_config():
+    with open(SELF_PATH / "arrow-versions.toml", "rb") as fobj:
         return tomllib.load(fobj)
 
 

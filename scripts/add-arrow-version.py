@@ -35,6 +35,7 @@ def add_arrow_version(version):
 def arrow_version_paths():
     return [
         SELF_PATH / "x.py",
+        *SELF_PATH.glob("*.toml"),
         *SELF_PATH.glob("*/**/*.rs"),
         *SELF_PATH.glob("*/**/*.toml"),
     ]

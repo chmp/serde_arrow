@@ -65,7 +65,7 @@
         },
         {
           "name": "Check Cargo.toml",
-          "run": "uv run python scripts/check-cargo-toml.py --arrow-features arrow-59 arrow-58 arrow-57 arrow-56 arrow-55 arrow-54 arrow-53"
+          "run": "uv run python scripts/check-cargo-toml.py"
         },
         {
           "name": "Check workspace",

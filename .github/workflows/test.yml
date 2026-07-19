@@ -74,7 +74,7 @@
         },
         {
           "name": "Check Cargo.toml",
-          "run": "uv run python scripts/check-cargo-toml.py --arrow-features arrow-59 arrow-58 arrow-57 arrow-56 arrow-55 arrow-54 arrow-53"
+          "run": "uv run python scripts/check-cargo-toml.py"
         },
         {
           "name": "Check",
@@ -145,8 +145,28 @@
           "run": "cargo check --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration"
         },
         {
+          "name": "Clippy serde_arrow",
+          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-59"
+        },
+        {
+          "name": "Clippy marrow",
+          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-59"
+        },
+        {
+          "name": "Clippy support packages",
+          "run": "cargo clippy --all-targets --all-features --package serde_arrow_bench --package serde_arrow_example --package serde_arrow_integration --package marrow_integration"
+        },
+        {
+          "name": "Check Python format",
+          "run": "uv run ruff format --check x.py"
+        },
+        {
           "name": "Check format",
           "run": "cargo fmt --check"
+        },
+        {
+          "name": "Check generated Rust format",
+          "run": "rustfmt --check marrow/src/impl_arrow/impl_api_53.rs marrow/src/impl_arrow/impl_api_base.rs marrow_integration/src/tests/arrays.rs marrow_integration/src/tests/data_types.rs marrow_integration/src/tests/fixed_size_binary_arrays.rs marrow_integration/src/tests/intervals.rs marrow_integration/src/tests/struct_arrays.rs marrow_integration/src/tests/union_arrays.rs marrow_integration/src/tests/utils.rs marrow_integration/src/tests/views.rs"
         },
         {
           "name": "Build",
@@ -159,6 +179,14 @@
         {
           "name": "Integration test",
           "run": "cargo test -p serde_arrow_integration"
+        },
+        {
+          "name": "Run example",
+          "run": "cargo run -p serde_arrow_example"
+        },
+        {
+          "name": "Read example output",
+          "run": "uv run python -c 'import polars as pl; print(pl.read_ipc(\"serde_arrow_example.ipc\"))'"
         }
       ]
     }

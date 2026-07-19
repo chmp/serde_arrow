@@ -8,7 +8,7 @@
     "CARGO_TERM_COLOR": "always"
   },
   "jobs": {
-    "build": {
+    "bench": {
       "runs-on": "ubuntu-latest",
       "steps": [
         {
@@ -24,7 +24,11 @@
         },
         {
           "name": "Bench",
-          "run": "cargo bench -p serde_arrow_bench\npython scripts/analyze-benchmark.py --criterion-root target/criterion --readme Readme.md --plot-output timings.png >> $GITHUB_STEP_SUMMARY"
+          "run": "cargo bench -p serde_arrow_bench"
+        },
+        {
+          "name": "Summarize",
+          "run": "python scripts/analyze-benchmark.py --criterion-root target/criterion --update-github-summary"
         }
       ]
     }

@@ -1,7 +1,7 @@
-import argparse
 import json
 import pathlib
 import shlex
+import tomllib
 
 
 SELF_PATH = pathlib.Path(__file__).parents[1].resolve()
@@ -19,16 +19,11 @@ ACTION_RUST_TOOLCHAIN = (
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--arrow-features", required=True, nargs="+")
-    update_workflows(parser.parse_args())
+    arrow_features = load_script_config()["arrow-features"]
 
-
-def update_workflows(args):
-    local_workflow = workflow_local(args)
-    test_workflow = workflow_test(args)
+    local_workflow = workflow_local(arrow_features)
+    test_workflow = workflow_test(arrow_features)
     release_marrow_workflow = release_workflow_template(
-        args,
         "marrow",
         [
             {
@@ -45,14 +40,14 @@ def update_workflows(args):
                         all_targets=True,
                     ),
                 }
-                for feature in ("serde", *args.arrow_features)
+                for feature in ("serde", *arrow_features)
             ),
             {
                 "name": "Test marrow",
                 "run": cargo(
                     "test",
                     packages=("marrow",),
-                    features=("serde", args.arrow_features[0]),
+                    features=("serde", arrow_features[0]),
                 ),
             },
             {
@@ -62,7 +57,6 @@ def update_workflows(args):
         ],
     )
     release_serde_arrow_workflow = release_workflow_template(
-        args,
         "serde_arrow",
         [
             {
@@ -83,14 +77,14 @@ def update_workflows(args):
                         all_targets=True,
                     ),
                 }
-                for feature in args.arrow_features
+                for feature in arrow_features
             ),
             {
                 "name": "Test serde_arrow",
                 "run": cargo(
                     "test",
                     packages=("serde_arrow",),
-                    features=(args.arrow_features[0],),
+                    features=(arrow_features[0],),
                 ),
             },
             {
@@ -112,7 +106,12 @@ def update_workflows(args):
     )
 
 
-def workflow_local(args):
+def load_script_config():
+    with open(SELF_PATH / "arrow-versions.toml", "rb") as fobj:
+        return tomllib.load(fobj)
+
+
+def workflow_local(arrow_features):
     return {
         "name": "Local",
         "on": {
@@ -136,17 +135,14 @@ def workflow_local(args):
                 "runs-on": "ubuntu-latest",
                 "steps": [
                     *local_setup_steps(),
-                    {
-                        "name": "Check Cargo.toml",
-                        "run": check_cargo_toml_command(args),
-                    },
+                    {"name": "Check Cargo.toml", "run": check_cargo_toml_command()},
                     {"name": "Check workspace", "run": "cargo check"},
                     {
                         "name": "Check serde_arrow",
                         "run": cargo(
                             "check",
                             packages=("serde_arrow",),
-                            features=(args.arrow_features[0],),
+                            features=(arrow_features[0],),
                             all_targets=True,
                         ),
                     },
@@ -155,7 +151,7 @@ def workflow_local(args):
                         "run": cargo(
                             "check",
                             packages=("marrow",),
-                            features=("serde", args.arrow_features[0]),
+                            features=("serde", arrow_features[0]),
                             all_targets=True,
                         ),
                     },
@@ -164,7 +160,7 @@ def workflow_local(args):
                         "run": cargo(
                             "clippy",
                             packages=("serde_arrow",),
-                            features=(args.arrow_features[0],),
+                            features=(arrow_features[0],),
                             all_targets=True,
                         ),
                     },
@@ -173,7 +169,7 @@ def workflow_local(args):
                         "run": cargo(
                             "clippy",
                             packages=("marrow",),
-                            features=("serde", args.arrow_features[0]),
+                            features=("serde", arrow_features[0]),
                             all_targets=True,
                         ),
                     },
@@ -216,7 +212,7 @@ def workflow_local(args):
                         "run": cargo(
                             "test",
                             packages=("serde_arrow",),
-                            features=(args.arrow_features[0],),
+                            features=(arrow_features[0],),
                             quiet=True,
                         ),
                     },
@@ -225,7 +221,7 @@ def workflow_local(args):
                         "run": cargo(
                             "test",
                             packages=("marrow",),
-                            features=("serde", args.arrow_features[0]),
+                            features=("serde", arrow_features[0]),
                             quiet=True,
                         ),
                     },
@@ -266,7 +262,7 @@ def local_setup_steps():
     ]
 
 
-def workflow_test(args):
+def workflow_test(arrow_features):
     return {
         "name": "Test",
         "on": {
@@ -316,10 +312,7 @@ def workflow_test(args):
                     },
                     {"name": "rustc", "run": "rustc --version"},
                     {"name": "cargo", "run": "cargo --version"},
-                    {
-                        "name": "Check Cargo.toml",
-                        "run": check_cargo_toml_command(args),
-                    },
+                    {"name": "Check Cargo.toml", "run": check_cargo_toml_command()},
                     {"name": "Check", "run": "cargo check"},
                     *(
                         {
@@ -331,7 +324,7 @@ def workflow_test(args):
                                 all_targets=True,
                             ),
                         }
-                        for feature in ("serde", *args.arrow_features)
+                        for feature in ("serde", *arrow_features)
                     ),
                     *(
                         {
@@ -343,7 +336,7 @@ def workflow_test(args):
                                 all_targets=True,
                             ),
                         }
-                        for feature in args.arrow_features
+                        for feature in arrow_features
                     ),
                     {
                         "name": "Check support packages",
@@ -359,8 +352,48 @@ def workflow_test(args):
                         ),
                     },
                     {
+                        "name": "Clippy serde_arrow",
+                        "run": cargo(
+                            "clippy",
+                            packages=("serde_arrow",),
+                            features=(arrow_features[0],),
+                            all_targets=True,
+                        ),
+                    },
+                    {
+                        "name": "Clippy marrow",
+                        "run": cargo(
+                            "clippy",
+                            packages=("marrow",),
+                            features=("serde", arrow_features[0]),
+                            all_targets=True,
+                        ),
+                    },
+                    {
+                        "name": "Clippy support packages",
+                        "run": cargo(
+                            "clippy",
+                            packages=(
+                                "serde_arrow_bench",
+                                "serde_arrow_example",
+                                "serde_arrow_integration",
+                                "marrow_integration",
+                            ),
+                            all_targets=True,
+                            all_features=True,
+                        ),
+                    },
+                    {
+                        "name": "Check Python format",
+                        "run": "uv run ruff format --check x.py",
+                    },
+                    {
                         "name": "Check format",
                         "run": "cargo fmt --check",
+                    },
+                    {
+                        "name": "Check generated Rust format",
+                        "run": rustfmt_generated_command(check=True),
                     },
                     {
                         "name": "Build",
@@ -368,9 +401,9 @@ def workflow_test(args):
                             "build",
                             packages=("serde_arrow", "marrow"),
                             features=(
-                                f"serde_arrow/{args.arrow_features[0]}",
+                                f"serde_arrow/{arrow_features[0]}",
                                 "marrow/serde",
-                                f"marrow/{args.arrow_features[0]}",
+                                f"marrow/{arrow_features[0]}",
                             ),
                         ),
                     },
@@ -380,9 +413,9 @@ def workflow_test(args):
                             "test",
                             packages=("serde_arrow", "marrow"),
                             features=(
-                                f"serde_arrow/{args.arrow_features[0]}",
+                                f"serde_arrow/{arrow_features[0]}",
                                 "marrow/serde",
-                                f"marrow/{args.arrow_features[0]}",
+                                f"marrow/{arrow_features[0]}",
                             ),
                         ),
                     },
@@ -390,13 +423,21 @@ def workflow_test(args):
                         "name": "Integration test",
                         "run": integration_test_command(),
                     },
+                    {
+                        "name": "Run example",
+                        "run": "cargo run -p serde_arrow_example",
+                    },
+                    {
+                        "name": "Read example output",
+                        "run": "uv run python -c 'import polars as pl; print(pl.read_ipc(\"serde_arrow_example.ipc\"))'",
+                    },
                 ],
             },
         },
     }
 
 
-def release_workflow_template(args, crate, check_steps):
+def release_workflow_template(crate, check_steps):
     return {
         "name": f"Release {crate}",
         "on": {
@@ -437,30 +478,25 @@ def update_workflow(path, workflow):
         json.dump(workflow, fobj, indent=2)
 
 
-def check_cargo_toml_command(args):
-    return shell_args(
-        [
-            "uv",
-            "run",
-            "python",
-            "scripts/check-cargo-toml.py",
-            "--arrow-features",
-            *args.arrow_features,
-        ]
-    )
+def check_cargo_toml_command():
+    return "uv run python scripts/check-cargo-toml.py"
 
 
 def integration_test_command():
     return "cargo test -p serde_arrow_integration"
 
 
-def rustfmt_generated_command():
+def rustfmt_generated_command(*, check=False):
     paths = [
         *SELF_PATH.joinpath("marrow", "src", "impl_arrow").glob("impl*.rs"),
         *SELF_PATH.joinpath("marrow_integration", "src", "tests").glob("*.rs"),
     ]
     return shell_args(
-        ["rustfmt", *(path.relative_to(SELF_PATH) for path in sorted(paths))]
+        [
+            "rustfmt",
+            *(("--check",) if check else ()),
+            *(path.relative_to(SELF_PATH) for path in sorted(paths)),
+        ]
     )
 
 
