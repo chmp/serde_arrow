@@ -4,10 +4,12 @@
 
 - Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,
   `Z`, `z`) alongside `Utc` as UTC when serializing and deserializing timestamps
+- Infer strings with zero-offset timezone designators as UTC timestamps when
+  date guessing is enabled
 
 ### Thanks
 
-- [@ryzhyk](https://github.com/ryzhyk) added support to for zero offset timezone
+- [@ryzhyk](https://github.com/ryzhyk) added support for zero-offset timezone
   designators ([#320](https://github.com/chmp/serde_arrow/pull/320))
 
 ## 0.15.0-rc.1
