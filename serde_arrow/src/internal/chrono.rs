@@ -355,7 +355,7 @@ mod parsing {
     ///
     /// Note: this function is more permissive than some libraries (e.g., jiff)
     pub fn match_utc_timezone(s: &str) -> Result<(&str, &str), &str> {
-        for prefix in ["Z", "+0000", "+00:00"] {
+        for prefix in ["Z", "z", "+0000", "-0000", "+00:00", "-00:00"] {
             if let Some((prefix, rest)) = split_prefix(s, prefix) {
                 return Ok((rest, prefix));
             }

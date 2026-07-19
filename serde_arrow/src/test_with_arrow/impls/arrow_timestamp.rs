@@ -185,6 +185,36 @@ mod schema_tracing {
     }
 
     #[test]
+    fn utc_zero_offset_designators_as_timestamp_tracing() {
+        let items = [
+            Item(String::from("2025-01-20T19:30:42+0000")),
+            Item(String::from("2025-01-20T19:30:42+00:00")),
+            Item(String::from("2025-01-20T19:30:42-0000")),
+            Item(String::from("2025-01-20T19:30:42-00:00")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42z")),
+        ];
+        let expected = [
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+        ];
+
+        Test::new()
+            .with_schema(json!([{
+                "name": "item",
+                "data_type": "Timestamp(Millisecond, Some(\"UTC\"))",
+            }]))
+            .trace_schema_from_samples(&items, TracingOptions::default().guess_dates(true))
+            .serialize(&items)
+            .deserialize(&expected)
+            .check_nulls(&[&[false, false, false, false, false, false]]);
+    }
+
+    #[test]
     fn utc_tracing_string_only_with_invalid() {
         let items = [
             Item(String::from("2015-09-18T23:56:04Z")),
