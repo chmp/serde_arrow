@@ -324,6 +324,31 @@ mod timezone_utc_designators {
     }
 
     #[test]
+    fn serializes_zero_offset_designators_from_string_values() {
+        let items = [
+            Item(String::from("2025-01-20T19:30:42+0000")),
+            Item(String::from("2025-01-20T19:30:42+00:00")),
+            Item(String::from("2025-01-20T19:30:42-0000")),
+            Item(String::from("2025-01-20T19:30:42-00:00")),
+            Item(String::from("2025-01-20T19:30:42Z")),
+            Item(String::from("2025-01-20T19:30:42z")),
+        ];
+        let mut builder = ArrayBuilder::from_marrow(&[tz_field("UTC")]).unwrap();
+        items
+            .serialize(Serializer::new(&mut builder))
+            .unwrap_or_else(|e| panic!("{e}"));
+
+        let arrays = builder.to_marrow().unwrap();
+        let [array] = <[_; 1]>::try_from(arrays).unwrap();
+        let Array::Timestamp(array) = array else {
+            panic!("expected a timestamp array");
+        };
+
+        assert_eq!(array.values, vec![zulu_micros(); items.len()]);
+        assert_eq!(array.timezone.as_deref(), Some("UTC"));
+    }
+
+    #[test]
     fn rejects_non_utc_offset() {
         let array = Array::Timestamp(TimestampArray {
             unit: TimeUnit::Microsecond,
