@@ -2,6 +2,8 @@
 
 ## Development
 
+## 0.15.0-rc.2
+
 - Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,
   `Z`, `z`) as UTC timezone metadata for timestamp fields
 - Infer strings with zero-offset timezone designators as UTC timestamps when
