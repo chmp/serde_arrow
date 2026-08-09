@@ -1,6 +1,6 @@
 # Change log
 
-## 0.3.0-rc.1
+## 0.3.0
 
 Breaking changes:
 

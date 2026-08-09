@@ -1,20 +1,11 @@
 # Change log
 
-## Development
-
-## 0.15.0-rc.2
+## 0.15.0
 
 - Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,
   `Z`, `z`) as UTC timezone metadata for timestamp fields
 - Infer strings with zero-offset timezone designators as UTC timestamps when
   date guessing is enabled
-
-### Thanks
-
-- [@ryzhyk](https://github.com/ryzhyk) added support for zero-offset timezone
-  designators ([#320](https://github.com/chmp/serde_arrow/pull/320))
-
-## 0.15.0-rc.1
 
 Breaking changes:
 
@@ -24,7 +15,7 @@ Breaking changes:
 - Bumped the MSRV to Rust 1.83.
 - Drop `arrow<53` support.
 - Drop `arrow2` support.
-- Updated the `marrow` dependency to `0.3.0-rc.1`.
+- Updated the `marrow` dependency to `0.3.0`.
 
 Bug fixes:
 
@@ -33,6 +24,11 @@ Bug fixes:
 - Improved validation for decimal parsing and formatting and the implementation
   of Arrow view arrays to avoid Rust APIs that may panic in favor of error
   producing APIs.
+
+### Thanks
+
+- [@ryzhyk](https://github.com/ryzhyk) added support for zero-offset timezone
+  designators ([#320](https://github.com/chmp/serde_arrow/pull/320))
 
 ## 0.14.2
 
