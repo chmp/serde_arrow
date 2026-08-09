@@ -1339,7 +1339,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
 name = "marrow"
-version = "0.3.0-rc.1"
+version = "0.3.0"
 dependencies = [
  "arrow-array 53.4.0",
  "arrow-array 54.3.1",
@@ -1829,7 +1829,7 @@ dependencies = [
 
 [[package]]
 name = "serde_arrow"
-version = "0.15.0-rc.2"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "arrow-array 53.4.0",
