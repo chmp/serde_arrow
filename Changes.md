@@ -1,5 +1,9 @@
 # Change log
 
+## 0.15.1
+
+- Add `arrow=60` support
+
 ## 0.15.0
 
 - Accept zero-offset timezone designators (`+00:00`, `-00:00`, `+0000`, `-0000`,

@@ -10,16 +10,16 @@ harness = false
 
 [dev-dependencies]
 # arrow-version:replace: serde_arrow = {{ path = "../serde_arrow", features = ["arrow-{version}"] }}
-serde_arrow = { path = "../serde_arrow", features = ["arrow-59"] }
+serde_arrow = { path = "../serde_arrow", features = ["arrow-60"] }
 
 # arrow-version:replace: arrow-array = {{ package = "arrow-array", version = "{version}", default-features = false }}
-arrow-array = { package = "arrow-array", version = "59", default-features = false }
+arrow-array = { package = "arrow-array", version = "60", default-features = false }
 
 # arrow-version:replace: arrow-json = {{ package = "arrow-json", version = "{version}" }}
-arrow-json = { package = "arrow-json", version = "59" }
+arrow-json = { package = "arrow-json", version = "60" }
 
 # arrow-version:replace: arrow-schema = {{ package = "arrow-schema", version = "{version}", default-features = false, features = ["serde"] }}
-arrow-schema = { package = "arrow-schema", version = "59", default-features = false, features = ["serde"] }
+arrow-schema = { package = "arrow-schema", version = "60", default-features = false, features = ["serde"] }
 
 criterion = "0.5"
 rand = "0.8"

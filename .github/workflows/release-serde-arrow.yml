@@ -34,6 +34,10 @@
           "run": "cargo check --all-targets --package serde_arrow"
         },
         {
+          "name": "Check serde_arrow arrow-60",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-60"
+        },
+        {
           "name": "Check serde_arrow arrow-59",
           "run": "cargo check --all-targets --package serde_arrow --features arrow-59"
         },
@@ -63,7 +67,7 @@
         },
         {
           "name": "Test serde_arrow",
-          "run": "cargo test --package serde_arrow --features arrow-59"
+          "run": "cargo test --package serde_arrow --features arrow-60"
         },
         {
           "name": "Package serde_arrow",

@@ -1418,9 +1418,9 @@ mod fixed_size_list {
 mod map {
     use super::*;
 
-    use arrow_array::builder::{Int32Builder, MapBuilder, StringBuilder};
+    use arrow_array::builder::{Int32Builder, MapBuilder, MapFieldNames, StringBuilder};
 
-    // Copied from the arrow docs
+    // Adapted from the arrow docs
     //
     // License: Apache Software License 2.0
     // Source: https://github.com/apache/arrow-rs/blob/065c7b8f94264eeb6a1ca23a92795fc4e0d31d51/arrow-array/src/builder/map_builder.rs#L30
@@ -1450,7 +1450,16 @@ mod map {
         let int_builder = Int32Builder::new();
 
         // Construct `[{"joe": 1}, {"blogs": 2, "foo": 4}, {}, null]`
-        let mut builder = MapBuilder::new(None, string_builder, int_builder);
+        // TODO: revert the explicit field names, once arrow field names are used
+        let mut builder = MapBuilder::new(
+            Some(MapFieldNames {
+                entry: String::from("entries"),
+                key: String::from("keys"),
+                value: String::from("values"),
+            }),
+            string_builder,
+            int_builder,
+        );
 
         builder.keys().append_value("joe");
         builder.values().append_value(1);

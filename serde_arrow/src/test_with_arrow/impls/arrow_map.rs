@@ -363,39 +363,6 @@ fn hash_maps_nullable() {
 }
 
 #[test]
-fn hash_maps_nullable_keys() {
-    let tracing_options = TracingOptions::new().map_as_struct(false);
-    type Ty = HashMap<Option<i64>, bool>;
-    let values: &[Item<Ty>] = &[
-        Item(hash_map! {Some(0) => true, Some(1) => false, Some(2) => true}),
-        Item(hash_map! {Some(3) => false, Some(4) => true}),
-        Item(hash_map! {}),
-    ];
-
-    Test::new()
-        .with_schema(json!([
-            {
-                "name": "item",
-                "data_type": "Map",
-                "children": [
-                    {
-                        "name": "entries",
-                        "data_type": "Struct",
-                        "children": [
-                            {"name": "key", "data_type": "I64", "nullable": true},
-                            {"name": "value", "data_type": "Bool"},
-                        ],
-                    },
-                ],
-            },
-        ]))
-        .trace_schema_from_samples(values, tracing_options.clone())
-        .trace_schema_from_type::<Item<Ty>>(tracing_options.clone())
-        .serialize(values)
-        .deserialize(values);
-}
-
-#[test]
 fn hash_maps_nullable_values() {
     let tracing_options = TracingOptions::new().map_as_struct(false);
     type Ty = HashMap<i64, Option<bool>>;

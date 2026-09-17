@@ -2,7 +2,7 @@
 edition = "2021"
 
 name = "marrow"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Christopher Prohm <mail@cprohm.de>"]
 description  = "Minimalist Arrow interop"
 readme = "Readme.md"
@@ -13,7 +13,7 @@ rust-version = "1.83.0"
 
 [package.metadata.docs.rs]
 # arrow-version:replace: features = ["arrow-{version}", "serde"]
-features = ["arrow-59", "serde"]
+features = ["arrow-60", "serde"]
 
 [features]
 default = []
@@ -23,6 +23,7 @@ serde = ["dep:serde"]
 
 # support for different arrow versions
 # arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "dep:arrow-data-{version}", "dep:arrow-buffer-{version}"]
+arrow-60 = ["dep:arrow-array-60", "dep:arrow-schema-60", "dep:arrow-data-60", "dep:arrow-buffer-60"]
 arrow-59 = ["dep:arrow-array-59", "dep:arrow-schema-59", "dep:arrow-data-59", "dep:arrow-buffer-59"]
 arrow-58 = ["dep:arrow-array-58", "dep:arrow-schema-58", "dep:arrow-data-58", "dep:arrow-buffer-58"]
 arrow-57 = ["dep:arrow-array-57", "dep:arrow-schema-57", "dep:arrow-data-57", "dep:arrow-buffer-57"]
@@ -38,6 +39,7 @@ half = { version = "2", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["std", "derive"], optional = true }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version = "{version}", optional = true, default-features = false }}
+arrow-array-60 = { package = "arrow-array", version = "60", optional = true, default-features = false }
 arrow-array-59 = { package = "arrow-array", version = "59", optional = true, default-features = false }
 arrow-array-58 = { package = "arrow-array", version = "58", optional = true, default-features = false }
 arrow-array-57 = { package = "arrow-array", version = "57", optional = true, default-features = false }
@@ -47,6 +49,7 @@ arrow-array-54 = { package = "arrow-array", version = "54", optional = true, def
 arrow-array-53 = { package = "arrow-array", version = "53", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-buffer-{version} = {{ package = "arrow-buffer", version = "{version}", optional = true, default-features = false }}
+arrow-buffer-60 = { package = "arrow-buffer", version = "60", optional = true, default-features = false }
 arrow-buffer-59 = { package = "arrow-buffer", version = "59", optional = true, default-features = false }
 arrow-buffer-58 = { package = "arrow-buffer", version = "58", optional = true, default-features = false }
 arrow-buffer-57 = { package = "arrow-buffer", version = "57", optional = true, default-features = false }
@@ -56,6 +59,7 @@ arrow-buffer-54 = { package = "arrow-buffer", version = "54", optional = true, d
 arrow-buffer-53 = { package = "arrow-buffer", version = "53", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-data-{version} = {{ package = "arrow-data", version="{version}", optional = true, default-features = false }}
+arrow-data-60 = { package = "arrow-data", version="60", optional = true, default-features = false }
 arrow-data-59 = { package = "arrow-data", version="59", optional = true, default-features = false }
 arrow-data-58 = { package = "arrow-data", version="58", optional = true, default-features = false }
 arrow-data-57 = { package = "arrow-data", version="57", optional = true, default-features = false }
@@ -65,6 +69,7 @@ arrow-data-54 = { package = "arrow-data", version="54", optional = true, default
 arrow-data-53 = { package = "arrow-data", version="53", optional = true, default-features = false }
 
 # arrow-version:insert: arrow-schema-{version} = {{ package = "arrow-schema", version = "{version}", optional = true, default-features = false }}
+arrow-schema-60 = { package = "arrow-schema", version = "60", optional = true, default-features = false }
 arrow-schema-59 = { package = "arrow-schema", version = "59", optional = true, default-features = false }
 arrow-schema-58 = { package = "arrow-schema", version = "58", optional = true, default-features = false }
 arrow-schema-57 = { package = "arrow-schema", version = "57", optional = true, default-features = false }

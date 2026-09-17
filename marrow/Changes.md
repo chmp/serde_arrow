@@ -1,5 +1,9 @@
 # Change log
 
+## 0.3.1
+
+- Add `arrow=60` support
+
 ## 0.3.0
 
 Breaking changes:

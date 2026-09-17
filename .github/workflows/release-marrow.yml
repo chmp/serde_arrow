@@ -38,6 +38,10 @@
           "run": "cargo check --all-targets --package marrow --features serde"
         },
         {
+          "name": "Check marrow arrow-60",
+          "run": "cargo check --all-targets --package marrow --features arrow-60"
+        },
+        {
           "name": "Check marrow arrow-59",
           "run": "cargo check --all-targets --package marrow --features arrow-59"
         },
@@ -67,7 +71,7 @@
         },
         {
           "name": "Test marrow",
-          "run": "cargo test --package marrow --features serde,arrow-59"
+          "run": "cargo test --package marrow --features serde,arrow-60"
         },
         {
           "name": "Package marrow",
