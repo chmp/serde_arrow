@@ -84,11 +84,11 @@ pub(crate) fn field_from_meta(data_type: DataType, meta: FieldMeta) -> Field {
 ///         entries_name: String::from("entries"),
 ///         sorted: false,
 ///         keys: FieldMeta {
-///             name: String::from("keys"),
+///             name: String::from("key"),
 ///             ..FieldMeta::default()
 ///         },
 ///         values: FieldMeta {
-///             name: String::from("values"),
+///             name: String::from("value"),
 ///             nullable: true,
 ///             ..FieldMeta::default()
 ///         },
@@ -116,12 +116,12 @@ impl std::default::Default for MapMeta {
             entries_name: String::from("entries"),
             sorted: false,
             keys: FieldMeta {
-                name: String::from("keys"),
+                name: String::from("key"),
                 nullable: false,
                 metadata: HashMap::new(),
             },
             values: FieldMeta {
-                name: String::from("values"),
+                name: String::from("value"),
                 nullable: true,
                 metadata: HashMap::new(),
             },
