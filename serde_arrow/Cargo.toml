@@ -30,7 +30,7 @@ arrow-54 = ["dep:arrow-array-54", "dep:arrow-schema-54", "marrow/arrow-54"]
 arrow-53 = ["dep:arrow-array-53", "dep:arrow-schema-53", "marrow/arrow-53"]
 
 [dependencies]
-marrow = { path = "../marrow", version = "0.3.0", default-features = false, features = ["serde"] }
+marrow = { path = "../marrow", version = "0.3.1", default-features = false, features = ["serde"] }
 
 bytemuck = { version = "1", default-features = false }
 # TODO: make optional, only required for str -> date conversions
