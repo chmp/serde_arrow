@@ -25,6 +25,8 @@ pub struct StructBuilder {
     lookup_cache: CachedNameLookup,
     pub next: usize,
     pub seen: Vec<bool>,
+    /// Number of fields written in the struct currently being serialized.
+    seen_count: usize,
     pub seq: CountArray,
     pub metadata: HashMap<String, String>,
 }
@@ -44,6 +46,7 @@ impl StructBuilder {
             name,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
+            seen_count: 0,
             next: 0,
             lookup_cache: CachedNameLookup::new(fields.len()),
             fields,
@@ -65,6 +68,7 @@ impl StructBuilder {
                 CachedNameLookup::new(self.fields.len()),
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
+            seen_count: std::mem::take(&mut self.seen_count),
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
         }
@@ -131,12 +135,16 @@ impl StructBuilder {
     fn start(&mut self) -> Result<()> {
         self.seq.start_seq()?;
         self.seen.fill(false);
+        self.seen_count = 0;
         self.next = 0;
         Ok(())
     }
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
+        if self.seen_count == self.fields.len() {
+            return Ok(());
+        }
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
                 if !field.is_nullable() {
@@ -179,6 +187,7 @@ impl StructBuilder {
 
         field.serialize_value(value)?;
         *seen = true;
+        self.seen_count += 1;
         self.next = idx + 1;
         Ok(())
     }
