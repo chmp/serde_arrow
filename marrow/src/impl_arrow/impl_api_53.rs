@@ -42,7 +42,7 @@ fn convert_generic_bytes_view_array_to_marrow<T: arrow_array::types::ByteViewTyp
     array: &arrow_array::GenericByteViewArray<T>,
 ) -> BytesViewView<'_> {
     let mut buffers = Vec::<&[u8]>::new();
-    for buffer in array.data_buffers() {
+    for buffer in array.data_buffers().iter() {
         buffers.push(buffer);
     }
     BytesViewView {

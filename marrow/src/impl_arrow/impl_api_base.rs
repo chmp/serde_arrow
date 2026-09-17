@@ -102,7 +102,7 @@ impl TryFrom<&arrow_schema::Field> for Field {
         Ok(Field {
             name: field.name().to_owned(),
             data_type: DataType::try_from(field.data_type())?,
-            metadata: field.metadata().clone(),
+            metadata: field.metadata().clone().into(),
             nullable: field.is_nullable(),
         })
     }
