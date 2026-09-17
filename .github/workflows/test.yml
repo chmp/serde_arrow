@@ -185,6 +185,10 @@
           "run": "cargo test --package serde_arrow --package marrow --features serde_arrow/arrow-60,marrow/serde,marrow/arrow-60"
         },
         {
+          "name": "Test marrow integration",
+          "run": "cargo test --package marrow_integration --features arrow-60"
+        },
+        {
           "name": "Integration test",
           "run": "cargo test -p serde_arrow_integration"
         },

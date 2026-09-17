@@ -226,6 +226,12 @@ def workflow_local(arrow_features):
                         ),
                     },
                     {
+                        "name": "Test marrow integration",
+                        "run": marrow_integration_test_command(
+                            arrow_features[0], quiet=True
+                        ),
+                    },
+                    {
                         "name": "Integration test",
                         "run": integration_test_command(),
                     },
@@ -420,6 +426,10 @@ def workflow_test(arrow_features):
                         ),
                     },
                     {
+                        "name": "Test marrow integration",
+                        "run": marrow_integration_test_command(arrow_features[0]),
+                    },
+                    {
                         "name": "Integration test",
                         "run": integration_test_command(),
                     },
@@ -484,6 +494,15 @@ def check_cargo_toml_command():
 
 def integration_test_command():
     return "cargo test -p serde_arrow_integration"
+
+
+def marrow_integration_test_command(feature, *, quiet=False):
+    return cargo(
+        "test",
+        packages=("marrow_integration",),
+        features=(feature,),
+        quiet=quiet,
+    )
 
 
 def rustfmt_generated_command(*, check=False):
