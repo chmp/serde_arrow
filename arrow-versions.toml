@@ -1,5 +1,6 @@
 arrow-features = [
     # arrow-version:insert:     "arrow-{version}",
+    "arrow-60",
     "arrow-59",
     "arrow-58",
     "arrow-57",

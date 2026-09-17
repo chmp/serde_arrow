@@ -85,6 +85,10 @@
           "run": "cargo check --all-targets --package marrow --features serde"
         },
         {
+          "name": "Check marrow arrow-60",
+          "run": "cargo check --all-targets --package marrow --features arrow-60"
+        },
+        {
           "name": "Check marrow arrow-59",
           "run": "cargo check --all-targets --package marrow --features arrow-59"
         },
@@ -111,6 +115,10 @@
         {
           "name": "Check marrow arrow-53",
           "run": "cargo check --all-targets --package marrow --features arrow-53"
+        },
+        {
+          "name": "Check serde_arrow arrow-60",
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-60"
         },
         {
           "name": "Check serde_arrow arrow-59",
@@ -146,11 +154,11 @@
         },
         {
           "name": "Clippy serde_arrow",
-          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-59"
+          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-60"
         },
         {
           "name": "Clippy marrow",
-          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-59"
+          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-60"
         },
         {
           "name": "Clippy support packages",
@@ -170,11 +178,11 @@
         },
         {
           "name": "Build",
-          "run": "cargo build --package serde_arrow --package marrow --features serde_arrow/arrow-59,marrow/serde,marrow/arrow-59"
+          "run": "cargo build --package serde_arrow --package marrow --features serde_arrow/arrow-60,marrow/serde,marrow/arrow-60"
         },
         {
           "name": "Test",
-          "run": "cargo test --package serde_arrow --package marrow --features serde_arrow/arrow-59,marrow/serde,marrow/arrow-59"
+          "run": "cargo test --package serde_arrow --package marrow --features serde_arrow/arrow-60,marrow/serde,marrow/arrow-60"
         },
         {
           "name": "Integration test",

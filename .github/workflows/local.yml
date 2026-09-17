@@ -73,19 +73,19 @@
         },
         {
           "name": "Check serde_arrow",
-          "run": "cargo check --all-targets --package serde_arrow --features arrow-59"
+          "run": "cargo check --all-targets --package serde_arrow --features arrow-60"
         },
         {
           "name": "Check marrow",
-          "run": "cargo check --all-targets --package marrow --features serde,arrow-59"
+          "run": "cargo check --all-targets --package marrow --features serde,arrow-60"
         },
         {
           "name": "Clippy serde_arrow",
-          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-59"
+          "run": "cargo clippy --all-targets --package serde_arrow --features arrow-60"
         },
         {
           "name": "Clippy marrow",
-          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-59"
+          "run": "cargo clippy --all-targets --package marrow --features serde,arrow-60"
         },
         {
           "name": "Check support packages",
@@ -120,11 +120,11 @@
         },
         {
           "name": "Test serde_arrow",
-          "run": "cargo test -q --package serde_arrow --features arrow-59"
+          "run": "cargo test -q --package serde_arrow --features arrow-60"
         },
         {
           "name": "Test marrow",
-          "run": "cargo test -q --package marrow --features serde,arrow-59"
+          "run": "cargo test -q --package marrow --features serde,arrow-60"
         },
         {
           "name": "Integration test",
