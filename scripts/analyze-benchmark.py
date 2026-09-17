@@ -12,6 +12,8 @@ BENCHMARK_RENAMES = {
     "arrow_builder": "arrow builder",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
     "serde_arrow_marrow": "serde_arrow::to_marrow",
+    "serde_arrow_marrow_push": "serde_arrow::ArrayBuilder::push",
+    "serde_arrow_marrow_to_arrow": "serde_arrow::to_marrow + Arrow conversion",
 }
 BENCHMARK_BASELINE = "arrow builder"
 README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}

@@ -12,7 +12,9 @@ default-members = ["serde_arrow", "marrow"]
 resolver = "2"
 
 [profile.bench]
-debug = 0
+# Retain line tables in optimized benchmark binaries so CPU profiles have
+# actionable Rust symbols. This has negligible effect on benchmark execution.
+debug = 1
 codegen-units = 16
 lto = "thin"
 
