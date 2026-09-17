@@ -84,11 +84,11 @@ pub(crate) fn field_from_meta(data_type: DataType, meta: FieldMeta) -> Field {
 ///         entries_name: String::from("entries"),
 ///         sorted: false,
 ///         keys: FieldMeta {
-///             name: String::from("key"),
+///             name: String::from("keys"),
 ///             ..FieldMeta::default()
 ///         },
 ///         values: FieldMeta {
-///             name: String::from("value"),
+///             name: String::from("values"),
 ///             nullable: true,
 ///             ..FieldMeta::default()
 ///         },
@@ -104,9 +104,9 @@ pub struct MapMeta {
     pub entries_name: String,
     /// Whether the maps are sorted (defaults to `false`)
     pub sorted: bool,
-    /// The metadata of the keys array (defaults to a non-nullable field with name `"key"`)
+    /// The metadata of the keys array (defaults to a non-nullable field with name `"keys"`)
     pub keys: FieldMeta,
-    /// The metadata of the values array (defaults to a nullable field with name `"value"`)
+    /// The metadata of the values array (defaults to a nullable field with name `"values"`)
     pub values: FieldMeta,
 }
 
@@ -116,12 +116,12 @@ impl std::default::Default for MapMeta {
             entries_name: String::from("entries"),
             sorted: false,
             keys: FieldMeta {
-                name: String::from("key"),
+                name: String::from("keys"),
                 nullable: false,
                 metadata: HashMap::new(),
             },
             values: FieldMeta {
-                name: String::from("value"),
+                name: String::from("values"),
                 nullable: true,
                 metadata: HashMap::new(),
             },
