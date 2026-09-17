@@ -8,8 +8,8 @@ dependencies = [
     "pyarrow~=25.0",
     "matplotlib~=3.11",
     "numpy~=2.5",
-    "ruff~=0.15.22",
-    "polars~=1.42",
+    "ruff~=0.16.8",
+    "polars~=1.44",
 ]
 
 [tool.uv]
