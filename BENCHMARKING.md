@@ -20,8 +20,9 @@ Rust source without materially changing execution performance.
 
 ## CPU profile on Linux
 
-Install `perf` (for Nix, `nix shell nixpkgs#linuxPackages.perf`) and build the
-benchmark before recording so compilation is not included:
+Enter the project development shell (`nix develop`) to obtain `perf`, Heaptrack,
+and the other benchmark tools. Build the benchmark before recording so
+compilation is not included:
 
 ```bash
 cargo bench -p serde_arrow_bench --bench serde_arrow_bench --no-run
@@ -38,7 +39,7 @@ If `perf` denies access, an administrator can temporarily set
 
 ## Allocation profile
 
-Use Heaptrack for allocation hot spots (for Nix, `nix shell nixpkgs#heaptrack`):
+Use Heaptrack for allocation hot spots:
 
 ```bash
 heaptrack "$BENCH" --bench --profile-time 20 complex_1000/serde_arrow_arrow
