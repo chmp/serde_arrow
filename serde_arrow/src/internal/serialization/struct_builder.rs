@@ -330,8 +330,14 @@ unsafe impl Send for StaticFieldName {}
 unsafe impl Sync for StaticFieldName {}
 
 impl StaticFieldName {
+    const EMPTY: Self = Self(std::ptr::null(), 0);
+
     pub fn new(s: &'static str) -> Self {
         Self(s.as_ptr(), s.len())
+    }
+
+    fn is_empty(self) -> bool {
+        self == Self::EMPTY
     }
 }
 
@@ -353,27 +359,32 @@ impl Named for &str {
 
 #[derive(Debug, Clone)]
 struct CachedNameLookup {
-    cache: Vec<Option<StaticFieldName>>,
+    cache: Vec<StaticFieldName>,
 }
 
 impl CachedNameLookup {
     fn new(n_fields: usize) -> Self {
         Self {
-            cache: vec![None; n_fields],
+            cache: vec![StaticFieldName::EMPTY; n_fields],
         }
     }
 
     fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
-        if self.cache.get(guess).copied().flatten() == Some(StaticFieldName::new(name)) {
+        let static_name = StaticFieldName::new(name);
+        if self.cache.get(guess) == Some(&static_name) {
             Some(guess)
         } else if fields.get(guess).map(|field| field.get_name()) == Some(name) {
             if let Some(cached) = self.cache.get_mut(guess) {
-                *cached = cached.or(Some(StaticFieldName::new(name)));
+                if cached.is_empty() {
+                    *cached = static_name;
+                }
             }
             Some(guess)
         } else if let Some(idx) = self.lookup_field_loop(name, fields) {
             if let Some(cached) = self.cache.get_mut(idx) {
-                *cached = cached.or(Some(StaticFieldName::new(name)));
+                if cached.is_empty() {
+                    *cached = static_name;
+                }
             }
             Some(idx)
         } else {
@@ -438,14 +449,11 @@ fn example() {
     assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
     assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
 
-    assert!(lookup.cache[0].is_some());
-    assert_eq!(lookup.cache[0], Some(StaticFieldName::new(FOO)));
+    assert_eq!(lookup.cache[0], StaticFieldName::new(FOO));
 
-    assert!(lookup.cache[1].is_some());
-    assert_eq!(lookup.cache[1], Some(StaticFieldName::new(BAR)));
+    assert_eq!(lookup.cache[1], StaticFieldName::new(BAR));
 
-    assert!(lookup.cache[2].is_some());
-    assert_eq!(lookup.cache[2], Some(StaticFieldName::new(BAZ)));
+    assert_eq!(lookup.cache[2], StaticFieldName::new(BAZ));
 
     assert_eq!(lookup.lookup(0, FOO, &["foo", "bar", "baz"]), Some(0));
     assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
