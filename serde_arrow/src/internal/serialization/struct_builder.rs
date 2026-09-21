@@ -27,6 +27,15 @@ pub struct StructBuilder {
     pub seen: Vec<bool>,
     /// Number of fields written in the struct currently being serialized.
     seen_count: usize,
+    /// Whether a prior struct established that its static field names arrive in
+    /// schema order.
+    canonical_layout: bool,
+    /// Whether the struct currently being serialized can establish a canonical
+    /// layout for later values.
+    canonical_candidate: bool,
+    /// Whether the current struct can use the established canonical layout.
+    canonical_active: bool,
+    field_names_unique: bool,
     pub seq: CountArray,
     pub metadata: HashMap<String, String>,
 }
@@ -47,6 +56,10 @@ impl StructBuilder {
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             seen_count: 0,
+            canonical_layout: false,
+            canonical_candidate: false,
+            canonical_active: false,
+            field_names_unique: field_names_are_unique(&fields),
             next: 0,
             lookup_cache: CachedNameLookup::new(fields.len()),
             fields,
@@ -69,6 +82,10 @@ impl StructBuilder {
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
             seen_count: std::mem::take(&mut self.seen_count),
+            canonical_layout: std::mem::take(&mut self.canonical_layout),
+            canonical_candidate: false,
+            canonical_active: false,
+            field_names_unique: self.field_names_unique,
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
         }
@@ -132,17 +149,39 @@ impl StructBuilder {
 }
 
 impl StructBuilder {
-    fn start(&mut self) -> Result<()> {
+    fn start(&mut self, canonical_active: bool) -> Result<()> {
         self.seq.start_seq()?;
-        self.seen.fill(false);
-        self.seen_count = 0;
+        if !canonical_active {
+            self.seen.fill(false);
+            self.seen_count = 0;
+        }
         self.next = 0;
+        self.canonical_active = canonical_active;
+        self.canonical_candidate = !canonical_active;
         Ok(())
+    }
+
+    fn leave_canonical_layout(&mut self) {
+        if !self.canonical_active {
+            return;
+        }
+
+        self.seen.fill(false);
+        self.seen[..self.next].fill(true);
+        self.seen_count = self.next;
+        self.canonical_active = false;
     }
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
+        if self.canonical_active && self.next == self.fields.len() {
+            return Ok(());
+        }
+        self.leave_canonical_layout();
         if self.seen_count == self.fields.len() {
+            if self.canonical_candidate {
+                self.canonical_layout = true;
+            }
             return Ok(());
         }
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
@@ -191,6 +230,20 @@ impl StructBuilder {
         self.next = idx + 1;
         Ok(())
     }
+
+    fn canonical_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.seq.push_seq_elements(1)?;
+        let Some(field) = self.fields.get_mut(self.next) else {
+            fail!(
+                "field index {} is out of bounds for struct with {} fields",
+                self.next,
+                self.fields.len()
+            );
+        };
+        field.serialize_value(value)?;
+        self.next += 1;
+        Ok(())
+    }
 }
 
 impl Context for StructBuilder {
@@ -219,24 +272,24 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.start()?;
+        self.start(self.canonical_layout)?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.start()?;
+        self.start(false)?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.start()?;
+        self.start(false)?;
         Ok(Self::SerializeTuple::Struct(self))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.start()?;
+        self.start(false)?;
         Ok(Self::SerializeSeq::Struct(self))
     }
 }
@@ -250,10 +303,22 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
+        if self.canonical_active && self.lookup_cache.matches(self.next, key) {
+            return self.canonical_element(value);
+        }
+
+        if self.canonical_active {
+            self.leave_canonical_layout();
+        }
+
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
+            if self.canonical_candidate && idx != self.next {
+                self.canonical_candidate = false;
+            }
             self.element(idx, value)
         } else {
             // ignore unknown fields
+            self.canonical_candidate = false;
             Ok(())
         }
     }
@@ -268,7 +333,8 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
+        self.next = KeyLookupSerializer::lookup(&self.fields, self.field_names_unique, key)?
+            .unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -345,6 +411,14 @@ trait Named {
     fn get_name(&self) -> &str;
 }
 
+fn field_names_are_unique(fields: &[ArrayBuilder]) -> bool {
+    fields.iter().enumerate().all(|(idx, field)| {
+        fields[..idx]
+            .iter()
+            .all(|previous| previous.get_name() != field.get_name())
+    })
+}
+
 impl Named for ArrayBuilder {
     fn get_name(&self) -> &str {
         ArrayBuilder::get_name(self)
@@ -392,6 +466,10 @@ impl CachedNameLookup {
         }
     }
 
+    fn matches(&self, idx: usize, name: &'static str) -> bool {
+        self.cache.get(idx) == Some(&StaticFieldName::new(name))
+    }
+
     fn lookup_field_loop(&self, name: &str, fields: &[impl Named]) -> Option<usize> {
         fields.iter().position(|field| field.get_name() == name)
     }
@@ -400,16 +478,19 @@ impl CachedNameLookup {
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
     fields: &'a [ArrayBuilder],
+    field_names_unique: bool,
     result: Option<usize>,
 }
 
 impl<'a> KeyLookupSerializer<'a> {
     pub fn lookup<K: Serialize + ?Sized>(
         fields: &'a [ArrayBuilder],
+        field_names_unique: bool,
         key: &K,
     ) -> Result<Option<usize>> {
         let mut this = Self {
             fields,
+            field_names_unique,
             result: None,
         };
         key.serialize(&mut this)?;
@@ -431,6 +512,9 @@ impl<'a> Serializer for &'a mut KeyLookupSerializer<'_> {
         for (idx, builder) in self.fields.iter().enumerate() {
             if builder.get_name() == v {
                 self.result = Some(idx);
+                if self.field_names_unique {
+                    break;
+                }
             }
         }
         Ok(())
@@ -470,4 +554,65 @@ fn example() {
     assert_eq!(lookup.lookup(0, BAZ, &["foo", "bar", "baz"]), Some(2));
     assert_eq!(lookup.lookup(1, BAZ, &["foo", "bar", "baz"]), Some(2));
     assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
+}
+
+#[test]
+fn canonical_layout_deopts_for_reordered_fields() {
+    use marrow::datatypes::DataType;
+    use serde::ser::SerializeStruct;
+
+    #[derive(Serialize)]
+    struct Canonical {
+        a: i8,
+        b: i8,
+    }
+
+    struct Reordered {
+        a: i8,
+        b: i8,
+    }
+
+    impl Serialize for Reordered {
+        fn serialize<S: serde::Serializer>(
+            &self,
+            serializer: S,
+        ) -> std::result::Result<S::Ok, S::Error> {
+            let mut state = serializer.serialize_struct("Reordered", 2)?;
+            state.serialize_field("b", &self.b)?;
+            state.serialize_field("a", &self.a)?;
+            state.end()
+        }
+    }
+
+    let mut builder = StructBuilder::from_fields(vec![
+        Field {
+            name: "a".into(),
+            data_type: DataType::Int8,
+            nullable: false,
+            metadata: Default::default(),
+        },
+        Field {
+            name: "b".into(),
+            data_type: DataType::Int8,
+            nullable: false,
+            metadata: Default::default(),
+        },
+    ])
+    .unwrap();
+
+    builder.serialize_value(Canonical { a: 3, b: 4 }).unwrap();
+    builder.serialize_value(Reordered { a: 5, b: 6 }).unwrap();
+
+    let (array, _) = builder.into_array_and_field_meta().unwrap();
+    let Array::Struct(array) = array else {
+        panic!("expected struct array");
+    };
+    let Array::Int8(a) = &array.fields[0].1 else {
+        panic!("expected i8 field");
+    };
+    let Array::Int8(b) = &array.fields[1].1 else {
+        panic!("expected i8 field");
+    };
+    assert_eq!(a.values, vec![3, 5]);
+    assert_eq!(b.values, vec![4, 6]);
 }

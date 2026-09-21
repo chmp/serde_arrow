@@ -108,6 +108,15 @@ impl ArrayBuilder {
         }
         Ok((arrays, metas))
     }
+
+    #[inline]
+    pub(crate) fn into_arrays(self) -> Result<Vec<Array>> {
+        self.builder
+            .fields
+            .into_iter()
+            .map(|builder| builder.into_array_and_field_meta().map(|(array, _)| array))
+            .collect()
+    }
 }
 
 impl std::convert::AsRef<ArrayBuilder> for ArrayBuilder {

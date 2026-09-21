@@ -194,7 +194,7 @@ impl crate::internal::array_builder::ArrayBuilder {
     /// Consume the builder and construct the `arrow` arrays (*requires one of
     /// the `arrow-*` features*)
     pub fn into_arrow(self) -> Result<Vec<ArrayRef>> {
-        let (arrays, _) = self.into_arrays_and_field_metas()?;
+        let arrays = self.into_arrays()?;
         Ok(arrays
             .into_iter()
             .map(ArrayRef::try_from)
