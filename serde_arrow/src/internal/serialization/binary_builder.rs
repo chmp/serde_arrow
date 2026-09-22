@@ -96,8 +96,10 @@ impl BinaryBuilderArray for BytesViewArray {
         super::utils::SerializeTuple::BinaryView(builder)
     }
 
-    fn reserve_values(&mut self, _additional: usize) {
-        // assume already reserved
+    fn reserve_values(&mut self, additional: usize) {
+        if let Some(buffer) = self.buffers.first_mut() {
+            reserve_to_new_capacity(buffer, additional);
+        }
     }
 }
 
@@ -107,6 +109,7 @@ pub struct BinaryBuilder<A> {
     pub name: String,
     metadata: HashMap<String, String>,
     array: A,
+    current_len: usize,
 }
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {
@@ -115,6 +118,7 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
             name,
             array: B::new(is_nullable),
             metadata,
+            current_len: 0,
         }
     }
 
@@ -127,6 +131,7 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
             name: self.name.clone(),
             metadata: self.metadata.clone(),
             array: self.array.take(),
+            current_len: 0,
         })
     }
 
@@ -154,16 +159,23 @@ impl<B: BinaryBuilderArray> BinaryBuilder<B> {
 
 impl<B: BinaryBuilderArray> BinaryBuilder<B> {
     fn start(&mut self) -> Result<()> {
-        self.array.start_seq()
+        self.array.start_seq()?;
+        self.current_len = 0;
+        Ok(())
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
         let byte = value.serialize(U8Serializer)?;
         self.array.push_byte(byte)?;
-        self.array.push_seq_elements(1)
+        let Some(current_len) = self.current_len.checked_add(1) else {
+            fail!("binary value length exceeds usize::MAX");
+        };
+        self.current_len = current_len;
+        Ok(())
     }
 
     fn end(&mut self) -> Result<()> {
+        self.array.push_seq_elements(self.current_len)?;
         self.array.end_seq()
     }
 }

@@ -411,8 +411,8 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             arr.validity,
         ),
         A::Struct(arr) => {
-            let mut fields = Vec::new();
-            let mut data = Vec::new();
+            let mut fields = Vec::with_capacity(arr.fields.len());
+            let mut data = Vec::with_capacity(arr.fields.len());
 
             for (meta, field) in arr.fields {
                 let child = build_array_data(field)?;
@@ -598,8 +598,8 @@ fn union_fields_into_fields_and_data(
     Vec<(i8, arrow_schema::FieldRef)>,
     Vec<arrow_data::ArrayData>,
 )> {
-    let mut fields = Vec::new();
-    let mut child_data = Vec::new();
+    let mut fields = Vec::with_capacity(union_fields.len());
+    let mut child_data = Vec::with_capacity(union_fields.len());
 
     for (type_id, meta, array) in union_fields {
         let child = build_array_data(array)?;

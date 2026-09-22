@@ -1,5 +1,6 @@
 use criterion::measurement::Measurement;
 
+pub mod binary;
 pub mod complex;
 pub mod json_to_arrow;
 pub mod primitives;
