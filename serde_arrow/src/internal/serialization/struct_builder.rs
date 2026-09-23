@@ -16,11 +16,10 @@ use super::array_builder::ArrayBuilder;
 
 const UNKNOWN_KEY: usize = usize::MAX;
 
+/// Encode whether the current record still serializes fields in schema order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CanonicalMode {
-    /// Determine whether this record uses schema-ordered static field names.
-    Discover,
-    /// Serialize a record using a previously discovered canonical layout.
+enum SchemaOrderedFields {
+    /// Serialize fields in schema order until a field does not match.
     Active,
     /// Serialize through the regular field-lookup path.
     Disabled,
@@ -35,15 +34,7 @@ pub struct StructBuilder {
     lookup_cache: CachedNameLookup,
     pub next: usize,
     pub seen: Vec<bool>,
-    /// Number of fields written in the struct currently being serialized.
-    seen_count: usize,
-    /// Whether a prior struct established that its static field names arrive in
-    /// schema order.
-    discovered_canonical_layout: bool,
-    /// How the struct currently being serialized uses or discovers a canonical
-    /// field layout.
-    canonical_mode: CanonicalMode,
-    field_names_unique: bool,
+    canonical_mode: SchemaOrderedFields,
     pub seq: CountArray,
     pub metadata: HashMap<String, String>,
 }
@@ -63,10 +54,7 @@ impl StructBuilder {
             name,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
-            seen_count: 0,
-            discovered_canonical_layout: false,
-            canonical_mode: CanonicalMode::Disabled,
-            field_names_unique: field_names_are_unique(&fields),
+            canonical_mode: SchemaOrderedFields::Disabled,
             next: 0,
             lookup_cache: CachedNameLookup::new(fields.len()),
             fields,
@@ -88,10 +76,7 @@ impl StructBuilder {
                 CachedNameLookup::new(self.fields.len()),
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
-            seen_count: std::mem::take(&mut self.seen_count),
-            discovered_canonical_layout: std::mem::take(&mut self.discovered_canonical_layout),
-            canonical_mode: CanonicalMode::Disabled,
-            field_names_unique: self.field_names_unique,
+            canonical_mode: SchemaOrderedFields::Disabled,
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
         }
@@ -155,47 +140,34 @@ impl StructBuilder {
 }
 
 impl StructBuilder {
-    fn start_with_mode(&mut self, canonical_mode: CanonicalMode) -> Result<()> {
+    fn start_with_mode(&mut self, canonical_mode: SchemaOrderedFields) -> Result<()> {
         self.seq.start_seq()?;
-        if canonical_mode != CanonicalMode::Active {
+        if canonical_mode != SchemaOrderedFields::Active {
             self.seen.fill(false);
-            self.seen_count = 0;
         }
         self.canonical_mode = canonical_mode;
         self.next = 0;
         Ok(())
     }
 
-    fn start_struct(&mut self) -> Result<()> {
-        let canonical_mode = if self.discovered_canonical_layout {
-            CanonicalMode::Active
-        } else {
-            CanonicalMode::Discover
-        };
-        self.start_with_mode(canonical_mode)
-    }
-
     fn leave_canonical_layout(&mut self) {
-        if self.canonical_mode != CanonicalMode::Active {
+        if self.canonical_mode != SchemaOrderedFields::Active {
             return;
         }
 
         self.seen.fill(false);
         self.seen[..self.next].fill(true);
-        self.seen_count = self.next;
-        self.canonical_mode = CanonicalMode::Disabled;
+        self.canonical_mode = SchemaOrderedFields::Disabled;
     }
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
-        match self.canonical_mode {
-            CanonicalMode::Active if self.next == self.fields.len() => return Ok(()),
-            CanonicalMode::Active => self.leave_canonical_layout(),
-            CanonicalMode::Discover if self.seen_count == self.fields.len() => {
-                self.discovered_canonical_layout = true;
-                return Ok(());
-            }
-            CanonicalMode::Discover | CanonicalMode::Disabled => {}
+        if self.canonical_mode == SchemaOrderedFields::Active && self.next == self.fields.len() {
+            return Ok(());
+        }
+
+        if self.canonical_mode == SchemaOrderedFields::Active {
+            self.leave_canonical_layout();
         }
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
@@ -239,7 +211,6 @@ impl StructBuilder {
 
         field.serialize_value(value)?;
         *seen = true;
-        self.seen_count += 1;
         self.next = idx + 1;
         Ok(())
     }
@@ -292,24 +263,24 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.start_struct()?;
+        self.start_with_mode(SchemaOrderedFields::Active)?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.start_with_mode(CanonicalMode::Disabled)?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.start_with_mode(CanonicalMode::Disabled)?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         Ok(Self::SerializeTuple::Struct(self))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.start_with_mode(CanonicalMode::Disabled)?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         Ok(Self::SerializeSeq::Struct(self))
     }
 }
@@ -323,21 +294,21 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        if self.canonical_mode == CanonicalMode::Active {
-            if self.lookup_cache.matches(self.next, key) {
+        if self.canonical_mode == SchemaOrderedFields::Active {
+            if self
+                .lookup_cache
+                .matches_schema_field(self.next, key, &self.fields)
+            {
                 return self.canonical_element(value);
             }
             self.leave_canonical_layout();
         }
 
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
-            if self.canonical_mode == CanonicalMode::Discover && idx != self.next {
-                self.canonical_mode = CanonicalMode::Disabled;
-            }
             self.element(idx, value)
         } else {
             // ignore unknown fields
-            self.canonical_mode = CanonicalMode::Disabled;
+            self.canonical_mode = SchemaOrderedFields::Disabled;
             Ok(())
         }
     }
@@ -352,8 +323,7 @@ impl serde::ser::SerializeMap for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
-        self.next = KeyLookupSerializer::lookup(&self.fields, self.field_names_unique, key)?
-            .unwrap_or(UNKNOWN_KEY);
+        self.next = KeyLookupSerializer::lookup(&self.fields, key)?.unwrap_or(UNKNOWN_KEY);
         Ok(())
     }
 
@@ -422,14 +392,6 @@ trait Named {
     fn get_name(&self) -> &str;
 }
 
-fn field_names_are_unique(fields: &[ArrayBuilder]) -> bool {
-    fields.iter().enumerate().all(|(idx, field)| {
-        fields[..idx]
-            .iter()
-            .all(|previous| previous.get_name() != field.get_name())
-    })
-}
-
 impl Named for ArrayBuilder {
     fn get_name(&self) -> &str {
         ArrayBuilder::get_name(self)
@@ -455,27 +417,39 @@ impl CachedNameLookup {
     }
 
     fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
-        let static_name = StaticFieldName::new(name);
-        if self.cache.get(guess) == Some(&static_name) {
+        if self.matches_schema_field(guess, name, fields) {
             return Some(guess);
         }
 
-        let idx = if fields.get(guess).map(|field| field.get_name()) == Some(name) {
-            guess
-        } else {
-            self.lookup_field_loop(name, fields)?
-        };
-
-        if let Some(cached) = self.cache.get_mut(idx) {
-            if cached.is_empty() {
-                *cached = static_name;
-            }
-        }
+        let idx = self.lookup_field_loop(name, fields)?;
+        self.cache_name(idx, name);
         Some(idx)
     }
 
-    fn matches(&self, idx: usize, name: &'static str) -> bool {
-        self.cache.get(idx) == Some(&StaticFieldName::new(name))
+    fn matches_schema_field(
+        &mut self,
+        idx: usize,
+        name: &'static str,
+        fields: &[impl Named],
+    ) -> bool {
+        if self.cache.get(idx) == Some(&StaticFieldName::new(name)) {
+            return true;
+        }
+
+        if fields.get(idx).map(|field| field.get_name()) != Some(name) {
+            return false;
+        }
+
+        self.cache_name(idx, name);
+        true
+    }
+
+    fn cache_name(&mut self, idx: usize, name: &'static str) {
+        if let Some(cached) = self.cache.get_mut(idx) {
+            if cached.is_empty() {
+                *cached = StaticFieldName::new(name);
+            }
+        }
     }
 
     fn lookup_field_loop(&self, name: &str, fields: &[impl Named]) -> Option<usize> {
@@ -486,19 +460,16 @@ impl CachedNameLookup {
 #[derive(Debug)]
 pub struct KeyLookupSerializer<'a> {
     fields: &'a [ArrayBuilder],
-    field_names_unique: bool,
     result: Option<usize>,
 }
 
 impl<'a> KeyLookupSerializer<'a> {
     pub fn lookup<K: Serialize + ?Sized>(
         fields: &'a [ArrayBuilder],
-        field_names_unique: bool,
         key: &K,
     ) -> Result<Option<usize>> {
         let mut this = Self {
             fields,
-            field_names_unique,
             result: None,
         };
         key.serialize(&mut this)?;
@@ -520,9 +491,6 @@ impl<'a> Serializer for &'a mut KeyLookupSerializer<'_> {
         for (idx, builder) in self.fields.iter().enumerate() {
             if builder.get_name() == v {
                 self.result = Some(idx);
-                if self.field_names_unique {
-                    break;
-                }
             }
         }
         Ok(())
@@ -608,11 +576,11 @@ fn canonical_layout_deopts_for_reordered_fields() {
     ])
     .unwrap();
 
-    builder.serialize_value((1i8, 2i8)).unwrap();
-    assert!(!builder.discovered_canonical_layout);
-
     builder.serialize_value(Canonical { a: 3, b: 4 }).unwrap();
-    assert!(builder.discovered_canonical_layout);
+    assert_eq!(builder.canonical_mode, SchemaOrderedFields::Active);
+
+    builder.serialize_value((1i8, 2i8)).unwrap();
+    assert_eq!(builder.canonical_mode, SchemaOrderedFields::Disabled);
 
     builder.serialize_value(Reordered { a: 5, b: 6 }).unwrap();
 
@@ -626,6 +594,6 @@ fn canonical_layout_deopts_for_reordered_fields() {
     let Array::Int8(b) = &array.fields[1].1 else {
         panic!("expected i8 field");
     };
-    assert_eq!(a.values, vec![1, 3, 5]);
-    assert_eq!(b.values, vec![2, 4, 6]);
+    assert_eq!(a.values, vec![3, 1, 5]);
+    assert_eq!(b.values, vec![4, 2, 6]);
 }
