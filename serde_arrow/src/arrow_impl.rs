@@ -276,7 +276,7 @@ impl<'de> Deserializer<'de> {
 
         let fields = fields_from_field_refs(fields)?;
 
-        let mut views = Vec::new();
+        let mut views = Vec::with_capacity(arrays.len());
         for array in arrays {
             views.push(View::try_from(array.as_ref())?);
         }

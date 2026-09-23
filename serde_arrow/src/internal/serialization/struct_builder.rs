@@ -106,7 +106,7 @@ impl StructBuilder {
             nullable: self.seq.validity.is_some(),
         };
 
-        let mut fields = Vec::new();
+        let mut fields = Vec::with_capacity(self.fields.len());
         for builder in self.fields {
             let (array, meta) = builder.into_array_and_field_meta()?;
             fields.push((meta, array));
