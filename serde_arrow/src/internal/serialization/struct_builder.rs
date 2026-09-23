@@ -16,6 +16,16 @@ use super::array_builder::ArrayBuilder;
 
 const UNKNOWN_KEY: usize = usize::MAX;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CanonicalMode {
+    /// Determine whether this record uses schema-ordered static field names.
+    Discover,
+    /// Serialize a record using a previously discovered canonical layout.
+    Active,
+    /// Serialize through the regular field-lookup path.
+    Disabled,
+}
+
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
     pub name: String,
@@ -30,11 +40,9 @@ pub struct StructBuilder {
     /// Whether a prior struct established that its static field names arrive in
     /// schema order.
     canonical_layout: bool,
-    /// Whether the struct currently being serialized can establish a canonical
-    /// layout for later values.
-    canonical_candidate: bool,
-    /// Whether the current struct can use the established canonical layout.
-    canonical_active: bool,
+    /// How the struct currently being serialized uses or discovers a canonical
+    /// field layout.
+    canonical_mode: CanonicalMode,
     field_names_unique: bool,
     pub seq: CountArray,
     pub metadata: HashMap<String, String>,
@@ -57,8 +65,7 @@ impl StructBuilder {
             seen: vec![false; fields.len()],
             seen_count: 0,
             canonical_layout: false,
-            canonical_candidate: false,
-            canonical_active: false,
+            canonical_mode: CanonicalMode::Disabled,
             field_names_unique: field_names_are_unique(&fields),
             next: 0,
             lookup_cache: CachedNameLookup::new(fields.len()),
@@ -83,8 +90,7 @@ impl StructBuilder {
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
             seen_count: std::mem::take(&mut self.seen_count),
             canonical_layout: std::mem::take(&mut self.canonical_layout),
-            canonical_candidate: false,
-            canonical_active: false,
+            canonical_mode: CanonicalMode::Disabled,
             field_names_unique: self.field_names_unique,
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
@@ -149,37 +155,38 @@ impl StructBuilder {
 }
 
 impl StructBuilder {
-    fn start(&mut self, canonical_active: bool) -> Result<()> {
+    fn start(&mut self, canonical_layout: bool) -> Result<()> {
         self.seq.start_seq()?;
-        if !canonical_active {
+        self.canonical_mode = if canonical_layout {
+            CanonicalMode::Active
+        } else {
             self.seen.fill(false);
             self.seen_count = 0;
-        }
+            CanonicalMode::Discover
+        };
         self.next = 0;
-        self.canonical_active = canonical_active;
-        self.canonical_candidate = !canonical_active;
         Ok(())
     }
 
     fn leave_canonical_layout(&mut self) {
-        if !self.canonical_active {
+        if self.canonical_mode != CanonicalMode::Active {
             return;
         }
 
         self.seen.fill(false);
         self.seen[..self.next].fill(true);
         self.seen_count = self.next;
-        self.canonical_active = false;
+        self.canonical_mode = CanonicalMode::Disabled;
     }
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
-        if self.canonical_active && self.next == self.fields.len() {
+        if self.canonical_mode == CanonicalMode::Active && self.next == self.fields.len() {
             return Ok(());
         }
         self.leave_canonical_layout();
         if self.seen_count == self.fields.len() {
-            if self.canonical_candidate {
+            if self.canonical_mode == CanonicalMode::Discover {
                 self.canonical_layout = true;
             }
             return Ok(());
@@ -303,22 +310,23 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        if self.canonical_active && self.lookup_cache.matches(self.next, key) {
+        if self.canonical_mode == CanonicalMode::Active && self.lookup_cache.matches(self.next, key)
+        {
             return self.canonical_element(value);
         }
 
-        if self.canonical_active {
+        if self.canonical_mode == CanonicalMode::Active {
             self.leave_canonical_layout();
         }
 
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
-            if self.canonical_candidate && idx != self.next {
-                self.canonical_candidate = false;
+            if self.canonical_mode == CanonicalMode::Discover && idx != self.next {
+                self.canonical_mode = CanonicalMode::Disabled;
             }
             self.element(idx, value)
         } else {
             // ignore unknown fields
-            self.canonical_candidate = false;
+            self.canonical_mode = CanonicalMode::Disabled;
             Ok(())
         }
     }
