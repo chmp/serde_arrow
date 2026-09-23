@@ -39,7 +39,7 @@ pub struct StructBuilder {
     seen_count: usize,
     /// Whether a prior struct established that its static field names arrive in
     /// schema order.
-    canonical_layout: bool,
+    discovered_canonical_layout: bool,
     /// How the struct currently being serialized uses or discovers a canonical
     /// field layout.
     canonical_mode: CanonicalMode,
@@ -64,7 +64,7 @@ impl StructBuilder {
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
             seen_count: 0,
-            canonical_layout: false,
+            discovered_canonical_layout: false,
             canonical_mode: CanonicalMode::Disabled,
             field_names_unique: field_names_are_unique(&fields),
             next: 0,
@@ -89,7 +89,7 @@ impl StructBuilder {
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
             seen_count: std::mem::take(&mut self.seen_count),
-            canonical_layout: std::mem::take(&mut self.canonical_layout),
+            discovered_canonical_layout: std::mem::take(&mut self.discovered_canonical_layout),
             canonical_mode: CanonicalMode::Disabled,
             field_names_unique: self.field_names_unique,
             seq: self.seq.take(),
@@ -155,17 +155,24 @@ impl StructBuilder {
 }
 
 impl StructBuilder {
-    fn start(&mut self, canonical_layout: bool) -> Result<()> {
+    fn start_with_mode(&mut self, canonical_mode: CanonicalMode) -> Result<()> {
         self.seq.start_seq()?;
-        self.canonical_mode = if canonical_layout {
-            CanonicalMode::Active
-        } else {
+        if canonical_mode != CanonicalMode::Active {
             self.seen.fill(false);
             self.seen_count = 0;
-            CanonicalMode::Discover
-        };
+        }
+        self.canonical_mode = canonical_mode;
         self.next = 0;
         Ok(())
+    }
+
+    fn start_struct(&mut self) -> Result<()> {
+        let canonical_mode = if self.discovered_canonical_layout {
+            CanonicalMode::Active
+        } else {
+            CanonicalMode::Discover
+        };
+        self.start_with_mode(canonical_mode)
     }
 
     fn leave_canonical_layout(&mut self) {
@@ -181,15 +188,14 @@ impl StructBuilder {
 
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
-        if self.canonical_mode == CanonicalMode::Active && self.next == self.fields.len() {
-            return Ok(());
-        }
-        self.leave_canonical_layout();
-        if self.seen_count == self.fields.len() {
-            if self.canonical_mode == CanonicalMode::Discover {
-                self.canonical_layout = true;
+        match self.canonical_mode {
+            CanonicalMode::Active if self.next == self.fields.len() => return Ok(()),
+            CanonicalMode::Active => self.leave_canonical_layout(),
+            CanonicalMode::Discover if self.seen_count == self.fields.len() => {
+                self.discovered_canonical_layout = true;
+                return Ok(());
             }
-            return Ok(());
+            CanonicalMode::Discover | CanonicalMode::Disabled => {}
         }
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
@@ -279,24 +285,24 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.start(self.canonical_layout)?;
+        self.start_struct()?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.start(false)?;
+        self.start_with_mode(CanonicalMode::Disabled)?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.start(false)?;
+        self.start_with_mode(CanonicalMode::Disabled)?;
         Ok(Self::SerializeTuple::Struct(self))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.start(false)?;
+        self.start_with_mode(CanonicalMode::Disabled)?;
         Ok(Self::SerializeSeq::Struct(self))
     }
 }
@@ -608,7 +614,12 @@ fn canonical_layout_deopts_for_reordered_fields() {
     ])
     .unwrap();
 
+    builder.serialize_value((1i8, 2i8)).unwrap();
+    assert!(!builder.discovered_canonical_layout);
+
     builder.serialize_value(Canonical { a: 3, b: 4 }).unwrap();
+    assert!(builder.discovered_canonical_layout);
+
     builder.serialize_value(Reordered { a: 5, b: 6 }).unwrap();
 
     let (array, _) = builder.into_array_and_field_meta().unwrap();
@@ -621,6 +632,6 @@ fn canonical_layout_deopts_for_reordered_fields() {
     let Array::Int8(b) = &array.fields[1].1 else {
         panic!("expected i8 field");
     };
-    assert_eq!(a.values, vec![3, 5]);
-    assert_eq!(b.values, vec![4, 6]);
+    assert_eq!(a.values, vec![1, 3, 5]);
+    assert_eq!(b.values, vec![2, 4, 6]);
 }
