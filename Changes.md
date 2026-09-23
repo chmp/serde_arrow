@@ -1,5 +1,10 @@
 # Change log
 
+## development
+
+- Performance optimizations. Benchmarks show an improvement of approximately
+  20 - 30 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
+
 ## 0.15.1
 
 - Add `arrow=60` support
