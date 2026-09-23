@@ -25,6 +25,11 @@ def main():
     parser.add_argument(
         "--plot-output", type=pathlib.Path, default=pathlib.Path("timings.png")
     )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate the benchmark timing chart.",
+    )
     parser.add_argument("--update", type=pathlib.Path)
     parser.add_argument("--update-github-summary", action="store_true", default=False)
     analyze_benchmark(parser.parse_args())
@@ -49,12 +54,13 @@ def analyze_benchmark(args):
     if args.update_github_summary:
         update_github_summary(benchmark)
 
-    plot_times(
-        mean_times,
-        benchmark_baseline=BENCHMARK_BASELINE,
-        ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
-        output=plot_output,
-    )
+    if args.plot:
+        plot_times(
+            mean_times,
+            benchmark_baseline=BENCHMARK_BASELINE,
+            ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
+            output=plot_output,
+        )
 
 
 def resolve_path(path):

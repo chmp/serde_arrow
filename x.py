@@ -86,7 +86,7 @@ def summarize_bench(update=False):
         f"""
             uv run python scripts/analyze-benchmark.py
                 --criterion-root target/criterion
-                {"--update Readme.md" if update else ""}
+                {"--update Readme.md --plot" if update else ""}
         """
     )
 
