@@ -244,6 +244,13 @@ impl StructBuilder {
         Ok(())
     }
 
+    fn next_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        if self.next < self.fields.len() {
+            self.element(self.next, value)?;
+        }
+        Ok(())
+    }
+
     fn canonical_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
         self.seq.push_seq_elements(1)?;
         let Some(field) = self.fields.get_mut(self.next) else {
@@ -316,12 +323,10 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        if self.canonical_mode == CanonicalMode::Active && self.lookup_cache.matches(self.next, key)
-        {
-            return self.canonical_element(value);
-        }
-
         if self.canonical_mode == CanonicalMode::Active {
+            if self.lookup_cache.matches(self.next, key) {
+                return self.canonical_element(value);
+            }
             self.leave_canonical_layout();
         }
 
@@ -370,11 +375,7 @@ impl serde::ser::SerializeSeq for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        // ignore extra tuple fields
-        if self.next < self.fields.len() {
-            self.element(self.next, value)?;
-        }
-        Ok(())
+        self.next_element(value)
     }
 
     fn end(self) -> Result<()> {
@@ -387,11 +388,7 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        // ignore extra tuple fields
-        if self.next < self.fields.len() {
-            self.element(self.next, value)?;
-        }
-        Ok(())
+        self.next_element(value)
     }
 
     fn end(self) -> Result<()> {
@@ -460,24 +457,21 @@ impl CachedNameLookup {
     fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
         let static_name = StaticFieldName::new(name);
         if self.cache.get(guess) == Some(&static_name) {
-            Some(guess)
-        } else if fields.get(guess).map(|field| field.get_name()) == Some(name) {
-            if let Some(cached) = self.cache.get_mut(guess) {
-                if cached.is_empty() {
-                    *cached = static_name;
-                }
-            }
-            Some(guess)
-        } else if let Some(idx) = self.lookup_field_loop(name, fields) {
-            if let Some(cached) = self.cache.get_mut(idx) {
-                if cached.is_empty() {
-                    *cached = static_name;
-                }
-            }
-            Some(idx)
-        } else {
-            None
+            return Some(guess);
         }
+
+        let idx = if fields.get(guess).map(|field| field.get_name()) == Some(name) {
+            guess
+        } else {
+            self.lookup_field_loop(name, fields)?
+        };
+
+        if let Some(cached) = self.cache.get_mut(idx) {
+            if cached.is_empty() {
+                *cached = static_name;
+            }
+        }
+        Some(idx)
     }
 
     fn matches(&self, idx: usize, name: &'static str) -> bool {
