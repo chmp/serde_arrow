@@ -1,7 +1,7 @@
 {
   description = "Development, benchmarking, and profiling environment for serde_arrow";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
   outputs = { nixpkgs, ... }:
     let
