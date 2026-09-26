@@ -123,9 +123,8 @@ shape: (3, 2)
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
 The charts compare serialization with direct Arrow builder construction and deserialization with
-manual construction of the Rust records, averaged over the primitive and complex workloads. The
-binary variants are listed in the tables below. These benchmark results are workload-specific and
-only indicative.
+manual construction of the Rust records, averaged over the primitive and complex workloads. These
+benchmark results are workload-specific and only indicative.
 
 ![Serialization and deserialization runtimes relative to their baselines](timings.png)
 
@@ -159,15 +158,7 @@ measures the record-by-record API.
 
 ### Deserialization
 
-#### `binary_values_1000_deserialize`
-
-| label        | time [ms] | binary | large_binary | binary_view |
-|--------------|-----------|--------|--------------|-------------|
-| binary       |      1.18 |   1.00 |         0.96 |        0.96 |
-| large_binary |      1.23 |   1.04 |         1.00 |        0.99 |
-| binary_view  |      1.23 |   1.05 |         1.01 |        1.00 |
-
-#### `complex_1000_deserialize`
+#### `complex_1000`
 
 | label                    | time [ms] | manual | Deserializer::i | serde_arrow::fr | serde_arrow::fr |
 |--------------------------|-----------|--------|-----------------|-----------------|-----------------|
@@ -176,7 +167,7 @@ measures the record-by-record API.
 | serde_arrow::from_arrow  |      1.71 |   3.89 |            1.01 |            1.00 |            0.99 |
 | serde_arrow::from_marrow |      1.74 |   3.94 |            1.02 |            1.01 |            1.00 |
 
-#### `primitives_1000_deserialize`
+#### `primitives_1000`
 
 | label                    | time [ms] | manual | serde_arrow::fr | serde_arrow::fr | Deserializer::i |
 |--------------------------|-----------|--------|-----------------|-----------------|-----------------|

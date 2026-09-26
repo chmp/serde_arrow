@@ -24,6 +24,7 @@ BENCHMARK_BASELINE = "arrow builder"
 DESERIALIZATION_BASELINE = "manual"
 README_BENCHMARK_IGNORE_GROUPS = {
     "binary_values_1000",
+    "binary_values_1000_deserialize",
     "json_to_arrow",
     "wide_schema_1024",
 }
@@ -167,7 +168,7 @@ def format_benchmark(mean_times, ignore_groups=()):
 
         widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
-        yield f"#### `{group}`"
+        yield f"#### `{group.removesuffix('_deserialize')}`"
         yield ""
         for idx, row in enumerate(rows):
             padded_row = [
