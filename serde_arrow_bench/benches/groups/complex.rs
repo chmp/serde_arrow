@@ -15,20 +15,20 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Item {
     string: String,
     points: Vec<Point>,
     child: SubItem,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Point {
     x: f32,
     y: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct SubItem {
     first: bool,
     second: f64,
@@ -94,7 +94,55 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     group.finish();
 }
 
-criterion::criterion_group!(benchmark, benchmark_serialize);
+pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
+    let items = (0..1_000)
+        .map(|_| Item::random(&mut rand::thread_rng()))
+        .collect::<Vec<_>>();
+    let mut group = super::new_group(c, "complex_1000_deserialize");
+
+    let arrow_fields = crate::impls::serde_arrow_arrow::trace(&items);
+    let arrow_arrays = serde_arrow::to_arrow(&arrow_fields, &items).unwrap();
+    let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
+    assert_eq!(decoded, items);
+    group.bench_function("serde_arrow_arrow", |b| {
+        b.iter(|| {
+            let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+
+    let marrow_fields = crate::impls::serde_arrow_marrow::trace(&items);
+    let marrow_arrays = serde_arrow::to_marrow(&marrow_fields, &items).unwrap();
+    let marrow_views = marrow_arrays
+        .iter()
+        .map(|array| array.as_view())
+        .collect::<Vec<_>>();
+    let decoded: Vec<Item> = serde_arrow::from_marrow(&marrow_fields, &marrow_views).unwrap();
+    assert_eq!(decoded, items);
+    group.bench_function("serde_arrow_marrow", |b| {
+        b.iter(|| {
+            let decoded: Vec<Item> =
+                serde_arrow::from_marrow(&marrow_fields, &marrow_views).unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+    group.bench_function("serde_arrow_marrow_iter", |b| {
+        b.iter(|| {
+            let deserializer =
+                serde_arrow::Deserializer::from_marrow(&marrow_fields, &marrow_views).unwrap();
+            let decoded = deserializer
+                .iter()
+                .map(Item::deserialize)
+                .collect::<serde_arrow::Result<Vec<_>>>()
+                .unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+
+    group.finish();
+}
+
+criterion::criterion_group!(benchmark, benchmark_serialize, benchmark_deserialize);
 
 mod arrow_builder {
     use super::*;
