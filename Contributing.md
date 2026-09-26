@@ -91,11 +91,21 @@ This repository uses the following tags:
 
 Use `uv run python x.py serde-arrow-bench --quick` for a shorter local run.
 
-On GitHub, execute `uv run python x.py bench-remote`, or run:
+On GitHub, run:
 
 ```bash
 gh workflow run Bench --ref {BRANCH}
 ```
+
+The workflow summary includes a JSON export of the measured timings. Copy the JSON into
+`benchmarks.json` and run:
+
+```bash
+uv run python x.py summarize-bench --input-json benchmarks.json --update
+```
+
+This regenerates `Readme.md` and `timings.png` from the GitHub runner's measurements. The JSON
+file does not need to be committed.
 
 The examples in the `benches` packages can be used to generate flamegraphs:
 

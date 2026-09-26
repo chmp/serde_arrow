@@ -81,11 +81,19 @@ def serde_arrow_bench(quick=False):
 
 @cmd(help="Summarize existing benchmarks")
 @arg("--update", action="store_true", default=False)
-def summarize_bench(update=False):
+@arg("--input-json")
+def summarize_bench(update=False, input_json=None):
+    import shlex
+
+    source = (
+        f"--input-json {shlex.quote(input_json)}"
+        if input_json
+        else "--criterion-root target/criterion"
+    )
     _sh(
         f"""
             uv run python scripts/analyze-benchmark.py
-                --criterion-root target/criterion
+                {source}
                 {"--update Readme.md --plot" if update else ""}
         """
     )

@@ -1,10 +1,12 @@
 import argparse
 import json
+import math
 import os
 import pathlib
 import statistics
 
 SELF_PATH = pathlib.Path(__file__).parents[1].resolve()
+EXPORT_FORMAT = "serde-arrow-benchmarks-v1"
 
 BENCHMARK_RENAMES = {
     "arrow": "arrow_json::ReaderBuilder",
@@ -36,7 +38,10 @@ README_BENCHMARK_IGNORE_IMPLS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--criterion-root", type=pathlib.Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--criterion-root", type=pathlib.Path)
+    source.add_argument("--input-json", type=pathlib.Path)
+    parser.add_argument("--export-json", type=pathlib.Path)
     parser.add_argument(
         "--plot-output", type=pathlib.Path, default=pathlib.Path("timings.png")
     )
@@ -51,15 +56,23 @@ def main():
 
 
 def analyze_benchmark(args):
-    root = resolve_path(args.criterion_root)
     update = resolve_path(args.update) if args.update else None
     plot_output = resolve_path(args.plot_output)
 
+    if args.input_json is not None:
+        loaded_times = load_export(resolve_path(args.input_json))
+    else:
+        loaded_times = load_times(resolve_path(args.criterion_root))
+
     mean_times = {
         key: time
-        for key, time in load_times(root).items()
+        for key, time in loaded_times.items()
         if key[1] not in README_BENCHMARK_IGNORE_IMPLS
     }
+    export = format_export(mean_times)
+    if args.export_json is not None:
+        resolve_path(args.export_json).write_text(export + "\n", encoding="utf8")
+
     benchmark = format_benchmark(
         mean_times,
         ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
@@ -71,7 +84,7 @@ def analyze_benchmark(args):
         update_marked_output(update, benchmark)
 
     if args.update_github_summary:
-        update_github_summary(benchmark)
+        update_github_summary(benchmark, export)
 
     if args.plot:
         plot_times(
@@ -131,6 +144,48 @@ def collect(kv_pairs):
         res.setdefault(k, []).append(v)
 
     return res
+
+
+def format_export(mean_times):
+    return json.dumps(
+        {
+            "format": EXPORT_FORMAT,
+            "unit": "seconds_per_iteration",
+            "results": [
+                {"group": group, "label": label, "time": time}
+                for (group, label), time in sorted(mean_times.items())
+            ],
+        },
+        indent=2,
+    )
+
+
+def load_export(path):
+    data = json.loads(path.read_text(encoding="utf8"))
+    if (
+        data.get("format") != EXPORT_FORMAT
+        or data.get("unit") != "seconds_per_iteration"
+    ):
+        raise ValueError(f"Unsupported benchmark export in {path}")
+
+    times = {}
+    for result in data["results"]:
+        key = (result["group"], result["label"])
+        time = result["time"]
+        if (
+            not all(isinstance(part, str) and part for part in key)
+            or not isinstance(time, (int, float))
+            or isinstance(time, bool)
+            or not math.isfinite(time)
+            or time <= 0
+            or key in times
+        ):
+            raise ValueError(f"Invalid benchmark result in {path}: {result!r}")
+        times[key] = time
+
+    if not times:
+        raise ValueError(f"No benchmark results in {path}")
+    return times
 
 
 def format_benchmark(mean_times, ignore_groups=()):
@@ -202,12 +257,19 @@ def update_marked_output(output, content):
             print(line, file=fobj)
 
 
-def update_github_summary(content):
+def update_github_summary(content, export):
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if path is None:
         return
 
-    append_output(pathlib.Path(path), content)
+    append_output(
+        pathlib.Path(path),
+        f"{content}\n\nSave the JSON below as `benchmarks.json`, then run "
+        "`uv run python x.py summarize-bench --input-json benchmarks.json --update` "
+        "to update the README and chart.\n\n"
+        "<details>\n<summary>JSON export for README update</summary>"
+        f"\n\n```json\n{export}\n```\n\n</details>",
+    )
 
 
 def append_output(path, content):
