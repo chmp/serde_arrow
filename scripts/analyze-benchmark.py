@@ -1,11 +1,12 @@
 import argparse
 import json
+import math
 import os
 import pathlib
 import statistics
 
-
 SELF_PATH = pathlib.Path(__file__).parents[1].resolve()
+EXPORT_FORMAT = "serde-arrow-benchmarks-v1"
 
 BENCHMARK_RENAMES = {
     "arrow": "arrow_json::ReaderBuilder",
@@ -15,9 +16,17 @@ BENCHMARK_RENAMES = {
     "serde_arrow_marrow_push": "serde_arrow::ArrayBuilder::push",
     "serde_arrow_marrow_to_arrow": "serde_arrow::to_marrow + Arrow conversion",
 }
+DESERIALIZATION_RENAMES = {
+    "arrow_manual": "manual",
+    "serde_arrow_arrow": "serde_arrow::from_arrow",
+    "serde_arrow_marrow": "serde_arrow::from_marrow",
+    "serde_arrow_marrow_iter": "Deserializer::iter",
+}
 BENCHMARK_BASELINE = "arrow builder"
+DESERIALIZATION_BASELINE = "manual"
 README_BENCHMARK_IGNORE_GROUPS = {
     "binary_values_1000",
+    "binary_values_1000_deserialize",
     "json_to_arrow",
     "wide_schema_1024",
 }
@@ -29,7 +38,10 @@ README_BENCHMARK_IGNORE_IMPLS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--criterion-root", type=pathlib.Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--criterion-root", type=pathlib.Path)
+    source.add_argument("--input-json", type=pathlib.Path)
+    parser.add_argument("--export-json", type=pathlib.Path)
     parser.add_argument(
         "--plot-output", type=pathlib.Path, default=pathlib.Path("timings.png")
     )
@@ -44,15 +56,23 @@ def main():
 
 
 def analyze_benchmark(args):
-    root = resolve_path(args.criterion_root)
     update = resolve_path(args.update) if args.update else None
     plot_output = resolve_path(args.plot_output)
 
+    if args.input_json is not None:
+        loaded_times = load_export(resolve_path(args.input_json))
+    else:
+        loaded_times = load_times(resolve_path(args.criterion_root))
+
     mean_times = {
         key: time
-        for key, time in load_times(root).items()
+        for key, time in loaded_times.items()
         if key[1] not in README_BENCHMARK_IGNORE_IMPLS
     }
+    export = format_export(mean_times)
+    if args.export_json is not None:
+        resolve_path(args.export_json).write_text(export + "\n", encoding="utf8")
+
     benchmark = format_benchmark(
         mean_times,
         ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
@@ -64,7 +84,7 @@ def analyze_benchmark(args):
         update_marked_output(update, benchmark)
 
     if args.update_github_summary:
-        update_github_summary(benchmark)
+        update_github_summary(benchmark, export)
 
     if args.plot:
         plot_times(
@@ -93,7 +113,11 @@ def load_times(root):
         for iterations, time in zip(data["iters"], data["times"]):
             results.append(
                 {
-                    "name": BENCHMARK_RENAMES.get(name, name),
+                    "name": (
+                        DESERIALIZATION_RENAMES.get(name, name)
+                        if group.endswith("_deserialize")
+                        else BENCHMARK_RENAMES.get(name, name)
+                    ),
                     "group": group,
                     "iterations": iterations,
                     "time": time,
@@ -122,39 +146,98 @@ def collect(kv_pairs):
     return res
 
 
+def format_export(mean_times):
+    return json.dumps(
+        {
+            "format": EXPORT_FORMAT,
+            "unit": "seconds_per_iteration",
+            "results": [
+                {"group": group, "label": label, "time": time}
+                for (group, label), time in sorted(mean_times.items())
+            ],
+        },
+        indent=2,
+    )
+
+
+def load_export(path):
+    data = json.loads(path.read_text(encoding="utf8"))
+    if (
+        data.get("format") != EXPORT_FORMAT
+        or data.get("unit") != "seconds_per_iteration"
+    ):
+        raise ValueError(f"Unsupported benchmark export in {path}")
+
+    times = {}
+    for result in data["results"]:
+        key = (result["group"], result["label"])
+        time = result["time"]
+        if (
+            not all(isinstance(part, str) and part for part in key)
+            or not isinstance(time, (int, float))
+            or isinstance(time, bool)
+            or not math.isfinite(time)
+            or time <= 0
+            or key in times
+        ):
+            raise ValueError(f"Invalid benchmark result in {path}: {result!r}")
+        times[key] = time
+
+    if not times:
+        raise ValueError(f"No benchmark results in {path}")
+    return times
+
+
 def format_benchmark(mean_times, ignore_groups=()):
     def _parts():
-        for group in sorted({g for g, _ in mean_times if g not in ignore_groups}):
-            times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
-            sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
-
-            rows = [["label", "time [ms]", *(k[:15] for k, _ in sorted_items)]]
-            for label, time in sorted_items:
-                rows.append(
-                    [
-                        label,
-                        f"{1000 * time:7.2f}",
-                        *(f"{time / cmp:.2f}" for _, cmp in sorted_items),
-                    ]
-                )
-
-            widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
-
-            yield f"### `{group}`"
+        groups = {g for g, _ in mean_times if g not in ignore_groups}
+        for title, selected in (
+            (
+                "Serialization",
+                sorted(g for g in groups if not g.endswith("_deserialize")),
+            ),
+            (
+                "Deserialization",
+                sorted(g for g in groups if g.endswith("_deserialize")),
+            ),
+        ):
+            if not selected:
+                continue
+            yield f"### {title}"
             yield ""
-            for idx, row in enumerate(rows):
-                padded_row = [
-                    (str.ljust if idx == 0 else str.rjust)(item, width)
-                    for idx, (item, width) in enumerate(zip(row, widths))
+            for group in selected:
+                yield from _format_group(group)
+
+    def _format_group(group):
+        times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
+        sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
+        rows = [["label", "time [ms]", *(name[:15] for name, _ in sorted_items)]]
+        for label, time in sorted_items:
+            rows.append(
+                [
+                    label,
+                    f"{1000 * time:7.2f}",
+                    *(f"{time / comparison:.2f}" for _, comparison in sorted_items),
                 ]
+            )
 
-                if idx == 0:
-                    yield "| " + " | ".join(padded_row) + " |"
-                    yield "|-" + "-|-".join("-" * w for w in widths) + "-|"
-                else:
-                    yield "| " + " | ".join(padded_row) + " |"
+        widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
-            yield ""
+        yield f"#### `{group.removesuffix('_deserialize')}`"
+        yield ""
+        for idx, row in enumerate(rows):
+            padded_row = [
+                (str.ljust if idx == 0 else str.rjust)(item, width)
+                for idx, (item, width) in enumerate(zip(row, widths))
+            ]
+
+            if idx == 0:
+                yield "| " + " | ".join(padded_row) + " |"
+                yield "|-" + "-|-".join("-" * w for w in widths) + "-|"
+            else:
+                yield "| " + " | ".join(padded_row) + " |"
+
+        yield ""
 
     return "\n".join(_parts())
 
@@ -174,12 +257,19 @@ def update_marked_output(output, content):
             print(line, file=fobj)
 
 
-def update_github_summary(content):
+def update_github_summary(content, export):
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if path is None:
         return
 
-    append_output(pathlib.Path(path), content)
+    append_output(
+        pathlib.Path(path),
+        f"{content}\n\nSave the JSON below as `benchmarks.json`, then run "
+        "`uv run python x.py summarize-bench --input-json benchmarks.json --update` "
+        "to update the README and chart.\n\n"
+        "<details>\n<summary>JSON export for README update</summary>"
+        f"\n\n```json\n{export}\n```\n\n</details>",
+    )
 
 
 def append_output(path, content):
@@ -214,53 +304,49 @@ def plot_times(mean_times, *, benchmark_baseline, ignore_groups, output):
     print("Plot times")
 
     import matplotlib.pyplot as plt
-    import polars as pl
 
-    plottable_groups = {
-        group for group, impl in mean_times if impl == benchmark_baseline
-    } - set(ignore_groups)
-    df = pl.from_dicts(
-        [
-            {"group": group, "impl": impl, "time": time}
+    def relative_times(baseline, *, deserialize):
+        groups = {
+            group
+            for group, impl in mean_times
+            if impl == baseline
+            and group not in ignore_groups
+            and group.endswith("_deserialize") == deserialize
+        }
+        ratios = collect(
+            (impl, time / mean_times[group, baseline])
             for (group, impl), time in mean_times.items()
-            if group in plottable_groups
-        ]
-    )
-    agg_df = (
-        df.select(
-            [
-                pl.col("impl"),
-                (
-                    pl.col("time")
-                    / pl.col("time")
-                    .filter(pl.col("impl") == benchmark_baseline)
-                    .mean()
-                    .over("group")
-                ),
-            ]
+            if group in groups
         )
-        .group_by("impl")
-        .agg(pl.col("time").mean())
-        .sort("time")
-    )
+        return sorted(
+            ((impl, statistics.mean(values)) for impl, values in ratios.items()),
+            key=lambda item: item[1],
+        )
 
-    plt.figure(figsize=(7, 3.5), dpi=150)
-    b = plt.barh(
-        [d["impl"] for d in agg_df.to_dicts()],
-        [d["time"] for d in agg_df.to_dicts()],
-        zorder=10,
-    )
-    plt.bar_label(
-        b,
-        ["{:.1f} x".format(d["time"]) for d in agg_df.to_dicts()],
-        bbox=dict(boxstyle="square,pad=0.0", fc="white", ec="none"),
-        padding=2.5,
-    )
-    plt.grid(axis="x", zorder=0)
-    plt.xlim(0, 1.15 * agg_df["time"].max())
-    plt.subplots_adjust(left=0.32, right=0.975, top=0.95, bottom=0.15)
-    plt.xlabel(f"Mean runtime compared to {benchmark_baseline}")
-    plt.savefig(output)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4), dpi=150)
+    for ax, title, baseline, deserialize in (
+        (axes[0], "Serialization", benchmark_baseline, False),
+        (axes[1], "Deserialization", DESERIALIZATION_BASELINE, True),
+    ):
+        values = relative_times(baseline, deserialize=deserialize)
+        bars = ax.barh(
+            [impl for impl, _ in values],
+            [ratio for _, ratio in values],
+            zorder=10,
+        )
+        ax.bar_label(
+            bars,
+            [f"{ratio:.1f} x" for _, ratio in values],
+            bbox={"boxstyle": "square,pad=0.0", "fc": "white", "ec": "none"},
+            padding=2.5,
+        )
+        ax.grid(axis="x", zorder=0)
+        ax.set_xlim(0, 1.15 * max(ratio for _, ratio in values))
+        ax.set_title(title)
+        ax.set_xlabel(f"Mean runtime relative to {baseline}")
+
+    fig.tight_layout(w_pad=3)
+    fig.savefig(output)
 
 
 if __name__ == "__main__":

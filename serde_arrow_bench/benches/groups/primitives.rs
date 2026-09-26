@@ -14,7 +14,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Item {
     pub k: bool,
     pub a: u8,
@@ -92,7 +92,102 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     group.finish();
 }
 
-criterion::criterion_group!(benchmark, benchmark_serialize);
+pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
+    let items = (0..1_000)
+        .map(|_| Item::random(&mut rand::thread_rng()))
+        .collect::<Vec<_>>();
+    let mut group = super::new_group(c, "primitives_1000_deserialize");
+
+    let arrow_fields = crate::impls::serde_arrow_arrow::trace(&items);
+    let arrow_arrays = serde_arrow::to_arrow(&arrow_fields, &items).unwrap();
+    assert_eq!(arrow_manual::deserialize(&arrow_arrays), items);
+    group.bench_function("arrow_manual", |b| {
+        b.iter(|| criterion::black_box(arrow_manual::deserialize(&arrow_arrays)))
+    });
+    let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
+    assert_eq!(decoded, items);
+    group.bench_function("serde_arrow_arrow", |b| {
+        b.iter(|| {
+            let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+
+    let marrow_fields = crate::impls::serde_arrow_marrow::trace(&items);
+    let marrow_arrays = serde_arrow::to_marrow(&marrow_fields, &items).unwrap();
+    let marrow_views = marrow_arrays
+        .iter()
+        .map(|array| array.as_view())
+        .collect::<Vec<_>>();
+    let decoded: Vec<Item> = serde_arrow::from_marrow(&marrow_fields, &marrow_views).unwrap();
+    assert_eq!(decoded, items);
+    group.bench_function("serde_arrow_marrow", |b| {
+        b.iter(|| {
+            let decoded: Vec<Item> =
+                serde_arrow::from_marrow(&marrow_fields, &marrow_views).unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+    group.bench_function("serde_arrow_marrow_iter", |b| {
+        b.iter(|| {
+            let deserializer =
+                serde_arrow::Deserializer::from_marrow(&marrow_fields, &marrow_views).unwrap();
+            let decoded = deserializer
+                .iter()
+                .map(Item::deserialize)
+                .collect::<serde_arrow::Result<Vec<_>>>()
+                .unwrap();
+            criterion::black_box(decoded)
+        })
+    });
+
+    group.finish();
+}
+
+criterion::criterion_group!(benchmark, benchmark_serialize, benchmark_deserialize);
+
+mod arrow_manual {
+    use super::*;
+    use arrow_array::{
+        BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
+        LargeStringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+    };
+
+    pub fn deserialize(arrays: &[ArrayRef]) -> Vec<Item> {
+        let k = arrays[0].as_any().downcast_ref::<BooleanArray>().unwrap();
+        let a = arrays[1].as_any().downcast_ref::<UInt8Array>().unwrap();
+        let b = arrays[2].as_any().downcast_ref::<UInt16Array>().unwrap();
+        let c = arrays[3].as_any().downcast_ref::<UInt32Array>().unwrap();
+        let d = arrays[4].as_any().downcast_ref::<UInt64Array>().unwrap();
+        let e = arrays[5].as_any().downcast_ref::<Int8Array>().unwrap();
+        let f = arrays[6].as_any().downcast_ref::<Int16Array>().unwrap();
+        let g = arrays[7].as_any().downcast_ref::<Int32Array>().unwrap();
+        let h = arrays[8].as_any().downcast_ref::<Int64Array>().unwrap();
+        let i = arrays[9].as_any().downcast_ref::<Float32Array>().unwrap();
+        let j = arrays[10].as_any().downcast_ref::<Float64Array>().unwrap();
+        let l = arrays[11]
+            .as_any()
+            .downcast_ref::<LargeStringArray>()
+            .unwrap();
+
+        (0..k.len())
+            .map(|row| Item {
+                k: k.value(row),
+                a: a.value(row),
+                b: b.value(row),
+                c: c.value(row),
+                d: d.value(row),
+                e: e.value(row),
+                f: f.value(row),
+                g: g.value(row),
+                h: h.value(row),
+                i: i.value(row),
+                j: j.value(row),
+                l: l.value(row).to_owned(),
+            })
+            .collect()
+    }
+}
 
 mod arrow_builder {
     use super::*;

@@ -122,31 +122,59 @@ shape: (3, 2)
 [arrow-convert]: https://github.com/Swoorup/arrow-convert
 [typed-arrow]: https://github.com/tonbo-io/typed-arrow
 
-The different implementations have the following performance differences compared to direct
-Arrow builder construction. These benchmark results are workload-specific and only indicative.
+The charts compare serialization with direct Arrow builder construction and deserialization with
+manual construction of the Rust records, averaged over the primitive and complex workloads. These
+benchmark results are workload-specific and only indicative.
 
-![Time ](timings.png)
+![Serialization and deserialization runtimes relative to their baselines](timings.png)
 
-The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are listed below.
+The tables below give runtimes and pairwise ratios for the
+[benchmark workloads](serde_arrow_bench/benches/groups/).
+Deserialization benchmarks decode 1,000 records from arrays prepared before timing. The
+`serde_arrow` calls include deserializer setup and creation of owned Rust records. The manual
+baseline reads the same Arrow arrays and builds the same records directly; `Deserializer::iter`
+measures the record-by-record API.
 
 <!-- start:benchmarks -->
-### `complex_1000`
+### Serialization
+
+#### `complex_1000`
 
 | label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
-| arrow builder             |      0.43 |          1.00 |            0.32 |            0.27 |            0.12 |
-| serde_arrow::to_arrow     |      1.31 |          3.08 |            1.00 |            0.82 |            0.38 |
-| serde_arrow::to_marrow    |      1.60 |          3.76 |            1.22 |            1.00 |            0.46 |
-| arrow_json::ReaderBuilder |      3.47 |          8.15 |            2.64 |            2.17 |            1.00 |
+| arrow builder             |      0.13 |          1.00 |            0.38 |            0.33 |            0.19 |
+| serde_arrow::to_marrow    |      0.35 |          2.66 |            1.00 |            0.89 |            0.50 |
+| serde_arrow::to_arrow     |      0.39 |          3.00 |            1.13 |            1.00 |            0.56 |
+| arrow_json::ReaderBuilder |      0.71 |          5.37 |            2.02 |            1.79 |            1.00 |
 
-### `primitives_1000`
+#### `primitives_1000`
 
 | label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
-| arrow builder             |      0.07 |          1.00 |            0.33 |            0.15 |            0.08 |
-| serde_arrow::to_marrow    |      0.22 |          3.00 |            1.00 |            0.46 |            0.23 |
-| serde_arrow::to_arrow     |      0.48 |          6.58 |            2.20 |            1.00 |            0.50 |
-| arrow_json::ReaderBuilder |      0.96 |         13.24 |            4.42 |            2.01 |            1.00 |
+| arrow builder             |      0.01 |          1.00 |            0.20 |            0.13 |            0.05 |
+| serde_arrow::to_marrow    |      0.07 |          4.90 |            1.00 |            0.62 |            0.23 |
+| serde_arrow::to_arrow     |      0.11 |          7.83 |            1.60 |            1.00 |            0.37 |
+| arrow_json::ReaderBuilder |      0.29 |         20.99 |            4.29 |            2.68 |            1.00 |
+
+### Deserialization
+
+#### `complex_1000`
+
+| label                    | time [ms] | manual | serde_arrow::fr | serde_arrow::fr | Deserializer::i |
+|--------------------------|-----------|--------|-----------------|-----------------|-----------------|
+| manual                   |      0.07 |   1.00 |            0.14 |            0.14 |            0.14 |
+| serde_arrow::from_marrow |      0.52 |   7.00 |            1.00 |            0.98 |            0.97 |
+| serde_arrow::from_arrow  |      0.53 |   7.14 |            1.02 |            1.00 |            0.99 |
+| Deserializer::iter       |      0.53 |   7.19 |            1.03 |            1.01 |            1.00 |
+
+#### `primitives_1000`
+
+| label                    | time [ms] | manual | serde_arrow::fr | Deserializer::i | serde_arrow::fr |
+|--------------------------|-----------|--------|-----------------|-----------------|-----------------|
+| manual                   |      0.03 |   1.00 |            0.24 |            0.24 |            0.23 |
+| serde_arrow::from_marrow |      0.13 |   4.14 |            1.00 |            0.99 |            0.95 |
+| Deserializer::iter       |      0.13 |   4.20 |            1.01 |            1.00 |            0.97 |
+| serde_arrow::from_arrow  |      0.14 |   4.35 |            1.05 |            1.04 |            1.00 |
 <!-- end:benchmarks -->
 
 ## License
