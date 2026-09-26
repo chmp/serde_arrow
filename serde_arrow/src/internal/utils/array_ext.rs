@@ -67,19 +67,19 @@ impl<T: Default + 'static> ScalarArrayExt<'static> for PrimitiveArray<T> {
     type Value = T;
 
     fn push_scalar_default(&mut self) -> Result<()> {
-        set_validity_default(self.validity.as_mut(), self.values.len());
+        append_validity_default(self.validity.as_mut(), self.values.len());
         self.values.push(T::default());
         Ok(())
     }
 
     fn push_scalar_none(&mut self) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.values.len(), false)?;
+        append_validity(self.validity.as_mut(), self.values.len(), false)?;
         self.values.push(T::default());
         Ok(())
     }
 
     fn push_scalar_value(&mut self, value: Self::Value) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.values.len(), true)?;
+        append_validity(self.validity.as_mut(), self.values.len(), true)?;
         self.values.push(value);
         Ok(())
     }
@@ -125,7 +125,7 @@ impl<O: Offset> SeqArrayExt for BytesArray<O> {
     }
 
     fn start_seq(&mut self) -> Result<()> {
-        set_validity(
+        append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             true,
@@ -148,13 +148,13 @@ impl<'s, O: Offset> ScalarArrayExt<'s> for BytesArray<O> {
     type Value = &'s [u8];
 
     fn push_scalar_default(&mut self) -> Result<()> {
-        set_validity_default(self.validity.as_mut(), self.offsets.len().saturating_sub(1));
+        append_validity_default(self.validity.as_mut(), self.offsets.len().saturating_sub(1));
         duplicate_last(&mut self.offsets)?;
         Ok(())
     }
 
     fn push_scalar_none(&mut self) -> Result<()> {
-        set_validity(
+        append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             false,
@@ -164,7 +164,7 @@ impl<'s, O: Offset> ScalarArrayExt<'s> for BytesArray<O> {
     }
 
     fn push_scalar_value(&mut self, value: Self::Value) -> Result<()> {
-        set_validity(
+        append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             true,
@@ -215,7 +215,7 @@ impl SeqArrayExt for BytesViewArray {
     }
 
     fn start_seq(&mut self) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.data.len(), true)?;
+        append_validity(self.validity.as_mut(), self.data.len(), true)?;
         self.data.push(bytes_view::pack_len(0));
         Ok(())
     }
@@ -259,19 +259,19 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
     type Value = &'s [u8];
 
     fn push_scalar_default(&mut self) -> Result<()> {
-        set_validity_default(self.validity.as_mut(), self.data.len());
+        append_validity_default(self.validity.as_mut(), self.data.len());
         self.data.push(bytes_view::pack_inline(&[]));
         Ok(())
     }
 
     fn push_scalar_none(&mut self) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.data.len(), false)?;
+        append_validity(self.validity.as_mut(), self.data.len(), false)?;
         self.data.push(bytes_view::pack_inline(&[]));
         Ok(())
     }
 
     fn push_scalar_value(&mut self, value: Self::Value) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.data.len(), true)?;
+        append_validity(self.validity.as_mut(), self.data.len(), true)?;
         if value.len() <= 12 {
             self.data.push(bytes_view::pack_inline(value));
         } else {
@@ -373,13 +373,13 @@ impl<O: Offset> ArrayExt for OffsetsArray<O> {
 
 impl<O: Offset> SeqArrayExt for OffsetsArray<O> {
     fn push_seq_default(&mut self) -> Result<()> {
-        set_validity_default(self.validity.as_mut(), self.offsets.len().saturating_sub(1));
+        append_validity_default(self.validity.as_mut(), self.offsets.len().saturating_sub(1));
         duplicate_last(&mut self.offsets)?;
         Ok(())
     }
 
     fn push_seq_none(&mut self) -> Result<()> {
-        set_validity(
+        append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             false,
@@ -389,7 +389,7 @@ impl<O: Offset> SeqArrayExt for OffsetsArray<O> {
     }
 
     fn start_seq(&mut self) -> Result<()> {
-        set_validity(
+        append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             true,
@@ -442,19 +442,19 @@ impl ArrayExt for CountArray {
 
 impl SeqArrayExt for CountArray {
     fn push_seq_default(&mut self) -> Result<()> {
-        set_validity_default(self.validity.as_mut(), self.len);
+        append_validity_default(self.validity.as_mut(), self.len);
         self.len += 1;
         Ok(())
     }
 
     fn push_seq_none(&mut self) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.len, false)?;
+        append_validity(self.validity.as_mut(), self.len, false)?;
         self.len += 1;
         Ok(())
     }
 
     fn start_seq(&mut self) -> Result<()> {
-        set_validity(self.validity.as_mut(), self.len, true)?;
+        append_validity(self.validity.as_mut(), self.len, true)?;
         self.len += 1;
         Ok(())
     }
@@ -526,10 +526,53 @@ pub fn set_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Re
     }
 }
 
+/// Set a validity bit while appending to an array.
+///
+/// Normal serializers always write validity bits in increasing order. Keeping
+/// that common path separate avoids the generic bit-buffer growth loop while
+/// preserving [`set_validity`] for random access callers.
+pub fn append_validity(buffer: Option<&mut Vec<u8>>, idx: usize, value: bool) -> Result<()> {
+    if let Some(buffer) = buffer {
+        append_bit_buffer(buffer, idx, value);
+        Ok(())
+    } else if value {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorKind::NullabilityViolation { field: None },
+            "cannot serialize null into non-nullable array".into(),
+        ))
+    }
+}
+
 /// In contrast to `set_validity` nulls for non-nullable fields are not an error
 pub fn set_validity_default(buffer: Option<&mut Vec<u8>>, idx: usize) {
     if let Some(buffer) = buffer {
         set_bit_buffer(buffer, idx, false);
+    }
+}
+
+pub fn append_validity_default(buffer: Option<&mut Vec<u8>>, idx: usize) {
+    if let Some(buffer) = buffer {
+        append_bit_buffer(buffer, idx, false);
+    }
+}
+
+pub fn append_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
+    let byte_idx = idx / 8;
+    if byte_idx == buffer.len() {
+        buffer.push(0);
+    } else if byte_idx > buffer.len() {
+        set_bit_buffer(buffer, idx, value);
+        return;
+    }
+
+    let dest = &mut buffer[byte_idx];
+    let bit_mask: u8 = 1 << (idx % 8);
+    if value {
+        *dest |= bit_mask;
+    } else {
+        *dest &= !bit_mask;
     }
 }
 

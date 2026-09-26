@@ -57,6 +57,7 @@ pub struct ListBuilder<O> {
     pub name: String,
     pub elements: Box<ArrayBuilder>,
     pub offsets: OffsetsArray<O>,
+    current_len: usize,
     pub metadata: HashMap<String, String>,
 }
 
@@ -71,6 +72,7 @@ impl<O: ListOffset> ListBuilder<O> {
             name,
             elements: Box::new(element),
             offsets: OffsetsArray::new(is_nullable),
+            current_len: 0,
             metadata,
         }
     }
@@ -97,6 +99,7 @@ impl<O: ListOffset> ListBuilder<O> {
             metadata: self.metadata.clone(),
             offsets: self.offsets.take(),
             elements: Box::new(self.elements.take()),
+            current_len: 0,
         })
     }
 
@@ -119,15 +122,25 @@ impl<O: ListOffset> ListBuilder<O> {
 
 impl<O: ListOffset> ListBuilder<O> {
     fn start(&mut self) -> Result<()> {
-        self.offsets.start_seq()
+        self.offsets.start_seq()?;
+        self.current_len = 0;
+        Ok(())
     }
 
     fn element<V: Serialize + ?Sized>(&mut self, value: &V) -> Result<()> {
-        self.offsets.push_seq_elements(1)?;
-        self.elements.serialize_value(value)
+        self.elements.serialize_value(value)?;
+        let Some(current_len) = self.current_len.checked_add(1) else {
+            return Err(Error::new(
+                crate::internal::error::ErrorKind::Custom,
+                "list length exceeds usize::MAX".into(),
+            ));
+        };
+        self.current_len = current_len;
+        Ok(())
     }
 
     fn end(&mut self) -> Result<()> {
+        self.offsets.push_seq_elements(self.current_len)?;
         self.offsets.end_seq()
     }
 }

@@ -68,7 +68,7 @@ impl TryFrom<&arrow_schema::DataType> for DataType {
             }
             AT::Map(field, sorted) => Ok(T::Map(F::try_from(field.as_ref())?.into(), *sorted)),
             AT::Struct(in_fields) => {
-                let mut fields = Vec::new();
+                let mut fields = Vec::with_capacity(in_fields.len());
                 for field in in_fields {
                     fields.push(field.as_ref().try_into()?);
                 }
@@ -79,7 +79,7 @@ impl TryFrom<&arrow_schema::DataType> for DataType {
                 T::try_from(value.as_ref())?.into(),
             )),
             AT::Union(in_fields, mode) => {
-                let mut fields = Vec::new();
+                let mut fields = Vec::with_capacity(in_fields.len());
                 for (type_id, field) in in_fields.iter() {
                     fields.push((type_id, F::try_from(field.as_ref())?));
                 }
@@ -151,7 +151,7 @@ impl TryFrom<&DataType> for arrow_schema::DataType {
             }
             T::Map(field, sorted) => Ok(AT::Map(AF::try_from(field.as_ref())?.into(), *sorted)),
             T::Struct(in_fields) => {
-                let mut fields: Vec<arrow_schema::FieldRef> = Vec::new();
+                let mut fields: Vec<arrow_schema::FieldRef> = Vec::with_capacity(in_fields.len());
                 for field in in_fields {
                     fields.push(AF::try_from(field)?.into());
                 }
@@ -166,7 +166,7 @@ impl TryFrom<&DataType> for arrow_schema::DataType {
                 AF::try_from(values.as_ref())?.into(),
             )),
             T::Union(in_fields, mode) => {
-                let mut fields = Vec::new();
+                let mut fields = Vec::with_capacity(in_fields.len());
                 for (type_id, field) in in_fields {
                     fields.push((*type_id, Arc::new(AF::try_from(field)?)));
                 }
@@ -411,8 +411,8 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             arr.validity,
         ),
         A::Struct(arr) => {
-            let mut fields = Vec::new();
-            let mut data = Vec::new();
+            let mut fields = Vec::with_capacity(arr.fields.len());
+            let mut data = Vec::with_capacity(arr.fields.len());
 
             for (meta, field) in arr.fields {
                 let child = build_array_data(field)?;
@@ -598,8 +598,8 @@ fn union_fields_into_fields_and_data(
     Vec<(i8, arrow_schema::FieldRef)>,
     Vec<arrow_data::ArrayData>,
 )> {
-    let mut fields = Vec::new();
-    let mut child_data = Vec::new();
+    let mut fields = Vec::with_capacity(union_fields.len());
+    let mut child_data = Vec::with_capacity(union_fields.len());
 
     for (type_id, meta, array) in union_fields {
         let child = build_array_data(array)?;
@@ -888,7 +888,7 @@ impl<'a> TryFrom<&'a dyn arrow_array::Array> for View<'a> {
                 );
             };
 
-            let mut fields = Vec::new();
+            let mut fields = Vec::with_capacity(column_fields.len());
             for (field, array) in std::iter::zip(column_fields, array.columns()) {
                 let view = View::try_from(array.as_ref())?;
                 let meta = meta_from_field(Field::try_from(field.as_ref())?);
@@ -964,7 +964,7 @@ impl<'a> TryFrom<&'a dyn arrow_array::Array> for View<'a> {
                 fail!(ErrorKind::Unsupported, "Invalid data type for UnionArray");
             };
 
-            let mut fields = Vec::new();
+            let mut fields = Vec::with_capacity(union_fields.len());
             for (type_id, field) in union_fields.iter() {
                 let meta = meta_from_field(Field::try_from(field.as_ref())?);
                 let view: View = array.child(type_id).as_ref().try_into()?;

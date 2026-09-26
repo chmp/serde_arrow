@@ -95,7 +95,7 @@ impl<'de> Deserializer<'de> {
             None => 0,
         };
 
-        let mut deserializers = Vec::new();
+        let mut deserializers = Vec::with_capacity(views.len());
         for (field, view) in std::iter::zip(fields, views) {
             let actual_len = view.len()?;
             if actual_len != len {

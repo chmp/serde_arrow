@@ -29,7 +29,7 @@ impl<'a> EnumDeserializer<'a> {
             fail!("offsets and type ids must have the same length")
         }
 
-        let mut variants = Vec::new();
+        let mut variants = Vec::with_capacity(view.fields.len());
         for (idx, (type_id, field_meta, field_view)) in view.fields.into_iter().enumerate() {
             // TODO: introduce translation table?
             if usize::try_from(type_id) != Ok(idx) {

@@ -75,6 +75,19 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
     use crate::impls::serde_arrow_marrow;
     super::bench_impl!(group, serde_arrow_marrow, items);
 
+    let fields_marrow = serde_arrow_marrow::trace(&items);
+    group.bench_function("serde_arrow_marrow_push", |b| {
+        b.iter(|| {
+            criterion::black_box(serde_arrow_marrow::serialize_by_push(
+                &fields_marrow,
+                &items,
+            ))
+        })
+    });
+
+    use crate::impls::serde_arrow_marrow_to_arrow;
+    super::bench_impl!(group, serde_arrow_marrow_to_arrow, items);
+
     use crate::impls::arrow;
     super::bench_impl!(group, arrow, items);
 

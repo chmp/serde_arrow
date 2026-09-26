@@ -1,8 +1,14 @@
 # Change log
 
+## development
+
+- Performance optimizations. Benchmarks show an improvement of approximately
+  30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
+  ([#329](https://github.com/chmp/serde_arrow/pull/329))
+
 ## 0.15.1
 
-- Add `arrow=60` support
+- Add `arrow=60` support ([#326](https://github.com/chmp/serde_arrow/pull/326))
 
 ## 0.15.0
 

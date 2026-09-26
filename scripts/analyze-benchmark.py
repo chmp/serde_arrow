@@ -12,9 +12,19 @@ BENCHMARK_RENAMES = {
     "arrow_builder": "arrow builder",
     "serde_arrow_arrow": "serde_arrow::to_arrow",
     "serde_arrow_marrow": "serde_arrow::to_marrow",
+    "serde_arrow_marrow_push": "serde_arrow::ArrayBuilder::push",
+    "serde_arrow_marrow_to_arrow": "serde_arrow::to_marrow + Arrow conversion",
 }
 BENCHMARK_BASELINE = "arrow builder"
-README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
+README_BENCHMARK_IGNORE_GROUPS = {
+    "binary_values_1000",
+    "json_to_arrow",
+    "wide_schema_1024",
+}
+README_BENCHMARK_IGNORE_IMPLS = {
+    "serde_arrow::ArrayBuilder::push",
+    "serde_arrow::to_marrow + Arrow conversion",
+}
 
 
 def main():
@@ -22,6 +32,11 @@ def main():
     parser.add_argument("--criterion-root", type=pathlib.Path, required=True)
     parser.add_argument(
         "--plot-output", type=pathlib.Path, default=pathlib.Path("timings.png")
+    )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate the benchmark timing chart.",
     )
     parser.add_argument("--update", type=pathlib.Path)
     parser.add_argument("--update-github-summary", action="store_true", default=False)
@@ -33,7 +48,11 @@ def analyze_benchmark(args):
     update = resolve_path(args.update) if args.update else None
     plot_output = resolve_path(args.plot_output)
 
-    mean_times = load_times(root)
+    mean_times = {
+        key: time
+        for key, time in load_times(root).items()
+        if key[1] not in README_BENCHMARK_IGNORE_IMPLS
+    }
     benchmark = format_benchmark(
         mean_times,
         ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
@@ -47,12 +66,13 @@ def analyze_benchmark(args):
     if args.update_github_summary:
         update_github_summary(benchmark)
 
-    plot_times(
-        mean_times,
-        benchmark_baseline=BENCHMARK_BASELINE,
-        ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
-        output=plot_output,
-    )
+    if args.plot:
+        plot_times(
+            mean_times,
+            benchmark_baseline=BENCHMARK_BASELINE,
+            ignore_groups=README_BENCHMARK_IGNORE_GROUPS,
+            output=plot_output,
+        )
 
 
 def resolve_path(path):
@@ -196,11 +216,14 @@ def plot_times(mean_times, *, benchmark_baseline, ignore_groups, output):
     import matplotlib.pyplot as plt
     import polars as pl
 
+    plottable_groups = {
+        group for group, impl in mean_times if impl == benchmark_baseline
+    } - set(ignore_groups)
     df = pl.from_dicts(
         [
             {"group": group, "impl": impl, "time": time}
             for (group, impl), time in mean_times.items()
-            if group not in ignore_groups
+            if group in plottable_groups
         ]
     )
     agg_df = (

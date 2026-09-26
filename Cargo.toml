@@ -12,7 +12,8 @@ default-members = ["serde_arrow", "marrow"]
 resolver = "2"
 
 [profile.bench]
-debug = 0
+# Retain line tables for benchmarks to actionable Rust symbols
+debug = 1
 codegen-units = 16
 lto = "thin"
 

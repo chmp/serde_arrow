@@ -16,6 +16,15 @@ use super::array_builder::ArrayBuilder;
 
 const UNKNOWN_KEY: usize = usize::MAX;
 
+/// Encode whether the current record still serializes fields in schema order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SchemaOrderedFields {
+    /// Serialize fields in schema order until a field does not match.
+    Active,
+    /// Serialize through the regular field-lookup path.
+    Disabled,
+}
+
 #[derive(Debug, Clone)]
 pub struct StructBuilder {
     pub name: String,
@@ -25,6 +34,7 @@ pub struct StructBuilder {
     lookup_cache: CachedNameLookup,
     pub next: usize,
     pub seen: Vec<bool>,
+    canonical_mode: SchemaOrderedFields,
     pub seq: CountArray,
     pub metadata: HashMap<String, String>,
 }
@@ -44,6 +54,7 @@ impl StructBuilder {
             name,
             seq: CountArray::new(is_nullable),
             seen: vec![false; fields.len()],
+            canonical_mode: SchemaOrderedFields::Disabled,
             next: 0,
             lookup_cache: CachedNameLookup::new(fields.len()),
             fields,
@@ -65,6 +76,7 @@ impl StructBuilder {
                 CachedNameLookup::new(self.fields.len()),
             ),
             seen: std::mem::replace(&mut self.seen, vec![false; self.fields.len()]),
+            canonical_mode: SchemaOrderedFields::Disabled,
             seq: self.seq.take(),
             next: std::mem::take(&mut self.next),
         }
@@ -85,7 +97,7 @@ impl StructBuilder {
             nullable: self.seq.validity.is_some(),
         };
 
-        let mut fields = Vec::new();
+        let mut fields = Vec::with_capacity(self.fields.len());
         for builder in self.fields {
             let (array, meta) = builder.into_array_and_field_meta()?;
             fields.push((meta, array));
@@ -128,15 +140,35 @@ impl StructBuilder {
 }
 
 impl StructBuilder {
-    fn start(&mut self) -> Result<()> {
+    fn start_with_mode(&mut self, canonical_mode: SchemaOrderedFields) -> Result<()> {
         self.seq.start_seq()?;
-        self.seen.fill(false);
+        if canonical_mode != SchemaOrderedFields::Active {
+            self.seen.fill(false);
+        }
+        self.canonical_mode = canonical_mode;
         self.next = 0;
         Ok(())
     }
 
+    fn leave_canonical_layout(&mut self) {
+        if self.canonical_mode != SchemaOrderedFields::Active {
+            return;
+        }
+
+        self.seen.fill(false);
+        self.seen[..self.next].fill(true);
+        self.canonical_mode = SchemaOrderedFields::Disabled;
+    }
+
     pub fn end(&mut self) -> Result<()> {
         self.seq.end_seq()?;
+        if self.canonical_mode == SchemaOrderedFields::Active && self.next == self.fields.len() {
+            return Ok(());
+        }
+
+        if self.canonical_mode == SchemaOrderedFields::Active {
+            self.leave_canonical_layout();
+        }
         for (seen, field) in std::iter::zip(&self.seen, &mut self.fields) {
             if !*seen {
                 if !field.is_nullable() {
@@ -182,6 +214,27 @@ impl StructBuilder {
         self.next = idx + 1;
         Ok(())
     }
+
+    fn next_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        if self.next < self.fields.len() {
+            self.element(self.next, value)?;
+        }
+        Ok(())
+    }
+
+    fn canonical_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
+        self.seq.push_seq_elements(1)?;
+        let Some(field) = self.fields.get_mut(self.next) else {
+            fail!(
+                "field index {} is out of bounds for struct with {} fields",
+                self.next,
+                self.fields.len()
+            );
+        };
+        field.serialize_value(value)?;
+        self.next += 1;
+        Ok(())
+    }
 }
 
 impl Context for StructBuilder {
@@ -210,24 +263,24 @@ impl<'a> Serializer for &'a mut StructBuilder {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.start()?;
+        self.start_with_mode(SchemaOrderedFields::Active)?;
         Ok(Self::SerializeStruct::Struct(self))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.start()?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         // always re-set to an invalid field to force that `_key()` is called before `_value()`.
         self.next = UNKNOWN_KEY;
         Ok(Self::SerializeMap::Struct(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        self.start()?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         Ok(Self::SerializeTuple::Struct(self))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.start()?;
+        self.start_with_mode(SchemaOrderedFields::Disabled)?;
         Ok(Self::SerializeSeq::Struct(self))
     }
 }
@@ -241,10 +294,21 @@ impl serde::ser::SerializeStruct for &mut StructBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
+        if self.canonical_mode == SchemaOrderedFields::Active {
+            if self
+                .lookup_cache
+                .matches_schema_field(self.next, key, &self.fields)
+            {
+                return self.canonical_element(value);
+            }
+            self.leave_canonical_layout();
+        }
+
         if let Some(idx) = self.lookup_cache.lookup(self.next, key, &self.fields) {
             self.element(idx, value)
         } else {
             // ignore unknown fields
+            self.canonical_mode = SchemaOrderedFields::Disabled;
             Ok(())
         }
     }
@@ -281,11 +345,7 @@ impl serde::ser::SerializeSeq for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        // ignore extra tuple fields
-        if self.next < self.fields.len() {
-            self.element(self.next, value)?;
-        }
-        Ok(())
+        self.next_element(value)
     }
 
     fn end(self) -> Result<()> {
@@ -298,11 +358,7 @@ impl serde::ser::SerializeTuple for &mut StructBuilder {
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        // ignore extra tuple fields
-        if self.next < self.fields.len() {
-            self.element(self.next, value)?;
-        }
-        Ok(())
+        self.next_element(value)
     }
 
     fn end(self) -> Result<()> {
@@ -321,8 +377,14 @@ unsafe impl Send for StaticFieldName {}
 unsafe impl Sync for StaticFieldName {}
 
 impl StaticFieldName {
+    const EMPTY: Self = Self(std::ptr::null(), 0);
+
     pub fn new(s: &'static str) -> Self {
         Self(s.as_ptr(), s.len())
+    }
+
+    fn is_empty(self) -> bool {
+        self == Self::EMPTY
     }
 }
 
@@ -344,31 +406,49 @@ impl Named for &str {
 
 #[derive(Debug, Clone)]
 struct CachedNameLookup {
-    cache: Vec<Option<StaticFieldName>>,
+    cache: Vec<StaticFieldName>,
 }
 
 impl CachedNameLookup {
     fn new(n_fields: usize) -> Self {
         Self {
-            cache: vec![None; n_fields],
+            cache: vec![StaticFieldName::EMPTY; n_fields],
         }
     }
 
     fn lookup(&mut self, guess: usize, name: &'static str, fields: &[impl Named]) -> Option<usize> {
-        if self.cache.get(guess).copied().flatten() == Some(StaticFieldName::new(name)) {
-            Some(guess)
-        } else if fields.get(guess).map(|field| field.get_name()) == Some(name) {
-            if let Some(cached) = self.cache.get_mut(guess) {
-                *cached = cached.or(Some(StaticFieldName::new(name)));
+        if self.matches_schema_field(guess, name, fields) {
+            return Some(guess);
+        }
+
+        let idx = self.lookup_field_loop(name, fields)?;
+        self.cache_name(idx, name);
+        Some(idx)
+    }
+
+    fn matches_schema_field(
+        &mut self,
+        idx: usize,
+        name: &'static str,
+        fields: &[impl Named],
+    ) -> bool {
+        if self.cache.get(idx) == Some(&StaticFieldName::new(name)) {
+            return true;
+        }
+
+        if fields.get(idx).map(|field| field.get_name()) != Some(name) {
+            return false;
+        }
+
+        self.cache_name(idx, name);
+        true
+    }
+
+    fn cache_name(&mut self, idx: usize, name: &'static str) {
+        if let Some(cached) = self.cache.get_mut(idx) {
+            if cached.is_empty() {
+                *cached = StaticFieldName::new(name);
             }
-            Some(guess)
-        } else if let Some(idx) = self.lookup_field_loop(name, fields) {
-            if let Some(cached) = self.cache.get_mut(idx) {
-                *cached = cached.or(Some(StaticFieldName::new(name)));
-            }
-            Some(idx)
-        } else {
-            None
         }
     }
 
@@ -429,14 +509,11 @@ fn example() {
     assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
     assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
 
-    assert!(lookup.cache[0].is_some());
-    assert_eq!(lookup.cache[0], Some(StaticFieldName::new(FOO)));
+    assert_eq!(lookup.cache[0], StaticFieldName::new(FOO));
 
-    assert!(lookup.cache[1].is_some());
-    assert_eq!(lookup.cache[1], Some(StaticFieldName::new(BAR)));
+    assert_eq!(lookup.cache[1], StaticFieldName::new(BAR));
 
-    assert!(lookup.cache[2].is_some());
-    assert_eq!(lookup.cache[2], Some(StaticFieldName::new(BAZ)));
+    assert_eq!(lookup.cache[2], StaticFieldName::new(BAZ));
 
     assert_eq!(lookup.lookup(0, FOO, &["foo", "bar", "baz"]), Some(0));
     assert_eq!(lookup.lookup(1, BAR, &["foo", "bar", "baz"]), Some(1));
@@ -453,4 +530,70 @@ fn example() {
     assert_eq!(lookup.lookup(0, BAZ, &["foo", "bar", "baz"]), Some(2));
     assert_eq!(lookup.lookup(1, BAZ, &["foo", "bar", "baz"]), Some(2));
     assert_eq!(lookup.lookup(2, BAZ, &["foo", "bar", "baz"]), Some(2));
+}
+
+#[test]
+fn canonical_layout_deopts_for_reordered_fields() {
+    use marrow::datatypes::DataType;
+    use serde::ser::SerializeStruct;
+
+    #[derive(Serialize)]
+    struct Canonical {
+        a: i8,
+        b: i8,
+    }
+
+    struct Reordered {
+        a: i8,
+        b: i8,
+    }
+
+    impl Serialize for Reordered {
+        fn serialize<S: serde::Serializer>(
+            &self,
+            serializer: S,
+        ) -> std::result::Result<S::Ok, S::Error> {
+            let mut state = serializer.serialize_struct("Reordered", 2)?;
+            state.serialize_field("b", &self.b)?;
+            state.serialize_field("a", &self.a)?;
+            state.end()
+        }
+    }
+
+    let mut builder = StructBuilder::from_fields(vec![
+        Field {
+            name: "a".into(),
+            data_type: DataType::Int8,
+            nullable: false,
+            metadata: Default::default(),
+        },
+        Field {
+            name: "b".into(),
+            data_type: DataType::Int8,
+            nullable: false,
+            metadata: Default::default(),
+        },
+    ])
+    .unwrap();
+
+    builder.serialize_value(Canonical { a: 3, b: 4 }).unwrap();
+    assert_eq!(builder.canonical_mode, SchemaOrderedFields::Active);
+
+    builder.serialize_value((1i8, 2i8)).unwrap();
+    assert_eq!(builder.canonical_mode, SchemaOrderedFields::Disabled);
+
+    builder.serialize_value(Reordered { a: 5, b: 6 }).unwrap();
+
+    let (array, _) = builder.into_array_and_field_meta().unwrap();
+    let Array::Struct(array) = array else {
+        panic!("expected struct array");
+    };
+    let Array::Int8(a) = &array.fields[0].1 else {
+        panic!("expected i8 field");
+    };
+    let Array::Int8(b) = &array.fields[1].1 else {
+        panic!("expected i8 field");
+    };
+    assert_eq!(a.values, vec![3, 1, 5]);
+    assert_eq!(b.values, vec![4, 2, 6]);
 }

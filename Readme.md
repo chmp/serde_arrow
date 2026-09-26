@@ -134,20 +134,19 @@ The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are
 
 | label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
-| arrow builder             |      0.36 |          1.00 |            0.21 |            0.18 |            0.12 |
-| serde_arrow::to_arrow     |      1.74 |          4.86 |            1.00 |            0.87 |            0.59 |
-| serde_arrow::to_marrow    |      2.00 |          5.58 |            1.15 |            1.00 |            0.68 |
-| arrow_json::ReaderBuilder |      2.97 |          8.27 |            1.70 |            1.48 |            1.00 |
+| arrow builder             |      0.43 |          1.00 |            0.32 |            0.27 |            0.12 |
+| serde_arrow::to_arrow     |      1.31 |          3.08 |            1.00 |            0.82 |            0.38 |
+| serde_arrow::to_marrow    |      1.60 |          3.76 |            1.22 |            1.00 |            0.46 |
+| arrow_json::ReaderBuilder |      3.47 |          8.15 |            2.64 |            2.17 |            1.00 |
 
 ### `primitives_1000`
 
 | label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
 |---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
-| arrow builder             |      0.05 |          1.00 |            0.10 |            0.10 |            0.06 |
-| serde_arrow::to_marrow    |      0.49 |         10.42 |            1.00 |            0.99 |            0.58 |
-| serde_arrow::to_arrow     |      0.50 |         10.51 |            1.01 |            1.00 |            0.59 |
-| arrow_json::ReaderBuilder |      0.85 |         17.89 |            1.72 |            1.70 |            1.00 |
-
+| arrow builder             |      0.07 |          1.00 |            0.33 |            0.15 |            0.08 |
+| serde_arrow::to_marrow    |      0.22 |          3.00 |            1.00 |            0.46 |            0.23 |
+| serde_arrow::to_arrow     |      0.48 |          6.58 |            2.20 |            1.00 |            0.50 |
+| arrow_json::ReaderBuilder |      0.96 |         13.24 |            4.42 |            2.01 |            1.00 |
 <!-- end:benchmarks -->
 
 ## License

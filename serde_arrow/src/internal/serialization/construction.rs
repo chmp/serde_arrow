@@ -27,7 +27,7 @@ pub fn build_struct(
     nullable: bool,
     metadata: HashMap<String, String>,
 ) -> Result<StructBuilder> {
-    let mut fields = Vec::new();
+    let mut fields = Vec::with_capacity(struct_fields.len());
     for field in struct_fields {
         fields.push(build_builder(
             field.name,
@@ -162,7 +162,7 @@ fn build_builder(
             metadata,
         )),
         T::Union(union_fields, _) => {
-            let mut fields = Vec::new();
+            let mut fields = Vec::with_capacity(union_fields.len());
             for (idx, (type_id, field)) in union_fields.into_iter().enumerate() {
                 if usize::try_from(type_id) != Ok(idx) {
                     fail!("non-consecutive Union type ID: expected {idx}, got {type_id}");

@@ -57,7 +57,7 @@ impl UnionBuilder {
             nullable: false,
         };
 
-        let mut fields = Vec::new();
+        let mut fields = Vec::with_capacity(self.fields.len());
         for (idx, builder) in self.fields.into_iter().enumerate() {
             let (child_array, child_meta) = builder.into_array_and_field_meta()?;
             fields.push((idx.try_into()?, child_meta, child_array));
