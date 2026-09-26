@@ -17,6 +17,10 @@ BENCHMARK_RENAMES = {
 }
 BENCHMARK_BASELINE = "arrow builder"
 README_BENCHMARK_IGNORE_GROUPS = {"json_to_arrow"}
+README_BENCHMARK_IGNORE_IMPLS = {
+    "serde_arrow::ArrayBuilder::push",
+    "serde_arrow::to_marrow + Arrow conversion",
+}
 
 
 def main():
@@ -40,7 +44,11 @@ def analyze_benchmark(args):
     update = resolve_path(args.update) if args.update else None
     plot_output = resolve_path(args.plot_output)
 
-    mean_times = load_times(root)
+    mean_times = {
+        key: time
+        for key, time in load_times(root).items()
+        if key[1] not in README_BENCHMARK_IGNORE_IMPLS
+    }
     benchmark = format_benchmark(
         mean_times,
         ignore_groups=README_BENCHMARK_IGNORE_GROUPS,

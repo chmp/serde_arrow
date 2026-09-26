@@ -140,25 +140,21 @@ The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are
 
 ### `complex_1000`
 
-| label                                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::Ar | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|-------------------------------------------|-----------|---------------|-----------------|-----------------|-----------------|-----------------|-----------------|
-| arrow builder                             |      0.43 |          1.00 |            0.32 |            0.28 |            0.27 |            0.24 |            0.12 |
-| serde_arrow::to_arrow                     |      1.31 |          3.08 |            1.00 |            0.86 |            0.82 |            0.74 |            0.38 |
-| serde_arrow::ArrayBuilder::push           |      1.52 |          3.57 |            1.16 |            1.00 |            0.95 |            0.86 |            0.44 |
-| serde_arrow::to_marrow                    |      1.60 |          3.76 |            1.22 |            1.05 |            1.00 |            0.90 |            0.46 |
-| serde_arrow::to_marrow + Arrow conversion |      1.77 |          4.16 |            1.35 |            1.17 |            1.11 |            1.00 |            0.51 |
-| arrow_json::ReaderBuilder                 |      3.47 |          8.15 |            2.64 |            2.29 |            2.17 |            1.96 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.43 |          1.00 |            0.32 |            0.27 |            0.12 |
+| serde_arrow::to_arrow     |      1.31 |          3.08 |            1.00 |            0.82 |            0.38 |
+| serde_arrow::to_marrow    |      1.60 |          3.76 |            1.22 |            1.00 |            0.46 |
+| arrow_json::ReaderBuilder |      3.47 |          8.15 |            2.64 |            2.17 |            1.00 |
 
 ### `primitives_1000`
 
-| label                                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::Ar | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
-|-------------------------------------------|-----------|---------------|-----------------|-----------------|-----------------|-----------------|-----------------|
-| arrow builder                             |      0.07 |          1.00 |            0.33 |            0.33 |            0.18 |            0.15 |            0.08 |
-| serde_arrow::to_marrow                    |      0.22 |          3.00 |            1.00 |            0.99 |            0.54 |            0.46 |            0.23 |
-| serde_arrow::ArrayBuilder::push           |      0.22 |          3.02 |            1.01 |            1.00 |            0.54 |            0.46 |            0.23 |
-| serde_arrow::to_marrow + Arrow conversion |      0.40 |          5.55 |            1.85 |            1.84 |            1.00 |            0.84 |            0.42 |
-| serde_arrow::to_arrow                     |      0.48 |          6.58 |            2.20 |            2.18 |            1.19 |            1.00 |            0.50 |
-| arrow_json::ReaderBuilder                 |      0.96 |         13.24 |            4.42 |            4.39 |            2.39 |            2.01 |            1.00 |
+| label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
+|---------------------------|-----------|---------------|-----------------|-----------------|-----------------|
+| arrow builder             |      0.07 |          1.00 |            0.33 |            0.15 |            0.08 |
+| serde_arrow::to_marrow    |      0.22 |          3.00 |            1.00 |            0.46 |            0.23 |
+| serde_arrow::to_arrow     |      0.48 |          6.58 |            2.20 |            1.00 |            0.50 |
+| arrow_json::ReaderBuilder |      0.96 |         13.24 |            4.42 |            2.01 |            1.00 |
 
 ### `wide_schema_1024`
 
