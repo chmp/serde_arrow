@@ -102,6 +102,10 @@ pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
 
     let arrow_fields = crate::impls::serde_arrow_arrow::trace(&items);
     let arrow_arrays = serde_arrow::to_arrow(&arrow_fields, &items).unwrap();
+    assert_eq!(arrow_manual::deserialize(&arrow_arrays), items);
+    group.bench_function("arrow_manual", |b| {
+        b.iter(|| criterion::black_box(arrow_manual::deserialize(&arrow_arrays)))
+    });
     let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
     assert_eq!(decoded, items);
     group.bench_function("serde_arrow_arrow", |b| {
@@ -143,6 +147,74 @@ pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
 }
 
 criterion::criterion_group!(benchmark, benchmark_serialize, benchmark_deserialize);
+
+mod arrow_manual {
+    use super::*;
+    use arrow_array::{
+        Array, BooleanArray, Float32Array, Float64Array, LargeListArray, LargeStringArray,
+        StructArray,
+    };
+
+    pub fn deserialize(arrays: &[ArrayRef]) -> Vec<Item> {
+        let strings = arrays[0]
+            .as_any()
+            .downcast_ref::<LargeStringArray>()
+            .unwrap();
+        let points = arrays[1].as_any().downcast_ref::<LargeListArray>().unwrap();
+        let point_values = points
+            .values()
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap();
+        let x = point_values
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .unwrap();
+        let y = point_values
+            .column(1)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .unwrap();
+        let children = arrays[2].as_any().downcast_ref::<StructArray>().unwrap();
+        let first = children
+            .column(0)
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .unwrap();
+        let second = children
+            .column(1)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        let c = children
+            .column(2)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .unwrap();
+
+        (0..strings.len())
+            .map(|row| {
+                let start = points.value_offsets()[row] as usize;
+                let end = points.value_offsets()[row + 1] as usize;
+                Item {
+                    string: strings.value(row).to_owned(),
+                    points: (start..end)
+                        .map(|idx| Point {
+                            x: x.value(idx),
+                            y: y.value(idx),
+                        })
+                        .collect(),
+                    child: SubItem {
+                        first: first.value(row),
+                        second: second.value(row),
+                        c: (!c.is_null(row)).then(|| c.value(row)),
+                    },
+                }
+            })
+            .collect()
+    }
+}
 
 mod arrow_builder {
     use super::*;
