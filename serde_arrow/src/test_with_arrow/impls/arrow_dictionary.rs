@@ -1,7 +1,8 @@
 use super::utils::Test;
 use crate::{
     internal::deserialization::{
-        array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
+        array_deserializer::ArrayDeserializer,
+        random_access_deserializer::RandomAccessDeserializer, Utf8Validation,
     },
     schema::TracingOptions,
     utils::{Item, Items},
@@ -134,8 +135,13 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, false, ["foo", "bar"])),
         });
 
-        let deserializer =
-            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            String::from("$"),
+            None,
+            array.as_view(),
+            Utf8Validation::CHECKED,
+        )
+        .unwrap();
 
         assert_eq!(
             String::deserialize(deserializer.at(0)).unwrap(),
@@ -158,8 +164,13 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, true, [Some("foo"), Some("bar")])),
         });
 
-        let deserializer =
-            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            String::from("$"),
+            None,
+            array.as_view(),
+            Utf8Validation::CHECKED,
+        )
+        .unwrap();
 
         assert_eq!(
             String::deserialize(deserializer.at(0)).unwrap(),
@@ -182,8 +193,13 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, true, [None::<&str>, None])),
         });
 
-        let deserializer =
-            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            String::from("$"),
+            None,
+            array.as_view(),
+            Utf8Validation::CHECKED,
+        )
+        .unwrap();
 
         assert_eq!(
             Option::<String>::deserialize(deserializer.at(0)).unwrap(),
@@ -210,8 +226,13 @@ mod construction {
             )),
         });
 
-        let deserializer =
-            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            String::from("$"),
+            None,
+            array.as_view(),
+            Utf8Validation::CHECKED,
+        )
+        .unwrap();
 
         assert_eq!(
             Option::<String>::deserialize(deserializer.at(0)).unwrap(),
@@ -234,8 +255,13 @@ mod construction {
             values: Box::new(to_array(DataType::Utf8, false, ["foo", "bar"])),
         });
 
-        let deserializer =
-            ArrayDeserializer::new(String::from("$"), None, array.as_view()).unwrap();
+        let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            String::from("$"),
+            None,
+            array.as_view(),
+            Utf8Validation::CHECKED,
+        )
+        .unwrap();
 
         assert_eq!(
             Option::<String>::deserialize(deserializer.at(0)).unwrap(),

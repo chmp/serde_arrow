@@ -8,27 +8,35 @@ use crate::internal::{
 
 use super::{
     enums_as_string_impl::EnumAccess, integer_deserializer::Integer,
-    random_access_deserializer::RandomAccessDeserializer,
+    random_access_deserializer::RandomAccessDeserializer, string_deserializer::get_utf8,
+    Utf8Validation,
 };
 
 pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
     path: String,
     keys: PrimitiveView<'a, K>,
     values: BytesView<'a, V>,
+    utf8_validation: Utf8Validation,
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
-    pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
+    pub fn new(
+        path: String,
+        keys: PrimitiveView<'a, K>,
+        values: BytesView<'a, V>,
+        utf8_validation: Utf8Validation,
+    ) -> Result<Self> {
         Ok(Self {
             path,
             keys: keys.clone(),
             values: values.clone(),
+            utf8_validation,
         })
     }
 
     pub fn get_str(&self, idx: usize) -> Result<&str> {
         let key: usize = self.keys.get_required(idx)?.into_i64()?.try_into()?;
-        let value: &str = self.values.get_required(key)?;
+        let value: &str = get_utf8(&self.values, key, self.utf8_validation)?;
         Ok(value)
     }
 }

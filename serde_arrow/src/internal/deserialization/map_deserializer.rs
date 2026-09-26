@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::{
     array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
-    utils::bitset_is_set,
+    utils::bitset_is_set, Utf8Validation,
 };
 
 pub struct MapDeserializer<'a> {
@@ -21,16 +21,17 @@ pub struct MapDeserializer<'a> {
 }
 
 impl<'a> MapDeserializer<'a> {
-    pub fn new(path: String, view: MapView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: MapView<'a>, utf8_validation: Utf8Validation) -> Result<Self> {
         let keys_path = format!(
             "{path}.{entries}.{keys}",
             entries = ChildName(&view.meta.entries_name),
             keys = ChildName(&view.meta.keys.name),
         );
-        let keys = ArrayDeserializer::new(
+        let keys = ArrayDeserializer::new_with_utf8_validation(
             keys_path,
             get_strategy_from_metadata(&view.meta.keys.metadata)?.as_ref(),
             *view.keys,
+            utf8_validation,
         )?;
 
         let values_path = format!(
@@ -38,10 +39,11 @@ impl<'a> MapDeserializer<'a> {
             entries = ChildName(&view.meta.entries_name),
             values = ChildName(&view.meta.values.name),
         );
-        let values = ArrayDeserializer::new(
+        let values = ArrayDeserializer::new_with_utf8_validation(
             values_path,
             get_strategy_from_metadata(&view.meta.values.metadata)?.as_ref(),
             *view.values,
+            utf8_validation,
         )?;
 
         Ok(Self {

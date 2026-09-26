@@ -21,3 +21,23 @@ pub mod struct_deserializer;
 pub mod time_deserializer;
 pub mod timestamp_deserializer;
 pub mod utils;
+
+#[derive(Clone, Copy)]
+pub(crate) struct Utf8Validation {
+    trusted: bool,
+}
+
+impl Utf8Validation {
+    pub(crate) const CHECKED: Self = Self { trusted: false };
+
+    /// # Safety
+    /// Every string view used with this marker must originate from a valid Arrow
+    /// string array, including nested and dictionary values.
+    pub(crate) unsafe fn trusted_arrow() -> Self {
+        Self { trusted: true }
+    }
+
+    pub(crate) fn is_trusted(self) -> bool {
+        self.trusted
+    }
+}

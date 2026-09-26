@@ -30,6 +30,7 @@ use super::{
     struct_deserializer::StructDeserializer,
     time_deserializer::TimeDeserializer,
     timestamp_deserializer::TimestampDeserializer,
+    Utf8Validation,
 };
 
 pub enum ArrayDeserializer<'a> {
@@ -86,7 +87,12 @@ pub enum ArrayDeserializer<'a> {
 
 impl<'a> ArrayDeserializer<'a> {
     // TODO: decide whether to keep strategy parameter
-    pub fn new(path: String, _strategy: Option<&Strategy>, array: View<'a>) -> Result<Self> {
+    pub fn new_with_utf8_validation(
+        path: String,
+        _strategy: Option<&Strategy>,
+        array: View<'a>,
+        utf8_validation: Utf8Validation,
+    ) -> Result<Self> {
         use {ArrayDeserializer as D, View as V};
         match array {
             View::Null(_) => Ok(Self::Null(NullDeserializer::new(path))),
@@ -109,71 +115,97 @@ impl<'a> ArrayDeserializer<'a> {
             V::Time64(view) => Ok(D::Time64(TimeDeserializer::new(path, view))),
             V::Timestamp(view) => Ok(Self::Timestamp(TimestampDeserializer::new(path, view)?)),
             V::Duration(view) => Ok(D::Duration(DurationDeserializer::new(path, view))),
-            V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(path, view))),
-            V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(path, view))),
-            V::Utf8View(view) => Ok(D::Utf8View(StringDeserializer::new(path, view))),
+            V::Utf8(view) => Ok(D::Utf8(StringDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            ))),
+            V::LargeUtf8(view) => Ok(D::LargeUtf8(StringDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            ))),
+            V::Utf8View(view) => Ok(D::Utf8View(StringDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            ))),
             V::Binary(view) => Ok(D::Binary(BinaryDeserializer::new(path, view))),
             V::LargeBinary(view) => Ok(D::LargeBinary(BinaryDeserializer::new(path, view))),
             V::BinaryView(view) => Ok(D::BinaryView(BinaryDeserializer::new(path, view))),
             V::FixedSizeBinary(view) => Ok(D::FixedSizeBinary(FixedSizeBinaryDeserializer::new(
                 path, view,
             )?)),
-            V::List(view) => Ok(D::List(ListDeserializer::new(path, view)?)),
-            V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(path, view)?)),
-            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
-                path, view,
+            V::List(view) => Ok(D::List(ListDeserializer::new(path, view, utf8_validation)?)),
+            V::LargeList(view) => Ok(D::LargeList(ListDeserializer::new(
+                path,
+                view,
+                utf8_validation,
             )?)),
-            V::Struct(view) => Ok(D::Struct(StructDeserializer::new(path, view)?)),
-            V::Map(view) => Ok(D::Map(MapDeserializer::new(path, view)?)),
-            View::Union(view) => Ok(Self::Enum(EnumDeserializer::new(path, view)?)),
+            V::FixedSizeList(view) => Ok(D::FixedSizeList(FixedSizeListDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            )?)),
+            V::Struct(view) => Ok(D::Struct(StructDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            )?)),
+            V::Map(view) => Ok(D::Map(MapDeserializer::new(path, view, utf8_validation)?)),
+            View::Union(view) => Ok(Self::Enum(EnumDeserializer::new(
+                path,
+                view,
+                utf8_validation,
+            )?)),
             V::Dictionary(view) => match (*view.keys, *view.values) {
                 (V::Int8(keys), V::Utf8(values)) => Ok(D::DictionaryI8I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int16(keys), V::Utf8(values)) => Ok(D::DictionaryI16I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int32(keys), V::Utf8(values)) => Ok(D::DictionaryI32I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int64(keys), V::Utf8(values)) => Ok(D::DictionaryI64I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt8(keys), V::Utf8(values)) => Ok(Self::DictionaryU8I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt16(keys), V::Utf8(values)) => Ok(D::DictionaryU16I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt32(keys), V::Utf8(values)) => Ok(D::DictionaryU32I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt64(keys), V::Utf8(values)) => Ok(D::DictionaryU64I32(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int8(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI8I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int16(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI16I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int32(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI32I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::Int64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryI64I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt8(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU8I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt16(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU16I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt32(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU32I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 (V::UInt64(keys), V::LargeUtf8(values)) => Ok(D::DictionaryU64I64(
-                    DictionaryDeserializer::new(path, keys, values)?,
+                    DictionaryDeserializer::new(path, keys, values, utf8_validation)?,
                 )),
                 _ => fail!("unsupported dictionary array type"),
             },

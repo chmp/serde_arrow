@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::{
     array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
-    utils::bitset_is_set,
+    utils::bitset_is_set, Utf8Validation,
 };
 
 pub struct ListDeserializer<'a, O: Offset> {
@@ -20,12 +20,17 @@ pub struct ListDeserializer<'a, O: Offset> {
 }
 
 impl<'de, O: Offset> ListDeserializer<'de, O> {
-    pub fn new(path: String, view: ListView<'de, O>) -> Result<Self> {
+    pub fn new(
+        path: String,
+        view: ListView<'de, O>,
+        utf8_validation: Utf8Validation,
+    ) -> Result<Self> {
         let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
-        let item = ArrayDeserializer::new(
+        let item = ArrayDeserializer::new_with_utf8_validation(
             child_path,
             get_strategy_from_metadata(&view.meta.metadata)?.as_ref(),
             *view.elements,
+            utf8_validation,
         )?;
 
         Ok(Self {
