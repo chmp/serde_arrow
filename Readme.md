@@ -130,14 +130,6 @@ Arrow builder construction. These benchmark results are workload-specific and on
 The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
-### `binary_values_1000`
-
-| label        | time [ms] | large_binary | binary | binary_view |
-|--------------|-----------|--------------|--------|-------------|
-| large_binary |      5.00 |         1.00 |   0.86 |        0.58 |
-| binary       |      5.84 |         1.17 |   1.00 |        0.68 |
-| binary_view  |      8.57 |         1.71 |   1.47 |        1.00 |
-
 ### `complex_1000`
 
 | label                     | time [ms] | arrow builder | serde_arrow::to | serde_arrow::to | arrow_json::Rea |
@@ -155,13 +147,6 @@ The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are
 | serde_arrow::to_marrow    |      0.22 |          3.00 |            1.00 |            0.46 |            0.23 |
 | serde_arrow::to_arrow     |      0.48 |          6.58 |            2.20 |            1.00 |            0.50 |
 | arrow_json::ReaderBuilder |      0.96 |         13.24 |            4.42 |            2.01 |            1.00 |
-
-### `wide_schema_1024`
-
-| label              | time [ms] | builder_setup | deserializer_se |
-|--------------------|-----------|---------------|-----------------|
-| builder_setup      |      0.22 |          1.00 |            0.37 |
-| deserializer_setup |      0.58 |          2.71 |            1.00 |
 <!-- end:benchmarks -->
 
 ## License
