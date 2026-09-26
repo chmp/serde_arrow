@@ -93,13 +93,25 @@ impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
     fn deserialize_struct<V: Visitor<'de>>(
         &self,
         _: &'static str,
-        _: &'static [&'static str],
+        fields: &'static [&'static str],
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        visitor
-            .visit_map(StructItemDeserializer::new(self, idx))
-            .ctx(self)
+        if self.fields.len() == fields.len()
+            && self
+                .fields
+                .iter()
+                .zip(fields)
+                .all(|((actual, _), expected)| actual == expected)
+        {
+            visitor
+                .visit_seq(StructItemDeserializer::new(self, idx))
+                .ctx(self)
+        } else {
+            visitor
+                .visit_map(StructItemDeserializer::new(self, idx))
+                .ctx(self)
+        }
     }
 
     fn deserialize_tuple<V: Visitor<'de>>(
