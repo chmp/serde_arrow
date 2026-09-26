@@ -204,11 +204,14 @@ def plot_times(mean_times, *, benchmark_baseline, ignore_groups, output):
     import matplotlib.pyplot as plt
     import polars as pl
 
+    plottable_groups = {
+        group for group, impl in mean_times if impl == benchmark_baseline
+    } - set(ignore_groups)
     df = pl.from_dicts(
         [
             {"group": group, "impl": impl, "time": time}
             for (group, impl), time in mean_times.items()
-            if group not in ignore_groups
+            if group in plottable_groups
         ]
     )
     agg_df = (
