@@ -15,13 +15,13 @@ BENCHMARK_RENAMES = {
     "serde_arrow_marrow_to_arrow": "serde_arrow::to_marrow + Arrow conversion",
 }
 DESERIALIZATION_RENAMES = {
-    "arrow_manual": "manual Arrow read",
+    "arrow_manual": "manual",
     "serde_arrow_arrow": "serde_arrow::from_arrow",
     "serde_arrow_marrow": "serde_arrow::from_marrow",
     "serde_arrow_marrow_iter": "Deserializer::iter",
 }
 BENCHMARK_BASELINE = "arrow builder"
-DESERIALIZATION_BASELINE = "manual Arrow read"
+DESERIALIZATION_BASELINE = "manual"
 README_BENCHMARK_IGNORE_GROUPS = {
     "binary_values_1000",
     "json_to_arrow",
@@ -155,22 +155,15 @@ def format_benchmark(mean_times, ignore_groups=()):
     def _format_group(group):
         times_in_group = {n: v for (g, n), v in mean_times.items() if g == group}
         sorted_items = sorted(times_in_group.items(), key=lambda kv: kv[1])
-        baseline = (
-            DESERIALIZATION_BASELINE
-            if group.endswith("_deserialize")
-            else BENCHMARK_BASELINE
-        )
-        if baseline not in times_in_group:
-            baseline = None
-
-        rows = [["label", "time [ms]"]]
-        if baseline is not None:
-            rows[0].append(f"vs {baseline}")
+        rows = [["label", "time [ms]", *(name[:15] for name, _ in sorted_items)]]
         for label, time in sorted_items:
-            row = [label, f"{1000 * time:7.2f}"]
-            if baseline is not None:
-                row.append(f"{time / times_in_group[baseline]:.2f}x")
-            rows.append(row)
+            rows.append(
+                [
+                    label,
+                    f"{1000 * time:7.2f}",
+                    *(f"{time / comparison:.2f}" for _, comparison in sorted_items),
+                ]
+            )
 
         widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
