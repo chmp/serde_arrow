@@ -133,7 +133,7 @@ impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
     ) -> Result<V::Value> {
         if self.fields_match(fields) {
             visitor
-                .visit_seq(StructItemDeserializer::new(self, idx))
+                .visit_seq(StructSeqDeserializer::new(self, idx))
                 .ctx(self)
         } else {
             visitor
@@ -149,7 +149,7 @@ impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
         idx: usize,
     ) -> Result<V::Value> {
         visitor
-            .visit_seq(StructItemDeserializer::new(self, idx))
+            .visit_seq(StructSeqDeserializer::new(self, idx))
             .ctx(self)
     }
 
@@ -161,7 +161,7 @@ impl<'de> RandomAccessDeserializer<'de> for StructDeserializer<'de> {
         idx: usize,
     ) -> Result<V::Value> {
         visitor
-            .visit_seq(StructItemDeserializer::new(self, idx))
+            .visit_seq(StructSeqDeserializer::new(self, idx))
             .ctx(self)
     }
 }
@@ -209,16 +209,30 @@ impl<'de> MapAccess<'de> for StructItemDeserializer<'_, 'de> {
     }
 }
 
-impl<'de> SeqAccess<'de> for StructItemDeserializer<'_, 'de> {
+struct StructSeqDeserializer<'a, 'de> {
+    fields: &'a [(String, ArrayDeserializer<'de>)],
+    item: usize,
+}
+
+impl<'a, 'de> StructSeqDeserializer<'a, 'de> {
+    fn new(deserializer: &'a StructDeserializer<'de>, item: usize) -> Self {
+        Self {
+            fields: &deserializer.fields,
+            item,
+        }
+    }
+}
+
+impl<'de> SeqAccess<'de> for StructSeqDeserializer<'_, 'de> {
     type Error = Error;
 
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
-        let Some((_, field_deserializer)) = self.deserializer.fields.get(self.field) else {
+        let Some(((_, field_deserializer), rest)) = self.fields.split_first() else {
             return Ok(None);
         };
 
         let res = seed.deserialize(field_deserializer.at(self.item))?;
-        self.field += 1;
+        self.fields = rest;
 
         Ok(Some(res))
     }
