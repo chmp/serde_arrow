@@ -75,6 +75,35 @@ where
         }
     }
 
+    fn deserialize_option<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        if self.utf8_validation.is_trusted() {
+            return try_(|| {
+                if self.is_some(idx)? {
+                    visitor.visit_some(self.at(idx))
+                } else {
+                    visitor.visit_none()
+                }
+            })
+            .ctx(self);
+        }
+
+        try_(|| match ViewAccess::<str>::get(&self.view, idx)? {
+            Some(value) => visitor.visit_some(
+                ValidatedStringDeserializer {
+                    original: self,
+                    value,
+                }
+                .at(idx),
+            ),
+            None => visitor.visit_none(),
+        })
+        .ctx(self)
+    }
+
     fn deserialize_any_some<V: serde::de::Visitor<'a>>(
         &self,
         visitor: V,
@@ -137,5 +166,133 @@ where
             visitor.visit_enum(EnumAccess(variant))
         })
         .ctx(self)
+    }
+}
+
+struct ValidatedStringDeserializer<'this, 'a, VV> {
+    original: &'this StringDeserializer<VV>,
+    value: &'a str,
+}
+
+impl<VV: StringDeserializerDataType> Context for ValidatedStringDeserializer<'_, '_, VV> {
+    fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
+        self.original.annotate(annotations);
+    }
+}
+
+impl<'a, VV> RandomAccessDeserializer<'a> for ValidatedStringDeserializer<'_, 'a, VV>
+where
+    VV: StringDeserializerDataType,
+{
+    fn is_some(&self, _idx: usize) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn deserialize_any_some<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        idx: usize,
+    ) -> Result<V::Value> {
+        self.deserialize_str(visitor, idx)
+    }
+
+    fn deserialize_str<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        _idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_borrowed_str(self.value)).ctx(self)
+    }
+
+    fn deserialize_string<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        _idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_string(self.value.to_owned())).ctx(self)
+    }
+
+    fn deserialize_bytes<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        _idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_bytes(self.value.as_bytes())).ctx(self)
+    }
+
+    fn deserialize_byte_buf<V: serde::de::Visitor<'a>>(
+        &self,
+        visitor: V,
+        _idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_byte_buf(self.value.to_owned().into_bytes())).ctx(self)
+    }
+
+    fn deserialize_enum<V: serde::de::Visitor<'a>>(
+        &self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+        _idx: usize,
+    ) -> Result<V::Value> {
+        try_(|| visitor.visit_enum(EnumAccess(self.value))).ctx(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use marrow::{
+        datatypes::{DataType, Field},
+        view::{BitsWithOffset, BytesView, View},
+    };
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Row<'a> {
+        #[serde(borrow)]
+        value: Option<&'a str>,
+    }
+
+    #[test]
+    fn nullable_marrow_string_borrows_valid_values_and_reports_invalid_utf8() {
+        let fields = [Field {
+            name: "value".into(),
+            data_type: DataType::LargeUtf8,
+            nullable: true,
+            metadata: Default::default(),
+        }];
+        let offsets = [0_i64, 5, 5];
+        let valid = [0b0000_0001];
+        let views = [View::LargeUtf8(BytesView {
+            offsets: &offsets,
+            data: "café".as_bytes(),
+            validity: Some(BitsWithOffset {
+                offset: 0,
+                data: &valid,
+            }),
+        })];
+        let decoded: Vec<Row<'_>> = crate::from_marrow(&fields, &views).unwrap();
+        assert_eq!(
+            decoded,
+            vec![
+                Row {
+                    value: Some("café")
+                },
+                Row { value: None }
+            ]
+        );
+
+        let invalid_offsets = [0_i64, 2];
+        let invalid = [b'a', 0xff];
+        let views = [View::LargeUtf8(BytesView {
+            offsets: &invalid_offsets,
+            data: &invalid,
+            validity: Some(BitsWithOffset {
+                offset: 0,
+                data: &valid,
+            }),
+        })];
+        let error = crate::from_marrow::<Vec<Row<'_>>>(&fields, &views).unwrap_err();
+        assert!(error.to_string().contains("invalid UTF-8 data"));
     }
 }
