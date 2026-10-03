@@ -11,7 +11,7 @@ use arrow_schema::{DataType, Field, Schema};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
-    Rng,
+    Rng, SeedableRng,
 };
 use serde::{Deserialize, Serialize};
 
@@ -95,8 +95,9 @@ pub fn benchmark_serialize(c: &mut criterion::Criterion) {
 }
 
 pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let items = (0..1_000)
-        .map(|_| Item::random(&mut rand::thread_rng()))
+        .map(|_| Item::random(&mut rng))
         .collect::<Vec<_>>();
     let mut group = super::new_group(c, "complex_1000_deserialize");
 

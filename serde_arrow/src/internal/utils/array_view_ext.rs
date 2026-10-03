@@ -231,9 +231,38 @@ where
 {
     fn get(&self, idx: usize) -> Result<Option<&'a str>> {
         match ViewAccess::<[u8]>::get(self, idx) {
-            Ok(Some(data)) => Ok(Some(std::str::from_utf8(data)?)),
+            // Preserve the detailed std error for malformed Marrow views.
+            Ok(Some(data)) => match simdutf8::basic::from_utf8(data) {
+                Ok(value) => Ok(Some(value)),
+                Err(_) => Ok(Some(std::str::from_utf8(data)?)),
+            },
             Ok(None) => Ok(None),
             Err(err) => Err(err),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use marrow::view::BytesView;
+
+    use super::ViewAccess;
+
+    #[test]
+    fn utf8_access_validates_marrow_data() {
+        let valid = BytesView {
+            offsets: &[0_i32, 5],
+            data: "café".as_bytes(),
+            validity: None,
+        };
+        assert_eq!(ViewAccess::<str>::get(&valid, 0).unwrap(), Some("café"));
+
+        let invalid = BytesView {
+            offsets: &[0_i32, 2],
+            data: &[b'a', 0xff],
+            validity: None,
+        };
+        let error = ViewAccess::<str>::get(&invalid, 0).unwrap_err();
+        assert!(error.to_string().contains("invalid UTF-8 data"));
     }
 }

@@ -6,7 +6,7 @@ use serde::{
 };
 
 use crate::internal::{
-    error::{fail, Context, Error, Result},
+    error::{fail, try_, Context, ContextSupport, Error, Result},
     schema::Strategy,
 };
 
@@ -274,6 +274,22 @@ impl<'de> VariantAccess<'de> for PositionedDeserializer<'_, ArrayDeserializer<'d
 impl<'de> RandomAccessDeserializer<'de> for ArrayDeserializer<'de> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         dispatch!(self, Self(this) => this.is_some(idx))
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {
+        match self {
+            Self::Utf8(this) => this.deserialize_option(visitor, idx),
+            Self::LargeUtf8(this) => this.deserialize_option(visitor, idx),
+            Self::Utf8View(this) => this.deserialize_option(visitor, idx),
+            _ => try_(|| {
+                if self.is_some(idx)? {
+                    visitor.visit_some(self.at(idx))
+                } else {
+                    visitor.visit_none()
+                }
+            })
+            .ctx(self),
+        }
     }
 
     fn deserialize_any_some<V: Visitor<'de>>(&self, visitor: V, idx: usize) -> Result<V::Value> {

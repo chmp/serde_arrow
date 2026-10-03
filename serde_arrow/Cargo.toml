@@ -37,6 +37,7 @@ bytemuck = { version = "1", default-features = false }
 chrono = { version = "0.4", features = ["std"], default-features = false }
 half = { version = "2", features = ["bytemuck"], default-features = false }
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
+simdutf8 = { version = "0.1", default-features = false }
 
 # arrow-version:insert: arrow-array-{version} = {{ package = "arrow-array", version = "{version}", optional = true, default-features = false }}
 arrow-array-60 = { package = "arrow-array", version = "60", optional = true, default-features = false }
