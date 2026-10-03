@@ -132,8 +132,9 @@ The tables below give runtimes and pairwise ratios for the
 [benchmark workloads](serde_arrow_bench/benches/groups/).
 Deserialization benchmarks decode 1,000 records from arrays prepared before timing. The
 `serde_arrow` calls include deserializer setup and creation of owned Rust records. The manual
-baseline reads the same Arrow arrays and builds the same records directly; `Deserializer::iter`
-measures the record-by-record API.
+baseline reads the same Arrow arrays and builds the same records directly. The Arrow JSON
+comparison writes the arrays to JSON with `arrow_json::WriterBuilder` and then parses the JSON
+into the same Rust records with `serde_json`; its results will appear after the next benchmark run.
 
 <!-- start:benchmarks -->
 ### Serialization
@@ -160,21 +161,19 @@ measures the record-by-record API.
 
 #### `complex_1000`
 
-| label                    | time [ms] | manual | serde_arrow::fr | serde_arrow::fr | Deserializer::i |
-|--------------------------|-----------|--------|-----------------|-----------------|-----------------|
-| manual                   |      0.07 |   1.00 |            0.14 |            0.14 |            0.14 |
-| serde_arrow::from_marrow |      0.52 |   7.00 |            1.00 |            0.98 |            0.97 |
-| serde_arrow::from_arrow  |      0.53 |   7.14 |            1.02 |            1.00 |            0.99 |
-| Deserializer::iter       |      0.53 |   7.19 |            1.03 |            1.01 |            1.00 |
+| label                    | time [ms] | manual | serde_arrow::fr | serde_arrow::fr |
+|--------------------------|-----------|--------|-----------------|-----------------|
+| manual                   |      0.07 |   1.00 |            0.14 |            0.14 |
+| serde_arrow::from_marrow |      0.52 |   7.00 |            1.00 |            0.98 |
+| serde_arrow::from_arrow  |      0.53 |   7.14 |            1.02 |            1.00 |
 
 #### `primitives_1000`
 
-| label                    | time [ms] | manual | serde_arrow::fr | Deserializer::i | serde_arrow::fr |
-|--------------------------|-----------|--------|-----------------|-----------------|-----------------|
-| manual                   |      0.03 |   1.00 |            0.24 |            0.24 |            0.23 |
-| serde_arrow::from_marrow |      0.13 |   4.14 |            1.00 |            0.99 |            0.95 |
-| Deserializer::iter       |      0.13 |   4.20 |            1.01 |            1.00 |            0.97 |
-| serde_arrow::from_arrow  |      0.14 |   4.35 |            1.05 |            1.04 |            1.00 |
+| label                    | time [ms] | manual | serde_arrow::fr | serde_arrow::fr |
+|--------------------------|-----------|--------|-----------------|-----------------|
+| manual                   |      0.03 |   1.00 |            0.24 |            0.23 |
+| serde_arrow::from_marrow |      0.13 |   4.14 |            1.00 |            0.95 |
+| serde_arrow::from_arrow  |      0.14 |   4.35 |            1.05 |            1.00 |
 <!-- end:benchmarks -->
 
 ## License

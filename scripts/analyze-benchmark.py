@@ -18,9 +18,9 @@ BENCHMARK_RENAMES = {
 }
 DESERIALIZATION_RENAMES = {
     "arrow_manual": "manual",
+    "arrow_json_writer": "arrow_json::WriterBuilder + serde_json",
     "serde_arrow_arrow": "serde_arrow::from_arrow",
     "serde_arrow_marrow": "serde_arrow::from_marrow",
-    "serde_arrow_marrow_iter": "Deserializer::iter",
 }
 BENCHMARK_BASELINE = "arrow builder"
 DESERIALIZATION_BASELINE = "manual"

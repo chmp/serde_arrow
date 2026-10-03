@@ -5,9 +5,9 @@ use arrow_array::{
         BooleanBuilder, Float32Builder, Float64Builder, LargeListBuilder, LargeStringBuilder,
         StructBuilder,
     },
-    ArrayRef,
+    ArrayRef, RecordBatch,
 };
-use arrow_schema::{DataType, Field};
+use arrow_schema::{DataType, Field, Schema};
 use rand::{
     distributions::{Standard, Uniform},
     prelude::Distribution,
@@ -102,9 +102,24 @@ pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
 
     let arrow_fields = crate::impls::serde_arrow_arrow::trace(&items);
     let arrow_arrays = serde_arrow::to_arrow(&arrow_fields, &items).unwrap();
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(arrow_fields.clone())),
+        arrow_arrays.clone(),
+    )
+    .unwrap();
     assert_eq!(arrow_manual::deserialize(&arrow_arrays), items);
     group.bench_function("arrow_manual", |b| {
         b.iter(|| criterion::black_box(arrow_manual::deserialize(&arrow_arrays)))
+    });
+    let decoded: Vec<Item> = crate::impls::arrow_json_writer::deserialize(&batch);
+    assert_eq!(decoded.len(), items.len());
+    for (row, (actual, expected)) in decoded.iter().zip(&items).enumerate() {
+        assert_eq!(actual, expected, "JSON row {row}");
+    }
+    group.bench_function("arrow_json_writer", |b| {
+        b.iter(|| {
+            criterion::black_box(crate::impls::arrow_json_writer::deserialize::<Item>(&batch))
+        })
     });
     let decoded: Vec<Item> = serde_arrow::from_arrow(&arrow_fields, &arrow_arrays).unwrap();
     assert_eq!(decoded, items);
@@ -130,19 +145,6 @@ pub fn benchmark_deserialize(c: &mut criterion::Criterion) {
             criterion::black_box(decoded)
         })
     });
-    group.bench_function("serde_arrow_marrow_iter", |b| {
-        b.iter(|| {
-            let deserializer =
-                serde_arrow::Deserializer::from_marrow(&marrow_fields, &marrow_views).unwrap();
-            let decoded = deserializer
-                .iter()
-                .map(Item::deserialize)
-                .collect::<serde_arrow::Result<Vec<_>>>()
-                .unwrap();
-            criterion::black_box(decoded)
-        })
-    });
-
     group.finish();
 }
 

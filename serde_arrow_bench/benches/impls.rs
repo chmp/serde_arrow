@@ -107,3 +107,18 @@ pub mod arrow {
             .to_vec())
     }
 }
+
+pub mod arrow_json_writer {
+    use arrow_array::RecordBatch;
+    use arrow_json::{writer::JsonArray, WriterBuilder};
+    use serde::de::DeserializeOwned;
+
+    pub fn deserialize<T: DeserializeOwned>(batch: &RecordBatch) -> Vec<T> {
+        let mut writer = WriterBuilder::new()
+            .with_explicit_nulls(true)
+            .build::<_, JsonArray>(Vec::new());
+        writer.write(batch).unwrap();
+        writer.finish().unwrap();
+        serde_json::from_slice(&writer.into_inner()).unwrap()
+    }
+}
