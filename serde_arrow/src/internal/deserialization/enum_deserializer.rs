@@ -10,7 +10,6 @@ use crate::internal::{
 use super::{
     array_deserializer::ArrayDeserializer,
     random_access_deserializer::{PositionedDeserializer, RandomAccessDeserializer},
-    Utf8Validation,
 };
 
 pub struct EnumDeserializer<'a> {
@@ -21,7 +20,7 @@ pub struct EnumDeserializer<'a> {
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(path: String, view: UnionView<'a>, utf8_validation: Utf8Validation) -> Result<Self> {
+    pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
         let Some(offsets) = view.offsets else {
             fail!("only dense unions are supported");
         };
@@ -37,11 +36,10 @@ impl<'a> EnumDeserializer<'a> {
                 fail!("only unions with consecutive type ids are currently supported");
             }
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
-            let field_deserializer = ArrayDeserializer::new_with_utf8_validation(
+            let field_deserializer = ArrayDeserializer::new(
                 child_path,
                 get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
                 field_view,
-                utf8_validation,
             )?;
             variants.push((field_meta.name, field_deserializer))
         }

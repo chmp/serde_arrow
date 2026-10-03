@@ -9,7 +9,7 @@ use crate::internal::{
 
 use super::{
     array_deserializer::ArrayDeserializer, list_deserializer::ListItemDeserializer,
-    random_access_deserializer::RandomAccessDeserializer, utils::bitset_is_set, Utf8Validation,
+    random_access_deserializer::RandomAccessDeserializer, utils::bitset_is_set,
 };
 
 pub struct FixedSizeListDeserializer<'a> {
@@ -21,17 +21,12 @@ pub struct FixedSizeListDeserializer<'a> {
 }
 
 impl<'a> FixedSizeListDeserializer<'a> {
-    pub fn new(
-        path: String,
-        view: FixedSizeListView<'a>,
-        utf8_validation: Utf8Validation,
-    ) -> Result<Self> {
+    pub fn new(path: String, view: FixedSizeListView<'a>) -> Result<Self> {
         let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
-        let item = ArrayDeserializer::new_with_utf8_validation(
+        let item = ArrayDeserializer::new(
             child_path,
             get_strategy_from_metadata(&view.meta.metadata)?.as_ref(),
             *view.elements,
-            utf8_validation,
         )?;
 
         Ok(Self {

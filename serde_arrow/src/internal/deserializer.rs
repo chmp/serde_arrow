@@ -5,7 +5,6 @@ use marrow::{datatypes::Field, view::View};
 use crate::internal::{
     deserialization::{
         array_deserializer::ArrayDeserializer, struct_deserializer::StructDeserializer,
-        Utf8Validation,
     },
     error::{fail, Error, Result},
     schema::get_strategy_from_metadata,
@@ -91,14 +90,6 @@ pub struct Deserializer<'de> {
 
 impl<'de> Deserializer<'de> {
     pub(crate) fn new(fields: &[Field], views: Vec<View<'de>>) -> Result<Self> {
-        Self::new_with_utf8_validation(fields, views, Utf8Validation::CHECKED)
-    }
-
-    pub(crate) fn new_with_utf8_validation(
-        fields: &[Field],
-        views: Vec<View<'de>>,
-        utf8_validation: Utf8Validation,
-    ) -> Result<Self> {
         let len = match views.first() {
             Some(view) => view.len()?,
             None => 0,
@@ -114,11 +105,10 @@ impl<'de> Deserializer<'de> {
                 );
             }
             let strategy = get_strategy_from_metadata(&field.metadata)?;
-            let deserializer = ArrayDeserializer::new_with_utf8_validation(
+            let deserializer = ArrayDeserializer::new(
                 format!("$.{child}", child = ChildName(&field.name)),
                 strategy.as_ref(),
                 view,
-                utf8_validation,
             )?;
             deserializers.push((field.name.clone(), deserializer));
         }

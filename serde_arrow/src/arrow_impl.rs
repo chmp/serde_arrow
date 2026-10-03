@@ -15,7 +15,6 @@ use crate::{
     },
     internal::{
         array_builder::ArrayBuilder,
-        deserialization::Utf8Validation,
         deserializer::Deserializer,
         error::{fail, Error, ErrorKind, Result},
         schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
@@ -282,11 +281,7 @@ impl<'de> Deserializer<'de> {
             views.push(View::try_from(array.as_ref())?);
         }
 
-        // SAFETY: each view was converted from an Arrow array. Arrow's unsafe
-        // Array contract requires UTF-8 string values to be valid, including
-        // values held by nested arrays and dictionaries.
-        let utf8_validation = unsafe { Utf8Validation::trusted_arrow() };
-        Deserializer::new_with_utf8_validation(&fields, views, utf8_validation)
+        Deserializer::new(&fields, views)
     }
 
     /// Construct a new deserializer from a record batch (*requires one of the
@@ -451,135 +446,3 @@ macro_rules! impl_try_from_ext_type {
 impl_try_from_ext_type!(Bool8Field);
 impl_try_from_ext_type!(FixedShapeTensorField);
 impl_try_from_ext_type!(VariableShapeTensorField);
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use serde::{Deserialize, Serialize};
-
-    use crate::{
-        _impl::arrow::datatypes::{DataType, Field as ArrowField, FieldRef},
-        schema::{SchemaLike, TracingOptions},
-    };
-
-    use super::{from_arrow, to_arrow};
-
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    struct OptionalString {
-        value: Option<String>,
-    }
-
-    #[derive(Debug, Deserialize, PartialEq)]
-    struct BorrowedString<'a> {
-        #[serde(borrow)]
-        value: Option<&'a str>,
-    }
-
-    #[test]
-    fn trusted_arrow_string_types() {
-        let expected = vec![
-            OptionalString {
-                value: Some("café".into()),
-            },
-            OptionalString { value: None },
-            OptionalString {
-                value: Some("a string longer than twelve bytes".into()),
-            },
-        ];
-
-        for data_type in [DataType::Utf8, DataType::LargeUtf8, DataType::Utf8View] {
-            let fields = vec![Arc::new(ArrowField::new("value", data_type, true))];
-            let arrays = to_arrow(&fields, &expected).unwrap();
-            let actual: Vec<OptionalString> = from_arrow(&fields, &arrays).unwrap();
-            assert_eq!(actual, expected);
-            let borrowed: Vec<BorrowedString<'_>> = from_arrow(&fields, &arrays).unwrap();
-            assert_eq!(borrowed[0].value, Some("café"));
-            assert_eq!(borrowed[1].value, None);
-        }
-    }
-
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    struct NestedStrings {
-        child: Child,
-        strings: Vec<String>,
-    }
-
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    struct Child {
-        label: String,
-    }
-
-    #[test]
-    fn trusted_arrow_nested_strings() {
-        let items = vec![NestedStrings {
-            child: Child {
-                label: "éclair".into(),
-            },
-            strings: vec!["one".into(), "zürich".into()],
-        }];
-        let fields =
-            Vec::<FieldRef>::from_type::<NestedStrings>(TracingOptions::default()).unwrap();
-        let arrays = to_arrow(&fields, &items).unwrap();
-        let actual: Vec<NestedStrings> = from_arrow(&fields, &arrays).unwrap();
-        assert_eq!(actual, items);
-    }
-
-    #[derive(Debug, Deserialize, PartialEq)]
-    struct RequiredString {
-        value: String,
-    }
-
-    #[test]
-    fn trusted_arrow_dictionary_strings() {
-        use marrow::array::{Array as MarrowArray, BytesArray, DictionaryArray, PrimitiveArray};
-
-        let dictionary = MarrowArray::Dictionary(DictionaryArray {
-            keys: Box::new(MarrowArray::Int8(PrimitiveArray {
-                values: vec![1, 0],
-                validity: None,
-            })),
-            values: Box::new(MarrowArray::Utf8(BytesArray {
-                offsets: vec![0, 5, 12],
-                data: "cafézürich".as_bytes().to_vec(),
-                validity: None,
-            })),
-        });
-        let array = crate::_impl::arrow::array::ArrayRef::try_from(dictionary).unwrap();
-        let fields = vec![Arc::new(ArrowField::new(
-            "value",
-            array.data_type().clone(),
-            false,
-        ))];
-
-        let actual: Vec<RequiredString> = from_arrow(&fields, &[array]).unwrap();
-        assert_eq!(
-            actual,
-            vec![
-                RequiredString {
-                    value: "zürich".into()
-                },
-                RequiredString {
-                    value: "café".into()
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn marrow_strings_still_validate_utf8() {
-        let fields = vec![marrow::datatypes::Field {
-            name: "value".into(),
-            data_type: marrow::datatypes::DataType::Utf8,
-            ..marrow::datatypes::Field::default()
-        }];
-        let views = [marrow::view::View::Utf8(marrow::view::BytesView {
-            offsets: &[0, 1],
-            data: &[0xff],
-            validity: None,
-        })];
-
-        let result = crate::from_marrow::<Vec<OptionalString>>(&fields, &views);
-        assert!(result.is_err());
-    }
-}

@@ -11,7 +11,7 @@ use crate::internal::{
 
 use super::{
     array_deserializer::ArrayDeserializer, random_access_deserializer::RandomAccessDeserializer,
-    utils::bitset_is_set, Utf8Validation,
+    utils::bitset_is_set,
 };
 
 pub struct StructDeserializer<'a> {
@@ -23,19 +23,14 @@ pub struct StructDeserializer<'a> {
 }
 
 impl<'a> StructDeserializer<'a> {
-    pub fn new(
-        path: String,
-        view: StructView<'a>,
-        utf8_validation: Utf8Validation,
-    ) -> Result<Self> {
+    pub fn new(path: String, view: StructView<'a>) -> Result<Self> {
         let mut fields = Vec::with_capacity(view.fields.len());
         for (field_meta, field_view) in view.fields {
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
-            let field_deserializer = ArrayDeserializer::new_with_utf8_validation(
+            let field_deserializer = ArrayDeserializer::new(
                 child_path,
                 get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
                 field_view,
-                utf8_validation,
             )?;
             let field_name = field_meta.name;
 
