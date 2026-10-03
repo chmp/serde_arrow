@@ -128,13 +128,7 @@ benchmark results are workload-specific and only indicative.
 
 ![Serialization and deserialization runtimes relative to their baselines](timings.png)
 
-The tables below give runtimes and pairwise ratios for the
-[benchmark workloads](serde_arrow_bench/benches/groups/).
-Deserialization benchmarks decode 1,000 records from arrays prepared before timing. The
-`serde_arrow` calls include deserializer setup and creation of owned Rust records. The manual
-baseline reads the same Arrow arrays and builds the same records directly. The Arrow JSON
-comparison writes the arrays to JSON with `arrow_json::WriterBuilder` and then parses them
-into the same Rust records with `serde_json`.
+The detailed runtimes of the [benchmarks](serde_arrow_bench/benches/groups/) are listed below.
 
 <!-- start:benchmarks -->
 ### Serialization
