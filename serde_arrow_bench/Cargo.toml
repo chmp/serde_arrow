@@ -25,5 +25,6 @@ criterion = "0.5"
 rand = "0.8"
 serde-transcode = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# The Arrow JSON comparison must reproduce the source f64 values exactly.
+serde_json = { version = "1", features = ["float_roundtrip"] }
 simd-json = "0.13.8"
