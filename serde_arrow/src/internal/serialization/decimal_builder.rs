@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use marrow::{
     array::{Array, DecimalArray, PrimitiveArray},
     datatypes::FieldMeta,
+    types::i256,
 };
 use serde::{Serialize, Serializer};
 
@@ -17,19 +18,71 @@ use crate::internal::{
 
 use super::array_builder::ArrayBuilder;
 
+pub trait DecimalPrimitive: Copy + Default + 'static {
+    const DATA_TYPE_NAME: &'static str;
+    const ARRAY_BUILDER_VARIANT: fn(DecimalBuilder<Self>) -> ArrayBuilder;
+    const ARRAY_VARIANT: fn(DecimalArray<Self>) -> Array;
+
+    fn parse(parser: DecimalParser, s: &str) -> Result<Self>;
+    /// Convert an `f32` that is not yet multiplied by `10^scale`
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self>;
+    fn from_scaled_f64(value: f64) -> Result<Self>;
+}
+
+impl DecimalPrimitive for i128 {
+    const DATA_TYPE_NAME: &'static str = "Decimal128";
+    const ARRAY_BUILDER_VARIANT: fn(DecimalBuilder<Self>) -> ArrayBuilder =
+        ArrayBuilder::Decimal128;
+    const ARRAY_VARIANT: fn(DecimalArray<Self>) -> Array = Array::Decimal128;
+
+    fn parse(parser: DecimalParser, s: &str) -> Result<Self> {
+        let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
+        parser.parse_decimal128(&mut parse_buffer, s.as_bytes())
+    }
+
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self> {
+        scaled_f32_to_i128(value * builder.f32_factor)
+    }
+
+    fn from_scaled_f64(value: f64) -> Result<Self> {
+        scaled_f64_to_i128(value)
+    }
+}
+
+impl DecimalPrimitive for i256 {
+    const DATA_TYPE_NAME: &'static str = "Decimal256";
+    const ARRAY_BUILDER_VARIANT: fn(DecimalBuilder<Self>) -> ArrayBuilder =
+        ArrayBuilder::Decimal256;
+    const ARRAY_VARIANT: fn(DecimalArray<Self>) -> Array = Array::Decimal256;
+
+    fn parse(parser: DecimalParser, s: &str) -> Result<Self> {
+        let mut parse_buffer = [0; decimal::BUFFER_SIZE_I256];
+        parser.parse_decimal256(&mut parse_buffer, s.as_bytes())
+    }
+
+    /// Scale in `f64`, `10^scale` exceeds the `f32` range for scales above 38
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self> {
+        decimal::scaled_f64_to_i256(f64::from(value) * builder.f64_factor)
+    }
+
+    fn from_scaled_f64(value: f64) -> Result<Self> {
+        decimal::scaled_f64_to_i256(value)
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct DecimalBuilder {
+pub struct DecimalBuilder<D: DecimalPrimitive> {
     pub name: String,
     pub precision: u8,
     pub scale: i8,
     pub f32_factor: f32,
     pub f64_factor: f64,
     pub parser: DecimalParser,
-    pub array: PrimitiveArray<i128>,
+    pub array: PrimitiveArray<D>,
     metadata: HashMap<String, String>,
 }
 
-impl DecimalBuilder {
+impl<D: DecimalPrimitive> DecimalBuilder<D> {
     pub fn new(
         name: String,
         precision: u8,
@@ -50,7 +103,7 @@ impl DecimalBuilder {
     }
 
     pub fn take(&mut self) -> ArrayBuilder {
-        ArrayBuilder::Decimal128(Self {
+        D::ARRAY_BUILDER_VARIANT(Self {
             name: self.name.clone(),
             metadata: self.metadata.clone(),
             precision: self.precision,
@@ -72,7 +125,7 @@ impl DecimalBuilder {
             metadata: self.metadata,
             nullable: self.array.is_nullable(),
         };
-        let array = Array::Decimal128(DecimalArray {
+        let array = D::ARRAY_VARIANT(DecimalArray {
             precision: self.precision,
             scale: self.scale,
             validity: self.array.validity,
@@ -94,14 +147,15 @@ impl DecimalBuilder {
     }
 }
 
-impl Context for DecimalBuilder {
+impl<D: DecimalPrimitive> Context for DecimalBuilder<D> {
     fn annotate(&self, annotations: &mut BTreeMap<String, String>) {
-        set_default(annotations, "filed", &self.name);
+        set_default(annotations, "field", &self.name);
         set_default(
             annotations,
             "data_type",
             format!(
-                "Decimal128({precision}, {scale})",
+                "{name}({precision}, {scale})",
+                name = D::DATA_TYPE_NAME,
                 precision = self.precision,
                 scale = self.scale,
             ),
@@ -109,7 +163,7 @@ impl Context for DecimalBuilder {
     }
 }
 
-impl<'a> Serializer for &'a mut DecimalBuilder {
+impl<'a, D: DecimalPrimitive> Serializer for &'a mut DecimalBuilder<D> {
     impl_serializer!(
         'a, DecimalBuilder;
         override serialize_none,
@@ -123,22 +177,17 @@ impl<'a> Serializer for &'a mut DecimalBuilder {
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        self.array
-            .push_scalar_value(scaled_f32_to_i128(v * self.f32_factor)?)
+        let value = D::from_f32(self, v)?;
+        self.array.push_scalar_value(value)
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
         self.array
-            .push_scalar_value(scaled_f64_to_i128(v * self.f64_factor)?)
+            .push_scalar_value(D::from_scaled_f64(v * self.f64_factor)?)
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        let mut parse_buffer = [0; decimal::BUFFER_SIZE_I128];
-        let val = self
-            .parser
-            .parse_decimal128(&mut parse_buffer, v.as_bytes())?;
-
-        self.array.push_scalar_value(val)
+        self.array.push_scalar_value(D::parse(self.parser, v)?)
     }
 }
 

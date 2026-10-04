@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use marrow::datatypes::{DataType, Field, TimeUnit};
+use marrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 
 use serde_json::{json, Value};
 
@@ -492,6 +492,11 @@ test_short_form_type!(
     DataType::Decimal128(2, -2),
     "Decimal128(2, -2)"
 );
+test_short_form_type!(
+    test_decimal_256,
+    DataType::Decimal256(76, 38),
+    "Decimal256(76, 38)"
+);
 
 test_short_form_type!(
     test_timestamp_no_tz,
@@ -535,4 +540,9 @@ test_short_form_type!(
     test_duration_nanosecond,
     DataType::Duration(TimeUnit::Nanosecond),
     "Duration(Nanosecond)"
+);
+test_short_form_type!(
+    test_interval_month_day_nano,
+    DataType::Interval(IntervalUnit::MonthDayNano),
+    "Interval(MonthDayNano)"
 );

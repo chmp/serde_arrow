@@ -21,7 +21,7 @@ pub use strategy::{get_strategy_from_metadata, Strategy, STRATEGY_KEY};
 use tracer::Tracer;
 pub use tracing_options::{Overwrites, TracingMode, TracingOptions};
 
-use marrow::datatypes::{DataType, Field, TimeUnit, UnionMode};
+use marrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit, UnionMode};
 
 pub trait Sealed {}
 
@@ -104,7 +104,8 @@ pub trait SchemaLike: Sized + Sealed {
     /// - unsigned integers: `"U8"`, `"U16"`, `"U32"`, `"U64"`
     /// - floats: `"F16"`, `"F32"`, `"F64"`
     /// - strings: `"Utf8"`, `"LargeUtf8"`
-    /// - decimals: `"Decimal128(precision, scale)"`, as in `"Decimal128(5, 2)"`
+    /// - decimals: `"Decimal128(precision, scale)"`, `"Decimal256(precision, scale)"`, as in
+    ///   `"Decimal128(5, 2)"`
     /// - date objects: `"Date32"`, `"Date64"`
     /// - datetime objects: `"Timestamp(unit, optional_timezone)"` with `unit` being one of
     ///   `Second`, `Millisecond`, `Microsecond`, `Nanosecond` and `optional_timezone` being either
@@ -114,6 +115,7 @@ pub trait SchemaLike: Sized + Sealed {
     ///   `Millisecond`, `Microsecond`, `Nanosecond`.
     /// - durations: `"Duration(unit)"` with unit being one of `Second`, `Millisecond`,
     ///   `Microsecond`, `Nanosecond`.
+    /// - intervals: `"Interval(MonthDayNano)"`
     /// - lists: `"List"`, `"LargeList"`. `"children"` must contain a single field named `"element"`
     ///   that describes the element type
     /// - structs: `"Struct"`. `"children"` must contain the child fields
@@ -334,11 +336,13 @@ pub fn validate_field(field: &Field) -> Result<()> {
         | DataType::LargeUtf8
         | DataType::Utf8View
         | DataType::Decimal128(_, _)
+        | DataType::Decimal256(_, _)
         | DataType::Date32
         | DataType::Binary
         | DataType::LargeBinary
         | DataType::BinaryView
-        | DataType::Duration(_) => validate_primitive_field(field),
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::MonthDayNano) => validate_primitive_field(field),
         DataType::FixedSizeBinary(n) => validate_fixed_size_binary_field(field, *n),
         DataType::Date64 => validate_date64_field(field),
         DataType::Timestamp(unit, tz) => validate_timestamp_field(field, *unit, tz.as_deref()),
@@ -536,10 +540,12 @@ impl std::fmt::Display for DataTypeDisplay<'_> {
             DataType::Time64(unit) => write!(f, "Time64({unit})"),
             DataType::Timestamp(unit, tz) => write!(f, "Timestamp({unit}, {tz:?})"),
             DataType::Duration(unit) => write!(f, "Duration({unit})"),
+            DataType::Interval(unit) => write!(f, "Interval({unit})"),
             DataType::List(_) => write!(f, "List"),
             DataType::LargeList(_) => write!(f, "LargeList"),
             DataType::FixedSizeList(_, n) => write!(f, "FixedSizeList({n})"),
             DataType::Decimal128(precision, scale) => write!(f, "Decimal128({precision}, {scale}"),
+            DataType::Decimal256(precision, scale) => write!(f, "Decimal256({precision}, {scale})"),
             DataType::Struct(_) => write!(f, "Struct"),
             DataType::Map(_, sorted) => write!(f, "Map({sorted})"),
             DataType::Dictionary(key, value) => write!(

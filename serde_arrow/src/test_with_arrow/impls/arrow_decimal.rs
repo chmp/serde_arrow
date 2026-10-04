@@ -79,3 +79,90 @@ fn too_small_precision() {
     let err = test.try_serialize_arrow(items).expect_err("Expected error");
     assert!(err.to_string().contains("configured precision"));
 }
+
+mod decimal256 {
+    use crate::_impl::arrow::_raw::array::{
+        types::Decimal256Type, ArrowPrimitiveType, PrimitiveArray,
+    };
+
+    use super::*;
+
+    type I256 = <Decimal256Type as ArrowPrimitiveType>::Native;
+
+    fn get_i256_values(test: &Test) -> Vec<String> {
+        let arrays = test.arrays.arrow.as_ref().unwrap();
+        let arr = arrays[0]
+            .as_any()
+            .downcast_ref::<PrimitiveArray<Decimal256Type>>()
+            .unwrap();
+        arr.values().iter().map(I256::to_string).collect()
+    }
+
+    #[test]
+    fn example() {
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(5, 2)"}]))
+            .serialize(&[Item(String::from("0.20")), Item(String::from("-0.42"))])
+            .deserialize(&[Item(String::from("0.20")), Item(String::from("-0.42"))])
+            .also(|it| assert_eq!(get_i256_values(it), ["20", "-42"]));
+    }
+
+    /// `Decimal256(76, 38)` is used for example by the BigQuery Storage Read API
+    #[test]
+    fn full_precision() {
+        let items = &[
+            Item(format!("{}.{}", "9".repeat(38), "9".repeat(38))),
+            Item(format!("-{}.{}", "9".repeat(38), "9".repeat(38))),
+            Item(format!("0.{}1", "0".repeat(37))),
+        ];
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(76, 38)"}]))
+            .serialize(items)
+            .deserialize(items)
+            .also(|it| {
+                assert_eq!(
+                    get_i256_values(it),
+                    [
+                        "9".repeat(76),
+                        format!("-{}", "9".repeat(76)),
+                        "1".to_owned()
+                    ]
+                )
+            });
+    }
+
+    #[test]
+    fn floats() {
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(10, 2)"}]))
+            .serialize(&[Item(1.25_f64), Item(-2.5_f64)])
+            .also(|it| assert_eq!(get_i256_values(it), ["125", "-250"]));
+
+        // floats outside of the i128 range are converted exactly
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(76, 0)"}]))
+            .serialize(&[Item(-1e60_f64)])
+            .also(|it| {
+                assert_eq!(
+                    get_i256_values(it),
+                    ["-999999999999999949387135297074018866963645011013410073083904"]
+                )
+            });
+    }
+
+    /// `10^scale` exceeds the `f32` range for scales above 38
+    #[test]
+    fn f32_with_large_scale() {
+        let schema = json!([{"name": "item", "data_type": "Decimal256(76, 40)"}]);
+        let from_f32 = Test::new()
+            .with_schema(&schema)
+            .serialize(&[Item(1.5_f32), Item(-2.0_f32)]);
+        let from_f64 = Test::new()
+            .with_schema(&schema)
+            .serialize(&[Item(1.5_f64), Item(-2.0_f64)]);
+
+        let values = get_i256_values(&from_f32);
+        assert_eq!(values, get_i256_values(&from_f64));
+        assert_eq!(values.iter().map(String::len).collect::<Vec<_>>(), [41, 42]);
+    }
+}

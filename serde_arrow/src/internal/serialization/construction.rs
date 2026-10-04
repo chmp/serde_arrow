@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use marrow::datatypes::{DataType, Field, TimeUnit};
+use marrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 
 use crate::internal::{
     error::{fail, Result},
@@ -8,7 +8,7 @@ use crate::internal::{
     serialization::{
         binary_builder::BinaryBuilder, duration_builder::DurationBuilder,
         fixed_size_binary_builder::FixedSizeBinaryBuilder,
-        fixed_size_list_builder::FixedSizeListBuilder,
+        fixed_size_list_builder::FixedSizeListBuilder, interval_builder::IntervalBuilder,
     },
 };
 
@@ -84,7 +84,13 @@ fn build_builder(
             A::Time64(TimeBuilder::new(name, unit, nullable, metadata))
         }
         T::Duration(unit) => A::Duration(DurationBuilder::new(name, unit, nullable, metadata)),
+        T::Interval(IntervalUnit::MonthDayNano) => {
+            A::Interval(IntervalBuilder::new(name, nullable, metadata))
+        }
         T::Decimal128(precision, scale) => A::Decimal128(DecimalBuilder::new(
+            name, precision, scale, nullable, metadata,
+        )),
+        T::Decimal256(precision, scale) => A::Decimal256(DecimalBuilder::new(
             name, precision, scale, nullable, metadata,
         )),
         T::Utf8 => A::Utf8(Utf8Builder::new(name, nullable, metadata)),
