@@ -9,7 +9,7 @@ use crate::{
         TimeUnit, UnionMode,
     },
     error::{fail, ErrorKind, Result},
-    types::{DayTimeInterval, MonthDayNanoInterval},
+    types::{i256, DayTimeInterval, MonthDayNanoInterval},
 };
 
 // assert that the `Array` implements the expected traits
@@ -85,6 +85,8 @@ pub enum View<'a> {
     BinaryView(BytesViewView<'a>),
     /// See [`Array::Decimal128`][crate::array::Array::Decimal128]
     Decimal128(DecimalView<'a, i128>),
+    /// See [`Array::Decimal256`][crate::array::Array::Decimal256]
+    Decimal256(DecimalView<'a, i256>),
     /// See [`Array::Struct`][crate::array::Array::Struct]
     Struct(StructView<'a>),
     /// See [`Array::List`][crate::array::Array::List]
@@ -122,6 +124,7 @@ impl View<'_> {
             Self::Float32(_) => T::Float32,
             Self::Float64(_) => T::Float64,
             Self::Decimal128(arr) => T::Decimal128(arr.precision, arr.scale),
+            Self::Decimal256(arr) => T::Decimal256(arr.precision, arr.scale),
             Self::Date32(_) => T::Date32,
             Self::Date64(_) => T::Date64,
             Self::Time32(arr) => T::Time32(arr.unit),

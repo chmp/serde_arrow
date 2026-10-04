@@ -9,7 +9,7 @@ use crate::{
         TimeUnit, UnionMode,
     },
     error::{fail, ErrorKind, Result},
-    types::{DayTimeInterval, MonthDayNanoInterval},
+    types::{i256, DayTimeInterval, MonthDayNanoInterval},
     view::{
         BitsWithOffset, BooleanView, BytesView, BytesViewView, DecimalView, DictionaryView,
         FixedSizeBinaryView, FixedSizeListView, ListView, MapView, NullView, PrimitiveView,
@@ -91,6 +91,8 @@ pub enum Array {
     BinaryView(BytesViewArray),
     /// An `i128` array of decimals
     Decimal128(DecimalArray<i128>),
+    /// An `i256` array of decimals
+    Decimal256(DecimalArray<i256>),
     /// An array of structs
     Struct(StructArray),
     /// An array of lists with `i32` offsets
@@ -128,6 +130,7 @@ impl Array {
             Self::Float32(_) => T::Float32,
             Self::Float64(_) => T::Float64,
             Self::Decimal128(arr) => T::Decimal128(arr.precision, arr.scale),
+            Self::Decimal256(arr) => T::Decimal256(arr.precision, arr.scale),
             Self::Date32(_) => T::Date32,
             Self::Date64(_) => T::Date64,
             Self::Time32(arr) => T::Time32(arr.unit),
@@ -225,6 +228,7 @@ impl Array {
             Self::Float32(array) => View::Float32(array.as_view()),
             Self::Float64(array) => View::Float64(array.as_view()),
             Self::Decimal128(array) => View::Decimal128(array.as_view()),
+            Self::Decimal256(array) => View::Decimal256(array.as_view()),
             Self::Date32(array) => View::Date32(array.as_view()),
             Self::Date64(array) => View::Date64(array.as_view()),
             Self::Time32(array) => View::Time32(array.as_view()),

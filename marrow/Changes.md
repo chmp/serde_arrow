@@ -1,5 +1,10 @@
 # Change log
 
+## development
+
+- Add `Decimal256` support
+- Implement `Default` for `MonthDayNanoInterval`
+
 ## 0.3.1
 
 - Add `arrow=60` support
