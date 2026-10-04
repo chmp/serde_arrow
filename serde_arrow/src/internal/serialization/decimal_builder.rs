@@ -24,7 +24,8 @@ pub trait DecimalPrimitive: Copy + Default + 'static {
     const ARRAY_VARIANT: fn(DecimalArray<Self>) -> Array;
 
     fn parse(parser: DecimalParser, s: &str) -> Result<Self>;
-    fn from_scaled_f32(value: f32) -> Result<Self>;
+    /// Convert an `f32` that is not yet multiplied by `10^scale`
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self>;
     fn from_scaled_f64(value: f64) -> Result<Self>;
 }
 
@@ -39,8 +40,8 @@ impl DecimalPrimitive for i128 {
         parser.parse_decimal128(&mut parse_buffer, s.as_bytes())
     }
 
-    fn from_scaled_f32(value: f32) -> Result<Self> {
-        scaled_f32_to_i128(value)
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self> {
+        scaled_f32_to_i128(value * builder.f32_factor)
     }
 
     fn from_scaled_f64(value: f64) -> Result<Self> {
@@ -59,8 +60,9 @@ impl DecimalPrimitive for i256 {
         parser.parse_decimal256(&mut parse_buffer, s.as_bytes())
     }
 
-    fn from_scaled_f32(value: f32) -> Result<Self> {
-        decimal::scaled_f64_to_i256(f64::from(value))
+    /// Scale in `f64`, `10^scale` exceeds the `f32` range for scales above 38
+    fn from_f32(builder: &DecimalBuilder<Self>, value: f32) -> Result<Self> {
+        decimal::scaled_f64_to_i256(f64::from(value) * builder.f64_factor)
     }
 
     fn from_scaled_f64(value: f64) -> Result<Self> {
@@ -175,8 +177,8 @@ impl<'a, D: DecimalPrimitive> Serializer for &'a mut DecimalBuilder<D> {
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
-        self.array
-            .push_scalar_value(D::from_scaled_f32(v * self.f32_factor)?)
+        let value = D::from_f32(self, v)?;
+        self.array.push_scalar_value(value)
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {

@@ -508,3 +508,21 @@ fn decimal_errors() {
     test("Decimal128(5, 2)");
     test("Decimal256(5, 2)");
 }
+
+#[test]
+fn interval_errors() {
+    fn test(value: Value) {
+        let err = serialize_to_error(
+            json!([{"name": "a", "data_type": "Interval(MonthDayNano)"}]),
+            Value::Tuple(vec![Value::Struct("Record", vec![("a", value)])]),
+        );
+        assert_error_contains(&err, "test-error");
+        assert_error_contains(&err, "field: \"$.a\"");
+        assert_error_contains(&err, "data_type: \"Interval(MonthDayNano)\"");
+    }
+    test(Value::FailWithError("test-error"));
+    test(Value::Struct(
+        "MonthDayNano",
+        vec![("months", Value::FailWithError("test-error"))],
+    ));
+}

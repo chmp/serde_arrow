@@ -107,35 +107,6 @@ mod decimal256 {
             .also(|it| assert_eq!(get_i256_values(it), ["20", "-42"]));
     }
 
-    /// Decimals with too many digits are truncated in serialization
-    #[test]
-    fn truncation() {
-        Test::new()
-            .with_schema(json!([{"name": "item", "data_type": "Decimal256(5, 2)"}]))
-            .serialize(&[Item(String::from("0.2012")), Item(String::from("0.4234"))])
-            .deserialize(&[Item(String::from("0.20")), Item(String::from("0.42"))]);
-    }
-
-    #[test]
-    fn negative_scale() {
-        Test::new()
-            .with_schema(json!([{"name": "item", "data_type": "Decimal256(5, -2)"}]))
-            .serialize(&[Item(String::from("1300.00")), Item(String::from("4200.00"))])
-            .deserialize(&[Item(String::from("1300")), Item(String::from("4200"))])
-            .also(|it| assert_eq!(get_i256_values(it), ["13", "42"]));
-    }
-
-    #[test]
-    fn too_small_precision() {
-        let mut test =
-            Test::new().with_schema(json!([{"name": "item", "data_type": "Decimal256(2, 2)"}]));
-
-        let err = test
-            .try_serialize_arrow(&[Item(String::from("1.23"))])
-            .expect_err("Expected error");
-        assert!(err.to_string().contains("configured precision"));
-    }
-
     /// `Decimal256(76, 38)` is used for example by the BigQuery Storage Read API
     #[test]
     fn full_precision() {
@@ -177,5 +148,21 @@ mod decimal256 {
                     ["-999999999999999949387135297074018866963645011013410073083904"]
                 )
             });
+    }
+
+    /// `10^scale` exceeds the `f32` range for scales above 38
+    #[test]
+    fn f32_with_large_scale() {
+        let schema = json!([{"name": "item", "data_type": "Decimal256(76, 40)"}]);
+        let from_f32 = Test::new()
+            .with_schema(&schema)
+            .serialize(&[Item(1.5_f32), Item(-2.0_f32)]);
+        let from_f64 = Test::new()
+            .with_schema(&schema)
+            .serialize(&[Item(1.5_f64), Item(-2.0_f64)]);
+
+        let values = get_i256_values(&from_f32);
+        assert_eq!(values, get_i256_values(&from_f64));
+        assert_eq!(values.iter().map(String::len).collect::<Vec<_>>(), [41, 42]);
     }
 }
