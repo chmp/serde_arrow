@@ -2,8 +2,9 @@
 
 ## development
 
-- Add `Decimal256` support
+- Add `Decimal256` support ([#332](https://github.com/chmp/serde_arrow/pull/332))
 - Implement `Default` for `MonthDayNanoInterval`
+  ([#332](https://github.com/chmp/serde_arrow/pull/332))
 
 ## 0.3.1
 
