@@ -198,3 +198,120 @@ fn pyarrow_temporal_columns_to_rust() -> Result<()> {
 
     Ok(())
 }
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct MonthDayNano {
+    months: i32,
+    days: i32,
+    nanoseconds: i64,
+}
+
+#[test]
+fn rust_interval_column_to_pyarrow() -> Result<()> {
+    #[derive(Serialize)]
+    struct Record {
+        interval: Option<MonthDayNano>,
+    }
+
+    let items = vec![
+        Record {
+            interval: Some(MonthDayNano {
+                months: 1,
+                days: -2,
+                nanoseconds: 3,
+            }),
+        },
+        Record { interval: None },
+        Record {
+            interval: Some(MonthDayNano {
+                months: i32::MIN,
+                days: i32::MAX,
+                nanoseconds: i64::MIN,
+            }),
+        },
+    ];
+    let fields = Vec::from_value(json!([
+        {"name": "interval", "data_type": "Interval(MonthDayNano)", "nullable": true},
+    ]))?;
+
+    let batch = serde_arrow::to_record_batch(&fields, &items)?;
+
+    write_file("rust_interval_column.ipc", &batch)?;
+    let _output = execute_python(
+        r#"
+        import sys
+        import pyarrow as pa
+
+        tbl = pa.ipc.open_file(sys.argv[1]).read_all()
+        col = tbl["interval"].combine_chunks()
+
+        assert col.type == pa.month_day_nano_interval()
+        assert [None if v is None else tuple(v) for v in col.to_pylist()] == [
+            (1, -2, 3),
+            None,
+            (-(2**31), 2**31 - 1, -(2**63)),
+        ]
+    "#,
+        &["rust_interval_column.ipc"],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn pyarrow_interval_column_to_rust() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Record {
+        interval: Option<MonthDayNano>,
+    }
+
+    let _output = execute_python(
+        r#"
+        import sys
+        import pyarrow as pa
+
+        schema = pa.schema([
+            pa.field("interval", pa.month_day_nano_interval(), nullable=True),
+        ])
+        tbl = pa.table(
+            [
+                pa.array(
+                    [(1, -2, 3), None, (-(2**31), 2**31 - 1, -(2**63))],
+                    type=schema.field("interval").type,
+                ),
+            ],
+            schema=schema,
+        )
+
+        with pa.OSFile(sys.argv[1], "wb") as sink:
+            with pa.ipc.new_file(sink, tbl.schema) as writer:
+                writer.write_table(tbl)
+    "#,
+        &["pyarrow_interval_column.ipc"],
+    )?;
+    let batch = read_file("pyarrow_interval_column.ipc")?;
+
+    let actual: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
+    assert_eq!(
+        actual,
+        vec![
+            Record {
+                interval: Some(MonthDayNano {
+                    months: 1,
+                    days: -2,
+                    nanoseconds: 3,
+                }),
+            },
+            Record { interval: None },
+            Record {
+                interval: Some(MonthDayNano {
+                    months: i32::MIN,
+                    days: i32::MAX,
+                    nanoseconds: i64::MIN,
+                }),
+            },
+        ]
+    );
+
+    Ok(())
+}

@@ -490,3 +490,21 @@ mod map {
         assert_error_contains(&err, "$.map.value");
     }
 }
+
+#[test]
+fn decimal_errors() {
+    fn test(data_type: &str) {
+        let err = serialize_to_error(
+            json!([{"name": "a", "data_type": data_type}]),
+            Value::Tuple(vec![Value::Struct(
+                "Record",
+                vec![("a", Value::FailWithError("test-error"))],
+            )]),
+        );
+        assert_error_contains(&err, "test-error");
+        assert_error_contains(&err, "field: \"$.a\"");
+        assert_error_contains(&err, &format!("data_type: \"{data_type}\""));
+    }
+    test("Decimal128(5, 2)");
+    test("Decimal256(5, 2)");
+}

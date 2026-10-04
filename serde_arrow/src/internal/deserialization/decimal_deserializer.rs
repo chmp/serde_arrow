@@ -1,4 +1,7 @@
-use marrow::view::{DecimalView, PrimitiveView};
+use marrow::{
+    types::i256,
+    view::{DecimalView, PrimitiveView},
+};
 use serde::de::Visitor;
 
 use crate::internal::{
@@ -8,15 +11,39 @@ use crate::internal::{
 
 use super::random_access_deserializer::RandomAccessDeserializer;
 
-pub struct DecimalDeserializer<'a> {
+pub trait DecimalPrimitive: Copy + 'static {
+    const DATA_TYPE_NAME: &'static str;
+
+    fn with_formatted<F: FnOnce(&str) -> Result<R>, R>(self, scale: i8, func: F) -> Result<R>;
+}
+
+impl DecimalPrimitive for i128 {
+    const DATA_TYPE_NAME: &'static str = "Decimal128";
+
+    fn with_formatted<F: FnOnce(&str) -> Result<R>, R>(self, scale: i8, func: F) -> Result<R> {
+        let mut buffer = [0; decimal::BUFFER_SIZE_I128];
+        func(decimal::format_decimal(&mut buffer, self, scale)?)
+    }
+}
+
+impl DecimalPrimitive for i256 {
+    const DATA_TYPE_NAME: &'static str = "Decimal256";
+
+    fn with_formatted<F: FnOnce(&str) -> Result<R>, R>(self, scale: i8, func: F) -> Result<R> {
+        let mut buffer = [0; decimal::BUFFER_SIZE_I256];
+        func(decimal::format_decimal256(&mut buffer, self, scale)?)
+    }
+}
+
+pub struct DecimalDeserializer<'a, D: DecimalPrimitive> {
     path: String,
-    view: PrimitiveView<'a, i128>,
+    view: PrimitiveView<'a, D>,
     precision: u8,
     scale: i8,
 }
 
-impl<'a> DecimalDeserializer<'a> {
-    pub fn new(path: String, view: DecimalView<'a, i128>) -> Self {
+impl<'a, D: DecimalPrimitive> DecimalDeserializer<'a, D> {
+    pub fn new(path: String, view: DecimalView<'a, D>) -> Self {
         Self {
             path,
             view: PrimitiveView {
@@ -30,21 +57,19 @@ impl<'a> DecimalDeserializer<'a> {
 
     fn with_value<F: FnOnce(&str) -> Result<R>, R>(&self, idx: usize, func: F) -> Result<R> {
         let val = self.view.get_required(idx)?;
-        let mut buffer = [0; decimal::BUFFER_SIZE_I128];
-        let formatted = decimal::format_decimal(&mut buffer, *val, self.scale)?;
-
-        func(formatted)
+        val.with_formatted(self.scale, func)
     }
 }
 
-impl Context for DecimalDeserializer<'_> {
+impl<D: DecimalPrimitive> Context for DecimalDeserializer<'_, D> {
     fn annotate(&self, annotations: &mut std::collections::BTreeMap<String, String>) {
         set_default(annotations, "field", &self.path);
         set_default(
             annotations,
             "data_type",
             format!(
-                "Decimal128({precision}, {scale})",
+                "{name}({precision}, {scale})",
+                name = D::DATA_TYPE_NAME,
                 precision = self.precision,
                 scale = self.scale
             ),
@@ -52,7 +77,7 @@ impl Context for DecimalDeserializer<'_> {
     }
 }
 
-impl<'de> RandomAccessDeserializer<'de> for DecimalDeserializer<'de> {
+impl<'de, D: DecimalPrimitive> RandomAccessDeserializer<'de> for DecimalDeserializer<'de, D> {
     fn is_some(&self, idx: usize) -> Result<bool> {
         self.view.is_some(idx)
     }

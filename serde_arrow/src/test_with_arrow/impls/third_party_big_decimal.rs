@@ -70,3 +70,21 @@ fn bigdecimal_too_small_precision() {
     let err = test.try_serialize_arrow(items).expect_err("Expected error");
     assert!(err.to_string().contains("configured precision"));
 }
+
+#[test]
+fn bigdecimal_decimal256() {
+    let items = &[
+        Item(
+            BigDecimal::from_str(
+                "12345678901234567890123456789012345678.12345678901234567890123456789012345678",
+            )
+            .unwrap(),
+        ),
+        Item(BigDecimal::from_str("-1.5").unwrap()),
+    ];
+
+    Test::new()
+        .with_schema(json!([{"name": "item", "data_type": "Decimal256(76, 38)"}]))
+        .serialize(items)
+        .deserialize(items);
+}

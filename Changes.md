@@ -5,6 +5,12 @@
 - Performance optimizations. Benchmarks show an improvement of approximately
   30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
   ([#329](https://github.com/chmp/serde_arrow/pull/329))
+- Add `Decimal256` support
+- Add `Interval(MonthDayNano)` support. Intervals are serialized from and
+  deserialized to span strings, e.g., `jiff::Span`, or structs with the fields
+  `months`, `days`, `nanoseconds`
+  ([#178](https://github.com/chmp/serde_arrow/issues/178))
+- Fix the `field` annotation in errors of `Decimal128` serialization
 
 ## 0.15.1
 

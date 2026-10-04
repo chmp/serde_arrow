@@ -13,6 +13,7 @@ mod arrow_dictionary;
 mod arrow_fixed_size_binary;
 mod arrow_fixed_size_list;
 mod arrow_floats;
+mod arrow_interval;
 mod arrow_list;
 mod arrow_map;
 mod arrow_struct;

@@ -404,6 +404,7 @@ macro_rules! define_serializer_wrapper {
 define_serializer_wrapper!(SerializeStruct {
     dispatch dispatch_serialize_struct,
     Struct(super::struct_builder::StructBuilder),
+    Interval(super::interval_builder::IntervalBuilder),
 });
 
 impl serde::ser::SerializeStruct for SerializeStruct<'_> {
@@ -469,6 +470,7 @@ define_serializer_wrapper!(SerializeMap {
     dispatch dispatch_serialize_map,
     Map(super::map_builder::MapBuilder),
     Struct(super::struct_builder::StructBuilder),
+    Interval(super::interval_builder::IntervalBuilder),
 });
 
 impl serde::ser::SerializeMap for SerializeMap<'_> {

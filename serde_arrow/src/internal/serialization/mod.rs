@@ -12,6 +12,7 @@ pub mod fixed_size_binary_builder;
 pub mod fixed_size_list_builder;
 pub mod float_builder;
 pub mod int_builder;
+pub mod interval_builder;
 pub mod list_builder;
 pub mod map_builder;
 pub mod null_builder;
