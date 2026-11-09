@@ -107,6 +107,28 @@ mod decimal256 {
             .also(|it| assert_eq!(get_i256_values(it), ["20", "-42"]));
     }
 
+    /// Decimals with too many digits are truncated in serialization
+    #[test]
+    fn truncation() {
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(5, 2)"}]))
+            .serialize(&[Item(String::from("0.2012")), Item(String::from("-0.4234"))])
+            .deserialize(&[Item(String::from("0.20")), Item(String::from("-0.42"))])
+            .also(|it| assert_eq!(get_i256_values(it), ["20", "-42"]));
+    }
+
+    #[test]
+    fn negative_scale() {
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(5, -2)"}]))
+            .serialize(&[
+                Item(String::from("1300.00")),
+                Item(String::from("-4200.00")),
+            ])
+            .deserialize(&[Item(String::from("1300")), Item(String::from("-4200"))])
+            .also(|it| assert_eq!(get_i256_values(it), ["13", "-42"]));
+    }
+
     /// `Decimal256(76, 38)` is used for example by the BigQuery Storage Read API
     #[test]
     fn full_precision() {
@@ -153,16 +175,18 @@ mod decimal256 {
     /// `10^scale` exceeds the `f32` range for scales above 38
     #[test]
     fn f32_with_large_scale() {
-        let schema = json!([{"name": "item", "data_type": "Decimal256(76, 40)"}]);
-        let from_f32 = Test::new()
-            .with_schema(&schema)
-            .serialize(&[Item(1.5_f32), Item(-2.0_f32)]);
-        let from_f64 = Test::new()
-            .with_schema(&schema)
-            .serialize(&[Item(1.5_f64), Item(-2.0_f64)]);
-
-        let values = get_i256_values(&from_f32);
-        assert_eq!(values, get_i256_values(&from_f64));
-        assert_eq!(values.iter().map(String::len).collect::<Vec<_>>(), [41, 42]);
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Decimal256(76, 40)"}]))
+            .serialize(&[Item(1.5_f32), Item(-2.0_f32)])
+            .also(|it| {
+                // the exact values of the `f64` closest to 1.5e40 and -2e40
+                assert_eq!(
+                    get_i256_values(it),
+                    [
+                        "15000000000000001060141952447820087689216",
+                        "-20000000000000000607572056854007333781504"
+                    ]
+                )
+            });
     }
 }
