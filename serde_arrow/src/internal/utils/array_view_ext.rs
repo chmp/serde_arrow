@@ -265,6 +265,6 @@ mod tests {
         };
 
         assert!(ViewAccess::<str>::is_some(&view, 0).unwrap());
-        assert!(ViewAccess::<str>::get(&view, 0).is_err());
+        ViewAccess::<str>::get(&view, 0).unwrap_err();
     }
 }
