@@ -102,16 +102,12 @@ impl IntervalBuilder {
         self.next_field = None;
     }
 
-    fn set_field<T: Serialize + ?Sized>(&mut self, key: &str, value: &T) -> Result<()> {
-        let Some((_, field)) = FIELDS
-            .iter()
-            .zip(&mut self.fields)
-            .find(|(name, _)| **name == key)
-        else {
-            fail!("unknown field {key:?}, expected one of {FIELDS:?}");
+    fn set_field<T: Serialize + ?Sized>(&mut self, idx: usize, value: &T) -> Result<()> {
+        let (Some(name), Some(field)) = (FIELDS.get(idx), self.fields.get_mut(idx)) else {
+            fail!("field index {idx} is out of bounds for {FIELDS:?}");
         };
         if field.is_some() {
-            fail!("duplicate field {key:?}");
+            fail!("duplicate field {name:?}");
         }
         *field = Some(value::transmute(value)?);
         Ok(())
@@ -170,7 +166,10 @@ impl serde::ser::SerializeStruct for &mut IntervalBuilder {
         key: &'static str,
         value: &T,
     ) -> Result<()> {
-        self.set_field(key, value)
+        let Some(idx) = FIELDS.iter().position(|name| *name == key) else {
+            fail!("unknown field {key:?}, expected one of {FIELDS:?}");
+        };
+        self.set_field(idx, value)
     }
 
     fn end(self) -> Result<()> {
@@ -192,10 +191,10 @@ impl serde::ser::SerializeMap for &mut IntervalBuilder {
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<()> {
-        let Some(key) = self.next_field.take().and_then(|idx| FIELDS.get(idx)) else {
+        let Some(idx) = self.next_field.take() else {
             fail!("serialize_value called without a preceding key");
         };
-        self.set_field(key, value)
+        self.set_field(idx, value)
     }
 
     fn end(self) -> Result<()> {
