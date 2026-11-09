@@ -18,6 +18,7 @@
   ([#332](https://github.com/chmp/serde_arrow/pull/332))
 - Do not validate UTF-8 when deserializing strings from arrow arrays, which
   hold valid UTF-8. Strings read with `from_marrow` are validated as before
+  ([#335](https://github.com/chmp/serde_arrow/pull/335))
 
 ## 0.15.1
 
