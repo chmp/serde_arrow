@@ -240,4 +240,31 @@ where
             Err(err) => Err(err),
         }
     }
+
+    // A null check needs no UTF-8 validation: `get` validates the value when it is read.
+    fn is_some(&self, idx: usize) -> Result<bool>
+    where
+        Self: 'a,
+    {
+        ViewAccess::<[u8]>::is_some(self, idx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use marrow::view::BytesView;
+
+    use super::ViewAccess;
+
+    #[test]
+    fn str_is_some_does_not_validate_utf8() {
+        let view = BytesView {
+            validity: None,
+            offsets: &[0_i32, 2],
+            data: &[0xff, 0xfe],
+        };
+
+        assert!(ViewAccess::<str>::is_some(&view, 0).unwrap());
+        ViewAccess::<str>::get(&view, 0).unwrap_err();
+    }
 }
