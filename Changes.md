@@ -5,6 +5,8 @@
 - Performance optimizations. Benchmarks show an improvement of approximately
   30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
   ([#329](https://github.com/chmp/serde_arrow/pull/329))
+- Do not validate UTF-8 when checking string values for null. Deserializing
+  nullable string fields no longer validates each value twice
 
 ## 0.15.1
 
