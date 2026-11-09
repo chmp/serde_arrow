@@ -8,7 +8,7 @@ use crate::internal::{
     },
     error::{fail, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::array_view_ext::ViewExt,
+    utils::array_view_ext::{Utf8Check, ViewExt},
 };
 
 use super::{
@@ -90,6 +90,14 @@ pub struct Deserializer<'de> {
 
 impl<'de> Deserializer<'de> {
     pub(crate) fn new(fields: &[Field], views: Vec<View<'de>>) -> Result<Self> {
+        Self::with_utf8_check(fields, views, Utf8Check::VALIDATE)
+    }
+
+    pub(crate) fn with_utf8_check(
+        fields: &[Field],
+        views: Vec<View<'de>>,
+        utf8: Utf8Check,
+    ) -> Result<Self> {
         let len = match views.first() {
             Some(view) => view.len()?,
             None => 0,
@@ -109,6 +117,7 @@ impl<'de> Deserializer<'de> {
                 format!("$.{child}", child = ChildName(&field.name)),
                 strategy.as_ref(),
                 view,
+                utf8,
             )?;
             deserializers.push((field.name.clone(), deserializer));
         }

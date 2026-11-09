@@ -4,7 +4,7 @@ use serde::de::{value::StrDeserializer, DeserializeSeed, MapAccess, SeqAccess, V
 use crate::internal::{
     error::{fail, set_default, Context, ContextSupport, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::ChildName,
+    utils::{array_view_ext::Utf8Check, ChildName},
 };
 
 use super::{
@@ -20,7 +20,7 @@ pub struct StructDeserializer<'a> {
 }
 
 impl<'a> StructDeserializer<'a> {
-    pub fn new(path: String, view: StructView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: StructView<'a>, utf8: Utf8Check) -> Result<Self> {
         let mut fields = Vec::with_capacity(view.fields.len());
         for (field_meta, field_view) in view.fields {
             let child_path = format!("{path}.{child}", child = ChildName(&field_meta.name));
@@ -28,6 +28,7 @@ impl<'a> StructDeserializer<'a> {
                 child_path,
                 get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
                 field_view,
+                utf8,
             )?;
             let field_name = field_meta.name;
 

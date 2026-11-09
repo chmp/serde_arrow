@@ -20,6 +20,7 @@ use crate::{
         schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
         schema::{SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
         serializer::Serializer,
+        utils::array_view_ext::Utf8Check,
     },
 };
 
@@ -281,7 +282,10 @@ impl<'de> Deserializer<'de> {
             views.push(View::try_from(array.as_ref())?);
         }
 
-        Deserializer::new(&fields, views)
+        // SAFETY: arrow string arrays hold valid UTF-8. Only `unsafe` code can
+        // build one that does not.
+        let utf8 = unsafe { Utf8Check::trusted() };
+        Deserializer::with_utf8_check(&fields, views, utf8)
     }
 
     /// Construct a new deserializer from a record batch (*requires one of the

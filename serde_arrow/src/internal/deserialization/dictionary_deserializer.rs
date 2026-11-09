@@ -3,7 +3,10 @@ use serde::de::Visitor;
 
 use crate::internal::{
     error::{set_default, try_, Context, ContextSupport, Result},
-    utils::{array_view_ext::ViewAccess, Offset},
+    utils::{
+        array_view_ext::{Utf8Check, ViewAccess},
+        Offset,
+    },
 };
 
 use super::{
@@ -15,21 +18,27 @@ pub struct DictionaryDeserializer<'a, K: Integer, V: Offset> {
     path: String,
     keys: PrimitiveView<'a, K>,
     values: BytesView<'a, V>,
+    utf8: Utf8Check,
 }
 
 impl<'a, K: Integer, V: Offset> DictionaryDeserializer<'a, K, V> {
-    pub fn new(path: String, keys: PrimitiveView<'a, K>, values: BytesView<'a, V>) -> Result<Self> {
+    pub fn new(
+        path: String,
+        keys: PrimitiveView<'a, K>,
+        values: BytesView<'a, V>,
+        utf8: Utf8Check,
+    ) -> Result<Self> {
         Ok(Self {
             path,
             keys: keys.clone(),
             values: values.clone(),
+            utf8,
         })
     }
 
     pub fn get_str(&self, idx: usize) -> Result<&str> {
         let key: usize = self.keys.get_required(idx)?.into_i64()?.try_into()?;
-        let value: &str = self.values.get_required(key)?;
-        Ok(value)
+        self.utf8.get_required(&self.values, key)
     }
 }
 

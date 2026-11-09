@@ -16,6 +16,8 @@
   [#332](https://github.com/chmp/serde_arrow/pull/332))
 - Fix the `field` annotation in errors of `Decimal128` serialization
   ([#332](https://github.com/chmp/serde_arrow/pull/332))
+- Do not validate UTF-8 when deserializing strings from arrow arrays, which
+  hold valid UTF-8. Strings read with `from_marrow` are validated as before
 
 ## 0.15.1
 

@@ -229,6 +229,39 @@ impl<'a> ViewAccess<'a, [u8]> for BytesViewView<'a> {
     }
 }
 
+/// Whether string data is checked to be valid UTF-8 when it is read
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Utf8Check {
+    trusted: bool,
+}
+
+impl Utf8Check {
+    /// Check each string value when it is read
+    pub const VALIDATE: Self = Self { trusted: false };
+
+    /// Do not check string values
+    ///
+    /// # Safety
+    ///
+    /// All string data read with the returned value must be valid UTF-8.
+    pub const unsafe fn trusted() -> Self {
+        Self { trusted: true }
+    }
+
+    pub fn get_required<'a, V>(self, view: &V, idx: usize) -> Result<&'a str>
+    where
+        V: ViewAccess<'a, [u8]> + 'a,
+    {
+        let data = ViewAccess::<[u8]>::get_required(view, idx)?;
+        if self.trusted {
+            // SAFETY: the caller of `Utf8Check::trusted` guarantees valid UTF-8
+            Ok(unsafe { std::str::from_utf8_unchecked(data) })
+        } else {
+            Ok(std::str::from_utf8(data)?)
+        }
+    }
+}
+
 impl<'a, V> ViewAccess<'a, str> for V
 where
     V: ViewAccess<'a, [u8]>,
@@ -254,7 +287,7 @@ where
 mod tests {
     use marrow::view::BytesView;
 
-    use super::ViewAccess;
+    use super::{Utf8Check, ViewAccess};
 
     #[test]
     fn str_is_some_does_not_validate_utf8() {
@@ -266,5 +299,46 @@ mod tests {
 
         assert!(ViewAccess::<str>::is_some(&view, 0).unwrap());
         ViewAccess::<str>::get(&view, 0).unwrap_err();
+    }
+
+    #[test]
+    fn utf8_check_validates_unless_trusted() {
+        let view = BytesView {
+            validity: None,
+            offsets: &[0_i32, 2, 4],
+            data: &[0xff, 0xfe, b'o', b'k'],
+        };
+
+        assert!(Utf8Check::VALIDATE.get_required(&view, 0).is_err());
+        assert_eq!(Utf8Check::VALIDATE.get_required(&view, 1).unwrap(), "ok");
+
+        // SAFETY: only the valid value is read
+        let trusted = unsafe { Utf8Check::trusted() };
+        assert_eq!(trusted.get_required(&view, 1).unwrap(), "ok");
+    }
+
+    #[test]
+    fn from_marrow_validates_utf8() {
+        use marrow::{
+            datatypes::{DataType, Field},
+            view::View,
+        };
+        use serde::Deserialize;
+
+        use crate::{utils::Item, Deserializer};
+
+        let fields = [Field {
+            name: String::from("item"),
+            data_type: DataType::Utf8,
+            ..Field::default()
+        }];
+        let views = [View::Utf8(BytesView {
+            validity: None,
+            offsets: &[0_i32, 2],
+            data: &[0xff, 0xfe],
+        })];
+
+        let deserializer = Deserializer::from_marrow(&fields, &views).unwrap();
+        assert!(Vec::<Item<String>>::deserialize(deserializer).is_err());
     }
 }

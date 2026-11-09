@@ -4,7 +4,7 @@ use serde::de::{DeserializeSeed, Deserializer, EnumAccess, Visitor};
 use crate::internal::{
     error::{fail, set_default, Context, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::{ChildName, Offset},
+    utils::{array_view_ext::Utf8Check, ChildName, Offset},
 };
 
 use super::{
@@ -20,7 +20,7 @@ pub struct EnumDeserializer<'a> {
 }
 
 impl<'a> EnumDeserializer<'a> {
-    pub fn new(path: String, view: UnionView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: UnionView<'a>, utf8: Utf8Check) -> Result<Self> {
         let Some(offsets) = view.offsets else {
             fail!("only dense unions are supported");
         };
@@ -40,6 +40,7 @@ impl<'a> EnumDeserializer<'a> {
                 child_path,
                 get_strategy_from_metadata(&field_meta.metadata)?.as_ref(),
                 field_view,
+                utf8,
             )?;
             variants.push((field_meta.name, field_deserializer))
         }
