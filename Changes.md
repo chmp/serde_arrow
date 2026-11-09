@@ -7,6 +7,7 @@
   ([#329](https://github.com/chmp/serde_arrow/pull/329))
 - Do not validate UTF-8 when checking string values for null. Deserializing
   nullable string fields no longer validates each value twice
+  ([#334](https://github.com/chmp/serde_arrow/pull/334))
 
 ## 0.15.1
 
