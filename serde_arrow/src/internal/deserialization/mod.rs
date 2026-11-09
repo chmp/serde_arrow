@@ -12,6 +12,7 @@ pub mod fixed_size_list_deserializer;
 pub mod float_deserializer;
 pub mod integer_deserializer;
 pub mod integer_impls;
+pub mod interval_deserializer;
 pub mod list_deserializer;
 pub mod map_deserializer;
 pub mod null_deserializer;

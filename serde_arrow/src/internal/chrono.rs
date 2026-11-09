@@ -1,5 +1,5 @@
 //! Support for Parsing datetime related quantities
-use marrow::datatypes::TimeUnit;
+use marrow::{datatypes::TimeUnit, types::MonthDayNanoInterval};
 
 use crate::internal::error::Result;
 
@@ -110,6 +110,75 @@ impl parsing::Span<'_> {
             Ok(unsigned_duration)
         }
     }
+
+    /// Convert the `Span` into an Arrow `MonthDayNano` interval
+    ///
+    /// Years are folded into months, weeks into days and the time units into nanoseconds.
+    /// Subsecond digits beyond nanoseconds are truncated.
+    pub fn to_arrow_interval(&self) -> Result<MonthDayNanoInterval> {
+        fn value(s: Option<&str>) -> Result<i128> {
+            Ok(i128::from(get_optional_digit_value(s)?))
+        }
+
+        fn convert<T: TryFrom<i128>>(name: &str, value: i128) -> Result<T> {
+            match T::try_from(value) {
+                Ok(value) => Ok(value),
+                Err(_) => fail!("{name} value {value} is out of range for Interval(MonthDayNano)"),
+            }
+        }
+
+        // sums and products of i64 values with these factors cannot overflow i128
+        let sign = if self.sign == Some('-') { -1 } else { 1 };
+        let months = sign * (value(self.year)? * 12 + value(self.month)?);
+        let days = sign * (value(self.week)? * 7 + value(self.day)?);
+        let seconds = value(self.hour)? * 3_600 + value(self.minute)? * 60 + value(self.second)?;
+        let nanoseconds =
+            sign * (seconds * 1_000_000_000 + i128::from(self.get_nanosecond_value()?));
+
+        Ok(MonthDayNanoInterval {
+            months: convert("months", months)?,
+            days: convert("days", days)?,
+            nanoseconds: convert("nanoseconds", nanoseconds)?,
+        })
+    }
+}
+
+/// Format an Arrow `MonthDayNano` interval as a Span string
+///
+/// Spans carry a single sign, intervals whose components differ in sign cannot be formatted.
+pub fn format_arrow_interval_as_span(value: MonthDayNanoInterval) -> Result<String> {
+    use std::fmt::Write;
+
+    let MonthDayNanoInterval {
+        months,
+        days,
+        nanoseconds,
+    } = value;
+    let components = [i64::from(months), i64::from(days), nanoseconds];
+    let is_negative = components.iter().any(|value| *value < 0);
+    if is_negative && components.iter().any(|value| *value > 0) {
+        fail!("cannot format interval components with different signs as a span");
+    }
+
+    let mut result = String::from(if is_negative { "-P" } else { "P" });
+    if months != 0 {
+        write!(result, "{}m", months.unsigned_abs())?;
+    }
+    if days != 0 {
+        write!(result, "{}d", days.unsigned_abs())?;
+    }
+    if nanoseconds != 0 {
+        let nanoseconds = nanoseconds.unsigned_abs();
+        write!(
+            result,
+            "T{}.{:09}s",
+            nanoseconds / 1_000_000_000,
+            nanoseconds % 1_000_000_000
+        )?;
+    } else if months == 0 && days == 0 {
+        result.push_str("T0s");
+    }
+    Ok(result)
 }
 
 /// Format a duration in the given unit as a Span string
@@ -1029,4 +1098,52 @@ fn test_parse_and_format_duration() {
         parse_as_duration("PT0.123456789s", TimeUnit::Nanosecond),
         123456789
     );
+}
+
+#[test]
+fn test_parse_and_format_interval() {
+    fn parse_as_interval(s: &str) -> (i32, i32, i64) {
+        let value = parse_span(s).unwrap().to_arrow_interval().unwrap();
+        (value.months, value.days, value.nanoseconds)
+    }
+
+    fn format_interval(months: i32, days: i32, nanoseconds: i64) -> String {
+        format_arrow_interval_as_span(MonthDayNanoInterval {
+            months,
+            days,
+            nanoseconds,
+        })
+        .unwrap()
+    }
+
+    assert_eq!(
+        parse_as_interval("P1Y2M3W4DT5H6M7.123456789S"),
+        (14, 25, 18_367_123_456_789)
+    );
+    assert_eq!(parse_as_interval("-PT1h"), (0, 0, -3_600_000_000_000));
+    assert_eq!(parse_as_interval("PT0.0000000019s"), (0, 0, 1));
+    assert_eq!(parse_as_interval("PT0s"), (0, 0, 0));
+
+    assert_eq!(
+        format_interval(14, 25, 18_367_123_456_789),
+        "P14m25dT18367.123456789s"
+    );
+    assert_eq!(format_interval(0, 0, 0), "PT0s");
+    assert_eq!(format_interval(-1, 0, 0), "-P1m");
+    assert_eq!(format_interval(0, 3, 0), "P3d");
+    assert_eq!(
+        format_interval(i32::MIN, i32::MIN, i64::MIN),
+        "-P2147483648m2147483648dT9223372036.854775808s"
+    );
+
+    parse_span("P2147483648m")
+        .unwrap()
+        .to_arrow_interval()
+        .unwrap_err();
+    format_arrow_interval_as_span(MonthDayNanoInterval {
+        months: 1,
+        days: -1,
+        nanoseconds: 0,
+    })
+    .unwrap_err();
 }

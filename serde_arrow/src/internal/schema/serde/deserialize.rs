@@ -171,8 +171,12 @@ fn build_data_type(data_type: String, children: Vec<Field>) -> Result<DataType> 
         ("Time32", [unit]) => T::Time32(unit.as_ident()?.parse()?),
         ("Time64", [unit]) => T::Time64(unit.as_ident()?.parse()?),
         ("Duration", [unit]) => T::Duration(unit.as_ident()?.parse()?),
+        ("Interval", [unit]) => T::Interval(unit.as_ident()?.parse()?),
         ("Decimal128", [precision, scale]) => {
             T::Decimal128(precision.as_ident()?.parse()?, scale.as_ident()?.parse()?)
+        }
+        ("Decimal256", [precision, scale]) => {
+            T::Decimal256(precision.as_ident()?.parse()?, scale.as_ident()?.parse()?)
         }
         ("Struct", []) => T::Struct(children),
         ("List", []) => {

@@ -236,6 +236,8 @@ pub enum DataType {
     Interval(IntervalUnit),
     /// Fixed point values stored with the given precision and scale
     Decimal128(u8, i8),
+    /// Fixed point values stored as `i256` with the given precision and scale
+    Decimal256(u8, i8),
     /// Structs
     Struct(Vec<Field>),
     /// Lists with `i32` offsets

@@ -32,7 +32,12 @@ This page documents supported types from both Arrow and Rust perspectives.
 - [x] [`Time32`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time32)
 - [x] [`Time64`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Time64)
 - [x] [`Duration`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Duration)
-- [ ] [`Interval`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Interval)
+- [x] [`Interval(MonthDayNano)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Interval):
+  intervals are serialized from and deserialized to span strings (e.g.,
+  `jiff::Span`) or structs with the fields `months`, `days` and `nanoseconds`.
+  Spans have a single sign, intervals with components of different signs can
+  only be deserialized into structs. `YearMonth` and `DayTime` intervals are
+  not supported
 - [x] [`Timestamp(Second | Millisecond | Microsecond | Nanosecond, None | Some("UTC"))`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Timestamp):
   at the moment only timestamps without timezone or UTC timezone are supported
 - [x] [`Binary`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Binary)
@@ -55,7 +60,8 @@ This page documents supported types from both Arrow and Rust perspectives.
   arrays are always deserialized as string. Values are truncated to the given
   `(precision, scale)` range. Values too large for this range will result in a
   serialization error.
-- [ ] [`Decimal256(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal256)
+- [x] [`Decimal256(precision, scale)`](https://docs.rs/arrow/latest/arrow/datatypes/enum.DataType.html#variant.Decimal256):
+  the same as `Decimal128`, but with values stored as 256 bit integers
 
 ## Rust types
 
@@ -169,7 +175,7 @@ With [`chrono::serde::ts_microseconds`][chrono-ts-microseconds]:
 #### `jiff::Span`
 
 - is serialized as Serde strings
-- can be mapped to `Utf8`, `LargeUtf8`, `Duration(..)`
+- can be mapped to `Utf8`, `LargeUtf8`, `Duration(..)`, `Interval(MonthDayNano)`
 - `from_samples` detects `LargeUtf8`
 - `from_type` is not supported, as the type is not self-describing
 
@@ -187,7 +193,7 @@ is not supported because there is no clear mapping to an Arrow type
 
 ### [`bigdecimal::BigDecimal`][bigdecimal::BigDecimal]
 
-- when using the `Decimal128(..)` data type
+- when using the `Decimal128(..)` or `Decimal256(..)` data types
 
 [chrono-ts-microseconds]: https://docs.rs/chrono/latest/chrono/serde/ts_microseconds/
 [rust_decimal::Decimal]: https://docs.rs/rust_decimal/latest/rust_decimal/struct.Decimal.html

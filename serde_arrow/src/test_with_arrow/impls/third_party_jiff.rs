@@ -427,6 +427,65 @@ mod span {
     }
 }
 
+mod span_interval {
+    use super::*;
+    use crate::internal::testing::assert_error_contains;
+    use serde::{Deserialize, Serialize};
+
+    /// Wrapper around spans that compares the individual units
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct FieldwiseSpan(pub Span);
+
+    impl std::cmp::PartialEq for FieldwiseSpan {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.fieldwise() == other.0.fieldwise()
+        }
+    }
+
+    /// Spans are compared fieldwise, therefore the items use the units stored in intervals
+    #[test]
+    fn as_interval_month_day_nano() {
+        use std::ops::Neg;
+
+        let items = [
+            Span::new()
+                .months(14)
+                .days(3)
+                .seconds(4)
+                .milliseconds(5)
+                .microseconds(6)
+                .nanoseconds(7),
+            Span::new().months(1).seconds(43_200).neg(),
+            Span::new().months(239_976),
+            Span::new(),
+        ]
+        .map(|span| Item(FieldwiseSpan(span)));
+        Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Interval(MonthDayNano)"}]))
+            .serialize(&items)
+            .deserialize(&items);
+    }
+
+    /// Intervals can exceed the ranges of spans, e.g., more than 239976 months
+    #[test]
+    fn interval_outside_of_span_range() {
+        let items = [Item(
+            json!({"months": 239_977, "days": 0, "nanoseconds": 0}),
+        )];
+        let test = Test::new()
+            .with_schema(json!([{"name": "item", "data_type": "Interval(MonthDayNano)"}]))
+            .serialize(&items);
+        let fields = test.get_arrow_fields();
+        let arrays = test.arrays.arrow.as_ref().unwrap();
+
+        let actual: Vec<Item<String>> = crate::from_arrow(&fields, arrays).unwrap();
+        assert_eq!(actual, vec![Item(String::from("P239977m"))]);
+
+        let err = crate::from_arrow::<Vec<Item<Span>>, _>(&fields, arrays).unwrap_err();
+        assert_error_contains(&err, "parameter 'months' is not in the required range");
+    }
+}
+
 mod signed_duration {
     use super::*;
     use jiff::{SignedDuration, SpanRelativeTo};

@@ -6,6 +6,7 @@ use serde::Serialize;
 use marrow::{
     array::{Array, BytesArray, BytesViewArray},
     datatypes::FieldMeta,
+    types::i256,
 };
 
 use crate::internal::error::{Context, Error, Result};
@@ -15,9 +16,9 @@ use super::{
     decimal_builder::DecimalBuilder, dictionary_utf8_builder::DictionaryUtf8Builder,
     duration_builder::DurationBuilder, fixed_size_binary_builder::FixedSizeBinaryBuilder,
     fixed_size_list_builder::FixedSizeListBuilder, float_builder::FloatBuilder,
-    int_builder::IntBuilder, list_builder::ListBuilder, map_builder::MapBuilder,
-    null_builder::NullBuilder, struct_builder::StructBuilder, time_builder::TimeBuilder,
-    timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
+    int_builder::IntBuilder, interval_builder::IntervalBuilder, list_builder::ListBuilder,
+    map_builder::MapBuilder, null_builder::NullBuilder, struct_builder::StructBuilder,
+    time_builder::TimeBuilder, timestamp_builder::TimestampBuilder, union_builder::UnionBuilder,
     unknown_variant_builder::UnknownVariantBuilder, utf8_builder::Utf8Builder,
 };
 
@@ -41,8 +42,10 @@ pub enum ArrayBuilder {
     Time32(TimeBuilder<i32>),
     Time64(TimeBuilder<i64>),
     Duration(DurationBuilder),
+    Interval(IntervalBuilder),
     Timestamp(TimestampBuilder),
-    Decimal128(DecimalBuilder),
+    Decimal128(DecimalBuilder<i128>),
+    Decimal256(DecimalBuilder<i256>),
     List(ListBuilder<i32>),
     LargeList(ListBuilder<i64>),
     FixedSizedList(FixedSizeListBuilder),
@@ -81,8 +84,10 @@ macro_rules! dispatch {
             $wrapper::Time32($name) => $expr,
             $wrapper::Time64($name) => $expr,
             $wrapper::Duration($name) => $expr,
+            $wrapper::Interval($name) => $expr,
             $wrapper::Timestamp($name) => $expr,
             $wrapper::Decimal128($name) => $expr,
+            $wrapper::Decimal256($name) => $expr,
             $wrapper::Utf8($name) => $expr,
             $wrapper::LargeUtf8($name) => $expr,
             $wrapper::Utf8View($name) => $expr,

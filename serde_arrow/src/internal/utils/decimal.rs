@@ -5,6 +5,7 @@
 //! position of the decimal point.
 
 use crate::internal::error::{fail, Result};
+use marrow::types::i256;
 use std::ops::{Range, RangeTo};
 
 const MAX_I128_FORMATTED_LEN_WITH_SIGN: usize = 40;
@@ -17,6 +18,9 @@ const MAX_I8_ABS: usize = i8::MIN.unsigned_abs() as usize;
 /// Underscores do not affect the size: formatting never emits them, and parsing
 /// removes them before writing into this buffer.
 pub const BUFFER_SIZE_I128: usize = MAX_I128_FORMATTED_LEN_WITH_SIGN + MAX_I8_ABS;
+
+/// Large enough to format any `i256` decimal with any `i8` scale, see [`BUFFER_SIZE_I128`]
+pub const BUFFER_SIZE_I256: usize = 78 + MAX_I8_ABS;
 
 /// Helper to parse decimals
 ///
@@ -56,6 +60,27 @@ impl DecimalParser {
         let val: i128 = self.copy_digits(buffer, len)?.parse()?;
         let val = sign.apply_i128(val);
         Ok(val)
+    }
+
+    pub fn parse_decimal256(self, buffer: &mut [u8], s: &[u8]) -> Result<i256> {
+        let (s, sign) = parse_sign(s);
+        let len = copy_into_buffer_without_underscores(buffer, s)?;
+        let digits = self.copy_digits(buffer, len)?;
+        if digits.is_empty() {
+            fail!("invalid decimal: no digits");
+        }
+
+        let mut magnitude = U256::default();
+        for digit in digits.bytes() {
+            if !digit.is_ascii_digit() {
+                fail!("invalid decimal: only ASCII digits are supported");
+            }
+            let Some(next) = magnitude.checked_mul_add(10, u64::from(digit - b'0')) else {
+                fail!("invalid decimal: value is out of range for Decimal256");
+            };
+            magnitude = next;
+        }
+        magnitude.into_i256(matches!(sign, Sign::Minus))
     }
 
     fn copy_digits(self, buffer: &mut [u8], len: usize) -> Result<&str> {
@@ -440,7 +465,29 @@ fn test_copy_digits() {
 }
 
 pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> Result<&str> {
-    fn write_val(buffer: &mut [u8], val: i128) -> Result<usize> {
+    format_decimal_digits(buffer, val, val < 0, val == 0, scale)
+}
+
+pub fn format_decimal256(buffer: &mut [u8], val: i256, scale: i8) -> Result<&str> {
+    let (is_negative, magnitude) = U256::from_i256(val);
+    let is_zero = magnitude == U256::default();
+    format_decimal_digits(
+        buffer,
+        DisplayI256(is_negative, magnitude),
+        is_negative,
+        is_zero,
+        scale,
+    )
+}
+
+fn format_decimal_digits(
+    buffer: &mut [u8],
+    val: impl std::fmt::Display,
+    is_negative: bool,
+    is_zero: bool,
+    scale: i8,
+) -> Result<&str> {
+    fn write_val(buffer: &mut [u8], val: impl std::fmt::Display) -> Result<usize> {
         use std::io::Write;
 
         let initial_length = buffer.len();
@@ -455,7 +502,7 @@ pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> Result<&str> {
     let res = if scale == 0 {
         let num_bytes_written = write_val(buffer, val)?;
         expect_to(buffer, ..num_bytes_written)
-    } else if scale < 0 && val == 0 {
+    } else if scale < 0 && is_zero {
         b"0"
     } else if scale < 0 {
         let scale = usize::from(scale.unsigned_abs());
@@ -466,7 +513,7 @@ pub fn format_decimal(buffer: &mut [u8], val: i128, scale: i8) -> Result<&str> {
     } else {
         let scale = usize::from(scale.unsigned_abs());
         let num_bytes_written = write_val(buffer, val)?;
-        let num_sign_bytes = if val >= 0 { 0 } else { 1 };
+        let num_sign_bytes = if is_negative { 1 } else { 0 };
         let num_digits_written = num_bytes_written - num_sign_bytes;
 
         if num_digits_written <= scale {
@@ -570,4 +617,228 @@ fn test_format_decimal() {
             "0".repeat(usize::from(i8::MAX.unsigned_abs()) - 1)
         )
     );
+}
+
+/// Convert a float that is already multiplied by `10^scale`, truncating the fraction
+pub fn scaled_f64_to_i256(value: f64) -> Result<i256> {
+    let exclusive_i256_bound = 2.0_f64.powi(255);
+
+    if !value.is_finite() {
+        fail!("cannot serialize non-finite float {value} as decimal");
+    }
+    if !(-exclusive_i256_bound..exclusive_i256_bound).contains(&value) {
+        fail!("float value {value} is out of range for Decimal256");
+    }
+
+    // Split the magnitude at 2^128: both halves are integers below 2^128 that floats represent
+    // exactly, the lower half is a multiple of the resolution of the float
+    let two_pow_128 = 2.0_f64.powi(128);
+    let magnitude = value.abs().trunc();
+    let high = (magnitude / two_pow_128).trunc();
+    let low = magnitude - high * two_pow_128;
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "range and finite checks above ensure both halves are integers in 0..2^128"
+    )]
+    let magnitude = U256 {
+        high: high as u128,
+        low: low as u128,
+    };
+    magnitude.into_i256(value < 0.0)
+}
+
+const LOWER_64_BITS: u128 = (1 << 64) - 1;
+
+/// The magnitude of a 256 bit integer, with only the operations decimals require
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct U256 {
+    high: u128,
+    low: u128,
+}
+
+impl U256 {
+    /// Split a two's complement value into its sign and magnitude
+    fn from_i256(value: i256) -> (bool, Self) {
+        let bits = Self {
+            high: u128::from_le_bytes(value.high.to_le_bytes()),
+            low: value.low,
+        };
+        if value.high < 0 {
+            (true, bits.wrapping_neg())
+        } else {
+            (false, bits)
+        }
+    }
+
+    /// Build the two's complement value from a sign and a magnitude
+    fn into_i256(self, is_negative: bool) -> Result<i256> {
+        let sign_bit = 1_u128 << 127;
+        let min_magnitude = Self {
+            high: sign_bit,
+            low: 0,
+        };
+        if self.high >= sign_bit && !(is_negative && self == min_magnitude) {
+            fail!("invalid decimal: value is out of range for Decimal256");
+        }
+
+        let bits = if is_negative {
+            self.wrapping_neg()
+        } else {
+            self
+        };
+        Ok(i256 {
+            low: bits.low,
+            high: i128::from_le_bytes(bits.high.to_le_bytes()),
+        })
+    }
+
+    fn wrapping_neg(self) -> Self {
+        let low = (!self.low).wrapping_add(1);
+        let high = (!self.high).wrapping_add(u128::from(low == 0));
+        Self { high, low }
+    }
+
+    fn checked_mul_add(self, factor: u64, summand: u64) -> Option<Self> {
+        let factor = u128::from(factor);
+        let lower = (self.low & LOWER_64_BITS) * factor + u128::from(summand);
+        let upper = (self.low >> 64) * factor + (lower >> 64);
+        Some(Self {
+            high: self.high.checked_mul(factor)?.checked_add(upper >> 64)?,
+            low: (upper << 64) | (lower & LOWER_64_BITS),
+        })
+    }
+
+    /// Divide by `divisor`, return the quotient and the remainder
+    fn div_rem(self, divisor: u64) -> (Self, u128) {
+        let divisor = u128::from(divisor);
+        let mut remainder = self.high % divisor;
+        let mut low = 0;
+        for shift in [64, 0] {
+            // the remainder is smaller than the divisor, each partial quotient fits into 64 bits
+            let dividend = (remainder << 64) | ((self.low >> shift) & LOWER_64_BITS);
+            low = (low << 64) | (dividend / divisor);
+            remainder = dividend % divisor;
+        }
+        let quotient = Self {
+            high: self.high / divisor,
+            low,
+        };
+        (quotient, remainder)
+    }
+}
+
+/// Display a 256 bit integer given as sign and magnitude
+struct DisplayI256(bool, U256);
+
+impl std::fmt::Display for DisplayI256 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(is_negative, mut magnitude) = *self;
+
+        // chunks of 19 digits, least significant first, 5 chunks cover 2^256 < 10^95
+        let mut chunks = [0_u128; 5];
+        let mut num_chunks = 0;
+        for chunk in &mut chunks {
+            (magnitude, *chunk) = magnitude.div_rem(10_000_000_000_000_000_000);
+            num_chunks += 1;
+            if magnitude == U256::default() {
+                break;
+            }
+        }
+
+        if is_negative {
+            f.write_str("-")?;
+        }
+        let mut chunks = chunks.iter().take(num_chunks).rev();
+        if let Some(chunk) = chunks.next() {
+            write!(f, "{chunk}")?;
+        }
+        for chunk in chunks {
+            write!(f, "{chunk:019}")?;
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn test_decimal256_bounds() {
+    const MAX: &str =
+        "57896044618658097711785492504343953926634992332820282019728792003956564819967";
+    const MIN: &str =
+        "-57896044618658097711785492504343953926634992332820282019728792003956564819968";
+    let max = i256 {
+        low: u128::MAX,
+        high: i128::MAX,
+    };
+    let min = i256 {
+        low: 0,
+        high: i128::MIN,
+    };
+
+    let parse = |s: &str| {
+        let mut buffer = [0; BUFFER_SIZE_I256];
+        DecimalParser::new(77, 0, false).parse_decimal256(&mut buffer, s.as_bytes())
+    };
+    assert_eq!(parse(MAX), Ok(max));
+    assert_eq!(parse(MIN), Ok(min));
+    parse("57896044618658097711785492504343953926634992332820282019728792003956564819968")
+        .unwrap_err();
+    parse("-57896044618658097711785492504343953926634992332820282019728792003956564819969")
+        .unwrap_err();
+
+    let format = |val: i256, scale: i8| {
+        let mut buffer = [0; BUFFER_SIZE_I256];
+        format_decimal256(&mut buffer, val, scale)
+            .unwrap()
+            .to_owned()
+    };
+    assert_eq!(format(max, 0), MAX);
+    assert_eq!(format(min, 0), MIN);
+    assert_eq!(
+        format(max, 38),
+        "578960446186580977117854925043439539266.34992332820282019728792003956564819967"
+    );
+    assert_eq!(format(min, i8::MIN), format!("{MIN}{}", "0".repeat(128)));
+    assert_eq!(
+        format(
+            i256 {
+                low: u128::MAX,
+                high: -1
+            },
+            3
+        ),
+        "-0.001"
+    );
+}
+
+#[test]
+fn test_scaled_f64_to_i256() {
+    let two_pow_128 = 2.0_f64.powi(128);
+
+    assert_eq!(scaled_f64_to_i256(-0.5), Ok(i256::default()));
+    assert_eq!(scaled_f64_to_i256(42.9), Ok(i256 { low: 42, high: 0 }));
+    assert_eq!(
+        scaled_f64_to_i256(1.5 * two_pow_128),
+        Ok(i256 {
+            low: 1 << 127,
+            high: 1
+        })
+    );
+    assert_eq!(
+        scaled_f64_to_i256(-1.5 * two_pow_128),
+        Ok(i256 {
+            low: 1 << 127,
+            high: -2
+        })
+    );
+    assert_eq!(
+        scaled_f64_to_i256(-(2.0_f64.powi(255))),
+        Ok(i256 {
+            low: 0,
+            high: i128::MIN
+        })
+    );
+    scaled_f64_to_i256(2.0_f64.powi(255)).unwrap_err();
+    scaled_f64_to_i256(f64::NAN).unwrap_err();
 }

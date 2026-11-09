@@ -192,6 +192,114 @@ fn pyarrow_decimal_column_to_rust() -> Result<()> {
 }
 
 #[test]
+fn rust_decimal256_column_to_pyarrow() -> Result<()> {
+    #[derive(Serialize)]
+    struct Record {
+        amount: Option<String>,
+    }
+
+    let items = vec![
+        Record {
+            amount: Some(
+                "12345678901234567890123456789012345678.12345678901234567890123456789012345678"
+                    .into(),
+            ),
+        },
+        Record { amount: None },
+        Record {
+            amount: Some("-45.67".into()),
+        },
+    ];
+    let fields = Vec::from_value(json!([{
+        "name": "amount",
+        "data_type": "Decimal256(76, 38)",
+        "nullable": true,
+    }]))?;
+
+    let batch = serde_arrow::to_record_batch(&fields, &items)?;
+
+    write_file("rust_decimal256_column.ipc", &batch)?;
+    let _output = execute_python(
+        r#"
+        import sys
+        import pyarrow as pa
+        from decimal import Decimal
+
+        tbl = pa.ipc.open_file(sys.argv[1]).read_all()
+        col = tbl["amount"].combine_chunks()
+
+        assert col.type == pa.decimal256(76, 38)
+        assert col.to_pylist() == [
+            Decimal("12345678901234567890123456789012345678.12345678901234567890123456789012345678"),
+            None,
+            Decimal("-45.67"),
+        ]
+    "#,
+        &["rust_decimal256_column.ipc"],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn pyarrow_decimal256_column_to_rust() -> Result<()> {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Record {
+        amount: Option<String>,
+    }
+
+    let _output = execute_python(
+        r#"
+        import sys
+        import pyarrow as pa
+        from decimal import Decimal
+
+        schema = pa.schema([
+            pa.field("amount", pa.decimal256(76, 38), nullable=True),
+        ])
+        tbl = pa.table(
+            [
+                pa.array(
+                    [
+                        Decimal("12345678901234567890123456789012345678.12345678901234567890123456789012345678"),
+                        None,
+                        Decimal("-45.67"),
+                    ],
+                    type=schema.field("amount").type,
+                ),
+            ],
+            schema=schema,
+        )
+
+        with pa.OSFile(sys.argv[1], "wb") as sink:
+            with pa.ipc.new_file(sink, tbl.schema) as writer:
+                writer.write_table(tbl)
+    "#,
+        &["pyarrow_decimal256_column.ipc"],
+    )?;
+    let batch = read_file("pyarrow_decimal256_column.ipc")?;
+
+    let actual: Vec<Record> = serde_arrow::from_record_batch(&batch)?;
+    assert_eq!(
+        actual,
+        vec![
+            Record {
+                amount: Some(
+                    "12345678901234567890123456789012345678.12345678901234567890123456789012345678"
+                        .into()
+                ),
+            },
+            Record { amount: None },
+            Record {
+                amount: Some("-45.67000000000000000000000000000000000000".into()),
+            },
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn rust_map_column_to_pyarrow() -> Result<()> {
     #[derive(Serialize)]
     struct Record {

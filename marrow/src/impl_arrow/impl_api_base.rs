@@ -50,6 +50,7 @@ impl TryFrom<&arrow_schema::DataType> for DataType {
             AT::Date32 => Ok(T::Date32),
             AT::Date64 => Ok(T::Date64),
             AT::Decimal128(precision, scale) => Ok(T::Decimal128(*precision, *scale)),
+            AT::Decimal256(precision, scale) => Ok(T::Decimal256(*precision, *scale)),
             AT::Time32(unit) => Ok(T::Time32(unit.clone().try_into()?)),
             AT::Time64(unit) => Ok(T::Time64(unit.clone().try_into()?)),
             AT::Timestamp(unit, tz) => Ok(T::Timestamp(
@@ -133,6 +134,7 @@ impl TryFrom<&DataType> for arrow_schema::DataType {
             T::Date32 => Ok(AT::Date32),
             T::Date64 => Ok(AT::Date64),
             T::Decimal128(precision, scale) => Ok(AT::Decimal128(*precision, *scale)),
+            T::Decimal256(precision, scale) => Ok(AT::Decimal256(*precision, *scale)),
             T::Time32(unit) => Ok(AT::Time32((*unit).try_into()?)),
             T::Time64(unit) => Ok(AT::Time64((*unit).try_into()?)),
             T::Timestamp(unit, tz) => Ok(AT::Timestamp(
@@ -385,6 +387,14 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             arrow_schema::DataType::Decimal128(arr.precision, arr.scale),
             arr.validity,
             arr.values,
+        ),
+        A::Decimal256(arr) => primitive_into_data(
+            arrow_schema::DataType::Decimal256(arr.precision, arr.scale),
+            arr.validity,
+            arr.values
+                .into_iter()
+                .map(|v| arrow_buffer::i256::from_parts(v.low, v.high))
+                .collect(),
         ),
         A::Utf8(arr) => bytes_into_data(
             arrow_schema::DataType::Utf8,
@@ -703,6 +713,23 @@ impl<'a> TryFrom<&'a dyn arrow_array::Array> for View<'a> {
                 scale,
                 validity: get_bits_with_offset(array),
                 values: array.values(),
+            }))
+        } else if let Some(array) = any.downcast_ref::<arrow_array::Decimal256Array>() {
+            use arrow_array::Array;
+
+            let &arrow_schema::DataType::Decimal256(precision, scale) = array.data_type() else {
+                fail!(
+                    ErrorKind::Unsupported,
+                    "Invalid data type for Decimal256 array: {}",
+                    array.data_type()
+                );
+            };
+            Ok(View::Decimal256(DecimalView {
+                precision,
+                scale,
+                validity: get_bits_with_offset(array),
+                // See note for DayTimeInterval
+                values: bytemuck::try_cast_slice(array.values().inner().as_slice())?,
             }))
         } else if let Some(array) = any.downcast_ref::<arrow_array::Date32Array>() {
             Ok(View::Date32(PrimitiveView {
