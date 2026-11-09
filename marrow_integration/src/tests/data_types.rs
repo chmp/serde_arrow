@@ -100,6 +100,7 @@ fn primitives() -> PanicOnError<()> {
     )?;
     assert_symmetric_conversion(AD::Decimal128(2, -2), DataType::Decimal128(2, -2))?;
     assert_symmetric_conversion(AD::Decimal128(5, 3), DataType::Decimal128(5, 3))?;
+    assert_symmetric_conversion(AD::Decimal256(76, 38), DataType::Decimal256(76, 38))?;
     Ok(())
 }
 

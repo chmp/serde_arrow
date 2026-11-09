@@ -105,7 +105,11 @@ impl serde::Serialize for PrettyFieldDataType<'_> {
             T::Decimal128(precision, scale) => {
                 format!("Decimal128({precision}, {scale})").serialize(serializer)
             }
+            T::Decimal256(precision, scale) => {
+                format!("Decimal256({precision}, {scale})").serialize(serializer)
+            }
             T::Duration(unit) => format!("Duration({unit})").serialize(serializer),
+            T::Interval(unit) => format!("Interval({unit})").serialize(serializer),
             T::Time32(unit) => format!("Time32({unit})").serialize(serializer),
             T::Time64(unit) => format!("Time64({unit})").serialize(serializer),
             T::Timestamp(unit, tz) => format!("Timestamp({unit}, {tz:?})").serialize(serializer),

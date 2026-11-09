@@ -777,6 +777,59 @@ mod interval_year_month {
     }
 }
 
+mod decimal256 {
+    use super::*;
+
+    use arrow_array::{types::Decimal256Type, ArrowPrimitiveType, Decimal256Array};
+    use marrow::{array::DecimalArray, types::i256};
+
+    type ArrowI256 = <Decimal256Type as ArrowPrimitiveType>::Native;
+
+    #[test]
+    fn layout() {
+        assert_eq!(
+            std::mem::size_of::<ArrowI256>(),
+            std::mem::size_of::<i256>()
+        );
+        assert_eq!(
+            std::mem::align_of::<ArrowI256>(),
+            std::mem::align_of::<i256>()
+        );
+    }
+
+    #[test]
+    fn nullable() -> PanicOnError<()> {
+        assert_arrays_eq(
+            Arc::new(
+                Decimal256Array::from(vec![
+                    Some(ArrowI256::from_parts(1, 2)),
+                    None,
+                    Some(ArrowI256::MIN),
+                    Some(ArrowI256::from_i128(-1)),
+                ])
+                .with_precision_and_scale(76, 38)?,
+            ),
+            Array::Decimal256(DecimalArray {
+                precision: 76,
+                scale: 38,
+                validity: Some(marrow::bit_vec![true, false, true, true]),
+                values: vec![
+                    i256 { low: 1, high: 2 },
+                    i256::default(),
+                    i256 {
+                        low: 0,
+                        high: i128::MIN,
+                    },
+                    i256 {
+                        low: u128::MAX,
+                        high: -1,
+                    },
+                ],
+            }),
+        )
+    }
+}
+
 mod timestamp_second {
     use super::*;
 

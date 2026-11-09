@@ -8,6 +8,14 @@
 - Do not validate UTF-8 when checking string values for null. Deserializing
   nullable string fields no longer validates each value twice
   ([#334](https://github.com/chmp/serde_arrow/pull/334))
+- Add `Decimal256` support ([#332](https://github.com/chmp/serde_arrow/pull/332))
+- Add `Interval(MonthDayNano)` support. Intervals are serialized from and
+  deserialized to span strings, e.g., `jiff::Span`, or structs with the fields
+  `months`, `days`, `nanoseconds`
+  ([#178](https://github.com/chmp/serde_arrow/issues/178),
+  [#332](https://github.com/chmp/serde_arrow/pull/332))
+- Fix the `field` annotation in errors of `Decimal128` serialization
+  ([#332](https://github.com/chmp/serde_arrow/pull/332))
 
 ## 0.15.1
 
