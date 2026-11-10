@@ -6,5 +6,6 @@ criterion::criterion_main!(
     groups::complex::benchmark,
     groups::primitives::benchmark,
     groups::json_to_arrow::benchmark,
+    groups::utf8::benchmark,
     groups::wide_schema::benchmark,
 );
