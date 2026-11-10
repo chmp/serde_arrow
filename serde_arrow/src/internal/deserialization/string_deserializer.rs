@@ -81,7 +81,8 @@ where
         visitor: V,
         idx: usize,
     ) -> Result<V::Value> {
-        try_(|| visitor.visit_bytes(self.utf8.get_required(&self.view, idx)?.as_bytes())).ctx(self)
+        // Bytes need no UTF-8 check.
+        try_(|| visitor.visit_bytes(ViewAccess::<[u8]>::get_required(&self.view, idx)?)).ctx(self)
     }
 
     fn deserialize_byte_buf<V: serde::de::Visitor<'a>>(
@@ -90,12 +91,7 @@ where
         idx: usize,
     ) -> Result<V::Value> {
         try_(|| {
-            visitor.visit_byte_buf(
-                self.utf8
-                    .get_required(&self.view, idx)?
-                    .to_owned()
-                    .into_bytes(),
-            )
+            visitor.visit_byte_buf(ViewAccess::<[u8]>::get_required(&self.view, idx)?.to_owned())
         })
         .ctx(self)
     }

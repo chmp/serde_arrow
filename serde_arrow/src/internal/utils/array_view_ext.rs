@@ -341,4 +341,31 @@ mod tests {
         let deserializer = Deserializer::from_marrow(&fields, &views).unwrap();
         assert!(Vec::<Item<String>>::deserialize(deserializer).is_err());
     }
+
+    #[test]
+    fn string_as_bytes_does_not_validate_utf8() {
+        use marrow::{
+            datatypes::{DataType, Field},
+            view::View,
+        };
+        use serde::Deserialize;
+        use serde_bytes::ByteBuf;
+
+        use crate::{utils::Item, Deserializer};
+
+        let fields = [Field {
+            name: String::from("item"),
+            data_type: DataType::Utf8,
+            ..Field::default()
+        }];
+        let views = [View::Utf8(BytesView {
+            validity: None,
+            offsets: &[0_i32, 2],
+            data: &[0xff, 0xfe],
+        })];
+
+        let deserializer = Deserializer::from_marrow(&fields, &views).unwrap();
+        let items = Vec::<Item<ByteBuf>>::deserialize(deserializer).unwrap();
+        assert_eq!(items[0].0.as_ref(), [0xff, 0xfe]);
+    }
 }
