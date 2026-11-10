@@ -53,14 +53,21 @@ fn convert_generic_bytes_view_array_to_marrow<T: arrow_array::types::ByteViewTyp
 }
 
 #[inline]
-fn build_array_data_from_marrow(array: Array) -> Result<arrow_data::ArrayData> {
+fn build_array_data_from_marrow(
+    array: Array,
+    skip_validation: bool,
+) -> Result<arrow_data::ArrayData> {
     match array {
-        Array::Utf8View(array) => {
-            build_binary_view_array_data_from_marrow(arrow_schema::DataType::Utf8View, array)
-        }
-        Array::BinaryView(array) => {
-            build_binary_view_array_data_from_marrow(arrow_schema::DataType::BinaryView, array)
-        }
+        Array::Utf8View(array) => build_binary_view_array_data_from_marrow(
+            arrow_schema::DataType::Utf8View,
+            array,
+            skip_validation,
+        ),
+        Array::BinaryView(array) => build_binary_view_array_data_from_marrow(
+            arrow_schema::DataType::BinaryView,
+            array,
+            false,
+        ),
         array => fail!(
             ErrorKind::Unsupported,
             "Cannot build an array for {dt:?}",
@@ -72,6 +79,7 @@ fn build_array_data_from_marrow(array: Array) -> Result<arrow_data::ArrayData> {
 fn build_binary_view_array_data_from_marrow(
     data_type: arrow_schema::DataType,
     array: BytesViewArray,
+    skip_validation: bool,
 ) -> Result<arrow_data::ArrayData> {
     let len = array.data.len();
     let mut buffers = vec![arrow_buffer::ScalarBuffer::from(array.data).into_inner()];
@@ -79,10 +87,18 @@ fn build_binary_view_array_data_from_marrow(
         buffers.push(arrow_buffer::Buffer::from_vec(buffer));
     }
 
+    let validity = array.validity.map(arrow_buffer::Buffer::from_vec);
+    if skip_validation {
+        // SAFETY: The caller guarantees valid Utf8View descriptors, referenced
+        // UTF-8 data and sufficient validity bits.
+        return Ok(unsafe {
+            arrow_data::ArrayData::new_unchecked(data_type, len, None, validity, 0, buffers, vec![])
+        });
+    }
     Ok(arrow_data::ArrayData::try_new(
         data_type,
         len,
-        array.validity.map(arrow_buffer::Buffer::from_vec),
+        validity,
         0,
         buffers,
         vec![],

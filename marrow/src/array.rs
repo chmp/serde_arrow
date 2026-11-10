@@ -111,6 +111,28 @@ pub enum Array {
     Union(UnionArray),
 }
 
+/// Conversion of an [`Array`] to `arrow::array::ArrayRef` for an enabled
+/// `arrow-*` version, selected by the return type.
+pub trait TryIntoArrow<T>: Sized {
+    /// Convert an array to Arrow, skipping validation covered by the safety contract.
+    ///
+    /// Requiring additional caller guarantees is a breaking change.
+    ///
+    /// # Safety
+    ///
+    /// Every `Utf8` and `LargeUtf8` array, recursively including all children,
+    /// must have nonempty, nonnegative, nondecreasing `offsets` within the `data`
+    /// buffer, and every offset must be at a UTF-8 character boundary. The entire
+    /// data buffer must be valid UTF-8, including null values and unreferenced bytes.
+    /// If present, the validity bitmap must contain at least `offsets.len() - 1` bits.
+    /// Every `Utf8View`, including nested arrays, must have valid view descriptors:
+    /// inline values must have zero padding; external values must reference valid
+    /// buffer ranges and have matching prefixes. All referenced values, including
+    /// null slots, must be valid UTF-8. If present, the validity bitmap must contain
+    /// at least `data.len()` bits.
+    unsafe fn try_into_arrow_unchecked(self) -> Result<T>;
+}
+
 impl Array {
     /// Get the data type of this array
     pub fn data_type(&self) -> DataType {

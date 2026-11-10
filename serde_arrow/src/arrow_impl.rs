@@ -197,7 +197,7 @@ impl crate::internal::array_builder::ArrayBuilder {
         let arrays = self.into_arrays()?;
         Ok(arrays
             .into_iter()
-            .map(ArrayRef::try_from)
+            .map(builder_array_into_arrow)
             .collect::<Result<_, MarrowError>>()?)
     }
 
@@ -214,7 +214,7 @@ impl crate::internal::array_builder::ArrayBuilder {
 
         let arrays = arrays
             .into_iter()
-            .map(ArrayRef::try_from)
+            .map(builder_array_into_arrow)
             .collect::<Result<Vec<ArrayRef>, MarrowError>>()?;
 
         let mut fields = Vec::with_capacity(arrays.len());
@@ -234,6 +234,18 @@ impl crate::internal::array_builder::ArrayBuilder {
             )
         })
     }
+}
+
+fn builder_array_into_arrow(array: marrow::array::Array) -> Result<ArrayRef, MarrowError> {
+    #[cfg(feature = "unsafe-optimizations")]
+    // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries
+    // and sufficient validity bits, including after failed appends.
+    // It stores string bytes before appending their view descriptors.
+    unsafe {
+        marrow::array::TryIntoArrow::try_into_arrow_unchecked(array)
+    }
+    #[cfg(not(feature = "unsafe-optimizations"))]
+    ArrayRef::try_from(array)
 }
 
 impl<'de> Deserializer<'de> {
