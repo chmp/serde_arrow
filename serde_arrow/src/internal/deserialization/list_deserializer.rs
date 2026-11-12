@@ -131,4 +131,8 @@ impl<'de> SeqAccess<'de> for ListItemDeserializer<'_, 'de> {
         self.start += 1;
         Ok(Some(item))
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.end.saturating_sub(self.start).min(1024))
+    }
 }

@@ -3,6 +3,7 @@ use criterion::measurement::Measurement;
 pub mod binary;
 pub mod complex;
 pub mod json_to_arrow;
+pub mod nullable_strings;
 pub mod primitives;
 pub mod wide_schema;
 

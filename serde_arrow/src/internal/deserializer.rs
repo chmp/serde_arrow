@@ -530,6 +530,17 @@ impl<'de> SeqAccess<'de> for Private<DeserializerIterator<'_, 'de>> {
         self.0.next += 1;
         Ok(Some(item))
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        // Keep preallocation bounded when views come from untrusted Marrow offsets.
+        Some(
+            self.0
+                .deserializer
+                .len
+                .saturating_sub(self.0.next)
+                .min(1024),
+        )
+    }
 }
 
 #[allow(unused, reason = "trait assertion")]
