@@ -25,6 +25,38 @@ impl<'de> TrustedViews<'de> {
 }
 
 /// Deserialize from views whose UTF-8 validity has been asserted by the caller.
+///
+/// # Safety boundary
+///
+/// Constructing [`TrustedViews`] is unsafe. The caller must guarantee that
+/// every accessible string, including strings in nested views, is valid UTF-8.
+/// Existing [`from_marrow`] calls continue to validate strings as they are read.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use marrow::{
+///     datatypes::{DataType, Field},
+///     view::{BytesView, View},
+/// };
+/// use serde_arrow::{from_marrow_trusted, utils::Item, TrustedViews};
+///
+/// let fields = [Field {
+///     name: String::from("item"),
+///     data_type: DataType::Utf8,
+///     ..Field::default()
+/// }];
+/// let views = [View::Utf8(BytesView {
+///     validity: None,
+///     offsets: &[0_i32, 2],
+///     data: b"hi",
+/// })];
+/// // SAFETY: the only accessible string is the valid UTF-8 value "hi".
+/// let views = unsafe { TrustedViews::new(&views) };
+/// let values: Vec<Item<String>> = from_marrow_trusted(&fields, views)?;
+/// assert_eq!(values[0].0, "hi");
+/// # Ok(())
+/// # }
+/// ```
 #[cfg(feature = "unsafe-optimizations")]
 pub fn from_marrow_trusted<'de, T>(fields: &[Field], views: TrustedViews<'de>) -> Result<T>
 where
