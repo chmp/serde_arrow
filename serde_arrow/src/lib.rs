@@ -26,7 +26,7 @@
 
 | Operation        | [`arrow-*`](#features)                                            | `marrow`                                            |
 |:-----------------|:------------------------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_marrow`]                                       |
+| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_marrow`], [`to_marrow_trusted`]                |
 | Arrow to Rust    | [`from_record_batch`], [`from_arrow`]                             | [`from_marrow`]                                     |
 | [`ArrayBuilder`] | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_marrow`]                       |
 | [`Serializer`]   | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
@@ -162,8 +162,9 @@
 //! # Ok(())
 //! # }
 //! ```
-//! The `marrow`-based API also provides [`from_marrow_trusted`], which skips
-//! validation for views whose validity the caller has asserted.
+//! The `marrow`-based API also provides [`from_marrow_trusted`] for views whose
+//! validity the caller asserts and [`to_marrow_trusted`] for arrays constructed by
+//! `serde_arrow`.
 
 // be more forgiving without any active implementation
 #[cfg_attr(not(has_arrow), allow(unused))]
@@ -253,7 +254,7 @@ pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 #[deny(missing_docs)]
 mod marrow_impl;
 
-pub use marrow_impl::{from_marrow, from_marrow_trusted, to_marrow};
+pub use marrow_impl::{from_marrow, from_marrow_trusted, to_marrow, to_marrow_trusted};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`
