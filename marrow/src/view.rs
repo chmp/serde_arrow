@@ -126,6 +126,12 @@ impl<'a> TrustedView<'a> {
     }
 }
 
+impl<'a> From<TrustedView<'a>> for View<'a> {
+    fn from(value: TrustedView<'a>) -> Self {
+        value.0
+    }
+}
+
 impl View<'_> {
     /// Get the data type of this array
     pub fn data_type(&self) -> DataType {

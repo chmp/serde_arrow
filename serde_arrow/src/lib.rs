@@ -249,16 +249,12 @@ pub use crate::internal::array_builder::ArrayBuilder;
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::{
-    from_arrow, from_arrow_trusted, from_record_batch, from_record_batch_trusted, to_arrow,
-    to_record_batch,
-};
+pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 
 #[deny(missing_docs)]
 mod marrow_impl;
 
-pub use marrow_impl::from_marrow_trusted;
-pub use marrow_impl::{from_marrow, to_marrow};
+pub use marrow_impl::{from_marrow, from_marrow_trusted, to_marrow};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`

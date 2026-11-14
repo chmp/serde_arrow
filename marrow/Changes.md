@@ -5,9 +5,10 @@
 - Add `Decimal256` support ([#332](https://github.com/chmp/serde_arrow/pull/332))
 - Implement `Default` for `MonthDayNanoInterval`
   ([#332](https://github.com/chmp/serde_arrow/pull/332))
-- Add `TrustedArray` for explicitly trusted conversion to Arrow. Its unsafe
-  constructor requires the caller to uphold the documented recursive string
-  invariants; ordinary `Array` conversion remains validated.
+- Add `TrustedArray` and `TrustedView` for explicitly trusted conversion to
+  Arrow and deserialization from views. Their unsafe constructors require the
+  caller to uphold the documented recursive string invariants; ordinary
+  `Array` conversion remains validated.
 
 ## 0.3.1
 

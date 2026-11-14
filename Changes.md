@@ -2,8 +2,12 @@
 
 ## development
 
-- Add the default-off `unsafe-optimizations` feature for trusted UTF-8
-  deserialization of Arrow arrays and explicitly trusted marrow views.
+- Add the default-off `unsafe-optimizations` feature for skipping redundant
+  validation during Arrow conversion and UTF-8 checks during Arrow deserialization
+  ([#335](https://github.com/chmp/serde_arrow/pull/335),
+  [#336](https://github.com/chmp/serde_arrow/pull/336)).
+- Add an explicitly trusted path to skip validation while constructing Arrow
+  arrays from marrow data ([#336](https://github.com/chmp/serde_arrow/pull/336)).
 - Performance optimizations. Benchmarks show an improvement of approximately
   30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
   ([#329](https://github.com/chmp/serde_arrow/pull/329))

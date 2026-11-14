@@ -77,30 +77,3 @@ fn deserialize_tuples() {
     let _ = deserialize::<Vec<Record>>(&fields, &arrays);
     let _ = deserialize::<NewTypeWrapper<Vec<Record>>>(&fields, &arrays);
 }
-
-#[test]
-fn deserialize_trusted_arrow_strings_without_feature() {
-    use crate::{
-        _impl::arrow::{array::RecordBatch, datatypes::Schema},
-        utils::Item,
-    };
-    use std::sync::Arc;
-
-    let fields = Vec::<FieldRef>::from_type::<Item<String>>(TracingOptions::default()).unwrap();
-    let arrays = crate::to_arrow(&fields, &[Item(String::from("hello"))]).unwrap();
-
-    // SAFETY: the Arrow string array contains only the valid UTF-8 value "hello".
-    let values: Vec<Item<String>> = unsafe { crate::from_arrow_trusted(&fields, &arrays) }.unwrap();
-    assert_eq!(values[0].0, "hello");
-
-    let schema = Schema::new(
-        fields
-            .iter()
-            .map(|field| field.as_ref().clone())
-            .collect::<Vec<_>>(),
-    );
-    let batch = RecordBatch::try_new(Arc::new(schema), arrays.to_vec()).unwrap();
-    // SAFETY: the record batch contains only the valid UTF-8 value "hello".
-    let values: Vec<Item<String>> = unsafe { crate::from_record_batch_trusted(&batch) }.unwrap();
-    assert_eq!(values[0].0, "hello");
-}

@@ -188,7 +188,7 @@ impl<'de> Deserializer<'de> {
         let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
         Self::with_utf8_check(
             fields,
-            views.iter().cloned().map(TrustedView::into_inner).collect(),
+            views.iter().cloned().map(View::from).collect(),
             utf8,
         )
     }
