@@ -6,8 +6,11 @@
   validation during Arrow conversion and UTF-8 checks during Arrow deserialization
   ([#335](https://github.com/chmp/serde_arrow/pull/335),
   [#336](https://github.com/chmp/serde_arrow/pull/336)).
-- Add an explicitly trusted path to skip validation while constructing Arrow
-  arrays from marrow data ([#336](https://github.com/chmp/serde_arrow/pull/336)).
+- Add `to_marrow_trusted` and `from_marrow_trusted` for explicitly trusted
+  conversion paths. `to_marrow_trusted` returns `TrustedArray` values that
+  skip validation during Arrow conversion; `from_marrow_trusted` accepts
+  `TrustedView` values to skip validation during deserialization
+  ([#336](https://github.com/chmp/serde_arrow/pull/336)).
 - Performance optimizations. Benchmarks show an improvement of approximately
   30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
   ([#329](https://github.com/chmp/serde_arrow/pull/329))
