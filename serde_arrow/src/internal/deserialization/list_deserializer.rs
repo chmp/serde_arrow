@@ -4,7 +4,7 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::{ChildName, NamedType, Offset},
+    utils::{array_view_ext::Utf8Check, ChildName, NamedType, Offset},
 };
 
 use super::{
@@ -20,12 +20,13 @@ pub struct ListDeserializer<'a, O: Offset> {
 }
 
 impl<'de, O: Offset> ListDeserializer<'de, O> {
-    pub fn new(path: String, view: ListView<'de, O>) -> Result<Self> {
+    pub fn new(path: String, view: ListView<'de, O>, utf8: Utf8Check) -> Result<Self> {
         let child_path = format!("{path}.{child}", child = ChildName(&view.meta.name));
         let item = ArrayDeserializer::new(
             child_path,
             get_strategy_from_metadata(&view.meta.metadata)?.as_ref(),
             *view.elements,
+            utf8,
         )?;
 
         Ok(Self {

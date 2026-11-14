@@ -4,7 +4,7 @@ use serde::de::{DeserializeSeed, MapAccess, Visitor};
 use crate::internal::{
     error::{fail, set_default, try_, Context, ContextSupport, Error, Result},
     schema::get_strategy_from_metadata,
-    utils::{ChildName, Offset},
+    utils::{array_view_ext::Utf8Check, ChildName, Offset},
 };
 
 use super::{
@@ -21,7 +21,7 @@ pub struct MapDeserializer<'a> {
 }
 
 impl<'a> MapDeserializer<'a> {
-    pub fn new(path: String, view: MapView<'a>) -> Result<Self> {
+    pub fn new(path: String, view: MapView<'a>, utf8: Utf8Check) -> Result<Self> {
         let keys_path = format!(
             "{path}.{entries}.{keys}",
             entries = ChildName(&view.meta.entries_name),
@@ -31,6 +31,7 @@ impl<'a> MapDeserializer<'a> {
             keys_path,
             get_strategy_from_metadata(&view.meta.keys.metadata)?.as_ref(),
             *view.keys,
+            utf8,
         )?;
 
         let values_path = format!(
@@ -42,6 +43,7 @@ impl<'a> MapDeserializer<'a> {
             values_path,
             get_strategy_from_metadata(&view.meta.values.metadata)?.as_ref(),
             *view.values,
+            utf8,
         )?;
 
         Ok(Self {
