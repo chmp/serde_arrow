@@ -134,10 +134,11 @@ impl TrustedArray {
     pub unsafe fn new(array: Array) -> Self {
         Self(array)
     }
+}
 
-    /// Recover the wrapped array.
-    pub fn into_inner(self) -> Array {
-        self.0
+impl From<TrustedArray> for Array {
+    fn from(value: TrustedArray) -> Self {
+        value.0
     }
 }
 

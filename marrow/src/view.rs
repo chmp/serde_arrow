@@ -105,6 +105,27 @@ pub enum View<'a> {
     Union(UnionView<'a>),
 }
 
+/// A borrowed array view whose accessible string values are known to be valid UTF-8.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrustedView<'a>(View<'a>);
+
+impl<'a> TrustedView<'a> {
+    /// Wrap a view for a consumer that skips UTF-8 validation.
+    ///
+    /// # Safety
+    /// Every string value accessible through this view, including values in
+    /// nested arrays and dictionaries, must be valid UTF-8 for the lifetime
+    /// of the borrowed data.
+    pub unsafe fn new(view: View<'a>) -> Self {
+        Self(view)
+    }
+
+    /// Recover the wrapped view.
+    pub fn into_inner(self) -> View<'a> {
+        self.0
+    }
+}
+
 impl View<'_> {
     /// Get the data type of this array
     pub fn data_type(&self) -> DataType {

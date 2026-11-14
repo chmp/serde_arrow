@@ -108,8 +108,10 @@
 //! The default-off `unsafe-optimizations` feature skips per-value UTF-8 checks
 //! when deserializing Arrow arrays. It is intended to be safe for users of the
 //! safe API and is opt-in because its implementation uses unsafe code. Ordinary
-//! marrow views are still checked. The feature also exposes [`TrustedViews`];
-//! constructing one is unsafe and transfers its UTF-8 invariant to the caller.
+//! marrow views are still checked. The [`from_marrow_trusted`] entry point is
+//! available without this feature and accepts [`marrow::view::TrustedView`];
+//! constructing a trusted view is unsafe and transfers its UTF-8 invariant to
+//! the caller.
 //!
 //! # Usage in libraries
 //!
@@ -247,14 +249,16 @@ pub use crate::internal::array_builder::ArrayBuilder;
 mod arrow_impl;
 
 #[cfg(has_arrow)]
-pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
+pub use arrow_impl::{
+    from_arrow, from_arrow_trusted, from_record_batch, from_record_batch_trusted, to_arrow,
+    to_record_batch,
+};
 
 #[deny(missing_docs)]
 mod marrow_impl;
 
+pub use marrow_impl::from_marrow_trusted;
 pub use marrow_impl::{from_marrow, to_marrow};
-#[cfg(feature = "unsafe-optimizations")]
-pub use marrow_impl::{from_marrow_trusted, TrustedViews};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`

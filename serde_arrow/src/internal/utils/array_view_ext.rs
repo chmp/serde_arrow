@@ -244,7 +244,6 @@ impl Utf8Check {
     /// # Safety
     ///
     /// All string data read with the returned value must be valid UTF-8.
-    #[cfg(feature = "unsafe-optimizations")]
     pub const unsafe fn trusted() -> Self {
         Self { trusted: true }
     }
@@ -347,13 +346,12 @@ mod tests {
         assert!(Vec::<Item<String>>::deserialize(deserializer).is_err());
     }
 
-    #[cfg(feature = "unsafe-optimizations")]
     #[test]
     fn from_marrow_trusted_reads_strings() {
-        use crate::{utils::Item, TrustedViews};
+        use crate::utils::Item;
         use marrow::{
             datatypes::{DataType, Field, FieldMeta},
-            view::{ListView, View},
+            view::{ListView, TrustedView, View},
         };
 
         let fields = [Field {
@@ -365,7 +363,7 @@ mod tests {
             })),
             ..Field::default()
         }];
-        let views = [View::List(ListView {
+        let view = View::List(ListView {
             validity: None,
             offsets: &[0_i32, 2, 3],
             meta: FieldMeta::default(),
@@ -374,10 +372,10 @@ mod tests {
                 offsets: &[0_i32, 1, 4, 5],
                 data: "ahé!".as_bytes(),
             })),
-        })];
+        });
         // SAFETY: every string in the nested list is valid UTF-8.
-        let trusted = unsafe { TrustedViews::new(&views) };
-        let items: Vec<Item<Vec<String>>> = crate::from_marrow_trusted(&fields, trusted).unwrap();
+        let views = [unsafe { TrustedView::new(view) }];
+        let items: Vec<Item<Vec<String>>> = crate::from_marrow_trusted(&fields, &views).unwrap();
         assert_eq!(items[0].0, ["a", "hé"]);
         assert_eq!(items[1].0, ["!"]);
     }

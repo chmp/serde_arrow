@@ -7,8 +7,6 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-unsafe-optimizations = ["marrow/unsafe-optimizations"]
-
 # arrow-version:insert: arrow-{version} = ["marrow/arrow-{version}", "dep:arrow-array-{version}", "dep:arrow-schema-{version}"]
 arrow-60 = ["marrow/arrow-60", "dep:arrow-array-60", "dep:arrow-schema-60"]
 arrow-59 = ["marrow/arrow-59", "dep:arrow-array-59", "dep:arrow-schema-59"]

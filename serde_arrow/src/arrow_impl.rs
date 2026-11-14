@@ -104,6 +104,21 @@ where
     T::deserialize(Deserializer::from_arrow(fields, arrays)?)
 }
 
+/// Deserialize items from Arrow arrays without checking UTF-8 validity.
+///
+/// # Safety
+/// Every string value accessible through `arrays`, including values in nested
+/// arrays and dictionaries, must be valid UTF-8 for the lifetime of the arrays.
+///
+/// Use [`from_arrow`] when this guarantee cannot be made.
+pub unsafe fn from_arrow_trusted<'de, T, A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<T>
+where
+    T: Deserialize<'de>,
+    A: AsRef<dyn Array>,
+{
+    T::deserialize(unsafe { Deserializer::from_arrow_trusted(fields, arrays) }?)
+}
+
 /// Build a record batch from the given items  (*requires one of the `arrow-*`
 /// features*)
 ///
@@ -174,6 +189,20 @@ pub fn to_record_batch<T: Serialize>(fields: &[FieldRef], items: &T) -> Result<R
 ///
 pub fn from_record_batch<'de, T: Deserialize<'de>>(record_batch: &'de RecordBatch) -> Result<T> {
     T::deserialize(Deserializer::from_record_batch(record_batch)?)
+}
+
+/// Deserialize items from an Arrow record batch without checking UTF-8 validity.
+///
+/// # Safety
+/// Every string value accessible through `record_batch`, including values in
+/// nested arrays and dictionaries, must be valid UTF-8 for the lifetime of the
+/// record batch.
+///
+/// Use [`from_record_batch`] when this guarantee cannot be made.
+pub unsafe fn from_record_batch_trusted<'de, T: Deserialize<'de>>(
+    record_batch: &'de RecordBatch,
+) -> Result<T> {
+    T::deserialize(unsafe { Deserializer::from_record_batch_trusted(record_batch) }?)
 }
 
 /// Support `arrow` (*requires one of the `arrow-*` features*)
@@ -287,14 +316,48 @@ impl<'de> Deserializer<'de> {
 
         #[cfg(feature = "unsafe-optimizations")]
         {
-            // SAFETY: Arrow string arrays guarantee valid UTF-8 recursively.
-            let views = unsafe { crate::TrustedViews::new(&views) };
-            Deserializer::from_marrow_trusted(&fields, views)
+            let views = views
+                .into_iter()
+                .map(|view| {
+                    // SAFETY: Arrow string arrays guarantee valid UTF-8 recursively.
+                    unsafe { marrow::view::TrustedView::new(view) }
+                })
+                .collect::<Vec<_>>();
+            Deserializer::from_marrow_trusted(&fields, &views)
         }
         #[cfg(not(feature = "unsafe-optimizations"))]
         {
             Deserializer::new(&fields, views)
         }
+    }
+
+    /// Construct a deserializer from Arrow arrays without checking UTF-8 validity.
+    ///
+    /// # Safety
+    /// Every string value accessible through `arrays`, including values in
+    /// nested arrays and dictionaries, must be valid UTF-8 for the lifetime of
+    /// the arrays.
+    pub unsafe fn from_arrow_trusted<A>(fields: &[FieldRef], arrays: &'de [A]) -> Result<Self>
+    where
+        A: AsRef<dyn Array>,
+    {
+        if fields.len() != arrays.len() {
+            fail!(
+                "different number of fields ({}) and arrays ({})",
+                fields.len(),
+                arrays.len()
+            );
+        }
+
+        let fields = fields_from_field_refs(fields)?;
+        let mut views = Vec::with_capacity(arrays.len());
+        for array in arrays {
+            let view = View::try_from(array.as_ref())?;
+            // SAFETY: the caller guarantees all accessible strings are valid UTF-8.
+            views.push(unsafe { marrow::view::TrustedView::new(view) });
+        }
+
+        Deserializer::from_marrow_trusted(&fields, &views)
     }
 
     /// Construct a new deserializer from a record batch (*requires one of the
@@ -324,6 +387,18 @@ impl<'de> Deserializer<'de> {
     pub fn from_record_batch(record_batch: &'de RecordBatch) -> Result<Self> {
         let schema = record_batch.schema();
         Deserializer::from_arrow(schema.fields(), record_batch.columns())
+    }
+
+    /// Construct a deserializer from a record batch without checking UTF-8 validity.
+    ///
+    /// # Safety
+    /// Every string value accessible through `record_batch`, including values in
+    /// nested arrays and dictionaries, must be valid UTF-8 for the lifetime of
+    /// the record batch.
+    pub unsafe fn from_record_batch_trusted(record_batch: &'de RecordBatch) -> Result<Self> {
+        let schema = record_batch.schema();
+        // SAFETY: the caller guarantees all accessible strings are valid UTF-8.
+        unsafe { Deserializer::from_arrow_trusted(schema.fields(), record_batch.columns()) }
     }
 }
 

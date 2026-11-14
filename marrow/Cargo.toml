@@ -17,7 +17,6 @@ features = ["arrow-60", "serde"]
 
 [features]
 default = []
-unsafe-optimizations = []
 
 # Add Serde support
 serde = ["dep:serde"]

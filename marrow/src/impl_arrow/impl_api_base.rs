@@ -255,12 +255,11 @@ impl TryFrom<Array> for Arc<dyn arrow_array::Array> {
     }
 }
 
-#[cfg(feature = "unsafe-optimizations")]
 impl TryFrom<crate::array::TrustedArray> for Arc<dyn arrow_array::Array> {
     type Error = MarrowError;
 
     fn try_from(value: crate::array::TrustedArray) -> Result<Self> {
-        Ok(arrow_array::make_array(build_array_data(value.into_inner(), true)?))
+        Ok(arrow_array::make_array(build_array_data(value.into(), true)?))
     }
 }
 

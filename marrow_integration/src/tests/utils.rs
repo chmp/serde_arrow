@@ -48,15 +48,14 @@ pub fn assert_arrays_eq(
     marrow_array: Array,
 ) -> PanicOnError<()> {
     let array_via_marrow = arrow_array::ArrayRef::try_from(marrow_array.clone())?;
-    #[cfg(feature = "unsafe-optimizations")]
-    {
+    let trusted = unsafe { marrow::array::TrustedArray::new(marrow_array.clone()) };
+    let recovered: Array = trusted.clone().into();
+    assert_eq!(recovered, marrow_array);
     // SAFETY: The fixtures have valid UTF-8 buffers. The checked conversion
     // above validates their offsets, view descriptors and validity.
-    let unchecked: arrow_array::ArrayRef =
-        arrow_array::ArrayRef::try_from(unsafe { marrow::array::TrustedArray::new(marrow_array.clone()) })?;
+    let unchecked: arrow_array::ArrayRef = arrow_array::ArrayRef::try_from(trusted)?;
     unchecked.to_data().validate_full()?;
     assert_eq!(array_via_marrow.to_data(), unchecked.to_data());
-    }
 
     assert_eq!(
         DataType::try_from(array_via_arrow.data_type())?,

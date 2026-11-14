@@ -19,7 +19,7 @@ features = ["arrow-60"]
 [features]
 default = []
 
-unsafe-optimizations = ["marrow/unsafe-optimizations"]
+unsafe-optimizations = []
 
 # arrow-version:insert: arrow-{version} = ["dep:arrow-array-{version}", "dep:arrow-schema-{version}", "marrow/arrow-{version}"]
 arrow-60 = ["dep:arrow-array-60", "dep:arrow-schema-60", "marrow/arrow-60"]
