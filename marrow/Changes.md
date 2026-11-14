@@ -5,6 +5,8 @@
 - Add `Decimal256` support ([#332](https://github.com/chmp/serde_arrow/pull/332))
 - Implement `Default` for `MonthDayNanoInterval`
   ([#332](https://github.com/chmp/serde_arrow/pull/332))
+- Add `TryIntoArrow::try_into_arrow_unchecked` on `Array` to skip validation
+  covered by caller guarantees.
 
 ## 0.3.1
 

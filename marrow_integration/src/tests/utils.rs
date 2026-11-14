@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use marrow::{array::Array, datatypes::DataType, view::View};
+use marrow::{
+    array::{Array, TryIntoArrow},
+    datatypes::DataType,
+    view::View,
+};
 
 /// Helper to view an as the given variant
 macro_rules! view_as {
@@ -44,6 +48,12 @@ pub fn assert_arrays_eq(
     marrow_array: Array,
 ) -> PanicOnError<()> {
     let array_via_marrow = arrow_array::ArrayRef::try_from(marrow_array.clone())?;
+    // SAFETY: The fixtures have valid UTF-8 buffers. The checked conversion
+    // above validates their offsets, view descriptors and validity.
+    let unchecked: arrow_array::ArrayRef =
+        unsafe { marrow_array.clone().try_into_arrow_unchecked() }?;
+    unchecked.to_data().validate_full()?;
+    assert_eq!(array_via_marrow.to_data(), unchecked.to_data());
 
     assert_eq!(
         DataType::try_from(array_via_arrow.data_type())?,

@@ -217,6 +217,15 @@ def workflow_local(arrow_features):
                         ),
                     },
                     {
+                        "name": "Test serde_arrow unsafe-optimizations",
+                        "run": cargo(
+                            "test",
+                            packages=("serde_arrow",),
+                            features=(arrow_features[0], "unsafe-optimizations"),
+                            quiet=True,
+                        ),
+                    },
+                    {
                         "name": "Test marrow",
                         "run": cargo(
                             "test",
@@ -423,6 +432,14 @@ def workflow_test(arrow_features):
                                 "marrow/serde",
                                 f"marrow/{arrow_features[0]}",
                             ),
+                        ),
+                    },
+                    {
+                        "name": "Test serde_arrow unsafe-optimizations",
+                        "run": cargo(
+                            "test",
+                            packages=("serde_arrow",),
+                            features=(arrow_features[0], "unsafe-optimizations"),
                         ),
                     },
                     {
