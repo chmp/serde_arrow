@@ -347,25 +347,34 @@ mod tests {
     fn from_marrow_trusted_reads_strings() {
         use crate::{utils::Item, TrustedViews};
         use marrow::{
-            datatypes::{DataType, Field},
-            view::View,
+            datatypes::{DataType, Field, FieldMeta},
+            view::{ListView, View},
         };
 
         let fields = [Field {
             name: String::from("item"),
-            data_type: DataType::Utf8,
+            data_type: DataType::List(Box::new(Field {
+                name: String::from("element"),
+                data_type: DataType::Utf8,
+                ..Field::default()
+            })),
             ..Field::default()
         }];
-        let views = [View::Utf8(BytesView {
+        let views = [View::List(ListView {
             validity: None,
-            offsets: &[0_i32, 3, 4],
-            data: "hé!".as_bytes(),
+            offsets: &[0_i32, 2, 3],
+            meta: FieldMeta::default(),
+            elements: Box::new(View::Utf8(BytesView {
+                validity: None,
+                offsets: &[0_i32, 1, 4, 5],
+                data: "ahé!".as_bytes(),
+            })),
         })];
-        // SAFETY: both referenced strings are valid UTF-8.
+        // SAFETY: every string in the nested list is valid UTF-8.
         let trusted = unsafe { TrustedViews::new(&views) };
-        let items: Vec<Item<String>> = crate::from_marrow_trusted(&fields, trusted).unwrap();
-        assert_eq!(items[0].0, "hé");
-        assert_eq!(items[1].0, "!");
+        let items: Vec<Item<Vec<String>>> = crate::from_marrow_trusted(&fields, trusted).unwrap();
+        assert_eq!(items[0].0, ["a", "hé"]);
+        assert_eq!(items[1].0, ["!"]);
     }
 
     #[test]
