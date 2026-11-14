@@ -6,7 +6,7 @@ variables:
 
 serde-arrow:
   stage: test
-  image: rust:1.83
+  image: rust:latest
   parallel:
     matrix:
       - ARROW_VERSION: ["60"]
@@ -19,7 +19,7 @@ serde-arrow:
 
 marrow-integration:
   stage: test
-  image: rust:1.83
+  image: rust:latest
   parallel:
     matrix:
       - ARROW_VERSION: ["60"]
