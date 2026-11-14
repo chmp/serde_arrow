@@ -185,6 +185,10 @@
           "run": "cargo test --package serde_arrow --package marrow --features serde_arrow/arrow-60,marrow/serde,marrow/arrow-60"
         },
         {
+          "name": "Test serde_arrow unsafe-optimizations",
+          "run": "cargo test --package serde_arrow --features arrow-60,unsafe-optimizations"
+        },
+        {
           "name": "Test marrow integration",
           "run": "cargo test --package marrow_integration --features arrow-60"
         },

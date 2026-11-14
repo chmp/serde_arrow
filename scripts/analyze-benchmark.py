@@ -29,6 +29,7 @@ README_BENCHMARK_IGNORE_GROUPS = {
     "binary_values_1000_deserialize",
     "json_to_arrow",
     "wide_schema_1024",
+    "utf8_validation",
 }
 README_BENCHMARK_IGNORE_IMPLS = {
     "serde_arrow::ArrayBuilder::push",

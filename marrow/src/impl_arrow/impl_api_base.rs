@@ -4,7 +4,7 @@ use std::sync::Arc;
 use half::f16;
 
 use crate::{
-    array::Array,
+    array::{Array, TryIntoArrow},
     datatypes::{
         meta_from_field, DataType, Field, FieldMeta, IntervalUnit, RunEndEncodedMeta, TimeUnit,
         UnionMode,
@@ -251,7 +251,13 @@ impl TryFrom<Array> for Arc<dyn arrow_array::Array> {
     type Error = MarrowError;
 
     fn try_from(value: Array) -> Result<Arc<dyn arrow_array::Array>> {
-        Ok(arrow_array::make_array(build_array_data(value)?))
+        Ok(arrow_array::make_array(build_array_data(value, false)?))
+    }
+}
+
+impl TryIntoArrow<Arc<dyn arrow_array::Array>> for Array {
+    unsafe fn try_into_arrow_unchecked(self) -> Result<Arc<dyn arrow_array::Array>> {
+        Ok(arrow_array::make_array(build_array_data(self, true)?))
     }
 }
 
@@ -281,7 +287,9 @@ impl TryFrom<IntervalUnit> for arrow_schema::IntervalUnit {
     }
 }
 
-fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
+// When `skip_validation` is true, the input must satisfy the safety contract of
+// TryIntoArrow::try_into_arrow_unchecked.
+fn build_array_data(value: Array, skip_validation: bool) -> Result<arrow_data::ArrayData> {
     use Array as A;
     type ArrowF16 =
         <arrow_array::types::Float16Type as arrow_array::types::ArrowPrimitiveType>::Native;
@@ -401,31 +409,35 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             arr.offsets,
             arr.data,
             arr.validity,
+            skip_validation,
         ),
         A::LargeUtf8(arr) => bytes_into_data(
             arrow_schema::DataType::LargeUtf8,
             arr.offsets,
             arr.data,
             arr.validity,
+            skip_validation,
         ),
         A::Binary(arr) => bytes_into_data(
             arrow_schema::DataType::Binary,
             arr.offsets,
             arr.data,
             arr.validity,
+            false,
         ),
         A::LargeBinary(arr) => bytes_into_data(
             arrow_schema::DataType::LargeBinary,
             arr.offsets,
             arr.data,
             arr.validity,
+            false,
         ),
         A::Struct(arr) => {
             let mut fields = Vec::with_capacity(arr.fields.len());
             let mut data = Vec::with_capacity(arr.fields.len());
 
             for (meta, field) in arr.fields {
-                let child = build_array_data(field)?;
+                let child = build_array_data(field, skip_validation)?;
                 fields.push(Arc::new(field_from_data_and_meta(&child, meta)));
                 data.push(child);
             }
@@ -438,7 +450,7 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
                 .build()?)
         }
         A::List(arr) => {
-            let child = build_array_data(*arr.elements)?;
+            let child = build_array_data(*arr.elements, skip_validation)?;
             let field = field_from_data_and_meta(&child, arr.meta);
             list_into_data(
                 arrow_schema::DataType::List(Arc::new(field)),
@@ -449,7 +461,7 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             )
         }
         A::LargeList(arr) => {
-            let child = build_array_data(*arr.elements)?;
+            let child = build_array_data(*arr.elements, skip_validation)?;
             let field = field_from_data_and_meta(&child, arr.meta);
             list_into_data(
                 arrow_schema::DataType::LargeList(Arc::new(field)),
@@ -460,7 +472,7 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             )
         }
         A::FixedSizeList(arr) => {
-            let child = build_array_data(*arr.elements)?;
+            let child = build_array_data(*arr.elements, skip_validation)?;
             if (child.len() % usize::try_from(arr.n)?) != 0 {
                 fail!(
                     ErrorKind::Unsupported,
@@ -498,8 +510,8 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             )?)
         }
         A::Dictionary(arr) => {
-            let keys = build_array_data(*arr.keys)?;
-            let values = build_array_data(*arr.values)?;
+            let keys = build_array_data(*arr.keys, skip_validation)?;
+            let values = build_array_data(*arr.values, skip_validation)?;
             let data_type = arrow_schema::DataType::Dictionary(
                 Box::new(keys.data_type().clone()),
                 Box::new(values.data_type().clone()),
@@ -513,8 +525,8 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
         }
         A::RunEndEncoded(arr) => {
             let len = get_ree_len_from_indices(&arr.run_ends)?;
-            let run_ends = build_array_data(*arr.run_ends)?;
-            let values = build_array_data(*arr.values)?;
+            let run_ends = build_array_data(*arr.run_ends, skip_validation)?;
+            let values = build_array_data(*arr.values, skip_validation)?;
             let data_type = arrow_schema::DataType::RunEndEncoded(
                 field_from_data_and_meta(
                     &run_ends,
@@ -538,7 +550,7 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
         }
         A::Map(arr) => {
             let (entries, entries_name, sorted, validity, offsets) = arr.into_logical_array()?;
-            let entries = build_array_data(entries)?;
+            let entries = build_array_data(entries, skip_validation)?;
             let field = field_from_data_and_meta(
                 &entries,
                 FieldMeta {
@@ -557,7 +569,8 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
             )?)
         }
         A::Union(arr) => {
-            let (fields, child_data) = union_fields_into_fields_and_data(arr.fields)?;
+            let (fields, child_data) =
+                union_fields_into_fields_and_data(arr.fields, skip_validation)?;
             let len = arr.types.len();
             let mut buffers = vec![arrow_buffer::ScalarBuffer::from(arr.types).into_inner()];
             let mode;
@@ -578,7 +591,7 @@ fn build_array_data(value: Array) -> Result<arrow_data::ArrayData> {
                 child_data,
             )?)
         }
-        array => build_array_data_from_marrow(array),
+        array => build_array_data_from_marrow(array, skip_validation),
     }
 }
 
@@ -604,6 +617,7 @@ fn get_ree_len_from_indices(indices: &Array) -> Result<usize> {
 #[allow(clippy::type_complexity)]
 fn union_fields_into_fields_and_data(
     union_fields: Vec<(i8, FieldMeta, Array)>,
+    skip_validation: bool,
 ) -> Result<(
     Vec<(i8, arrow_schema::FieldRef)>,
     Vec<arrow_data::ArrayData>,
@@ -612,7 +626,7 @@ fn union_fields_into_fields_and_data(
     let mut child_data = Vec::with_capacity(union_fields.len());
 
     for (type_id, meta, array) in union_fields {
-        let child = build_array_data(array)?;
+        let child = build_array_data(array, skip_validation)?;
         let field = field_from_data_and_meta(&child, meta);
 
         fields.push((type_id, Arc::new(field)));
@@ -1064,16 +1078,27 @@ fn bytes_into_data<O: arrow_buffer::ArrowNativeType>(
     offsets: Vec<O>,
     data: Vec<u8>,
     validity: Option<Vec<u8>>,
+    skip_validation: bool,
 ) -> Result<arrow_data::ArrayData> {
+    let len = offsets.len().saturating_sub(1);
+    let validity = validity.map(arrow_buffer::Buffer::from_vec);
+    let buffers = vec![
+        arrow_buffer::ScalarBuffer::from(offsets).into_inner(),
+        arrow_buffer::ScalarBuffer::from(data).into_inner(),
+    ];
+    if skip_validation {
+        // SAFETY: The caller guarantees valid contents, offsets and validity.
+        // ScalarBuffer ensures alignment.
+        return Ok(unsafe {
+            arrow_data::ArrayData::new_unchecked(data_type, len, None, validity, 0, buffers, vec![])
+        });
+    }
     Ok(arrow_data::ArrayData::try_new(
         data_type,
-        offsets.len().saturating_sub(1),
-        validity.map(arrow_buffer::Buffer::from_vec),
+        len,
+        validity,
         0,
-        vec![
-            arrow_buffer::ScalarBuffer::from(offsets).into_inner(),
-            arrow_buffer::ScalarBuffer::from(data).into_inner(),
-        ],
+        buffers,
         vec![],
     )?)
 }

@@ -123,6 +123,10 @@
           "run": "cargo test -q --package serde_arrow --features arrow-60"
         },
         {
+          "name": "Test serde_arrow unsafe-optimizations",
+          "run": "cargo test -q --package serde_arrow --features arrow-60,unsafe-optimizations"
+        },
+        {
           "name": "Test marrow",
           "run": "cargo test -q --package marrow --features serde,arrow-60"
         },

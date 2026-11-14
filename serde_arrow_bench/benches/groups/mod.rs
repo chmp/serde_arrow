@@ -4,6 +4,7 @@ pub mod binary;
 pub mod complex;
 pub mod json_to_arrow;
 pub mod primitives;
+pub mod utf8;
 pub mod wide_schema;
 
 pub fn new_group<'a, M: Measurement>(

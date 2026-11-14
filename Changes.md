@@ -2,6 +2,8 @@
 
 ## development
 
+- Add the default-off `unsafe-optimizations` feature to skip redundant
+  validation during Arrow conversion.
 - Performance optimizations. Benchmarks show an improvement of approximately
   30 - 40 % for `to_arrow` and 40 - 60 % for `to_marrow` depending on data
   ([#329](https://github.com/chmp/serde_arrow/pull/329))

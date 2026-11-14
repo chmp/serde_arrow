@@ -1106,6 +1106,7 @@ mod timestamp_nanosecond_utc {
 
 mod utf8 {
     use super::*;
+    use marrow::array::BytesViewArray;
 
     #[test]
     fn not_nullable() -> PanicOnError<()> {
@@ -1135,6 +1136,29 @@ mod utf8 {
                 data: b"foobarworld".to_vec(),
             }),
         )
+    }
+
+    #[test]
+    fn checked_conversion_rejects_invalid_utf8() {
+        for array in [
+            Array::Utf8(BytesArray {
+                validity: None,
+                offsets: vec![0, 1],
+                data: vec![0xff],
+            }),
+            Array::LargeUtf8(BytesArray {
+                validity: None,
+                offsets: vec![0, 1],
+                data: vec![0xff],
+            }),
+            Array::Utf8View(BytesViewArray {
+                validity: None,
+                data: vec![1 | (0xff_u128 << 32)], // One inline byte: 0xff.
+                buffers: vec![],
+            }),
+        ] {
+            assert!(arrow_array::ArrayRef::try_from(array).is_err());
+        }
     }
 }
 

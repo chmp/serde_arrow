@@ -105,6 +105,9 @@
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
 //!
+//! The default-off `unsafe-optimizations` feature skips redundant Arrow conversion
+//! checks using builder guarantees. Enable it alongside an `arrow-*` feature.
+//!
 //! # Usage in libraries
 //!
 //! In libraries, it is not recommended to use the `arrow` functions directly. Rather it is
