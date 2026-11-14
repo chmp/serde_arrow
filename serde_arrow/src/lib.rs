@@ -105,13 +105,10 @@
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
 //!
-//! The default-off `unsafe-optimizations` feature skips per-value UTF-8 checks
-//! when deserializing Arrow arrays. It is intended to be safe for users of the
-//! safe API and is opt-in because its implementation uses unsafe code. Ordinary
-//! marrow views are still checked. The [`from_marrow_trusted`] entry point is
-//! available without this feature and accepts [`marrow::view::TrustedView`];
-//! constructing a trusted view is unsafe and transfers its UTF-8 invariant to
-//! the caller.
+//! The default-off `unsafe-optimizations` feature skips redundant validation
+//! when serializing or deserializing Arrow arrays. The required invariants are
+//! upheld by construction, so additional validation is unnecessary. The
+//! feature is opt-in because the optimization uses unsafe code.
 //!
 //! # Usage in libraries
 //!
@@ -165,6 +162,8 @@
 //! # Ok(())
 //! # }
 //! ```
+//! The `marrow`-based API also provides [`from_marrow_trusted`], which skips
+//! validation for views whose validity the caller has asserted.
 
 // be more forgiving without any active implementation
 #[cfg_attr(not(has_arrow), allow(unused))]

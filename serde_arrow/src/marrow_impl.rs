@@ -9,13 +9,11 @@ use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
 
-/// Deserialize from views whose UTF-8 validity has been asserted by the caller.
+/// Deserialize from views whose validity has been asserted by the caller.
 ///
-/// # Safety boundary
-///
-/// Constructing each [`TrustedView`] is unsafe. The caller must guarantee that
-/// every accessible string, including strings in nested views, is valid UTF-8.
-/// Existing [`from_marrow`] calls continue to validate strings as they are read.
+/// The caller must ensure that the views satisfy the invariants required by
+/// their data types. This guarantee is required when creating each
+/// [`TrustedView`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -182,7 +180,12 @@ impl<'de> Deserializer<'de> {
         Self::new(fields, views.to_vec())
     }
 
-    /// Build a deserializer from views with caller-asserted UTF-8 validity.
+    /// Build a deserializer from views whose validity has been asserted by the
+    /// caller.
+    ///
+    /// The caller must ensure that the views satisfy the invariants required by
+    /// their data types. This guarantee is required when creating each
+    /// [`TrustedView`].
     pub fn from_marrow_trusted(fields: &[Field], views: &[TrustedView<'de>]) -> Result<Self> {
         // SAFETY: every TrustedView can only be constructed with the required guarantee.
         let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
