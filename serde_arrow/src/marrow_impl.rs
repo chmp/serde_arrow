@@ -5,6 +5,34 @@ use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
 
+/// Marrow views whose accessible string values are known to be valid UTF-8.
+///
+/// The wrapper owns the view descriptors while borrowing their data.
+#[cfg(feature = "unsafe-optimizations")]
+pub struct TrustedViews<'de>(pub(crate) Vec<View<'de>>);
+
+#[cfg(feature = "unsafe-optimizations")]
+impl<'de> TrustedViews<'de> {
+    /// Wrap views for trusted deserialization.
+    ///
+    /// # Safety
+    /// Every string value accessible through these views, including values in
+    /// nested arrays and dictionaries, must be valid UTF-8 for the lifetime
+    /// of the borrowed data.
+    pub unsafe fn new(views: &[View<'de>]) -> Self {
+        Self(views.to_vec())
+    }
+}
+
+/// Deserialize from views whose UTF-8 validity has been asserted by the caller.
+#[cfg(feature = "unsafe-optimizations")]
+pub fn from_marrow_trusted<'de, T>(fields: &[Field], views: TrustedViews<'de>) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(Deserializer::from_marrow_trusted(fields, views)?)
+}
+
 /// Build [marrow arrays][marrow::array::Array] from the given items
 ///
 /// `items` should be given in the form of a list of records (e.g., a vector of
@@ -135,5 +163,13 @@ impl<'de> Deserializer<'de> {
     /// Build a deserializer from [`marrow::Field`s][Field] and [`marrow::View`s][View]
     pub fn from_marrow(fields: &[Field], views: &[View<'de>]) -> Result<Self> {
         Self::new(fields, views.to_vec())
+    }
+
+    /// Build a deserializer from views with caller-asserted UTF-8 validity.
+    #[cfg(feature = "unsafe-optimizations")]
+    pub fn from_marrow_trusted(fields: &[Field], views: TrustedViews<'de>) -> Result<Self> {
+        // SAFETY: TrustedViews can only be constructed with the required guarantee.
+        let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
+        Self::with_utf8_check(fields, views.0, utf8)
     }
 }

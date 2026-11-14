@@ -105,8 +105,11 @@
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
 //!
-//! The default-off `unsafe-optimizations` feature skips redundant Arrow conversion
-//! checks using builder guarantees. Enable it alongside an `arrow-*` feature.
+//! The default-off `unsafe-optimizations` feature skips per-value UTF-8 checks
+//! when deserializing Arrow arrays. It is intended to be safe for users of the
+//! safe API and is opt-in because its implementation uses unsafe code. Ordinary
+//! marrow views are still checked. The feature also exposes [`TrustedViews`];
+//! constructing one is unsafe and transfers its UTF-8 invariant to the caller.
 //!
 //! # Usage in libraries
 //!
@@ -250,6 +253,8 @@ pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 mod marrow_impl;
 
 pub use marrow_impl::{from_marrow, to_marrow};
+#[cfg(feature = "unsafe-optimizations")]
+pub use marrow_impl::{from_marrow_trusted, TrustedViews};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`

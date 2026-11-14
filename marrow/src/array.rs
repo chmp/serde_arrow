@@ -111,12 +111,13 @@ pub enum Array {
     Union(UnionArray),
 }
 
-/// Conversion of an [`Array`] to `arrow::array::ArrayRef` for an enabled
-/// `arrow-*` version, selected by the return type.
-pub trait TryIntoArrow<T>: Sized {
-    /// Convert an array to Arrow, skipping validation covered by the safety contract.
-    ///
-    /// Requiring additional caller guarantees is a breaking change.
+/// An owned array whose string buffers satisfy the invariants needed for
+/// conversion without UTF-8 validation.
+#[derive(Clone, Debug)]
+pub struct TrustedArray(pub(crate) Array);
+
+impl TrustedArray {
+    /// Wrap an array whose string buffers satisfy the invariants below.
     ///
     /// # Safety
     ///
@@ -130,7 +131,14 @@ pub trait TryIntoArrow<T>: Sized {
     /// buffer ranges and have matching prefixes. All referenced values, including
     /// null slots, must be valid UTF-8. If present, the validity bitmap must contain
     /// at least `data.len()` bits.
-    unsafe fn try_into_arrow_unchecked(self) -> Result<T>;
+    pub unsafe fn new(array: Array) -> Self {
+        Self(array)
+    }
+
+    /// Recover the wrapped array.
+    pub fn into_inner(self) -> Array {
+        self.0
+    }
 }
 
 impl Array {

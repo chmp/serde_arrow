@@ -4,7 +4,7 @@ use std::sync::Arc;
 use half::f16;
 
 use crate::{
-    array::{Array, TryIntoArrow},
+    array::Array,
     datatypes::{
         meta_from_field, DataType, Field, FieldMeta, IntervalUnit, RunEndEncodedMeta, TimeUnit,
         UnionMode,
@@ -255,9 +255,12 @@ impl TryFrom<Array> for Arc<dyn arrow_array::Array> {
     }
 }
 
-impl TryIntoArrow<Arc<dyn arrow_array::Array>> for Array {
-    unsafe fn try_into_arrow_unchecked(self) -> Result<Arc<dyn arrow_array::Array>> {
-        Ok(arrow_array::make_array(build_array_data(self, true)?))
+#[cfg(feature = "unsafe-optimizations")]
+impl TryFrom<crate::array::TrustedArray> for Arc<dyn arrow_array::Array> {
+    type Error = MarrowError;
+
+    fn try_from(value: crate::array::TrustedArray) -> Result<Self> {
+        Ok(arrow_array::make_array(build_array_data(value.into_inner(), true)?))
     }
 }
 
@@ -288,7 +291,7 @@ impl TryFrom<IntervalUnit> for arrow_schema::IntervalUnit {
 }
 
 // When `skip_validation` is true, the input must satisfy the safety contract of
-// TryIntoArrow::try_into_arrow_unchecked.
+// TrustedArray::new.
 fn build_array_data(value: Array, skip_validation: bool) -> Result<arrow_data::ArrayData> {
     use Array as A;
     type ArrowF16 =
