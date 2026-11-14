@@ -1,9 +1,54 @@
-use marrow::{array::Array, datatypes::Field, view::View};
+use marrow::{
+    array::Array,
+    datatypes::Field,
+    view::{TrustedView, View},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
+
+/// Deserialize from views whose UTF-8 validity has been asserted by the caller.
+///
+/// # Safety boundary
+///
+/// Constructing each [`TrustedView`] is unsafe. The caller must guarantee that
+/// every accessible string, including strings in nested views, is valid UTF-8.
+/// Existing [`from_marrow`] calls continue to validate strings as they are read.
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use marrow::{
+///     datatypes::{DataType, Field},
+///     view::{BytesView, View},
+/// };
+/// use marrow::view::TrustedView;
+/// use serde_arrow::{from_marrow_trusted, utils::Item};
+///
+/// let fields = [Field {
+///     name: String::from("item"),
+///     data_type: DataType::Utf8,
+///     ..Field::default()
+/// }];
+/// let view = View::Utf8(BytesView {
+///     validity: None,
+///     offsets: &[0_i32, 2],
+///     data: b"hi",
+/// });
+/// // SAFETY: the only accessible string is the valid UTF-8 value "hi".
+/// let views = [unsafe { TrustedView::new(view) }];
+/// let values: Vec<Item<String>> = from_marrow_trusted(&fields, &views)?;
+/// assert_eq!(values[0].0, "hi");
+/// # Ok(())
+/// # }
+/// ```
+pub fn from_marrow_trusted<'de, T>(fields: &[Field], views: &[TrustedView<'de>]) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(Deserializer::from_marrow_trusted(fields, views)?)
+}
 
 /// Build [marrow arrays][marrow::array::Array] from the given items
 ///
@@ -135,5 +180,16 @@ impl<'de> Deserializer<'de> {
     /// Build a deserializer from [`marrow::Field`s][Field] and [`marrow::View`s][View]
     pub fn from_marrow(fields: &[Field], views: &[View<'de>]) -> Result<Self> {
         Self::new(fields, views.to_vec())
+    }
+
+    /// Build a deserializer from views with caller-asserted UTF-8 validity.
+    pub fn from_marrow_trusted(fields: &[Field], views: &[TrustedView<'de>]) -> Result<Self> {
+        // SAFETY: every TrustedView can only be constructed with the required guarantee.
+        let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
+        Self::with_utf8_check(
+            fields,
+            views.iter().cloned().map(View::from).collect(),
+            utf8,
+        )
     }
 }

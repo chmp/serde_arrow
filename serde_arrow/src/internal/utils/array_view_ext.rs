@@ -287,7 +287,10 @@ where
 mod tests {
     use marrow::view::BytesView;
 
-    use super::{Utf8Check, ViewAccess};
+    use super::ViewAccess;
+
+    #[cfg(feature = "unsafe-optimizations")]
+    use super::Utf8Check;
 
     #[test]
     fn str_is_some_does_not_validate_utf8() {
@@ -301,6 +304,7 @@ mod tests {
         ViewAccess::<str>::get(&view, 0).unwrap_err();
     }
 
+    #[cfg(feature = "unsafe-optimizations")]
     #[test]
     fn utf8_check_validates_unless_trusted() {
         let view = BytesView {
@@ -339,7 +343,43 @@ mod tests {
         })];
 
         let deserializer = Deserializer::from_marrow(&fields, &views).unwrap();
-        assert!(Vec::<Item<String>>::deserialize(deserializer).is_err());
+        assert!(Vec::<Item<String>>::deserialize(deserializer)
+            .err()
+            .is_some());
+    }
+
+    #[test]
+    fn from_marrow_trusted_reads_strings() {
+        use crate::utils::Item;
+        use marrow::{
+            datatypes::{DataType, Field, FieldMeta},
+            view::{ListView, TrustedView, View},
+        };
+
+        let fields = [Field {
+            name: String::from("item"),
+            data_type: DataType::List(Box::new(Field {
+                name: String::from("element"),
+                data_type: DataType::Utf8,
+                ..Field::default()
+            })),
+            ..Field::default()
+        }];
+        let view = View::List(ListView {
+            validity: None,
+            offsets: &[0_i32, 2, 3],
+            meta: FieldMeta::default(),
+            elements: Box::new(View::Utf8(BytesView {
+                validity: None,
+                offsets: &[0_i32, 1, 4, 5],
+                data: "ahé!".as_bytes(),
+            })),
+        });
+        // SAFETY: every string in the nested list is valid UTF-8.
+        let views = [unsafe { TrustedView::new(view) }];
+        let items: Vec<Item<Vec<String>>> = crate::from_marrow_trusted(&fields, &views).unwrap();
+        assert_eq!(items[0].0, ["a", "hé"]);
+        assert_eq!(items[1].0, ["!"]);
     }
 
     #[test]
