@@ -100,10 +100,15 @@ impl TryFrom<&arrow_schema::Field> for Field {
     type Error = MarrowError;
 
     fn try_from(field: &arrow_schema::Field) -> Result<Self> {
+        #[allow(
+            clippy::useless_conversion,
+            reason = "Arrow's metadata type varies across supported versions"
+        )]
+        let metadata = field.metadata().clone().into();
         Ok(Field {
             name: field.name().to_owned(),
             data_type: DataType::try_from(field.data_type())?,
-            metadata: field.metadata().clone().into(),
+            metadata,
             nullable: field.is_nullable(),
         })
     }
@@ -259,7 +264,10 @@ impl TryFrom<crate::array::TrustedArray> for Arc<dyn arrow_array::Array> {
     type Error = MarrowError;
 
     fn try_from(value: crate::array::TrustedArray) -> Result<Self> {
-        Ok(arrow_array::make_array(build_array_data(value.into(), true)?))
+        Ok(arrow_array::make_array(build_array_data(
+            value.into(),
+            true,
+        )?))
     }
 }
 

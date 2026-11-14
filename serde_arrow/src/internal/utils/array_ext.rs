@@ -567,7 +567,9 @@ pub fn append_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
         return;
     }
 
-    let dest = &mut buffer[byte_idx];
+    let dest = buffer
+        .get_mut(byte_idx)
+        .unwrap_or_else(|| unreachable!("ensured a byte is available"));
     let bit_mask: u8 = 1 << (idx % 8);
     if value {
         *dest |= bit_mask;

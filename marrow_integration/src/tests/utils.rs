@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use marrow::{
-    array::Array,
-    datatypes::DataType,
-    view::View,
-};
+use marrow::{array::Array, datatypes::DataType, view::View};
 
 /// Helper to view an as the given variant
 macro_rules! view_as {

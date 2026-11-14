@@ -343,7 +343,9 @@ mod tests {
         })];
 
         let deserializer = Deserializer::from_marrow(&fields, &views).unwrap();
-        assert!(Vec::<Item<String>>::deserialize(deserializer).is_err());
+        assert!(Vec::<Item<String>>::deserialize(deserializer)
+            .err()
+            .is_some());
     }
 
     #[test]
