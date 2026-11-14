@@ -244,6 +244,7 @@ impl Utf8Check {
     /// # Safety
     ///
     /// All string data read with the returned value must be valid UTF-8.
+    #[cfg(feature = "unsafe-optimizations")]
     pub const unsafe fn trusted() -> Self {
         Self { trusted: true }
     }
@@ -287,7 +288,10 @@ where
 mod tests {
     use marrow::view::BytesView;
 
-    use super::{Utf8Check, ViewAccess};
+    use super::ViewAccess;
+
+    #[cfg(feature = "unsafe-optimizations")]
+    use super::Utf8Check;
 
     #[test]
     fn str_is_some_does_not_validate_utf8() {
@@ -301,6 +305,7 @@ mod tests {
         ViewAccess::<str>::get(&view, 0).unwrap_err();
     }
 
+    #[cfg(feature = "unsafe-optimizations")]
     #[test]
     fn utf8_check_validates_unless_trusted() {
         let view = BytesView {

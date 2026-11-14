@@ -1,0 +1,30 @@
+stages:
+  - test
+
+variables:
+  CARGO_TERM_COLOR: always
+
+serde-arrow:
+  stage: test
+  image: rust:1.83
+  parallel:
+    matrix:
+      - ARROW_VERSION: ["60"]
+        OPTIMIZATION_FEATURE: ["", "unsafe-optimizations"]
+  script:
+    - FEATURES="arrow-${ARROW_VERSION}"
+    - if [ -n "$OPTIMIZATION_FEATURE" ]; then FEATURES="${FEATURES},${OPTIMIZATION_FEATURE}"; fi
+    - cargo test --package serde_arrow --features "$FEATURES"
+    - cargo test --package serde_arrow --doc --features "$FEATURES"
+
+marrow-integration:
+  stage: test
+  image: rust:1.83
+  parallel:
+    matrix:
+      - ARROW_VERSION: ["60"]
+        OPTIMIZATION_FEATURE: ["", "unsafe-optimizations"]
+  script:
+    - FEATURES="arrow-${ARROW_VERSION}"
+    - if [ -n "$OPTIMIZATION_FEATURE" ]; then FEATURES="${FEATURES},${OPTIMIZATION_FEATURE}"; fi
+    - cargo test --package marrow_integration --features "$FEATURES"
