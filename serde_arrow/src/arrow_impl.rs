@@ -20,9 +20,29 @@ use crate::{
         schema::extensions::{Bool8Field, FixedShapeTensorField, VariableShapeTensorField},
         schema::{SchemaLike, Sealed, SerdeArrowSchema, TracingOptions},
         serializer::Serializer,
-        utils::array_view_ext::Utf8Check,
     },
 };
+
+macro_rules! unsafe_optimizations_if {
+    (true => $optimized:block, false => $checked:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        $optimized
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        $checked
+    }};
+    (true => $optimized:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        $optimized
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        {}
+    }};
+    (false => $checked:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        {}
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        $checked
+    }};
+}
 
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
 /// features*)
@@ -238,15 +258,18 @@ impl crate::internal::array_builder::ArrayBuilder {
 }
 
 fn builder_array_into_arrow(array: marrow::array::Array) -> Result<ArrayRef, MarrowError> {
-    #[cfg(feature = "unsafe-optimizations")]
-    // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries
-    // and sufficient validity bits, including after failed appends.
-    // It stores string bytes before appending their view descriptors.
-    unsafe {
-        marrow::array::TryIntoArrow::try_into_arrow_unchecked(array)
+    unsafe_optimizations_if! {
+        true => {
+            // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries,
+            // and sufficient validity bits, including after failed appends. It stores
+            // string bytes before appending their view descriptors.
+            let array = unsafe { marrow::array::TrustedArray::new(array) };
+            ArrayRef::try_from(array)
+        },
+        false => {
+            ArrayRef::try_from(array)
+        },
     }
-    #[cfg(not(feature = "unsafe-optimizations"))]
-    ArrayRef::try_from(array)
 }
 
 impl<'de> Deserializer<'de> {
@@ -294,10 +317,21 @@ impl<'de> Deserializer<'de> {
             views.push(View::try_from(array.as_ref())?);
         }
 
-        // SAFETY: arrow string arrays hold valid UTF-8. Only `unsafe` code can
-        // build one that does not.
-        let utf8 = unsafe { Utf8Check::trusted() };
-        Deserializer::with_utf8_check(&fields, views, utf8)
+        unsafe_optimizations_if! {
+            true => {
+                let views = views
+                    .into_iter()
+                    .map(|view| {
+                        // SAFETY: Arrow string arrays guarantee valid UTF-8 recursively.
+                        unsafe { marrow::view::TrustedView::new(view) }
+                    })
+                    .collect::<Vec<_>>();
+                Deserializer::from_marrow_trusted(&fields, &views)
+            },
+            false => {
+                Deserializer::new(&fields, views)
+            },
+        }
     }
 
     /// Construct a new deserializer from a record batch (*requires one of the

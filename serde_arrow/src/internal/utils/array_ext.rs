@@ -99,11 +99,10 @@ impl<O: Offset> ArrayExt for BytesArray<O> {
     }
 
     fn take(&mut self) -> Self {
-        let offsets = vec![O::default()];
         Self {
             validity: self.validity.as_mut().map(std::mem::take),
             data: std::mem::take(&mut self.data),
-            offsets: std::mem::replace(&mut self.offsets, offsets),
+            offsets: std::mem::replace(&mut self.offsets, vec![O::default()]),
         }
     }
 
@@ -165,15 +164,14 @@ impl<'s, O: Offset> ScalarArrayExt<'s> for BytesArray<O> {
     }
 
     fn push_scalar_value(&mut self, value: Self::Value) -> Result<()> {
-        let next = O::try_form_usize(self.data.len() + value.len())?;
         append_validity(
             self.validity.as_mut(),
             self.offsets.len().saturating_sub(1),
             true,
         )?;
-        self.offsets.reserve(1);
-        self.data.extend_from_slice(value);
-        self.offsets.push(next);
+        duplicate_last(&mut self.offsets)?;
+        increment_last(&mut self.offsets, value.len())?;
+        self.data.extend(value);
         Ok(())
     }
 }
@@ -282,10 +280,9 @@ impl<'s> ScalarArrayExt<'s> for BytesViewArray {
                     "cannot append value with length greater than 12 without an underlying buffer"
                 );
             };
-            let view = bytes_view::pack_extern(value, 0, first_buffer.len())?;
-            self.data.reserve(1);
-            first_buffer.extend_from_slice(value);
-            self.data.push(view);
+            self.data
+                .push(bytes_view::pack_extern(value, 0, first_buffer.len())?);
+            first_buffer.extend(value);
         }
         Ok(())
     }
@@ -360,10 +357,9 @@ impl<O: Offset> ArrayExt for OffsetsArray<O> {
     }
 
     fn take(&mut self) -> Self {
-        let offsets = vec![O::default()];
         Self {
             validity: self.validity.as_mut().map(std::mem::take),
-            offsets: std::mem::replace(&mut self.offsets, offsets),
+            offsets: std::mem::replace(&mut self.offsets, vec![O::default()]),
         }
     }
 
@@ -571,7 +567,9 @@ pub fn append_bit_buffer(buffer: &mut Vec<u8>, idx: usize, value: bool) {
         return;
     }
 
-    let dest = &mut buffer[byte_idx];
+    let dest = buffer
+        .get_mut(byte_idx)
+        .unwrap_or_else(|| unreachable!("ensured a byte is available"));
     let bit_mask: u8 = 1 << (idx % 8);
     if value {
         *dest |= bit_mask;

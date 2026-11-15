@@ -156,7 +156,10 @@ impl StructBuilder {
         }
 
         self.seen.fill(false);
-        self.seen[..self.next].fill(true);
+        self.seen
+            .get_mut(..self.next)
+            .unwrap_or_else(|| unreachable!("next is bounded by the number of fields"))
+            .fill(true);
         self.canonical_mode = SchemaOrderedFields::Disabled;
     }
 

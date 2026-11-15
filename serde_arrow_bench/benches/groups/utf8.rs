@@ -5,11 +5,11 @@ use std::{hint::black_box, sync::Arc};
 
 use arrow_schema::{DataType, Field};
 use criterion::{BatchSize, Criterion, Throughput};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const ROWS: usize = 1024;
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct Row {
     value: String,
 }
@@ -45,6 +45,9 @@ fn benchmark_serialize(c: &mut Criterion) {
                 |()| serde_arrow::to_record_batch(black_box(&fields), black_box(&items)).unwrap(),
                 BatchSize::PerIteration,
             );
+        });
+        group.bench_function(format!("from_record_batch_{name}"), |b| {
+            b.iter(|| serde_arrow::from_record_batch::<Vec<Row>>(black_box(&batch)).unwrap());
         });
     }
     group.finish();

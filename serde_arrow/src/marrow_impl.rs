@@ -1,9 +1,50 @@
-use marrow::{array::Array, datatypes::Field, view::View};
+use marrow::{
+    array::{Array, TrustedArray},
+    datatypes::Field,
+    view::{TrustedView, View},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
+
+/// Deserialize items from trusted marrow views.
+///
+/// The views must satisfy the invariants documented on [`TrustedView`].
+///
+/// ```rust
+/// # fn main() -> serde_arrow::Result<()> {
+/// use marrow::{
+///     datatypes::{DataType, Field},
+///     view::{BytesView, View},
+/// };
+/// use marrow::view::TrustedView;
+/// use serde_arrow::{from_marrow_trusted, utils::Item};
+///
+/// let fields = [Field {
+///     name: String::from("item"),
+///     data_type: DataType::Utf8,
+///     ..Field::default()
+/// }];
+/// let view = View::Utf8(BytesView {
+///     validity: None,
+///     offsets: &[0_i32, 2],
+///     data: b"hi",
+/// });
+/// // SAFETY: the only accessible string is the valid UTF-8 value "hi".
+/// let views = [unsafe { TrustedView::new(view) }];
+/// let values: Vec<Item<String>> = from_marrow_trusted(&fields, &views)?;
+/// assert_eq!(values[0].0, "hi");
+/// # Ok(())
+/// # }
+/// ```
+pub fn from_marrow_trusted<'de, T>(fields: &[Field], views: &[TrustedView<'de>]) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(Deserializer::from_marrow_trusted(fields, views)?)
+}
 
 /// Build [marrow arrays][marrow::array::Array] from the given items
 ///
@@ -58,6 +99,26 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
         .serialize(Serializer::new(builder))?
         .into_inner()
         .into_marrow()
+}
+
+/// Build trusted [marrow arrays][marrow::array::TrustedArray] from the given items.
+///
+/// This function marks the constructed arrays as trusted, allowing consumers
+/// to skip validation when converting them. The returned arrays satisfy the
+/// invariants documented on [`TrustedArray`].
+///
+/// `items` should be given in the form of a list of records (e.g., a vector of
+/// structs). To serialize single values, use the [`Items`][crate::utils::Items]
+/// wrapper.
+///
+/// To build arrays record by record, use [`ArrayBuilder::to_marrow_trusted`]
+/// or [`ArrayBuilder::into_marrow_trusted`].
+pub fn to_marrow_trusted<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<TrustedArray>> {
+    let builder = ArrayBuilder::from_marrow(fields)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .into_marrow_trusted()
 }
 
 /// Deserialize items from [marrow views][marrow::view::View]
@@ -129,11 +190,51 @@ impl ArrayBuilder {
         let (arrays, _) = self.into_arrays_and_field_metas()?;
         Ok(arrays)
     }
+
+    /// Construct trusted [`marrow::Array`s][Array] and reset the builder.
+    ///
+    /// The returned arrays satisfy the invariants required by
+    /// [`TrustedArray`], allowing consumers to skip validation when converting
+    /// them.
+    pub fn to_marrow_trusted(&mut self) -> Result<Vec<TrustedArray>> {
+        self.take().into_marrow_trusted()
+    }
+
+    /// Consume the builder and construct trusted arrays.
+    ///
+    /// The returned arrays satisfy the invariants required by
+    /// [`TrustedArray`], allowing consumers to skip validation when converting
+    /// them.
+    pub fn into_marrow_trusted(self) -> Result<Vec<TrustedArray>> {
+        self.into_marrow().map(|arrays| {
+            arrays
+                .into_iter()
+                .map(|array| {
+                    // SAFETY: arrays produced by `ArrayBuilder` satisfy the invariants required
+                    // by `TrustedArray`.
+                    unsafe { TrustedArray::new(array) }
+                })
+                .collect()
+        })
+    }
 }
 
 impl<'de> Deserializer<'de> {
     /// Build a deserializer from [`marrow::Field`s][Field] and [`marrow::View`s][View]
     pub fn from_marrow(fields: &[Field], views: &[View<'de>]) -> Result<Self> {
         Self::new(fields, views.to_vec())
+    }
+
+    /// Build a deserializer from trusted marrow views.
+    ///
+    /// The views must satisfy the invariants documented on [`TrustedView`].
+    pub fn from_marrow_trusted(fields: &[Field], views: &[TrustedView<'de>]) -> Result<Self> {
+        // SAFETY: every TrustedView can only be constructed with the required guarantee.
+        let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
+        Self::with_utf8_check(
+            fields,
+            views.iter().cloned().map(View::from).collect(),
+            utf8,
+        )
     }
 }

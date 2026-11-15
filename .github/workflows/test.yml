@@ -77,6 +77,10 @@
           "run": "uv run python scripts/check-cargo-toml.py"
         },
         {
+          "name": "Check unsafe-optimizations cfg dispatch",
+          "run": "uv run python scripts/check-unsafe-optimizations-cfg.py"
+        },
+        {
           "name": "Check",
           "run": "cargo check"
         },

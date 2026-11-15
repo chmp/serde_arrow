@@ -111,26 +111,43 @@ pub enum Array {
     Union(UnionArray),
 }
 
-/// Conversion of an [`Array`] to `arrow::array::ArrayRef` for an enabled
-/// `arrow-*` version, selected by the return type.
-pub trait TryIntoArrow<T>: Sized {
-    /// Convert an array to Arrow, skipping validation covered by the safety contract.
-    ///
-    /// Requiring additional caller guarantees is a breaking change.
+/// An owned array that is asserted to satisfy Arrow's in-memory format invariants.
+///
+/// # Invariants
+///
+/// The array and its children must satisfy the invariants of the Arrow in-memory format.
+///
+/// Currently, the following invariants are explicitly expected to be upheld:
+///
+/// - Every `Utf8` and `LargeUtf8` array must have nonempty, nonnegative, nondecreasing `offsets` within the `data` buffer.
+///   Every offset must be at a UTF-8 character boundary.
+///   The entire data buffer must be valid UTF-8, including null values and unreferenced bytes.
+///   Its validity bitmap must contain enough bits for every logical value.
+/// - Every `Utf8View` must have valid view descriptors.
+///   Inline values must have zero padding; external values must reference valid buffer ranges and have matching prefixes.
+///   All referenced values, including null slots, must be valid UTF-8.
+///   Its validity bitmap must contain enough bits for every descriptor.
+///
+/// Fututure `marrow` versions may expand the list of expected invariants.
+/// As long as these invariants follow Arrow's in-memory format, such expansion is not considered a breaking change.
+#[derive(Clone, Debug)]
+pub struct TrustedArray(pub(crate) Array);
+
+impl TrustedArray {
+    /// Wrap an array as trusted.
     ///
     /// # Safety
     ///
-    /// Every `Utf8` and `LargeUtf8` array, recursively including all children,
-    /// must have nonempty, nonnegative, nondecreasing `offsets` within the `data`
-    /// buffer, and every offset must be at a UTF-8 character boundary. The entire
-    /// data buffer must be valid UTF-8, including null values and unreferenced bytes.
-    /// If present, the validity bitmap must contain at least `offsets.len() - 1` bits.
-    /// Every `Utf8View`, including nested arrays, must have valid view descriptors:
-    /// inline values must have zero padding; external values must reference valid
-    /// buffer ranges and have matching prefixes. All referenced values, including
-    /// null slots, must be valid UTF-8. If present, the validity bitmap must contain
-    /// at least `data.len()` bits.
-    unsafe fn try_into_arrow_unchecked(self) -> Result<T>;
+    /// `array` must satisfy the invariants documented on [`TrustedArray`].
+    pub unsafe fn new(array: Array) -> Self {
+        Self(array)
+    }
+}
+
+impl From<TrustedArray> for Array {
+    fn from(value: TrustedArray) -> Self {
+        value.0
+    }
 }
 
 impl Array {

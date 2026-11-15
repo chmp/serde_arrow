@@ -26,7 +26,7 @@
 
 | Operation        | [`arrow-*`](#features)                                            | `marrow`                                            |
 |:-----------------|:------------------------------------------------------------------|:----------------------------------------------------|
-| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_marrow`]                                       |
+| Rust to Arrow    | [`to_record_batch`], [`to_arrow`]                                 | [`to_marrow`], [`to_marrow_trusted`]                |
 | Arrow to Rust    | [`from_record_batch`], [`from_arrow`]                             | [`from_marrow`]                                     |
 | [`ArrayBuilder`] | [`ArrayBuilder::from_arrow`]                                      | [`ArrayBuilder::from_marrow`]                       |
 | [`Serializer`]   | [`ArrayBuilder::from_arrow`] + [`Serializer::new`]                | [`ArrayBuilder::from_marrow`] + [`Serializer::new`] |
@@ -105,8 +105,14 @@
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
 //!
-//! The default-off `unsafe-optimizations` feature skips redundant Arrow conversion
-//! checks using builder guarantees. Enable it alongside an `arrow-*` feature.
+//! The default-off `unsafe-optimizations` feature affects only the Arrow integration.
+//! It changes the defaults used by Arrow conversion APIs.
+//! Builder output from `to_arrow`, `to_record_batch`, and corresponding `ArrayBuilder` methods skips redundant validation.
+//! The invariants are upheld by construction by `serde_arrow`
+//! `from_arrow`, `from_record_batch`, and corresponding `Deserializer` constructors similarly skip redundant validation.
+//! The invariants there are upheld by the arrow implementation.
+//! The feature is opt-in because these optimizations use unsafe code.
+//! To control the validation at runtime, use the `marrow` APIs.
 //!
 //! # Usage in libraries
 //!
@@ -156,6 +162,48 @@
 //!     Arc::new(arrow::datatypes::Schema::new(arrow_fields)),
 //!     arrow_arrays,
 //! );
+//! # }
+//! # Ok(())
+//! # }
+//! ```
+//! The `marrow`-based API also provides [`from_marrow_trusted`] and [`to_marrow_trusted`] for views and arrays whose validity the caller asserts.
+//!
+//! The regular `to_marrow` path returns ordinary marrow arrays.
+//! Converting them to Arrow with `ArrayRef::try_from` validates the arrays.
+//! When the arrays are built by `serde_arrow`,
+//! `to_marrow_trusted` returns trusted arrays so that the subsequent conversion
+//! to Arrow can skip that validation.
+//! Building the arrays is still performed normally; only the Arrow conversion
+//! skips validation.
+//!
+//! ```rust
+//! # use serde::{Deserialize, Serialize};
+//! # fn main() -> serde_arrow::Result<()> {
+//! # #[cfg(has_arrow)] {
+//! # use serde_arrow::_impl::arrow;
+//! use serde_arrow::schema::{SchemaLike, TracingOptions};
+//!
+//! #[derive(Deserialize, Serialize)]
+//! struct Record {
+//!     value: String,
+//! }
+//!
+//! let records = vec![Record { value: String::from("hello") }];
+//! let fields = Vec::<marrow::datatypes::Field>::from_type::<Record>(TracingOptions::default())?;
+//!
+//! // Arrow conversion validates ordinary marrow arrays.
+//! let arrays = serde_arrow::to_marrow(&fields, &records)?;
+//! let arrow_arrays = arrays.into_iter()
+//!     .map(arrow::array::ArrayRef::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//!
+//! // `to_marrow_trusted` marks its output as trusted, so Arrow conversion
+//! // skips validation.
+//! let trusted_arrays = serde_arrow::to_marrow_trusted(&fields, &records)?;
+//! let trusted_arrow_arrays = trusted_arrays.into_iter()
+//!     .map(arrow::array::ArrayRef::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//! assert_eq!(arrow_arrays.len(), trusted_arrow_arrays.len());
 //! # }
 //! # Ok(())
 //! # }
@@ -249,7 +297,7 @@ pub use arrow_impl::{from_arrow, from_record_batch, to_arrow, to_record_batch};
 #[deny(missing_docs)]
 mod marrow_impl;
 
-pub use marrow_impl::{from_marrow, to_marrow};
+pub use marrow_impl::{from_marrow, from_marrow_trusted, to_marrow, to_marrow_trusted};
 
 #[deny(missing_docs)]
 /// Helpers that may be useful when using `serde_arrow`

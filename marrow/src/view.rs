@@ -105,6 +105,51 @@ pub enum View<'a> {
     Union(UnionView<'a>),
 }
 
+/// A borrowed array view that is asserted to satisfy Arrow's in-memory format
+/// invariants.
+///
+/// # Invariants
+///
+/// The view and its children must satisfy the invariants of the Arrow in-memory
+/// format.
+///
+/// Currently, the following invariants are explicitly expected to be upheld for the lifetime of the borrowed data:
+///
+/// - `Utf8` and `LargeUtf8` views must have nonempty, nonnegative, nondecreasing offsets within their data buffers.
+///   Every offset must be at a UTF-8 character boundary.
+///   The entire data buffer must be valid UTF-8, including null values and unreferenced bytes.
+///   The validity bitmap must contain enough bits for every logical value.
+/// - `Utf8View` descriptors must have zero padding for inline values.
+///   They must have valid buffer ranges and matching prefixes for external values.
+///   All referenced values, including null slots, must be valid UTF-8.
+///   T he validity bitmap must contain enough bits for every descriptor.
+///
+/// Fututure `marrow` versions may expand the list of expected invariants.
+/// As long as these invariants follow Arrow's in-memory format, such expansion is not considered a breaking change.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrustedView<'a>(View<'a>);
+
+impl<'a> TrustedView<'a> {
+    /// Wrap a view for a consumer that skips UTF-8 validation.
+    ///
+    /// # Safety
+    /// `view` must satisfy the invariants documented on [`TrustedView`].
+    pub unsafe fn new(view: View<'a>) -> Self {
+        Self(view)
+    }
+
+    /// Recover the wrapped view.
+    pub fn into_inner(self) -> View<'a> {
+        self.0
+    }
+}
+
+impl<'a> From<TrustedView<'a>> for View<'a> {
+    fn from(value: TrustedView<'a>) -> Self {
+        value.0
+    }
+}
+
 impl View<'_> {
     /// Get the data type of this array
     pub fn data_type(&self) -> DataType {
