@@ -117,7 +117,7 @@ E.g., they check for correct UTF-8 encoding.
 Similarily, there are validations performed in deserializing data to construct Rust values from the raw arrays.
 `serde_arrow` already constructs arrays that uphold the required invariants.
 Therefore, the validations are redudant.
-To optimize performane `serde_arrow` allow to skip these validations.
+To optimize performane `serde_arrow` allows to skip these validations.
 The implementation relies on unsafe code.
 
 All unsafe optimizations are opt-in.
