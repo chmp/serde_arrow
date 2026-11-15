@@ -237,7 +237,18 @@ impl crate::internal::array_builder::ArrayBuilder {
 }
 
 fn builder_array_into_arrow(array: marrow::array::Array) -> Result<ArrayRef, MarrowError> {
-    ArrayRef::try_from(array)
+    #[cfg(feature = "unsafe-optimizations")]
+    {
+        // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries,
+        // and sufficient validity bits, including after failed appends. It stores
+        // string bytes before appending their view descriptors.
+        let array = unsafe { marrow::array::TrustedArray::new(array) };
+        ArrayRef::try_from(array)
+    }
+    #[cfg(not(feature = "unsafe-optimizations"))]
+    {
+        ArrayRef::try_from(array)
+    }
 }
 
 impl<'de> Deserializer<'de> {
