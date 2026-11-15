@@ -110,6 +110,26 @@ shape: (3, 2)
 2  3.0  3
 ```
 
+## Use of unsafe code in `serde_arrow`
+
+The default arrow constructors validate their inputs.
+E.g., they check for correct UTF-8 encoding.
+Similarily, there are validations performed in deserializing data to construct Rust values from the raw arrays.
+`serde_arrow` already constructs arrays that uphold the required invariants.
+Therefore, the validations are redudant.
+To optimize performane `serde_arrow` allow to skip these validations.
+The implementation relies on unsafe code.
+
+All unsafe optimizations are opt-in.
+For marrow conversions, use `to_marrow_trusted` or `from_marrow_trusted` when
+the trusted invariants hold.
+For Arrow conversions, enable the default-off `unsafe-optimizations` feature
+alongside an `arrow-*` feature to optimize APIs such as `to_arrow`,
+`from_arrow`, `to_record_batch`, and `from_record_batch`.
+These trusted paths skip redundant validation; array serialization and
+deserialization still run as usual.
+Without these opt-ins, the regular Arrow conversion paths retain their checks.
+
 ## Related packages & Performance
 
 - [`arrow`][arrow]: the JSON component of the official Arrow package supports

@@ -124,6 +124,19 @@ cargo flamegraph --example serialize_nested_struct --package serde_arrow_bench -
 
 Prefer semantic line breaks for newly added or modified comments.
 
+## Unsafe optimizations
+
+Optimizations that rely on unsafe code must be opt-in for users.
+Expose them through explicit trusted marrow APIs or types, such as
+`to_marrow_trusted`, `from_marrow_trusted`, `TrustedArray`, and `TrustedView`,
+or through the default-off `unsafe-optimizations` feature used with an
+`arrow-*` feature.
+
+Keep the ordinary conversion paths checked unless the user selects one of
+these opt-ins.
+Keep all dispatch on `unsafe-optimizations` in
+`serde_arrow/src/arrow_impl.rs`.
+
 ## Error format
 
 Style:
