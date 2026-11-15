@@ -23,6 +23,27 @@ use crate::{
     },
 };
 
+macro_rules! unsafe_optimizations_if {
+    (true => $optimized:block, false => $checked:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        $optimized
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        $checked
+    }};
+    (true => $optimized:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        $optimized
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        {}
+    }};
+    (false => $checked:block $(,)?) => {{
+        #[cfg(feature = "unsafe-optimizations")]
+        {}
+        #[cfg(not(feature = "unsafe-optimizations"))]
+        $checked
+    }};
+}
+
 /// Build arrow arrays from the given items  (*requires one of the `arrow-*`
 /// features*)
 ///
@@ -237,17 +258,17 @@ impl crate::internal::array_builder::ArrayBuilder {
 }
 
 fn builder_array_into_arrow(array: marrow::array::Array) -> Result<ArrayRef, MarrowError> {
-    #[cfg(feature = "unsafe-optimizations")]
-    {
-        // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries,
-        // and sufficient validity bits, including after failed appends. It stores
-        // string bytes before appending their view descriptors.
-        let array = unsafe { marrow::array::TrustedArray::new(array) };
-        ArrayRef::try_from(array)
-    }
-    #[cfg(not(feature = "unsafe-optimizations"))]
-    {
-        ArrayRef::try_from(array)
+    unsafe_optimizations_if! {
+        true => {
+            // SAFETY: Utf8Builder preserves valid UTF-8, offsets at character boundaries,
+            // and sufficient validity bits, including after failed appends. It stores
+            // string bytes before appending their view descriptors.
+            let array = unsafe { marrow::array::TrustedArray::new(array) };
+            ArrayRef::try_from(array)
+        },
+        false => {
+            ArrayRef::try_from(array)
+        },
     }
 }
 
@@ -296,20 +317,20 @@ impl<'de> Deserializer<'de> {
             views.push(View::try_from(array.as_ref())?);
         }
 
-        #[cfg(feature = "unsafe-optimizations")]
-        {
-            let views = views
-                .into_iter()
-                .map(|view| {
-                    // SAFETY: Arrow string arrays guarantee valid UTF-8 recursively.
-                    unsafe { marrow::view::TrustedView::new(view) }
-                })
-                .collect::<Vec<_>>();
-            Deserializer::from_marrow_trusted(&fields, &views)
-        }
-        #[cfg(not(feature = "unsafe-optimizations"))]
-        {
-            Deserializer::new(&fields, views)
+        unsafe_optimizations_if! {
+            true => {
+                let views = views
+                    .into_iter()
+                    .map(|view| {
+                        // SAFETY: Arrow string arrays guarantee valid UTF-8 recursively.
+                        unsafe { marrow::view::TrustedView::new(view) }
+                    })
+                    .collect::<Vec<_>>();
+                Deserializer::from_marrow_trusted(&fields, &views)
+            },
+            false => {
+                Deserializer::new(&fields, views)
+            },
         }
     }
 
