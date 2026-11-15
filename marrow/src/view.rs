@@ -106,6 +106,12 @@ pub enum View<'a> {
 }
 
 /// A borrowed array view whose accessible string values are known to be valid UTF-8.
+///
+/// # Invariants
+///
+/// Every string value accessible through this view, including values in nested
+/// arrays and dictionaries, must be valid UTF-8 for the lifetime of the
+/// borrowed data.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrustedView<'a>(View<'a>);
 
@@ -113,9 +119,7 @@ impl<'a> TrustedView<'a> {
     /// Wrap a view for a consumer that skips UTF-8 validation.
     ///
     /// # Safety
-    /// Every string value accessible through this view, including values in
-    /// nested arrays and dictionaries, must be valid UTF-8 for the lifetime
-    /// of the borrowed data.
+    /// `view` must satisfy the invariants documented on [`TrustedView`].
     pub unsafe fn new(view: View<'a>) -> Self {
         Self(view)
     }

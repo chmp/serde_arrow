@@ -9,14 +9,9 @@ use crate::internal::{
     array_builder::ArrayBuilder, deserializer::Deserializer, error::Result, serializer::Serializer,
 };
 
-/// Deserialize from views whose validity has been asserted by the caller.
+/// Deserialize items from trusted marrow views.
 ///
-/// The caller must ensure that the views satisfy the invariants required by
-/// their data types. This guarantee is required when creating each
-/// [`TrustedView`].
-///
-/// This function uses unsafe code to skip validation, which is redundant when
-/// the caller upholds these invariants.
+/// The views must satisfy the invariants documented on [`TrustedView`].
 ///
 /// ```rust
 /// # fn main() -> serde_arrow::Result<()> {
@@ -109,9 +104,8 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
 /// Build trusted [marrow arrays][marrow::array::TrustedArray] from the given items.
 ///
 /// This function marks the constructed arrays as trusted, allowing consumers
-/// to skip validation when converting them. It uses unsafe code to mark the
-/// arrays as trusted; validation is redundant because `serde_arrow` upholds the
-/// required invariants during construction.
+/// to skip validation when converting them. The returned arrays satisfy the
+/// invariants documented on [`TrustedArray`].
 ///
 /// `items` should be given in the form of a list of records (e.g., a vector of
 /// structs). To serialize single values, use the [`Items`][crate::utils::Items]
@@ -231,15 +225,9 @@ impl<'de> Deserializer<'de> {
         Self::new(fields, views.to_vec())
     }
 
-    /// Build a deserializer from views whose validity has been asserted by the
-    /// caller.
+    /// Build a deserializer from trusted marrow views.
     ///
-    /// The caller must ensure that the views satisfy the invariants required by
-    /// their data types. This guarantee is required when creating each
-    /// [`TrustedView`].
-    ///
-    /// This method uses unsafe code to skip validation, which is redundant when
-    /// the caller upholds these invariants.
+    /// The views must satisfy the invariants documented on [`TrustedView`].
     pub fn from_marrow_trusted(fields: &[Field], views: &[TrustedView<'de>]) -> Result<Self> {
         // SAFETY: every TrustedView can only be constructed with the required guarantee.
         let utf8 = unsafe { crate::internal::utils::array_view_ext::Utf8Check::trusted() };
