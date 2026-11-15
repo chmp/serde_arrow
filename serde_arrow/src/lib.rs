@@ -105,10 +105,14 @@
 //! | `arrow-54`    | `arrow=54`    |
 //! | `arrow-53`    | `arrow=53`    |
 //!
-//! The default-off `unsafe-optimizations` feature skips redundant validation
-//! when serializing or deserializing Arrow arrays. The required invariants are
-//! upheld by construction, so additional validation is unnecessary. The
-//! feature is opt-in because the optimization uses unsafe code.
+//! The default-off `unsafe-optimizations` feature affects only the Arrow integration.
+//! It changes the defaults used by Arrow conversion APIs.
+//! Builder output from `to_arrow`, `to_record_batch`, and corresponding `ArrayBuilder` methods skips redundant validation.
+//! The invariants are upheld by construction by `serde_arrow`
+//! `from_arrow`, `from_record_batch`, and corresponding `Deserializer` constructors similarly skip redundant validation.
+//! The invariants there are upheld by the arrow implementation.
+//! The feature is opt-in because these optimizations use unsafe code.
+//! To control the validation at runtime, use the `marrow` APIs.
 //!
 //! # Usage in libraries
 //!
@@ -162,9 +166,7 @@
 //! # Ok(())
 //! # }
 //! ```
-//! The `marrow`-based API also provides [`from_marrow_trusted`] for views whose
-//! validity the caller asserts and [`to_marrow_trusted`] for arrays constructed by
-//! `serde_arrow`.
+//! The `marrow`-based API also provides [`from_marrow_trusted`] and [`to_marrow_trusted`] for views and arrays whose validity the caller asserts.
 
 // be more forgiving without any active implementation
 #[cfg_attr(not(has_arrow), allow(unused))]

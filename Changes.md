@@ -2,8 +2,11 @@
 
 ## development
 
-- Add the default-off `unsafe-optimizations` feature for skipping redundant
-  validation during Arrow conversion and UTF-8 checks during Arrow deserialization
+- Add the default-off `unsafe-optimizations` feature for Arrow conversion. It
+  changes the defaults used by `to_arrow`, `from_arrow`, and similar Arrow
+  APIs: builder output skips redundant validation, and deserialization skips
+  checks covered by Arrow's guarantees. It only affects the Arrow integration.
+  The `marrow` APIs are unchanged.
   ([#335](https://github.com/chmp/serde_arrow/pull/335),
   [#336](https://github.com/chmp/serde_arrow/pull/336)).
 - Add `to_marrow_trusted` and `from_marrow_trusted` for explicitly trusted
@@ -25,8 +28,9 @@
   [#332](https://github.com/chmp/serde_arrow/pull/332))
 - Fix the `field` annotation in errors of `Decimal128` serialization
   ([#332](https://github.com/chmp/serde_arrow/pull/332))
-- With `unsafe-optimizations`, skip UTF-8 validation when deserializing
-  strings from Arrow arrays. Ordinary `from_marrow` views are still validated
+- With `unsafe-optimizations`, Arrow deserialization entry points use Arrow's
+  guarantees to skip redundant checks. `from_marrow` continues to use the
+  checked path unless the caller explicitly uses the trusted API
   ([#335](https://github.com/chmp/serde_arrow/pull/335))
 
 ## 0.15.1
