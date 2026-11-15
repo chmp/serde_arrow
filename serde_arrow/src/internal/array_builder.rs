@@ -20,6 +20,9 @@ use crate::{
 ///
 /// It supports array construction via
 /// - [`ArrayBuilder::to_marrow`]
+/// - [`ArrayBuilder::to_marrow_trusted`]
+/// - [`ArrayBuilder::into_marrow`]
+/// - [`ArrayBuilder::into_marrow_trusted`]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_record_batch`]")]
 #[cfg_attr(has_arrow, doc = r"- [`ArrayBuilder::to_arrow`]")]
 ///

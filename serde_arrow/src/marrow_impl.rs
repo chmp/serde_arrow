@@ -117,18 +117,14 @@ pub fn to_marrow<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<Array>>
 /// structs). To serialize single values, use the [`Items`][crate::utils::Items]
 /// wrapper.
 ///
-/// To build arrays record by record use [`ArrayBuilder`].
+/// To build arrays record by record, use [`ArrayBuilder::to_marrow_trusted`]
+/// or [`ArrayBuilder::into_marrow_trusted`].
 pub fn to_marrow_trusted<T: Serialize>(fields: &[Field], items: T) -> Result<Vec<TrustedArray>> {
-    to_marrow(fields, items).map(|arrays| {
-        arrays
-            .into_iter()
-            .map(|array| {
-                // SAFETY: arrays produced by `to_marrow` satisfy the invariants required by
-                // `TrustedArray`.
-                unsafe { TrustedArray::new(array) }
-            })
-            .collect()
-    })
+    let builder = ArrayBuilder::from_marrow(fields)?;
+    items
+        .serialize(Serializer::new(builder))?
+        .into_inner()
+        .into_marrow_trusted()
 }
 
 /// Deserialize items from [marrow views][marrow::view::View]
@@ -199,6 +195,33 @@ impl ArrayBuilder {
     pub fn into_marrow(self) -> Result<Vec<Array>> {
         let (arrays, _) = self.into_arrays_and_field_metas()?;
         Ok(arrays)
+    }
+
+    /// Construct trusted [`marrow::Array`s][Array] and reset the builder.
+    ///
+    /// The returned arrays satisfy the invariants required by
+    /// [`TrustedArray`], allowing consumers to skip validation when converting
+    /// them.
+    pub fn to_marrow_trusted(&mut self) -> Result<Vec<TrustedArray>> {
+        self.take().into_marrow_trusted()
+    }
+
+    /// Consume the builder and construct trusted arrays.
+    ///
+    /// The returned arrays satisfy the invariants required by
+    /// [`TrustedArray`], allowing consumers to skip validation when converting
+    /// them.
+    pub fn into_marrow_trusted(self) -> Result<Vec<TrustedArray>> {
+        self.into_marrow().map(|arrays| {
+            arrays
+                .into_iter()
+                .map(|array| {
+                    // SAFETY: arrays produced by `ArrayBuilder` satisfy the invariants required
+                    // by `TrustedArray`.
+                    unsafe { TrustedArray::new(array) }
+                })
+                .collect()
+        })
     }
 }
 
