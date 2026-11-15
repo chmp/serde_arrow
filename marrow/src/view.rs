@@ -105,13 +105,27 @@ pub enum View<'a> {
     Union(UnionView<'a>),
 }
 
-/// A borrowed array view whose accessible string values are known to be valid UTF-8.
+/// A borrowed array view that is asserted to satisfy Arrow's in-memory format
+/// invariants.
 ///
 /// # Invariants
 ///
-/// Every string value accessible through this view, including values in nested
-/// arrays and dictionaries, must be valid UTF-8 for the lifetime of the
-/// borrowed data.
+/// The view and its children must satisfy the invariants of the Arrow in-memory
+/// format.
+///
+/// Currently, the following invariants are explicitly expected to be upheld for the lifetime of the borrowed data:
+///
+/// - `Utf8` and `LargeUtf8` views must have nonempty, nonnegative, nondecreasing offsets within their data buffers.
+///   Every offset must be at a UTF-8 character boundary.
+///   The entire data buffer must be valid UTF-8, including null values and unreferenced bytes.
+///   The validity bitmap must contain enough bits for every logical value.
+/// - `Utf8View` descriptors must have zero padding for inline values.
+///   They must have valid buffer ranges and matching prefixes for external values.
+///   All referenced values, including null slots, must be valid UTF-8.
+///   T he validity bitmap must contain enough bits for every descriptor.
+///
+/// Fututure `marrow` versions may expand the list of expected invariants.
+/// As long as these invariants follow Arrow's in-memory format, such expansion is not considered a breaking change.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrustedView<'a>(View<'a>);
 

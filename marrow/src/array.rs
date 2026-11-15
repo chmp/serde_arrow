@@ -111,21 +111,25 @@ pub enum Array {
     Union(UnionArray),
 }
 
-/// An owned array whose string buffers satisfy the invariants needed for
-/// conversion without UTF-8 validation.
+/// An owned array that is asserted to satisfy Arrow's in-memory format invariants.
 ///
 /// # Invariants
 ///
-/// Every `Utf8` and `LargeUtf8` array, recursively including all children,
-/// must have nonempty, nonnegative, nondecreasing `offsets` within the `data`
-/// buffer, and every offset must be at a UTF-8 character boundary. The entire
-/// data buffer must be valid UTF-8, including null values and unreferenced bytes.
-/// If present, the validity bitmap must contain at least `offsets.len() - 1` bits.
-/// Every `Utf8View`, including nested arrays, must have valid view descriptors:
-/// inline values must have zero padding; external values must reference valid
-/// buffer ranges and have matching prefixes. All referenced values, including
-/// null slots, must be valid UTF-8. If present, the validity bitmap must contain
-/// at least `data.len()` bits.
+/// The array and its children must satisfy the invariants of the Arrow in-memory format.
+///
+/// Currently, the following invariants are explicitly expected to be upheld:
+///
+/// - Every `Utf8` and `LargeUtf8` array must have nonempty, nonnegative, nondecreasing `offsets` within the `data` buffer.
+///   Every offset must be at a UTF-8 character boundary.
+///   The entire data buffer must be valid UTF-8, including null values and unreferenced bytes.
+///   Its validity bitmap must contain enough bits for every logical value.
+/// - Every `Utf8View` must have valid view descriptors.
+///   Inline values must have zero padding; external values must reference valid buffer ranges and have matching prefixes.
+///   All referenced values, including null slots, must be valid UTF-8.
+///   Its validity bitmap must contain enough bits for every descriptor.
+///
+/// Fututure `marrow` versions may expand the list of expected invariants.
+/// As long as these invariants follow Arrow's in-memory format, such expansion is not considered a breaking change.
 #[derive(Clone, Debug)]
 pub struct TrustedArray(pub(crate) Array);
 
