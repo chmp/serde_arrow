@@ -177,13 +177,13 @@
 //! skips validation.
 //!
 //! ```rust
-//! # use serde::Serialize;
+//! # use serde::{Deserialize, Serialize};
 //! # fn main() -> serde_arrow::Result<()> {
 //! # #[cfg(has_arrow)] {
 //! # use serde_arrow::_impl::arrow;
 //! use serde_arrow::schema::{SchemaLike, TracingOptions};
 //!
-//! #[derive(Serialize)]
+//! #[derive(Deserialize, Serialize)]
 //! struct Record {
 //!     value: String,
 //! }
