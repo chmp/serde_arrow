@@ -5,11 +5,11 @@ version = "0.0.0"
 requires-python = ">=3.14"
 
 dependencies = [
-    "pyarrow~=25.0",
+    "pyarrow~=26.0",
     "matplotlib~=3.11",
     "numpy~=2.5",
-    "ruff~=0.16.8",
-    "polars~=1.44",
+    "ruff~=0.17.5",
+    "polars~=2.1",
 ]
 
 [tool.uv]
