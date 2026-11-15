@@ -167,6 +167,47 @@
 //! # }
 //! ```
 //! The `marrow`-based API also provides [`from_marrow_trusted`] and [`to_marrow_trusted`] for views and arrays whose validity the caller asserts.
+//!
+//! The regular `to_marrow` path returns ordinary marrow arrays.
+//! Converting them to Arrow with `ArrayRef::try_from` validates the arrays.
+//! When the arrays are built by `serde_arrow`,
+//! `to_marrow_trusted` returns trusted arrays so that the subsequent conversion
+//! to Arrow can skip that validation.
+//! Building the arrays is still performed normally; only the Arrow conversion
+//! skips validation.
+//!
+//! ```rust
+//! # use serde::Serialize;
+//! # fn main() -> serde_arrow::Result<()> {
+//! # #[cfg(has_arrow)] {
+//! # use serde_arrow::_impl::arrow;
+//! use serde_arrow::schema::{SchemaLike, TracingOptions};
+//!
+//! #[derive(Serialize)]
+//! struct Record {
+//!     value: String,
+//! }
+//!
+//! let records = vec![Record { value: String::from("hello") }];
+//! let fields = Vec::<marrow::datatypes::Field>::from_type::<Record>(TracingOptions::default())?;
+//!
+//! // Arrow conversion validates ordinary marrow arrays.
+//! let arrays = serde_arrow::to_marrow(&fields, &records)?;
+//! let arrow_arrays = arrays.into_iter()
+//!     .map(arrow::array::ArrayRef::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//!
+//! // `to_marrow_trusted` marks its output as trusted, so Arrow conversion
+//! // skips validation.
+//! let trusted_arrays = serde_arrow::to_marrow_trusted(&fields, &records)?;
+//! let trusted_arrow_arrays = trusted_arrays.into_iter()
+//!     .map(arrow::array::ArrayRef::try_from)
+//!     .collect::<Result<Vec<_>, _>>()?;
+//! assert_eq!(arrow_arrays.len(), trusted_arrow_arrays.len());
+//! # }
+//! # Ok(())
+//! # }
+//! ```
 
 // be more forgiving without any active implementation
 #[cfg_attr(not(has_arrow), allow(unused))]
