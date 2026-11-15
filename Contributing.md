@@ -120,6 +120,10 @@ cargo flamegraph --example serialize_nested_struct --package serde_arrow_bench -
 2. `uv run python x.py add-arrow-version {VERSION}`
 3. `uv run python x.py precommit`
 
+## Comments
+
+Prefer semantic line breaks for newly added or modified comments.
+
 ## Error format
 
 Style:
