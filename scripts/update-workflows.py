@@ -136,6 +136,10 @@ def workflow_local(arrow_features):
                 "steps": [
                     *local_setup_steps(),
                     {"name": "Check Cargo.toml", "run": check_cargo_toml_command()},
+                    {
+                        "name": "Check unsafe-optimizations cfg dispatch",
+                        "run": check_unsafe_optimizations_cfg_command(),
+                    },
                     {"name": "Check workspace", "run": "cargo check"},
                     {
                         "name": "Check serde_arrow",
@@ -328,6 +332,10 @@ def workflow_test(arrow_features):
                     {"name": "rustc", "run": "rustc --version"},
                     {"name": "cargo", "run": "cargo --version"},
                     {"name": "Check Cargo.toml", "run": check_cargo_toml_command()},
+                    {
+                        "name": "Check unsafe-optimizations cfg dispatch",
+                        "run": check_unsafe_optimizations_cfg_command(),
+                    },
                     {"name": "Check", "run": "cargo check"},
                     *(
                         {
@@ -507,6 +515,10 @@ def update_workflow(path, workflow):
 
 def check_cargo_toml_command():
     return "uv run python scripts/check-cargo-toml.py"
+
+
+def check_unsafe_optimizations_cfg_command():
+    return "uv run python scripts/check-unsafe-optimizations-cfg.py"
 
 
 def integration_test_command():

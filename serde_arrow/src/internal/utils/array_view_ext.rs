@@ -289,7 +289,6 @@ mod tests {
 
     use super::ViewAccess;
 
-    #[cfg(feature = "unsafe-optimizations")]
     use super::Utf8Check;
 
     #[test]
@@ -304,7 +303,6 @@ mod tests {
         ViewAccess::<str>::get(&view, 0).unwrap_err();
     }
 
-    #[cfg(feature = "unsafe-optimizations")]
     #[test]
     fn utf8_check_validates_unless_trusted() {
         let view = BytesView {
