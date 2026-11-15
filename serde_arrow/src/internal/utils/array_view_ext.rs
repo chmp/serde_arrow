@@ -311,7 +311,7 @@ mod tests {
             data: &[0xff, 0xfe, b'o', b'k'],
         };
 
-        assert!(Utf8Check::VALIDATE.get_required(&view, 0).is_err());
+        Utf8Check::VALIDATE.get_required(&view, 0).unwrap_err();
         assert_eq!(Utf8Check::VALIDATE.get_required(&view, 1).unwrap(), "ok");
 
         // SAFETY: only the valid value is read
